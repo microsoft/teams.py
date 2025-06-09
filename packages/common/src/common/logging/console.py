@@ -48,7 +48,7 @@ class ConsoleLogger:
         def child(name: str) -> logging.Logger:
             return self.create_logger(
                 f"{parent_logger.name}/{name}", 
-                {'level': parent_logger.level}
+                {'level': logging.getLevelName(parent_logger.level)}
             )
         return child
 
