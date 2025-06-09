@@ -1,0 +1,44 @@
+"""
+Copyright (c) Microsoft Corporation. All rights reserved.
+Licensed under the MIT License.
+"""
+
+
+from __future__ import annotations
+
+from enum import Enum
+
+
+class ANSI(str, Enum):
+    RESET = '\033[0m'
+
+    BOLD = '\033[1m'
+    BOLD_RESET = '\033[22m'
+    ITALIC = '\033[3m'
+    ITALIC_RESET = '\033[23m'
+    UNDERLINE = '\033[4m'
+    UNDERLINE_RESET = '\033[24m'
+    STRIKE = '\033[9m'
+    STRIKE_RESET = '\033[29m'
+    
+    FOREGROUND_RESET = '\033[0m'
+    BACKGROUND_RESET = '\033[0m'
+    FOREGROUND_BLACK = '\033[30m'
+    BACKGROUND_BLACK = '\033[40m'
+    FOREGROUND_RED = '\033[31m'
+    BACKGROUND_RED = '\033[41m'
+    FOREGROUND_GREEN = '\033[32m'
+    BACKGROUND_GREEN = '\033[42m'
+    FOREGROUND_YELLOW = '\033[33m'
+    BACKGROUND_YELLOW = '\033[43m'
+    FOREGROUND_BLUE = '\033[34m'
+    BACKGROUND_BLUE = '\033[44m'
+    FOREGROUND_MAGENTA = '\033[35m'
+    BACKGROUND_MAGENTA = '\033[45m'
+    FOREGROUND_CYAN = '\033[36m'
+    BACKGROUND_CYAN = '\033[46m'
+    FOREGROUND_WHITE = '\033[37m'
+    BACKGROUND_WHITE = '\033[47m'
+    FOREGROUND_GRAY = '\033[90m'
+    FOREGROUND_DEFAULT = '\033[39m'
+    BACKGROUND_DEFAULT = '\033[49m'

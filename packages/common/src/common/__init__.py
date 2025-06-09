@@ -1,2 +1,6 @@
-def hello() -> str:
-    return "Hello from common!"
+"""
+Copyright (c) Microsoft Corporation. All rights reserved.
+Licensed under the MIT License.
+"""
+
+from .logging import *
