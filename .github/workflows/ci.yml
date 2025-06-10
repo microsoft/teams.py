@@ -1,0 +1,84 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+
+name: "Build, Lint & Test"
+
+on:
+  pull_request:
+    paths:
+      - packages/**
+  push:
+    branches: ["main"]
+    paths:
+      - packages/**
+
+# Declare default permissions as read only.
+permissions: read-all
+
+jobs:
+  build-lint-test:
+    name: Build, Lint & Test
+    runs-on: ubuntu-latest
+
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+      security-events: read
+      checks: write
+      pull-requests: write
+
+    strategy:
+      matrix:
+        python-version: ["3.12", "3.13"]
+
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@0080882f6c36860b6ba35c610c98ce87d4e2f26f # v2.10.2
+        with:
+          egress-policy: audit
+
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Set up Python
+        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install uv
+        run: |
+          curl -LsSf https://astral.sh/uv/0.5.24/install.sh -o install.sh
+          echo "f476e445f4a56234fcc12ed478289f80e8e97b230622d8ce2f2406ebfeeb2620 install.sh" > checksum.txt
+          sha256sum --check checksum.txt
+          chmod +x install.sh
+          ./install.sh
+          uv --version
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          uv sync
+
+      - name: Lint (Ruff)
+        uses: astral-sh/ruff-action@d0a0e814ec17e92d33be7d24dd922b479f1bcd38 # v1.1.1
+        with:
+          args: check
+
+      - name: Format (Ruff)
+        uses: astral-sh/ruff-action@d0a0e814ec17e92d33be7d24dd922b479f1bcd38 # v1.1.1
+        with:
+          args: "format"
+
+      - name: Type Check (MyPy)
+        run: |
+          source .venv/bin/activate  # Execute script in current shell to use virtual environment
+          # The below commands are used to make type checking less strict, such as when working with external libraries that don't have complete type hints:
+          # --ignore-missing-imports: Ignore missing imports for missing type hints in imported modules
+          # --show-traceback: Show detailed error traces
+          # --disable-error-code=import-untyped: Ignore untyped imports
+          # --disable-error-code=no-untyped-call: Ignore calls to functions without type hints
+          mypy --config-file mypy.ini \
+            --ignore-missing-imports \
+            --show-traceback \
+            --disable-error-code=import-untyped \
+            --disable-error-code=no-untyped-call \
+            packages/
