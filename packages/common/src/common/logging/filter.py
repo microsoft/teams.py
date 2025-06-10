@@ -18,6 +18,6 @@ class ConsoleFilter(logging.Filter):
         return bool(self.pattern.match(record.name))
 
     @staticmethod
-    def _parse_magic_expr(pattern: str) -> re.Pattern:
+    def _parse_magic_expr(pattern: str) -> re.Pattern[str]:
         pattern = pattern.replace("*", ".*")
         return re.compile(f"^{pattern}$")
