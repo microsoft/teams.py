@@ -28,37 +28,37 @@ class ListLocalStorage(ListStorage[V]):
         return self._items[index]
     
     async def async_get(self, index: int) -> Optional[V]:
-        return await self.get(index)
+        return self.get(index)
 
     def set(self, index: int, value: V) -> None:
         self._items[index] = value
     
     async def async_set(self, index: int, value: V) -> None:
-        return await self.set(index, value)
+        return self.set(index, value)
 
     def delete(self, index: int) -> None:
         del self._items[index]
     
     async def async_delete(self, index: int) -> None:
-        return await self.delete(index)
+        return self.delete(index)
 
     def append(self, value: V) -> None:
         return self._items.append(value)
     
     async def async_append(self, value: V) -> None:
-        return await self.append(value)
+        return self.append(value)
 
     def pop(self) -> Optional[V]:
         return self._items.pop()
 
     async def async_pop(self) -> Optional[V]:
-        return await self.pop()
+        return self.pop()
 
     def items(self) -> List[V]:
         return self._items
 
     async def async_items(self) -> List[V]:
-        return await self.items()
+        return self.items()
 
     def length(self) -> int:
         return len(self._items)
