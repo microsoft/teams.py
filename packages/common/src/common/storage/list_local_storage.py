@@ -13,9 +13,6 @@ V = TypeVar("V")
 
 
 class ListLocalStorage(ListStorage[V]):
-    @property
-    def list(self) -> List[V]:
-        return self._items
 
     def __init__(self, items: Optional[List[V]] = None):
         self._items = items or []
