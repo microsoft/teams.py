@@ -70,4 +70,4 @@ class ListLocalStorage(ListStorage[V]):
         return [item for i, item in enumerate(self._items) if predicate(item, i)]
 
     async def async_filter(self, predicate: Callable[[V, int], bool]) -> List[V]:
-        return await self.filter(predicate)
+        return self.filter(predicate)
