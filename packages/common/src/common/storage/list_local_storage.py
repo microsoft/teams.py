@@ -17,7 +17,7 @@ class ListLocalStorage(ListStorage[V]):
 
     @property
     def list(self) -> List[V]:
-        return self._list
+        return self._items
     
     def __init__(self, items: Optional[List[V]] = []):
         self._items = items or []
