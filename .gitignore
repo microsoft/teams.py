@@ -14,3 +14,7 @@ dmypy.json
 
 # other
 .DS_STORE
+
+ref/
+
+__pycache__/
