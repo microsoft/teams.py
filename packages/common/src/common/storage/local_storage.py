@@ -69,7 +69,7 @@ class LocalStorage(Storage[str, V]):
         self._store[key] = value
     
     async def async_set(self, key: str, value: V) -> None:
-        return await self.set(key, value)
+        return self.set(key, value)
 
 
     def delete(self, key: str) -> None:
@@ -77,4 +77,4 @@ class LocalStorage(Storage[str, V]):
             del self._store[key]
 
     async def async_delete(self, key: str) -> None:
-        return await self.delete(key)
+        return self.delete(key)
