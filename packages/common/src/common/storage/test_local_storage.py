@@ -3,13 +3,13 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-
 from .local_storage import LocalStorage, LocalStorageOptions
-import json
+
 
 def test_get_undefined():
     storage = LocalStorage()
     assert storage.get("test") is None
+
 
 def test_set_get_delete():
     storage = LocalStorage()
@@ -18,11 +18,12 @@ def test_set_get_delete():
     storage.delete("testing")
     assert storage.get("testing") is None
 
+
 def test_max_size():
     storage = LocalStorage(options=LocalStorageOptions(max=3))
-    
+
     storage.set("a", 1)
-    storage.set("b", 2) 
+    storage.set("b", 2)
     storage.set("c", 3)
 
     assert storage.get("a") == 1

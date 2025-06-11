@@ -3,48 +3,46 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-
 from __future__ import annotations
 
-from .storage import ListStorage
-from typing import TypeVar, Optional, List, Callable
+from typing import Callable, List, Optional, TypeVar
+
 from .storage import ListStorage
 
-V = TypeVar('V')
+V = TypeVar("V")
 
 
 class ListLocalStorage(ListStorage[V]):
-
     @property
     def list(self) -> List[V]:
         return self._items
-    
-    def __init__(self, items: Optional[List[V]] = []):
+
+    def __init__(self, items: Optional[List[V]] = None):
         self._items = items or []
 
     def get(self, index: int) -> Optional[V]:
         if index < 0 or index >= len(self._items):
             return None
         return self._items[index]
-    
+
     async def async_get(self, index: int) -> Optional[V]:
         return self.get(index)
 
     def set(self, index: int, value: V) -> None:
         self._items[index] = value
-    
+
     async def async_set(self, index: int, value: V) -> None:
         return self.set(index, value)
 
     def delete(self, index: int) -> None:
         del self._items[index]
-    
+
     async def async_delete(self, index: int) -> None:
         return self.delete(index)
 
     def append(self, value: V) -> None:
         return self._items.append(value)
-    
+
     async def async_append(self, value: V) -> None:
         return self.append(value)
 
@@ -62,7 +60,7 @@ class ListLocalStorage(ListStorage[V]):
 
     def length(self) -> int:
         return len(self._items)
-    
+
     async def async_length(self) -> int:
         return self.length()
 
