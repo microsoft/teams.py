@@ -10,7 +10,9 @@ from .ansi import ANSI
 from .formatter import ConsoleFormatter
 
 
-def create_record(name: str, level: int, msg: Union[str, dict[str, Collection[str]], list[Collection[str]]]) -> logging.LogRecord:
+def create_record(
+    name: str, level: int, msg: Union[str, dict[str, Collection[str]], list[Collection[str]]]
+) -> logging.LogRecord:
     record = logging.LogRecord(name=name, level=level, pathname="test.py", lineno=1, msg=msg, args=(), exc_info=None)
     record.levelname = logging.getLevelName(level)
     return record
