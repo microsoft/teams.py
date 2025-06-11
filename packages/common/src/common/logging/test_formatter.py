@@ -4,19 +4,19 @@ Licensed under the MIT License.
 """
 
 import logging
-from typing import Union
+from typing import Collection, Union
 
 from .ansi import ANSI
 from .formatter import ConsoleFormatter
 
 
-def create_record(name: str, level: int, msg: Union[str, dict, list]) -> logging.LogRecord:
+def create_record(name: str, level: int, msg: Union[str, dict[str, Collection[str]], list[Collection[str]]]) -> logging.LogRecord:
     record = logging.LogRecord(name=name, level=level, pathname="test.py", lineno=1, msg=msg, args=(), exc_info=None)
     record.levelname = logging.getLevelName(level)
     return record
 
 
-def test_error_formatting():
+def test_error_formatting() -> None:
     formatter = ConsoleFormatter()
     record = create_record("test", logging.ERROR, "Error message")
 
@@ -25,7 +25,7 @@ def test_error_formatting():
     assert result == expected
 
 
-def test_warning_formatting():
+def test_warning_formatting() -> None:
     formatter = ConsoleFormatter()
     record = create_record("test", logging.WARNING, "Warning message")
 
@@ -36,7 +36,7 @@ def test_warning_formatting():
     assert result == expected
 
 
-def test_info_formatting():
+def test_info_formatting() -> None:
     formatter = ConsoleFormatter()
     record = create_record("test", logging.INFO, "Info message")
 
@@ -45,7 +45,7 @@ def test_info_formatting():
     assert result == expected
 
 
-def test_debug_formatting():
+def test_debug_formatting() -> None:
     formatter = ConsoleFormatter()
     record = create_record("test", logging.DEBUG, "Debug message")
 
@@ -54,7 +54,7 @@ def test_debug_formatting():
     assert result == expected
 
 
-def test_dict_message_formatting():
+def test_dict_message_formatting() -> None:
     formatter = ConsoleFormatter()
     dict_msg = {"key": "value", "nested": {"inner": "data"}}
     record = create_record("test", logging.INFO, dict_msg)
@@ -69,7 +69,7 @@ def test_dict_message_formatting():
     assert '"inner": "data"' in result
 
 
-def test_list_message_formatting():
+def test_list_message_formatting() -> None:
     formatter = ConsoleFormatter()
     list_msg = ["item1", "item2", {"key": "value"}]
     record = create_record("test", logging.INFO, list_msg)
@@ -84,7 +84,7 @@ def test_list_message_formatting():
     assert '"key": "value"' in result
 
 
-def test_multiline_message_formatting():
+def test_multiline_message_formatting() -> None:
     formatter = ConsoleFormatter()
     multiline_msg = "Line 1\nLine 2\nLine 3"
     record = create_record("test", logging.INFO, multiline_msg)
@@ -99,7 +99,7 @@ def test_multiline_message_formatting():
     assert result == expected
 
 
-def test_unknown_level_formatting():
+def test_unknown_level_formatting() -> None:
     formatter = ConsoleFormatter()
     record = create_record("test", 123, "Custom level message")
 

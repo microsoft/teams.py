@@ -6,12 +6,12 @@ Licensed under the MIT License.
 from .list_local_storage import ListLocalStorage
 
 
-def test_get_undefined_empty_index():
-    storage = ListLocalStorage()
+def test_get_undefined_empty_index() -> None:
+    storage: ListLocalStorage[int] = ListLocalStorage()
     assert storage.get(0) is None
 
 
-def test_push_and_get():
+def test_push_and_get() -> None:
     storage = ListLocalStorage[int]()
     storage.append(1)
     storage.append(2)
@@ -20,39 +20,39 @@ def test_push_and_get():
     assert storage.length() == 2
 
 
-def test_set_and_overwrite():
+def test_set_and_overwrite() -> None:
     storage = ListLocalStorage[int]([1, 2, 3])
     storage.set(1, 42)
     assert storage.get(1) == 42
     assert storage.items() == [1, 42, 3]
 
 
-def test_delete_by_index():
+def test_delete_by_index() -> None:
     storage = ListLocalStorage[int]([1, 2, 3])
     storage.delete(1)
     assert storage.items() == [1, 3]
     assert storage.length() == 2
 
 
-def test_pop():
+def test_pop() -> None:
     storage = ListLocalStorage[int]([1, 2, 3])
     assert storage.pop() == 3
     assert storage.items() == [1, 2]
     assert storage.length() == 2
 
 
-def test_get_all_values():
+def test_get_all_values() -> None:
     storage = ListLocalStorage[int]([1, 2, 3])
     assert storage.items() == [1, 2, 3]
 
 
-def test_filter_with_where():
+def test_filter_with_where() -> None:
     storage = ListLocalStorage[int]([1, 2, 3, 4])
     even = storage.filter(lambda v, i: v % 2 == 0)
     assert even == [2, 4]
 
 
-def test_mixed_operations():
+def test_mixed_operations() -> None:
     storage = ListLocalStorage[str]()
     storage.append("a")
     storage.append("b")

@@ -6,21 +6,21 @@ Licensed under the MIT License.
 from .local_storage import LocalStorage, LocalStorageOptions
 
 
-def test_get_undefined():
-    storage = LocalStorage()
+def test_get_undefined() -> None:
+    storage: LocalStorage[int] = LocalStorage()
     assert storage.get("test") is None
 
 
-def test_set_get_delete():
-    storage = LocalStorage()
+def test_set_get_delete() -> None:
+    storage: LocalStorage[str] = LocalStorage()
     storage.set("testing", "123")
     assert storage.get("testing") == "123"
     storage.delete("testing")
     assert storage.get("testing") is None
 
 
-def test_max_size():
-    storage = LocalStorage(options=LocalStorageOptions(max=3))
+def test_max_size() -> None:
+    storage: LocalStorage[int] = LocalStorage(options=LocalStorageOptions(max=3))
 
     storage.set("a", 1)
     storage.set("b", 2)
