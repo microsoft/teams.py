@@ -58,7 +58,7 @@ class LocalStorage(Storage[str, V]):
         return value
     
     async def async_get(self, key: str) -> Optional[V]:
-        return await self.get(key)
+        return self.get(key)
 
     def set(self, key: str, value: V) -> None:
         if key in self._store:
