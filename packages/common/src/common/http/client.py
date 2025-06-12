@@ -1,7 +1,7 @@
 import inspect
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Awaitable, Callable, Dict, List, Optional
 
 import httpx
 from httpx._models import Request, Response
@@ -336,26 +336,24 @@ class Client:
         for hook in self._interceptors:
             if hasattr(hook, "request"):
 
-                def _make_request_wrapper(h: Interceptor):
-                    async def wrapper(request: Request):
+                def _make_request_wrapper(h: Interceptor) -> Callable[[Request], Awaitable[None]]:
+                    async def wrapper(request: Request) -> None:
                         ctx = InterceptorRequestContext(request, self._logger)
                         result = h.request(ctx)
                         if inspect.isawaitable(result):
-                            return await result
-                        return result
+                            await result
 
                     return wrapper
 
                 event_hooks_dict.setdefault("request", []).append(_make_request_wrapper(hook))
             if hasattr(hook, "response"):
 
-                def _make_response_wrapper(h: Interceptor):
-                    async def wrapper(response: Response):
+                def _make_response_wrapper(h: Interceptor) -> Callable[[Response], Awaitable[None]]:
+                    async def wrapper(response: Response) -> None:
                         ctx = InterceptorResponseContext(response, self._logger)
                         result = h.response(ctx)
                         if inspect.isawaitable(result):
-                            return await result
-                        return result
+                            await result
 
                     return wrapper
 

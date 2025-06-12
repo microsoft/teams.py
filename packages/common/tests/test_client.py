@@ -4,18 +4,28 @@ from common.http.client import Client, ClientOptions
 from common.http.client_token import StringLike
 
 
-class DummyInterceptor:
+class DummyAsyncInterceptor:
     def __init__(self):
         self.request_called = False
         self.response_called = False
 
     async def request(self, ctx):
         self.request_called = True
-        return ctx.request
 
     async def response(self, ctx):
         self.response_called = True
-        return ctx.response
+
+
+class DummySyncInterceptor:
+    def __init__(self):
+        self.request_called = False
+        self.response_called = False
+
+    def request(self, ctx):
+        self.request_called = True
+
+    def response(self, ctx):
+        self.response_called = True
 
 
 class CustomStringLike(StringLike):
@@ -41,7 +51,7 @@ def mock_transport():
 
 @pytest.mark.asyncio
 async def test_get_request_merges_headers_and_token(mock_transport):
-    interceptor = DummyInterceptor()
+    interceptor = DummyAsyncInterceptor()
     client = Client(
         ClientOptions(
             base_url="https://example.com",
@@ -59,9 +69,15 @@ async def test_get_request_merges_headers_and_token(mock_transport):
     assert interceptor.request_called
 
 
+@pytest.mark.parametrize(
+    "interceptor",
+    [
+        DummyAsyncInterceptor(),
+        DummySyncInterceptor(),
+    ],
+)
 @pytest.mark.asyncio
-async def test_post_request_and_response_interceptor(mock_transport):
-    interceptor = DummyInterceptor()
+async def test_post_request_and_response_interceptor(mock_transport, interceptor):
     client = Client(
         ClientOptions(
             base_url="https://example.com",
@@ -78,7 +94,7 @@ async def test_post_request_and_response_interceptor(mock_transport):
 
 @pytest.mark.asyncio
 async def test_clone_merges_options_and_interceptors(mock_transport):
-    interceptor1 = DummyInterceptor()
+    interceptor1 = DummyAsyncInterceptor()
     client = Client(
         ClientOptions(
             base_url="https://example.com",
@@ -88,7 +104,7 @@ async def test_clone_merges_options_and_interceptors(mock_transport):
     )
     client.http._transport = mock_transport
 
-    interceptor2 = DummyInterceptor()
+    interceptor2 = DummyAsyncInterceptor()
     clone = client.clone(ClientOptions(headers={"X-Clone": "bar"}, interceptors=[interceptor2]))
     clone.http._transport = mock_transport
 
