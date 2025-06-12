@@ -19,3 +19,6 @@ dmypy.json
 
 # other
 .DS_STORE
+
+ref/
+
