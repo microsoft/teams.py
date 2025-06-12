@@ -3,7 +3,6 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-
 from collections import OrderedDict
 from dataclasses import dataclass
 from typing import Dict, List, Optional, TypeVar

@@ -3,7 +3,6 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-
 from typing import Callable, List, Optional, TypeVar
 
 from .storage import ListStorage
