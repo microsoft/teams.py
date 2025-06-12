@@ -4,7 +4,11 @@ version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = ["common", "cards"]
+dependencies = [
+    "common",
+    "cards",
+    "pytest-asyncio>=1.0.0",
+]
 
 [tool.uv.sources]
 common = { workspace = true }
@@ -42,6 +46,7 @@ select = ["E", "F", "W", "B", "Q", "I", "ASYNC"]
 fmt = "ruff format"
 lint = "ruff check"
 check = ["fmt", "lint"]
+test = "pytest"
 
 [tool.hatch.build.targets.wheel]
 packages = ["packages/*"]

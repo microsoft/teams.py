@@ -8,5 +8,5 @@
   },
   "ruff.organizeImports": true,
   "ruff.fixAll": true,
-  "editor.formatOnSave": true
+  "editor.formatOnSave": true,
 }
