@@ -7,9 +7,9 @@ import httpx
 from httpx._models import Request, Response
 from httpx._types import QueryParamTypes, RequestContent, RequestData, RequestFiles
 
-from common.http.client_token import Token, resolve_token
-from common.http.interceptor import Interceptor, InterceptorRequestContext, InterceptorResponseContext
-from common.logging import ConsoleLogger
+from ..logging import ConsoleLogger
+from .client_token import Token, resolve_token
+from .interceptor import Interceptor, InterceptorRequestContext, InterceptorResponseContext
 
 console_logger = ConsoleLogger()
 
