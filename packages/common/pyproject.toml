@@ -38,5 +38,3 @@ packages = ["src/common"]
 pythonpath = ["src"]
 testpaths = ["tests"]
 
-[dependency-groups]
-dev = []
