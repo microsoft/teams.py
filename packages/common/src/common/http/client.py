@@ -1,11 +1,16 @@
+import inspect
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 import httpx
+from httpx._models import Request, Response
+from httpx._types import QueryParamTypes, RequestContent, RequestData, RequestFiles
 
 from common.http.clientToken import Token, resolve_token
 from common.http.interceptor import Interceptor, InterceptorRequestContext, InterceptorResponseContext
 from common.logging import ConsoleLogger, Logger
+
+console_logger = ConsoleLogger()
 
 
 @dataclass(frozen=True)
@@ -23,9 +28,9 @@ class ClientOptions:
     """
 
     base_url: Optional[str] = None
-    headers: Optional[Dict[str, str]] = field(default_factory=dict)
+    headers: Dict[str, str] = field(default_factory=dict)
     timeout: Optional[float] = None
-    logger: Logger = field(default_factory=ConsoleLogger)
+    logger: Logger = field(default_factory=lambda: console_logger.create_logger("http-client"))
     token: Optional[Token] = None
     interceptors: Optional[List[Interceptor]] = field(default_factory=list)
 
@@ -53,7 +58,7 @@ class Client:
         self._interceptors = list(options.interceptors or [])
 
         self.http = httpx.AsyncClient(
-            base_url=options.base_url,
+            base_url=httpx.URL(options.base_url) if options.base_url else "",
             headers=options.headers,
             timeout=options.timeout,
         )
@@ -77,7 +82,13 @@ class Client:
         return req_headers
 
     async def get(
-        self, url: str, *, headers: Optional[Dict[str, str]] = None, token: Optional[Token] = None, **kwargs
+        self,
+        url: str,
+        *,
+        headers: Optional[Dict[str, str]] = None,
+        token: Optional[Token] = None,
+        params: Optional[QueryParamTypes] = None,
+        **kwargs: Any,
     ) -> httpx.Response:
         """
         Send a GET request.
@@ -85,6 +96,7 @@ class Client:
         Args:
             url: The URL path or full URL.
             headers: Optional per-request headers.
+            params: Optional query parameters.
             token: Optional per-request token (overrides default).
             **kwargs: Additional httpx.AsyncClient.get arguments.
 
@@ -92,16 +104,20 @@ class Client:
             httpx.Response
         """
         req_headers = await self._prepare_headers(headers, token)
-        return await self.http.get(url, headers=req_headers, **kwargs)
+        return await self.http.get(url, headers=req_headers, params=params, **kwargs)
 
     async def post(
         self,
         url: str,
-        data: Any = None,
         *,
+        content: Optional[RequestContent] = None,
+        data: Optional[RequestData] = None,
+        files: Optional[RequestFiles] = None,
+        json: Optional[Any] = None,
+        params: Optional[QueryParamTypes] = None,
         headers: Optional[Dict[str, str]] = None,
         token: Optional[Token] = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> httpx.Response:
         """
         Send a POST request.
@@ -110,6 +126,10 @@ class Client:
             url: The URL path or full URL.
             data: The request body.
             headers: Optional per-request headers.
+            params: Optional query parameters.
+            content: The request body.
+            files: The request files.
+            json: The request JSON body.
             token: Optional per-request token (overrides default).
             **kwargs: Additional httpx.AsyncClient.post arguments.
 
@@ -117,16 +137,29 @@ class Client:
             httpx.Response
         """
         req_headers = await self._prepare_headers(headers, token)
-        return await self.http.post(url, data=data, headers=req_headers, **kwargs)
+        return await self.http.post(
+            url,
+            data=data,
+            files=files,
+            json=json,
+            content=content,
+            params=params,
+            headers=req_headers,
+            **kwargs,
+        )
 
     async def put(
         self,
         url: str,
-        data: Any = None,
         *,
+        content: Optional[RequestContent] = None,
+        data: Optional[RequestData] = None,
+        files: Optional[RequestFiles] = None,
+        json: Optional[Any] = None,
+        params: Optional[QueryParamTypes] = None,
         headers: Optional[Dict[str, str]] = None,
         token: Optional[Token] = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> httpx.Response:
         """
         Send a PUT request.
@@ -135,6 +168,10 @@ class Client:
             url: The URL path or full URL.
             data: The request body.
             headers: Optional per-request headers.
+            params: Optional query parameters.
+            content: The request body.
+            files: The request files.
+            json: The request JSON body.
             token: Optional per-request token (overrides default).
             **kwargs: Additional httpx.AsyncClient.put arguments.
 
@@ -142,16 +179,29 @@ class Client:
             httpx.Response
         """
         req_headers = await self._prepare_headers(headers, token)
-        return await self.http.put(url, data=data, headers=req_headers, **kwargs)
+        return await self.http.put(
+            url,
+            data=data,
+            files=files,
+            json=json,
+            content=content,
+            params=params,
+            headers=req_headers,
+            **kwargs,
+        )
 
     async def patch(
         self,
         url: str,
-        data: Any = None,
         *,
+        content: Optional[RequestContent] = None,
+        data: Optional[RequestData] = None,
+        files: Optional[RequestFiles] = None,
+        json: Optional[Any] = None,
+        params: Optional[QueryParamTypes] = None,
         headers: Optional[Dict[str, str]] = None,
         token: Optional[Token] = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> httpx.Response:
         """
         Send a PATCH request.
@@ -160,6 +210,10 @@ class Client:
             url: The URL path or full URL.
             data: The request body.
             headers: Optional per-request headers.
+            params: Optional query parameters.
+            content: The request body.
+            files: The request files.
+            json: The request JSON body.
             token: Optional per-request token (overrides default).
             **kwargs: Additional httpx.AsyncClient.patch arguments.
 
@@ -167,10 +221,25 @@ class Client:
             httpx.Response
         """
         req_headers = await self._prepare_headers(headers, token)
-        return await self.http.patch(url, data=data, headers=req_headers, **kwargs)
+        return await self.http.patch(
+            url,
+            data=data,
+            files=files,
+            json=json,
+            content=content,
+            params=params,
+            headers=req_headers,
+            **kwargs,
+        )
 
     async def delete(
-        self, url: str, *, headers: Optional[Dict[str, str]] = None, token: Optional[Token] = None, **kwargs
+        self,
+        url: str,
+        *,
+        headers: Optional[Dict[str, str]] = None,
+        token: Optional[Token] = None,
+        params: Optional[QueryParamTypes] = None,
+        **kwargs: Any,
     ) -> httpx.Response:
         """
         Send a DELETE request.
@@ -178,6 +247,7 @@ class Client:
         Args:
             url: The URL path or full URL.
             headers: Optional per-request headers.
+            params: Optional query parameters.
             token: Optional per-request token (overrides default).
             **kwargs: Additional httpx.AsyncClient.delete arguments.
 
@@ -185,16 +255,21 @@ class Client:
             httpx.Response
         """
         req_headers = await self._prepare_headers(headers, token)
-        return await self.http.delete(url, headers=req_headers, **kwargs)
+        return await self.http.delete(url, headers=req_headers, params=params, **kwargs)
 
     async def request(
         self,
         method: str,
         url: str,
         *,
+        params: Optional[QueryParamTypes] = None,
         headers: Optional[Dict[str, str]] = None,
         token: Optional[Token] = None,
-        **kwargs,
+        content: Optional[RequestContent] = None,
+        data: Optional[RequestData] = None,
+        files: Optional[RequestFiles] = None,
+        json: Optional[Any] = None,
+        **kwargs: Any,
     ) -> httpx.Response:
         """
         Send a custom HTTP request.
@@ -203,6 +278,11 @@ class Client:
             method: HTTP method (GET, POST, etc).
             url: The URL path or full URL.
             headers: Optional per-request headers.
+            params: Optional query parameters.
+            content: The request body.
+            data: The request body.
+            files: The request files.
+            json: The request JSON body.
             token: Optional per-request token (overrides default).
             **kwargs: Additional httpx.AsyncClient.request arguments.
 
@@ -210,7 +290,17 @@ class Client:
             httpx.Response
         """
         req_headers = await self._prepare_headers(headers, token)
-        return await self.http.request(method, url, headers=req_headers, **kwargs)
+        return await self.http.request(
+            method,
+            url,
+            headers=req_headers,
+            params=params,
+            content=content,
+            data=data,
+            files=files,
+            json=json,
+            **kwargs,
+        )
 
     async def _resolve_token(self, token: Optional[Token]) -> Optional[str]:
         """
@@ -241,55 +331,55 @@ class Client:
         """
         Internal: Update the httpx.AsyncClient event_hooks to match current interceptors.
         """
-        event_hooks_dict = {}
+        event_hooks_dict: Dict[str, List[Callable[[Any], Any]]] = {}
         for hook in self._interceptors:
             if hasattr(hook, "request"):
 
-                def make_request_wrapper(h):
-                    async def wrapper(request):
+                def _make_request_wrapper(h: Interceptor):
+                    async def wrapper(request: Request):
                         ctx = InterceptorRequestContext(request, self.logger)
                         result = h.request(ctx)
-                        if hasattr(result, "__await__"):
+                        if inspect.isawaitable(result):
                             return await result
                         return result
 
                     return wrapper
 
-                event_hooks_dict.setdefault("request", []).append(make_request_wrapper(hook))
+                event_hooks_dict.setdefault("request", []).append(_make_request_wrapper(hook))
             if hasattr(hook, "response"):
 
-                def make_response_wrapper(h):
-                    async def wrapper(response):
+                def _make_response_wrapper(h: Interceptor):
+                    async def wrapper(response: Response):
                         ctx = InterceptorResponseContext(response, self.logger)
                         result = h.response(ctx)
-                        if hasattr(result, "__await__"):
+                        if inspect.isawaitable(result):
                             return await result
                         return result
 
                     return wrapper
 
-                event_hooks_dict.setdefault("response", []).append(make_response_wrapper(hook))
+                event_hooks_dict.setdefault("response", []).append(_make_response_wrapper(hook))
         self.http.event_hooks = event_hooks_dict
 
-    def clone(self, **overrides) -> "Client":
+    def clone(self, overrides: Optional[ClientOptions] = None) -> "Client":
         """
         Create a new Client instance with merged configuration.
 
         Args:
-            **overrides: Partial ClientOptions fields to override.
+            overrides: Optional ClientOptions object to override fields.
 
         Returns:
             A new Client instance with merged options and a cloned interceptor list.
         """
-        # Merge options, shallow copy interceptors array
+        overrides = overrides or ClientOptions()
         merged_options = ClientOptions(
-            base_url=overrides.get("base_url", self.options.base_url),
-            headers={**self.options.headers, **overrides.get("headers", {})}
-            if overrides.get("headers")
-            else dict(self.options.headers),
-            timeout=overrides.get("timeout", self.options.timeout),
-            logger=overrides.get("logger", self.options.logger),
-            token=overrides.get("token", self.options.token),
-            interceptors=list(overrides.get("interceptors", self._interceptors)),
+            base_url=overrides.base_url if overrides.base_url is not None else self.options.base_url,
+            headers={**self.options.headers, **(overrides.headers or {})},
+            timeout=overrides.timeout if overrides.timeout is not None else self.options.timeout,
+            logger=overrides.logger if overrides.logger is not None else self.options.logger,
+            token=overrides.token if overrides.token is not None else self.options.token,
+            interceptors=list(overrides.interceptors)
+            if overrides.interceptors is not None
+            else list(self._interceptors),
         )
         return Client(merged_options)

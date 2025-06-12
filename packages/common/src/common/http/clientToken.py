@@ -1,4 +1,4 @@
-import asyncio
+import inspect
 from typing import Awaitable, Callable, Optional, Protocol, Union, runtime_checkable
 
 
@@ -21,20 +21,18 @@ TokenFactory = Callable[
 Token = Union[str, StringLike, TokenFactory, None]
 
 
-def resolve_token(token: Token) -> Awaitable[Optional[str]]:
+async def resolve_token(token: Token) -> Optional[str]:
     """
     Resolves a token value to a string, handling callables and awaitables.
-    Always returns an awaitable for uniform async usage.
+    Always used as an async function for uniform async usage.
     """
-
-    async def _resolve():
-        value = token
-        if callable(value):
-            value = value()
-            if asyncio.iscoroutine(value):
-                value = await value
-        if value is None:
-            return None
-        return str(value)
-
-    return _resolve()
+    value = token
+    if callable(value):
+        called_value = value()
+        if inspect.isawaitable(called_value):
+            resolved = await called_value
+            return str(resolved) if resolved is not None else None
+        return str(called_value) if called_value is not None else None
+    if value is None:
+        return None
+    return str(value)

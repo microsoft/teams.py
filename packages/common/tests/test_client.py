@@ -1,6 +1,5 @@
 import httpx
 import pytest
-
 from common.http.client import Client, ClientOptions
 
 
@@ -76,7 +75,7 @@ async def test_clone_merges_options_and_interceptors(mock_transport):
     client.http._transport = mock_transport
 
     interceptor2 = DummyInterceptor()
-    clone = client.clone(headers={"X-Clone": "bar"}, interceptors=[interceptor2])
+    clone = client.clone(ClientOptions(headers={"X-Clone": "bar"}, interceptors=[interceptor2]))
     clone.http._transport = mock_transport
 
     resp = await clone.get("/clone")
