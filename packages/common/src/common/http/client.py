@@ -6,7 +6,7 @@ import httpx
 from httpx._models import Request, Response
 from httpx._types import QueryParamTypes, RequestContent, RequestData, RequestFiles
 
-from common.http.clientToken import Token, resolve_token
+from common.http.client_token import Token, resolve_token
 from common.http.interceptor import Interceptor, InterceptorRequestContext, InterceptorResponseContext
 from common.logging import ConsoleLogger, Logger
 
@@ -50,9 +50,9 @@ class Client:
         Args:
             options: ClientOptions dataclass with configuration for the client.
         """
-        self.options = options
-        self.logger = options.logger
-        self.token = options.token
+        self._options = options
+        self._logger = options.logger
+        self._token = options.token
 
         # Maintain interceptors as a separate instance attribute (do not mutate options)
         self._interceptors = list(options.interceptors or [])
@@ -75,7 +75,7 @@ class Client:
         Returns:
             Final headers dict for the request.
         """
-        req_headers = {**self.options.headers, **(headers or {})}
+        req_headers = {**self._options.headers, **(headers or {})}
         resolved_token = await self._resolve_token(token)
         if resolved_token:
             req_headers["Authorization"] = f"Bearer {resolved_token}"
@@ -312,7 +312,7 @@ class Client:
         Returns:
             The resolved token string or None.
         """
-        use_token = token if token is not None else self.token
+        use_token = token if token is not None else self._token
         if use_token is None:
             return None
         return await resolve_token(use_token)
@@ -337,7 +337,7 @@ class Client:
 
                 def _make_request_wrapper(h: Interceptor):
                     async def wrapper(request: Request):
-                        ctx = InterceptorRequestContext(request, self.logger)
+                        ctx = InterceptorRequestContext(request, self._logger)
                         result = h.request(ctx)
                         if inspect.isawaitable(result):
                             return await result
@@ -350,7 +350,7 @@ class Client:
 
                 def _make_response_wrapper(h: Interceptor):
                     async def wrapper(response: Response):
-                        ctx = InterceptorResponseContext(response, self.logger)
+                        ctx = InterceptorResponseContext(response, self._logger)
                         result = h.response(ctx)
                         if inspect.isawaitable(result):
                             return await result
@@ -373,11 +373,11 @@ class Client:
         """
         overrides = overrides or ClientOptions()
         merged_options = ClientOptions(
-            base_url=overrides.base_url if overrides.base_url is not None else self.options.base_url,
-            headers={**self.options.headers, **(overrides.headers or {})},
-            timeout=overrides.timeout if overrides.timeout is not None else self.options.timeout,
-            logger=overrides.logger if overrides.logger is not None else self.options.logger,
-            token=overrides.token if overrides.token is not None else self.options.token,
+            base_url=overrides.base_url if overrides.base_url is not None else self._options.base_url,
+            headers={**self._options.headers, **(overrides.headers or {})},
+            timeout=overrides.timeout if overrides.timeout is not None else self._options.timeout,
+            logger=overrides.logger if overrides.logger is not None else self._options.logger,
+            token=overrides.token if overrides.token is not None else self._options.token,
             interceptors=list(overrides.interceptors)
             if overrides.interceptors is not None
             else list(self._interceptors),

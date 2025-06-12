@@ -1,7 +1,7 @@
 import httpx
 import pytest
 from common.http.client import Client, ClientOptions
-from common.http.clientToken import StringLike
+from common.http.client_token import StringLike
 
 
 class DummyInterceptor:
