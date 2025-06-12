@@ -3,7 +3,7 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from .local_storage import LocalStorage, LocalStorageOptions
+from common.storage import LocalStorage, LocalStorageOptions
 
 
 def test_get_undefined() -> None:

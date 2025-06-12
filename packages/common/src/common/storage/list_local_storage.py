@@ -3,7 +3,6 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from __future__ import annotations
 
 from typing import Callable, List, Optional, TypeVar
 
@@ -13,6 +12,7 @@ V = TypeVar("V")
 
 
 class ListLocalStorage(ListStorage[V]):
+    """A local storage implementation for a list of items."""
 
     def __init__(self, items: Optional[List[V]] = None):
         self._items = items or []

@@ -6,8 +6,7 @@ Licensed under the MIT License.
 import logging
 from typing import Collection, Union
 
-from .ansi import ANSI
-from .formatter import ConsoleFormatter
+from common.logging import ANSI, ConsoleFormatter
 
 
 def create_record(

@@ -3,26 +3,25 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from __future__ import annotations
 
 from collections import OrderedDict
+from dataclasses import dataclass
 from typing import Dict, List, Optional, TypeVar
-
-from pydantic import BaseModel, Field
 
 from .storage import Storage
 
 V = TypeVar("V")
 
 
-class LocalStorageOptions(BaseModel):
-    max: Optional[int] = Field(default=None, frozen=True)
+@dataclass(frozen=True)
+class LocalStorageOptions:
+    max: Optional[int] = None
+    """Maximum number of items in the storage"""
 
 
 class LocalStorage(Storage[str, V]):
-    """A key-value storage with optional size limit and LRU behavior.
-
-    When max is set, implements LRU (Least Recently Used) behavior.
+    """
+    A key-value storage with optional size limit and LRU behavior.
     """
 
     @property
