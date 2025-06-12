@@ -373,6 +373,7 @@ source = { editable = "." }
 dependencies = [
     { name = "cards" },
     { name = "common" },
+    { name = "pytest-asyncio" },
 ]
 
 [package.dev-dependencies]
@@ -386,6 +387,7 @@ dev = [
 requires-dist = [
     { name = "cards", editable = "packages/cards" },
     { name = "common", editable = "packages/common" },
+    { name = "pytest-asyncio", specifier = ">=1.0.0" },
 ]
 
 [package.metadata.requires-dev]
