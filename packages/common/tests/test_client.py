@@ -1,6 +1,7 @@
 import httpx
 import pytest
 from common.http.client import Client, ClientOptions
+from common.http.clientToken import StringLike
 
 
 class DummyInterceptor:
@@ -17,10 +18,23 @@ class DummyInterceptor:
         return ctx.response
 
 
+class CustomStringLike(StringLike):
+    def __str__(self) -> str:
+        return "custom-token"
+
+
+async def async_token_factory() -> str:
+    return "async-token"
+
+
+def sync_token_factory() -> str:
+    return "sync-token"
+
+
 @pytest.fixture
 def mock_transport():
     def handler(request):
-        return httpx.Response(200, json={"ok": True, "url": str(request.url)})
+        return httpx.Response(200, json={"ok": True, "url": str(request.url), "headers": dict(request.headers.items())})
 
     return httpx.MockTransport(handler)
 
@@ -84,20 +98,72 @@ async def test_clone_merges_options_and_interceptors(mock_transport):
     assert interceptor2.request_called
 
 
+@pytest.mark.parametrize(
+    "token,expected",
+    [
+        ("simple-token", "Bearer simple-token"),
+        (CustomStringLike(), "Bearer custom-token"),
+        (sync_token_factory, "Bearer sync-token"),
+        (async_token_factory, "Bearer async-token"),
+        (None, None),
+        (lambda: None, None),
+        (lambda: CustomStringLike(), "Bearer custom-token"),
+        (lambda: "lambda-token", "Bearer lambda-token"),
+    ],
+)
 @pytest.mark.asyncio
-async def test_token_injection(mock_transport):
-    class TokenObj:
-        def __str__(self):
-            return "tokobj"
-
+async def test_token_types(mock_transport, token, expected):
     client = Client(
         ClientOptions(
             base_url="https://example.com",
-            token=TokenObj(),
+            token=token,
         )
     )
     client.http._transport = mock_transport
 
-    resp = await client.get("/token")
-    # Check that Authorization header is set (httpx doesn't echo headers, so just ensure no error)
-    assert resp.status_code == 200
+    resp = await client.get("/token-test")
+    data = resp.json()
+
+    if expected is None:
+        assert "authorization" not in data["headers"]
+    else:
+        assert data["headers"]["authorization"] == expected
+
+
+# Test async token factory that returns None
+async def async_none_factory() -> None:
+    return None
+
+
+@pytest.mark.asyncio
+async def test_async_none_token(mock_transport):
+    client = Client(
+        ClientOptions(
+            base_url="https://example.com",
+            token=async_none_factory,
+        )
+    )
+    client.http._transport = mock_transport
+
+    resp = await client.get("/token-test")
+    data = resp.json()
+    assert "authorization" not in data["headers"]
+
+
+# Test token factory that raises an exception
+def failing_token_factory() -> str:
+    raise ValueError("Token factory failed")
+
+
+@pytest.mark.asyncio
+async def test_failing_token_factory(mock_transport):
+    client = Client(
+        ClientOptions(
+            base_url="https://example.com",
+            token=failing_token_factory,
+        )
+    )
+    client.http._transport = mock_transport
+
+    with pytest.raises(ValueError, match="Token factory failed"):
+        await client.get("/token-test")
