@@ -1,4 +1,5 @@
 import inspect
+import logging
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional
 
@@ -8,7 +9,7 @@ from httpx._types import QueryParamTypes, RequestContent, RequestData, RequestFi
 
 from common.http.client_token import Token, resolve_token
 from common.http.interceptor import Interceptor, InterceptorRequestContext, InterceptorResponseContext
-from common.logging import ConsoleLogger, Logger
+from common.logging import ConsoleLogger
 
 console_logger = ConsoleLogger()
 
@@ -30,7 +31,7 @@ class ClientOptions:
     base_url: Optional[str] = None
     headers: Dict[str, str] = field(default_factory=dict)
     timeout: Optional[float] = None
-    logger: Logger = field(default_factory=lambda: console_logger.create_logger("http-client"))
+    logger: logging.Logger = field(default_factory=lambda: console_logger.create_logger("http-client"))
     token: Optional[Token] = None
     interceptors: Optional[List[Interceptor]] = field(default_factory=list)
 

@@ -11,7 +11,6 @@ from typing import Optional, TypedDict
 
 from .filter import ConsoleFilter
 from .formatter import ConsoleFormatter
-from .logger import Logger
 
 
 class ConsoleLoggerOptions(TypedDict, total=False):
@@ -33,7 +32,7 @@ class ConsoleLogger:
 
     _levels = {"error": logging.ERROR, "warn": logging.WARNING, "info": logging.INFO, "debug": logging.DEBUG}
 
-    def create_logger(self, name: str, options: Optional[ConsoleLoggerOptions] = None) -> Logger:
+    def create_logger(self, name: str, options: Optional[ConsoleLoggerOptions] = None) -> logging.Logger:
         """
         Create a logger for the console.
 
