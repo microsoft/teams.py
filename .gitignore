@@ -21,4 +21,4 @@ dmypy.json
 .DS_STORE
 
 ref/
-
+py.typed/
