@@ -1,7 +1,7 @@
 [project]
 name = "microsoft-teams-api"
 version = "0.1.0"
-description = "Add your description here"
+description = "API package for Microsoft Teams"
 readme = "README.md"
 authors = []
 requires-python = ">=3.12"
