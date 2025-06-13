@@ -73,10 +73,7 @@ def test_dict_message_formatting() -> None:
     result = formatter.format(record)
     result_lines = result.split("\n")
 
-    prefix = (
-        f"{ANSI.FOREGROUND_CYAN.value}{ANSI.BOLD.value}"
-        + f"[INFO] test{ANSI.FOREGROUND_RESET.value}{ANSI.BOLD_RESET.value}"
-    )
+    prefix = generate_prefix(logging.INFO, "test")
     assert result_lines[0].startswith(prefix)
     assert '"key": "value"' in result
     assert '"nested": {' in result
