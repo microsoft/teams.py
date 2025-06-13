@@ -8,11 +8,13 @@ dependencies = [
     "common",
     "cards",
     "pytest-asyncio>=1.0.0",
+    "api"
 ]
 
 [tool.uv.sources]
 common = { workspace = true }
 cards = { workspace = true }
+api = { workspace = true }
 
 [tool.uv.workspace]
 members = ["packages/*"]

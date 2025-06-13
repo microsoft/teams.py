@@ -4,6 +4,7 @@ requires-python = ">=3.12"
 
 [manifest]
 members = [
+    "api",
     "cards",
     "common",
     "teams-py",
@@ -24,20 +25,65 @@ wheels = [
 ]
 
 [[package]]
-name = "cards"
-version = "0.1.0"
-source = { editable = "packages/cards" }
+name = "api"
+version = "0.0.0"
+source = { editable = "packages/api" }
 dependencies = [
     { name = "coverage" },
+    { name = "httpx" },
     { name = "pytest" },
     { name = "ruff" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "pytest" },
+    { name = "pytest-asyncio" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "coverage", specifier = ">=7.8.0" },
+    { name = "httpx", specifier = ">=0.28.1" },
     { name = "pytest", specifier = ">=8.3.5" },
     { name = "ruff", specifier = ">=0.11.5" },
+]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "pytest", specifier = ">=8.4.0" },
+    { name = "pytest-asyncio", specifier = ">=1.0.0" },
+]
+
+[[package]]
+name = "cards"
+version = "0.0.0"
+source = { editable = "packages/cards" }
+dependencies = [
+    { name = "coverage" },
+    { name = "httpx" },
+    { name = "pytest" },
+    { name = "ruff" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "pytest" },
+    { name = "pytest-asyncio" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "coverage", specifier = ">=7.8.0" },
+    { name = "httpx", specifier = ">=0.28.1" },
+    { name = "pytest", specifier = ">=8.3.5" },
+    { name = "ruff", specifier = ">=0.11.5" },
+]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "pytest", specifier = ">=8.4.0" },
+    { name = "pytest-asyncio", specifier = ">=1.0.0" },
 ]
 
 [[package]]
@@ -372,6 +418,7 @@ name = "teams-py"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "api" },
     { name = "cards" },
     { name = "common" },
     { name = "pytest-asyncio" },
@@ -386,6 +433,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "api", editable = "packages/api" },
     { name = "cards", editable = "packages/cards" },
     { name = "common", editable = "packages/common" },
     { name = "pytest-asyncio", specifier = ">=1.0.0" },

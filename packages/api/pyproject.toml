@@ -1,5 +1,5 @@
 [project]
-name = "cards"
+name = "api"
 version = "0.0.0"
 description = "Add your description here"
 readme = "README.md"
@@ -24,7 +24,7 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/microsoft/teams.py/tree/main/packages/cards"
+Homepage = "https://github.com/microsoft/teams.py/tree/main/packages/api"
 
 
 [build-system]
