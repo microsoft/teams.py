@@ -6,7 +6,7 @@ Licensed under the MIT License.
 import logging
 from unittest.mock import MagicMock
 
-from common.logging import ConsoleFilter
+from microsoft.teams.common.logging import ConsoleFilter
 
 
 def test_default_pattern() -> None:
