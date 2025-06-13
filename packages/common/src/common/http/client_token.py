@@ -1,3 +1,8 @@
+"""
+Copyright (c) Microsoft Corporation. All rights reserved.
+Licensed under the MIT License.
+"""
+
 import inspect
 from typing import Awaitable, Callable, Optional, Protocol, Union, runtime_checkable
 
