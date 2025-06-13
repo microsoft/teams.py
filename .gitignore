@@ -1,3 +1,8 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
 # Environments
 .env
 .venv
@@ -17,4 +22,3 @@ dmypy.json
 
 ref/
 
-__pycache__/
