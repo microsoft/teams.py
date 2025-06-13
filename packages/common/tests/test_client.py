@@ -5,8 +5,9 @@ Licensed under the MIT License.
 
 import httpx
 import pytest
-from common.http.client import Client, ClientOptions
-from common.http.client_token import StringLike
+
+from microsoft.teams.common.http.client import Client, ClientOptions
+from microsoft.teams.common.http.client_token import StringLike
 
 
 class DummyAsyncInterceptor:
