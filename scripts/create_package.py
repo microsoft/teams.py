@@ -27,6 +27,7 @@ def create_package(package_name: str) -> None:
     # Convert package name to lowercase for directory name
     package_dir = package_name.lower()
     package_path = Path("packages") / package_dir
+    full_package_name = f"microsoft-teams-{package_name.lower()}"
 
     if package_path.exists():
         print(f"Error: Package directory {package_path} already exists")
@@ -55,7 +56,7 @@ def create_package(package_name: str) -> None:
             content = f.read()
 
         # Update package name
-        content = content.replace(f'name = "{package_name}"', f'name = "microsoft.teams.{package_name.lower()}"')
+        content = content.replace(f'name = "{package_name}"', f'name = "{full_package_name}"')
 
         # Add wheel build configuration
         if "[tool.hatch.build.targets.wheel]" not in content:
@@ -71,7 +72,7 @@ def create_package(package_name: str) -> None:
             content = f.read()
 
         # Add the new package to uv.sources if not already present
-        source_entry = f'"microsoft.teams.{package_name.lower()}" = {{ workspace = true }}'
+        source_entry = f'"{full_package_name}" = {{ workspace = true }}'
         if source_entry not in content:
             # Find the [tool.uv.sources] section
             if "[tool.uv.sources]" in content:
