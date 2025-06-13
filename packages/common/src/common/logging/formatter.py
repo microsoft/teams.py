@@ -33,7 +33,7 @@ class ConsoleFormatter(logging.Formatter):
             record.msg = json.dumps(record.msg, indent=2)
 
         level_name = record.levelname.upper()
-        color = self._colors.get(level_name, "")
+        color = self._colors.get(level_name, ANSI.FOREGROUND_CYAN)
         prefix = f"{color.value}{ANSI.BOLD.value}[{level_name}]"
         name = f"{record.name}{ANSI.FOREGROUND_RESET.value}{ANSI.BOLD_RESET.value}"
 

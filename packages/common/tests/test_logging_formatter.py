@@ -22,7 +22,10 @@ def test_error_formatting() -> None:
     record = create_record("test", logging.ERROR, "Error message")
 
     result = formatter.format(record)
-    expected = f"{ANSI.FOREGROUND_RED}{ANSI.BOLD}[ERROR] test{ANSI.FOREGROUND_RESET}{ANSI.BOLD_RESET} Error message"
+    expected = (
+        f"{ANSI.FOREGROUND_RED.value}{ANSI.BOLD.value}"
+        + f"[ERROR] test{ANSI.FOREGROUND_RESET.value}{ANSI.BOLD_RESET.value} Error message"
+    )
     assert result == expected
 
 
@@ -32,7 +35,8 @@ def test_warning_formatting() -> None:
 
     result = formatter.format(record)
     expected = (
-        f"{ANSI.FOREGROUND_YELLOW}{ANSI.BOLD}[WARNING] test{ANSI.FOREGROUND_RESET}{ANSI.BOLD_RESET} Warning message"
+        f"{ANSI.FOREGROUND_YELLOW.value}{ANSI.BOLD.value}[WARNING] "
+        + f"test{ANSI.FOREGROUND_RESET.value}{ANSI.BOLD_RESET.value} Warning message"
     )
     assert result == expected
 
@@ -42,7 +46,10 @@ def test_info_formatting() -> None:
     record = create_record("test", logging.INFO, "Info message")
 
     result = formatter.format(record)
-    expected = f"{ANSI.FOREGROUND_CYAN}{ANSI.BOLD}[INFO] test{ANSI.FOREGROUND_RESET}{ANSI.BOLD_RESET} Info message"
+    expected = (
+        f"{ANSI.FOREGROUND_CYAN.value}{ANSI.BOLD.value}[INFO] "
+        + f"test{ANSI.FOREGROUND_RESET.value}{ANSI.BOLD_RESET.value} Info message"
+    )
     assert result == expected
 
 
@@ -51,7 +58,10 @@ def test_debug_formatting() -> None:
     record = create_record("test", logging.DEBUG, "Debug message")
 
     result = formatter.format(record)
-    expected = f"{ANSI.FOREGROUND_MAGENTA}{ANSI.BOLD}[DEBUG] test{ANSI.FOREGROUND_RESET}{ANSI.BOLD_RESET} Debug message"
+    expected = (
+        f"{ANSI.FOREGROUND_MAGENTA.value}{ANSI.BOLD.value}"
+        + f"[DEBUG] test{ANSI.FOREGROUND_RESET.value}{ANSI.BOLD_RESET.value} Debug message"
+    )
     assert result == expected
 
 
@@ -63,7 +73,10 @@ def test_dict_message_formatting() -> None:
     result = formatter.format(record)
     result_lines = result.split("\n")
 
-    prefix = f"{ANSI.FOREGROUND_CYAN}{ANSI.BOLD}[INFO] test{ANSI.FOREGROUND_RESET}{ANSI.BOLD_RESET}"
+    prefix = (
+        f"{ANSI.FOREGROUND_CYAN.value}{ANSI.BOLD.value}"
+        + f"[INFO] test{ANSI.FOREGROUND_RESET.value}{ANSI.BOLD_RESET.value}"
+    )
     assert result_lines[0].startswith(prefix)
     assert '"key": "value"' in result
     assert '"nested": {' in result
@@ -78,7 +91,9 @@ def test_list_message_formatting() -> None:
     result = formatter.format(record)
     result_lines = result.split("\n")
 
-    prefix = f"{ANSI.FOREGROUND_CYAN}{ANSI.BOLD}[INFO] test{ANSI.FOREGROUND_RESET}{ANSI.BOLD_RESET}"
+    prefix = (
+        f"{ANSI.FOREGROUND_CYAN.value}{ANSI.BOLD.value}[INFO] test{ANSI.FOREGROUND_RESET.value}{ANSI.BOLD_RESET.value}"
+    )
     assert result_lines[0].startswith(prefix)
     assert '"item1"' in result
     assert '"item2"' in result
@@ -92,9 +107,12 @@ def test_multiline_message_formatting() -> None:
 
     result = formatter.format(record)
     expected_lines = [
-        f"{ANSI.FOREGROUND_CYAN}{ANSI.BOLD}[INFO] test{ANSI.FOREGROUND_RESET}{ANSI.BOLD_RESET} Line 1",
-        f"{ANSI.FOREGROUND_CYAN}{ANSI.BOLD}[INFO] test{ANSI.FOREGROUND_RESET}{ANSI.BOLD_RESET} Line 2",
-        f"{ANSI.FOREGROUND_CYAN}{ANSI.BOLD}[INFO] test{ANSI.FOREGROUND_RESET}{ANSI.BOLD_RESET} Line 3",
+        f"{ANSI.FOREGROUND_CYAN.value}{ANSI.BOLD.value}"
+        + f"[INFO] test{ANSI.FOREGROUND_RESET.value}{ANSI.BOLD_RESET.value} Line 1",
+        f"{ANSI.FOREGROUND_CYAN.value}{ANSI.BOLD.value}"
+        + f"[INFO] test{ANSI.FOREGROUND_RESET.value}{ANSI.BOLD_RESET.value} Line 2",
+        f"{ANSI.FOREGROUND_CYAN.value}{ANSI.BOLD.value}"
+        + f"[INFO] test{ANSI.FOREGROUND_RESET.value}{ANSI.BOLD_RESET.value} Line 3",
     ]
     expected = "\n".join(expected_lines)
     assert result == expected
