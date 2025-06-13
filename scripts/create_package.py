@@ -35,7 +35,7 @@ def create_package(package_name: str) -> None:
 
     # Step 1: Run uv init
     print(f"Creating new package {package_name}...")
-    run_command(["uv", "init", "--lib", str(package_path)])
+    run_command(["uv", "init", "--lib", str(package_path), "--author-from", "none"])
 
     # Step 2: Move and restructure the source directory
     src_dir = package_path / "src"
