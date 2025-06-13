@@ -58,6 +58,13 @@ def create_package(package_name: str) -> None:
         # Update package name
         content = content.replace(f'name = "{package_name}"', f'name = "{full_package_name}"')
 
+        # Add authors field if not present
+        if "authors = [" not in content:
+            content = content.replace(
+                'description = "Add your description here"',
+                'description = "Add your description here"\nauthors = [{ name = "Microsoft", email = "teams@microsoft.com" }]',  # noqa: E501
+            )
+
         # Add wheel build configuration
         if "[tool.hatch.build.targets.wheel]" not in content:
             content += '\n[tool.hatch.build.targets.wheel]\npackages = ["src/microsoft"]\n'
