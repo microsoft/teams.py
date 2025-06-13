@@ -34,8 +34,8 @@ class ConsoleFormatter(logging.Formatter):
 
         level_name = record.levelname.upper()
         color = self._colors.get(level_name, "")
-        prefix = f"{color}{ANSI.BOLD}[{level_name}]"
-        name = f"{record.name}{ANSI.FOREGROUND_RESET}{ANSI.BOLD_RESET}"
+        prefix = f"{color.value}{ANSI.BOLD.value}[{level_name}]"
+        name = f"{record.name}{ANSI.FOREGROUND_RESET.value}{ANSI.BOLD_RESET.value}"
 
         message = str(record.msg)
         lines = message.split("\n")
