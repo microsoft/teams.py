@@ -5,14 +5,14 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "common",
-    "cards",
+    "microsoft.teams.common",
+    "microsoft.teams.cards",
     "pytest-asyncio>=1.0.0",
 ]
 
 [tool.uv.sources]
-common = { workspace = true }
-cards = { workspace = true }
+"microsoft.teams.common" = { workspace = true }
+"microsoft.teams.cards" = { workspace = true }
 
 [tool.uv.workspace]
 members = ["packages/*"]
