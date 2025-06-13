@@ -3,9 +3,7 @@ name = "microsoft-teams-api"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-authors = [
-    { name = "heyitsaamir", email = "ajawaid191@gmail.com" }
-]
+authors = []
 requires-python = ">=3.12"
 dependencies = []
 
