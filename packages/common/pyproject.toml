@@ -1,5 +1,5 @@
 [project]
-name = "microsoft.teams.common"
+name = "microsoft-teams-common"
 version = "0.0.0"
 description = "Add your description here"
 readme = "README.md"

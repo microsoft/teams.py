@@ -1,18 +1,18 @@
 [project]
-name = "teams-py"
+name = "microsoft-teams"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "microsoft.teams.common",
-    "microsoft.teams.cards",
+    "microsoft-teams-common",
+    "microsoft-teams-cards",
     "pytest-asyncio>=1.0.0",
 ]
 
 [tool.uv.sources]
-"microsoft.teams.common" = { workspace = true }
-"microsoft.teams.cards" = { workspace = true }
+"microsoft-teams-common" = { workspace = true }
+"microsoft-teams-cards" = { workspace = true }
 
 [tool.uv.workspace]
 members = ["packages/*"]
