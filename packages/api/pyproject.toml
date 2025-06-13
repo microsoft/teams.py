@@ -3,7 +3,9 @@ name = "microsoft-teams-api"
 version = "0.1.0"
 description = "API package for Microsoft Teams"
 readme = "README.md"
-authors = []
+authors = [
+    { name = "Microsoft", email = "teams@microsoft.com" }
+]
 requires-python = ">=3.12"
 dependencies = []
 
