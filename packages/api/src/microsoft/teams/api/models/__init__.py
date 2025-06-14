@@ -4,5 +4,6 @@ Licensed under the MIT License.
 """
 
 from .account import Account
+from .activity import Activity
 
-__all__ = ["Account"]
+__all__ = ["Account", "Activity"]
