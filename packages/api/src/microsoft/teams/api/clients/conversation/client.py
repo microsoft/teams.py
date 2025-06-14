@@ -60,7 +60,7 @@ class MemberOperations(ConversationOperations):
 class ConversationClient:
     """Client for managing Teams conversations."""
 
-    def __init__(self, service_url: str, options: Union[Client, ClientOptions] = None) -> None:
+    def __init__(self, service_url: str, options: Optional[Union[Client, ClientOptions]] = None) -> None:
         """Initialize the client.
 
         Args:
@@ -69,7 +69,9 @@ class ConversationClient:
         """
         self.service_url = service_url
 
-        if isinstance(options, Client):
+        if options is None:
+            self._http = Client(ClientOptions())
+        elif isinstance(options, Client):
             self._http = options
         else:
             self._http = Client(options or ClientOptions())
