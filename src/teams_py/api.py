@@ -3,159 +3,147 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-import argparse
 import asyncio
 import os
+from typing import Optional
 
-from microsoft.teams.api import ConversationActivityClient, ConversationMemberClient
-from microsoft.teams.api.models import Activity
-from microsoft.teams.common.http import Client, ClientOptions
+from microsoft.teams.api import (
+    Account,
+    Activity,
+    ConversationClient,
+    CreateConversationParams,
+    GetConversationsParams,
+)
+from microsoft.teams.common.http import ClientOptions
 
 
 class TeamsApiTester:
-    """Helper class to test Teams API clients."""
+    """Test the Teams API clients."""
 
-    def __init__(self, service_url: str, http_client: Client):
-        """Initialize the tester with service URL and HTTP client."""
-        self.service_url = service_url
-        self.http_client = http_client
-        self.member_client = ConversationMemberClient(service_url, http_client)
-        self.activity_client = ConversationActivityClient(service_url, http_client)
+    def __init__(self, service_url: str, token: str) -> None:
+        """Initialize the tester.
 
-    async def test_member_client(self, conversation_id: str) -> None:
-        """Test the member client functionality."""
-        print("\n=== Testing Member Client ===")
+        Args:
+            service_url: The Teams service URL.
+            token: The authentication token.
+        """
+        options = ClientOptions(
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        self.client = ConversationClient(service_url, options)
 
+    async def test_conversation_client(self, conversation_id: Optional[str] = None) -> None:
+        """Test the conversation client.
+
+        Args:
+            conversation_id: Optional conversation ID to use for testing. If not provided,
+                           a new conversation will be created.
+        """
+        print("\nTesting Conversation Client...")
+
+        # Get conversations
+        print("\nGetting conversations...")
         try:
-            # Test getting all members
-            print("\nGetting all members...")
-            members = await self.member_client.get(conversation_id)
-            print(f"Found {len(members)} members:")
-            for member in members:
-                print(f"- {member.name} (ID: {member.id}, Role: {member.role})")
-                if member.aad_object_id:
-                    print(f"  AAD Object ID: {member.aad_object_id}")
-                if member.properties:
-                    print(f"  Properties: {member.properties}")
-
-            # Test getting a specific member if we have any
-            if members:
-                member_id = members[0].id
-                print(f"\nGetting member {member_id}...")
-                member = await self.member_client.get_by_id(conversation_id, member_id)
-                print(f"Found member: {member.name} (ID: {member.id}, Role: {member.role})")
-
+            conversations = await self.client.get(GetConversationsParams())
+            print(f"Found {len(conversations.conversations)} conversations")
+            if conversations.conversations:
+                print("First conversation:")
+                print(f"  ID: {conversations.conversations[0].id}")
+                print(f"  Type: {conversations.conversations[0].type}")
+                print(f"  Is Group: {conversations.conversations[0].is_group}")
         except Exception as e:
-            print(f"Error testing member client: {e}")
-            raise
+            print(f"Error getting conversations: {e}")
 
-    async def test_activity_client(self, conversation_id: str) -> None:
-        """Test the activity client functionality."""
-        print("\n=== Testing Activity Client ===")
+        # Create a conversation if no ID provided
+        if not conversation_id:
+            print("\nCreating a new conversation...")
+            try:
+                conversation = await self.client.create(
+                    CreateConversationParams(
+                        is_group=True,
+                        members=[
+                            Account(id="user1", name="User 1"),
+                            Account(id="user2", name="User 2"),
+                        ],
+                        topic_name="Test Conversation",
+                    )
+                )
+                conversation_id = conversation.id
+                print(f"Created conversation with ID: {conversation_id}")
+            except Exception as e:
+                print(f"Error creating conversation: {e}")
+                return
 
+        if not conversation_id:
+            print("No conversation ID available for testing")
+            return
+
+        # Test activities
+        print("\nTesting activities...")
         try:
-            # Test creating a new activity
-            print("\nCreating a new activity...")
-            activity = Activity(
-                type="message",
-                text="Hello from Teams Python SDK!",
-                properties={"test": True},
+            activities = self.client.activities(conversation_id)
+
+            # Create an activity
+            activity = await activities.create(Activity(type="message", text="Hello from Python SDK!"))
+            print(f"Created activity with ID: {activity.id}")
+
+            # Update the activity
+            updated = await activities.update(
+                activity.id,
+                Activity(type="message", text="Updated message from Python SDK!"),
             )
-            created_activity = await self.activity_client.create(conversation_id, activity)
-            print(f"Created activity: {created_activity.text} (ID: {created_activity.id})")
+            print(f"Updated activity: {updated.text}")
 
-            # Test updating the activity
-            print("\nUpdating the activity...")
-            created_activity.text = "Updated message from Teams Python SDK!"
-            updated_activity = await self.activity_client.update(conversation_id, created_activity.id, created_activity)
-            print(f"Updated activity: {updated_activity.text}")
-
-            # Test replying to the activity
-            print("\nReplying to the activity...")
-            reply = Activity(
-                type="message",
-                text="This is a reply from Teams Python SDK!",
+            # Reply to the activity
+            reply = await activities.reply(
+                activity.id,
+                Activity(type="message", text="Reply from Python SDK!"),
             )
-            reply_activity = await self.activity_client.reply(conversation_id, created_activity.id, reply)
-            print(f"Created reply: {reply_activity.text}")
+            print(f"Replied to activity: {reply.text}")
 
-            # Test getting members for the activity
-            print("\nGetting members for the activity...")
-            activity_members = await self.activity_client.get_members(conversation_id, created_activity.id)
-            print(f"Found {len(activity_members)} members for the activity:")
-            for member in activity_members:
-                print(f"- {member.name} (ID: {member.id})")
+            # Get members for the activity
+            activity_members = await activities.get_members(activity.id)
+            print(f"Activity has {len(activity_members)} members")
 
-            # Test deleting the activity
-            print("\nDeleting the activity...")
-            await self.activity_client.delete(conversation_id, created_activity.id)
-            print("Activity deleted successfully")
-
+            # Delete the activity
+            await activities.delete(activity.id)
+            print("Deleted activity")
         except Exception as e:
-            print(f"Error testing activity client: {e}")
-            raise
+            print(f"Error testing activities: {e}")
 
+        # Test members
+        print("\nTesting members...")
+        try:
+            members = self.client.members(conversation_id)
 
-def parse_args() -> argparse.Namespace:
-    """Parse command line arguments."""
-    parser = argparse.ArgumentParser(
-        description="Test Teams API clients with provided credentials and conversation ID."
-    )
-    parser.add_argument(
-        "--token",
-        required=True,
-        help="Teams API token (can also be set via TEAMS_TOKEN environment variable)",
-    )
-    parser.add_argument(
-        "--conversation-id",
-        required=True,
-        help="Conversation ID to test with (can also be set via TEAMS_CONVERSATION_ID environment variable)",
-    )
-    parser.add_argument(
-        "--service-url",
-        help="Teams service URL (can also be set via TEAMS_SERVICE_URL environment variable)",
-        default="https://smba.trafficmanager.net/amer/3abdf8e8-c644-4510-9b59-2557b14ed67f",
-    )
-    return parser.parse_args()
+            # Get all members
+            all_members = await members.get_all()
+            print(f"Conversation has {len(all_members)} members")
+            for member in all_members:
+                print(f"  Member: {member.name} (ID: {member.id})")
+
+            # Get a specific member
+            if all_members:
+                member = await members.get(all_members[0].id)
+                print(f"Got member: {member.name} (ID: {member.id})")
+        except Exception as e:
+            print(f"Error testing members: {e}")
 
 
 async def main() -> None:
-    """Main entry point for testing the Teams API clients."""
-    # Parse command line arguments
-    args = parse_args()
+    """Run the API tests."""
+    # Get configuration from environment
+    service_url = os.getenv("TEAMS_SERVICE_URL")
+    token = os.getenv("TEAMS_TOKEN")
+    conversation_id = os.getenv("TEAMS_CONVERSATION_ID")
 
-    # Get configuration from args or environment variables
-    service_url: str = args.service_url or os.getenv("TEAMS_SERVICE_URL", args.service_url)
-    token: str = args.token or os.getenv("TEAMS_TOKEN")
-    conversation_id: str = args.conversation_id or os.getenv("TEAMS_CONVERSATION_ID")
-
-    # Validate required parameters
-    if not token:
-        raise ValueError("Teams API token is required. Provide it via --token or TEAMS_TOKEN environment variable.")
-    if not conversation_id:
-        raise ValueError(
-            "Conversation ID is required. Provide it via --conversation-id or TEAMS_CONVERSATION_ID env variable."
-        )
-
-    # Create HTTP client with options
-    http_client = Client(
-        ClientOptions(
-            headers={
-                "User-Agent": "TeamsPythonSDK/0.1.0",
-            },
-            token=token,
-        )
-    )
+    if not service_url or not token:
+        print("Error: TEAMS_SERVICE_URL and TEAMS_TOKEN environment variables must be set")
+        return
 
     # Create tester and run tests
-    tester = TeamsApiTester(service_url, http_client)
-    try:
-        await tester.test_member_client(conversation_id)
-        await tester.test_activity_client(conversation_id)
-        print("\n=== All tests completed successfully! ===")
-    except Exception as e:
-        print(f"\n=== Test failed: {e} ===")
-        raise
+    tester = TeamsApiTester(service_url, token)
+    await tester.test_conversation_client(conversation_id)
 
 
 if __name__ == "__main__":
