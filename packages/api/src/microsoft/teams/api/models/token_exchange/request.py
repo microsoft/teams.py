@@ -5,7 +5,7 @@ Licensed under the MIT License.
 
 from typing import Optional
 
-from pydantic import AliasGenerator, BaseModel, ConfigDict, Field
+from pydantic import AliasGenerator, BaseModel, ConfigDict
 from pydantic.alias_generators import to_camel
 
 
@@ -19,5 +19,11 @@ class TokenExchangeRequest(BaseModel):
         extra="allow",
     )
 
-    uri: Optional[str] = Field(None, description="The request URI")
-    token: Optional[str] = Field(None, description="The token to exchange")
+    uri: Optional[str] = None
+    """
+    The request URI.
+    """
+    token: Optional[str] = None
+    """
+    The token to exchange.
+    """
