@@ -3,14 +3,14 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from typing import Any, Dict
+from typing import Optional
 
 from pydantic import AliasGenerator, BaseModel, ConfigDict, Field
 from pydantic.alias_generators import to_camel
 
 
-class TokenRequest(BaseModel):
-    """A request to receive a user token."""
+class TokenPostResource(BaseModel):
+    """A post resource for a token."""
 
     model_config = ConfigDict(
         alias_generator=AliasGenerator(
@@ -19,7 +19,4 @@ class TokenRequest(BaseModel):
         extra="allow",
     )
 
-    provider: str = Field(..., description="The provider to request a user token from")
-    settings: Dict[str, Any] = Field(
-        ..., description="A collection of settings for the specific provider for this request"
-    )
+    sas_url: Optional[str] = Field(None, description="The SAS URL")
