@@ -37,6 +37,10 @@ class GetBotTokenResponse(BaseModel):
     """
     The extended token expiration time in seconds.
     """
+    access_token: str
+    """
+    The access token.
+    """
 
 
 class BotTokenClient(BaseClient):
