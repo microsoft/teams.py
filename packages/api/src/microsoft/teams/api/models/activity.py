@@ -5,17 +5,18 @@ Licensed under the MIT License.
 
 from typing import Any, Dict, Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import AliasGenerator, BaseModel, ConfigDict, Field
 from pydantic.alias_generators import to_camel
 
 
+# TODO: This is a barebones model for now.
 class Activity(BaseModel):
-    """
-    Represents a Teams activity/message in a conversation.
-    """
+    """Represents a Teams activity."""
 
     model_config = ConfigDict(
-        alias_generator=to_camel,
+        alias_generator=AliasGenerator(
+            serialization_alias=to_camel,
+        ),
         extra="allow",
     )
 

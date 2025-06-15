@@ -5,7 +5,7 @@ Licensed under the MIT License.
 
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import AliasGenerator, BaseModel, ConfigDict, Field
 from pydantic.alias_generators import to_camel
 
 from ..account import Account
@@ -15,7 +15,9 @@ class Conversation(BaseModel):
     """Represents a Teams conversation."""
 
     model_config = ConfigDict(
-        alias_generator=to_camel,
+        alias_generator=AliasGenerator(
+            serialization_alias=to_camel,
+        ),
         extra="allow",
     )
 

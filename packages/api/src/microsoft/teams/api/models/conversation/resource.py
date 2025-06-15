@@ -3,18 +3,28 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import AliasGenerator, BaseModel, ConfigDict, Field
 from pydantic.alias_generators import to_camel
 
 
 class ConversationResource(BaseModel):
-    """Resource returned when creating a conversation."""
+    """A response containing a resource."""
 
     model_config = ConfigDict(
-        alias_generator=to_camel,
+        alias_generator=AliasGenerator(
+            serialization_alias=to_camel,
+        ),
         extra="allow",
     )
 
-    id: str = Field(..., description="The ID of the created conversation")
-    activity_id: str = Field(..., description="The ID of the activity that created the conversation")
-    service_url: str = Field(..., description="The service URL for the conversation")
+    id: str = Field(
+        description="Id of the resource",
+    )
+
+    activity_id: str = Field(
+        description="ID of the Activity (if sent)",
+    )
+
+    service_url: str = Field(
+        description="Service endpoint where operations concerning the conversation may be performed",
+    )
