@@ -10,7 +10,7 @@ from pydantic.alias_generators import to_camel
 
 
 class TokenPostResource(BaseModel):
-    """Response model for token post requests."""
+    """An interface representing TokenPostResource."""
 
     model_config = ConfigDict(
         alias_generator=AliasGenerator(
