@@ -27,7 +27,7 @@ class GetBotTokenResponse(BaseModel):
     # Note: These fields use snake_case to match TypeScript exactly
     token_type: Literal["Bearer"] = Field(..., description="The token type")
     expires_in: int = Field(..., description="The token expiration time in seconds")
-    ext_expires_in: Optional[int] = Field(None, description="The extended token expiration time in seconds")
+    ext_expires_in: Optional[int] = None
     access_token: str = Field(..., description="The access token")
 
 
