@@ -6,7 +6,7 @@ Licensed under the MIT License.
 from typing import Any, Dict, Optional
 
 from microsoft.teams.api.models.channel_id import ChannelID
-from pydantic import AliasGenerator, BaseModel, ConfigDict, Field
+from pydantic import AliasGenerator, BaseModel, ConfigDict
 from pydantic.alias_generators import to_camel
 
 
@@ -20,10 +20,23 @@ class TokenResponse(BaseModel):
         extra="allow",
     )
 
-    channel_id: Optional[ChannelID] = Field(None, description="The channel ID")
-    connection_name: str = Field(..., description="The connection name")
-    token: str = Field(..., description="The user token")
-    expiration: str = Field(..., description="Expiration for the token, in ISO 8601 format (e.g. '2007-04-05T14:30Z')")
-    properties: Optional[Dict[str, Any]] = Field(
-        None, description="A collection of properties about this response, such as token polling parameters"
-    )
+    channel_id: Optional[ChannelID] = None
+    """
+    The channel ID.
+    """
+    connection_name: str
+    """
+    The connection name.
+    """
+    token: str
+    """
+    The user token.
+    """
+    expiration: str
+    """
+    The expiration of the token.
+    """
+    properties: Optional[Dict[str, Any]] = None
+    """
+    A collection of properties about this response, such as token polling parameters.
+    """

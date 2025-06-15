@@ -5,7 +5,7 @@ Licensed under the MIT License.
 
 from typing import List, Optional
 
-from pydantic import AliasGenerator, BaseModel, ConfigDict, Field
+from pydantic import AliasGenerator, BaseModel, ConfigDict
 from pydantic.alias_generators import to_camel
 
 from ...models import ChannelID, TokenExchangeRequest
@@ -21,10 +21,22 @@ class GetUserTokenParams(BaseModel):
         extra="allow",
     )
 
-    user_id: str = Field(..., description="The user ID")
-    connection_name: str = Field(..., description="The connection name")
-    channel_id: Optional[ChannelID] = Field(None, description="The channel ID")
-    code: Optional[str] = Field(None, description="The authorization code")
+    user_id: str
+    """
+    The user ID.
+    """
+    connection_name: str
+    """
+    The connection name.
+    """
+    channel_id: Optional[ChannelID] = None
+    """
+    The channel ID.
+    """
+    code: Optional[str] = None
+    """
+    The authorization code.
+    """
 
 
 class GetUserAADTokenParams(BaseModel):
@@ -37,10 +49,22 @@ class GetUserAADTokenParams(BaseModel):
         extra="allow",
     )
 
-    user_id: str = Field(..., description="The user ID")
-    connection_name: str = Field(..., description="The connection name")
-    resource_urls: List[str] = Field(..., description="The resource URLs")
-    channel_id: ChannelID = Field(..., description="The channel ID")
+    user_id: str
+    """
+    The user ID.
+    """
+    connection_name: str
+    """
+    The connection name.
+    """
+    resource_urls: List[str]
+    """
+    The resource URLs.
+    """
+    channel_id: ChannelID
+    """
+    The channel ID.
+    """
 
 
 class GetUserTokenStatusParams(BaseModel):
@@ -53,9 +77,18 @@ class GetUserTokenStatusParams(BaseModel):
         extra="allow",
     )
 
-    user_id: str = Field(..., description="The user ID")
-    channel_id: ChannelID = Field(..., description="The channel ID")
-    include_filter: str = Field(..., description="The include filter")
+    user_id: str
+    """
+    The user ID.
+    """
+    channel_id: ChannelID
+    """
+    The channel ID.
+    """
+    include_filter: str
+    """
+    The include filter.
+    """
 
 
 class SignOutUserParams(BaseModel):
@@ -68,9 +101,18 @@ class SignOutUserParams(BaseModel):
         extra="allow",
     )
 
-    user_id: str = Field(..., description="The user ID")
-    connection_name: str = Field(..., description="The connection name")
-    channel_id: ChannelID = Field(..., description="The channel ID")
+    user_id: str
+    """
+    The user ID.
+    """
+    connection_name: str
+    """
+    The connection name.
+    """
+    channel_id: ChannelID
+    """
+    The channel ID.
+    """
 
 
 class ExchangeUserTokenParams(BaseModel):
@@ -83,7 +125,19 @@ class ExchangeUserTokenParams(BaseModel):
         extra="allow",
     )
 
-    user_id: str = Field(..., description="The user ID")
-    connection_name: str = Field(..., description="The connection name")
-    channel_id: ChannelID = Field(..., description="The channel ID")
-    exchange_request: TokenExchangeRequest = Field(..., description="The token exchange request")
+    user_id: str
+    """
+    The user ID.
+    """
+    connection_name: str
+    """
+    The connection name.
+    """
+    channel_id: ChannelID
+    """
+    The channel ID.
+    """
+    exchange_request: TokenExchangeRequest
+    """
+    The token exchange request.
+    """
