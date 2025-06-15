@@ -5,7 +5,7 @@ Licensed under the MIT License.
 
 from typing import Any, Dict, Optional
 
-from pydantic import AliasGenerator, BaseModel, ConfigDict, Field
+from pydantic import AliasGenerator, BaseModel, ConfigDict
 from pydantic.alias_generators import to_camel
 
 
@@ -20,7 +20,7 @@ class Activity(BaseModel):
         extra="allow",
     )
 
-    type: str = Field("message", description="The type of activity (e.g. 'message')")
+    type: str = "message"
     """
     The type of activity (e.g. 'message').
     """

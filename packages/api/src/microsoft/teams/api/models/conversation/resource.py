@@ -3,7 +3,7 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from pydantic import AliasGenerator, BaseModel, ConfigDict, Field
+from pydantic import AliasGenerator, BaseModel, ConfigDict
 from pydantic.alias_generators import to_camel
 
 
@@ -17,14 +17,17 @@ class ConversationResource(BaseModel):
         extra="allow",
     )
 
-    id: str = Field(
-        description="Id of the resource",
-    )
+    id: str
+    """
+    Id of the resource.
+    """
 
-    activity_id: str = Field(
-        description="ID of the Activity (if sent)",
-    )
+    activity_id: str
+    """
+    Id of the Activity (if sent).
+    """
 
-    service_url: str = Field(
-        description="Service endpoint where operations concerning the conversation may be performed",
-    )
+    service_url: str
+    """
+    Service endpoint where operations concerning the conversation may be performed.
+    """

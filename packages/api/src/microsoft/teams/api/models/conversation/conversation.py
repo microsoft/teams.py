@@ -5,7 +5,7 @@ Licensed under the MIT License.
 
 from typing import Any, Dict, Optional
 
-from pydantic import AliasGenerator, BaseModel, ConfigDict, Field
+from pydantic import AliasGenerator, BaseModel, ConfigDict
 from pydantic.alias_generators import to_camel
 
 
@@ -19,7 +19,7 @@ class Conversation(BaseModel):
         extra="allow",
     )
 
-    id: str = Field(..., description="The unique identifier for the conversation")
+    id: str
     """
     The unique identifier for the conversation.
     """
