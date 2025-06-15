@@ -6,7 +6,7 @@ Licensed under the MIT License.
 from typing import List, Optional
 
 from microsoft.teams.api.models.channel_id import ChannelID
-from microsoft.teams.api.models.token import TokenRequest
+from microsoft.teams.api.models.token_exchange import TokenExchangeRequest
 from pydantic import AliasGenerator, BaseModel, ConfigDict, Field
 from pydantic.alias_generators import to_camel
 
@@ -86,4 +86,4 @@ class ExchangeUserTokenParams(BaseModel):
     user_id: str = Field(..., description="The user ID")
     connection_name: str = Field(..., description="The connection name")
     channel_id: ChannelID = Field(..., description="The channel ID")
-    exchange_request: TokenRequest = Field(..., description="The token exchange request")
+    exchange_request: TokenExchangeRequest = Field(..., description="The token exchange request")
