@@ -5,7 +5,7 @@ Licensed under the MIT License.
 
 from typing import Any, Dict, Optional
 
-from pydantic import AliasGenerator, BaseModel, ConfigDict, Field
+from pydantic import AliasGenerator, BaseModel, ConfigDict
 from pydantic.alias_generators import to_camel
 
 
@@ -21,8 +21,19 @@ class Account(BaseModel):
         extra="allow",
     )
 
-    id: str = Field(..., description="The unique identifier for the account")
-    aad_object_id: Optional[str] = Field(None, description="The Azure AD object ID")
-    role: Optional[str] = Field(None, description="The role of the account in the conversation")
-    name: Optional[str] = Field(None, description="The display name of the account")
-    properties: Optional[Dict[str, Any]] = Field(None, description="Additional properties for the account")
+    id: str
+    """
+    The unique identifier for the account.
+    """
+    aad_object_id: Optional[str] = None
+    """
+    The Azure AD object ID.
+    """
+    role: Optional[str] = None
+    """
+    The role of the account in the conversation.
+    """
+    properties: Optional[Dict[str, Any]] = None
+    """
+    Additional properties for the account.
+    """

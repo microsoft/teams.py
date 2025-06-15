@@ -3,12 +3,10 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 from pydantic import AliasGenerator, BaseModel, ConfigDict, Field
 from pydantic.alias_generators import to_camel
-
-from ..account import Account
 
 
 class Conversation(BaseModel):
@@ -22,7 +20,18 @@ class Conversation(BaseModel):
     )
 
     id: str = Field(..., description="The unique identifier for the conversation")
-    type: str = Field(..., description="The type of conversation (e.g., 'channel', 'chat')")
-    is_group: bool = Field(False, description="Whether this is a group conversation")
-    members: Optional[List[Account]] = Field(None, description="The members of the conversation")
-    properties: Optional[Dict[str, Any]] = Field(None, description="Additional properties for the conversation")
+    """
+    The unique identifier for the conversation.
+    """
+    type: str
+    """
+    The type of conversation (e.g., 'channel', 'chat').
+    """
+    is_group: bool
+    """
+    Whether this is a group conversation.
+    """
+    properties: Optional[Dict[str, Any]] = None
+    """
+    Additional properties for the conversation.
+    """

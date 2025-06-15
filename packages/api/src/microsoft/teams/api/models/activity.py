@@ -21,6 +21,15 @@ class Activity(BaseModel):
     )
 
     type: str = Field("message", description="The type of activity (e.g. 'message')")
-    text: Optional[str] = Field(None, description="The text content of the activity")
-    reply_to_id: Optional[str] = Field(None, description="The ID of the activity this is replying to")
-    properties: Optional[Dict[str, Any]] = Field(None, description="Additional properties for the activity")
+    """
+    The type of activity (e.g. 'message').
+    """
+    text: Optional[str] = None
+    """
+    The text content of the activity.
+    """
+    reply_to_id: Optional[str] = None
+    """
+    The ID of the activity this is replying to.
+    """
+    properties: Optional[Dict[str, Any]] = None

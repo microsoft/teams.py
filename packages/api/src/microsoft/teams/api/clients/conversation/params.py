@@ -19,7 +19,7 @@ class GetConversationsParams(BaseModel):
         extra="allow",
     )
 
-    continuation_token: Optional[str] = Field(None, description="Token for pagination")
+    continuation_token: Optional[str] = None
 
 
 class CreateConversationParams(BaseModel):
@@ -30,13 +30,34 @@ class CreateConversationParams(BaseModel):
         extra="allow",
     )
 
-    is_group: bool = Field(False, description="Whether this is a group conversation")
-    bot: Optional[Account] = Field(None, description="Bot account to add to the conversation")
-    members: Optional[List[Account]] = Field(None, description="Members to add to the conversation")
-    topic_name: Optional[str] = Field(None, description="Topic name for the conversation")
-    tenant_id: Optional[str] = Field(None, description="Tenant ID for the conversation")
-    activity: Optional[Activity] = Field(None, description="Initial activity to post in the conversation")
-    channel_data: Optional[Dict[str, Any]] = Field(None, description="Channel-specific data")
+    is_group: bool = False
+    """
+    Whether this is a group conversation.
+    """
+    bot: Optional[Account] = None
+    """
+    The bot account to add to the conversation.
+    """
+    members: Optional[List[Account]] = None
+    """
+    The members to add to the conversation.
+    """
+    topic_name: Optional[str] = None
+    """
+    The topic name for the conversation.
+    """
+    tenant_id: Optional[str] = None
+    """
+    The tenant ID for the conversation.
+    """
+    activity: Optional[Activity] = None
+    """
+    The initial activity to post in the conversation.
+    """
+    channel_data: Optional[Dict[str, Any]] = None
+    """
+    The channel-specific data for the conversation.
+    """
 
 
 class GetConversationsResponse(BaseModel):
