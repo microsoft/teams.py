@@ -4,7 +4,6 @@ Licensed under the MIT License.
 """
 
 from .conversation import Conversation, ConversationType
-from .reference import ConversationReference
 from .resource import ConversationResource
 
-__all__ = ["Conversation", "ConversationResource", "ConversationType", "ConversationReference"]
+__all__ = ["Conversation", "ConversationType", "ConversationResource"]
