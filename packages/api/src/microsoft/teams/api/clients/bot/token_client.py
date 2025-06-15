@@ -10,7 +10,7 @@ from microsoft.teams.common.http import Client, ClientOptions
 from pydantic import AliasGenerator, BaseModel, ConfigDict, Field
 from pydantic.alias_generators import to_camel
 
-from ...models.auth import Credentials, TokenCredentials
+from ...models import Credentials, TokenCredentials
 from ..base_client import BaseClient
 
 

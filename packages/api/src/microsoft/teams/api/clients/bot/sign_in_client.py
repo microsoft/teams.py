@@ -7,7 +7,7 @@ from typing import Union, cast
 
 from microsoft.teams.common.http import Client, ClientOptions
 
-from ...models.sign_in.response import SignInUrlResponse
+from ...models import SignInUrlResponse
 from ..base_client import BaseClient
 from .params import GetBotSignInResourceParams, GetBotSignInUrlParams
 
