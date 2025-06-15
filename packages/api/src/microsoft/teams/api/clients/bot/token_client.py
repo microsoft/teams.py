@@ -7,7 +7,7 @@ import inspect
 from typing import Literal, Optional, Union
 
 from microsoft.teams.common.http import Client, ClientOptions
-from pydantic import AliasGenerator, BaseModel, ConfigDict, Field
+from pydantic import AliasGenerator, BaseModel, ConfigDict
 from pydantic.alias_generators import to_camel
 
 from ...models import Credentials, TokenCredentials
@@ -25,10 +25,18 @@ class GetBotTokenResponse(BaseModel):
     )
 
     # Note: These fields use snake_case to match TypeScript exactly
-    token_type: Literal["Bearer"] = Field(..., description="The token type")
-    expires_in: int = Field(..., description="The token expiration time in seconds")
+    token_type: Literal["Bearer"]
+    """
+    The token type.
+    """
+    expires_in: int
+    """
+    The token expiration time in seconds.
+    """
     ext_expires_in: Optional[int] = None
-    access_token: str = Field(..., description="The access token")
+    """
+    The extended token expiration time in seconds.
+    """
 
 
 class BotTokenClient(BaseClient):

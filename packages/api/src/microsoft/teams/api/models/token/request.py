@@ -5,7 +5,7 @@ Licensed under the MIT License.
 
 from typing import Any, Dict
 
-from pydantic import AliasGenerator, BaseModel, ConfigDict, Field
+from pydantic import AliasGenerator, BaseModel, ConfigDict
 from pydantic.alias_generators import to_camel
 
 
@@ -19,7 +19,11 @@ class TokenRequest(BaseModel):
         extra="allow",
     )
 
-    provider: str = Field(..., description="The provider to request a user token from")
-    settings: Dict[str, Any] = Field(
-        ..., description="A collection of settings for the specific provider for this request"
-    )
+    provider: str
+    """
+    The provider to request a user token from.
+    """
+    settings: Dict[str, Any]
+    """
+    A collection of settings for the specific provider for this request.
+    """
