@@ -5,12 +5,13 @@ Licensed under the MIT License.
 
 from typing import List, Optional
 
-from microsoft.teams.common.http import Client, ClientOptions
+from microsoft.teams.common.http import Client
 
 from ...models import Account, Activity
+from ..base_client import BaseClient
 
 
-class ConversationActivityClient:
+class ConversationActivityClient(BaseClient):
     """
     Client for managing activities in a Teams conversation.
     """
@@ -23,18 +24,8 @@ class ConversationActivityClient:
             service_url: The base URL for the Teams service
             http_client: Optional HTTP client to use. If not provided, a new one will be created.
         """
+        super().__init__(http_client)
         self.service_url = service_url
-        self._http = http_client or Client(ClientOptions())
-
-    @property
-    def http(self) -> Client:
-        """Get the HTTP client."""
-        return self._http
-
-    @http.setter
-    def http(self, client: Client) -> None:
-        """Set the HTTP client."""
-        self._http = client
 
     async def create(self, conversation_id: str, activity: Activity) -> Activity:
         """
@@ -47,7 +38,7 @@ class ConversationActivityClient:
         Returns:
             The created activity
         """
-        response = await self._http.post(
+        response = await self.http.post(
             f"{self.service_url}/v3/conversations/{conversation_id}/activities",
             json=activity.model_dump(by_alias=True),
         )
@@ -65,7 +56,7 @@ class ConversationActivityClient:
         Returns:
             The updated activity
         """
-        response = await self._http.put(
+        response = await self.http.put(
             f"{self.service_url}/v3/conversations/{conversation_id}/activities/{activity_id}",
             json=activity.model_dump(by_alias=True),
         )
@@ -84,7 +75,7 @@ class ConversationActivityClient:
             The created reply activity
         """
         activity.reply_to_id = activity_id
-        response = await self._http.post(
+        response = await self.http.post(
             f"{self.service_url}/v3/conversations/{conversation_id}/activities/{activity_id}",
             json=activity.model_dump(by_alias=True),
         )
@@ -98,7 +89,7 @@ class ConversationActivityClient:
             conversation_id: The ID of the conversation
             activity_id: The ID of the activity to delete
         """
-        await self._http.delete(f"{self.service_url}/v3/conversations/{conversation_id}/activities/{activity_id}")
+        await self.http.delete(f"{self.service_url}/v3/conversations/{conversation_id}/activities/{activity_id}")
 
     async def get_members(self, conversation_id: str, activity_id: str) -> List[Account]:
         """
@@ -111,7 +102,7 @@ class ConversationActivityClient:
         Returns:
             List of Account objects representing the activity members
         """
-        response = await self._http.get(
+        response = await self.http.get(
             f"{self.service_url}/v3/conversations/{conversation_id}/activities/{activity_id}/members"
         )
         return [Account.model_validate(member) for member in response.json()]

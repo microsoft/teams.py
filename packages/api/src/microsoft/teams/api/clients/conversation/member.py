@@ -5,12 +5,13 @@ Licensed under the MIT License.
 
 from typing import List, Optional
 
-from microsoft.teams.common.http import Client, ClientOptions
+from microsoft.teams.common.http import Client
 
 from ...models import Account
+from ..base_client import BaseClient
 
 
-class ConversationMemberClient:
+class ConversationMemberClient(BaseClient):
     """
     Client for managing members in a Teams conversation.
     """
@@ -23,18 +24,8 @@ class ConversationMemberClient:
             service_url: The base URL for the Teams service
             http_client: Optional HTTP client to use. If not provided, a new one will be created.
         """
+        super().__init__(http_client)
         self.service_url = service_url
-        self._http = http_client or Client(ClientOptions())
-
-    @property
-    def http(self) -> Client:
-        """Get the HTTP client."""
-        return self._http
-
-    @http.setter
-    def http(self, client: Client) -> None:
-        """Set the HTTP client."""
-        self._http = client
 
     async def get(self, conversation_id: str) -> List[Account]:
         """
@@ -46,7 +37,7 @@ class ConversationMemberClient:
         Returns:
             List of Account objects representing the conversation members
         """
-        response = await self._http.get(f"{self.service_url}/v3/conversations/{conversation_id}/members")
+        response = await self.http.get(f"{self.service_url}/v3/conversations/{conversation_id}/members")
         return [Account.model_validate(member) for member in response.json()]
 
     async def get_by_id(self, conversation_id: str, member_id: str) -> Account:
@@ -60,7 +51,7 @@ class ConversationMemberClient:
         Returns:
             Account object representing the conversation member
         """
-        response = await self._http.get(f"{self.service_url}/v3/conversations/{conversation_id}/members/{member_id}")
+        response = await self.http.get(f"{self.service_url}/v3/conversations/{conversation_id}/members/{member_id}")
         return Account.model_validate(response.json())
 
     async def delete(self, conversation_id: str, member_id: str) -> None:
@@ -71,4 +62,4 @@ class ConversationMemberClient:
             conversation_id: The ID of the conversation
             member_id: The ID of the member to remove
         """
-        await self._http.delete(f"{self.service_url}/v3/conversations/{conversation_id}/members/{member_id}")
+        await self.http.delete(f"{self.service_url}/v3/conversations/{conversation_id}/members/{member_id}")
