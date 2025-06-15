@@ -5,10 +5,10 @@ Licensed under the MIT License.
 
 from typing import List, Optional
 
-from microsoft.teams.api.models.channel_id import ChannelID
-from microsoft.teams.api.models.token_exchange import TokenExchangeRequest
 from pydantic import AliasGenerator, BaseModel, ConfigDict, Field
 from pydantic.alias_generators import to_camel
+
+from ...models import ChannelID, TokenExchangeRequest
 
 
 class GetUserTokenParams(BaseModel):

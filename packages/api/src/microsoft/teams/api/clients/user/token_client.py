@@ -7,7 +7,7 @@ from typing import Dict, List, Optional, Union
 
 from microsoft.teams.common.http import Client, ClientOptions
 
-from ...models.token import TokenResponse, TokenStatus
+from ...models import TokenResponse, TokenStatus
 from ..base_client import BaseClient
 from .params import (
     ExchangeUserTokenParams,
