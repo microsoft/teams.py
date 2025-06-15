@@ -5,11 +5,11 @@ Licensed under the MIT License.
 
 from .account import Account
 from .activity import Activity
-from .conversation import Conversation, ConversationResource
+from .conversation import *  # noqa: F403
+from .conversation import __all__ as conversation_all
 
 __all__ = [
     "Account",
     "Activity",
-    "Conversation",
-    "ConversationResource",
+    *conversation_all,
 ]
