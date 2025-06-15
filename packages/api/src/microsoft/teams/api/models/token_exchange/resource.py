@@ -5,7 +5,7 @@ Licensed under the MIT License.
 
 from typing import Optional
 
-from pydantic import AliasGenerator, BaseModel, ConfigDict, Field
+from pydantic import AliasGenerator, BaseModel, ConfigDict
 from pydantic.alias_generators import to_camel
 
 
@@ -19,6 +19,15 @@ class TokenExchangeResource(BaseModel):
         extra="allow",
     )
 
-    id: Optional[str] = Field(None, description="The resource ID")
-    uri: Optional[str] = Field(None, description="The resource URI")
-    provider_id: Optional[str] = Field(None, description="The provider ID")
+    id: Optional[str] = None
+    """
+    The resource ID.
+    """
+    uri: Optional[str] = None
+    """
+    The resource URI.
+    """
+    provider_id: Optional[str] = None
+    """
+    The provider ID.
+    """

@@ -5,7 +5,7 @@ Licensed under the MIT License.
 
 from typing import Optional
 
-from pydantic import AliasGenerator, BaseModel, ConfigDict, Field
+from pydantic import AliasGenerator, BaseModel, ConfigDict
 from pydantic.alias_generators import to_camel
 
 
@@ -19,4 +19,7 @@ class TokenPostResource(BaseModel):
         extra="allow",
     )
 
-    sas_url: Optional[str] = Field(None, description="The SAS URL")
+    sas_url: Optional[str] = None
+    """
+    The SAS URL.
+    """

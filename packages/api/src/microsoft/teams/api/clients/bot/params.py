@@ -5,7 +5,7 @@ Licensed under the MIT License.
 
 from typing import Optional
 
-from pydantic import AliasGenerator, BaseModel, ConfigDict, Field
+from pydantic import AliasGenerator, BaseModel, ConfigDict
 from pydantic.alias_generators import to_camel
 
 
@@ -17,10 +17,22 @@ class GetBotSignInUrlParams(BaseModel):
         extra="allow",
     )
 
-    state: str = Field(..., description="The state parameter")
-    code_challenge: Optional[str] = Field(None, description="The code challenge")
-    emulator_url: Optional[str] = Field(None, description="The emulator URL")
-    final_redirect: Optional[str] = Field(None, description="The final redirect URL")
+    state: str
+    """
+    The state parameter.
+    """
+    code_challenge: Optional[str] = None
+    """
+    The code challenge.
+    """
+    emulator_url: Optional[str] = None
+    """
+    The emulator URL.
+    """
+    final_redirect: Optional[str] = None
+    """
+    The final redirect URL.
+    """
 
 
 class GetBotSignInResourceParams(BaseModel):
@@ -31,7 +43,19 @@ class GetBotSignInResourceParams(BaseModel):
         extra="allow",
     )
 
-    state: str = Field(..., description="The state parameter")
-    code_challenge: Optional[str] = Field(None, description="The code challenge")
-    emulator_url: Optional[str] = Field(None, description="The emulator URL")
-    final_redirect: Optional[str] = Field(None, description="The final redirect URL")
+    state: str
+    """
+    The state parameter.
+    """
+    code_challenge: Optional[str] = None
+    """
+    The code challenge.
+    """
+    emulator_url: Optional[str] = None
+    """
+    The emulator URL.
+    """
+    final_redirect: Optional[str] = None
+    """
+    The final redirect URL.
+    """

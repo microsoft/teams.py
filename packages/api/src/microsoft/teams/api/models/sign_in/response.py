@@ -5,7 +5,7 @@ Licensed under the MIT License.
 
 from typing import Optional
 
-from pydantic import AliasGenerator, BaseModel, ConfigDict, Field
+from pydantic import AliasGenerator, BaseModel, ConfigDict
 from pydantic.alias_generators import to_camel
 
 from ..token import TokenPostResource
@@ -22,6 +22,15 @@ class SignInUrlResponse(BaseModel):
         extra="allow",
     )
 
-    sign_in_link: Optional[str] = Field(None, description="The sign-in link")
-    token_exchange_resource: Optional[TokenExchangeResource] = Field(None, description="The token exchange resource")
-    token_post_resource: Optional[TokenPostResource] = Field(None, description="The token post resource")
+    sign_in_link: Optional[str] = None
+    """
+    The sign in link.
+    """
+    token_exchange_resource: Optional[TokenExchangeResource] = None
+    """
+    The token exchange resource.
+    """
+    token_post_resource: Optional[TokenPostResource] = None
+    """
+    The token post resource.
+    """
