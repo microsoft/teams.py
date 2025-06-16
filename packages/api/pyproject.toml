@@ -3,11 +3,17 @@ name = "microsoft-teams-api"
 version = "0.1.0"
 description = "API package for Microsoft Teams"
 readme = "README.md"
+repository = "https://github.com/microsoft/teams.py"
+keywords = ["microsoft", "teams", "ai", "bot", "agents"] 
+license = "MIT"
 authors = [
     { name = "Microsoft", email = "teams@microsoft.com" }
 ]
 requires-python = ">=3.12"
 dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/microsoft/teams.py/tree/main/packages/api/src/microsoft/teams/api"
 
 [build-system]
 requires = ["hatchling"]

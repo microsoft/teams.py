@@ -1,7 +1,7 @@
 [project]
 name = "microsoft-teams-common"
 version = "0.0.0"
-description = "Add your description here"
+description = "Common package for Microsoft Teams"
 readme = "README.md"
 repository = "https://github.com/microsoft/teams.py"
 keywords = ["microsoft", "teams", "ai", "bot", "agents"] 
@@ -24,7 +24,7 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/microsoft/teams.py/tree/main/packages/common"
+Homepage = "https://github.com/microsoft/teams.py/tree/main/packages/common/src/microsoft/teams/common"
 
 
 [build-system]
