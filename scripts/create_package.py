@@ -62,7 +62,7 @@ def create_package(package_name: str) -> None:
             content += '\nrepository = "https://github.com/microsoft/teams.py"\n'
 
         if "keywords = [" not in content:
-            content += '\nkeywords = ["microsoft", "teams", "ai", "bot", "agents"]'
+            content += '\nkeywords = ["microsoft", "teams", "ai", "bot", "agents"]\n'
 
         if "license = " not in content:
             content += '\nlicense = "MIT"\n'
