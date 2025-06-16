@@ -11,6 +11,7 @@ dependencies = [
 ]
 
 [tool.uv.sources]
+"microsoft-teams-api" = { workspace = true }
 "microsoft-teams-common" = { workspace = true }
 "microsoft-teams-cards" = { workspace = true }
 
