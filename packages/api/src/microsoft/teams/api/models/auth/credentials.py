@@ -21,7 +21,7 @@ class ClientCredentials(CustomBaseModel):
     """
     tenant_id: Optional[str] = None
     """
-    The tenant ID.
+    The tenant ID. This should only be passed in for single tenant apps.
     """
 
 
