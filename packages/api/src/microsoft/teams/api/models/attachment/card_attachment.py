@@ -1,6 +1,7 @@
 from typing import Any, Literal, Union
 
-from pydantic import BaseModel, Field
+from pydantic import AliasGenerator, BaseModel, ConfigDict, Field
+from pydantic.alias_generators import to_camel
 
 from ..card import AnimationCard, AudioCard, HeroCard, ThumbnailCard, VideoCard
 
@@ -27,7 +28,14 @@ class SigninCard(BaseModel):
 class CardAttachmentData(BaseModel):
     """Base model for a card attachment"""
 
-    content_type: str = Field(..., alias="contentType")
+    model_config = ConfigDict(
+        alias_generator=AliasGenerator(
+            serialization_alias=to_camel,
+        ),
+        extra="allow",
+    )
+
+    content_type: str = Field(...)
     content: Any
 
 

@@ -1,6 +1,7 @@
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import AliasGenerator, BaseModel, ConfigDict, Field
+from pydantic.alias_generators import to_camel
 
 from .channel_info import ChannelInfo
 
@@ -10,9 +11,14 @@ class ChannelDataSettings(BaseModel):
     Settings within teams channel data specific to messages received in Microsoft Teams.
     """
 
-    selected_channel: ChannelInfo = Field(
-        ..., alias="selectedChannel", description="Information about the selected Teams channel."
+    model_config = ConfigDict(
+        alias_generator=AliasGenerator(
+            serialization_alias=to_camel,
+        ),
+        extra="allow",
     )
+
+    selected_channel: ChannelInfo = Field(..., description="Information about the selected Teams channel.")
 
     class Config:
         """Allow extra fields to be included and preserved."""

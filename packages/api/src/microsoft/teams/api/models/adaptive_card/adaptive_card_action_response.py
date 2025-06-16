@@ -1,6 +1,7 @@
 from typing import Literal, Union
 
-from pydantic import BaseModel, Field
+from pydantic import AliasGenerator, BaseModel, ConfigDict, Field
+from pydantic.alias_generators import to_camel
 
 
 # Placeholder for external types
@@ -28,7 +29,14 @@ class AdaptiveCardActionCardResponse(BaseModel):
     an Adaptive Card that the client should display in place of the current one
     """
 
-    status_code: Literal[200] = Field(200, alias="statusCode")
+    model_config = ConfigDict(
+        alias_generator=AliasGenerator(
+            serialization_alias=to_camel,
+        ),
+        extra="allow",
+    )
+
+    status_code: Literal[200] = Field(200)
     type: Literal["application/vnd.microsoft.card.adaptive"]
     value: IAdaptiveCard
 
@@ -39,7 +47,14 @@ class AdaptiveCardActionMessageResponse(BaseModel):
     that the client should display
     """
 
-    status_code: Literal[200] = Field(200, alias="statusCode")
+    model_config = ConfigDict(
+        alias_generator=AliasGenerator(
+            serialization_alias=to_camel,
+        ),
+        extra="allow",
+    )
+
+    status_code: Literal[200] = Field(200)
     type: Literal["application/vnd.microsoft.activity.message"]
     value: str
 
@@ -50,7 +65,14 @@ class AdaptiveCardActionErrorResponse(BaseModel):
     `500`: An unexpected error occurred
     """
 
-    status_code: Literal[400, 500] = Field(..., alias="statusCode")
+    model_config = ConfigDict(
+        alias_generator=AliasGenerator(
+            serialization_alias=to_camel,
+        ),
+        extra="allow",
+    )
+
+    status_code: Literal[400, 500] = Field(...)
     type: Literal["application/vnd.microsoft.error"]
     value: HttpError
 
@@ -58,7 +80,14 @@ class AdaptiveCardActionErrorResponse(BaseModel):
 class AdaptiveCardActionLoginResponse(BaseModel):
     """The client needs to prompt the user to authenticate"""
 
-    status_code: Literal[401] = Field(401, alias="statusCode")
+    model_config = ConfigDict(
+        alias_generator=AliasGenerator(
+            serialization_alias=to_camel,
+        ),
+        extra="allow",
+    )
+
+    status_code: Literal[401] = Field(401)
     type: Literal["application/vnd.microsoft.activity.loginRequest"]
     value: OAuthCard
 
@@ -69,7 +98,14 @@ class AdaptiveCardActionIncorrectAuthCodeResponse(BaseModel):
     authentication failed
     """
 
-    status_code: Literal[401] = Field(401, alias="statusCode")
+    model_config = ConfigDict(
+        alias_generator=AliasGenerator(
+            serialization_alias=to_camel,
+        ),
+        extra="allow",
+    )
+
+    status_code: Literal[401] = Field(401)
     type: Literal["application/vnd.microsoft.error.incorrectAuthCode"]
     value: None
 
@@ -77,7 +113,14 @@ class AdaptiveCardActionIncorrectAuthCodeResponse(BaseModel):
 class AdaptiveCardActionPreconditionFailedResponse(BaseModel):
     """The SSO authentication flow failed"""
 
-    status_code: Literal[412] = Field(412, alias="statusCode")
+    model_config = ConfigDict(
+        alias_generator=AliasGenerator(
+            serialization_alias=to_camel,
+        ),
+        extra="allow",
+    )
+
+    status_code: Literal[412] = Field(412)
     type: Literal["application/vnd.microsoft.error.preconditionFailed"]
     value: HttpError
 

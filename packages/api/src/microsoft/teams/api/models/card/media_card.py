@@ -1,17 +1,24 @@
 from typing import Any, List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import AliasGenerator, BaseModel, ConfigDict, Field
+from pydantic.alias_generators import to_camel
 
 from .card_action import CardAction
 from .media_url import MediaUrl
 from .thumbnail_url import ThumbnailUrl
 
 
-
 class MediaCard(BaseModel):
     """
     Media card
     """
+
+    model_config = ConfigDict(
+        alias_generator=AliasGenerator(
+            serialization_alias=to_camel,
+        ),
+        extra="allow",
+    )
 
     title: Optional[str] = Field(None, description="Title of this card")
     subtitle: Optional[str] = Field(None, description="Subtitle of this card")
@@ -25,12 +32,12 @@ class MediaCard(BaseModel):
     buttons: Optional[List[CardAction]] = Field(None, description="Actions on this card")
     shareable: Optional[bool] = Field(None, description="This content may be shared with others (default:true)")
     auto_loop: Optional[bool] = Field(
-        None, description="Should the client loop playback at end of content (default:true)", alias="autoLoop"
+        None,
+        description="Should the client loop playback at end of content (default:true)",
     )
     auto_start: Optional[bool] = Field(
         None,
         description="Should the client automatically start playback of media in this card (default:true)",
-        alias="autoStart",
     )
     aspect: Optional[str] = Field(
         None, description='Aspect ratio of thumbnail/media placeholder. Allowed values are "16:9" and "4:3"'

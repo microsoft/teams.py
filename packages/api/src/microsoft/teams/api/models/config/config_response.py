@@ -1,6 +1,7 @@
 from typing import Literal, Optional, Union
 
-from pydantic import BaseModel, Field
+from pydantic import AliasGenerator, BaseModel, ConfigDict, Field
+from pydantic.alias_generators import to_camel
 
 from .config_auth import ConfigAuth
 
@@ -23,15 +24,19 @@ class ConfigResponse(BaseModel):
     A container for the Config response payload
     """
 
+    model_config = ConfigDict(
+        alias_generator=AliasGenerator(
+            serialization_alias=to_camel,
+        ),
+        extra="allow",
+    )
+
     cache_info: Optional[CacheInfo] = Field(
         None,
-        alias="cacheInfo",
         description="The data of the ConfigResponse cache, including cache type and cache duration.",
     )
     # Placeholder - fix specification of task
     config: Union[ConfigAuth, TaskModuleTask] = Field(
         ..., description="The ConfigResponse config of BotConfigAuth or TaskModuleResponse"
     )
-    response_type: Literal["config"] = Field(
-        "config", alias="responseType", description="The type of response 'config'."
-    )
+    response_type: Literal["config"] = Field("config", description="The type of response 'config'.")

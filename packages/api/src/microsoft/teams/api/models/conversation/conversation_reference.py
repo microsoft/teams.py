@@ -1,6 +1,7 @@
 from typing import Optional
 
-from pydantic import BaseModel, Field
+from pydantic import AliasGenerator, BaseModel, ConfigDict, Field
+from pydantic.alias_generators import to_camel
 
 
 # Placeholder for external types
@@ -27,8 +28,16 @@ class ConversationReference(BaseModel):
     An object relating to a particular point in a conversation
     """
 
+    model_config = ConfigDict(
+        alias_generator=AliasGenerator(
+            serialization_alias=to_camel,
+        ),
+        extra="allow",
+    )
+
     activity_id: Optional[str] = Field(
-        None, description="(Optional) ID of the activity to refer to", alias="activityId"
+        None,
+        description="(Optional) ID of the activity to refer to",
     )
     user: Optional[Account] = Field(None, description="(Optional) User participating in this conversation")
     locale: Optional[str] = Field(
@@ -39,9 +48,8 @@ class ConversationReference(BaseModel):
     )
     bot: Account = Field(..., description="Bot participating in this conversation")
     conversation: ConversationAccount = Field(..., description="Conversation reference")
-    channel_id: ChannelID = Field(..., description="Channel ID", alias="channelId")
+    channel_id: ChannelID = Field(..., description="Channel ID")
     service_url: str = Field(
         ...,
         description="Service endpoint where operations concerning the referenced conversation may be performed",
-        alias="serviceUrl",
     )
