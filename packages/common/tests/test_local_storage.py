@@ -3,7 +3,7 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from common.storage import LocalStorage, LocalStorageOptions
+from microsoft.teams.common.storage import LocalStorage, LocalStorageOptions
 
 
 def test_get_undefined() -> None:
