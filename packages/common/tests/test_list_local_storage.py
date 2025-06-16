@@ -3,7 +3,7 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from common.storage import ListLocalStorage
+from microsoft.teams.common.storage import ListLocalStorage
 
 
 def test_get_undefined_empty_index() -> None:

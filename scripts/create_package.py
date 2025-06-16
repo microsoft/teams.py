@@ -58,6 +58,15 @@ def create_package(package_name: str) -> None:
         # Update package name
         content = content.replace(f'name = "{package_name}"', f'name = "{full_package_name}"')
 
+        if "repository = " not in content:
+            content += '\nrepository = "https://github.com/microsoft/teams.py"\n'
+
+        if "keywords = [" not in content:
+            content += '\nkeywords = ["microsoft", "teams", "ai", "bot", "agents"]\n'
+
+        if "license = " not in content:
+            content += '\nlicense = "MIT"\n'
+
         # Add authors field if not present
         if "authors = [" not in content:
             content = content.replace(
