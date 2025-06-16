@@ -24,3 +24,15 @@ class BotClient(BaseClient):
         super().__init__(options)
         self.token = BotTokenClient(self.http)
         self.sign_in = BotSignInClient(self.http)
+
+    @property
+    def http(self) -> Client:
+        """Get the HTTP client instance."""
+        return self._http
+
+    @http.setter
+    def http(self, value: Client) -> None:
+        """Set the HTTP client instance and propagate to sub-clients."""
+        self._http = value
+        self.token.http = value
+        self.sign_in.http = value

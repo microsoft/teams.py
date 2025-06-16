@@ -5,7 +5,7 @@ Licensed under the MIT License.
 
 from typing import Optional
 
-from pydantic import AliasGenerator, BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict
 from pydantic.alias_generators import to_camel
 
 from ..token import TokenPostResource
@@ -16,9 +16,7 @@ class SignInUrlResponse(BaseModel):
     """Response model for sign-in URL requests."""
 
     model_config = ConfigDict(
-        alias_generator=AliasGenerator(
-            serialization_alias=to_camel,
-        ),
+        alias_generator=to_camel,
         extra="allow",
     )
 

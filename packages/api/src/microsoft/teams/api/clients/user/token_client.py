@@ -93,7 +93,6 @@ class UserTokenClient(BaseClient):
         await self.http.delete(
             "https://token.botframework.com/api/usertoken/SignOut",
             params=query_params,
-            json={"data": params.model_dump()},
         )
 
     async def exchange(self, params: ExchangeUserTokenParams) -> TokenResponse:

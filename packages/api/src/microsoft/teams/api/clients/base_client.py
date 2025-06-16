@@ -17,7 +17,12 @@ class BaseClient:
         Args:
             options: Optional Client or ClientOptions instance. If not provided, a default Client will be created.
         """
-        self._http = Client(options or ClientOptions())
+        if options is None:
+            self._http = Client(ClientOptions())
+        elif isinstance(options, Client):
+            self._http = options
+        else:
+            self._http = Client(options)
 
     @property
     def http(self) -> Client:
