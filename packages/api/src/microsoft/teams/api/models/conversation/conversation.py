@@ -24,7 +24,7 @@ class Conversation(CustomBaseModel):
     Conversation Tenant ID
     """
 
-    type: ConversationType
+    conversation_type: ConversationType
     """
     The Conversations Type
     """

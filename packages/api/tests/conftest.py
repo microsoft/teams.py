@@ -102,7 +102,7 @@ def mock_transport():
                 "conversations": [
                     {
                         "id": "mock_conversation_id",
-                        "type": "channel",
+                        "conversationType": "personal",
                         "isGroup": True,
                     }
                 ],
