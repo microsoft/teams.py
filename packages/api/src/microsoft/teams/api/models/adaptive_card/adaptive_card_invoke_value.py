@@ -3,19 +3,7 @@ from typing import Literal, Optional
 from pydantic import BaseModel, Field
 
 from .adaptive_card_invoke_action import AdaptiveCardInvokeAction
-
-
-# Placeholder
-class AdaptiveCardAuthentication(BaseModel):
-    """
-    Placeholder type.
-    Defines the structure that arrives in the Activity.Value.Authentication for Invoke
-    activity with Name of 'adaptiveCard/action'.
-    """
-
-    pass
-
-
+from .adaptive_card_authentication import AdaptiveCardAuthentication
 class AdaptiveCardInvokeValue(BaseModel):
     """
     Defines the structure that arrives in the Activity.Value for Invoke activity with
