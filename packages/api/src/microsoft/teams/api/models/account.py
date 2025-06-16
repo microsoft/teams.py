@@ -3,10 +3,12 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Literal, Optional
 
 from pydantic import AliasGenerator, BaseModel, ConfigDict
 from pydantic.alias_generators import to_camel
+
+AccountRole = Literal["user", "bot"]
 
 
 class Account(BaseModel):
@@ -29,7 +31,7 @@ class Account(BaseModel):
     """
     The Azure AD object ID.
     """
-    role: Optional[str] = None
+    role: Optional[AccountRole] = None
     """
     The role of the account in the conversation.
     """
