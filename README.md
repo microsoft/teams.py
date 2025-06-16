@@ -7,7 +7,7 @@ Install [uv](https://docs.astral.sh/uv/getting-started/installation/)
 
 ### Installing
 
-1. `uv sync` - it installs the virtual env and dependencies
+1. `uv sync --all-packages --group dev` - it installs the virtual env and dependencies
    - If you are using Windows, you may need to manually install [cargo](https://doc.rust-lang.org/cargo/getting-started/installation.html)
 2. Activate virtual env
 
