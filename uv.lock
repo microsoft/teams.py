@@ -189,6 +189,7 @@ name = "microsoft-teams"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "microsoft-teams-api" },
     { name = "microsoft-teams-cards" },
     { name = "microsoft-teams-common" },
     { name = "pytest-asyncio" },
@@ -204,6 +205,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "microsoft-teams-api", editable = "packages/api" },
     { name = "microsoft-teams-cards", editable = "packages/cards" },
     { name = "microsoft-teams-common", editable = "packages/common" },
     { name = "pytest-asyncio", specifier = ">=1.0.0" },
@@ -221,16 +223,12 @@ dev = [
 name = "microsoft-teams-api"
 version = "0.1.0"
 source = { editable = "packages/api" }
-
-[package.dev-dependencies]
-dev = [
+dependencies = [
     { name = "pydantic" },
 ]
 
 [package.metadata]
-
-[package.metadata.requires-dev]
-dev = [{ name = "pydantic", specifier = ">=2.11.7" }]
+requires-dist = [{ name = "pydantic", specifier = ">=2.0.0" }]
 
 [[package]]
 name = "microsoft-teams-cards"
