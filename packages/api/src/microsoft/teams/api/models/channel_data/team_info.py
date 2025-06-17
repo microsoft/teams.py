@@ -22,7 +22,7 @@ class TeamInfo(CustomBaseModel):
     name: Optional[str] = None
     "Name of team."
 
-    team_type: Literal["standard", "sharedChannel", "privateChannel"] = None
+    team_type: Optional[Literal["standard", "sharedChannel", "privateChannel"]] = None
     "The type of the team"
 
     member_count: Optional[int] = None
