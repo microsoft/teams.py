@@ -1,3 +1,8 @@
+"""
+Copyright (c) Microsoft Corporation. All rights reserved.
+Licensed under the MIT License.
+"""
+
 from .ai_message_entity import AIMessageEntity
 from .citation_entity import (
     Appearance,

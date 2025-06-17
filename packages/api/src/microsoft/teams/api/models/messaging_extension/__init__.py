@@ -1,3 +1,8 @@
+"""
+Copyright (c) Microsoft Corporation. All rights reserved.
+Licensed under the MIT License.
+"""
+
 from .messaging_extension_action import MessagingExtensionAction
 from .messaging_extension_action_response import MessagingExtensionActionResponse
 from .messaging_extension_attachment import MessagingExtensionAttachment

@@ -1,3 +1,8 @@
+"""
+Copyright (c) Microsoft Corporation. All rights reserved.
+Licensed under the MIT License.
+"""
+
 from .application_identity_type import ApplicationIdentityType
 from .message import Message
 from .message_app import MessageApp

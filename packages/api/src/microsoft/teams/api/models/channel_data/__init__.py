@@ -1,3 +1,8 @@
+"""
+Copyright (c) Microsoft Corporation. All rights reserved.
+Licensed under the MIT License.
+"""
+
 from .channel_data import ChannelData
 from .channel_info import ChannelInfo
 from .notification_info import NotificationInfo

@@ -1,3 +1,8 @@
+"""
+Copyright (c) Microsoft Corporation. All rights reserved.
+Licensed under the MIT License.
+"""
+
 from .animation_card import AnimationCard
 from .audio_card import AudioCard
 from .basic_card import BasicCard
