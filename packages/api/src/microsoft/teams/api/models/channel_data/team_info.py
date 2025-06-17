@@ -1,22 +1,35 @@
-from typing import Optional
+from typing import Literal, Optional
 
-from pydantic import AliasGenerator, BaseModel, ConfigDict, Field
-from pydantic.alias_generators import to_camel
+from pydantic import ConfigDict
+
+from ..custom_base_model import CustomBaseModel
 
 
-class TeamInfo(BaseModel):
+class TeamInfo(CustomBaseModel):
     """
     An interface representing TeamInfo.
     Describes a team
     """
 
     model_config = ConfigDict(
-        alias_generator=AliasGenerator(
-            serialization_alias=to_camel,
-        ),
+        **CustomBaseModel.model_config,
         extra="allow",
     )
 
-    id: str = Field(..., description="Unique identifier representing a team")
-    name: Optional[str] = Field(None, description="Name of team.")
-    aad_group_id: Optional[str] = Field(None, description="The Azure AD Teams group ID.")
+    id: str
+    "Unique identifier representing a team"
+
+    name: Optional[str] = None
+    "Name of team."
+
+    team_type: Optional[Literal["standard", "sharedChannel", "privateChannel"]] = None
+    "The type of the team"
+
+    member_count: Optional[int] = None
+    "The number of members in the team."
+
+    channel_count: Optional[int] = None
+    "The number of channels in the team."
+
+    aad_group_id: Optional[str] = None
+    "The Azure AD Teams group ID."

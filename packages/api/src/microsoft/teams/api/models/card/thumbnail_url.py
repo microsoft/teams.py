@@ -1,10 +1,12 @@
-from pydantic import BaseModel, Field
+from ..custom_base_model import CustomBaseModel
 
 
-class ThumbnailUrl(BaseModel):
+class ThumbnailUrl(CustomBaseModel):
     """
     Thumbnail URL
     """
 
-    url: str = Field(..., description="URL pointing to the thumbnail to use for media content")
-    alt: str = Field(..., description="HTML alt text to include on this thumbnail image")
+    url: str
+    "URL pointing to the thumbnail to use for media content"
+    alt: str
+    "HTML alt text to include on this thumbnail image"

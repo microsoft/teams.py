@@ -1,7 +1,7 @@
-from pydantic import BaseModel
+from ..custom_base_model import CustomBaseModel
 
 
-class TokenExchangeInvokeRequest(BaseModel):
+class TokenExchangeInvokeRequest(CustomBaseModel):
     """Placeholder for TokenExchangeInvokeRequest model"""
 
     pass

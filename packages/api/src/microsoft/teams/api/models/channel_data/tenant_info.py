@@ -1,9 +1,10 @@
-from pydantic import BaseModel, Field
+from ..custom_base_model import CustomBaseModel
 
 
-class TenantInfo(BaseModel):
+class TenantInfo(CustomBaseModel):
     """
     Describes a tenant
     """
 
-    id: str = Field(..., description="Unique identifier representing a tenant")
+    id: str
+    "Unique identifier representing a tenant"

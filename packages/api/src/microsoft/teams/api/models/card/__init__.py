@@ -1,7 +1,8 @@
 from .animation_card import AnimationCard
 from .audio_card import AudioCard
 from .basic_card import BasicCard
-from .card_action import CardAction, CardActionType
+from .card_action import CardAction
+from .card_action_type import CardActionType
 from .card_image import CardImage
 from .hero_card import HeroCard
 from .media_card import MediaCard

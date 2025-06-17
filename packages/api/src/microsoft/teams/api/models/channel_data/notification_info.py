@@ -1,27 +1,25 @@
 from typing import Optional
 
-from pydantic import AliasGenerator, BaseModel, ConfigDict, Field
-from pydantic.alias_generators import to_camel
+from pydantic import ConfigDict
+
+from ..custom_base_model import CustomBaseModel
 
 
-class NotificationInfo(BaseModel):
+class NotificationInfo(CustomBaseModel):
     """
     Specifies if a notification is to be sent for the mentions.
     """
 
     model_config = ConfigDict(
-        alias_generator=AliasGenerator(
-            serialization_alias=to_camel,
-        ),
+        **CustomBaseModel.model_config,
         extra="allow",
     )
 
-    alert: Optional[bool] = Field(None, description="true if notification is to be sent to the user, false otherwise.")
-    alert_in_meeting: Optional[bool] = Field(
-        None,
-        description="true if a notification is to be shown to the user while in a meeting, false otherwise.",
-    )
-    external_resource_url: Optional[str] = Field(
-        None,
-        description="the value of the notification's external resource url",
-    )
+    alert: Optional[bool] = None
+    "true if notification is to be sent to the user, false otherwise."
+
+    alert_in_meeting: Optional[bool] = None
+    "true if a notification is to be shown to the user while in a meeting, false otherwise."
+
+    external_resource_url: Optional[str] = None
+    "the value of the notification's external resource url"
