@@ -1,35 +1,18 @@
-from typing import Any
+from pydantic import ConfigDict
 
-from pydantic import AliasGenerator, BaseModel, ConfigDict, Field
-from pydantic.alias_generators import to_camel
-
+from ..custom_base_model import CustomBaseModel
 from .channel_info import ChannelInfo
 
 
-class ChannelDataSettings(BaseModel):
+class ChannelDataSettings(CustomBaseModel):
     """
     Settings within teams channel data specific to messages received in Microsoft Teams.
     """
 
     model_config = ConfigDict(
-        alias_generator=AliasGenerator(
-            serialization_alias=to_camel,
-        ),
+        **CustomBaseModel.model_config,
         extra="allow",
     )
 
-    selected_channel: ChannelInfo = Field(..., description="Information about the selected Teams channel.")
-
-    class Config:
-        """Allow extra fields to be included and preserved."""
-
-        extra = "allow"
-        allow_population_by_field_name = True
-
-    def __getitem__(self, key: str) -> Any:
-        """Enable dictionary-style access to properties."""
-        return self.__dict__[key]
-
-    def __setitem__(self, key: str, value: Any) -> None:
-        """Enable dictionary-style setting of properties."""
-        self.__dict__[key] = value
+    selected_channel: ChannelInfo
+    "Information about the selected Teams channel."

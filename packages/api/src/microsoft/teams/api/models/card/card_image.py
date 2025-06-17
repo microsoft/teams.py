@@ -1,15 +1,19 @@
 from typing import Optional
 
-from pydantic import BaseModel, Field
-
+from ..custom_base_model import CustomBaseModel
 from .card_action import CardAction
 
 
-class CardImage(BaseModel):
+class CardImage(CustomBaseModel):
     """
     An image on a card
     """
 
-    url: str = Field(..., description="URL thumbnail image for major content property")
-    alt: Optional[str] = Field(None, description="Image description intended for screen readers")
-    tap: Optional[CardAction] = Field(None, description="Action assigned to specific Attachment")
+    url: str
+    "URL thumbnail image for major content property"
+
+    alt: Optional[str] = None
+    "Image description intended for screen readers"
+
+    tap: Optional[CardAction] = None
+    "Action assigned to specific Attachment"

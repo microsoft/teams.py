@@ -1,27 +1,29 @@
 from typing import Literal, Optional
 
-from pydantic import AliasGenerator, BaseModel, ConfigDict, Field
-from pydantic.alias_generators import to_camel
+from pydantic import ConfigDict
+
+from ..custom_base_model import CustomBaseModel
 
 
 # Placeholder for external type
-class SuggestedActions(BaseModel):
+class SuggestedActions(CustomBaseModel):
     """Placeholder for SuggestedActions model from ../suggested-actions"""
 
     pass
 
 
-class ConfigAuth(BaseModel):
+class ConfigAuth(CustomBaseModel):
     """
     The bot's authentication config for SuggestedActions
     """
 
     model_config = ConfigDict(
-        alias_generator=AliasGenerator(
-            serialization_alias=to_camel,
-        ),
+        **CustomBaseModel.model_config,
         extra="allow",
     )
 
-    suggested_actions: Optional[SuggestedActions] = Field(None, description="SuggestedActions for the Bot Config Auth")
-    type: Literal["auth"] = Field("auth", description="Type of the Bot Config Auth")
+    suggested_actions: Optional[SuggestedActions] = None
+    "SuggestedActions for the Bot Config Auth"
+
+    type: Literal["auth"] = "auth"
+    "Type of the Bot Config Auth"

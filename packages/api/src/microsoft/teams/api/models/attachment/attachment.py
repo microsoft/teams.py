@@ -1,22 +1,32 @@
 from typing import Any, Optional
 
-from pydantic import AliasGenerator, BaseModel, ConfigDict, Field
-from pydantic.alias_generators import to_camel
+from pydantic import ConfigDict
+
+from ..custom_base_model import CustomBaseModel
 
 
-class Attachment(BaseModel):
+class Attachment(CustomBaseModel):
     """A model representing an attachment."""
 
     model_config = ConfigDict(
-        alias_generator=AliasGenerator(
-            serialization_alias=to_camel,
-        ),
+        **CustomBaseModel.model_config,
         extra="allow",
     )
 
-    id: Optional[str] = Field(None, description="The id of the attachment.")
-    content_type: str = Field(..., description="mimetype/Contenttype for the file")
-    content_url: Optional[str] = Field(None, description="Content Url")
-    content: Optional[Any] = Field(None, description="Embedded content")
-    name: Optional[str] = Field(None, description="The name of the attachment")
-    thumbnail_url: Optional[str] = Field(None, description="Thumbnail associated with attachment")
+    id: Optional[str] = None
+    "The id of the attachment."
+
+    content_type: str
+    "mimetype/Contenttype for the file"
+
+    content_url: Optional[str] = None
+    "Content Url"
+
+    content: Optional[Any] = None
+    "Embedded content"
+
+    name: Optional[str] = None
+    "The name of the attachment"
+
+    thumbnail_url: Optional[str] = None
+    "Thumbnail associated with attachment"

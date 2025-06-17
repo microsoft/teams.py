@@ -1,21 +1,23 @@
-from pydantic import AliasGenerator, BaseModel, ConfigDict, Field
-from pydantic.alias_generators import to_camel
+from pydantic import ConfigDict
+
+from ..custom_base_model import CustomBaseModel
 
 
-class ConversationResource(BaseModel):
+class ConversationResource(CustomBaseModel):
     """
     A response containing a resource
     """
 
     model_config = ConfigDict(
-        alias_generator=AliasGenerator(
-            serialization_alias=to_camel,
-        ),
+        **CustomBaseModel.model_config,
         extra="allow",
     )
 
-    id: str = Field(..., description="Id of the resource")
-    activity_id: str = Field(..., description="ID of the Activity (if sent)")
-    service_url: str = Field(
-        ..., description="Service endpoint where operations concerning the conversation may be performed"
-    )
+    id: str
+    "Id of the resource"
+
+    activity_id: str
+    "ID of the Activity (if sent)"
+
+    service_url: str
+    "Service endpoint where operations concerning the conversation may be performed"

@@ -1,19 +1,22 @@
 from typing import List
 
-from pydantic import BaseModel, Field
+from ..custom_base_model import CustomBaseModel
 
 
 # Placeholder for external type
-class Account(BaseModel):
+class Account(CustomBaseModel):
     """Placeholder for Account model from ../account"""
 
     pass
 
 
-class Conversation(BaseModel):
+class Conversation(CustomBaseModel):
     """
     Conversation and its members
     """
 
-    id: str = Field(..., description="Conversation ID")
-    members: List[Account] = Field(..., description="List of members in this conversation")
+    id: str
+    "Conversation ID"
+
+    members: List[Account]
+    "List of members in this conversation"

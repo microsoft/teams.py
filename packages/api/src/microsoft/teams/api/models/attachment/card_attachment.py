@@ -1,41 +1,39 @@
 from typing import Any, Literal, Union
 
-from pydantic import AliasGenerator, BaseModel, ConfigDict, Field
-from pydantic.alias_generators import to_camel
+from pydantic import ConfigDict
 
 from ..card import AnimationCard, AudioCard, HeroCard, ThumbnailCard, VideoCard
+from ..custom_base_model import CustomBaseModel
 
 
 # Placeholder classes
-class IAdaptiveCard(BaseModel):
+class IAdaptiveCard(CustomBaseModel):
     """Placeholder for @microsoft/teams.cards IAdaptiveCard"""
 
     pass
 
 
-class OAuthCard(BaseModel):
+class OAuthCard(CustomBaseModel):
     """Placeholder for OAuthCard"""
 
     pass
 
 
-class SigninCard(BaseModel):
+class SigninCard(CustomBaseModel):
     """Placeholder for SigninCard"""
 
     pass
 
 
-class CardAttachmentData(BaseModel):
+class CardAttachmentData(CustomBaseModel):
     """Base model for a card attachment"""
 
     model_config = ConfigDict(
-        alias_generator=AliasGenerator(
-            serialization_alias=to_camel,
-        ),
+        **CustomBaseModel.model_config,
         extra="allow",
     )
 
-    content_type: str = Field(...)
+    content_type: str
     content: Any
 
 

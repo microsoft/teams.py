@@ -1,17 +1,22 @@
 from typing import Any, Dict, Literal, Optional
 
-from pydantic import BaseModel, Field
+from ..custom_base_model import CustomBaseModel
 
 
-class AdaptiveCardInvokeAction(BaseModel):
+class AdaptiveCardInvokeAction(CustomBaseModel):
     """
     Defines the structure that arrives in the Activity.Value.Action for Invoke
     activity with Name of 'adaptiveCard/action'.
     """
 
-    type: Literal["Action.Execute", "Action.Submit"] = Field(
-        ..., description="The Type of this Adaptive Card Invoke Action."
-    )
-    id: Optional[str] = Field(None, description="The id of this Adaptive Card Invoke Action.")
-    verb: Optional[str] = Field(None, description="The Verb of this adaptive card action invoke.")
-    data: Dict[str, Any] = Field(..., description="The Data of this adaptive card action invoke.")
+    type: Literal["Action.Execute", "Action.Submit"]
+    "The Type of this Adaptive Card Invoke Action."
+
+    id: Optional[str] = None
+    "The id of this Adaptive Card Invoke Action."
+
+    verb: Optional[str] = None
+    "The verb of this adaptive card action invoke."
+
+    data: Dict[str, Any]
+    "The data of this adaptive card action invoke."
