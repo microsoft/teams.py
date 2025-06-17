@@ -18,7 +18,7 @@ try:
         load_dotenv(env_file)
 except ImportError:
     pass  # python-dotenv not available, use system environment
-from microsoft.teams.api.models import (
+from microsoft.teams.api import (
     Account,
     Activity,
     ClientCredentials,
