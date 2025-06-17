@@ -255,3 +255,21 @@ class TestEventEmitter:
         emitter.emit("test_event", "test_data")
 
         handler.assert_called_once_with("test_data")
+
+    def test_off_during_iteration_safe(self):
+        emitter = EventEmitter()
+        handler1 = Mock()
+        handler2 = Mock()
+
+        # Register handlers for multiple events
+        id1 = emitter.on("event1", handler1)
+        _id2 = emitter.on("event2", handler2)
+
+        # This should not raise "dictionary changed size during iteration"
+        emitter.off(id1)
+
+        # Verify event1 is completely removed, event2 still exists
+        assert emitter.listener_count("event1") == 0
+        assert emitter.listener_count("event2") == 1
+        assert "event1" not in emitter.event_names()
+        assert "event2" in emitter.event_names()

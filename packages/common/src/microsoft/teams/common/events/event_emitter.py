@@ -120,7 +120,7 @@ class EventEmitter(IEventEmitter):
         Args:
             subscription_id: ID returned from on() or once()
         """
-        for event_name, subscriptions in self._subscriptions.items():
+        for event_name, subscriptions in list(self._subscriptions.items()):
             for i, subscription in enumerate(subscriptions):
                 if subscription["id"] == subscription_id:
                     subscriptions.pop(i)
@@ -201,7 +201,7 @@ class EventEmitter(IEventEmitter):
         """
         return list(self._subscriptions.keys())
 
-    def remove_all_listeners(self, event: Union[str, None] = None) -> None:
+    def remove_all_listeners(self, event: Optional[str] = None) -> None:
         """
         Remove all listeners for a specific event or all events.
 
