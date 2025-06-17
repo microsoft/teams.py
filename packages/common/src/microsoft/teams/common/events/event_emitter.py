@@ -20,7 +20,6 @@ class Subscription(TypedDict):
 
     id: int
     handler: EventHandler
-    once: bool
 
 
 class IEventEmitter(Protocol):
@@ -83,7 +82,7 @@ class EventEmitter(IEventEmitter):
         if event not in self._subscriptions:
             self._subscriptions[event] = []
 
-        self._subscriptions[event].append({"id": subscription_id, "handler": handler, "once": False})
+        self._subscriptions[event].append({"id": subscription_id, "handler": handler})
 
         self._logger.debug("Registered handler for event '%s' with id %d", event, subscription_id)
         return subscription_id
@@ -109,7 +108,7 @@ class EventEmitter(IEventEmitter):
         if event not in self._subscriptions:
             self._subscriptions[event] = []
 
-        self._subscriptions[event].append({"id": subscription_id, "handler": once_wrapper, "once": True})
+        self._subscriptions[event].append({"id": subscription_id, "handler": once_wrapper})
 
         self._logger.debug("Registered one-time handler for event '%s' with id %d", event, subscription_id)
         return subscription_id
@@ -171,7 +170,15 @@ class EventEmitter(IEventEmitter):
                     if isinstance(result, Exception):
                         self._logger.error("Async handler %d failed for event '%s': %s", i, event, result)
 
-            asyncio.run(run_async_handlers())
+            try:
+                # Try to get the current event loop
+                loop = asyncio.get_running_loop()
+                # If loop is running, schedule the async handlers as tasks
+                loop.create_task(run_async_handlers())
+                # Note: tasks run in background, emit() doesn't wait for completion
+            except RuntimeError:
+                # No event loop running, create one
+                asyncio.run(run_async_handlers())
 
     def listener_count(self, event: str) -> int:
         """

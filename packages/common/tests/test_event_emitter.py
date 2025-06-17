@@ -3,9 +3,11 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
+import asyncio
 import logging
 from unittest.mock import Mock
 
+import pytest
 from microsoft.teams.common.events import EventEmitter, EventEmitterOptions
 
 
@@ -223,3 +225,33 @@ class TestEventEmitter:
 
         # Verify custom logger was used
         custom_logger.debug.assert_called()
+
+    @pytest.mark.asyncio
+    async def test_emit_from_async_context_with_async_handlers_works(self):
+        emitter = EventEmitter()
+        handler = Mock()
+
+        async def async_handler(data):
+            handler(data)
+
+        emitter.on("test_event", async_handler)
+
+        # This should now work - async handlers will be scheduled as tasks
+        emitter.emit("test_event", "test_data")
+
+        # Give async handlers a moment to complete
+        await asyncio.sleep(0.01)
+
+        handler.assert_called_once_with("test_data")
+
+    @pytest.mark.asyncio
+    async def test_emit_from_async_context_with_sync_handlers_works(self):
+        emitter = EventEmitter()
+        handler = Mock()
+
+        emitter.on("test_event", handler)
+
+        # This should work fine since no async handlers = no asyncio.run() call
+        emitter.emit("test_event", "test_data")
+
+        handler.assert_called_once_with("test_data")
