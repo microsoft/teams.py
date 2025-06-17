@@ -1,3 +1,8 @@
+"""
+Copyright (c) Microsoft Corporation. All rights reserved.
+Licensed under the MIT License.
+"""
+
 from .attachment import Attachment
 from .attachment_layout import AttachmentLayout
 from .card_attachment import (

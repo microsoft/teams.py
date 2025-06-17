@@ -1,3 +1,8 @@
+"""
+Copyright (c) Microsoft Corporation. All rights reserved.
+Licensed under the MIT License.
+"""
+
 from .adaptive_card_action_response import (
     AdaptiveCardActionCardResponse,
     AdaptiveCardActionErrorResponse,
