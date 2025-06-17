@@ -29,8 +29,10 @@ class ChannelData(CustomBaseModel):
     channel: Optional[ChannelInfo] = None
     "Information about the channel in which the message was sent."
 
-    event_type: Optional[Any] = None
+    event_type: Optional[str] = None
     "Type of event."
+
+    # Placeholder to add "App" property
 
     team: Optional[TeamInfo] = None
     "Information about the team in which the message was sent."

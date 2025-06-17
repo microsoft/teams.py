@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Literal, Optional
 
 from pydantic import ConfigDict
 
@@ -21,6 +21,15 @@ class TeamInfo(CustomBaseModel):
 
     name: Optional[str] = None
     "Name of team."
+
+    team_type: Literal["standard", "sharedChannel", "privateChannel"] = None
+    "The type of the team"
+
+    member_count: Optional[int] = None
+    "The number of members in the team."
+
+    channel_count: Optional[int] = None
+    "The number of channels in the team."
 
     aad_group_id: Optional[str] = None
     "The Azure AD Teams group ID."

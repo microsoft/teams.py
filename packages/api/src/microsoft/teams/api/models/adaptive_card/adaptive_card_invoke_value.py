@@ -19,5 +19,6 @@ class AdaptiveCardInvokeValue(CustomBaseModel):
 
     state: Optional[str] = None
     "The 'state' or magic code for an OAuth flow."
+
     trigger: Optional[Literal["manual"]] = None
     "What triggered the action"
