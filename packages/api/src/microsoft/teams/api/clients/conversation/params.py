@@ -5,7 +5,7 @@ Licensed under the MIT License.
 
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict
 from pydantic.alias_generators import to_camel
 
 from ...models import Account, Activity, Conversation
@@ -68,5 +68,11 @@ class GetConversationsResponse(BaseModel):
         extra="allow",
     )
 
-    continuation_token: Optional[str] = Field(None, description="Token for getting the next page of conversations")
-    conversations: List[Conversation] = Field([], description="List of conversations")
+    continuation_token: Optional[str] = None
+    """
+    Token for getting the next page of conversations.
+    """
+    conversations: List[Conversation] = []
+    """
+    List of conversations.
+    """
