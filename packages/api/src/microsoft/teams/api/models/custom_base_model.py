@@ -10,7 +10,7 @@ class CustomBaseModel(BaseModel):
             return f"@{field[3:]}"
         if field == "from_":  # duplicate internal names
             return "from"
-        return field
+        return to_camel(field)
 
     @staticmethod
     def serialization_alias_generator(field: str) -> str:
@@ -23,6 +23,8 @@ class CustomBaseModel(BaseModel):
 
     model_config = ConfigDict(
         populate_by_name=True,
+        serialize_by_alias=True,
+        validate_by_alias=True,
         alias_generator=AliasGenerator(
             validation_alias=validation_alias_generator, serialization_alias=serialization_alias_generator
         ),

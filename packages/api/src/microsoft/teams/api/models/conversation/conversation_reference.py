@@ -18,7 +18,7 @@ class ConversationAccount(CustomBaseModel):
     pass
 
 
-class ChannelID(str):
+class ChannelID(CustomBaseModel):
     """Placeholder for ChannelID type from ../channel-id"""
 
     pass
