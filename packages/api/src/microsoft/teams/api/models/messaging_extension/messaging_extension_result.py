@@ -1,0 +1,38 @@
+from typing import List, Optional
+
+from ..attachment.attachment_layout import AttachmentLayout
+from ..custom_base_model import CustomBaseModel
+from .messaging_extension_attachment import MessagingExtensionAttachment
+from .messaging_extension_result_type import MessagingExtensionResultType
+from .messaging_extension_suggested_action import MessagingExtensionSuggestedAction
+
+
+# Placeholder for external types
+class Activity(CustomBaseModel):
+    """Placeholder for Activity model from ../../activities"""
+
+    pass
+
+
+class MessagingExtensionResult(CustomBaseModel):
+    """
+    Messaging extension result
+    """
+
+    attachment_layout: Optional[AttachmentLayout] = None
+    "Hint for how to deal with multiple attachments."
+
+    type: Optional[MessagingExtensionResultType] = None
+    "The type of the result."
+
+    attachments: Optional[List[MessagingExtensionAttachment]] = None
+    "(Only when type is result) Attachments"
+
+    suggested_actions: Optional[MessagingExtensionSuggestedAction] = None
+    "Suggested actions for the extension"
+
+    text: Optional[str] = None
+    "(Only when type is message) Text"
+
+    activity_preview: Optional[Activity] = None
+    "(Only when type is botMessagePreview) Message activity to preview"

@@ -2,8 +2,10 @@ from typing import Literal, Optional
 
 from pydantic import BaseModel, Field
 
-from .adaptive_card_invoke_action import AdaptiveCardInvokeAction
 from .adaptive_card_authentication import AdaptiveCardAuthentication
+from .adaptive_card_invoke_action import AdaptiveCardInvokeAction
+
+
 class AdaptiveCardInvokeValue(BaseModel):
     """
     Defines the structure that arrives in the Activity.Value for Invoke activity with
