@@ -7,6 +7,7 @@ requires-python = ">=3.12"
 dependencies = [
     "microsoft-teams-common",
     "microsoft-teams-cards",
+    "microsoft-teams-api",
     "pytest-asyncio>=1.0.0",
 ]
 
