@@ -3,6 +3,7 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
+from enum import Enum
 from typing import Any, Literal, Union
 
 from pydantic import ConfigDict
@@ -82,18 +83,27 @@ class VideoCardAttachment(CardAttachmentData):
     content: VideoCard
 
 
-CardAttachmentTypes = {
-    "adaptive": AdaptiveCardAttachment,
-    "animation": AnimationCardAttachment,
-    "audio": AudioCardAttachment,
-    "hero": HeroCardAttachment,
-    "oauth": OAuthCardAttachment,
-    "signin": SigninCardAttachment,
-    "thumbnail": ThumbnailCardAttachment,
-    "video": VideoCardAttachment,
-}
+class CardAttachmentTypes(str, Enum):
+    ADAPTIVE = AdaptiveCardAttachment
+    ANIMATION = AnimationCardAttachment
+    AUDIO = AudioCardAttachment
+    HERO = HeroCardAttachment
+    OAUTH = OAuthCardAttachment
+    SIGN_IN = SigninCardAttachment
+    THUMBNAIL = ThumbnailCardAttachment
+    VIDEO = VideoCardAttachment
 
-CardAttachmentType = Literal["adaptive", "animation", "audio", "hero", "oauth", "signin", "thumbnail", "video"]
+
+class CardAttachmentType(str, Enum):
+    ADAPTIVE = "adaptive"
+    ANIMATION = "animation"
+    AUDIO = "audio"
+    HERO = "hero"
+    OAUTH = "oauth"
+    SIGN_IN = "signin"
+    THUMBNAIL = "thumbnail"
+    VIDEO = "video"
+
 
 CardAttachment = Union[
     AdaptiveCardAttachment,
@@ -107,7 +117,7 @@ CardAttachment = Union[
 ]
 
 
-def card_attachment(type: CardAttachmentType, content: Any) -> CardAttachment:
+def card_attachment(type: CardAttachmentTypes, content: Any) -> CardAttachment:
     """
     Create a card attachment of the specified type
 
@@ -118,8 +128,9 @@ def card_attachment(type: CardAttachmentType, content: Any) -> CardAttachment:
     Returns:
         A card attachment of the specified type with the given content
     """
-    attachment_class = CardAttachmentTypes[type]
+    attachment_class = type.value
+    attachment_type = CardAttachmentType(type.name)
     attachment: CardAttachment = attachment_class(
-        content_type=f"application/vnd.microsoft.card.{type}", content=content
+        content_type=f"application/vnd.microsoft.card.{attachment_type.value}", content=content
     )
     return attachment

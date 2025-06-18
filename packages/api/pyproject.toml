@@ -12,7 +12,11 @@ authors = [
 requires-python = ">=3.12"
 dependencies = [
     "pydantic>=2.0.0",
+    "microsoft-teams-common",
 ]
+
+[tool.uv.sources]
+"microsoft-teams-common" = { workspace = true }
 
 [project.urls]
 Homepage = "https://github.com/microsoft/teams.py/tree/main/packages/api/src/microsoft/teams/api"
