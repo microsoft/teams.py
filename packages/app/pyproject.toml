@@ -1,0 +1,21 @@
+[project]
+name = "microsoft-teams-app"
+version = "0.1.0"
+description = "The app package for a Microsoft Teams agent"
+authors = [{ name = "Microsoft", email = "teams@microsoft.com" }]
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = []
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+repository = "https://github.com/microsoft/teams.py"
+
+keywords = ["microsoft", "teams", "ai", "bot", "agents"]
+
+license = "MIT"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/microsoft"]
