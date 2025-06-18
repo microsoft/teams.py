@@ -5,17 +5,16 @@ Licensed under the MIT License.
 
 from typing import Awaitable, Callable, Optional, Union
 
-from pydantic import AliasGenerator, BaseModel, ConfigDict
-from pydantic.alias_generators import to_camel
+from pydantic import ConfigDict
+
+from ...models import CustomBaseModel
 
 
-class ClientCredentials(BaseModel):
+class ClientCredentials(CustomBaseModel):
     """Credentials for authentication of an app via clientId and clientSecret."""
 
     model_config = ConfigDict(
-        alias_generator=AliasGenerator(
-            serialization_alias=to_camel,
-        ),
+        **CustomBaseModel.model_config,
         extra="allow",
     )
 
@@ -33,13 +32,11 @@ class ClientCredentials(BaseModel):
     """
 
 
-class TokenCredentials(BaseModel):
+class TokenCredentials(CustomBaseModel):
     """Credentials for authentication of an app via any external auth method."""
 
     model_config = ConfigDict(
-        alias_generator=AliasGenerator(
-            serialization_alias=to_camel,
-        ),
+        **CustomBaseModel.model_config,
         extra="allow",
     )
 

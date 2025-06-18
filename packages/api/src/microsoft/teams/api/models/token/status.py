@@ -3,15 +3,16 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from pydantic import BaseModel, ConfigDict
-from pydantic.alias_generators import to_camel
+from pydantic import ConfigDict
+
+from ..custom_base_model import CustomBaseModel
 
 
-class TokenStatus(BaseModel):
+class TokenStatus(CustomBaseModel):
     """The status of a particular token."""
 
     model_config = ConfigDict(
-        alias_generator=to_camel,
+        **CustomBaseModel.model_config,
         extra="allow",
     )
 

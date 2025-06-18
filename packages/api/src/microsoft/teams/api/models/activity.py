@@ -5,16 +5,17 @@ Licensed under the MIT License.
 
 from typing import Any, Dict, Optional
 
-from pydantic import BaseModel, ConfigDict
-from pydantic.alias_generators import to_camel
+from pydantic import ConfigDict
+
+from ..models import CustomBaseModel
 
 
 # TODO: This is a barebones model for now.
-class Activity(BaseModel):
+class Activity(CustomBaseModel):
     """Represents a Teams activity."""
 
     model_config = ConfigDict(
-        alias_generator=to_camel,
+        **CustomBaseModel.model_config,
         extra="allow",
     )
 

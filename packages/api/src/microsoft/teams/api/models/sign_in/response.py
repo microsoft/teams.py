@@ -5,18 +5,18 @@ Licensed under the MIT License.
 
 from typing import Optional
 
-from pydantic import BaseModel, ConfigDict
-from pydantic.alias_generators import to_camel
+from pydantic import ConfigDict
 
+from ..custom_base_model import CustomBaseModel
 from ..token import TokenPostResource
 from ..token_exchange.resource import TokenExchangeResource
 
 
-class SignInUrlResponse(BaseModel):
+class SignInUrlResponse(CustomBaseModel):
     """Response model for sign-in URL requests."""
 
     model_config = ConfigDict(
-        alias_generator=to_camel,
+        **CustomBaseModel.model_config,
         extra="allow",
     )
 

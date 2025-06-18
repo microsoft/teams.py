@@ -5,17 +5,16 @@ Licensed under the MIT License.
 
 from typing import Optional
 
-from pydantic import AliasGenerator, BaseModel, ConfigDict
-from pydantic.alias_generators import to_camel
+from pydantic import ConfigDict
+
+from ..custom_base_model import CustomBaseModel
 
 
-class TokenExchangeResource(BaseModel):
+class TokenExchangeResource(CustomBaseModel):
     """Model representing a token exchange resource."""
 
     model_config = ConfigDict(
-        alias_generator=AliasGenerator(
-            serialization_alias=to_camel,
-        ),
+        **CustomBaseModel.model_config,
         extra="allow",
     )
 

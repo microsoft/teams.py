@@ -7,20 +7,17 @@ import inspect
 from typing import Literal, Optional, Union
 
 from microsoft.teams.common.http import Client, ClientOptions
-from pydantic import AliasGenerator, BaseModel, ConfigDict
-from pydantic.alias_generators import to_camel
+from pydantic import ConfigDict
 
-from ...models import Credentials, TokenCredentials
+from ...models import Credentials, CustomBaseModel, TokenCredentials
 from ..base_client import BaseClient
 
 
-class GetBotTokenResponse(BaseModel):
+class GetBotTokenResponse(CustomBaseModel):
     """Response model for bot token requests."""
 
     model_config = ConfigDict(
-        alias_generator=AliasGenerator(
-            serialization_alias=to_camel,
-        ),
+        **CustomBaseModel.model_config,
         extra="allow",
     )
 

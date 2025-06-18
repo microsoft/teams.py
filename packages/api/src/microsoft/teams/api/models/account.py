@@ -5,19 +5,20 @@ Licensed under the MIT License.
 
 from typing import Any, Dict, Literal, Optional
 
-from pydantic import BaseModel, ConfigDict
-from pydantic.alias_generators import to_camel
+from pydantic import ConfigDict
+
+from ..models import CustomBaseModel
 
 AccountRole = Literal["user", "bot"]
 
 
-class Account(BaseModel):
+class Account(CustomBaseModel):
     """
     Represents a Teams account/user.
     """
 
     model_config = ConfigDict(
-        alias_generator=to_camel,
+        **CustomBaseModel.model_config,
         extra="allow",
     )
 

@@ -5,15 +5,16 @@ Licensed under the MIT License.
 
 from typing import Optional
 
-from pydantic import BaseModel, ConfigDict
-from pydantic.alias_generators import to_camel
+from pydantic import ConfigDict
+
+from ...models.custom_base_model import CustomBaseModel
 
 
-class GetBotSignInUrlParams(BaseModel):
+class GetBotSignInUrlParams(CustomBaseModel):
     """Parameters for getting a bot sign-in URL."""
 
     model_config = ConfigDict(
-        alias_generator=to_camel,
+        **CustomBaseModel.model_config,
         extra="allow",
     )
 
@@ -35,11 +36,11 @@ class GetBotSignInUrlParams(BaseModel):
     """
 
 
-class GetBotSignInResourceParams(BaseModel):
+class GetBotSignInResourceParams(CustomBaseModel):
     """Parameters for getting a bot sign-in resource."""
 
     model_config = ConfigDict(
-        alias_generator=to_camel,
+        **CustomBaseModel.model_config,
         extra="allow",
     )
 

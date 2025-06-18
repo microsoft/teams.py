@@ -5,19 +5,16 @@ Licensed under the MIT License.
 
 from typing import List, Optional
 
-from pydantic import AliasGenerator, BaseModel, ConfigDict
-from pydantic.alias_generators import to_camel
+from pydantic import ConfigDict
 
-from ...models import ChannelID, TokenExchangeRequest
+from ...models import ChannelID, CustomBaseModel, TokenExchangeRequest
 
 
-class GetUserTokenParams(BaseModel):
+class GetUserTokenParams(CustomBaseModel):
     """Parameters for getting a user token."""
 
     model_config = ConfigDict(
-        alias_generator=AliasGenerator(
-            serialization_alias=to_camel,
-        ),
+        **CustomBaseModel.model_config,
         extra="allow",
     )
 
@@ -39,13 +36,11 @@ class GetUserTokenParams(BaseModel):
     """
 
 
-class GetUserAADTokenParams(BaseModel):
+class GetUserAADTokenParams(CustomBaseModel):
     """Parameters for getting AAD tokens for a user."""
 
     model_config = ConfigDict(
-        alias_generator=AliasGenerator(
-            serialization_alias=to_camel,
-        ),
+        **CustomBaseModel.model_config,
         extra="allow",
     )
 
@@ -67,13 +62,11 @@ class GetUserAADTokenParams(BaseModel):
     """
 
 
-class GetUserTokenStatusParams(BaseModel):
+class GetUserTokenStatusParams(CustomBaseModel):
     """Parameters for getting token status for a user."""
 
     model_config = ConfigDict(
-        alias_generator=AliasGenerator(
-            serialization_alias=to_camel,
-        ),
+        **CustomBaseModel.model_config,
         extra="allow",
     )
 
@@ -91,13 +84,11 @@ class GetUserTokenStatusParams(BaseModel):
     """
 
 
-class SignOutUserParams(BaseModel):
+class SignOutUserParams(CustomBaseModel):
     """Parameters for signing out a user."""
 
     model_config = ConfigDict(
-        alias_generator=AliasGenerator(
-            serialization_alias=to_camel,
-        ),
+        **CustomBaseModel.model_config,
         extra="allow",
     )
 
@@ -115,13 +106,11 @@ class SignOutUserParams(BaseModel):
     """
 
 
-class ExchangeUserTokenParams(BaseModel):
+class ExchangeUserTokenParams(CustomBaseModel):
     """Parameters for exchanging a user token."""
 
     model_config = ConfigDict(
-        alias_generator=AliasGenerator(
-            serialization_alias=to_camel,
-        ),
+        **CustomBaseModel.model_config,
         extra="allow",
     )
 
