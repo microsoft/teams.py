@@ -9,6 +9,7 @@ from typing import Literal, Optional, Union
 from microsoft.teams.common.http import Client, ClientOptions
 
 from ...auth import Credentials, TokenCredentials
+from ...models import CustomBaseModel
 from ..base_client import BaseClient
 
 

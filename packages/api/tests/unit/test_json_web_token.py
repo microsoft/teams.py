@@ -4,7 +4,7 @@ Licensed under the MIT License.
 """
 
 import jwt
-from microsoft.teams.api.auth import CALLER_IDS, JsonWebToken
+from microsoft.teams.api.auth import CallerIds, JsonWebToken
 
 
 def build_token(token_payload: str):
@@ -39,7 +39,7 @@ class TestJsonWebToken:
         assert token.tenant_id == "789"
         assert token.version is None
         assert token.from_ == "bot"
-        assert token.from_id == f"{CALLER_IDS['bot']}:test"
+        assert token.from_id == f"{CallerIds.BOT}:test"
         assert token.service_url == "https://smba.test.com"
         assert str(token) == str_token
 
@@ -55,7 +55,7 @@ class TestJsonWebToken:
         assert token is not None
         assert token.app_id == ""
         assert token.from_ == "azure"
-        assert token.from_id == CALLER_IDS["azure"]
+        assert token.from_id == CallerIds.AZURE
         assert token.service_url == "https://smba.test.com"
 
     def test_should_have_default_service_url(self):
@@ -68,7 +68,7 @@ class TestJsonWebToken:
         assert token is not None
         assert token.app_id == ""
         assert token.from_ == "azure"
-        assert token.from_id == CALLER_IDS["azure"]
+        assert token.from_id == CallerIds.AZURE
         assert token.service_url == "https://smba.trafficmanager.net/teams"
 
     def test_expiration_handling(self):

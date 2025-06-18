@@ -9,7 +9,7 @@ from typing import Optional, Union
 import jwt
 from pydantic import BaseModel, ConfigDict
 
-from .caller import CALLER_IDS, CallerType
+from .caller import CallerIds, CallerType
 from .token import IToken
 
 
@@ -100,8 +100,8 @@ class JsonWebToken(IToken):
     def from_id(self) -> str:
         """The id of the activity sender."""
         if self.from_ == "bot":
-            return f"{CALLER_IDS['bot']}:{self.app_id}"
-        return CALLER_IDS["azure"]
+            return f"{CallerIds.BOT}:{self.app_id}"
+        return CallerIds.AZURE
 
     @property
     def expiration(self) -> Optional[int]:
