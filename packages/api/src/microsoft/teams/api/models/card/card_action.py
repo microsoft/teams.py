@@ -5,8 +5,6 @@ Licensed under the MIT License.
 
 from typing import Any, Optional
 
-from pydantic import ConfigDict
-
 from ..custom_base_model import CustomBaseModel
 from .card_action_type import CardActionType
 
@@ -15,11 +13,6 @@ class CardAction(CustomBaseModel):
     """
     Represents a card action with button properties.
     """
-
-    model_config = ConfigDict(
-        **CustomBaseModel.model_config,
-        extra="allow",
-    )
 
     type: CardActionType
     "The type of action implemented by this button"

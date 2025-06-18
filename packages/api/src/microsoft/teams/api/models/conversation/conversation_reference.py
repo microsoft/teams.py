@@ -5,8 +5,6 @@ Licensed under the MIT License.
 
 from typing import Optional
 
-from pydantic import ConfigDict
-
 from ..custom_base_model import CustomBaseModel
 
 
@@ -33,11 +31,6 @@ class ConversationReference(CustomBaseModel):
     """
     An object relating to a particular point in a conversation
     """
-
-    model_config = ConfigDict(
-        **CustomBaseModel.model_config,
-        extra="allow",
-    )
 
     activity_id: Optional[str] = None
     "(Optional) ID of the activity to refer to"

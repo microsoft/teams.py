@@ -5,8 +5,6 @@ Licensed under the MIT License.
 
 from typing import Optional
 
-from pydantic import ConfigDict
-
 from ..custom_base_model import CustomBaseModel
 
 
@@ -14,11 +12,6 @@ class NotificationInfo(CustomBaseModel):
     """
     Specifies if a notification is to be sent for the mentions.
     """
-
-    model_config = ConfigDict(
-        **CustomBaseModel.model_config,
-        extra="allow",
-    )
 
     alert: Optional[bool] = None
     "true if notification is to be sent to the user, false otherwise."

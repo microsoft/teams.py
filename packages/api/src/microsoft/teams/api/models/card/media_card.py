@@ -5,8 +5,6 @@ Licensed under the MIT License.
 
 from typing import Any, List, Optional
 
-from pydantic import ConfigDict
-
 from ..custom_base_model import CustomBaseModel
 from .card_action import CardAction
 from .media_url import MediaUrl
@@ -17,11 +15,6 @@ class MediaCard(CustomBaseModel):
     """
     Media card
     """
-
-    model_config = ConfigDict(
-        **CustomBaseModel.model_config,
-        extra="allow",
-    )
 
     title: Optional[str] = None
     "Title of this card"

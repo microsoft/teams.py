@@ -5,8 +5,6 @@ Licensed under the MIT License.
 
 from typing import Literal, Optional
 
-from pydantic import ConfigDict
-
 from ..custom_base_model import CustomBaseModel
 
 
@@ -21,11 +19,6 @@ class ConfigAuth(CustomBaseModel):
     """
     The bot's authentication config for SuggestedActions
     """
-
-    model_config = ConfigDict(
-        **CustomBaseModel.model_config,
-        extra="allow",
-    )
 
     suggested_actions: Optional[SuggestedActions] = None
     "SuggestedActions for the Bot Config Auth"

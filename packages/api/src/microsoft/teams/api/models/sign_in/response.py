@@ -5,8 +5,6 @@ Licensed under the MIT License.
 
 from typing import Optional
 
-from pydantic import ConfigDict
-
 from ..custom_base_model import CustomBaseModel
 from ..token import TokenPostResource
 from ..token_exchange.resource import TokenExchangeResource
@@ -14,11 +12,6 @@ from ..token_exchange.resource import TokenExchangeResource
 
 class SignInUrlResponse(CustomBaseModel):
     """Response model for sign-in URL requests."""
-
-    model_config = ConfigDict(
-        **CustomBaseModel.model_config,
-        extra="allow",
-    )
 
     sign_in_link: Optional[str] = None
     """

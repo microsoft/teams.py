@@ -5,18 +5,11 @@ Licensed under the MIT License.
 
 from typing import Awaitable, Callable, Optional, Union
 
-from pydantic import ConfigDict
-
 from ...models import CustomBaseModel
 
 
 class ClientCredentials(CustomBaseModel):
     """Credentials for authentication of an app via clientId and clientSecret."""
-
-    model_config = ConfigDict(
-        **CustomBaseModel.model_config,
-        extra="allow",
-    )
 
     client_id: str
     """
@@ -34,11 +27,6 @@ class ClientCredentials(CustomBaseModel):
 
 class TokenCredentials(CustomBaseModel):
     """Credentials for authentication of an app via any external auth method."""
-
-    model_config = ConfigDict(
-        **CustomBaseModel.model_config,
-        extra="allow",
-    )
 
     client_id: str
     """

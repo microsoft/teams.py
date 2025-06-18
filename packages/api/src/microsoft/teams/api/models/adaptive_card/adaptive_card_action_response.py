@@ -5,8 +5,6 @@ Licensed under the MIT License.
 
 from typing import Literal, Union
 
-from pydantic import ConfigDict
-
 from ..custom_base_model import CustomBaseModel
 
 
@@ -35,11 +33,6 @@ class AdaptiveCardActionCardResponse(CustomBaseModel):
     an Adaptive Card that the client should display in place of the current one
     """
 
-    model_config = ConfigDict(
-        **CustomBaseModel.model_config,
-        extra="allow",
-    )
-
     status_code: Literal[200] = 200
     type: Literal["application/vnd.microsoft.card.adaptive"] = "application/vnd.microsoft.card.adaptive"
     value: IAdaptiveCard
@@ -50,11 +43,6 @@ class AdaptiveCardActionMessageResponse(CustomBaseModel):
     The request was successfully processed, and the response includes a message
     that the client should display
     """
-
-    model_config = ConfigDict(
-        **CustomBaseModel.model_config,
-        extra="allow",
-    )
 
     status_code: Literal[200] = 200
     type: Literal["application/vnd.microsoft.activity.message"] = "application/vnd.microsoft.activity.message"
@@ -67,11 +55,6 @@ class AdaptiveCardActionErrorResponse(CustomBaseModel):
     `500`: An unexpected error occurred
     """
 
-    model_config = ConfigDict(
-        **CustomBaseModel.model_config,
-        extra="allow",
-    )
-
     status_code: Literal[400, 500]
     type: Literal["application/vnd.microsoft.error"] = "application/vnd.microsoft.error"
     value: HttpError
@@ -79,11 +62,6 @@ class AdaptiveCardActionErrorResponse(CustomBaseModel):
 
 class AdaptiveCardActionLoginResponse(CustomBaseModel):
     """The client needs to prompt the user to authenticate"""
-
-    model_config = ConfigDict(
-        **CustomBaseModel.model_config,
-        extra="allow",
-    )
 
     status_code: Literal[401] = 401
     type: Literal["application/vnd.microsoft.activity.loginRequest"] = "application/vnd.microsoft.activity.loginRequest"
@@ -96,11 +74,6 @@ class AdaptiveCardActionIncorrectAuthCodeResponse(CustomBaseModel):
     authentication failed
     """
 
-    model_config = ConfigDict(
-        **CustomBaseModel.model_config,
-        extra="allow",
-    )
-
     status_code: Literal[401] = 401
     type: Literal["application/vnd.microsoft.error.incorrectAuthCode"] = (
         "application/vnd.microsoft.error.incorrectAuthCode"
@@ -110,11 +83,6 @@ class AdaptiveCardActionIncorrectAuthCodeResponse(CustomBaseModel):
 
 class AdaptiveCardActionPreconditionFailedResponse(CustomBaseModel):
     """The SSO authentication flow failed"""
-
-    model_config = ConfigDict(
-        **CustomBaseModel.model_config,
-        extra="allow",
-    )
 
     status_code: Literal[412] = 412
     type: Literal["application/vnd.microsoft.error.preconditionFailed"] = (

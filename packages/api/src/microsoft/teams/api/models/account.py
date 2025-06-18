@@ -5,8 +5,6 @@ Licensed under the MIT License.
 
 from typing import Any, Dict, Literal, Optional
 
-from pydantic import ConfigDict
-
 from ..models import CustomBaseModel
 
 AccountRole = Literal["user", "bot"]
@@ -16,11 +14,6 @@ class Account(CustomBaseModel):
     """
     Represents a Teams account/user.
     """
-
-    model_config = ConfigDict(
-        **CustomBaseModel.model_config,
-        extra="allow",
-    )
 
     id: str
     """

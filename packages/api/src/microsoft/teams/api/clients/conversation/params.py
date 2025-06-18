@@ -5,29 +5,17 @@ Licensed under the MIT License.
 
 from typing import Any, Dict, List, Optional
 
-from pydantic import ConfigDict
-
 from ...models import Account, Activity, Conversation, CustomBaseModel
 
 
 class GetConversationsParams(CustomBaseModel):
     """Parameters for getting conversations."""
 
-    model_config = ConfigDict(
-        **CustomBaseModel.model_config,
-        extra="allow",
-    )
-
     continuation_token: Optional[str] = None
 
 
 class CreateConversationParams(CustomBaseModel):
     """Parameters for creating a conversation."""
-
-    model_config = ConfigDict(
-        **CustomBaseModel.model_config,
-        extra="allow",
-    )
 
     is_group: bool = False
     """
@@ -61,11 +49,6 @@ class CreateConversationParams(CustomBaseModel):
 
 class GetConversationsResponse(CustomBaseModel):
     """Response from getting conversations."""
-
-    model_config = ConfigDict(
-        **CustomBaseModel.model_config,
-        extra="allow",
-    )
 
     continuation_token: Optional[str] = None
     """

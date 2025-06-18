@@ -5,8 +5,6 @@ Licensed under the MIT License.
 
 from typing import Literal, Optional
 
-from pydantic import ConfigDict
-
 from ..custom_base_model import CustomBaseModel
 from .channel_info import ChannelInfo
 from .notification_info import NotificationInfo
@@ -25,11 +23,6 @@ class ChannelData(CustomBaseModel):
     """
     Channel data specific to messages received in Microsoft Teams
     """
-
-    model_config = ConfigDict(
-        **CustomBaseModel.model_config,
-        extra="allow",
-    )
 
     channel: Optional[ChannelInfo] = None
     "Information about the channel in which the message was sent."

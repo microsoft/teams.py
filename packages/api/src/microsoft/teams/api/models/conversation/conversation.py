@@ -5,8 +5,6 @@ Licensed under the MIT License.
 
 from typing import List, Literal, Optional
 
-from pydantic import ConfigDict
-
 from ..account import Account
 from ..custom_base_model import CustomBaseModel
 
@@ -15,11 +13,6 @@ ConversationType = Literal["personal", "groupChat"]
 
 class Conversation(CustomBaseModel):
     """Represents a Teams conversation."""
-
-    model_config = ConfigDict(
-        **CustomBaseModel.model_config,
-        extra="allow",
-    )
 
     id: str
     """

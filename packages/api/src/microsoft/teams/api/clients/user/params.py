@@ -5,18 +5,11 @@ Licensed under the MIT License.
 
 from typing import List, Optional
 
-from pydantic import ConfigDict
-
 from ...models import ChannelID, CustomBaseModel, TokenExchangeRequest
 
 
 class GetUserTokenParams(CustomBaseModel):
     """Parameters for getting a user token."""
-
-    model_config = ConfigDict(
-        **CustomBaseModel.model_config,
-        extra="allow",
-    )
 
     user_id: str
     """
@@ -39,11 +32,6 @@ class GetUserTokenParams(CustomBaseModel):
 class GetUserAADTokenParams(CustomBaseModel):
     """Parameters for getting AAD tokens for a user."""
 
-    model_config = ConfigDict(
-        **CustomBaseModel.model_config,
-        extra="allow",
-    )
-
     user_id: str
     """
     The user ID.
@@ -65,11 +53,6 @@ class GetUserAADTokenParams(CustomBaseModel):
 class GetUserTokenStatusParams(CustomBaseModel):
     """Parameters for getting token status for a user."""
 
-    model_config = ConfigDict(
-        **CustomBaseModel.model_config,
-        extra="allow",
-    )
-
     user_id: str
     """
     The user ID.
@@ -87,11 +70,6 @@ class GetUserTokenStatusParams(CustomBaseModel):
 class SignOutUserParams(CustomBaseModel):
     """Parameters for signing out a user."""
 
-    model_config = ConfigDict(
-        **CustomBaseModel.model_config,
-        extra="allow",
-    )
-
     user_id: str
     """
     The user ID.
@@ -108,11 +86,6 @@ class SignOutUserParams(CustomBaseModel):
 
 class ExchangeUserTokenParams(CustomBaseModel):
     """Parameters for exchanging a user token."""
-
-    model_config = ConfigDict(
-        **CustomBaseModel.model_config,
-        extra="allow",
-    )
 
     user_id: str
     """
