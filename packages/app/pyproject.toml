@@ -6,16 +6,13 @@ authors = [{ name = "Microsoft", email = "teams@microsoft.com" }]
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = []
+repository = "https://github.com/microsoft/teams.py"
+keywords = ["microsoft", "teams", "ai", "bot", "agents"]
+license = "MIT"
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
-
-repository = "https://github.com/microsoft/teams.py"
-
-keywords = ["microsoft", "teams", "ai", "bot", "agents"]
-
-license = "MIT"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/microsoft"]
