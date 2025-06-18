@@ -5,7 +5,7 @@ Licensed under the MIT License.
 
 from typing import Any, Dict, Optional
 
-from ..models import CustomBaseModel
+from .custom_base_model import CustomBaseModel
 
 
 # TODO: This is a barebones model for now.
