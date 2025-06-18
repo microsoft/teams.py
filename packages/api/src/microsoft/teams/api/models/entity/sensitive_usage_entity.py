@@ -5,19 +5,12 @@ Licensed under the MIT License.
 
 from typing import Literal, Optional
 
-from pydantic import ConfigDict
-
 from ..custom_base_model import CustomBaseModel
 from .message_entity import MessageEntity
 
 
 class SensitiveUsagePattern(CustomBaseModel):
     """Pattern information for sensitive usage"""
-
-    model_config = ConfigDict(
-        **CustomBaseModel.model_config,
-        extra="allow",
-    )
 
     at_type: Literal["DefinedTerm"] = "DefinedTerm"
 
@@ -28,11 +21,6 @@ class SensitiveUsagePattern(CustomBaseModel):
 
 class SensitiveUsage(CustomBaseModel):
     """Sensitive usage information"""
-
-    model_config = ConfigDict(
-        **CustomBaseModel.model_config,
-        extra="allow",
-    )
 
     type: Literal["https://schema.org/Message"] = "https://schema.org/Message"
 
@@ -52,11 +40,6 @@ class SensitiveUsageEntity(MessageEntity):
     """
     Sensitive usage entity extending MessageEntity
     """
-
-    model_config = ConfigDict(
-        **CustomBaseModel.model_config,
-        extra="allow",
-    )
 
     usage_info: Optional[SensitiveUsage] = None
     "As part of the usage field"

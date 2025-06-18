@@ -5,8 +5,6 @@ Licensed under the MIT License.
 
 from typing import List, Literal, Optional
 
-from pydantic import ConfigDict
-
 from ..custom_base_model import CustomBaseModel
 
 
@@ -14,11 +12,6 @@ class MessageEntity(CustomBaseModel):
     """
     Base message entity following schema.org Message schema
     """
-
-    model_config = ConfigDict(
-        **CustomBaseModel.model_config,
-        extra="allow",
-    )
 
     type: Literal["https://schema.org/Message"] = "https://schema.org/Message"
 

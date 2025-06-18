@@ -5,18 +5,11 @@ Licensed under the MIT License.
 
 from typing import Literal
 
-from pydantic import ConfigDict
-
 from ..custom_base_model import CustomBaseModel
 
 
 class ClientInfoEntity(CustomBaseModel):
     """Client information entity"""
-
-    model_config = ConfigDict(
-        **CustomBaseModel.model_config,
-        extra="allow",
-    )
 
     type: Literal["clientInfo"] = "clientInfo"
     "Type identifier for client info"

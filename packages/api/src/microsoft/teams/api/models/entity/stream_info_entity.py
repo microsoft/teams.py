@@ -5,18 +5,11 @@ Licensed under the MIT License.
 
 from typing import Literal, Optional
 
-from pydantic import ConfigDict
-
 from ..custom_base_model import CustomBaseModel
 
 
 class StreamInfoEntity(CustomBaseModel):
     """Entity containing streaming information"""
-
-    model_config = ConfigDict(
-        **CustomBaseModel.model_config,
-        extra="allow",
-    )
 
     type: Literal["streaminfo"]
     "Type identifier for stream info"

@@ -5,8 +5,6 @@ Licensed under the MIT License.
 
 from typing import Literal, Optional
 
-from pydantic import ConfigDict
-
 from ..custom_base_model import CustomBaseModel
 
 
@@ -19,11 +17,6 @@ class Account(CustomBaseModel):
 
 class MentionEntity(CustomBaseModel):
     """Entity representing a mention of a user"""
-
-    model_config = ConfigDict(
-        **CustomBaseModel.model_config,
-        extra="allow",
-    )
 
     type: Literal["mention"] = "mention"
     "Type identifier for mention"
