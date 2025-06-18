@@ -6,17 +6,12 @@ Licensed under the MIT License.
 from typing import Any, Dict, Optional
 
 from microsoft.teams.api.models.channel_id import ChannelID
-from pydantic import BaseModel, ConfigDict
-from pydantic.alias_generators import to_camel
+
+from ..custom_base_model import CustomBaseModel
 
 
-class TokenResponse(BaseModel):
+class TokenResponse(CustomBaseModel):
     """A response that includes a user token."""
-
-    model_config = ConfigDict(
-        alias_generator=to_camel,
-        extra="allow",
-    )
 
     channel_id: Optional[ChannelID] = None
     """

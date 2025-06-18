@@ -5,21 +5,14 @@ Licensed under the MIT License.
 
 from typing import List, Literal, Optional
 
-from pydantic import BaseModel, ConfigDict
-from pydantic.alias_generators import to_camel
-
 from ..account import Account
+from ..custom_base_model import CustomBaseModel
 
 ConversationType = Literal["personal", "groupChat"]
 
 
-class Conversation(BaseModel):
+class Conversation(CustomBaseModel):
     """Represents a Teams conversation."""
-
-    model_config = ConfigDict(
-        alias_generator=to_camel,
-        extra="allow",
-    )
 
     id: str
     """

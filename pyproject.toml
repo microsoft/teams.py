@@ -9,6 +9,7 @@ dependencies = [
     "microsoft-teams-cards",
     "microsoft-teams-api",
     "pytest-asyncio>=1.0.0",
+    "microsoft-teams-api",
 ]
 
 [tool.uv.sources]

@@ -5,30 +5,17 @@ Licensed under the MIT License.
 
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, ConfigDict
-from pydantic.alias_generators import to_camel
-
-from ...models import Account, Activity, Conversation
+from ...models import Account, Activity, Conversation, CustomBaseModel
 
 
-class GetConversationsParams(BaseModel):
+class GetConversationsParams(CustomBaseModel):
     """Parameters for getting conversations."""
-
-    model_config = ConfigDict(
-        alias_generator=to_camel,
-        extra="allow",
-    )
 
     continuation_token: Optional[str] = None
 
 
-class CreateConversationParams(BaseModel):
+class CreateConversationParams(CustomBaseModel):
     """Parameters for creating a conversation."""
-
-    model_config = ConfigDict(
-        alias_generator=to_camel,
-        extra="allow",
-    )
 
     is_group: bool = False
     """
@@ -60,13 +47,8 @@ class CreateConversationParams(BaseModel):
     """
 
 
-class GetConversationsResponse(BaseModel):
+class GetConversationsResponse(CustomBaseModel):
     """Response from getting conversations."""
-
-    model_config = ConfigDict(
-        alias_generator=to_camel,
-        extra="allow",
-    )
 
     continuation_token: Optional[str] = None
     """

@@ -5,19 +5,11 @@ Licensed under the MIT License.
 
 from typing import Any, Dict
 
-from pydantic import AliasGenerator, BaseModel, ConfigDict
-from pydantic.alias_generators import to_camel
+from ..custom_base_model import CustomBaseModel
 
 
-class TokenRequest(BaseModel):
+class TokenRequest(CustomBaseModel):
     """A request to receive a user token."""
-
-    model_config = ConfigDict(
-        alias_generator=AliasGenerator(
-            serialization_alias=to_camel,
-        ),
-        extra="allow",
-    )
 
     provider: str
     """
