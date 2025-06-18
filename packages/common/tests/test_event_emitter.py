@@ -236,7 +236,6 @@ class TestEventEmitter:
 
         emitter.on("test_event", async_handler)
 
-        # This should now work - async handlers will be scheduled as tasks
         emitter.emit("test_event", "test_data")
 
         # Give async handlers a moment to complete
@@ -251,7 +250,6 @@ class TestEventEmitter:
 
         emitter.on("test_event", handler)
 
-        # This should work fine since no async handlers = no asyncio.run() call
         emitter.emit("test_event", "test_data")
 
         handler.assert_called_once_with("test_data")
@@ -265,7 +263,6 @@ class TestEventEmitter:
         id1 = emitter.on("event1", handler1)
         _id2 = emitter.on("event2", handler2)
 
-        # This should not raise "dictionary changed size during iteration"
         emitter.off(id1)
 
         # Verify event1 is completely removed, event2 still exists
