@@ -7,13 +7,13 @@ import inspect
 from typing import Literal, Optional, Union
 
 from microsoft.teams.common.http import Client, ClientOptions
+from pydantic import BaseModel
 
 from ...auth import Credentials, TokenCredentials
-from ...models import CustomBaseModel
 from ..base_client import BaseClient
 
 
-class GetBotTokenResponse(CustomBaseModel):
+class GetBotTokenResponse(BaseModel):
     """Response model for bot token requests."""
 
     # Note: These fields use snake_case to match TypeScript exactly
