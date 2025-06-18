@@ -5,7 +5,7 @@ Licensed under the MIT License.
 
 from typing import Any, Dict, Literal, Optional
 
-from pydantic import AliasGenerator, BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict
 from pydantic.alias_generators import to_camel
 
 AccountRole = Literal["user", "bot"]
@@ -17,9 +17,7 @@ class Account(BaseModel):
     """
 
     model_config = ConfigDict(
-        alias_generator=AliasGenerator(
-            serialization_alias=to_camel,
-        ),
+        alias_generator=to_camel,
         extra="allow",
     )
 

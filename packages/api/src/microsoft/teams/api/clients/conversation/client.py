@@ -74,6 +74,18 @@ class ConversationClient(BaseClient):
         self._activities = ConversationActivityClient(service_url, self.http)
         self._members = ConversationMemberClient(service_url, self.http)
 
+    @property
+    def http(self) -> Client:
+        """Get the HTTP client instance."""
+        return self._http
+
+    @http.setter
+    def http(self, value: Client) -> None:
+        """Set the HTTP client instance and propagate to sub-clients."""
+        self._http = value
+        self._activities.http = value
+        self._members.http = value
+
     def activities(self, conversation_id: str) -> ActivityOperations:
         """Get activity operations for a conversation.
 

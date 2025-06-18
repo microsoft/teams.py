@@ -36,7 +36,7 @@ class ClientOptions:
     base_url: Optional[str] = None
     headers: Dict[str, str] = field(default_factory=dict)
     timeout: Optional[float] = None
-    logger: logging.Logger = field(default_factory=lambda: console_logger.create_logger("http-client"))
+    logger: Optional[logging.Logger] = None
     token: Optional[Token] = None
     interceptors: Optional[List[Interceptor]] = field(default_factory=list)
 
@@ -49,15 +49,18 @@ class Client:
         options: ClientOptions dataclass with configuration for the client.
     """
 
-    def __init__(self, options: ClientOptions):
+    def __init__(self, options: Optional[ClientOptions] = None):
         """
         Initialize the HTTP Client.
 
         Args:
-            options: ClientOptions dataclass with configuration for the client.
+            options: Optional ClientOptions dataclass with configuration for the client.
         """
+        if options is None:
+            options = ClientOptions()
+
         self._options = options
-        self._logger = options.logger
+        self._logger = options.logger or console_logger.create_logger("http-client")
         self._token = options.token
 
         # Maintain interceptors as a separate instance attribute (do not mutate options)
