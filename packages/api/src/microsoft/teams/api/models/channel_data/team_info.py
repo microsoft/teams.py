@@ -5,8 +5,6 @@ Licensed under the MIT License.
 
 from typing import Literal, Optional
 
-from pydantic import ConfigDict
-
 from ..custom_base_model import CustomBaseModel
 
 
@@ -15,11 +13,6 @@ class TeamInfo(CustomBaseModel):
     An interface representing TeamInfo.
     Describes a team
     """
-
-    model_config = ConfigDict(
-        **CustomBaseModel.model_config,
-        extra="allow",
-    )
 
     id: str
     "Unique identifier representing a team"

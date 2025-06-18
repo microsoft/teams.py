@@ -7,7 +7,6 @@ import inspect
 from typing import Literal, Optional, Union
 
 from microsoft.teams.common.http import Client, ClientOptions
-from pydantic import ConfigDict
 
 from ...models import Credentials, CustomBaseModel, TokenCredentials
 from ..base_client import BaseClient
@@ -15,11 +14,6 @@ from ..base_client import BaseClient
 
 class GetBotTokenResponse(CustomBaseModel):
     """Response model for bot token requests."""
-
-    model_config = ConfigDict(
-        **CustomBaseModel.model_config,
-        extra="allow",
-    )
 
     # Note: These fields use snake_case to match TypeScript exactly
     token_type: Literal["Bearer"]

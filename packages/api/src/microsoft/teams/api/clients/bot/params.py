@@ -5,18 +5,11 @@ Licensed under the MIT License.
 
 from typing import Optional
 
-from pydantic import ConfigDict
-
 from ...models.custom_base_model import CustomBaseModel
 
 
 class GetBotSignInUrlParams(CustomBaseModel):
     """Parameters for getting a bot sign-in URL."""
-
-    model_config = ConfigDict(
-        **CustomBaseModel.model_config,
-        extra="allow",
-    )
 
     state: str
     """
@@ -38,11 +31,6 @@ class GetBotSignInUrlParams(CustomBaseModel):
 
 class GetBotSignInResourceParams(CustomBaseModel):
     """Parameters for getting a bot sign-in resource."""
-
-    model_config = ConfigDict(
-        **CustomBaseModel.model_config,
-        extra="allow",
-    )
 
     state: str
     """

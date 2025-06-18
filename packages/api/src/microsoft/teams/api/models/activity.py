@@ -5,19 +5,12 @@ Licensed under the MIT License.
 
 from typing import Any, Dict, Optional
 
-from pydantic import ConfigDict
-
 from ..models import CustomBaseModel
 
 
 # TODO: This is a barebones model for now.
 class Activity(CustomBaseModel):
     """Represents a Teams activity."""
-
-    model_config = ConfigDict(
-        **CustomBaseModel.model_config,
-        extra="allow",
-    )
 
     type: str = "message"
     """

@@ -6,8 +6,6 @@ Licensed under the MIT License.
 from enum import Enum
 from typing import Any, Literal, Union
 
-from pydantic import ConfigDict
-
 from ..card import AnimationCard, AudioCard, HeroCard, ThumbnailCard, VideoCard
 from ..custom_base_model import CustomBaseModel
 
@@ -33,11 +31,6 @@ class SigninCard(CustomBaseModel):
 
 class CardAttachmentData(CustomBaseModel):
     """Base model for a card attachment"""
-
-    model_config = ConfigDict(
-        **CustomBaseModel.model_config,
-        extra="allow",
-    )
 
     content_type: str
     content: Any

@@ -42,6 +42,7 @@ class CustomBaseModel(BaseModel):
         populate_by_name=True,
         serialize_by_alias=True,
         validate_by_alias=True,
+        extra="allow",
         alias_generator=AliasGenerator(
             validation_alias=validation_alias_generator, serialization_alias=serialization_alias_generator
         ),

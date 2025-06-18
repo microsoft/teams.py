@@ -5,18 +5,11 @@ Licensed under the MIT License.
 
 from typing import Any, Optional
 
-from pydantic import ConfigDict
-
 from ..custom_base_model import CustomBaseModel
 
 
 class Attachment(CustomBaseModel):
     """A model representing an attachment."""
-
-    model_config = ConfigDict(
-        **CustomBaseModel.model_config,
-        extra="allow",
-    )
 
     id: Optional[str] = None
     "The id of the attachment."

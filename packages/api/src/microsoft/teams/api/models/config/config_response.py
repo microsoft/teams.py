@@ -5,8 +5,6 @@ Licensed under the MIT License.
 
 from typing import Literal, Optional, Union
 
-from pydantic import ConfigDict
-
 from ..custom_base_model import CustomBaseModel
 from .config_auth import ConfigAuth
 
@@ -28,11 +26,6 @@ class ConfigResponse(CustomBaseModel):
     """
     A container for the Config response payload
     """
-
-    model_config = ConfigDict(
-        **CustomBaseModel.model_config,
-        extra="allow",
-    )
 
     cache_info: Optional[CacheInfo] = None
     "The data of the ConfigResponse cache, including cache type and cache duration."
