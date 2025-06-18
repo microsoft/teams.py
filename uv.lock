@@ -1,5 +1,4 @@
 version = 1
-revision = 1
 requires-python = ">=3.12"
 
 [manifest]
@@ -224,11 +223,15 @@ name = "microsoft-teams-api"
 version = "0.1.0"
 source = { editable = "packages/api" }
 dependencies = [
+    { name = "microsoft-teams-common" },
     { name = "pydantic" },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "pydantic", specifier = ">=2.0.0" }]
+requires-dist = [
+    { name = "microsoft-teams-common", editable = "packages/common" },
+    { name = "pydantic", specifier = ">=2.0.0" },
+]
 
 [[package]]
 name = "microsoft-teams-cards"

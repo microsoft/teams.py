@@ -11,19 +11,31 @@ class CustomBaseModel(BaseModel):
     @staticmethod
     def validation_alias_generator(field: str) -> str:
         "Handles deserialization aliasing"
+
+        # Handle parameters that start with "@"
         if field.startswith("at_"):
             return f"@{field[3:]}"
-        if field == "from_":  # duplicate internal names
+
+        # Handles from field which is a duplicate reserved internal name
+        if field == "from_":
             return "from"
+
+        # All other fields are converted to camelCase
         return to_camel(field)
 
     @staticmethod
     def serialization_alias_generator(field: str) -> str:
         "Handles serialization aliasing and casing"
+
+        # Handle parameters that start with "@"
         if field.startswith("at_"):
             return f"@{field[3:]}"
-        if field == "from_":  # duplicate internal names
+
+        # Handles from field which is a duplicate reserved internal name
+        if field == "from_":
             return "from"
+
+        # All other fields are converted to camelCase
         return to_camel(field)
 
     model_config = ConfigDict(

@@ -3,25 +3,50 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from typing import List
+from typing import List, Literal, Optional
 
+from pydantic import ConfigDict
+
+from ..account import Account
 from ..custom_base_model import CustomBaseModel
 
-
-# Placeholder for external type
-class Account(CustomBaseModel):
-    """Placeholder for Account model from ../account"""
-
-    pass
+ConversationType = Literal["personal", "groupChat"]
 
 
 class Conversation(CustomBaseModel):
-    """
-    Conversation and its members
-    """
+    """Represents a Teams conversation."""
+
+    model_config = ConfigDict(
+        **CustomBaseModel.model_config,
+        extra="allow",
+    )
 
     id: str
-    "Conversation ID"
+    """
+    Conversation ID
+    """
 
-    members: List[Account]
-    "List of members in this conversation"
+    tenant_id: Optional[str] = None
+    """
+    Conversation Tenant ID
+    """
+
+    type: ConversationType
+    """
+    The Conversations Type
+    """
+
+    name: Optional[str] = None
+    """
+    The Conversations Name
+    """
+
+    is_group: Optional[bool] = None
+    """
+    If the Conversation supports multiple participants
+    """
+
+    members: Optional[List[Account]] = None
+    """
+    List of members in this conversation
+    """
