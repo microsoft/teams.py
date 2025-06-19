@@ -34,6 +34,12 @@ class CitationIconName(str, Enum):
     ZIP = "ZIP"
     TEXT = "Text"
     PDF = "PDF"
+    UNKNOWN = "unknown"
+
+    @classmethod
+    def _missing_(cls, value: object) -> "CitationIconName":
+        """Return unknown value for missing enum values."""
+        return cls.UNKNOWN
 
 
 class CitationUsageInfo(CustomBaseModel):

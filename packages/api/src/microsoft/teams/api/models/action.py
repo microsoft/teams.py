@@ -16,3 +16,10 @@ class Action(str, Enum):
 
     DECLINE = "decline"
     "User declined the file upload."
+
+    UNKNOWN = "unknown"
+
+    @classmethod
+    def _missing_(cls, value: object) -> "Action":
+        """Return unknown value for missing enum values."""
+        return cls.UNKNOWN

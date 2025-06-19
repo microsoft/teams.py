@@ -12,3 +12,9 @@ class Importance(str, Enum):
     LOW = "low"
     NORMAL = "normal"
     HIGH = "high"
+    UNKNOWN = "unknown"
+
+    @classmethod
+    def _missing_(cls, value: object) -> "Importance":
+        """Return unknown value for missing enum values."""
+        return cls.UNKNOWN

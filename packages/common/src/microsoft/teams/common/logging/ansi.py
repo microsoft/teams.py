@@ -39,3 +39,9 @@ class ANSI(str, Enum):
     FOREGROUND_GRAY = "\033[90m"
     FOREGROUND_DEFAULT = "\033[39m"
     BACKGROUND_DEFAULT = "\033[49m"
+    UNKNOWN = "unknown"
+
+    @classmethod
+    def _missing_(cls, value: object) -> "ANSI":
+        """Return unknown value for missing enum values."""
+        return cls.UNKNOWN

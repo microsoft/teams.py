@@ -17,3 +17,9 @@ class MessagingExtensionResultType(str, Enum):
     MESSAGE = "message"
     BOT_MESSAGE_PREVIEW = "botMessagePreview"
     SILENT_AUTH = "silentAuth"
+    UNKNOWN = "unknown"
+
+    @classmethod
+    def _missing_(cls, value: object) -> "MessagingExtensionResultType":
+        """Return unknown value for missing enum values."""
+        return cls.UNKNOWN

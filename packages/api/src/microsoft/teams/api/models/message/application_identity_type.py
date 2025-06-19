@@ -14,3 +14,9 @@ class ApplicationIdentityType(str, Enum):
     TENANT_BOT = "tenantBot"
     OFFICE_365_CONNECTOR = "office365Connector"
     WEBHOOK = "webhook"
+    UNKNOWN = "unknown"
+
+    @classmethod
+    def _missing_(cls, value: object) -> "ApplicationIdentityType":
+        """Return unknown value for missing enum values."""
+        return cls.UNKNOWN

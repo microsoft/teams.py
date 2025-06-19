@@ -16,3 +16,9 @@ class MessageReactionType(str, Enum):
     SAD = "sad"
     ANGRY = "angry"
     PLUS_ONE = "plusOne"
+    UNKNOWN = "unknown"
+
+    @classmethod
+    def _missing_(cls, value: object) -> "MessageReactionType":
+        """Return unknown value for missing enum values."""
+        return cls.UNKNOWN

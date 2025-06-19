@@ -70,6 +70,12 @@ class CardAttachmentTypes(str, Enum):
     SIGN_IN = SigninCardAttachment
     THUMBNAIL = ThumbnailCardAttachment
     VIDEO = VideoCardAttachment
+    UNKNOWN = object
+
+    @classmethod
+    def _missing_(cls, value: object) -> "CardAttachmentTypes":
+        """Return unknown value for missing enum values."""
+        return cls.UNKNOWN
 
 
 class CardAttachmentType(str, Enum):
@@ -81,6 +87,12 @@ class CardAttachmentType(str, Enum):
     SIGN_IN = "signin"
     THUMBNAIL = "thumbnail"
     VIDEO = "video"
+    UNKNOWN = "unknown"
+
+    @classmethod
+    def _missing_(cls, value: object) -> "CardAttachmentType":
+        """Return unknown value for missing enum values."""
+        return cls.UNKNOWN
 
 
 CardAttachment = Union[
