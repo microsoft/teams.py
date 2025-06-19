@@ -3,7 +3,7 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from typing import Any, Dict, Literal, Optional, Union
+from typing import Any, Dict, Literal, Optional
 
 from .custom_base_model import CustomBaseModel
 
@@ -40,22 +40,21 @@ class ConversationAccount(CustomBaseModel):
 
     id: str
     """
-    The unique identifier for the conversation account.
+    The unique identifier for the conversation.
     """
-
     tenant_id: Optional[str] = None
-    """The tenant ID associated with the conversation account.
     """
-
-    conversation_type: Union[Literal["personal", "groupChat"], str]
+    The tenant ID for the conversation.
     """
-    The type of conversation (personal, group, or channel).
+    conversation_type: str
     """
-
+    The type of conversation (personal, groupChat, etc.).
+    """
     name: Optional[str] = None
-    """The name of the conversation account.
     """
-
+    The name of the conversation.
+    """
     is_group: Optional[bool] = None
-    """Indicates if the conversation account is a group.
+    """
+    Whether this is a group conversation.
     """

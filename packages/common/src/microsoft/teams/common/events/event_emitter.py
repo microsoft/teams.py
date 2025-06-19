@@ -22,7 +22,7 @@ class Subscription(TypedDict):
     handler: EventHandler
 
 
-class IEventEmitter(Protocol):
+class EventEmitterProtocol(Protocol):
     """Interface for event emitter functionality."""
 
     def on(self, event: str, handler: EventHandler) -> int:
@@ -48,7 +48,7 @@ class EventEmitterOptions(TypedDict, total=False):
     logger: logging.Logger
 
 
-class EventEmitter(IEventEmitter):
+class EventEmitter(EventEmitterProtocol):
     """
     Event emitter implementation inspired by TypeScript/Node.js EventEmitter.
 

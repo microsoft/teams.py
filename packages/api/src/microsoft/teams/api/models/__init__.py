@@ -11,8 +11,6 @@ from .adaptive_card import __all__ as adaptive_card_all
 from .app_based_link_query import AppBasedLinkQuery
 from .attachment import *  # noqa: F403
 from .attachment import __all__ as attachment_all
-from .auth import *  # noqa: F403
-from .auth import __all__ as auth_all
 from .cache_info import CacheInfo
 from .card import *  # noqa: F403
 from .card import __all__ as card_all
@@ -73,11 +71,12 @@ __all__ = [
     "ConversationAccount",
     "Activity",
     "AccountRole",
+    "ConversationAccount",
     "ChannelID",
     *conversation_all,
     *sign_in_all,
+    "TeamDetails",
     *token_all,
-    *auth_all,
     *token_exchange_all,
     "AppBasedLinkQuery",
     "CacheInfo",

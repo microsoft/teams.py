@@ -18,7 +18,7 @@ try:
         load_dotenv(env_file)
 except ImportError:
     pass  # python-dotenv not available, use system environment
-from microsoft.teams.api.models import (
+from microsoft.teams.api import (
     Account,
     Activity,
     ClientCredentials,
@@ -83,6 +83,19 @@ def mock_transport():
                 "signInLink": "https://mock-signin.url/auth",
                 "tokenExchangeResource": {"id": "mock_resource_id"},
             }
+        elif "/v3/teams/" in str(request.url) and "/conversations" in str(request.url):
+            response_data = [
+                {
+                    "id": "mock_channel_id_1",
+                    "name": "General",
+                    "type": "standard",
+                },
+                {
+                    "id": "mock_channel_id_2",
+                    "name": "Random",
+                    "type": "standard",
+                },
+            ]
         elif "/conversations/" in str(request.url) and str(request.url).endswith("/members"):
             response_data = [
                 {
@@ -132,6 +145,54 @@ def mock_transport():
                 "token_type": "Bearer",
                 "expires_in": 3600,
                 "access_token": "mock_oauth_token_123",
+            }
+        elif "/v1/meetings/" in str(request.url) and "/participants/" in str(request.url):
+            response_data = {
+                "user": {
+                    "id": "mock_participant_id",
+                    "name": "Mock Participant",
+                    "aadObjectId": "mock_participant_aad_id",
+                },
+                "meeting": {
+                    "id": "mock_meeting_id",
+                    "title": "Mock Meeting",
+                    "type": "meetingChat",
+                },
+                "conversation": {
+                    "id": "mock_conversation_id",
+                    "conversationType": "groupChat",
+                    "tenantId": "mock_tenant_id",
+                },
+            }
+        elif "/v1/meetings/" in str(request.url):
+            response_data = {
+                "id": "mock_meeting_id",
+                "details": {
+                    "id": "mock_meeting_id",
+                    "title": "Mock Meeting",
+                    "type": "meetingChat",
+                    "joinUrl": "https://teams.microsoft.com/l/meetup-join/mock_meeting",
+                    "msGraphResourceId": "mock_graph_resource_id",
+                },
+                "conversation": {
+                    "id": "mock_conversation_id",
+                    "conversationType": "groupChat",
+                    "tenantId": "mock_tenant_id",
+                },
+                "organizer": {
+                    "id": "mock_organizer_id",
+                    "name": "Mock Organizer",
+                    "aadObjectId": "mock_organizer_aad_id",
+                },
+            }
+        elif "/v3/teams/" in str(request.url):
+            response_data = {
+                "id": "mock_team_id",
+                "name": "Mock Team",
+                "type": "standard",
+                "aadGroupId": "mock_aad_group_id",
+                "channelCount": 5,
+                "memberCount": 15,
             }
 
         return httpx.Response(

@@ -11,24 +11,22 @@ from .custom_base_model import CustomBaseModel
 class TeamDetails(CustomBaseModel):
     """
     Details related to a team.
-
-    An interface representing TeamDetails.
     """
 
     id: str
-    """Unique identifier representing a team."""
+    "Unique identifier representing a team"
 
     name: Optional[str] = None
-    """Name of team."""
+    "Name of team."
 
     type: Literal["standard", "sharedChannel", "privateChannel"]
-    """The type of the team. Valid values are standard, sharedChannel and privateChannel."""
+    "The type of the team. Valid values are standard, sharedChannel and privateChannel."
 
     aad_group_id: Optional[str] = None
-    """Azure Active Directory (AAD) Group Id for the team."""
+    "Azure Active Directory (AAD) Group Id for the team."
 
     channel_count: Optional[int] = None
-    """Count of channels in the team."""
+    "Count of channels in the team."
 
     member_count: Optional[int] = None
-    """Count of members in the team."""
+    "Count of members in the team."
