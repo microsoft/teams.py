@@ -17,7 +17,7 @@ class OAuthCard(CustomBaseModel):
     "Text for signin request"
 
     connection_name: str
-    "The naem of the registered connection"
+    "The name of the registered connection"
 
     token_exchange_resource: Optional[TokenExchangeResource] = None
     "The token exchange resource for single sign on"
