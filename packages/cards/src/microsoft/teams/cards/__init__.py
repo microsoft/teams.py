@@ -3,6 +3,7 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
+from .adaptive_card import AdaptiveCard
 
-def hello() -> str:
-    return "Hello from cards!"
+# Combine all exports from submodules
+__all__ = ["AdaptiveCard"]

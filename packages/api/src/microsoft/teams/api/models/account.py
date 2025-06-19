@@ -3,7 +3,7 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from typing import Any, Dict, Literal, Optional
+from typing import Any, Dict, Literal, Optional, Union
 
 from ..models import CustomBaseModel
 
@@ -30,4 +30,32 @@ class Account(CustomBaseModel):
     properties: Optional[Dict[str, Any]] = None
     """
     Additional properties for the account.
+    """
+
+
+class ConversationAccount(CustomBaseModel):
+    """
+    Represents a Teams conversation account.
+    """
+
+    id: str
+    """
+    The unique identifier for the conversation account.
+    """
+
+    tenant_id: Optional[str] = None
+    """The tenant ID associated with the conversation account.
+    """
+
+    conversation_type: Union[Literal["personal", "groupChat"], str]
+    """
+    The type of conversation (personal, group, or channel).
+    """
+
+    name: Optional[str] = None
+    """The name of the conversation account.
+    """
+
+    is_group: Optional[bool] = None
+    """Indicates if the conversation account is a group.
     """
