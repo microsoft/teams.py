@@ -10,8 +10,6 @@ from .adaptive_card import *  # noqa: F403
 from .adaptive_card import __all__ as adaptive_card_all
 from .attachment import *  # noqa: F403
 from .attachment import __all__ as attachment_all
-from .auth import *  # noqa: F403
-from .auth import __all__ as auth_all
 from .card import *  # noqa: F403
 from .card import __all__ as card_all
 from .channel_data import *  # noqa: F403
@@ -63,6 +61,5 @@ __all__ = [
     *conversation_all,
     *sign_in_all,
     *token_all,
-    *auth_all,
     *token_exchange_all,
 ]
