@@ -6,9 +6,7 @@ Licensed under the MIT License.
 from .account import Account, AccountRole, ConversationAccount
 from .action import Action
 from .activity import Activity
-from .activity_like import ActivityLike, SentActivity
-from .activity_params import ActivityParams
-from .adaptive_card import *  # noqa: F403
+from .adaptive_card import *  # noqa: F403  # noqa: F403
 from .adaptive_card import __all__ as adaptive_card_all
 from .app_based_link_query import AppBasedLinkQuery
 from .attachment import *  # noqa: F403
@@ -27,10 +25,10 @@ from .conversation import *  # noqa: F403  # noqa: F403
 from .conversation import __all__ as conversation_all
 from .custom_base_model import CustomBaseModel
 from .delivery_mode import DeliveryMode
-from .entity import *  # noqa: F403
+from .entity import *  # noqa: F403  # noqa: F403
 from .entity import __all__ as entity_all
 from .error import ErrorResponse, HttpError, InnerHttpError
-from .file import *  # noqa: F403
+from .file import *  # noqa: F403  # noqa: F403
 from .file import __all__ as file_all
 from .importance import Importance
 from .input_hint import InputHint
@@ -81,9 +79,6 @@ __all__ = [
     *token_all,
     *auth_all,
     *token_exchange_all,
-    "ActivityLike",
-    "SentActivity",
-    "ActivityParams",
     "AppBasedLinkQuery",
     "CacheInfo",
     "DeliveryMode",

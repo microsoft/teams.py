@@ -104,7 +104,7 @@ def create_package(package_name: str) -> None:
     print(f"\nPackage {package_name} created successfully!")
     print(f"Location: {package_path}")
     print("\nNext steps:")
-    print("1. Add your package code in src/microsoft/teams/{package_name.lower()}")
+    print(f"1. Add your package code in src/microsoft/teams/{package_name.lower()}")
     print("2. Update the package description in pyproject.toml")
     print("3. Add any required dependencies to pyproject.toml")
 
