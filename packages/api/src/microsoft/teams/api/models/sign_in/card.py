@@ -10,9 +10,19 @@ from microsoft.teams.api.models.card.card_action import CardAction
 from ..custom_base_model import CustomBaseModel
 
 
-class SigninCard(CustomBaseModel):
+class SignInCard(CustomBaseModel):
     """
     A card representing a request to sign in
+    """
+
+    title: Optional[str] = None
+    """
+    Title of this card
+    """
+
+    subtitle: Optional[str] = None
+    """
+    Subtitle of this card
     """
 
     text: Optional[str] = None
