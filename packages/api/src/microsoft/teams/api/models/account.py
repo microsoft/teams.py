@@ -5,7 +5,7 @@ Licensed under the MIT License.
 
 from typing import Any, Dict, Literal, Optional, Union
 
-from ..models import CustomBaseModel
+from .custom_base_model import CustomBaseModel
 
 AccountRole = Literal["user", "bot"]
 

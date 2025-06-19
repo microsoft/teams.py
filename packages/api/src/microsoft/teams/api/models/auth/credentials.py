@@ -5,7 +5,7 @@ Licensed under the MIT License.
 
 from typing import Awaitable, Callable, Optional, Union
 
-from ...models import CustomBaseModel
+from ..custom_base_model import CustomBaseModel
 
 
 class ClientCredentials(CustomBaseModel):
@@ -21,7 +21,7 @@ class ClientCredentials(CustomBaseModel):
     """
     tenant_id: Optional[str] = None
     """
-    The tenant ID.
+    The tenant ID. This should only be passed in for single tenant apps.
     """
 
 
