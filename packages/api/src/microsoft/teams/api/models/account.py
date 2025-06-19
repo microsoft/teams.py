@@ -31,3 +31,30 @@ class Account(CustomBaseModel):
     """
     Additional properties for the account.
     """
+
+
+class ConversationAccount(CustomBaseModel):
+    """
+    Represents a Teams conversation account.
+    """
+
+    id: str
+    """
+    The unique identifier for the conversation.
+    """
+    tenant_id: Optional[str] = None
+    """
+    The tenant ID for the conversation.
+    """
+    conversation_type: str
+    """
+    The type of conversation (personal, groupChat, etc.).
+    """
+    name: Optional[str] = None
+    """
+    The name of the conversation.
+    """
+    is_group: Optional[bool] = None
+    """
+    Whether this is a group conversation.
+    """

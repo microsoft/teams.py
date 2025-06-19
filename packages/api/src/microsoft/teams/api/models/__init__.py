@@ -3,7 +3,7 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from .account import Account, AccountRole
+from .account import Account, AccountRole, ConversationAccount
 from .action import Action
 from .activity import Activity
 from .adaptive_card import *  # noqa: F403
@@ -57,6 +57,7 @@ __all__ = [
     "Account",
     "Activity",
     "AccountRole",
+    "ConversationAccount",
     "ChannelID",
     *conversation_all,
     *sign_in_all,
