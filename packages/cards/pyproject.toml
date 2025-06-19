@@ -15,7 +15,11 @@ dependencies = [
     "pytest>=8.3.5",
     "ruff>=0.11.5",
     "microsoft-teams-api",
+    "pydantic>=2.0.0",
 ]
+
+[tool.uv.sources]
+"microsoft-teams-api" = { workspace = true }
 
 [project.urls]
 Homepage = "https://github.com/microsoft/teams.py/tree/main/packages/cards/src/microsoft/teams/cards"

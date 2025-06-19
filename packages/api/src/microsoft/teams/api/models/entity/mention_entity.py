@@ -5,14 +5,8 @@ Licensed under the MIT License.
 
 from typing import Literal, Optional
 
+from ..account import Account
 from ..custom_base_model import CustomBaseModel
-
-
-# Placeholder for Account type
-class Account(CustomBaseModel):
-    """Placeholder for Account model from ../account"""
-
-    pass
 
 
 class MentionEntity(CustomBaseModel):

@@ -3,14 +3,7 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from ..custom_base_model import CustomBaseModel
-
-
-class TokenExchangeInvokeRequest(CustomBaseModel):
-    """Placeholder for TokenExchangeInvokeRequest model"""
-
-    pass
-
+from ..token_exchange import TokenExchangeInvokeRequest
 
 # Type alias for AdaptiveCardAuthentication
 AdaptiveCardAuthentication = TokenExchangeInvokeRequest

@@ -14,7 +14,6 @@ class Attachment(CustomBaseModel):
     id: Optional[str] = None
     "The id of the attachment."
 
-    # Placeholder for ContentType
     content_type: str
     "mimetype/Contenttype for the file"
 

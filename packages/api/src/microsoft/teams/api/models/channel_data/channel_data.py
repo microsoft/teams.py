@@ -6,17 +6,12 @@ Licensed under the MIT License.
 from typing import Literal, Optional
 
 from ..custom_base_model import CustomBaseModel
+from ..meetings import MeetingInfo
 from .channel_info import ChannelInfo
 from .notification_info import NotificationInfo
 from .settings import ChannelDataSettings
 from .team_info import TeamInfo
 from .tenant_info import TenantInfo
-
-
-class MeetingInfo(CustomBaseModel):
-    """Placeholder for MeetingInfo model from ../meeting"""
-
-    pass
 
 
 class ChannelData(CustomBaseModel):

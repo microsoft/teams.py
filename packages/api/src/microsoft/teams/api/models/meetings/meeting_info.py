@@ -5,21 +5,9 @@ Licensed under the MIT License.
 
 from typing import Optional
 
+from ..account import Account, ConversationAccount
 from ..custom_base_model import CustomBaseModel
 from .meeting_details import MeetingDetails
-
-
-# Placeholder for external types
-class Account(CustomBaseModel):
-    """Placeholder for Account model from ../account"""
-
-    pass
-
-
-class ConversationAccount(CustomBaseModel):
-    """Placeholder for ConversationAccount model from ../account"""
-
-    pass
 
 
 class MeetingInfo(CustomBaseModel):

@@ -5,14 +5,8 @@ Licensed under the MIT License.
 
 from typing import List, Optional
 
+from ..card import CardAction
 from ..custom_base_model import CustomBaseModel
-
-
-# Placeholder for external type
-class CardAction(CustomBaseModel):
-    """Placeholder for CardAction model from ../card"""
-
-    pass
 
 
 class MessagingExtensionSuggestedAction(CustomBaseModel):
