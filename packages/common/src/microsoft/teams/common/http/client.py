@@ -63,6 +63,10 @@ class Client:
         self._logger = options.logger or console_logger.create_logger("http-client")
         self._token = options.token
 
+        # Configure httpx logging to match our logger's level
+        httpx_logger = logging.getLogger("httpx")
+        httpx_logger.setLevel(self._logger.level)
+
         # Maintain interceptors as a separate instance attribute (do not mutate options)
         self._interceptors = list(options.interceptors or [])
 
@@ -113,7 +117,9 @@ class Client:
             httpx.Response
         """
         req_headers = await self._prepare_headers(headers, token)
-        return await self.http.get(url, headers=req_headers, params=params, **kwargs)
+        response = await self.http.get(url, headers=req_headers, params=params, **kwargs)
+        response.raise_for_status()
+        return response
 
     async def post(
         self,
@@ -146,7 +152,7 @@ class Client:
             httpx.Response
         """
         req_headers = await self._prepare_headers(headers, token)
-        return await self.http.post(
+        response = await self.http.post(
             url,
             data=data,
             files=files,
@@ -156,6 +162,8 @@ class Client:
             headers=req_headers,
             **kwargs,
         )
+        response.raise_for_status()
+        return response
 
     async def put(
         self,
@@ -188,7 +196,7 @@ class Client:
             httpx.Response
         """
         req_headers = await self._prepare_headers(headers, token)
-        return await self.http.put(
+        response = await self.http.put(
             url,
             data=data,
             files=files,
@@ -198,6 +206,8 @@ class Client:
             headers=req_headers,
             **kwargs,
         )
+        response.raise_for_status()
+        return response
 
     async def patch(
         self,
@@ -230,7 +240,7 @@ class Client:
             httpx.Response
         """
         req_headers = await self._prepare_headers(headers, token)
-        return await self.http.patch(
+        response = await self.http.patch(
             url,
             data=data,
             files=files,
@@ -240,6 +250,8 @@ class Client:
             headers=req_headers,
             **kwargs,
         )
+        response.raise_for_status()
+        return response
 
     async def delete(
         self,
@@ -264,7 +276,9 @@ class Client:
             httpx.Response
         """
         req_headers = await self._prepare_headers(headers, token)
-        return await self.http.delete(url, headers=req_headers, params=params, **kwargs)
+        response = await self.http.delete(url, headers=req_headers, params=params, **kwargs)
+        response.raise_for_status()
+        return response
 
     async def request(
         self,
@@ -299,7 +313,7 @@ class Client:
             httpx.Response
         """
         req_headers = await self._prepare_headers(headers, token)
-        return await self.http.request(
+        response = await self.http.request(
             method,
             url,
             headers=req_headers,
@@ -310,6 +324,8 @@ class Client:
             json=json,
             **kwargs,
         )
+        response.raise_for_status()
+        return response
 
     async def _resolve_token(self, token: Optional[Token]) -> Optional[str]:
         """
