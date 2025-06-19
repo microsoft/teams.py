@@ -33,6 +33,7 @@ from .messaging_extension import *  # noqa: F403
 from .messaging_extension import __all__ as messaging_extension_all
 from .sign_in import *  # noqa: F403
 from .sign_in import __all__ as sign_in_all
+from .team_details import TeamDetails
 from .token import *  # noqa: F403
 from .token import __all__ as token_all
 from .token_exchange import *  # noqa: F403
@@ -61,6 +62,7 @@ __all__ = [
     "ChannelID",
     *conversation_all,
     *sign_in_all,
+    "TeamDetails",
     *token_all,
     *token_exchange_all,
 ]
