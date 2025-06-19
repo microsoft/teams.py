@@ -10,7 +10,7 @@ import jwt
 from pydantic import BaseModel, ConfigDict
 
 from .caller import CallerIds, CallerType
-from .token import IToken
+from .token import TokenProtocol
 
 
 class JsonWebTokenPayload(BaseModel):
@@ -29,7 +29,7 @@ class JsonWebTokenPayload(BaseModel):
     serviceurl: Optional[str] = None
 
 
-class JsonWebToken(IToken):
+class JsonWebToken(TokenProtocol):
     """JSON Web Token implementation for Teams authentication."""
 
     def __init__(self, value: str):
