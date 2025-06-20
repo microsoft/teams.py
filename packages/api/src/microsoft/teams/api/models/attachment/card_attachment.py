@@ -6,7 +6,7 @@ Licensed under the MIT License.
 from enum import Enum
 from typing import Any, Literal, Union
 
-from microsoft.teams.cards.core import AdaptiveCard
+from microsoft.teams.cards import AdaptiveCard
 
 from ..card import AnimationCard, AudioCard, HeroCard, ThumbnailCard, VideoCard
 from ..custom_base_model import CustomBaseModel
