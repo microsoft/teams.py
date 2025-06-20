@@ -13,9 +13,3 @@ class UserIdentityType(str, Enum):
     ON_PREMISE_AAD_USER = "onPremiseAadUser"
     ANONYMOUS_GUEST = "anonymousGuest"
     FEDERATED_USER = "federatedUser"
-    UNKNOWN = "unknown"
-
-    @classmethod
-    def _missing_(cls, value: object) -> "UserIdentityType":
-        """Return unknown value for missing enum values."""
-        return cls.UNKNOWN

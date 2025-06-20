@@ -18,9 +18,3 @@ class CardActionType(str, Enum):
     DOWNLOAD_FILE = "downloadFile"
     SIGN_IN = "signin"
     CALL = "call"
-    UNKNOWN = "unknown"
-
-    @classmethod
-    def _missing_(cls, value: object) -> "CardActionType":
-        """Return unknown value for missing enum values."""
-        return cls.UNKNOWN

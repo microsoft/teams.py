@@ -11,9 +11,3 @@ class AttachmentLayout(str, Enum):
 
     LIST = "list"
     CAROUSEL = "carousel"
-    UNKNOWN = "unknown"
-
-    @classmethod
-    def _missing_(cls, value: object) -> "AttachmentLayout":
-        """Return unknown value for missing enum values."""
-        return cls.UNKNOWN
