@@ -5,7 +5,7 @@ Licensed under the MIT License.
 
 from typing import Literal, Union
 
-from microsoft.teams.cards import AdaptiveCard
+from microsoft.teams.cards.core import AdaptiveCard
 
 from ..custom_base_model import CustomBaseModel
 from ..error import HttpError
