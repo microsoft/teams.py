@@ -8,8 +8,12 @@ from typing import Optional, Union
 from microsoft.teams.common.http import Client as HttpClient
 from microsoft.teams.common.http import ClientOptions
 
-from . import BotClient, ConversationClient, MeetingClient, TeamClient, UserClient
 from .base_client import BaseClient
+from .bot import BotClient
+from .conversation import ConversationClient
+from .meeting import MeetingClient
+from .team import TeamClient
+from .user import UserClient
 
 
 class ApiClient(BaseClient):
