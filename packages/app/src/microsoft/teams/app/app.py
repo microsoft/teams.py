@@ -8,16 +8,7 @@ import os
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
-from microsoft.teams.api import (
-    Activity,
-    ClientCredentials,
-    Credentials,
-    JsonWebToken,
-    TokenProtocol,
-)
-from microsoft.teams.api import (
-    Client as ApiClient,
-)
+from microsoft.teams.api import Activity, ApiClient, ClientCredentials, Credentials, JsonWebToken, TokenProtocol
 from microsoft.teams.common.http import Client
 from microsoft.teams.common.logging import ConsoleLogger
 from microsoft.teams.common.storage import LocalStorage
