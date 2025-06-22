@@ -13,7 +13,6 @@ from microsoft.teams.common.http import Client, ClientOptions
 
 
 @pytest.mark.unit
-@pytest.mark.asyncio
 class TestConversationClient:
     """Unit tests for ConversationClient."""
 
@@ -38,6 +37,7 @@ class TestConversationClient:
         assert client.http is not None
         assert client.service_url == service_url
 
+    @pytest.mark.asyncio
     async def test_get_conversations(self, mock_http_client):
         """Test getting conversations."""
         service_url = "https://test.service.url"
@@ -50,6 +50,7 @@ class TestConversationClient:
         assert isinstance(response.conversations, list)
         assert response.continuation_token is not None
 
+    @pytest.mark.asyncio
     async def test_get_conversations_without_params(self, mock_http_client):
         """Test getting conversations without parameters."""
         service_url = "https://test.service.url"
@@ -60,6 +61,7 @@ class TestConversationClient:
         assert response.conversations is not None
         assert isinstance(response.conversations, list)
 
+    @pytest.mark.asyncio
     async def test_create_conversation(self, mock_http_client, mock_account, mock_activity):
         """Test creating a conversation."""
         service_url = "https://test.service.url"
