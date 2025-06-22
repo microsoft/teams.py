@@ -5,7 +5,6 @@ Licensed under the MIT License.
 
 from .auth import *  # noqa: F403
 from .auth import __all__ as auth_all
-from .client import Client
 from .clients import *  # noqa: F403
 from .clients import __all__ as clients_all
 from .models import *  # noqa: F403
@@ -13,7 +12,6 @@ from .models import __all__ as models_all
 
 # Combine all exports from submodules
 __all__ = [
-    "Client",
     *auth_all,
     *clients_all,
     *models_all,

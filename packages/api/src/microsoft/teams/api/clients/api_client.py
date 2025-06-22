@@ -8,10 +8,11 @@ from typing import Optional, Union
 from microsoft.teams.common.http import Client as HttpClient
 from microsoft.teams.common.http import ClientOptions
 
-from .clients import BotClient, ConversationClient, MeetingClient, TeamClient, UserClient
+from . import BotClient, ConversationClient, MeetingClient, TeamClient, UserClient
+from .base_client import BaseClient
 
 
-class Client:
+class ApiClient(BaseClient):
     """Unified client for Microsoft Teams API operations."""
 
     def __init__(self, service_url: str, options: Optional[Union[HttpClient, ClientOptions]] = None) -> None:
@@ -21,19 +22,7 @@ class Client:
             service_url: The Teams service URL for API calls.
             options: Either an HTTP client instance or client options. If None, a default client is created.
         """
-        self.service_url = service_url
-
-        # Initialize HTTP client
-        if options is None:
-            self._http = HttpClient(ClientOptions(headers={"Content-Type": "application/json"}))
-        elif isinstance(options, HttpClient):
-            self._http = options
-        else:
-            # Ensure Content-Type header is set
-            headers = options.headers or {}
-            headers.setdefault("Content-Type", "application/json")
-            options.headers = headers
-            self._http = HttpClient(options)
+        super().__init__(options)
 
         # Initialize all client types
         self.bots = BotClient(self._http)
