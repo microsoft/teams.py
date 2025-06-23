@@ -6,13 +6,7 @@ Licensed under the MIT License.
 from typing import Literal, Optional
 
 from ..custom_base_model import CustomBaseModel
-
-
-# Placeholder for external type
-class SuggestedActions(CustomBaseModel):
-    """Placeholder for SuggestedActions model from ../suggested-actions"""
-
-    pass
+from ..suggested_actions import SuggestedActions
 
 
 class ConfigAuth(CustomBaseModel):

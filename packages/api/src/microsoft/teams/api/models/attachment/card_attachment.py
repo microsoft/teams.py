@@ -6,27 +6,12 @@ Licensed under the MIT License.
 from enum import Enum
 from typing import Any, Literal, Union
 
+from microsoft.teams.cards import AdaptiveCard
+
 from ..card import AnimationCard, AudioCard, HeroCard, ThumbnailCard, VideoCard
 from ..custom_base_model import CustomBaseModel
-
-
-# Placeholder classes
-class IAdaptiveCard(CustomBaseModel):
-    """Placeholder for @microsoft/teams.cards IAdaptiveCard"""
-
-    pass
-
-
-class OAuthCard(CustomBaseModel):
-    """Placeholder for OAuthCard"""
-
-    pass
-
-
-class SigninCard(CustomBaseModel):
-    """Placeholder for SigninCard"""
-
-    pass
+from ..oauth import OAuthCard
+from ..sign_in import SignInCard
 
 
 class CardAttachmentData(CustomBaseModel):
@@ -38,7 +23,7 @@ class CardAttachmentData(CustomBaseModel):
 
 class AdaptiveCardAttachment(CardAttachmentData):
     content_type: Literal["application/vnd.microsoft.card.adaptive"]
-    content: IAdaptiveCard
+    content: AdaptiveCard
 
 
 class AnimationCardAttachment(CardAttachmentData):
@@ -63,7 +48,7 @@ class OAuthCardAttachment(CardAttachmentData):
 
 class SigninCardAttachment(CardAttachmentData):
     content_type: Literal["application/vnd.microsoft.card.signin"]
-    content: SigninCard
+    content: SignInCard
 
 
 class ThumbnailCardAttachment(CardAttachmentData):

@@ -5,27 +5,10 @@ Licensed under the MIT License.
 
 from typing import Optional, Union
 
+from ..cache_info import CacheInfo
 from ..custom_base_model import CustomBaseModel
+from ..task_module import TaskModuleContinueResponse, TaskModuleMessageResponse
 from .messaging_extension_result import MessagingExtensionResult
-
-
-# Placeholder for external types
-class TaskModuleContinueResponse(CustomBaseModel):
-    """Placeholder for TaskModuleContinueResponse from ../task-module"""
-
-    pass
-
-
-class TaskModuleMessageResponse(CustomBaseModel):
-    """Placeholder for TaskModuleMessageResponse from ../task-module"""
-
-    pass
-
-
-class CacheInfo(CustomBaseModel):
-    """Placeholder for CacheInfo from ../cache-info"""
-
-    pass
 
 
 class MessagingExtensionActionResponse(CustomBaseModel):

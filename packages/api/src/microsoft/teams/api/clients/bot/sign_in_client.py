@@ -36,7 +36,7 @@ class BotSignInClient(BaseClient):
             "https://token.botframework.com/api/botsignin/GetSignInUrl",
             params=params.model_dump(),
         )
-        return cast(str, res.text)
+        return cast(str, res.text)  # type: ignore[redundant-cast]
 
     async def get_resource(self, params: GetBotSignInResourceParams) -> SignInUrlResponse:
         """Get a sign-in resource.

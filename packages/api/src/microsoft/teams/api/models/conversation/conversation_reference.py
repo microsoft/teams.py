@@ -5,26 +5,9 @@ Licensed under the MIT License.
 
 from typing import Optional
 
+from ..account import Account, ConversationAccount
+from ..channel_id import ChannelID
 from ..custom_base_model import CustomBaseModel
-
-
-# Placeholder for external types
-class Account(CustomBaseModel):
-    """Placeholder for Account model from ../account"""
-
-    pass
-
-
-class ConversationAccount(CustomBaseModel):
-    """Placeholder for ConversationAccount model from ../account"""
-
-    pass
-
-
-class ChannelID(CustomBaseModel):
-    """Placeholder for ChannelID type from ../channel-id"""
-
-    pass
 
 
 class ConversationReference(CustomBaseModel):

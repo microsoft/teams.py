@@ -6,7 +6,7 @@ Licensed under the MIT License.
 from .account import Account, AccountRole, ConversationAccount
 from .action import Action
 from .activity import Activity
-from .adaptive_card import *  # noqa: F403  # noqa: F403
+from .adaptive_card import *  # noqa: F403
 from .adaptive_card import __all__ as adaptive_card_all
 from .app_based_link_query import AppBasedLinkQuery
 from .attachment import *  # noqa: F403

@@ -5,26 +5,11 @@ Licensed under the MIT License.
 
 from typing import Literal, Union
 
+from microsoft.teams.cards import AdaptiveCard
+
 from ..custom_base_model import CustomBaseModel
-
-
-# Placeholder for external types
-class IAdaptiveCard(CustomBaseModel):
-    """Placeholder for @microsoft/teams.cards IAdaptiveCard"""
-
-    pass
-
-
-class HttpError(CustomBaseModel):
-    """Placeholder for error model"""
-
-    pass
-
-
-class OAuthCard(CustomBaseModel):
-    """Placeholder for oauth model"""
-
-    pass
+from ..error import HttpError
+from ..oauth import OAuthCard
 
 
 class AdaptiveCardActionCardResponse(CustomBaseModel):
@@ -35,7 +20,7 @@ class AdaptiveCardActionCardResponse(CustomBaseModel):
 
     status_code: Literal[200] = 200
     type: Literal["application/vnd.microsoft.card.adaptive"] = "application/vnd.microsoft.card.adaptive"
-    value: IAdaptiveCard
+    value: AdaptiveCard
 
 
 class AdaptiveCardActionMessageResponse(CustomBaseModel):

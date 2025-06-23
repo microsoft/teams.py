@@ -5,21 +5,10 @@ Licensed under the MIT License.
 
 from typing import Any, List, Literal, Optional
 
+from ..activity import Activity
 from ..custom_base_model import CustomBaseModel
 from ..message import Message
-
-
-# Placeholder for external types
-class Activity(CustomBaseModel):
-    """Placeholder for Activity model from ../../activities"""
-
-    pass
-
-
-class TabEntityContext(CustomBaseModel):
-    """Placeholder for TabEntityContext model from ../tab"""
-
-    pass
+from ..tab import TabEntityContext
 
 
 class TaskModuleRequestContext(CustomBaseModel):

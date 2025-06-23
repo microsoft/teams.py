@@ -5,18 +5,12 @@ Licensed under the MIT License.
 
 from typing import List, Optional
 
+from ..activity import Activity
 from ..attachment.attachment_layout import AttachmentLayout
 from ..custom_base_model import CustomBaseModel
 from .messaging_extension_attachment import MessagingExtensionAttachment
 from .messaging_extension_result_type import MessagingExtensionResultType
 from .messaging_extension_suggested_action import MessagingExtensionSuggestedAction
-
-
-# Placeholder for external types
-class Activity(CustomBaseModel):
-    """Placeholder for Activity model from ../../activities"""
-
-    pass
 
 
 class MessagingExtensionResult(CustomBaseModel):
