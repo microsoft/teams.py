@@ -39,6 +39,7 @@ def get_event_type_from_signature(func: Callable) -> Optional[str]:
             try:
                 # Look up by string name in registry
                 from .types import ActivityEvent, ErrorEvent, StartEvent, StopEvent, TokenEvent
+
                 type_map = {
                     "ActivityEvent": ActivityEvent,
                     "ErrorEvent": ErrorEvent,

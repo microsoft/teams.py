@@ -9,14 +9,14 @@ from .registry import EventType, register_event_type
 from .types import ActivityEvent, ErrorEvent, StartEvent, StopEvent, TokenEvent
 
 __all__ = [
-    "BaseEvent", 
-    "EventProtocol", 
-    "ActivityEvent", 
+    "BaseEvent",
+    "EventProtocol",
+    "ActivityEvent",
     "ErrorEvent",
     "StartEvent",
-    "StopEvent", 
+    "StopEvent",
     "TokenEvent",
     "EventType",
     "get_event_type_from_signature",
-    "register_event_type"
+    "register_event_type",
 ]
