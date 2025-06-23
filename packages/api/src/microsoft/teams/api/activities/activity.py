@@ -1,0 +1,301 @@
+"""
+Copyright (c) Microsoft Corporation. All rights reserved.
+Licensed under the MIT License.
+"""
+
+from abc import ABC, abstractmethod
+from datetime import datetime
+from typing import Any, Dict, Generic, List, Optional, TypeVar, cast
+
+from ..models import (
+    Account,
+    AIMessageEntity,
+    Appearance,
+    ChannelData,
+    ChannelID,
+    ChannelInfo,
+    CitationAppearance,
+    CitationEntity,
+    Claim,
+    ConversationAccount,
+    ConversationReference,
+    CustomBaseModel,
+    Entity,
+    MeetingInfo,
+    MessageEntity,
+    NotificationInfo,
+    TeamInfo,
+)
+
+T = TypeVar("T", bound=str)
+
+
+class IActivity(CustomBaseModel, Generic[T], ABC):
+    """Base interface for all activities."""
+
+    _type: T
+    """Contains the type of the activity."""
+
+    id: str
+    """Contains an ID that uniquely identifies the activity on the channel."""
+
+    service_url: Optional[str] = None
+    """Contains the URL that specifies the channel's service endpoint. Set by the channel."""
+
+    timestamp: Optional[datetime] = None
+    """Contains the date and time that the message was sent, in UTC, expressed in ISO-8601 format."""
+
+    locale: Optional[str] = None
+    """
+    A locale name for the contents of the text field.
+    The locale name is a combination of an ISO 639 two- or three-letter culture code associated
+    with a language and an ISO 3166 two-letter subculture code associated with a country or region.
+    The locale name can also correspond to a valid BCP-47 language tag.
+    """
+
+    local_timestamp: Optional[datetime] = None
+    """
+    Contains the local date and time of the message, expressed in ISO-8601 format.
+    For example, 2016-09-23T13:07:49.4714686-07:00.
+    """
+
+    channel_id: ChannelID
+    """Contains an ID that uniquely identifies the channel. Set by the channel."""
+
+    from_: Account
+    """Identifies the sender of the message."""
+
+    conversation: ConversationAccount
+    """Identifies the conversation to which the activity belongs."""
+
+    relates_to: Optional[ConversationReference] = None
+    """A reference to another conversation or activity."""
+
+    recipient: Account
+    """Identifies the recipient of the message."""
+
+    reply_to_id: Optional[str] = None
+    """Contains the ID of the message to which this message is a reply."""
+
+    entities: Optional[List[Entity]] = None
+    """Represents the entities that were mentioned in the message."""
+
+    channel_data: Optional[ChannelData] = None
+    """Contains channel-specific content."""
+
+    @property
+    @abstractmethod
+    def channel(self) -> Optional[ChannelInfo]:
+        """Information about the channel in which the message was sent."""
+        pass
+
+    @property
+    @abstractmethod
+    def team(self) -> Optional[TeamInfo]:
+        """Information about the team in which the message was sent."""
+        pass
+
+    @property
+    @abstractmethod
+    def meeting(self) -> Optional[MeetingInfo]:
+        """Information about the tenant in which the message was sent."""
+        pass
+
+    @property
+    @abstractmethod
+    def notification(self) -> Optional[NotificationInfo]:
+        """Notification settings for the message."""
+        pass
+
+    @abstractmethod
+    def is_streaming(self) -> bool:
+        """Check if this is a streaming activity."""
+        pass
+
+
+class Activity(IActivity[T]):
+    """Base class for all activities."""
+
+    def __init__(self, value: Dict[str, Any]) -> None:
+        """Initialize the activity."""
+        super().__init__(**{"channel_id": "msteams", **value})
+
+    @property
+    def channel(self) -> Optional[ChannelInfo]:
+        """Information about the channel in which the message was sent."""
+        return self.channel_data.channel if self.channel_data else None
+
+    @property
+    def team(self) -> Optional[TeamInfo]:
+        """Information about the team in which the message was sent."""
+        return self.channel_data.team if self.channel_data else None
+
+    @property
+    def meeting(self) -> Optional[MeetingInfo]:
+        """Information about the tenant in which the message was sent."""
+        return self.channel_data.meeting if self.channel_data else None
+
+    @property
+    def notification(self) -> Optional[NotificationInfo]:
+        """Notification settings for the message."""
+        return self.channel_data.notification if self.channel_data else None
+
+    @property
+    def tenant(self) -> Any:
+        """Information about the tenant in which the message was sent."""
+        return self.channel_data.tenant if self.channel_data else None
+
+    @classmethod
+    def from_activity(cls, activity: IActivity[T]) -> "Activity[T]":
+        """Create an Activity from an IActivity."""
+        return cls(activity.model_dump())
+
+    def to_interface(self) -> IActivity[T]:
+        """Convert to interface format."""
+        return cast(IActivity[T], self.model_dump())
+
+    def clone(self, options: Optional[Dict[str, Any]] = None) -> "Activity[T]":
+        """Clone the activity with optional changes."""
+        interface_dict = self.to_interface().model_dump()
+        return Activity({**interface_dict, **(options or {})})
+
+    def with_id(self, value: str) -> "Activity[T]":
+        """Set the id."""
+        self.id = value
+        return self
+
+    def with_reply_to_id(self, value: str) -> "Activity[T]":
+        """Set the reply_to_id."""
+        self.reply_to_id = value
+        return self
+
+    def with_channel_id(self, value: ChannelID) -> "Activity[T]":
+        """Set the channel_id."""
+        self.channel_id = value
+        return self
+
+    def with_from(self, value: Account) -> "Activity[T]":
+        """Set the from field."""
+        self.from_ = value
+        return self
+
+    def with_conversation(self, value: ConversationAccount) -> "Activity[T]":
+        """Set the conversation."""
+        self.conversation = value
+        return self
+
+    def with_relates_to(self, value: ConversationReference) -> "Activity[T]":
+        """Set the relates_to field."""
+        self.relates_to = value
+        return self
+
+    def with_recipient(self, value: Account) -> "Activity[T]":
+        """Set the recipient."""
+        self.recipient = value
+        return self
+
+    def with_service_url(self, value: str) -> "Activity[T]":
+        """Set the service_url."""
+        self.service_url = value
+        return self
+
+    def with_timestamp(self, value: datetime) -> "Activity[T]":
+        """Set the timestamp."""
+        self.timestamp = value
+        return self
+
+    def with_locale(self, value: str) -> "Activity[T]":
+        """Set the locale."""
+        self.locale = value
+        return self
+
+    def with_local_timestamp(self, value: datetime) -> "Activity[T]":
+        """Set the local_timestamp."""
+        self.local_timestamp = value
+        return self
+
+    def with_channel_data(self, value: ChannelData) -> "Activity[T]":
+        """Set or update channel_data."""
+        if not self.channel_data:
+            self.channel_data = value
+        else:
+            data = {**self.channel_data.model_dump(), **value.model_dump()}
+            self.channel_data = ChannelData(**data)
+        return self
+
+    def add_entity(self, value: Entity) -> "Activity[T]":
+        """Add an entity."""
+        if not self.entities:
+            self.entities = []
+        self.entities.append(value)
+        return self
+
+    def add_entities(self, *values: Entity) -> "Activity[T]":
+        """Add multiple entities."""
+        if not self.entities:
+            self.entities = []
+        self.entities.extend(values)
+        return self
+
+    def add_ai_generated(self) -> "Activity[T]":
+        """Add the 'Generated By AI' label."""
+        message_entity = cast(AIMessageEntity, self.ensure_single_root_level_message_entity())
+        if message_entity.additional_type and "AIGeneratedContent" in message_entity.additional_type:
+            return self
+
+        if not message_entity.additional_type:
+            message_entity.additional_type = []
+
+        message_entity.additional_type.append("AIGeneratedContent")
+        return self
+
+    def add_feedback(self) -> "Activity[T]":
+        """Enable message feedback."""
+        if not self.channel_data:
+            self.channel_data = ChannelData(feedback_loop_enabled=True)
+        else:
+            self.channel_data.feedback_loop_enabled = True
+        return self
+
+    def add_citation(self, position: int, appearance: CitationAppearance) -> "Activity[T]":
+        """Add citations."""
+        message_entity = cast(CitationEntity, self.ensure_single_root_level_message_entity())
+        if not message_entity.citation:
+            message_entity.citation = []
+
+        message_entity.citation.append(
+            Claim(
+                position=position,
+                appearance=Appearance(
+                    abstract=appearance.abstract,
+                    name=appearance.name,
+                    icon=appearance.icon if appearance.icon else None,
+                    keywords=appearance.keywords,
+                    text=appearance.text,
+                    url=appearance.url,
+                    usage_info=appearance.usage_info,
+                ),
+            )
+        )
+
+        return self
+
+    def is_streaming(self) -> bool:
+        """Check if this is a streaming activity."""
+        return bool(self.entities and any(e.type == "streaminfo" for e in self.entities))
+
+    def ensure_single_root_level_message_entity(self) -> MessageEntity:
+        """
+        Get or create the base message entity.
+        There should only be one root level message entity.
+        """
+        message_entity = next(
+            (e for e in (self.entities or []) if e.type == "https://schema.org/Message" and e.at_type == "Message"),
+            None,
+        )
+
+        if not message_entity:
+            message_entity = MessageEntity()
+            self.add_entity(message_entity)
+
+        return message_entity
