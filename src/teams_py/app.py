@@ -8,6 +8,7 @@ import os
 
 from dotenv import load_dotenv
 from microsoft.teams.app import App, AppOptions
+from microsoft.teams.app.events import ActivityEvent, ErrorEvent, StartEvent, StopEvent, TokenEvent
 
 # Load environment variables from .env file
 load_dotenv()
@@ -60,6 +61,30 @@ async def main() -> None:
             activity_handler=my_activity_handler,
         )
     )
+
+    # Register event handlers using the new event system
+    @app.event
+    async def handle_activity(event: ActivityEvent):
+        activity = event.activity
+        print(f"[EVENT] Activity received: {activity.get('type')} (ID: {activity.get('id')})")
+
+    @app.event
+    async def handle_error(event: ErrorEvent):
+        print(f"[EVENT] Error in {event.context.get('method', 'unknown')}: {event.error}")
+
+    @app.event
+    async def handle_start(event: StartEvent):
+        print(f"[EVENT] App started successfully on port {event.port}")
+
+    @app.event
+    async def handle_stop(event: StopEvent):
+        print(
+            f"[EVENT] App stopped {event}",
+        )
+
+    @app.event
+    async def handle_token(event: TokenEvent):
+        print(f"[EVENT] {event.token_type.capitalize()} token refreshed")
 
     print(f"Starting app on port {port}...")
     await app.start(port=port)
