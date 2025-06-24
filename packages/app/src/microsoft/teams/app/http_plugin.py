@@ -13,10 +13,7 @@ import uvicorn
 from fastapi import FastAPI, HTTPException, Request
 from microsoft.teams.auth import (
     BotTokenValidator,
-    TokenAuthenticationError,
-    TokenClaimsError,
-    TokenFormatError,
-    TokenInfrastructureError,
+    TokenValidationError,
 )
 from microsoft.teams.common.logging import ConsoleLogger
 
@@ -208,7 +205,7 @@ class HttpPlugin:
                 await self.token_validator.validate_token(token, service_url)
                 self.logger.debug("JWT token validation successful")
                 return token, service_url
-            except (TokenFormatError, TokenClaimsError, TokenAuthenticationError, TokenInfrastructureError) as e:
+            except TokenValidationError as e:
                 self.logger.warning(f"JWT token validation failed: {e}")
                 raise HTTPException(status_code=401, detail="unauthorized") from e
             except Exception as e:
