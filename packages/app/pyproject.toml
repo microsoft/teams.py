@@ -5,14 +5,15 @@ description = "The app package for a Microsoft Teams agent"
 authors = [{ name = "Microsoft", email = "teams@microsoft.com" }]
 readme = "README.md"
 requires-python = ">=3.12"
+repository = "https://github.com/microsoft/teams.py"
+keywords = ["microsoft", "teams", "ai", "bot", "agents"]
+license = "MIT"
+
 dependencies = [
     "cryptography>=3.4.0",
     "microsoft-teams-common",
     "pyjwt[crypto]>=2.10.0",
 ]
-repository = "https://github.com/microsoft/teams.py"
-keywords = ["microsoft", "teams", "ai", "bot", "agents"]
-license = "MIT"
 
 [build-system]
 requires = ["hatchling"]
