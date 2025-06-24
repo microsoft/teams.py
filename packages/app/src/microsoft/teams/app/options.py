@@ -27,5 +27,5 @@ class AppOptions:
 
     # Infrastructure
     logger: Optional[Logger] = None
-    storage: Optional[Storage] = None
+    storage: Optional[Storage[Any]] = None
     plugins: List[PluginProtocol] = field(default_factory=list)

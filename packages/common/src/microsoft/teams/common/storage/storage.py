@@ -4,10 +4,10 @@ Licensed under the MIT License.
 """
 
 from abc import ABC, abstractmethod
-from typing import Callable, Generic, List, Optional, TypeVar
+from typing import Any, Callable, Generic, List, Optional, TypeVar
 
 K = TypeVar("K")
-V = TypeVar("V")
+V = TypeVar("V", default=Any)
 
 
 class Storage(Generic[K, V], ABC):

@@ -233,8 +233,8 @@ class App:
         Returns:
             Response data to send back
         """
-        activity_type = activity.get("type", "unknown")
-        activity_id = activity.get("id", "unknown")
+        activity_type = activity.type
+        activity_id = activity.id or ""
 
         self.log.info(f"Processing activity {activity_id} of type {activity_type}")
 

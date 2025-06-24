@@ -11,11 +11,12 @@ from typing import Any, Callable, Dict, Optional
 
 import uvicorn
 from fastapi import FastAPI, HTTPException, Request
-from microsoft.teams.auth import (
+from microsoft.teams.common.logging import ConsoleLogger
+
+from .auth import (
     BotTokenValidator,
     TokenValidationError,
 )
-from microsoft.teams.common.logging import ConsoleLogger
 
 
 class HttpPlugin:
