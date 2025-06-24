@@ -3,12 +3,12 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from typing import Generic, Literal, Optional, TypeVar
+from typing import Any, Generic, Literal, Optional, TypeVar
 
 from ...models import CustomBaseModel
 from ..activity import IActivity
 
-T = TypeVar("T")
+T = TypeVar("T", bound=Any)
 
 
 class CommandResultValue(CustomBaseModel, Generic[T]):

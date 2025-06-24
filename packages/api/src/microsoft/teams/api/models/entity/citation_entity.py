@@ -80,10 +80,11 @@ class CitationAppearance(CustomBaseModel):
     @field_validator("keywords")
     @classmethod
     def check_keywords(cls, value: Any) -> Any:
-        if len(value) > 3:
-            raise ValueError("Each keyword must be at most 28 characters long")
-        if any(len(keyword) > 28 for keyword in value):
-            raise ValueError("Each keyword must be at most 28 characters long")
+        if value is not None:
+            if len(value) > 3:
+                raise ValueError("Each keyword must be at most 28 characters long")
+            if any(len(keyword) > 28 for keyword in value):
+                raise ValueError("Each keyword must be at most 28 characters long")
         return value
 
     name: str
@@ -128,10 +129,11 @@ class Appearance(CustomBaseModel):
     @field_validator("keywords")
     @classmethod
     def check_keywords(cls, value: Any) -> Any:
-        if len(value) > 3:
-            raise ValueError("Each keyword must be at most 28 characters long")
-        if any(len(keyword) > 28 for keyword in value):
-            raise ValueError("Each keyword must be at most 28 characters long")
+        if value is not None:
+            if len(value) > 3:
+                raise ValueError("Each keyword must be at most 28 characters long")
+            if any(len(keyword) > 28 for keyword in value):
+                raise ValueError("Each keyword must be at most 28 characters long")
         return value
 
     at_type: Literal["DigitalDocument"] = "DigitalDocument"

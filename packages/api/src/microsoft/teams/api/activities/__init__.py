@@ -3,11 +3,11 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from typing import TypeVar, Union
+from typing import Any, TypeVar, Union
 
 from .activity import Activity as ActivityBase
 from .activity import IActivity
-from .command import CommandActivity, CommandResultActivity, CommandResultValue, CommandSendActivity, CommandValue
+from .command import CommandActivity, CommandResultActivity, CommandResultValue, CommandValue
 from .conversation import (
     ConversationActivity,
     ConversationChannelData,
@@ -18,12 +18,12 @@ from .conversation import (
 )
 from .handoff import HandoffActivity
 
-T = TypeVar("T", bound=str)
+T = TypeVar("T", bound=Any)
 
 Activity = Union[
     HandoffActivity,
-    CommandSendActivity[T],
     CommandActivity[T],
+    CommandResultActivity[T],
     ConversationActivity,
 ]
 
@@ -32,7 +32,7 @@ __all__ = [
     "Activity",
     "ActivityBase",
     "CommandValue",
-    "CommandSendActivity",
+    "CommandActivity",
     "CommandResultValue",
     "CommandResultActivity",
     "ConversationUpdateActivity",
