@@ -3,6 +3,7 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
+from .api_client import ApiClient
 from .bot import *  # noqa: F403
 from .bot import __all__ as bot_all
 from .conversation import *  # noqa: F403
@@ -15,6 +16,7 @@ from .user import *  # noqa: F403
 from .user import __all__ as user_all
 
 __all__ = [
+    "ApiClient",
     *conversation_all,
     *user_all,
     *bot_all,
