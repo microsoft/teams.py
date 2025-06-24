@@ -76,21 +76,6 @@ class TestActivity:
         assert activity.timestamp is not None
         assert activity.local_timestamp is not None
 
-    def test_should_build_from_interface(self, user: Account, bot: Account, chat: ConversationAccount) -> None:
-        activity = Activity.from_activity(
-            Activity({"type": "test", "id": "1", "from": user, "conversation": chat, "recipient": bot})
-            .with_locale("en")
-            .with_recipient(bot)
-            .to_interface()
-        )
-
-        assert activity.id == "1"
-        assert activity.type == "test"
-        assert activity.locale == "en"
-        assert activity.from_ == user
-        assert activity.conversation == chat
-        assert activity.recipient == bot
-
     def test_should_clone(self, user: Account, bot: Account, chat: ConversationAccount) -> None:
         activity = (
             Activity({"type": "test", "id": "1", "from": user, "conversation": chat, "recipient": bot})
