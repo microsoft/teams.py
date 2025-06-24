@@ -16,7 +16,11 @@ from .conversation import (
     EndOfConversationCode,
     EventType,
 )
+from .event import *  # noqa: F403
+from .event import __all__ as event_all
 from .handoff import HandoffActivity
+from .install_update import *  # noqa: F403
+from .install_update import __all__ as install_update_all
 
 T = TypeVar("T", bound=Any)
 
@@ -31,13 +35,16 @@ __all__ = [
     "IActivity",
     "Activity",
     "ActivityBase",
-    "CommandValue",
     "CommandActivity",
-    "CommandResultValue",
     "CommandResultActivity",
+    "CommandValue",
+    "CommandResultValue",
+    "ConversationActivity",
     "ConversationUpdateActivity",
+    "ConversationChannelData",
     "EndOfConversationActivity",
     "EndOfConversationCode",
     "EventType",
-    "ConversationChannelData",
+    *event_all,
+    *install_update_all,
 ]
