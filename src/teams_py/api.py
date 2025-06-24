@@ -7,14 +7,20 @@ import asyncio
 import os
 from typing import Optional
 
+from dotenv import load_dotenv
 from microsoft.teams.api import (
     Account,
     Activity,
+    BotClient,
+    ClientCredentials,
     ConversationClient,
     CreateConversationParams,
     GetConversationsParams,
 )
 from microsoft.teams.common.http import ClientOptions
+
+# Load environment variables from .env file
+load_dotenv()
 
 
 class TeamsApiTester:
@@ -133,16 +139,38 @@ class TeamsApiTester:
 async def main() -> None:
     """Run the API tests."""
     # Get configuration from environment
+    client_id = os.getenv("CLIENT_ID")
+    client_secret = os.getenv("CLIENT_SECRET")
+    tenant_id = os.getenv("TENANT_ID")
     service_url = os.getenv("TEAMS_SERVICE_URL")
-    token = os.getenv("TEAMS_TOKEN")
     conversation_id = os.getenv("TEAMS_CONVERSATION_ID")
 
-    if not service_url or not token:
-        print("Error: TEAMS_SERVICE_URL and TEAMS_TOKEN environment variables must be set")
+    if not client_id or not client_secret:
+        print("Error: CLIENT_ID and CLIENT_SECRET environment variables must be set")
+        print("Please copy .env.example to .env and fill in your values")
         return
 
+    # Create bot client and get token
+    bot_client = BotClient()
+    credentials = ClientCredentials(
+        client_id=client_id,
+        client_secret=client_secret,
+        tenant_id=tenant_id,
+    )
+
+    try:
+        token_response = await bot_client.token.get(credentials)
+    except Exception as e:
+        print(f"Error getting bot token: {e}")
+        print("Please check your CLIENT_ID and CLIENT_SECRET in the .env file")
+        return
+
+    if not service_url:
+        print("Warning: TEAMS_SERVICE_URL not set, using default")
+        service_url = "https://smba.trafficmanager.net/teams"
+
     # Create tester and run tests
-    tester = TeamsApiTester(service_url, token)
+    tester = TeamsApiTester(service_url, token_response.access_token)
     await tester.test_conversation_client(conversation_id)
 
 
