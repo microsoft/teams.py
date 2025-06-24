@@ -8,20 +8,18 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from microsoft.teams.app import (
-    BotTokenValidator,
+    ServiceTokenValidator,
     TokenValidationError,
     TokenValidationErrorCode,
 )
-from microsoft.teams.app.auth.bot_token_validator import EXPECTED_ISSUER, JwksKey, JwksResponse, OpenIdMetadata
+from microsoft.teams.app.auth.service_token_validator import EXPECTED_ISSUER, JwksKey, JwksResponse, OpenIdMetadata
 
 
-class TestBotTokenValidator:
-    """Test cases for BotTokenValidator public interface."""
-
+class TestServiceTokenValidator:
     @pytest.fixture
     def validator(self):
-        """Create BotTokenValidator instance."""
-        return BotTokenValidator("test-app-id")
+        """Create ServiceTokenValidator instance."""
+        return ServiceTokenValidator("test-app-id")
 
     @pytest.fixture
     def valid_token_payload(self):
@@ -59,17 +57,17 @@ class TestBotTokenValidator:
         )
 
     def test_init_with_app_id(self):
-        """Test BotTokenValidator initialization with app ID."""
-        validator = BotTokenValidator("test-app-id")
+        """Test ServiceTokenValidator initialization with app ID."""
+        validator = ServiceTokenValidator("test-app-id")
 
         assert validator.app_id == "test-app-id"
         assert validator.logger is not None
         assert validator.http_client is not None
 
     def test_init_with_custom_logger(self):
-        """Test BotTokenValidator initialization with custom logger."""
+        """Test ServiceTokenValidator initialization with custom logger."""
         mock_logger = MagicMock()
-        validator = BotTokenValidator("test-app-id", mock_logger)
+        validator = ServiceTokenValidator("test-app-id", mock_logger)
 
         assert validator.app_id == "test-app-id"
         assert validator.logger == mock_logger

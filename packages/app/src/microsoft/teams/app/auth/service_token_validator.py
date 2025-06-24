@@ -80,7 +80,7 @@ class JwksResponse(BaseModel):
     keys: list[JwksKey] = []  # List of JWKs
 
 
-class BotTokenValidator:
+class ServiceTokenValidator:
     """
     Bot Framework JWT token validator following Microsoft's authentication protocol.
 

@@ -3,14 +3,14 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from .bot_token_validator import (
-    BotTokenValidator,
+from .service_token_validator import (
+    ServiceTokenValidator,
     TokenValidationError,
     TokenValidationErrorCode,
 )
 
 __all__ = [
-    "BotTokenValidator",
+    "ServiceTokenValidator",
     "TokenValidationError",
     "TokenValidationErrorCode",
 ]
