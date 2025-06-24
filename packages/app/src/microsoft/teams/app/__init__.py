@@ -3,6 +3,9 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
+from .auth import *  # noqa: F403
+from .auth import __all__ as auth_all
 
-def hello() -> str:
-    return "Hello from app!"
+__all__ = [
+    *auth_all,
+]
