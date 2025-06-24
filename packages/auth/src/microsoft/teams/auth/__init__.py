@@ -5,18 +5,12 @@ Licensed under the MIT License.
 
 from .bot_token_validator import (
     BotTokenValidator,
-    TokenAuthenticationError,
-    TokenClaimsError,
-    TokenFormatError,
-    TokenInfrastructureError,
+    TokenValidationError,
     TokenValidationErrorCode,
 )
 
 __all__ = [
     "BotTokenValidator",
-    "TokenAuthenticationError",
-    "TokenClaimsError",
-    "TokenFormatError",
-    "TokenInfrastructureError",
+    "TokenValidationError",
     "TokenValidationErrorCode",
 ]

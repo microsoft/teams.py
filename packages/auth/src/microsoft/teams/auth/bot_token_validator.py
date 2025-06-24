@@ -34,36 +34,12 @@ class TokenValidationErrorCode(Enum):
 
 
 class TokenValidationError(Exception):
-    """Base exception for token validation failures."""
+    """Exception for token validation failures."""
 
     def __init__(self, code: TokenValidationErrorCode, message: str):
         self.code = code
         self.message = message
         super().__init__(f"{code.value}: {message}")
-
-
-class TokenFormatError(TokenValidationError):
-    """Raised when token format is invalid."""
-
-    pass
-
-
-class TokenClaimsError(TokenValidationError):
-    """Raised when token claims validation fails."""
-
-    pass
-
-
-class TokenAuthenticationError(TokenValidationError):
-    """Raised when token authentication fails."""
-
-    pass
-
-
-class TokenInfrastructureError(TokenValidationError):
-    """Raised when token validation infrastructure fails."""
-
-    pass
 
 
 CACHE_TTL = 3600  # 1 hour cache TTL for JWKS and metadata
@@ -142,14 +118,11 @@ class BotTokenValidator:
             Token payload if valid
 
         Raises:
-            TokenFormatError: When token format is invalid
-            TokenClaimsError: When token claims validation fails
-            TokenAuthenticationError: When token authentication fails
-            TokenInfrastructureError: When validation infrastructure fails
+            TokenValidationError: When token validation fails
         """
         if not raw_token:
             self.logger.error("No token provided")
-            raise TokenFormatError(TokenValidationErrorCode.MISSING_TOKEN, "No token provided")
+            raise TokenValidationError(TokenValidationErrorCode.MISSING_TOKEN, "No token provided")
 
         try:
             # Step 1: Decode token without verification to get header
@@ -157,7 +130,7 @@ class BotTokenValidator:
             unverified_payload = jwt.decode(raw_token, options={"verify_signature": False})
         except jwt.DecodeError as e:
             self.logger.error(f"Token malformed: {e}")
-            raise TokenFormatError(TokenValidationErrorCode.MALFORMED_TOKEN, "Token malformed") from e
+            raise TokenValidationError(TokenValidationErrorCode.MALFORMED_TOKEN, "Token malformed") from e
 
         # Step 2: Basic claim validation
         self._validate_basic_claims(unverified_payload)
@@ -166,19 +139,19 @@ class BotTokenValidator:
         algorithm = unverified_header.get("alg")
         if not algorithm:
             self.logger.error("Token missing algorithm in header")
-            raise TokenFormatError(TokenValidationErrorCode.MALFORMED_TOKEN, "Token missing algorithm in header")
+            raise TokenValidationError(TokenValidationErrorCode.MALFORMED_TOKEN, "Token missing algorithm in header")
 
         metadata = await self._get_openid_metadata()
         if not metadata:
             self.logger.error("Failed to retrieve OpenID metadata for algorithm validation")
-            raise TokenInfrastructureError(
+            raise TokenValidationError(
                 TokenValidationErrorCode.METADATA_RETRIEVAL_FAILED, "Failed to retrieve OpenID metadata"
             )
 
         supported_algorithms = metadata.id_token_signing_alg_values_supported
         if algorithm not in supported_algorithms:
             self.logger.error(f"Token algorithm '{algorithm}' not in supported algorithms: {supported_algorithms}")
-            raise TokenAuthenticationError(
+            raise TokenValidationError(
                 TokenValidationErrorCode.UNSUPPORTED_ALGORITHM, f"Algorithm '{algorithm}' not supported"
             )
 
@@ -186,7 +159,7 @@ class BotTokenValidator:
         public_key_jwk = await self._get_public_key(metadata, unverified_header.get("kid"), algorithm)
         if not public_key_jwk:
             self.logger.error("Failed to retrieve public key for token validation")
-            raise TokenAuthenticationError(TokenValidationErrorCode.KEY_NOT_FOUND, "Failed to retrieve public key")
+            raise TokenValidationError(TokenValidationErrorCode.KEY_NOT_FOUND, "Failed to retrieve public key")
 
         # Step 5: Verify signature and claims using the validated algorithm
         try:
@@ -206,7 +179,7 @@ class BotTokenValidator:
             )
         except jwt.InvalidTokenError as e:
             self.logger.error(f"JWT signature verification failed: {e}")
-            raise TokenAuthenticationError(
+            raise TokenValidationError(
                 TokenValidationErrorCode.SIGNATURE_VERIFICATION_FAILED, "Signature verification failed"
             ) from e
 
@@ -223,30 +196,32 @@ class BotTokenValidator:
         # Check issuer
         if payload.get("iss") != EXPECTED_ISSUER:
             self.logger.error(f"Invalid issuer: {payload.get('iss')}")
-            raise TokenClaimsError(TokenValidationErrorCode.INVALID_ISSUER, f"Invalid issuer: {payload.get('iss')}")
+            raise TokenValidationError(TokenValidationErrorCode.INVALID_ISSUER, f"Invalid issuer: {payload.get('iss')}")
 
         # Check audience
         if payload.get("aud") != self.app_id:
             self.logger.error(f"Invalid audience: {payload.get('aud')}")
-            raise TokenClaimsError(TokenValidationErrorCode.INVALID_AUDIENCE, f"Invalid audience: {payload.get('aud')}")
+            raise TokenValidationError(
+                TokenValidationErrorCode.INVALID_AUDIENCE, f"Invalid audience: {payload.get('aud')}"
+            )
 
         # Check expiration with 5-minute clock skew
         exp = payload.get("exp")
         if not exp:
             self.logger.error("Token missing expiration claim")
-            raise TokenFormatError(TokenValidationErrorCode.MALFORMED_TOKEN, "Token missing expiration claim")
+            raise TokenValidationError(TokenValidationErrorCode.MALFORMED_TOKEN, "Token missing expiration claim")
 
         current_time = time.time()
 
         if current_time > (exp + EXPIRATION_BUFFER_SECONDS):
             self.logger.error("Token is expired")
-            raise TokenClaimsError(TokenValidationErrorCode.EXPIRED_TOKEN, "Token is expired")
+            raise TokenValidationError(TokenValidationErrorCode.EXPIRED_TOKEN, "Token is expired")
 
         # Check issued at time
         iat = payload.get("iat")
         if iat and (current_time + EXPIRATION_BUFFER_SECONDS) < iat:
             self.logger.error("Token issued in the future")
-            raise TokenClaimsError(TokenValidationErrorCode.FUTURE_TOKEN, "Token issued in the future")
+            raise TokenValidationError(TokenValidationErrorCode.FUTURE_TOKEN, "Token issued in the future")
 
     def _validate_service_url(self, payload: Dict[str, Any], expected_service_url: str) -> None:
         """Validate service URL claim matches expected service URL."""
@@ -254,7 +229,7 @@ class BotTokenValidator:
 
         if not token_service_url:
             self.logger.error("Token missing serviceurl claim")
-            raise TokenClaimsError(TokenValidationErrorCode.MISSING_SERVICE_URL, "Token missing serviceurl claim")
+            raise TokenValidationError(TokenValidationErrorCode.MISSING_SERVICE_URL, "Token missing serviceurl claim")
 
         # Normalize URLs (remove trailing slashes)
         normalized_token_url = token_service_url.rstrip("/")
@@ -264,7 +239,7 @@ class BotTokenValidator:
             self.logger.error(
                 f"Service URL mismatch. Token: {normalized_token_url}, Expected: {normalized_expected_url}"
             )
-            raise TokenClaimsError(
+            raise TokenValidationError(
                 TokenValidationErrorCode.SERVICE_URL_MISMATCH,
                 f"Service URL mismatch. Token: {normalized_token_url}, Expected: {normalized_expected_url}",
             )
@@ -273,12 +248,12 @@ class BotTokenValidator:
         """Get public key for token verification."""
         if not kid:
             self.logger.error("Token missing key ID (kid)")
-            raise TokenFormatError(TokenValidationErrorCode.MISSING_KEY_ID, "Token missing key ID (kid)")
+            raise TokenValidationError(TokenValidationErrorCode.MISSING_KEY_ID, "Token missing key ID (kid)")
 
         # Get JWKS
         jwks = await self._get_jwks(open_id_metadata)
         if not jwks:
-            raise TokenInfrastructureError(TokenValidationErrorCode.JWKS_RETRIEVAL_FAILED, "Failed to retrieve JWKS")
+            raise TokenValidationError(TokenValidationErrorCode.JWKS_RETRIEVAL_FAILED, "Failed to retrieve JWKS")
 
         # Find key by kid and validate additional properties
         for key in jwks.keys:
@@ -303,7 +278,7 @@ class BotTokenValidator:
             return self._jwk_to_key(key.model_dump(), algorithm)
 
         self.logger.error(f"No suitable public key found for kid: {kid}")
-        raise TokenAuthenticationError(
+        raise TokenValidationError(
             TokenValidationErrorCode.KEY_NOT_FOUND, f"No suitable public key found for kid: {kid}"
         )
 

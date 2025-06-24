@@ -9,10 +9,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from microsoft.teams.auth import (
     BotTokenValidator,
-    TokenAuthenticationError,
-    TokenClaimsError,
-    TokenFormatError,
-    TokenInfrastructureError,
+    TokenValidationError,
     TokenValidationErrorCode,
 )
 from microsoft.teams.auth.bot_token_validator import EXPECTED_ISSUER, JwksKey, JwksResponse, OpenIdMetadata
@@ -97,14 +94,14 @@ class TestBotTokenValidator:
     @pytest.mark.asyncio
     async def test_validate_token_empty_token(self, validator):
         """Test validation with empty token."""
-        with pytest.raises(TokenFormatError) as exc_info:
+        with pytest.raises(TokenValidationError) as exc_info:
             await validator.validate_token("")
         assert exc_info.value.code == TokenValidationErrorCode.MISSING_TOKEN
 
     @pytest.mark.asyncio
     async def test_validate_token_none_token(self, validator):
         """Test validation with None token."""
-        with pytest.raises(TokenFormatError) as exc_info:
+        with pytest.raises(TokenValidationError) as exc_info:
             await validator.validate_token(None)
         assert exc_info.value.code == TokenValidationErrorCode.MISSING_TOKEN
 
@@ -114,7 +111,7 @@ class TestBotTokenValidator:
         import jwt as pyjwt
 
         with patch("jwt.get_unverified_header", side_effect=pyjwt.DecodeError("Malformed token")):
-            with pytest.raises(TokenFormatError) as exc_info:
+            with pytest.raises(TokenValidationError) as exc_info:
                 await validator.validate_token("malformed.token")
             assert exc_info.value.code == TokenValidationErrorCode.MALFORMED_TOKEN
 
@@ -128,7 +125,7 @@ class TestBotTokenValidator:
             patch("jwt.get_unverified_header", return_value=valid_token_header),
             patch("jwt.decode", return_value=valid_token_payload),
         ):
-            with pytest.raises(TokenClaimsError) as exc_info:
+            with pytest.raises(TokenValidationError) as exc_info:
                 await validator.validate_token(token)
             assert exc_info.value.code == TokenValidationErrorCode.INVALID_ISSUER
 
@@ -142,7 +139,7 @@ class TestBotTokenValidator:
             patch("jwt.get_unverified_header", return_value=valid_token_header),
             patch("jwt.decode", return_value=valid_token_payload),
         ):
-            with pytest.raises(TokenClaimsError) as exc_info:
+            with pytest.raises(TokenValidationError) as exc_info:
                 await validator.validate_token(token)
             assert exc_info.value.code == TokenValidationErrorCode.INVALID_AUDIENCE
 
@@ -157,7 +154,7 @@ class TestBotTokenValidator:
             patch("jwt.get_unverified_header", return_value=valid_token_header),
             patch("jwt.decode", return_value=valid_token_payload),
         ):
-            with pytest.raises(TokenClaimsError) as exc_info:
+            with pytest.raises(TokenValidationError) as exc_info:
                 await validator.validate_token(token)
             assert exc_info.value.code == TokenValidationErrorCode.EXPIRED_TOKEN
 
@@ -172,7 +169,7 @@ class TestBotTokenValidator:
             patch("jwt.get_unverified_header", return_value=valid_token_header),
             patch("jwt.decode", return_value=valid_token_payload),
         ):
-            with pytest.raises(TokenClaimsError) as exc_info:
+            with pytest.raises(TokenValidationError) as exc_info:
                 await validator.validate_token(token)
             assert exc_info.value.code == TokenValidationErrorCode.FUTURE_TOKEN
 
@@ -186,7 +183,7 @@ class TestBotTokenValidator:
             patch("jwt.get_unverified_header", return_value=valid_token_header),
             patch("jwt.decode", return_value=valid_token_payload),
         ):
-            with pytest.raises(TokenFormatError) as exc_info:
+            with pytest.raises(TokenValidationError) as exc_info:
                 await validator.validate_token(token)
             assert exc_info.value.code == TokenValidationErrorCode.MALFORMED_TOKEN
 
@@ -203,7 +200,7 @@ class TestBotTokenValidator:
             patch("jwt.decode", return_value=valid_token_payload),
             patch.object(validator, "_get_openid_metadata", return_value=mock_openid_metadata),
         ):
-            with pytest.raises(TokenAuthenticationError) as exc_info:
+            with pytest.raises(TokenValidationError) as exc_info:
                 await validator.validate_token(token)
             assert exc_info.value.code == TokenValidationErrorCode.UNSUPPORTED_ALGORITHM
 
@@ -217,7 +214,7 @@ class TestBotTokenValidator:
             patch("jwt.get_unverified_header", return_value=header_without_alg),
             patch("jwt.decode", return_value=valid_token_payload),
         ):
-            with pytest.raises(TokenFormatError) as exc_info:
+            with pytest.raises(TokenValidationError) as exc_info:
                 await validator.validate_token(token)
             assert exc_info.value.code == TokenValidationErrorCode.MALFORMED_TOKEN
 
@@ -234,7 +231,7 @@ class TestBotTokenValidator:
             patch("jwt.decode", return_value=valid_token_payload),
             patch.object(validator, "_get_openid_metadata", return_value=mock_openid_metadata),
         ):
-            with pytest.raises(TokenFormatError) as exc_info:
+            with pytest.raises(TokenValidationError) as exc_info:
                 await validator.validate_token(token)
             assert exc_info.value.code == TokenValidationErrorCode.MISSING_KEY_ID
 
@@ -252,7 +249,7 @@ class TestBotTokenValidator:
             patch("jwt.decode", return_value=valid_token_payload),
             patch("jwt.get_unverified_header", return_value=valid_token_header),
         ):
-            with pytest.raises(TokenClaimsError) as exc_info:
+            with pytest.raises(TokenValidationError) as exc_info:
                 await validator.validate_token(token, "https://different-service.com")
             assert exc_info.value.code == TokenValidationErrorCode.SERVICE_URL_MISMATCH
 
@@ -271,7 +268,7 @@ class TestBotTokenValidator:
             patch("jwt.decode", return_value=valid_token_payload),
             patch("jwt.get_unverified_header", return_value=valid_token_header),
         ):
-            with pytest.raises(TokenClaimsError) as exc_info:
+            with pytest.raises(TokenValidationError) as exc_info:
                 await validator.validate_token(token, "https://smba.trafficmanager.net/teams")
             assert exc_info.value.code == TokenValidationErrorCode.MISSING_SERVICE_URL
 
@@ -285,7 +282,7 @@ class TestBotTokenValidator:
             patch("jwt.decode", return_value=valid_token_payload),
             patch.object(validator, "_get_openid_metadata", return_value=None),
         ):
-            with pytest.raises(TokenInfrastructureError) as exc_info:
+            with pytest.raises(TokenValidationError) as exc_info:
                 await validator.validate_token(token)
             assert exc_info.value.code == TokenValidationErrorCode.METADATA_RETRIEVAL_FAILED
 
@@ -302,7 +299,7 @@ class TestBotTokenValidator:
             patch.object(validator, "_get_openid_metadata", return_value=mock_openid_metadata),
             patch.object(validator, "_get_public_key", return_value=None),
         ):
-            with pytest.raises(TokenAuthenticationError) as exc_info:
+            with pytest.raises(TokenValidationError) as exc_info:
                 await validator.validate_token(token)
             assert exc_info.value.code == TokenValidationErrorCode.KEY_NOT_FOUND
 
@@ -325,7 +322,7 @@ class TestBotTokenValidator:
             patch.object(validator, "_get_jwks", return_value=mock_jwks_response),
             patch.object(validator, "_jwk_to_key", return_value="mock-key"),
         ):
-            with pytest.raises(TokenAuthenticationError) as exc_info:
+            with pytest.raises(TokenValidationError) as exc_info:
                 await validator.validate_token(token)
             assert exc_info.value.code == TokenValidationErrorCode.SIGNATURE_VERIFICATION_FAILED
 
