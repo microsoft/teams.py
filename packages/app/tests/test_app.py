@@ -8,6 +8,7 @@ import os
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from microsoft.teams.api import Activity
 from microsoft.teams.app.app import App, AppTokens
 from microsoft.teams.app.http_plugin import HttpPlugin
 from microsoft.teams.app.options import AppOptions
@@ -30,8 +31,8 @@ class TestApp:
     def mock_activity_handler(self):
         """Create a mock activity handler."""
 
-        async def handler(activity):
-            return {"status": "handled", "activityId": activity.get("id")}
+        async def handler(activity: Activity):
+            return {"status": "handled", "activityId": activity.id}
 
         return handler
 
@@ -281,7 +282,7 @@ class TestApp:
     @pytest.mark.asyncio
     async def test_handle_activity_success(self, app_with_activity_handler):
         """Test successful activity handling."""
-        activity = {"type": "message", "id": "test-activity-id", "text": "Hello, world!"}
+        activity = Activity.model_validate({"type": "message", "id": "test-activity-id", "text": "Hello, world!"})
 
         # Mock the HTTP plugin response method
         app_with_activity_handler.http.on_activity_response = MagicMock()
@@ -295,7 +296,7 @@ class TestApp:
     @pytest.mark.asyncio
     async def test_handle_activity_no_handler(self, app_with_options):
         """Test activity handling without custom handler."""
-        activity = {"type": "message", "id": "test-activity-id", "text": "Hello, world!"}
+        activity = Activity.model_validate({"type": "message", "id": "test-activity-id", "text": "Hello, world!"})
 
         app_with_options.http.on_activity_response = MagicMock()
 
@@ -314,7 +315,7 @@ class TestApp:
         app_with_options.activity_handler = failing_handler
         app_with_options.http.on_error = MagicMock()
 
-        activity = {"type": "message", "id": "test-activity-id", "text": "Hello, world!"}
+        activity = Activity.model_validate({"type": "message", "id": "test-activity-id", "text": "Hello, world!"})
 
         # Should handle the exception gracefully
         with pytest.raises(ValueError, match="Handler failed"):
