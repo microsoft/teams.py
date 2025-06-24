@@ -18,7 +18,7 @@ class EndOfConversationActivity(IActivity[Literal["endOfConversation"]], CustomB
 
     code: Optional[EndOfConversationCode] = None
     """
-    The a code for endOfConversation activities that indicates why the conversation ended.
+    The code for endOfConversation activities that indicates why the conversation ended.
     Possible values include: 'unknown', 'completedSuccessfully', 'userCancelled', 'botTimedOut',
     'botIssuedInvalidMessage', 'channelFailed'
     """
