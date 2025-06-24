@@ -7,10 +7,9 @@ import jwt
 from microsoft.teams.api.auth import CallerIds, JsonWebToken
 
 
-def build_token(token_payload: str):
-    signing_key = jwt.jwk_from_dict({"kty": "oct", "k": "dGVzdF9rZXk"})  # "test_key" base64url encoded
-    jwt_instance = jwt.JWT()
-    return jwt_instance.encode(token_payload, signing_key, alg="HS256")
+def build_token(token_payload: dict):
+    secret_key = "test_key"
+    return jwt.encode(token_payload, secret_key, algorithm="HS256")
 
 
 class TestJsonWebToken:
