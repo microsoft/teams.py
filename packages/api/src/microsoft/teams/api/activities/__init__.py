@@ -17,6 +17,8 @@ from .conversation import (
     EventType,
 )
 from .handoff import HandoffActivity
+from .trace import TraceActivity
+from .typing import ITypingActivity, TypingActivity
 
 T = TypeVar("T", bound=Any)
 
@@ -40,4 +42,7 @@ __all__ = [
     "EndOfConversationCode",
     "EventType",
     "ConversationChannelData",
+    "TraceActivity",
+    "TypingActivity",
+    "ITypingActivity",
 ]

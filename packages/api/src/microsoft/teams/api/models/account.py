@@ -31,6 +31,10 @@ class Account(CustomBaseModel):
     """
     Additional properties for the account.
     """
+    name: Optional[str] = None
+    """
+    The name of the account.
+    """
 
 
 class ConversationAccount(CustomBaseModel):
