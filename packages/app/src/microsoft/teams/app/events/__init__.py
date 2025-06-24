@@ -5,7 +5,7 @@ Licensed under the MIT License.
 
 from .base import BaseEvent, EventProtocol
 from .decorator import get_event_type_from_signature
-from .registry import EventType, register_event_type
+from .registry import EventType, is_registered_event, register_event_type
 from .types import ActivityEvent, ErrorEvent, StartEvent, StopEvent, TokenEvent
 
 __all__ = [
@@ -19,4 +19,5 @@ __all__ = [
     "EventType",
     "get_event_type_from_signature",
     "register_event_type",
+    "is_registered_event",
 ]

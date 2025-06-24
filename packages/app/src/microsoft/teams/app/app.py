@@ -8,8 +8,6 @@ import os
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, Optional, TypeVar, Union, overload
 
-F = TypeVar("F", bound=Callable[..., Any])
-
 from microsoft.teams.api import Activity, ApiClient, ClientCredentials, Credentials, JsonWebToken, TokenProtocol
 from microsoft.teams.common.events import EventEmitter
 from microsoft.teams.common.http import Client
@@ -30,6 +28,8 @@ from .http_plugin import HttpPlugin
 from .options import AppOptions
 from .plugin import PluginProtocol
 
+F = TypeVar("F", bound=Callable[..., Any])
+
 
 @dataclass
 class AppTokens:
@@ -49,60 +49,47 @@ class App:
     def __init__(self, options: Optional[AppOptions] = None):
         self.options = options or AppOptions()
 
-        # Setup logging and storage
         self.log = self.options.logger or ConsoleLogger().create_logger("@teams/app")
         self.storage = self.options.storage or LocalStorage()
 
-        # Initialize HTTP client
         self.http_client = Client()
 
-        # Initialize event system
         self._events = EventEmitter()
 
-        # Initialize tokens and credentials
         self._tokens = AppTokens()
         self.credentials = self._init_credentials()
 
-        # Initialize API client with hardcoded service URL (matching TypeScript pattern)
         self.api = ApiClient("https://smba.trafficmanager.net/teams", self.http_client)
 
         # TODO: Initialize graph client when available
         # self.graph = GraphClient(self.http_client)
 
-        # Activity handler
         self.activity_handler = self.options.activity_handler
 
-        # Initialize plugins (matching TypeScript pattern)
         plugins: List[PluginProtocol] = list(self.options.plugins or [])
 
-        # Find or create HTTP plugin (matching TypeScript behavior)
         http_plugin = None
         for i, plugin in enumerate(plugins):
             if isinstance(plugin, HttpPlugin):
                 http_plugin = plugin
-                # Remove HTTP plugin from its current position
                 plugins.pop(i)
                 break
 
         if not http_plugin:
-            # Get app_id from credentials for JWT validation
             app_id = None
             if self.credentials and hasattr(self.credentials, "client_id"):
                 app_id = self.credentials.client_id
 
             http_plugin = HttpPlugin(app_id, self.log, self.handle_activity)
 
-        # Always put HTTP plugin LAST since it blocks
         plugins.append(http_plugin)
 
         self.plugins = plugins
         self.http = http_plugin
 
-        # Wire up activity handler to HTTP plugin
         # TODO: When plugin architecture is done, remove this manual wiring
         self.http.activity_handler = self.handle_activity
 
-        # App state
         self._port: Optional[int] = None
         self._running = False
 
@@ -150,26 +137,17 @@ class App:
         self._port = port or int(os.getenv("PORT", "3978"))
 
         try:
-            # Refresh tokens
             await self._refresh_tokens(force=True)
-
-            # Mark as running before starting plugins
             self._running = True
-
-            # Start plugins (HTTP plugin will block here, keeping server running)
             self.log.info("Teams app started successfully")
-
-            # Emit start event
             self._events.emit("start", StartEvent(port=self._port))
 
             for plugin in self.plugins:
                 await plugin.on_start(self._port)
 
         except Exception as error:
-            self._running = False  # Reset on failure
+            self._running = False
             self.log.error(f"Failed to start app: {error}")
-
-            # Emit error event
             self._events.emit("error", ErrorEvent(error, context={"method": "start", "port": self._port}))
             raise
 
@@ -179,20 +157,15 @@ class App:
             return
 
         try:
-            # Stop plugins in reverse order
             for plugin in reversed(self.plugins):
                 await plugin.on_stop()
 
             self._running = False
             self.log.info("Teams app stopped")
-
-            # Emit stop event
             self._events.emit("stop", StopEvent())
 
         except Exception as error:
             self.log.error(f"Failed to stop app: {error}")
-
-            # Emit error event
             self._events.emit("error", ErrorEvent(error, context={"method": "stop"}))
             raise
 
@@ -227,12 +200,10 @@ class App:
             self._tokens.bot = JsonWebToken(token_response.access_token)
             self.log.debug("Bot token refreshed successfully")
 
-            # Emit token event (without actual token for security)
             self._events.emit("token", TokenEvent(token_type="bot"))
         except Exception as error:
             self.log.error(f"Failed to refresh bot token: {error}")
 
-            # Emit error event
             self._events.emit("error", ErrorEvent(error, context={"method": "_refresh_bot_token"}))
             raise
 
@@ -258,7 +229,6 @@ class App:
         except Exception as error:
             self.log.error(f"Failed to refresh graph token: {error}")
 
-            # Emit error event
             self._events.emit("error", ErrorEvent(error, context={"method": "_refresh_graph_token"}))
             raise
 
@@ -280,14 +250,12 @@ class App:
         self.log.info(f"Processing activity {activity_id} of type {activity_type}")
 
         try:
-            # Emit activity event
             self._events.emit("activity", ActivityEvent(activity))
 
             response = None
             if self.activity_handler:
                 response = await self.activity_handler(activity)
 
-            # Log completion and return response
             self.log.info(f"Completed processing activity {activity_id}")
             self.http.on_activity_response(activity_id, response)
 
@@ -299,7 +267,6 @@ class App:
         except Exception as error:
             self.log.error(f"Failed to process activity {activity_id}: {error}")
 
-            # Emit error event
             self._events.emit(
                 "error",
                 ErrorEvent(
@@ -359,17 +326,13 @@ class App:
         """
 
         def decorator(func: F) -> F:
-            # Determine event type
             detected_type = None
 
             if event_type:
-                # Explicit event_type parameter
                 detected_type = event_type
             elif isinstance(func_or_event_type, str):
-                # String passed as first argument
                 detected_type = func_or_event_type
             else:
-                # Try to auto-detect from function signature
                 detected_type = get_event_type_from_signature(func)
 
             if not detected_type:
@@ -378,21 +341,16 @@ class App:
                     "Either provide an explicit event_type or use a typed parameter."
                 )
 
-            # Validate that the event type is registered
             if not is_registered_event(detected_type):
                 raise ValueError(
                     f"Event type '{detected_type}' is not registered. "
                     f"Use register_event_type() to register custom events."
                 )
 
-            # Register the handler with the app's event emitter
             self._events.on(detected_type, func)
             return func
 
-        # Handle different calling patterns
         if callable(func_or_event_type) and not isinstance(func_or_event_type, str):
-            # Called as @app.event (without parentheses)
             return decorator(func_or_event_type)
         else:
-            # Called as @app.event() or @app.event("type")
             return decorator
