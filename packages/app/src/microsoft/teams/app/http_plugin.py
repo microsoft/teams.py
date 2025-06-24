@@ -14,7 +14,7 @@ from fastapi import FastAPI, HTTPException, Request
 from microsoft.teams.common.logging import ConsoleLogger
 
 from .auth import (
-    BotTokenValidator,
+    ServiceTokenValidator,
     TokenValidationError,
 )
 
@@ -42,7 +42,7 @@ class HttpPlugin:
         self.activity_handler = activity_handler
 
         # Bot token validator (only create if app_id is provided)
-        self.token_validator = BotTokenValidator(app_id, self.logger) if app_id else None
+        self.token_validator = ServiceTokenValidator(app_id, self.logger) if app_id else None
 
         # Setup FastAPI app with lifespan
         @asynccontextmanager
