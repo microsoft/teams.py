@@ -6,7 +6,6 @@ members = [
     "microsoft-teams",
     "microsoft-teams-api",
     "microsoft-teams-app",
-    "microsoft-teams-auth",
     "microsoft-teams-cards",
     "microsoft-teams-common",
 ]
@@ -323,11 +322,6 @@ dev = [
 name = "microsoft-teams-app"
 version = "0.1.0"
 source = { editable = "packages/app" }
-
-[[package]]
-name = "microsoft-teams-auth"
-version = "0.1.0"
-source = { editable = "packages/auth" }
 dependencies = [
     { name = "cryptography" },
     { name = "microsoft-teams-common" },

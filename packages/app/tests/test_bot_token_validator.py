@@ -7,12 +7,12 @@ import time
 from unittest.mock import MagicMock, patch
 
 import pytest
-from microsoft.teams.auth import (
+from microsoft.teams.app import (
     BotTokenValidator,
     TokenValidationError,
     TokenValidationErrorCode,
 )
-from microsoft.teams.auth.bot_token_validator import EXPECTED_ISSUER, JwksKey, JwksResponse, OpenIdMetadata
+from microsoft.teams.app.auth.bot_token_validator import EXPECTED_ISSUER, JwksKey, JwksResponse, OpenIdMetadata
 
 
 class TestBotTokenValidator:
