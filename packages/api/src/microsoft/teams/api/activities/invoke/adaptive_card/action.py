@@ -18,4 +18,4 @@ class AdaptiveCardActionInvokeActivity(IActivity[Literal["invoke"]], CustomBaseM
     """The name of the operation associated with an invoke or event activity."""
 
     value: AdaptiveCardInvokeValue
-    """A value that is associated wtih the activity."""
+    """A value that is associated with the activity."""
