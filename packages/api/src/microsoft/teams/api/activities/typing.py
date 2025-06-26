@@ -3,46 +3,36 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from typing import Any, Dict, Literal, Optional, cast
+from typing import Any, Dict, Literal, Optional, Self
 
 from ..models import ChannelData, CustomBaseModel, StreamInfoEntity
-from .activity import Activity, IActivity
+from .activity import Activity
 
 
-class ITypingActivity(IActivity[Literal["typing"]], CustomBaseModel):
+class TypingActivity(Activity, CustomBaseModel):
+    _type: Literal["typing"] = "typing"
+
     text: Optional[str] = None
     """
     The text content of the message.
     """
 
-
-class TypingActivity(Activity[Literal["typing"]], ITypingActivity, CustomBaseModel):
     def __init__(self, value: Optional[Dict[str, Any]] = None) -> None:
         super().__init__({"type": "typing", **(value or {})})
 
-    @classmethod
-    def from_activity(cls, activity: IActivity[Literal["typing"]]) -> "TypingActivity":
-        """Initialize from interface."""
-        data = cast(Dict[str, Any], activity)
-        return cls(data)
-
-    def clone(self, options: Optional[Dict[str, Any]] = None) -> "TypingActivity":
-        interface_dict = self.model_dump()
-        return TypingActivity({**interface_dict, **(options or {})})
-
-    def with_text(self, value: str) -> "TypingActivity":
+    def with_text(self, value: str) -> Self:
         """Set the text content of the message."""
         self.text = value
         return self
 
-    def add_text(self, text: str) -> "TypingActivity":
+    def add_text(self, text: str) -> Self:
         """Append text."""
         if self.text is None:
             self.text = ""
         self.text += text
         return self
 
-    def add_stream_update(self, sequence: int = 1) -> Activity[Literal["typing"]]:
+    def add_stream_update(self, sequence: int = 1) -> Self:
         """Add stream informative update."""
         if self.channel_data is None:
             self.channel_data = ChannelData()

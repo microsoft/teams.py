@@ -7,10 +7,12 @@ from abc import ABC
 from typing import Any, Literal, Optional
 
 from ..models import ConversationReference, CustomBaseModel
-from .activity import IActivity
+from .activity import Activity
 
 
-class TraceActivity(IActivity[Literal["trace"]], CustomBaseModel, ABC):
+class TraceActivity(Activity, CustomBaseModel, ABC):
+    _type: Literal["trace"] = "trace"
+
     name: Optional[str] = None
     """"
     The name of the operation associated with an invoke or event activity.
