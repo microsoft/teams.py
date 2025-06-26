@@ -3,7 +3,7 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from typing import Any, Optional
+from typing import Any, Literal, Optional
 
 from ...models import CustomBaseModel
 from ..activity import Activity
@@ -27,6 +27,8 @@ class CommandValue(CustomBaseModel):
 
 class CommandActivity(Activity, CustomBaseModel):
     """Send command activity."""
+
+    _type: Literal["command"] = "command"
 
     name: str
     """The name of the event."""
