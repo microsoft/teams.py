@@ -3,10 +3,11 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from typing import Any, TypeVar, Union
+from typing import Annotated, Union
+
+from pydantic import Field
 
 from .activity import Activity as ActivityBase
-from .activity import IActivity
 from .command import CommandActivity, CommandResultActivity, CommandResultValue, CommandValue
 from .conversation import (
     ConversationActivity,
@@ -18,17 +19,12 @@ from .conversation import (
 )
 from .handoff import HandoffActivity
 
-T = TypeVar("T", bound=Any)
-
-Activity = Union[
-    HandoffActivity,
-    CommandActivity[T],
-    CommandResultActivity[T],
-    ConversationActivity,
+Activity = Annotated[
+    Union[HandoffActivity, CommandActivity, CommandResultActivity, ConversationActivity],
+    Field(discriminator="_type"),
 ]
 
 __all__ = [
-    "IActivity",
     "Activity",
     "ActivityBase",
     "CommandValue",

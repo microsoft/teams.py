@@ -3,35 +3,33 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from typing import Any, Generic, Literal, Optional, TypeVar
+from typing import Any, Optional
 
 from ...models import CustomBaseModel
-from ..activity import IActivity
-
-T = TypeVar("T", bound=Any)
+from ..activity import Activity
 
 
-class CommandValue(CustomBaseModel, Generic[T]):
+class CommandValue(CustomBaseModel):
     """
-    The value field of a ICommandActivity contains metadata related to a command.
+    The value field of a CommandActivity contains metadata related to a command.
     An optional extensible data payload may be included if defined by the command activity name.
     """
 
     command_id: str
     """ID of the command."""
 
-    data: Optional[T] = None
+    data: Optional[Any] = None
     """
     The data field containing optional parameters specific to this command activity,
     as defined by the name. The value of the data field is a complex type.
     """
 
 
-class CommandActivity(IActivity[Literal["command"]], CustomBaseModel, Generic[T]):
+class CommandActivity(Activity, CustomBaseModel):
     """Send command activity."""
 
     name: str
     """The name of the event."""
 
-    value: Optional[CommandValue[T]] = None
+    value: Optional[CommandValue] = None
     """The value for this command."""

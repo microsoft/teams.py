@@ -4,11 +4,10 @@ Licensed under the MIT License.
 """
 
 from abc import ABC
-from typing import Literal
 
 from ..models import CustomBaseModel
-from .activity import IActivity
+from .activity import Activity
 
 
-class HandoffActivity(IActivity[Literal["handoff"]], CustomBaseModel, ABC):
+class HandoffActivity(Activity, CustomBaseModel, ABC):
     pass
