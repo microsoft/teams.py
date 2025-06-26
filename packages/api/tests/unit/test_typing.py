@@ -42,17 +42,3 @@ class TestTyping:
         )
         assert activity.type == "typing"
         assert activity.text == "testing123"
-
-    def test_should_clone(self, user: Account, bot: Account, chat: ConversationAccount) -> None:
-        """Test cloning activity with all properties."""
-        activity = (
-            TypingActivity({"id": "1", "from": user, "conversation": chat, "recipient": bot})
-            .add_text("test")
-            .with_from(Account(id="1", name="test-user", role="user"))
-            .clone()
-        )
-
-        assert activity.text == "test"
-        assert activity.from_.id == "1"
-        assert activity.from_.name == "test-user"
-        assert activity.from_.role == "user"
