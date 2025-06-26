@@ -22,3 +22,6 @@ dmypy.json
 
 ref/
 py.typed
+CLAUDE.md
+
+.env

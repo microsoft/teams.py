@@ -3,9 +3,8 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from abc import ABC, abstractmethod
 from datetime import datetime
-from typing import Any, Dict, Generic, List, Optional, TypeVar, cast
+from typing import Any, Dict, List, Optional
 
 from ..models import (
     Account,
@@ -28,18 +27,16 @@ from ..models import (
     TeamInfo,
 )
 
-T = TypeVar("T", bound=str)
 
-
-class IActivity(CustomBaseModel, Generic[T], ABC):
-    """Base interface for all activities."""
+class Activity(CustomBaseModel):
+    """Base class for all activities."""
 
     @property
-    def type(self) -> T:
+    def type(self) -> str:
         """The type of the activity."""
         return self._type
 
-    _type: T
+    _type: str
     """Contains the type of the activity."""
 
     id: str
@@ -89,39 +86,6 @@ class IActivity(CustomBaseModel, Generic[T], ABC):
     channel_data: Optional[ChannelData] = None
     """Contains channel-specific content."""
 
-    @property
-    @abstractmethod
-    def channel(self) -> Optional[ChannelInfo]:
-        """Information about the channel in which the message was sent."""
-        pass
-
-    @property
-    @abstractmethod
-    def team(self) -> Optional[TeamInfo]:
-        """Information about the team in which the message was sent."""
-        pass
-
-    @property
-    @abstractmethod
-    def meeting(self) -> Optional[MeetingInfo]:
-        """Information about the tenant in which the message was sent."""
-        pass
-
-    @property
-    @abstractmethod
-    def notification(self) -> Optional[NotificationInfo]:
-        """Notification settings for the message."""
-        pass
-
-    @abstractmethod
-    def is_streaming(self) -> bool:
-        """Check if this is a streaming activity."""
-        pass
-
-
-class Activity(IActivity[T]):
-    """Base class for all activities."""
-
     def __init__(self, value: Dict[str, Any]) -> None:
         """Initialize the activity."""
         super().__init__(**{"channel_id": "msteams", **value})
@@ -151,73 +115,62 @@ class Activity(IActivity[T]):
         """Information about the tenant in which the message was sent."""
         return self.channel_data.tenant if self.channel_data else None
 
-    @classmethod
-    def from_activity(cls, activity: IActivity[T]) -> "Activity[T]":
-        """Create an Activity from an IActivity."""
-        data = cast(Dict[str, Any], activity)
-        return cls(data)
-
-    def clone(self, options: Optional[Dict[str, Any]] = None) -> "Activity[T]":
-        """Clone the activity with optional changes."""
-        interface_dict = self.model_dump()
-        return Activity({**interface_dict, **(options or {})})
-
-    def with_id(self, value: str) -> "Activity[T]":
+    def with_id(self, value: str) -> "Activity":
         """Set the id."""
         self.id = value
         return self
 
-    def with_reply_to_id(self, value: str) -> "Activity[T]":
+    def with_reply_to_id(self, value: str) -> "Activity":
         """Set the reply_to_id."""
         self.reply_to_id = value
         return self
 
-    def with_channel_id(self, value: ChannelID) -> "Activity[T]":
+    def with_channel_id(self, value: ChannelID) -> "Activity":
         """Set the channel_id."""
         self.channel_id = value
         return self
 
-    def with_from(self, value: Account) -> "Activity[T]":
+    def with_from(self, value: Account) -> "Activity":
         """Set the from field."""
         self.from_ = value
         return self
 
-    def with_conversation(self, value: ConversationAccount) -> "Activity[T]":
+    def with_conversation(self, value: ConversationAccount) -> "Activity":
         """Set the conversation."""
         self.conversation = value
         return self
 
-    def with_relates_to(self, value: ConversationReference) -> "Activity[T]":
+    def with_relates_to(self, value: ConversationReference) -> "Activity":
         """Set the relates_to field."""
         self.relates_to = value
         return self
 
-    def with_recipient(self, value: Account) -> "Activity[T]":
+    def with_recipient(self, value: Account) -> "Activity":
         """Set the recipient."""
         self.recipient = value
         return self
 
-    def with_service_url(self, value: str) -> "Activity[T]":
+    def with_service_url(self, value: str) -> "Activity":
         """Set the service_url."""
         self.service_url = value
         return self
 
-    def with_timestamp(self, value: datetime) -> "Activity[T]":
+    def with_timestamp(self, value: datetime) -> "Activity":
         """Set the timestamp."""
         self.timestamp = value
         return self
 
-    def with_locale(self, value: str) -> "Activity[T]":
+    def with_locale(self, value: str) -> "Activity":
         """Set the locale."""
         self.locale = value
         return self
 
-    def with_local_timestamp(self, value: datetime) -> "Activity[T]":
+    def with_local_timestamp(self, value: datetime) -> "Activity":
         """Set the local_timestamp."""
         self.local_timestamp = value
         return self
 
-    def with_channel_data(self, value: ChannelData) -> "Activity[T]":
+    def with_channel_data(self, value: ChannelData) -> "Activity":
         """Set or update channel_data."""
         if not self.channel_data:
             self.channel_data = value
@@ -226,21 +179,21 @@ class Activity(IActivity[T]):
             self.channel_data = ChannelData(**data)
         return self
 
-    def add_entity(self, value: Entity) -> "Activity[T]":
+    def add_entity(self, value: Entity) -> "Activity":
         """Add an entity."""
         if not self.entities:
             self.entities = []
         self.entities.append(value)
         return self
 
-    def add_entities(self, *values: Entity) -> "Activity[T]":
+    def add_entities(self, *values: Entity) -> "Activity":
         """Add multiple entities."""
         if not self.entities:
             self.entities = []
         self.entities.extend(values)
         return self
 
-    def add_ai_generated(self) -> "Activity[T]":
+    def add_ai_generated(self) -> "Activity":
         """Add the 'Generated By AI' label."""
         message_entity = self.ensure_single_root_level_message_entity()
         ai_entity = AIMessageEntity(**message_entity.model_dump())
@@ -256,7 +209,7 @@ class Activity(IActivity[T]):
 
         return self
 
-    def add_feedback(self) -> "Activity[T]":
+    def add_feedback(self) -> "Activity":
         """Enable message feedback."""
         if not self.channel_data:
             self.channel_data = ChannelData(feedback_loop_enabled=True)
@@ -264,7 +217,7 @@ class Activity(IActivity[T]):
             self.channel_data.feedback_loop_enabled = True
         return self
 
-    def add_citation(self, position: int, appearance: CitationAppearance) -> "Activity[T]":
+    def add_citation(self, position: int, appearance: CitationAppearance) -> "Activity":
         """Add citations."""
         message_entity = self.ensure_single_root_level_message_entity()
         citation_entity = CitationEntity(**message_entity.model_dump())

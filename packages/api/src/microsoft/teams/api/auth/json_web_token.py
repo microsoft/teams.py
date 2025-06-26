@@ -41,8 +41,9 @@ class JsonWebToken(TokenProtocol):
         """
         self._value = value
         # Decode without verification for payload extraction
-        jwt_instance = jwt.JWT()
-        self._payload = JsonWebTokenPayload(**jwt_instance.decode(value, do_verify=False, do_time_check=False))
+        self._payload = JsonWebTokenPayload(
+            **jwt.decode(value, algorithms=["RS256"], options={"verify_signature": False})
+        )
 
     @property
     def audience(self) -> Optional[Union[str, list[str]]]:
