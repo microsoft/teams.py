@@ -14,6 +14,7 @@ from .citation_entity import (
     Image,
 )
 from .client_info_entity import ClientInfoEntity
+from .entity import Entity  # noqa: F401
 from .mention_entity import MentionEntity
 from .message_entity import MessageEntity
 from .sensitive_usage_entity import SensitiveUsage, SensitiveUsageEntity, SensitiveUsagePattern
@@ -35,4 +36,5 @@ __all__ = [
     "SensitiveUsage",
     "SensitiveUsagePattern",
     "StreamInfoEntity",
+    "Entity",
 ]
