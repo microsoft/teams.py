@@ -1,0 +1,235 @@
+"""
+Copyright (c) Microsoft Corporation. All rights reserved.
+Licensed under the MIT License.
+"""
+
+import asyncio
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
+from microsoft.teams.app.http_plugin import HttpPlugin
+
+
+class TestHttpPlugin:
+    """Test cases for HttpPlugin public interface."""
+
+    @pytest.fixture
+    def mock_logger(self):
+        """Create a mock logger."""
+        return MagicMock()
+
+    @pytest.fixture
+    def mock_activity_handler(self):
+        """Create a mock activity handler."""
+
+        async def handler(activity):
+            return {"status": "processed", "type": activity.get("type")}
+
+        return handler
+
+    @pytest.fixture
+    def plugin_with_validator(self, mock_logger, mock_activity_handler):
+        """Create HttpPlugin with token validator."""
+        return HttpPlugin("test-app-id", mock_logger, mock_activity_handler)
+
+    @pytest.fixture
+    def plugin_without_validator(self, mock_logger, mock_activity_handler):
+        """Create HttpPlugin without token validator."""
+        return HttpPlugin(None, mock_logger, mock_activity_handler)
+
+    def test_init_with_app_id(self, mock_logger, mock_activity_handler):
+        """Test HttpPlugin initialization with app ID."""
+        plugin = HttpPlugin("test-app-id", mock_logger, mock_activity_handler)
+
+        assert plugin.logger == mock_logger
+        assert plugin.activity_handler == mock_activity_handler
+        assert plugin.token_validator is not None
+        assert plugin.token_validator.app_id == "test-app-id"
+        assert plugin.app is not None
+        assert plugin.pending == {}
+
+    def test_init_without_app_id(self, mock_logger, mock_activity_handler):
+        """Test HttpPlugin initialization without app ID."""
+        plugin = HttpPlugin(None, mock_logger, mock_activity_handler)
+
+        assert plugin.logger == mock_logger
+        assert plugin.activity_handler == mock_activity_handler
+        assert plugin.token_validator is None
+        assert plugin.app is not None
+
+    def test_init_with_default_logger(self, mock_activity_handler):
+        """Test HttpPlugin initialization with default logger."""
+        plugin = HttpPlugin("test-app-id", None, mock_activity_handler)
+
+        assert plugin.logger is not None
+        assert plugin.activity_handler == mock_activity_handler
+
+    def test_fastapi_methods_exposed(self, plugin_with_validator):
+        """Test that FastAPI methods are properly exposed."""
+        assert hasattr(plugin_with_validator, "get")
+        assert hasattr(plugin_with_validator, "post")
+        assert hasattr(plugin_with_validator, "put")
+        assert hasattr(plugin_with_validator, "patch")
+        assert hasattr(plugin_with_validator, "delete")
+        assert hasattr(plugin_with_validator, "route")
+        assert hasattr(plugin_with_validator, "middleware")
+
+        # These should be bound to the FastAPI app methods
+        assert plugin_with_validator.get == plugin_with_validator.app.get
+        assert plugin_with_validator.post == plugin_with_validator.app.post
+
+    def test_on_activity_response_success(self, plugin_with_validator):
+        """Test successful activity response completion."""
+        # Create a pending future
+        future = asyncio.get_event_loop().create_future()
+        plugin_with_validator.pending["test-id"] = future
+
+        response_data = {"status": "success"}
+        plugin_with_validator.on_activity_response("test-id", response_data)
+
+        assert future.done()
+        assert future.result() == response_data
+
+    def test_on_activity_response_no_pending(self, plugin_with_validator):
+        """Test activity response with no pending future."""
+        response_data = {"status": "success"}
+        # Should not raise exception
+        plugin_with_validator.on_activity_response("non-existent-id", response_data)
+
+    def test_on_activity_response_already_done(self, plugin_with_validator):
+        """Test activity response when future is already done."""
+        future = asyncio.get_event_loop().create_future()
+        future.set_result("already done")
+        plugin_with_validator.pending["test-id"] = future
+
+        response_data = {"status": "success"}
+        # Should not raise exception
+        plugin_with_validator.on_activity_response("test-id", response_data)
+
+        # Future should still have original result
+        assert future.result() == "already done"
+
+    def test_on_error_with_activity_id(self, plugin_with_validator):
+        """Test error handling with activity ID."""
+        # Create a pending future
+        future = asyncio.get_event_loop().create_future()
+        plugin_with_validator.pending["test-id"] = future
+
+        error = ValueError("Test error")
+        plugin_with_validator.on_error(error, "test-id")
+
+        assert future.done()
+        with pytest.raises(ValueError, match="Test error"):
+            future.result()
+
+    def test_on_error_no_activity_id(self, plugin_with_validator):
+        """Test error handling without activity ID."""
+        error = ValueError("Test error")
+        # Should not raise exception
+        plugin_with_validator.on_error(error)
+
+    def test_on_error_no_pending_future(self, plugin_with_validator):
+        """Test error handling with no pending future."""
+        error = ValueError("Test error")
+        # Should not raise exception
+        plugin_with_validator.on_error(error, "non-existent-id")
+
+    @pytest.mark.asyncio
+    async def test_on_start_success(self, plugin_with_validator):
+        """Test successful server startup."""
+        mock_server = MagicMock()
+        mock_server.serve = AsyncMock()
+
+        with (
+            patch("uvicorn.Config") as mock_config,
+            patch("uvicorn.Server", return_value=mock_server) as mock_server_class,
+        ):
+            mock_config.return_value = MagicMock()
+
+            # Mock the serve method to not actually start server
+            mock_server.serve.return_value = None
+
+            await plugin_with_validator.on_start(3978)
+
+            # Verify server was configured and started
+            mock_config.assert_called_once()
+            mock_server_class.assert_called_once()
+            mock_server.serve.assert_called_once()
+
+            assert plugin_with_validator._port == 3978
+            assert plugin_with_validator._server == mock_server
+
+    @pytest.mark.asyncio
+    async def test_on_start_port_in_use(self, plugin_with_validator):
+        """Test server startup when port is in use."""
+        with patch("uvicorn.Server") as mock_server_class:
+            mock_server = MagicMock()
+            mock_server.serve = AsyncMock(side_effect=OSError("Port already in use"))
+            mock_server_class.return_value = mock_server
+
+            with pytest.raises(OSError, match="Port already in use"):
+                await plugin_with_validator.on_start(3978)
+
+    @pytest.mark.asyncio
+    async def test_on_stop(self, plugin_with_validator):
+        """Test server shutdown."""
+        # Set up a mock server
+        mock_server = MagicMock()
+        plugin_with_validator._server = mock_server
+
+        await plugin_with_validator.on_stop()
+
+        assert mock_server.should_exit is True
+
+    @pytest.mark.asyncio
+    async def test_on_stop_no_server(self, plugin_with_validator):
+        """Test server shutdown when no server is running."""
+        plugin_with_validator._server = None
+
+        # Should not raise exception
+        await plugin_with_validator.on_stop()
+
+    def test_activity_handler_assignment(self, plugin_with_validator):
+        """Test activity handler assignment and retrieval."""
+
+        async def new_handler(activity):
+            return {"custom": "response"}
+
+        plugin_with_validator.activity_handler = new_handler
+        assert plugin_with_validator.activity_handler == new_handler
+
+    def test_pending_futures_management(self, plugin_with_validator):
+        """Test pending futures dictionary management."""
+        # Initially empty
+        assert len(plugin_with_validator.pending) == 0
+
+        # Add futures
+        future1 = asyncio.get_event_loop().create_future()
+        future2 = asyncio.get_event_loop().create_future()
+
+        plugin_with_validator.pending["activity1"] = future1
+        plugin_with_validator.pending["activity2"] = future2
+
+        assert len(plugin_with_validator.pending) == 2
+        assert plugin_with_validator.pending["activity1"] == future1
+        assert plugin_with_validator.pending["activity2"] == future2
+
+    def test_token_validator_property(self, plugin_with_validator, plugin_without_validator):
+        """Test token validator property based on app_id."""
+        # With app_id
+        assert plugin_with_validator.token_validator is not None
+        assert plugin_with_validator.token_validator.app_id == "test-app-id"
+
+        # Without app_id
+        assert plugin_without_validator.token_validator is None
+
+    def test_logger_property(self, mock_logger):
+        """Test logger property assignment."""
+        plugin = HttpPlugin("test-app-id", mock_logger)
+        assert plugin.logger == mock_logger
+
+    def test_app_property(self, plugin_with_validator):
+        """Test FastAPI app property."""
+        from fastapi import FastAPI
+
+        assert isinstance(plugin_with_validator.app, FastAPI)
