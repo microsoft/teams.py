@@ -7,7 +7,7 @@ from datetime import datetime
 from typing import Literal
 
 from ...models import CustomBaseModel
-from ..activity import IActivity
+from ..activity import Activity
 
 
 class MeetingStartEventValue(CustomBaseModel):
@@ -41,10 +41,12 @@ class MeetingStartEventValue(CustomBaseModel):
     """
 
 
-class MeetingStartEventActivity(IActivity[Literal["event"]], CustomBaseModel):
+class MeetingStartEventActivity(Activity, CustomBaseModel):
     """
     Represents a meeting start event activity in Microsoft Teams.
     """
+
+    _type: Literal["event"] = "event"
 
     name: Literal["application/vnd.microsoft.meetingStart"] = "application/vnd.microsoft.meetingStart"
     """

@@ -6,10 +6,10 @@ Licensed under the MIT License.
 from typing import Literal
 
 from ...models import CustomBaseModel
-from .meeting_participant import MeetingParticipant
+from .meeting_participant import MeetingParticipantEventActivity
 
 
-class MeetingParticipantLeaveEventActivity(MeetingParticipant, CustomBaseModel):
+class MeetingParticipantLeaveEventActivity(MeetingParticipantEventActivity, CustomBaseModel):
     name: Literal["application/vnd.microsoft.meetingParticipantLeave"] = (
         "application/vnd.microsoft.meetingParticipantLeave"
     )

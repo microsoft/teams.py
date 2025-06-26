@@ -7,13 +7,15 @@ from abc import ABC
 from typing import Literal
 
 from ...models import CustomBaseModel
-from ..activity import IActivity
+from ..activity import Activity
 
 
-class ReadReceiptEventActivity(IActivity[Literal["event"]], CustomBaseModel, ABC):
+class ReadReceiptEventActivity(Activity, CustomBaseModel, ABC):
     """
     Represents a read receipt event activity in Microsoft Teams.
     """
+
+    _type: Literal["event"] = "event"
 
     name: Literal["application/vnd.microsoft.readReceipt"] = "application/vnd.microsoft.readReceipt"
     """

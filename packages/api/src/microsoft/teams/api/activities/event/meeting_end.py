@@ -7,7 +7,7 @@ from datetime import datetime
 from typing import Literal
 
 from ...models import CustomBaseModel
-from ..activity import IActivity
+from ..activity import Activity
 
 
 class MeetingEndEventValue(CustomBaseModel):
@@ -27,10 +27,12 @@ class MeetingEndEventValue(CustomBaseModel):
     """Timestamp for meeting end, in UTC."""
 
 
-class MeetingEndEventActivity(IActivity[Literal["event"]], CustomBaseModel):
+class MeetingEndEventActivity(Activity, CustomBaseModel):
     """
     Represents a meeting end event activity in Microsoft Teams.
     """
+
+    _type: Literal["event"] = "event"
 
     name: Literal["application/vnd.microsoft.meetingEnd"] = "application/vnd.microsoft.meetingEnd"
 

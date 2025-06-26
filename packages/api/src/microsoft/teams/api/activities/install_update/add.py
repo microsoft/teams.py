@@ -6,9 +6,11 @@ Licensed under the MIT License.
 from typing import Literal
 
 from ...models import CustomBaseModel
-from ..activity import IActivity
+from ..activity import Activity
 
 
-class InstalledActivity(IActivity[Literal["installationUpdate"]], CustomBaseModel):
+class InstalledActivity(Activity, CustomBaseModel):
+    _type: Literal["installationUpdate"] = "installationUpdate"
+
     action: Literal["add"] = "add"
     """Install update action"""
