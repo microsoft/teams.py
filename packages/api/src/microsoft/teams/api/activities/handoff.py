@@ -7,8 +7,8 @@ from abc import ABC
 from typing import Literal
 
 from ..models import CustomBaseModel
-from .activity import IActivity
+from .activity import Activity
 
 
-class HandoffActivity(IActivity[Literal["handoff"]], CustomBaseModel, ABC):
-    pass
+class HandoffActivity(Activity, CustomBaseModel, ABC):
+    _type: Literal["handoff"] = "handoff"

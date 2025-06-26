@@ -16,7 +16,6 @@ from microsoft.teams.api.models import TokenExchangeRequest
 
 
 @pytest.mark.unit
-@pytest.mark.asyncio
 class TestUserClient:
     """Unit tests for UserClient."""
 
@@ -37,6 +36,7 @@ class TestUserClient:
         assert client.http is not None
         assert client.token is not None
 
+    @pytest.mark.asyncio
     async def test_user_token_get(self, mock_http_client):
         """Test getting user token."""
         client = UserClient(mock_http_client)
@@ -53,6 +53,7 @@ class TestUserClient:
         assert response.token is not None
         assert response.connection_name == "test_connection"
 
+    @pytest.mark.asyncio
     async def test_user_token_get_aad(self, mock_http_client):
         """Test getting AAD tokens for user."""
         client = UserClient(mock_http_client)
@@ -69,6 +70,7 @@ class TestUserClient:
         assert isinstance(response, dict)
         # Mock response should return token responses for each resource
 
+    @pytest.mark.asyncio
     async def test_user_token_get_status(self, mock_http_client):
         """Test getting user token status."""
         client = UserClient(mock_http_client)
@@ -83,6 +85,7 @@ class TestUserClient:
 
         assert isinstance(response, list)
 
+    @pytest.mark.asyncio
     async def test_user_token_sign_out(self, mock_http_client):
         """Test signing out user."""
         client = UserClient(mock_http_client)
@@ -96,6 +99,7 @@ class TestUserClient:
         # Should not raise an exception
         await client.token.sign_out(params)
 
+    @pytest.mark.asyncio
     async def test_user_token_exchange(self, mock_http_client):
         """Test exchanging user token."""
         client = UserClient(mock_http_client)

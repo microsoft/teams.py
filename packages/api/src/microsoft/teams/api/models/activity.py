@@ -16,6 +16,10 @@ class Activity(CustomBaseModel):
     """
     The type of activity (e.g. 'message').
     """
+    id: Optional[str] = None
+    """
+    The unique identifier for the activity.
+    """
     text: Optional[str] = None
     """
     The text content of the activity.

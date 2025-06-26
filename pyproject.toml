@@ -5,9 +5,12 @@ description = "A suite of packages used to build on the Teams Platform"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "microsoft-teams-common",
+    "microsoft-teams-app",
     "microsoft-teams-api",
+    "microsoft-teams-cards", 
+    "microsoft-teams-common",
     "pytest-asyncio>=1.0.0",
+    "python-dotenv>=1.0.0",
 ]
 
 [tool.uv.sources]
