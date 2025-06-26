@@ -16,6 +16,8 @@ EndOfConversationCode = Literal[
 class EndOfConversationActivity(Activity, CustomBaseModel):
     """Activity for end of conversation events."""
 
+    _type: Literal["endOfConversation"] = "endOfConversation"
+
     code: Optional[EndOfConversationCode] = None
     """
     The code for endOfConversation activities that indicates why the conversation ended.

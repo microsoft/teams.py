@@ -32,6 +32,8 @@ class ConversationChannelData(ChannelData, CustomBaseModel):
 class ConversationUpdateActivity(Activity, CustomBaseModel):
     """Activity for conversation updates."""
 
+    _type: Literal["conversationUpdate"] = "conversationUpdate"
+
     members_added: Optional[List[Account]] = None
     """The collection of members added to the conversation."""
 

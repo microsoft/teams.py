@@ -3,7 +3,7 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from typing import Any, Optional
+from typing import Any, Literal, Optional
 
 from ...models import CustomBaseModel
 from ..activity import Activity
@@ -31,6 +31,8 @@ class CommandResultValue(CustomBaseModel):
 
 class CommandResultActivity(Activity, CustomBaseModel):
     """Asynchronous external command result."""
+
+    _type: Literal["commandResult"] = "commandResult"
 
     name: str
     """The name of the event."""
