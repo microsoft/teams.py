@@ -13,6 +13,11 @@ from .activity import Activity
 class TraceActivity(Activity, CustomBaseModel, ABC):
     _type: Literal["trace"] = "trace"
 
+    @property
+    def type(self) -> str:
+        """The type of the activity."""
+        return self._type
+
     name: Optional[str] = None
     """"
     The name of the operation associated with an invoke or event activity.

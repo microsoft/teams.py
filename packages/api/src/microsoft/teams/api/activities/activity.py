@@ -36,7 +36,7 @@ class Activity(CustomBaseModel, ABC):
     @property
     def type(self) -> str:
         """The type of the activity."""
-        return self._type
+        pass
 
     _type: str
     """Contains the type of the activity."""

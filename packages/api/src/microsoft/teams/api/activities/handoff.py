@@ -12,3 +12,8 @@ from .activity import Activity
 
 class HandoffActivity(Activity, CustomBaseModel, ABC):
     _type: Literal["handoff"] = "handoff"
+
+    @property
+    def type(self) -> str:
+        """The type of the activity."""
+        return self._type

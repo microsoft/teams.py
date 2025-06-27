@@ -34,6 +34,11 @@ class MeetingEndEventActivity(Activity, CustomBaseModel):
 
     _type: Literal["event"] = "event"
 
+    @property
+    def type(self) -> str:
+        """The type of the activity."""
+        return self._type
+
     name: Literal["application/vnd.microsoft.meetingEnd"] = "application/vnd.microsoft.meetingEnd"
 
     value: MeetingEndEventValue

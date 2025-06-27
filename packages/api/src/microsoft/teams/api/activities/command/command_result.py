@@ -34,6 +34,11 @@ class CommandResultActivity(Activity, CustomBaseModel):
 
     _type: Literal["commandResult"] = "commandResult"
 
+    @property
+    def type(self) -> str:
+        """The type of the activity."""
+        return self._type
+
     name: str
     """The name of the event."""
 

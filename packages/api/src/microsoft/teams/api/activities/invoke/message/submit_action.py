@@ -36,6 +36,11 @@ class MessageSubmitActionInvokeActivity(Activity, CustomBaseModel):
 
     _type: Literal["invoke"] = "invoke"
 
+    @property
+    def type(self) -> str:
+        """The type of the activity."""
+        return self._type
+
     name: Literal["message/submitAction"] = "message/submitAction"
     """The name of the operation associated with an invoke or event activity."""
 
