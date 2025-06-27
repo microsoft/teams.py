@@ -17,6 +17,11 @@ class ReadReceiptEventActivity(Activity, CustomBaseModel, ABC):
 
     _type: Literal["event"] = "event"
 
+    @property
+    def type(self) -> str:
+        """The type of the activity."""
+        return self._type
+
     name: Literal["application/vnd.microsoft.readReceipt"] = "application/vnd.microsoft.readReceipt"
     """
     The name of the operation associated with an invoke or event activity.

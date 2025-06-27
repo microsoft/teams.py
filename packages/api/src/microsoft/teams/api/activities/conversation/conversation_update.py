@@ -34,6 +34,11 @@ class ConversationUpdateActivity(Activity, CustomBaseModel):
 
     _type: Literal["conversationUpdate"] = "conversationUpdate"
 
+    @property
+    def type(self) -> str:
+        """The type of the activity."""
+        return self._type
+
     members_added: Optional[List[Account]] = None
     """The collection of members added to the conversation."""
 

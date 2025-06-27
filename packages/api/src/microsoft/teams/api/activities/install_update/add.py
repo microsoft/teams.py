@@ -12,5 +12,10 @@ from ..activity import Activity
 class InstalledActivity(Activity, CustomBaseModel):
     _type: Literal["installationUpdate"] = "installationUpdate"
 
+    @property
+    def type(self) -> str:
+        """The type of the activity."""
+        return self._type
+
     action: Literal["add"] = "add"
     """Install update action"""

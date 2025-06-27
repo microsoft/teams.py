@@ -12,5 +12,10 @@ from ..activity import Activity
 class UninstalledActivity(Activity, CustomBaseModel):
     _type: Literal["installationUpdate"] = "installationUpdate"
 
+    @property
+    def type(self) -> str:
+        """The type of the activity."""
+        return self._type
+
     action: Literal["remove"] = "remove"
     """Uninstall update action"""

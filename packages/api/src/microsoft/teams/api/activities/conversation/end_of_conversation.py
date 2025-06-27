@@ -18,6 +18,11 @@ class EndOfConversationActivity(Activity, CustomBaseModel):
 
     _type: Literal["endOfConversation"] = "endOfConversation"
 
+    @property
+    def type(self) -> str:
+        """The type of the activity."""
+        return self._type
+
     code: Optional[EndOfConversationCode] = None
     """
     The code for endOfConversation activities that indicates why the conversation ended.
