@@ -3,6 +3,7 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
+from abc import ABC, abstractmethod
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Self
 
@@ -28,9 +29,10 @@ from ..models import (
 )
 
 
-class Activity(CustomBaseModel):
+class Activity(CustomBaseModel, ABC):
     """Base class for all activities."""
 
+    @abstractmethod
     @property
     def type(self) -> str:
         """The type of the activity."""
