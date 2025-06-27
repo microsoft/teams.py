@@ -32,8 +32,8 @@ from ..models import (
 class Activity(CustomBaseModel, ABC):
     """Base class for all activities."""
 
-    @abstractmethod
     @property
+    @abstractmethod
     def type(self) -> str:
         """The type of the activity."""
         pass

@@ -36,13 +36,25 @@ def chat() -> ConversationAccount:
     return ConversationAccount(id="1", conversation_type="personal")
 
 
+@pytest.fixture
+def fixture_activity() -> Activity:
+    class FixtureActivity(Activity):
+        @property
+        def type(self) -> str:
+            return self._type
+
+    return FixtureActivity
+
+
 @pytest.mark.unit
 class TestActivity:
     """Unit tests for Activity class."""
 
-    def test_should_build(self, user: Account, bot: Account, chat: ConversationAccount) -> None:
+    def test_should_build(
+        self, fixture_activity: Activity, user: Account, bot: Account, chat: ConversationAccount
+    ) -> None:
         activity = (
-            Activity({"type": "test", "id": "1", "from": user, "conversation": chat, "recipient": bot})
+            fixture_activity({"type": "test", "id": "1", "from": user, "conversation": chat, "recipient": bot})
             .with_locale("en")
             .with_relates_to(
                 ConversationReference(
@@ -76,9 +88,11 @@ class TestActivity:
         assert activity.timestamp is not None
         assert activity.local_timestamp is not None
 
-    def test_should_have_channel_data_accessors(self, user: Account, bot: Account, chat: ConversationAccount) -> None:
+    def test_should_have_channel_data_accessors(
+        self, fixture_activity: Activity, user: Account, bot: Account, chat: ConversationAccount
+    ) -> None:
         activity = (
-            Activity({"type": "test", "id": "1", "from": user, "conversation": chat, "recipient": bot})
+            fixture_activity({"type": "test", "id": "1", "from": user, "conversation": chat, "recipient": bot})
             .with_locale("en")
             .with_from(user)
             .with_channel_data(
@@ -104,8 +118,10 @@ class TestActivity:
         assert activity.meeting.id == "meeting-id"
         assert activity.notification.alert is True
 
-    def test_should_add_ai_label(self, user: Account, bot: Account, chat: ConversationAccount) -> None:
-        activity = Activity(
+    def test_should_add_ai_label(
+        self, fixture_activity: Activity, user: Account, bot: Account, chat: ConversationAccount
+    ) -> None:
+        activity = fixture_activity(
             {"type": "test", "id": "1", "from": user, "conversation": chat, "recipient": bot}
         ).add_ai_generated()
 
@@ -113,16 +129,20 @@ class TestActivity:
         assert len(activity.entities) == 1
         assert activity.entities[0].additional_type[0] == "AIGeneratedContent"
 
-    def test_should_add_feedback_label(self, user: Account, bot: Account, chat: ConversationAccount) -> None:
-        activity = Activity(
+    def test_should_add_feedback_label(
+        self, fixture_activity: Activity, user: Account, bot: Account, chat: ConversationAccount
+    ) -> None:
+        activity = fixture_activity(
             {"type": "test", "id": "1", "from": user, "conversation": chat, "recipient": bot}
         ).add_feedback()
 
         assert activity.type == "test"
         assert activity.channel_data.feedback_loop_enabled is True
 
-    def test_should_add_citation(self, user: Account, bot: Account, chat: ConversationAccount) -> None:
-        activity = Activity(
+    def test_should_add_citation(
+        self, fixture_activity: Activity, user: Account, bot: Account, chat: ConversationAccount
+    ) -> None:
+        activity = fixture_activity(
             {"type": "test", "id": "1", "from": user, "conversation": chat, "recipient": bot}
         ).add_citation(0, CitationAppearance(abstract="test", name="test"))
 
@@ -130,8 +150,10 @@ class TestActivity:
         assert len(activity.entities) == 1
         assert len(activity.entities[0].citation) == 1
 
-    def test_should_add_citation_with_icon(self, user: Account, bot: Account, chat: ConversationAccount) -> None:
-        activity = Activity(
+    def test_should_add_citation_with_icon(
+        self, fixture_activity: Activity, user: Account, bot: Account, chat: ConversationAccount
+    ) -> None:
+        activity = fixture_activity(
             {"type": "test", "id": "1", "from": user, "conversation": chat, "recipient": bot}
         ).add_citation(0, CitationAppearance(abstract="test", name="test", icon=CitationIconName.GIF))
 
