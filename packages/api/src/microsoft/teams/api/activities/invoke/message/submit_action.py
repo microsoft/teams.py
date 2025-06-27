@@ -6,7 +6,7 @@ Licensed under the MIT License.
 from typing import Literal, Optional
 
 from ....models import ConversationReference, CustomBaseModel
-from ...activity import IActivity
+from ...activity import Activity
 
 
 class MessageSubmitActionValue(CustomBaseModel):
@@ -29,10 +29,12 @@ class MessageSubmitActionInvokeValue(CustomBaseModel):
     """The value associated with the action."""
 
 
-class MessageSubmitActionInvokeActivity(IActivity[Literal["invoke"]], CustomBaseModel):
+class MessageSubmitActionInvokeActivity(Activity, CustomBaseModel):
     """
     Represents an activity that is sent when a message submit action is invoked.
     """
+
+    _type: Literal["invoke"] = "invoke"
 
     name: Literal["message/submitAction"] = "message/submitAction"
     """The name of the operation associated with an invoke or event activity."""

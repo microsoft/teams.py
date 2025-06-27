@@ -6,13 +6,15 @@ Licensed under the MIT License.
 from typing import Literal
 
 from ....models import AdaptiveCardInvokeValue, CustomBaseModel
-from ...activity import IActivity
+from ...activity import Activity
 
 
-class AdaptiveCardActionInvokeActivity(IActivity[Literal["invoke"]], CustomBaseModel):
+class AdaptiveCardActionInvokeActivity(Activity, CustomBaseModel):
     """
     Represents an activity that is sent when an adaptive card action is invoked.
     """
+
+    _type: Literal["invoke"] = "invoke"
 
     name: Literal["adaptiveCard/action"] = "adaptiveCard/action"
     """The name of the operation associated with an invoke or event activity."""
