@@ -8,7 +8,7 @@ import os
 
 from dotenv import load_dotenv
 from microsoft.teams.app import App, AppOptions
-from microsoft.teams.app.events import ActivityEvent, ErrorEvent, StartEvent, StopEvent, TokenEvent
+from microsoft.teams.app.events import ActivityEvent, ErrorEvent, StartEvent, StopEvent
 
 load_dotenv()
 
@@ -77,9 +77,6 @@ async def main() -> None:
             f"[EVENT] App stopped {event}",
         )
 
-    @app.event
-    async def handle_token(event: TokenEvent):
-        print(f"[EVENT] {event.token_type.capitalize()} token refreshed")
 
     print(f"Starting app on port {port}...")
     await app.start(port=port)

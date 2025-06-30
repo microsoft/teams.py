@@ -4,9 +4,8 @@ Licensed under the MIT License.
 """
 
 from .base import BaseEvent, EventProtocol
-from .decorator import get_event_type_from_signature
-from .registry import EventType, is_registered_event, register_event_type
-from .types import ActivityEvent, ErrorEvent, StartEvent, StopEvent, TokenEvent
+from .registry import EventType, get_event_type_from_signature, is_registered_event
+from .types import ActivityEvent, ErrorEvent, StartEvent, StopEvent
 
 __all__ = [
     "BaseEvent",
@@ -15,9 +14,7 @@ __all__ = [
     "ErrorEvent",
     "StartEvent",
     "StopEvent",
-    "TokenEvent",
     "EventType",
     "get_event_type_from_signature",
-    "register_event_type",
     "is_registered_event",
 ]

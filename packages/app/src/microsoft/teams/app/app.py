@@ -20,7 +20,6 @@ from .events import (
     EventType,
     StartEvent,
     StopEvent,
-    TokenEvent,
     get_event_type_from_signature,
     is_registered_event,
 )
@@ -200,7 +199,6 @@ class App:
             self._tokens.bot = JsonWebToken(token_response.access_token)
             self.log.debug("Bot token refreshed successfully")
 
-            self._events.emit("token", TokenEvent(token_type="bot"))
         except Exception as error:
             self.log.error(f"Failed to refresh bot token: {error}")
 
@@ -225,7 +223,6 @@ class App:
             self.log.debug("Graph token refresh not yet implemented")
 
             # When implemented, emit token event:
-            # self._events.emit("token", TokenEvent(token_type="graph"))
         except Exception as error:
             self.log.error(f"Failed to refresh graph token: {error}")
 
@@ -342,15 +339,12 @@ class App:
                 )
 
             if not is_registered_event(detected_type):
-                raise ValueError(
-                    f"Event type '{detected_type}' is not registered. "
-                    f"Use register_event_type() to register custom events."
-                )
+                raise ValueError(f"Event type '{detected_type}' is not registered. ")
 
             self._events.on(detected_type, func)
             return func
 
         if callable(func_or_event_type) and not isinstance(func_or_event_type, str):
             return decorator(func_or_event_type)
-        else:
-            return decorator
+
+        return decorator

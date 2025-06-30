@@ -3,13 +3,14 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from typing import Dict, Literal, Type
+import inspect
+from typing import Callable, Dict, Literal, Optional, Type
 
 from .base import EventProtocol
-from .types import ActivityEvent, ErrorEvent, StartEvent, StopEvent, TokenEvent
+from .types import ActivityEvent, ErrorEvent, StartEvent, StopEvent
 
 # Core event type literals for type safety
-EventType = Literal["activity", "error", "start", "stop", "token"]
+EventType = Literal["activity", "error", "start", "stop"]
 
 # Registry mapping event names to their corresponding event classes
 EVENT_TYPE_REGISTRY: Dict[str, Type[EventProtocol]] = {
@@ -17,7 +18,6 @@ EVENT_TYPE_REGISTRY: Dict[str, Type[EventProtocol]] = {
     "error": ErrorEvent,
     "start": StartEvent,
     "stop": StopEvent,
-    "token": TokenEvent,
 }
 
 # Reverse lookup: event class to event name
@@ -43,18 +43,6 @@ def get_event_name_from_type(event_class: Type) -> str:
     raise ValueError(f"Event class {event_class.__name__} is not registered in EVENT_CLASS_REGISTRY")
 
 
-def register_event_type(event_name: str, event_class: Type[EventProtocol]) -> None:
-    """
-    Register a new event type (for plugin extensibility).
-
-    Args:
-        event_name: Name of the event
-        event_class: Event class that implements EventProtocol
-    """
-    EVENT_TYPE_REGISTRY[event_name] = event_class
-    EVENT_CLASS_REGISTRY[event_class] = event_name
-
-
 def is_registered_event(event_name: str) -> bool:
     """
     Check if an event name is registered.
@@ -66,3 +54,53 @@ def is_registered_event(event_name: str) -> bool:
         True if registered, False otherwise
     """
     return event_name in EVENT_TYPE_REGISTRY
+
+
+def get_event_type_from_signature(func: Callable) -> Optional[str]:
+    """
+    Extract event type from function signature by inspecting the first parameter's type hint.
+
+    Args:
+        func: Function to inspect
+
+    Returns:
+        Event type string if detectable, None otherwise
+    """
+    try:
+        sig = inspect.signature(func)
+        params = list(sig.parameters.values())
+
+        if not params:
+            return None
+
+        first_param = params[0]
+        if first_param.annotation == inspect.Parameter.empty:
+            return None
+
+        # Get the annotation
+        param_type = first_param.annotation
+
+        # Handle string annotations (forward references)
+        if isinstance(param_type, str):
+            # Try to resolve string annotation to actual type using registry
+            if param_type in EVENT_TYPE_REGISTRY:
+                return param_type
+
+            # Fallback: try class name lookup using registry
+            try:
+                type_map = {cls.__name__: cls for cls in EVENT_CLASS_REGISTRY.keys()}
+                if param_type in type_map:
+                    param_type = type_map[param_type]
+                else:
+                    return None
+            except Exception:
+                return None
+
+        # Handle actual type objects using registry
+        try:
+            return get_event_name_from_type(param_type)
+        except ValueError:
+            return None
+
+    except (ValueError, TypeError):
+        return None

@@ -5,7 +5,7 @@ Licensed under the MIT License.
 
 from typing import Any, Dict, Optional
 
-from microsoft.teams.api import Activity, TokenProtocol
+from microsoft.teams.api import Activity
 
 from .base import BaseEvent
 
@@ -89,27 +89,3 @@ class StopEvent(BaseEvent):
         super().__init__(kwargs)
 
 
-class TokenEvent(BaseEvent):
-    """Event emitted when authentication tokens are refreshed."""
-
-    def __init__(self, token_type: str, token: Optional[TokenProtocol] = None, **kwargs: Any):
-        """
-        Initialize token event.
-
-        Args:
-            token_type: Type of token ("bot" or "graph")
-            token: The refreshed token (optional for privacy)
-            **kwargs: Additional event data
-        """
-        data = {"token_type": token_type, "token": token, **kwargs}
-        super().__init__(data)
-
-    @property
-    def token_type(self) -> str:
-        """Type of token that was refreshed."""
-        return self.data["token_type"]
-
-    @property
-    def token(self) -> Optional[TokenProtocol]:
-        """The refreshed token (may be None for privacy)."""
-        return self.data.get("token")
