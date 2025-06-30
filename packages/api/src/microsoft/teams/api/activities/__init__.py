@@ -26,9 +26,6 @@ from .install_update import *  # noqa: F403
 from .install_update import __all__ as install_update_all
 from .message import *  # noqa: F403
 from .message import (
-    EventType as MessageEventType,
-)
-from .message import (
     MessageActivities,
 )
 from .message import (
@@ -53,7 +50,6 @@ __all__ = [
     "EndOfConversationActivity",
     "EndOfConversationCode",
     "ConversationEventType",
-    "MessageEventType",
     *message_all,
     *event_all,
     *install_update_all,

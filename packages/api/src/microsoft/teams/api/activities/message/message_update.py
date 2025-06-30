@@ -9,13 +9,13 @@ from typing import Any, Literal, Optional, Self
 from ...models import ChannelData
 from ..activity import Activity
 
-EventType = Literal["undeleteMessage", "editMessage"]
+MessageEventType = Literal["undeleteMessage", "editMessage"]
 
 
 class MessageUpdateChannelData(ChannelData):
     """Channel data specific to message update activities."""
 
-    event_type: EventType
+    event_type: MessageEventType
     """The type of event for message update."""
 
 

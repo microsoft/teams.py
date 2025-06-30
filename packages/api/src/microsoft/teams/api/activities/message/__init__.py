@@ -8,7 +8,7 @@ from typing import Union
 from .message import MessageActivity
 from .message_delete import MessageDeleteActivity, MessageDeleteChannelData
 from .message_reaction import MessageReactionActivity
-from .message_update import EventType, MessageUpdateActivity, MessageUpdateChannelData
+from .message_update import MessageEventType, MessageUpdateActivity, MessageUpdateChannelData
 
 # Union type for all message activities
 MessageActivities = Union[
@@ -25,6 +25,5 @@ __all__ = [
     "MessageReactionActivity",
     "MessageUpdateActivity",
     "MessageUpdateChannelData",
-    "MessageActivityUnion",
-    "EventType",
+    "MessageEventType",
 ]
