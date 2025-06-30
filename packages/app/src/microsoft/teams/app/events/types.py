@@ -3,89 +3,50 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
+from dataclasses import dataclass
 from typing import Any, Dict, Optional
 
 from microsoft.teams.api import Activity
 
-from .base import BaseEvent
 
-
-class ActivityEvent(BaseEvent):
+@dataclass
+class ActivityEvent:
     """Event emitted when an activity is processed."""
 
-    def __init__(self, activity: Activity, **kwargs: Any):
-        """
-        Initialize activity event.
+    activity: Activity
 
-        Args:
-            activity: The Teams activity being processed
-            **kwargs: Additional event data
-        """
-        data = {"activity": activity, **kwargs}
-        super().__init__(data)
-
-    @property
-    def activity(self) -> Activity:
-        """The Teams activity associated with this event."""
-        return self.data["activity"]
+    def __repr__(self) -> str:
+        return f"ActivityEvent(activity={self.activity})"
 
 
-class ErrorEvent(BaseEvent):
+@dataclass
+class ErrorEvent:
     """Event emitted when an error occurs."""
 
-    def __init__(self, error: Exception, context: Optional[Dict[str, Any]] = None, **kwargs: Any):
-        """
-        Initialize error event.
+    error: Exception
+    context: Optional[Dict[str, Any]] = None
 
-        Args:
-            error: The exception that occurred
-            context: Optional context information about where the error occurred
-            **kwargs: Additional event data
-        """
-        data = {"error": error, "context": context or {}, **kwargs}
-        super().__init__(data)
+    def __post_init__(self) -> None:
+        if self.context is None:
+            self.context = {}
 
-    @property
-    def error(self) -> Exception:
-        """The exception associated with this event."""
-        return self.data["error"]
-
-    @property
-    def context(self) -> Dict[str, Any]:
-        """Context information about the error."""
-        return self.data["context"]
+    def __repr__(self) -> str:
+        return f"ErrorEvent(error={self.error}, context={self.context})"
 
 
-class StartEvent(BaseEvent):
+@dataclass
+class StartEvent:
     """Event emitted when the app starts."""
 
-    def __init__(self, port: int, **kwargs: Any):
-        """
-        Initialize start event.
+    port: int
 
-        Args:
-            port: Port the app is running on
-            **kwargs: Additional event data
-        """
-        data = {"port": port, **kwargs}
-        super().__init__(data)
-
-    @property
-    def port(self) -> int:
-        """Port the app is running on."""
-        return self.data["port"]
+    def __repr__(self) -> str:
+        return f"StartEvent(port={self.port})"
 
 
-class StopEvent(BaseEvent):
+@dataclass
+class StopEvent:
     """Event emitted when the app stops."""
 
-    def __init__(self, **kwargs: Any):
-        """
-        Initialize stop event.
-
-        Args:
-            **kwargs: Additional event data
-        """
-        super().__init__(kwargs)
-
-
+    def __repr__(self) -> str:
+        return "StopEvent()"

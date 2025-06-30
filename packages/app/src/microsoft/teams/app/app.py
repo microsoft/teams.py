@@ -138,11 +138,20 @@ class App:
         try:
             await self._refresh_tokens(force=True)
             self._running = True
-            self.log.info("Teams app started successfully")
-            self._events.emit("start", StartEvent(port=self._port))
 
+            # Start all plugins except HTTP plugin first
             for plugin in self.plugins:
-                await plugin.on_start(self._port)
+                if plugin is not self.http:
+                    await plugin.on_start(self._port)
+
+            # Set callback and start HTTP plugin
+            async def on_http_ready() -> None:
+                self.log.info("Teams app started successfully")
+                assert self._port is not None, "Port must be set before emitting start event"
+                self._events.emit("start", StartEvent(port=self._port))
+
+            self.http.on_ready_callback = on_http_ready
+            await self.http.on_start(self._port)
 
         except Exception as error:
             self._running = False
@@ -156,12 +165,19 @@ class App:
             return
 
         try:
-            for plugin in reversed(self.plugins):
-                await plugin.on_stop()
+            # Set callback and stop HTTP plugin first
+            async def on_http_stopped() -> None:
+                # Stop all other plugins after HTTP is stopped
+                for plugin in reversed(self.plugins):
+                    if plugin is not self.http:
+                        await plugin.on_stop()
 
-            self._running = False
-            self.log.info("Teams app stopped")
-            self._events.emit("stop", StopEvent())
+                self._running = False
+                self.log.info("Teams app stopped")
+                self._events.emit("stop", StopEvent())
+
+            self.http.on_stopped_callback = on_http_stopped
+            await self.http.on_stop()
 
         except Exception as error:
             self.log.error(f"Failed to stop app: {error}")
@@ -274,25 +290,23 @@ class App:
             raise
 
     @overload
-    def event(self, func: F) -> F:
+    def event(self, func_or_event_type: F) -> F:
         """Register event handler with auto-detected type from function signature."""
         ...
 
     @overload
-    def event(self, event_type: Union[EventType, str]) -> Callable[[F], F]:
+    def event(self, func_or_event_type: Union[EventType, str]) -> Callable[[F], F]:
         """Register event handler with explicit event type."""
         ...
 
     @overload
-    def event(self, func: None = None, *, event_type: Union[EventType, str]) -> Callable[[F], F]:
-        """Register event handler with explicit event type (keyword)."""
+    def event(self, func_or_event_type: None = None) -> Callable[[F], F]:
+        """Register event handler (no arguments)."""
         ...
 
     def event(
         self,
         func_or_event_type: Union[F, EventType, str, None] = None,
-        *,
-        event_type: Optional[Union[EventType, str]] = None,
     ) -> Union[F, Callable[[F], F]]:
         """
         Decorator to register event handlers with automatic type inference.
@@ -300,7 +314,6 @@ class App:
         Can be used in multiple ways:
         - @app.event (auto-detect from type hints)
         - @app.event("activity")
-        - @app.event(event_type="error")
 
         Args:
             func_or_event_type: Either the function to decorate or an event type string
@@ -325,11 +338,11 @@ class App:
         def decorator(func: F) -> F:
             detected_type = None
 
-            if event_type:
-                detected_type = event_type
-            elif isinstance(func_or_event_type, str):
+            # If event_type is provided, use it directly
+            if isinstance(func_or_event_type, str):
                 detected_type = func_or_event_type
             else:
+                # Otherwise try to detect it from the function signature
                 detected_type = get_event_type_from_signature(func)
 
             if not detected_type:
@@ -338,13 +351,19 @@ class App:
                     "Either provide an explicit event_type or use a typed parameter."
                 )
 
+            # Validate the detected type against registered events
             if not is_registered_event(detected_type):
                 raise ValueError(f"Event type '{detected_type}' is not registered. ")
 
+            # add it to the event emitter
             self._events.on(detected_type, func)
             return func
 
+        # Check if the first argument is a callable function (direct decoration)
         if callable(func_or_event_type) and not isinstance(func_or_event_type, str):
-            return decorator(func_or_event_type)
+            # Type narrow to ensure it's actually a function
+            func: F = func_or_event_type  # type: ignore[assignment]
+            return decorator(func)
 
+        # Otherwise, return the decorator for later application
         return decorator

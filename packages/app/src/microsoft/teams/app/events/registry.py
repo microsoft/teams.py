@@ -4,7 +4,7 @@ Licensed under the MIT License.
 """
 
 import inspect
-from typing import Callable, Dict, Literal, Optional, Type
+from typing import Any, Callable, Dict, Literal, Optional, Type, cast
 
 from .base import EventProtocol
 from .types import ActivityEvent, ErrorEvent, StartEvent, StopEvent
@@ -24,7 +24,7 @@ EVENT_TYPE_REGISTRY: Dict[str, Type[EventProtocol]] = {
 EVENT_CLASS_REGISTRY: Dict[Type[EventProtocol], str] = {v: k for k, v in EVENT_TYPE_REGISTRY.items()}
 
 
-def get_event_name_from_type(event_class: Type) -> str:
+def get_event_name_from_type(event_class: Type[Any]) -> EventType:
     """
     Get event name from event class type.
 
@@ -38,7 +38,7 @@ def get_event_name_from_type(event_class: Type) -> str:
         ValueError: If event class is not registered
     """
     if event_class in EVENT_CLASS_REGISTRY:
-        return EVENT_CLASS_REGISTRY[event_class]
+        return cast(EventType, EVENT_CLASS_REGISTRY[event_class])
 
     raise ValueError(f"Event class {event_class.__name__} is not registered in EVENT_CLASS_REGISTRY")
 
@@ -56,7 +56,7 @@ def is_registered_event(event_name: str) -> bool:
     return event_name in EVENT_TYPE_REGISTRY
 
 
-def get_event_type_from_signature(func: Callable) -> Optional[str]:
+def get_event_type_from_signature(func: Callable[..., Any]) -> Optional[EventType]:
     """
     Extract event type from function signature by inspecting the first parameter's type hint.
 
@@ -73,6 +73,7 @@ def get_event_type_from_signature(func: Callable) -> Optional[str]:
         if not params:
             return None
 
+        # we use the first parameter to do the inference
         first_param = params[0]
         if first_param.annotation == inspect.Parameter.empty:
             return None
@@ -84,7 +85,7 @@ def get_event_type_from_signature(func: Callable) -> Optional[str]:
         if isinstance(param_type, str):
             # Try to resolve string annotation to actual type using registry
             if param_type in EVENT_TYPE_REGISTRY:
-                return param_type
+                return cast(EventType, param_type)
 
             # Fallback: try class name lookup using registry
             try:

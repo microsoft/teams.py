@@ -71,14 +71,14 @@ async def main() -> None:
     async def handle_start(event: StartEvent):
         print(f"[EVENT] App started successfully on port {event.port}")
 
-    @app.event
+    @app.event("stop")
     async def handle_stop(event: StopEvent):
         print(
             f"[EVENT] App stopped {event}",
         )
 
-
     print(f"Starting app on port {port}...")
+
     await app.start(port=port)
 
 
