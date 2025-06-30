@@ -7,7 +7,7 @@ from typing import Annotated, Union
 
 from pydantic import Field
 
-from .conversation_update import ConversationChannelData, ConversationUpdateActivity, EventType
+from .conversation_update import ConversationChannelData, ConversationEventType, ConversationUpdateActivity
 from .end_of_conversation import EndOfConversationActivity, EndOfConversationCode
 
 ConversationActivity = Annotated[
@@ -15,7 +15,7 @@ ConversationActivity = Annotated[
 ]
 
 __all__ = [
-    "EventType",
+    "ConversationEventType",
     "ConversationChannelData",
     "ConversationUpdateActivity",
     "EndOfConversationCode",

@@ -12,12 +12,10 @@ from .command import CommandActivity, CommandResultActivity, CommandResultValue,
 from .conversation import (
     ConversationActivity,
     ConversationChannelData,
+    ConversationEventType,
     ConversationUpdateActivity,
     EndOfConversationActivity,
     EndOfConversationCode,
-)
-from .conversation import (
-    EventType as ConversationEventType,
 )
 from .event import *  # noqa: F403
 from .event import __all__ as event_all
