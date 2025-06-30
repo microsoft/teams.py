@@ -29,7 +29,6 @@ from .message import (
 )
 from .message import (
     MessageActivity,
-    MessageActivityUnion,
     MessageDeleteActivity,
     MessageDeleteChannelData,
     MessageReactionActivity,
@@ -66,7 +65,6 @@ __all__ = [
     "ConversationEventType",
     "MessageEventType",
     "MessageActivity",
-    "MessageActivityUnion",
     "MessageDeleteActivity",
     "MessageDeleteChannelData",
     "MessageReactionActivity",
