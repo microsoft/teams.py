@@ -3,7 +3,7 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from typing import List, Optional, Union
+from typing import List, Optional
 
 from ...models.entity.mention_entity import MentionEntity
 from ..protocols import TextActivityProtocol
@@ -47,7 +47,7 @@ def strip_mentions_text(
     text = activity.text
 
     # Get mention entities
-    mentions: List[Union[MentionEntity]] = []
+    mentions: List[MentionEntity] = []
     if activity.entities:
         for entity in activity.entities:
             # Handle only mention entities
