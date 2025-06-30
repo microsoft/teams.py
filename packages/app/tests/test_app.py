@@ -31,7 +31,7 @@ class TestApp:
     def mock_activity_handler(self):
         """Create a mock activity handler."""
 
-        async def handler(activity: Activity):
+        async def handler(activity: Activity) -> dict[str, str]:
             return {"status": "handled", "activityId": activity.id}
 
         return handler

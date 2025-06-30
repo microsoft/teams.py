@@ -7,9 +7,10 @@ from typing import Any, Dict, Literal, Optional, Self
 
 from ..models import ChannelData, CustomBaseModel, StreamInfoEntity
 from .activity import Activity
+from .protocols import TextActivityProtocol
 
 
-class TypingActivity(Activity, CustomBaseModel):
+class TypingActivity(Activity, CustomBaseModel, TextActivityProtocol):
     _type: Literal["typing"] = "typing"
 
     text: Optional[str] = None
