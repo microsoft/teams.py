@@ -8,7 +8,6 @@ from typing import Any, Literal, Optional, Self
 
 from ...models import ChannelData
 from ..activity import Activity
-from ..protocols import TextActivityProtocol
 
 EventType = Literal["undeleteMessage", "editMessage"]
 
@@ -20,7 +19,7 @@ class MessageUpdateChannelData(ChannelData):
     """The type of event for message update."""
 
 
-class MessageUpdateActivity(Activity, TextActivityProtocol):
+class MessageUpdateActivity(Activity):
     """Represents a message update activity in Microsoft Teams."""
 
     _type: Literal["messageUpdate"] = "messageUpdate"

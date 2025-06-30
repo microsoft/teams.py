@@ -20,11 +20,10 @@ from ...models import (
     TextFormat,
 )
 from ..activity import Activity
-from ..protocols import TextActivityProtocol
 from ..utils import StripMentionsTextOptions, strip_mentions_text
 
 
-class MessageActivity(Activity, TextActivityProtocol):
+class MessageActivity(Activity):
     """Represents a message activity in Microsoft Teams."""
 
     _type: Literal["message"] = "message"
