@@ -1,0 +1,98 @@
+"""
+Copyright (c) Microsoft Corporation. All rights reserved.
+Licensed under the MIT License.
+"""
+
+from typing import Any, Generic, Optional, TypeVar, Union
+
+from .adaptive_card.adaptive_card_action_response import AdaptiveCardActionResponse
+from .config.config_response import ConfigResponse
+from .custom_base_model import CustomBaseModel
+from .messaging_extension.messaging_extension_action_response import MessagingExtensionActionResponse
+from .messaging_extension.messaging_extension_response import MessagingExtensionResponse
+from .tab.tab_response import TabResponse
+from .task_module.task_module_response import TaskModuleResponse
+from .token_exchange.invoke_response import TokenExchangeInvokeResponse
+
+# Type variable for generic invoke response
+T = TypeVar("T")
+
+# Union type for all possible invoke response bodies
+InvokeResponseBody = Union[
+    ConfigResponse,  # config/fetch, config/submit
+    None,  # fileConsent/invoke, actionableMessage/executeAction, message/submitAction,
+    # handoff/action, signin/verifyState, composeExtension/onCardButtonClicked
+    MessagingExtensionResponse,  # composeExtension/queryLink, composeExtension/anonymousQueryLink,
+    # composeExtension/query, composeExtension/selectItem, composeExtension/querySettingUrl,
+    # composeExtension/setting
+    MessagingExtensionActionResponse,  # composeExtension/submitAction, composeExtension/fetchTask
+    TaskModuleResponse,  # task/fetch, task/submit
+    TabResponse,  # tab/fetch, tab/submit
+    AdaptiveCardActionResponse,  # adaptiveCard/action
+    TokenExchangeInvokeResponse,  # signin/tokenExchange
+]
+
+
+class InvokeResponse(CustomBaseModel, Generic[T]):
+    """
+    Represents a response returned by a bot when it receives an `invoke` activity.
+
+    This class supports the framework and is not intended to be called directly for your code.
+    """
+
+    status: int
+    """The HTTP status code of the response."""
+
+    body: Optional[T] = None
+    """Optional. The body of the response."""
+
+
+def is_invoke_response(value: Any) -> bool:
+    """
+    Type guard to check if a value is an InvokeResponse.
+
+    Args:
+        value: Value to compare
+
+    Returns:
+        True if value is type of InvokeResponse
+    """
+    return (isinstance(value, dict) and "status" in value and isinstance(value["status"], int)) or isinstance(
+        value, InvokeResponse
+    )
+
+
+# Specific invoke response types for different invoke names
+ConfigInvokeResponse = InvokeResponse[ConfigResponse]
+VoidInvokeResponse = InvokeResponse[None]
+MessagingExtensionInvokeResponse = InvokeResponse[MessagingExtensionResponse]
+MessagingExtensionActionInvokeResponse = InvokeResponse[MessagingExtensionActionResponse]
+TaskModuleInvokeResponse = InvokeResponse[TaskModuleResponse]
+TabInvokeResponse = InvokeResponse[TabResponse]
+AdaptiveCardInvokeResponse = InvokeResponse[AdaptiveCardActionResponse]
+TokenExchangeInvokeResponseType = InvokeResponse[Union[TokenExchangeInvokeResponse, None]]
+
+INVOKE_RESPONSE_BODY_BY_INVOKE_NAME: dict[str, type[InvokeResponse[Any]]] = {
+    "config/fetch": ConfigInvokeResponse,
+    "config/submit": ConfigInvokeResponse,
+    "composeExtension/onCardButtonClicked": VoidInvokeResponse,
+    "composeExtension/queryLink": MessagingExtensionInvokeResponse,
+    "composeExtension/anonymousQueryLink": MessagingExtensionInvokeResponse,
+    "composeExtension/query": MessagingExtensionInvokeResponse,
+    "composeExtension/selectItem": MessagingExtensionInvokeResponse,
+    "composeExtension/querySettingUrl": MessagingExtensionInvokeResponse,
+    "composeExtension/setting": MessagingExtensionInvokeResponse,
+    "composeExtension/submitAction": MessagingExtensionActionInvokeResponse,
+    "composeExtension/fetchTask": MessagingExtensionActionInvokeResponse,
+    "task/fetch": TaskModuleInvokeResponse,
+    "task/submit": TaskModuleInvokeResponse,
+    "tab/fetch": TabInvokeResponse,
+    "tab/submit": TabInvokeResponse,
+    "adaptiveCard/action": AdaptiveCardInvokeResponse,
+    "signin/tokenExchange": TokenExchangeInvokeResponseType,
+    "signin/verifyState": VoidInvokeResponse,
+    "fileConsent/invoke": VoidInvokeResponse,
+    "actionableMessage/executeAction": VoidInvokeResponse,
+    "message/submitAction": VoidInvokeResponse,
+    "handoff/action": VoidInvokeResponse,
+}
