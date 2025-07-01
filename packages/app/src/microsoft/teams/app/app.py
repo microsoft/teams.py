@@ -6,16 +6,28 @@ Licensed under the MIT License.
 import asyncio
 import os
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, TypeVar, Union, overload
 
 from microsoft.teams.api import Activity, ApiClient, ClientCredentials, Credentials, JsonWebToken, TokenProtocol
+from microsoft.teams.common.events import EventEmitter
 from microsoft.teams.common.http import Client
 from microsoft.teams.common.logging import ConsoleLogger
 from microsoft.teams.common.storage import LocalStorage
 
+from .events import (
+    ActivityEvent,
+    ErrorEvent,
+    EventType,
+    StartEvent,
+    StopEvent,
+    get_event_type_from_signature,
+    is_registered_event,
+)
 from .http_plugin import HttpPlugin
 from .options import AppOptions
 from .plugin import PluginProtocol
+
+F = TypeVar("F", bound=Callable[..., Any])
 
 
 @dataclass
@@ -36,57 +48,47 @@ class App:
     def __init__(self, options: Optional[AppOptions] = None):
         self.options = options or AppOptions()
 
-        # Setup logging and storage
         self.log = self.options.logger or ConsoleLogger().create_logger("@teams/app")
         self.storage = self.options.storage or LocalStorage()
 
-        # Initialize HTTP client
         self.http_client = Client()
 
-        # Initialize tokens and credentials
+        self._events = EventEmitter()
+
         self._tokens = AppTokens()
         self.credentials = self._init_credentials()
 
-        # Initialize API client with hardcoded service URL (matching TypeScript pattern)
         self.api = ApiClient("https://smba.trafficmanager.net/teams", self.http_client)
 
         # TODO: Initialize graph client when available
         # self.graph = GraphClient(self.http_client)
 
-        # Activity handler
         self.activity_handler = self.options.activity_handler
 
-        # Initialize plugins (matching TypeScript pattern)
         plugins: List[PluginProtocol] = list(self.options.plugins or [])
 
-        # Find or create HTTP plugin (matching TypeScript behavior)
         http_plugin = None
         for i, plugin in enumerate(plugins):
             if isinstance(plugin, HttpPlugin):
                 http_plugin = plugin
-                # Remove HTTP plugin from its current position
                 plugins.pop(i)
                 break
 
         if not http_plugin:
-            # Get app_id from credentials for JWT validation
             app_id = None
             if self.credentials and hasattr(self.credentials, "client_id"):
                 app_id = self.credentials.client_id
 
             http_plugin = HttpPlugin(app_id, self.log, self.handle_activity)
 
-        # Always put HTTP plugin LAST since it blocks
         plugins.append(http_plugin)
 
         self.plugins = plugins
         self.http = http_plugin
 
-        # Wire up activity handler to HTTP plugin
         # TODO: When plugin architecture is done, remove this manual wiring
         self.http.activity_handler = self.handle_activity
 
-        # App state
         self._port: Optional[int] = None
         self._running = False
 
@@ -134,20 +136,27 @@ class App:
         self._port = port or int(os.getenv("PORT", "3978"))
 
         try:
-            # Refresh tokens
             await self._refresh_tokens(force=True)
-
-            # Mark as running before starting plugins
             self._running = True
 
-            # Start plugins (HTTP plugin will block here, keeping server running)
-            self.log.info("Teams app started successfully")
+            # Start all plugins except HTTP plugin first
             for plugin in self.plugins:
-                await plugin.on_start(self._port)
+                if plugin is not self.http:
+                    await plugin.on_start(self._port)
+
+            # Set callback and start HTTP plugin
+            async def on_http_ready() -> None:
+                self.log.info("Teams app started successfully")
+                assert self._port is not None, "Port must be set before emitting start event"
+                self._events.emit("start", StartEvent(port=self._port))
+
+            self.http.on_ready_callback = on_http_ready
+            await self.http.on_start(self._port)
 
         except Exception as error:
-            self._running = False  # Reset on failure
+            self._running = False
             self.log.error(f"Failed to start app: {error}")
+            self._events.emit("error", ErrorEvent(error, context={"method": "start", "port": self._port}))
             raise
 
     async def stop(self) -> None:
@@ -156,15 +165,23 @@ class App:
             return
 
         try:
-            # Stop plugins in reverse order
-            for plugin in reversed(self.plugins):
-                await plugin.on_stop()
+            # Set callback and stop HTTP plugin first
+            async def on_http_stopped() -> None:
+                # Stop all other plugins after HTTP is stopped
+                for plugin in reversed(self.plugins):
+                    if plugin is not self.http:
+                        await plugin.on_stop()
 
-            self._running = False
-            self.log.info("Teams app stopped")
+                self._running = False
+                self.log.info("Teams app stopped")
+                self._events.emit("stop", StopEvent())
+
+            self.http.on_stopped_callback = on_http_stopped
+            await self.http.on_stop()
 
         except Exception as error:
             self.log.error(f"Failed to stop app: {error}")
+            self._events.emit("error", ErrorEvent(error, context={"method": "stop"}))
             raise
 
     def _init_credentials(self) -> Optional[Credentials]:
@@ -197,8 +214,11 @@ class App:
             token_response = await self.api.bots.token.get(self.credentials)
             self._tokens.bot = JsonWebToken(token_response.access_token)
             self.log.debug("Bot token refreshed successfully")
+
         except Exception as error:
             self.log.error(f"Failed to refresh bot token: {error}")
+
+            self._events.emit("error", ErrorEvent(error, context={"method": "_refresh_bot_token"}))
             raise
 
     async def _refresh_graph_token(self, force: bool = False) -> None:
@@ -217,8 +237,12 @@ class App:
             # token_response = await self.api.bots.token.get_graph(self.credentials)
             # self._tokens.graph = JsonWebToken(token_response.access_token)
             self.log.debug("Graph token refresh not yet implemented")
+
+            # When implemented, emit token event:
         except Exception as error:
             self.log.error(f"Failed to refresh graph token: {error}")
+
+            self._events.emit("error", ErrorEvent(error, context={"method": "_refresh_graph_token"}))
             raise
 
     async def handle_activity(self, activity: Activity) -> Dict[str, Any]:
@@ -238,16 +262,108 @@ class App:
 
         self.log.info(f"Processing activity {activity_id} of type {activity_type}")
 
-        response = None
-        if self.activity_handler:
-            response = await self.activity_handler(activity)
+        try:
+            self._events.emit("activity", ActivityEvent(activity))
 
-        # Log completion and return response
-        self.log.info(f"Completed processing activity {activity_id}")
-        self.http.on_activity_response(activity_id, response)
+            response = None
+            if self.activity_handler:
+                response = await self.activity_handler(activity)
 
-        return {
-            "status": "processed",
-            "message": f"Successfully handled {activity_type} activity",
-            "activityId": activity_id,
-        }
+            self.log.info(f"Completed processing activity {activity_id}")
+            self.http.on_activity_response(activity_id, response)
+
+            return {
+                "status": "processed",
+                "message": f"Successfully handled {activity_type} activity",
+                "activityId": activity_id,
+            }
+        except Exception as error:
+            self.log.error(f"Failed to process activity {activity_id}: {error}")
+
+            self._events.emit(
+                "error",
+                ErrorEvent(
+                    error,
+                    context={"method": "handle_activity", "activity_id": activity_id, "activity_type": activity_type},
+                ),
+            )
+            raise
+
+    @overload
+    def event(self, func_or_event_type: F) -> F:
+        """Register event handler with auto-detected type from function signature."""
+        ...
+
+    @overload
+    def event(self, func_or_event_type: Union[EventType, str]) -> Callable[[F], F]:
+        """Register event handler with explicit event type."""
+        ...
+
+    @overload
+    def event(self, func_or_event_type: None = None) -> Callable[[F], F]:
+        """Register event handler (no arguments)."""
+        ...
+
+    def event(
+        self,
+        func_or_event_type: Union[F, EventType, str, None] = None,
+    ) -> Union[F, Callable[[F], F]]:
+        """
+        Decorator to register event handlers with automatic type inference.
+
+        Can be used in multiple ways:
+        - @app.event (auto-detect from type hints)
+        - @app.event("activity")
+
+        Args:
+            func_or_event_type: Either the function to decorate or an event type string
+            event_type: Explicit event type (keyword-only)
+
+        Returns:
+            Decorated function or decorator
+
+        Example:
+            ```python
+            @app.event
+            async def handle_activity(event: ActivityEvent):
+                print(f"Activity: {event.activity}")
+
+
+            @app.event("error")
+            async def handle_error(event: ErrorEvent):
+                print(f"Error: {event.error}")
+            ```
+        """
+
+        def decorator(func: F) -> F:
+            detected_type = None
+
+            # If event_type is provided, use it directly
+            if isinstance(func_or_event_type, str):
+                detected_type = func_or_event_type
+            else:
+                # Otherwise try to detect it from the function signature
+                detected_type = get_event_type_from_signature(func)
+
+            if not detected_type:
+                raise ValueError(
+                    f"Could not determine event type for {func.__name__}. "
+                    "Either provide an explicit event_type or use a typed parameter."
+                )
+
+            # Validate the detected type against registered events
+            if not is_registered_event(detected_type):
+                raise ValueError(f"Event type '{detected_type}' is not registered. ")
+
+            # add it to the event emitter
+            self._events.on(detected_type, func)
+            return func
+
+        # Check if the first argument is a callable function (direct decoration)
+        if callable(func_or_event_type) and not isinstance(func_or_event_type, str):
+            # Type narrow to ensure it's actually a function
+            func: F = func_or_event_type  # type: ignore[assignment]
+            return decorator(func)
+
+        # Otherwise, return the decorator for later application
+        return decorator

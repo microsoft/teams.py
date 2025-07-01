@@ -7,7 +7,7 @@ import asyncio
 import os
 from contextlib import asynccontextmanager
 from logging import Logger
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Awaitable, Callable, Dict, Optional
 
 import uvicorn
 from fastapi import FastAPI, HTTPException, Request
@@ -33,6 +33,8 @@ class HttpPlugin:
         self.logger = logger or ConsoleLogger().create_logger("@teams/http-plugin")
         self._server: Optional[uvicorn.Server] = None
         self._port: Optional[int] = None
+        self._on_ready_callback: Optional[Callable[[], Awaitable[None]]] = None
+        self._on_stopped_callback: Optional[Callable[[], Awaitable[None]]] = None
 
         # Storage for pending HTTP responses by activity ID
         self.pending: Dict[str, asyncio.Future[Any]] = {}
@@ -49,9 +51,13 @@ class HttpPlugin:
         async def lifespan(_app: FastAPI) -> Any:
             # Startup
             self.logger.info(f"listening on port {self._port} 🚀")
+            if self._on_ready_callback:
+                await self._on_ready_callback()
             yield
             # Shutdown
             self.logger.info("Server shutting down")
+            if self._on_stopped_callback:
+                await self._on_stopped_callback()
 
         self.app = FastAPI(lifespan=lifespan)
 
@@ -67,6 +73,26 @@ class HttpPlugin:
         # Setup routes and error handlers
         self._setup_routes()
 
+    @property
+    def on_ready_callback(self) -> Optional[Callable[[], Awaitable[None]]]:
+        """Callback to call when HTTP server is ready."""
+        return self._on_ready_callback
+
+    @on_ready_callback.setter
+    def on_ready_callback(self, callback: Optional[Callable[[], Awaitable[None]]]) -> None:
+        """Set callback to call when HTTP server is ready."""
+        self._on_ready_callback = callback
+
+    @property
+    def on_stopped_callback(self) -> Optional[Callable[[], Awaitable[None]]]:
+        """Callback to call when HTTP server is stopped."""
+        return self._on_stopped_callback
+
+    @on_stopped_callback.setter
+    def on_stopped_callback(self, callback: Optional[Callable[[], Awaitable[None]]]) -> None:
+        """Set callback to call when HTTP server is stopped."""
+        self._on_stopped_callback = callback
+
     async def on_start(self, port: int) -> None:
         """Start the HTTP server."""
         self._port = port
@@ -75,18 +101,17 @@ class HttpPlugin:
             config = uvicorn.Config(app=self.app, host="0.0.0.0", port=port, log_level="info")
             self._server = uvicorn.Server(config)
 
-            self.logger.info(f"Starting HTTP server on port {port}")
+            self.logger.info("Starting HTTP server on port %d", port)
 
-            # This will block, but the lifespan callback will signal startup completion
-            if self._server:
-                await self._server.serve()
+            # The lifespan handler will call the callback when the server is ready
+            await self._server.serve()
 
         except OSError as error:
             # Handle port in use, permission errors, etc.
-            self.logger.error(f"Server startup failed: {error}")
+            self.logger.error("Server startup failed: %s", error)
             raise
         except Exception as error:
-            self.logger.error(f"Failed to start server: {error}")
+            self.logger.error("Failed to start server: %s", error)
             raise
 
     async def on_stop(self) -> None:

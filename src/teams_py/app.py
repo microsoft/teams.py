@@ -8,8 +8,8 @@ import os
 
 from dotenv import load_dotenv
 from microsoft.teams.app import App, AppOptions
+from microsoft.teams.app.events import ActivityEvent, ErrorEvent, StartEvent, StopEvent
 
-# Load environment variables from .env file
 load_dotenv()
 
 
@@ -20,7 +20,6 @@ async def my_activity_handler(activity: dict) -> dict:
 
     print(f"[CUSTOM HANDLER] Processing activity {activity_id} of type {activity_type}")
 
-    # Simulate some processing
     await asyncio.sleep(2)
 
     print(f"[CUSTOM HANDLER] Finished processing activity {activity_id}")
@@ -36,7 +35,6 @@ async def main() -> None:
     """Test the basic App framework."""
     print("Creating Teams App...")
 
-    # Get configuration from environment
     client_id = os.getenv("CLIENT_ID")
     client_secret = os.getenv("CLIENT_SECRET")
     tenant_id = os.getenv("TENANT_ID")
@@ -51,17 +49,33 @@ async def main() -> None:
     print(f"Using CLIENT_SECRET: {client_secret}")
     print(f"Using TENANT_ID: {tenant_id}")
 
-    # Create app with custom activity handler
     app = App(
         AppOptions(
-            client_id=client_id,
-            client_secret=client_secret,
-            tenant_id=tenant_id,
             activity_handler=my_activity_handler,
         )
     )
 
+    @app.event
+    async def handle_activity(event: ActivityEvent):
+        activity = event.activity
+        print(f"[EVENT] Activity received: {activity.get('type')} (ID: {activity.get('id')})")
+
+    @app.event
+    async def handle_error(event: ErrorEvent):
+        print(f"[EVENT] Error in {event.context.get('method', 'unknown')}: {event.error}")
+
+    @app.event
+    async def handle_start(event: StartEvent):
+        print(f"[EVENT] App started successfully on port {event.port}")
+
+    @app.event("stop")
+    async def handle_stop(event: StopEvent):
+        print(
+            f"[EVENT] App stopped {event}",
+        )
+
     print(f"Starting app on port {port}...")
+
     await app.start(port=port)
 
 
