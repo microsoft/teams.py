@@ -51,9 +51,6 @@ async def main() -> None:
 
     app = App(
         AppOptions(
-            client_id=client_id,
-            client_secret=client_secret,
-            tenant_id=tenant_id,
             activity_handler=my_activity_handler,
         )
     )
