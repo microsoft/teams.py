@@ -3,11 +3,13 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
+from typing import Any
+
 import jwt
 from microsoft.teams.api.auth import CallerIds, JsonWebToken
 
 
-def build_token(token_payload: dict):
+def build_token(token_payload: dict[str, Any]) -> str:
     secret_key = "test_key"
     return jwt.encode(token_payload, secret_key, algorithm="HS256")
 

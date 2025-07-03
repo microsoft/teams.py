@@ -5,11 +5,19 @@ Licensed under the MIT License.
 
 import os
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 import httpx
 import pytest
 from dotenv import load_dotenv
+from microsoft.teams.api import (
+    Account,
+    Activity,
+    ClientCredentials,
+    TokenCredentials,
+)
+from microsoft.teams.api.models.conversation import ConversationResource
+from microsoft.teams.common.http import Client, ClientOptions
 
 try:
     # Load .env file if it exists
@@ -18,14 +26,6 @@ try:
         load_dotenv(env_file)
 except ImportError:
     pass  # python-dotenv not available, use system environment
-from microsoft.teams.api import (
-    Account,
-    Activity,
-    ClientCredentials,
-    ConversationResource,
-    TokenCredentials,
-)
-from microsoft.teams.common.http import Client, ClientOptions
 
 
 @pytest.fixture
@@ -34,7 +34,7 @@ def mock_transport():
 
     def handler(request: httpx.Request) -> httpx.Response:
         # Default response
-        response_data = {
+        response_data: Any = {
             "ok": True,
             "url": str(request.url),
             "method": request.method,

@@ -4,9 +4,10 @@ Licensed under the MIT License.
 """
 
 from datetime import datetime
+from typing import cast
 
 import pytest
-from microsoft.teams.api.activities.activity import Activity, CitationAppearance
+from microsoft.teams.api.activities.activity import Activity
 from microsoft.teams.api.models import (
     Account,
     ChannelData,
@@ -19,6 +20,7 @@ from microsoft.teams.api.models import (
     TeamInfo,
     TenantInfo,
 )
+from microsoft.teams.api.models.entity import CitationAppearance, CitationEntity, MessageEntity
 
 
 @pytest.fixture
@@ -36,14 +38,28 @@ def chat() -> ConversationAccount:
     return ConversationAccount(id="1", conversation_type="personal")
 
 
-@pytest.fixture
-def fixture_activity() -> Activity:
-    class FixtureActivity(Activity):
-        @property
-        def type(self) -> str:
-            return self._type
+class ConcreteTestActivity(Activity):
+    """Concrete Activity implementation for testing."""
 
-    return FixtureActivity
+    _type: str = "test"
+
+    @property
+    def type(self) -> str:
+        return self._type
+
+
+@pytest.fixture
+def test_activity(user: Account, bot: Account, chat: ConversationAccount) -> ConcreteTestActivity:
+    """Create a test activity with required fields set."""
+    activity = ConcreteTestActivity(
+        value={
+            "id": "1",
+            "from": user,
+            "conversation": chat,
+            "recipient": bot,
+        }
+    )
+    return activity
 
 
 @pytest.mark.unit
@@ -51,11 +67,10 @@ class TestActivity:
     """Unit tests for Activity class."""
 
     def test_should_build(
-        self, fixture_activity: Activity, user: Account, bot: Account, chat: ConversationAccount
+        self, test_activity: ConcreteTestActivity, user: Account, bot: Account, chat: ConversationAccount
     ) -> None:
         activity = (
-            fixture_activity({"type": "test", "id": "1", "from": user, "conversation": chat, "recipient": bot})
-            .with_locale("en")
+            test_activity.with_locale("en")
             .with_relates_to(
                 ConversationReference(
                     channel_id="msteams",
@@ -89,11 +104,10 @@ class TestActivity:
         assert activity.local_timestamp is not None
 
     def test_should_have_channel_data_accessors(
-        self, fixture_activity: Activity, user: Account, bot: Account, chat: ConversationAccount
+        self, test_activity: ConcreteTestActivity, user: Account, bot: Account, chat: ConversationAccount
     ) -> None:
         activity = (
-            fixture_activity({"type": "test", "id": "1", "from": user, "conversation": chat, "recipient": bot})
-            .with_locale("en")
+            test_activity.with_locale("en")
             .with_from(user)
             .with_channel_data(
                 ChannelData(
@@ -118,47 +132,36 @@ class TestActivity:
         assert activity.meeting.id == "meeting-id"
         assert activity.notification.alert is True
 
-    def test_should_add_ai_label(
-        self, fixture_activity: Activity, user: Account, bot: Account, chat: ConversationAccount
-    ) -> None:
-        activity = fixture_activity(
-            {"type": "test", "id": "1", "from": user, "conversation": chat, "recipient": bot}
-        ).add_ai_generated()
+    def test_should_add_ai_label(self, test_activity: ConcreteTestActivity) -> None:
+        activity = test_activity.add_ai_generated()
 
         assert activity.type == "test"
         assert len(activity.entities) == 1
-        assert activity.entities[0].additional_type[0] == "AIGeneratedContent"
+        message_entity = cast(MessageEntity, activity.entities[0])
+        assert message_entity.additional_type[0] == "AIGeneratedContent"
 
-    def test_should_add_feedback_label(
-        self, fixture_activity: Activity, user: Account, bot: Account, chat: ConversationAccount
-    ) -> None:
-        activity = fixture_activity(
-            {"type": "test", "id": "1", "from": user, "conversation": chat, "recipient": bot}
-        ).add_feedback()
+    def test_should_add_feedback_label(self, test_activity: ConcreteTestActivity) -> None:
+        activity = test_activity.add_feedback()
 
         assert activity.type == "test"
         assert activity.channel_data.feedback_loop_enabled is True
 
-    def test_should_add_citation(
-        self, fixture_activity: Activity, user: Account, bot: Account, chat: ConversationAccount
-    ) -> None:
-        activity = fixture_activity(
-            {"type": "test", "id": "1", "from": user, "conversation": chat, "recipient": bot}
-        ).add_citation(0, CitationAppearance(abstract="test", name="test"))
+    def test_should_add_citation(self, test_activity: ConcreteTestActivity) -> None:
+        activity = test_activity.add_citation(0, CitationAppearance(abstract="test", name="test"))
 
         assert activity.type == "test"
         assert len(activity.entities) == 1
-        assert len(activity.entities[0].citation) == 1
+        citation_entity = cast(CitationEntity, activity.entities[0])
+        assert len(citation_entity.citation) == 1
 
-    def test_should_add_citation_with_icon(
-        self, fixture_activity: Activity, user: Account, bot: Account, chat: ConversationAccount
-    ) -> None:
-        activity = fixture_activity(
-            {"type": "test", "id": "1", "from": user, "conversation": chat, "recipient": bot}
-        ).add_citation(0, CitationAppearance(abstract="test", name="test", icon=CitationIconName.GIF))
+    def test_should_add_citation_with_icon(self, test_activity: ConcreteTestActivity) -> None:
+        activity = test_activity.add_citation(
+            0, CitationAppearance(abstract="test", name="test", icon=CitationIconName.GIF)
+        )
 
         assert activity.type == "test"
         assert len(activity.entities) == 1
-        assert activity.entities[0].citation[0].appearance.abstract == "test"
-        assert activity.entities[0].citation[0].appearance.name == "test"
-        assert activity.entities[0].citation[0].appearance.image.name == "GIF"
+        citation_entity = cast(CitationEntity, activity.entities[0])
+        assert citation_entity.citation[0].appearance.abstract == "test"
+        assert citation_entity.citation[0].appearance.name == "test"
+        assert citation_entity.citation[0].appearance.image.name == "GIF"

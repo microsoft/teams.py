@@ -12,19 +12,26 @@ from .command import CommandActivity, CommandResultActivity, CommandResultValue,
 from .conversation import (
     ConversationActivity,
     ConversationChannelData,
+    ConversationEventType,
     ConversationUpdateActivity,
     EndOfConversationActivity,
     EndOfConversationCode,
-    EventType,
 )
 from .event import *  # noqa: F403
 from .event import __all__ as event_all
 from .handoff import HandoffActivity
 from .install_update import *  # noqa: F403
 from .install_update import __all__ as install_update_all
+from .message import *  # noqa: F403
+from .message import (
+    MessageActivities,
+)
+from .message import (
+    __all__ as message_all,
+)
 
 Activity = Annotated[
-    Union[HandoffActivity, CommandActivity, CommandResultActivity, ConversationActivity],
+    Union[HandoffActivity, CommandActivity, CommandResultActivity, ConversationActivity, MessageActivities],
     Field(discriminator="_type"),
 ]
 
@@ -40,7 +47,8 @@ __all__ = [
     "ConversationChannelData",
     "EndOfConversationActivity",
     "EndOfConversationCode",
-    "EventType",
+    "ConversationEventType",
+    *message_all,
     *event_all,
     *install_update_all,
 ]

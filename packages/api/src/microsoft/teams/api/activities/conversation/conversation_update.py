@@ -8,7 +8,7 @@ from typing import List, Literal, Optional
 from ...models import Account, ChannelData, CustomBaseModel
 from ..activity import Activity
 
-EventType = Literal[
+ConversationEventType = Literal[
     "channelCreated",
     "channelDeleted",
     "channelRenamed",
@@ -25,7 +25,7 @@ EventType = Literal[
 class ConversationChannelData(ChannelData, CustomBaseModel):
     """Extended ChannelData with event type."""
 
-    event_type: EventType
+    event_type: ConversationEventType
     """The type of event that occurred."""
 
 
