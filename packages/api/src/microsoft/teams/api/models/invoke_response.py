@@ -14,9 +14,6 @@ from .tab.tab_response import TabResponse
 from .task_module.task_module_response import TaskModuleResponse
 from .token_exchange.invoke_response import TokenExchangeInvokeResponse
 
-# Type variable for generic invoke response
-T = TypeVar("T")
-
 # Union type for all possible invoke response bodies
 InvokeResponseBody = Union[
     ConfigResponse,  # config/fetch, config/submit
@@ -30,7 +27,9 @@ InvokeResponseBody = Union[
     TabResponse,  # tab/fetch, tab/submit
     AdaptiveCardActionResponse,  # adaptiveCard/action
     TokenExchangeInvokeResponse,  # signin/tokenExchange
-]
+]  # Type variable for generic invoke response
+
+T = TypeVar("T", bound=InvokeResponseBody)
 
 
 class InvokeResponse(CustomBaseModel, Generic[T]):

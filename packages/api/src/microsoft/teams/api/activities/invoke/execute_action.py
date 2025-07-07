@@ -5,8 +5,7 @@ Licensed under the MIT License.
 
 from typing import Literal, Optional
 
-from ...models import ConversationReference
-from ...models.o365.o365_connector_card_action_query import O365ConnectorCardActionQuery
+from ...models import ConversationReference, O365ConnectorCardActionQuery
 from ..invoke_activity import InvokeActivity
 
 
