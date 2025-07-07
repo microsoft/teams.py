@@ -5,8 +5,7 @@ Licensed under the MIT License.
 
 from typing import Literal, Optional
 
-from ...models import ConversationReference
-from ...models.file.file_consent_card import FileConsentCardResponse
+from ...models import ConversationReference, FileConsentCardResponse
 from ..invoke_activity import InvokeActivity
 
 

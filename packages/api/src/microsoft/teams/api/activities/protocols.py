@@ -5,7 +5,7 @@ Licensed under the MIT License.
 
 from typing import List, Optional, Protocol, runtime_checkable
 
-from ..models.entity import Entity
+from ..models import Entity
 
 
 @runtime_checkable

@@ -5,7 +5,7 @@ Licensed under the MIT License.
 
 from typing import Literal
 
-from ....models.sign_in.state_verify_query import SignInStateVerifyQuery
+from ....models import SignInStateVerifyQuery
 from ...invoke_activity import InvokeActivity
 
 

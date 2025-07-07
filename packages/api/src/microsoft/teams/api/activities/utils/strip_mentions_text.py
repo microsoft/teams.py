@@ -5,7 +5,7 @@ Licensed under the MIT License.
 
 from typing import List, Optional
 
-from ...models.entity.mention_entity import MentionEntity
+from ...models import MentionEntity
 from ..protocols import TextActivityProtocol
 
 

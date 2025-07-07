@@ -5,7 +5,7 @@ Licensed under the MIT License.
 
 from typing import Literal
 
-from ....models.sign_in.exchange_token import SignInExchangeToken
+from ....models import SignInExchangeToken
 from ...invoke_activity import InvokeActivity
 
 

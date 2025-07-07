@@ -5,7 +5,7 @@ Licensed under the MIT License.
 
 from abc import ABC, abstractmethod
 
-from ..models.activity import Activity
+from ..models import Activity
 
 
 class InvokeActivity(Activity, ABC):
