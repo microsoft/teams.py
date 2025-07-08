@@ -114,19 +114,17 @@ class TestApp:
     # Event Testing - Focus on functional behavior
 
     @pytest.mark.asyncio
-    async def test_activity_event_emission(self, app_with_activity_handler):
+    async def test_activity_event_emission(self, app_with_activity_handler: App) -> None:
         """Test that activity events are emitted correctly."""
         activity_events = []
         event_received = asyncio.Event()
 
         @app_with_activity_handler.event
-        async def handle_activity(event: ActivityEvent):
+        async def handle_activity(event: ActivityEvent) -> None:
             activity_events.append(event)
             event_received.set()
 
         activity = Activity.model_validate({"type": "message", "id": "test-activity-id", "text": "Hello, world!"})
-
-        app_with_activity_handler.http.on_activity_response = MagicMock()
 
         await app_with_activity_handler.handle_activity(activity)
 
@@ -140,13 +138,13 @@ class TestApp:
         assert activity_events[0].activity.text == "Hello, world!"
 
     @pytest.mark.asyncio
-    async def test_error_event_emission(self, app_with_options):
+    async def test_error_event_emission(self, app_with_options: App) -> None:
         """Test that error events are emitted correctly."""
         error_events = []
         error_received = asyncio.Event()
 
         @app_with_options.event
-        async def handle_error(event: ErrorEvent):
+        async def handle_error(event: ErrorEvent) -> None:
             error_events.append(event)
             error_received.set()
 
@@ -155,7 +153,6 @@ class TestApp:
             raise ValueError("Test error")
 
         app_with_options.activity_handler = failing_handler
-        app_with_options.http.on_error = MagicMock()
 
         activity = Activity.model_validate({"type": "message", "id": "test-activity-id", "text": "Hello, world!"})
 
@@ -174,7 +171,7 @@ class TestApp:
         assert error_events[0].context["activity_id"] == "test-activity-id"
 
     @pytest.mark.asyncio
-    async def test_multiple_event_handlers(self, app_with_options):
+    async def test_multiple_event_handlers(self, app_with_options: App) -> None:
         """Test that multiple handlers can listen to the same event."""
         activity_events_1 = []
         activity_events_2 = []
@@ -182,7 +179,7 @@ class TestApp:
         received_count = 0
 
         @app_with_options.event
-        async def handle_activity_1(event: ActivityEvent):
+        async def handle_activity_1(event: ActivityEvent) -> None:
             nonlocal received_count
             activity_events_1.append(event)
             received_count += 1
@@ -190,7 +187,7 @@ class TestApp:
                 both_received.set()
 
         @app_with_options.event
-        async def handle_activity_2(event: ActivityEvent):
+        async def handle_activity_2(event: ActivityEvent) -> None:
             nonlocal received_count
             activity_events_2.append(event)
             received_count += 1
@@ -198,8 +195,6 @@ class TestApp:
                 both_received.set()
 
         activity = Activity.model_validate({"type": "message", "id": "test-activity-id", "text": "Hello, world!"})
-
-        app_with_options.http.on_activity_response = MagicMock()
 
         await app_with_options.handle_activity(activity)
 
