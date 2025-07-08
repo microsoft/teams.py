@@ -63,4 +63,6 @@ __all__ = [
     "ActivityParams",
     "ConversationEventType",
     *message_all,
+    "ConversationEventType",
+    *message_all,
 ]
