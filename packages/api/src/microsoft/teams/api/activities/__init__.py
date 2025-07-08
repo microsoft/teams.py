@@ -57,6 +57,5 @@ __all__ = [
     "EventActivity",
     "InstallUpdateActivity",
     "TypingActivity",
-    "ActivityParams",
     "ConversationEventType",
 ]
