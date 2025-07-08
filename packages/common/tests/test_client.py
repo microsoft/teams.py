@@ -5,11 +5,11 @@ Licensed under the MIT License.
 
 import httpx
 import pytest
-from microsoft.teams.common.http.client import Client, ClientOptions
+from microsoft.teams.common.http import Client, ClientOptions, Interceptor
 from microsoft.teams.common.http.client_token import StringLike
 
 
-class DummyAsyncInterceptor:
+class DummyAsyncInterceptor(Interceptor):
     def __init__(self):
         self.request_called = False
         self.response_called = False
@@ -91,7 +91,7 @@ async def test_post_request_and_response_interceptor(mock_transport, interceptor
     )
     client.http._transport = mock_transport
 
-    resp = await client.post("/post", data="payload")
+    resp = await client.post("/post", data={"payload": "test_data"})
     assert resp.status_code == 200
     assert interceptor.request_called
     assert interceptor.response_called

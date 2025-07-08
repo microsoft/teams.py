@@ -190,17 +190,18 @@ class TestEventEmitter:
         async def failing_handler(data):
             raise Exception("test error")
 
-        async def working_handler(data):
-            working_handler.called = True
+        is_called = False
 
-        working_handler.called = False
+        async def working_handler(data):
+            nonlocal is_called
+            is_called = True
 
         emitter.on("test_event", failing_handler)
         emitter.on("test_event", working_handler)
 
         emitter.emit("test_event", "test_data")
 
-        assert working_handler.called
+        assert is_called
 
     def test_unique_subscription_ids(self):
         emitter = EventEmitter()

@@ -37,6 +37,8 @@ from .message import *  # noqa: F403
 from .message import __all__ as message_all
 from .messaging_extension import *  # noqa: F403
 from .messaging_extension import __all__ as messaging_extension_all
+from .o365 import *  # noqa: F403
+from .o365 import __all__ as o365_all
 from .resource import Resource
 from .sign_in import *  # noqa: F403
 from .sign_in import __all__ as sign_in_all
@@ -94,4 +96,5 @@ __all__ = [
     "InvokeResponse",
     "SentActivity",
     "ActivityLike",
+    *o365_all,
 ]
