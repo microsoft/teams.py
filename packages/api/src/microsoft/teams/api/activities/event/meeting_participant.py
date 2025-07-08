@@ -43,12 +43,7 @@ class MeetingParticipantEventActivity(Activity, CustomBaseModel):
     Represents a meeting participant event activity in Microsoft Teams.
     """
 
-    _type: Literal["event"] = "event"
-
-    @property
-    def type(self) -> str:
-        """The type of the activity."""
-        return self._type
+    type: Literal["event"] = "event"
 
     value: MeetingParticipantEventValue
     """

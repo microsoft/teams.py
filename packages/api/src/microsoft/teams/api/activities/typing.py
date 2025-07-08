@@ -10,17 +10,12 @@ from .activity import Activity
 
 
 class TypingActivity(Activity, CustomBaseModel):
-    _type: Literal["typing"] = "typing"
+    type: Literal["typing"] = "typing"
 
     text: Optional[str] = None
     """
     The text content of the message.
     """
-
-    @property
-    def type(self) -> str:
-        """The type of the activity."""
-        return self._type
 
     def __init__(self, value: Optional[Dict[str, Any]] = None) -> None:
         super().__init__({"type": "typing", **(value or {})})

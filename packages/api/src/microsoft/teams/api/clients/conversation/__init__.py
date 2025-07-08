@@ -3,6 +3,7 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
+from ...activities import ActivityParams
 from .activity import ConversationActivityClient
 from .client import ConversationClient
 from .member import ConversationMemberClient
@@ -15,4 +16,5 @@ __all__ = [
     "CreateConversationParams",
     "GetConversationsParams",
     "GetConversationsResponse",
+    "ActivityParams",
 ]

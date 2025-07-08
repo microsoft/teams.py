@@ -5,7 +5,7 @@ Licensed under the MIT License.
 
 from typing import Any, List, Literal, Optional
 
-from ..activity import Activity
+from ...activities import Activity
 from ..custom_base_model import CustomBaseModel
 from ..message import Message
 from ..tab import TabEntityContext

@@ -28,12 +28,7 @@ class CommandValue(CustomBaseModel):
 class CommandActivity(Activity, CustomBaseModel):
     """Send command activity."""
 
-    _type: Literal["command"] = "command"
-
-    @property
-    def type(self) -> str:
-        """The type of the activity."""
-        return self._type
+    type: Literal["command"] = "command"
 
     name: str
     """The name of the event."""

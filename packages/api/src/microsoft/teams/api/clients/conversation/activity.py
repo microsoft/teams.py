@@ -7,7 +7,8 @@ from typing import List, Optional
 
 from microsoft.teams.common.http import Client
 
-from ...models import Account, Activity
+from ...activities import ActivityBase
+from ...models import Account
 from ..base_client import BaseClient
 
 
@@ -27,7 +28,7 @@ class ConversationActivityClient(BaseClient):
         super().__init__(http_client)
         self.service_url = service_url
 
-    async def create(self, conversation_id: str, activity: Activity) -> Activity:
+    async def create(self, conversation_id: str, activity: ActivityBase) -> ActivityBase:
         """
         Create a new activity in a conversation.
 
@@ -42,9 +43,9 @@ class ConversationActivityClient(BaseClient):
             f"{self.service_url}/v3/conversations/{conversation_id}/activities",
             json=activity.model_dump(by_alias=True),
         )
-        return Activity.model_validate(response.json())
+        return ActivityBase.model_validate(response.json())
 
-    async def update(self, conversation_id: str, activity_id: str, activity: Activity) -> Activity:
+    async def update(self, conversation_id: str, activity_id: str, activity: ActivityBase) -> ActivityBase:
         """
         Update an existing activity in a conversation.
 
@@ -60,9 +61,9 @@ class ConversationActivityClient(BaseClient):
             f"{self.service_url}/v3/conversations/{conversation_id}/activities/{activity_id}",
             json=activity.model_dump(by_alias=True),
         )
-        return Activity.model_validate(response.json())
+        return ActivityBase.model_validate(response.json())
 
-    async def reply(self, conversation_id: str, activity_id: str, activity: Activity) -> Activity:
+    async def reply(self, conversation_id: str, activity_id: str, activity: ActivityBase) -> ActivityBase:
         """
         Reply to an activity in a conversation.
 
@@ -79,7 +80,7 @@ class ConversationActivityClient(BaseClient):
             f"{self.service_url}/v3/conversations/{conversation_id}/activities/{activity_id}",
             json=activity.model_dump(by_alias=True),
         )
-        return Activity.model_validate(response.json())
+        return ActivityBase.model_validate(response.json())
 
     async def delete(self, conversation_id: str, activity_id: str) -> None:
         """

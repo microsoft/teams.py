@@ -15,12 +15,7 @@ class ReadReceiptEventActivity(Activity, CustomBaseModel, ABC):
     Represents a read receipt event activity in Microsoft Teams.
     """
 
-    _type: Literal["event"] = "event"
-
-    @property
-    def type(self) -> str:
-        """The type of the activity."""
-        return self._type
+    type: Literal["event"] = "event"
 
     name: Literal["application/vnd.microsoft.readReceipt"] = "application/vnd.microsoft.readReceipt"
     """

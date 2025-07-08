@@ -5,7 +5,7 @@ Licensed under the MIT License.
 
 from typing import List, Optional
 
-from ..activity import Activity
+from ...activities import Activity
 from ..attachment.attachment_layout import AttachmentLayout
 from ..custom_base_model import CustomBaseModel
 from .messaging_extension_attachment import MessagingExtensionAttachment
