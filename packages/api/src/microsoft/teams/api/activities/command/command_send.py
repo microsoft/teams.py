@@ -9,7 +9,7 @@ from ...models import CustomBaseModel
 from ..activity import Activity
 
 
-class CommandValue(CustomBaseModel):
+class CommandSendValue(CustomBaseModel):
     """
     The value field of a CommandActivity contains metadata related to a command.
     An optional extensible data payload may be included if defined by the command activity name.
@@ -25,7 +25,7 @@ class CommandValue(CustomBaseModel):
     """
 
 
-class CommandActivity(Activity, CustomBaseModel):
+class CommandSendActivity(Activity, CustomBaseModel):
     """Send command activity."""
 
     type: Literal["command"] = "command"
@@ -33,5 +33,5 @@ class CommandActivity(Activity, CustomBaseModel):
     name: str
     """The name of the event."""
 
-    value: Optional[CommandValue] = None
+    value: Optional[CommandSendValue] = None
     """The value for this command."""

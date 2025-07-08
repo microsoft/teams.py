@@ -8,7 +8,7 @@ from typing import Annotated, Union
 from pydantic import Field
 
 from .activity import Activity as ActivityBase
-from .command import CommandActivity, CommandResultActivity, CommandResultValue, CommandValue
+from .command import CommandActivity, CommandResultActivity, CommandResultValue, CommandSendActivity, CommandSendValue
 from .conversation import (
     ConversationActivity,
     ConversationChannelData,
@@ -20,13 +20,8 @@ from .conversation import (
 from .event import EventActivity
 from .handoff import HandoffActivity
 from .install_update import InstallUpdateActivity
-from .message import *  # noqa: F403
-from .message import (
-    MessageActivities,
-)
-from .message import (
-    __all__ as message_all,
-)
+from .invoke import InvokeActivity
+from .message import MessageActivities
 from .trace import TraceActivity
 from .typing import TypingActivity
 
@@ -36,9 +31,11 @@ Activity = Annotated[
         TraceActivity,
         TypingActivity,
         CommandActivity,
-        CommandResultActivity,
         ConversationActivity,
         MessageActivities,
+        EventActivity,
+        InvokeActivity,
+        InstallUpdateActivity,
     ],
     Field(discriminator="type"),
 ]
@@ -48,9 +45,9 @@ ActivityParams = Union[str, Activity]
 __all__ = [
     "Activity",
     "ActivityBase",
-    "CommandActivity",
+    "CommandSendActivity",
     "CommandResultActivity",
-    "CommandValue",
+    "CommandSendValue",
     "CommandResultValue",
     "ConversationActivity",
     "ConversationUpdateActivity",
@@ -62,7 +59,4 @@ __all__ = [
     "TypingActivity",
     "ActivityParams",
     "ConversationEventType",
-    *message_all,
-    "ConversationEventType",
-    *message_all,
 ]
