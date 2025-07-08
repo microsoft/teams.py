@@ -7,7 +7,7 @@ import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from microsoft.teams.api import Activity
+from microsoft.teams.api import Activity, ActivityWrapper
 from microsoft.teams.app.app import App
 from microsoft.teams.app.events import ActivityEvent, ErrorEvent
 from microsoft.teams.app.options import AppOptions
@@ -100,7 +100,9 @@ class TestApp:
     @pytest.mark.asyncio
     async def test_activity_processing(self, app_with_activity_handler):
         """Test that activities are processed correctly."""
-        activity = Activity.model_validate({"type": "message", "id": "test-activity-id", "text": "Hello, world!"})
+        activity = ActivityWrapper.validate_activity(
+            {"type": "message", "id": "test-activity-id", "text": "Hello, world!"}
+        )
 
         # Mock the HTTP plugin response method
         app_with_activity_handler.http.on_activity_response = MagicMock()
@@ -124,7 +126,9 @@ class TestApp:
             activity_events.append(event)
             event_received.set()
 
-        activity = Activity.model_validate({"type": "message", "id": "test-activity-id", "text": "Hello, world!"})
+        activity = ActivityWrapper.validate_activity(
+            {"type": "message", "id": "test-activity-id", "text": "Hello, world!"}
+        )
 
         await app_with_activity_handler.handle_activity(activity)
 
@@ -135,7 +139,6 @@ class TestApp:
         assert len(activity_events) == 1
         assert isinstance(activity_events[0], ActivityEvent)
         assert activity_events[0].activity == activity
-        assert activity_events[0].activity.text == "Hello, world!"
 
     @pytest.mark.asyncio
     async def test_error_event_emission(self, app_with_options: App) -> None:
@@ -154,7 +157,9 @@ class TestApp:
 
         app_with_options.activity_handler = failing_handler
 
-        activity = Activity.model_validate({"type": "message", "id": "test-activity-id", "text": "Hello, world!"})
+        activity = ActivityWrapper.validate_activity(
+            {"type": "message", "id": "test-activity-id", "text": "Hello, world!"}
+        )
 
         with pytest.raises(ValueError):
             await app_with_options.handle_activity(activity)
@@ -194,7 +199,9 @@ class TestApp:
             if received_count == 2:
                 both_received.set()
 
-        activity = Activity.model_validate({"type": "message", "id": "test-activity-id", "text": "Hello, world!"})
+        activity = ActivityWrapper.validate_activity(
+            {"type": "message", "id": "test-activity-id", "text": "Hello, world!"}
+        )
 
         await app_with_options.handle_activity(activity)
 

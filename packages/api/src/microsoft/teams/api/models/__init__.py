@@ -6,6 +6,7 @@ Licensed under the MIT License.
 from .account import Account, AccountRole, ConversationAccount
 from .action import Action
 from .activity_like import ActivityLike, SentActivity
+from .activity_wrapper import ActivityWrapper
 from .adaptive_card import *  # noqa: F403
 from .adaptive_card import __all__ as adaptive_card_all
 from .app_based_link_query import AppBasedLinkQuery
@@ -97,4 +98,5 @@ __all__ = [
     "SentActivity",
     "ActivityLike",
     *o365_all,
+    "ActivityWrapper",
 ]
