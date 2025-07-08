@@ -3,7 +3,6 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from abc import ABC
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Self
 
@@ -29,7 +28,7 @@ from ..models import (
 )
 
 
-class Activity(CustomBaseModel, ABC):
+class Activity(CustomBaseModel):
     """Base class for all activities."""
 
     type: str
