@@ -7,7 +7,7 @@ import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from microsoft.teams.api import Activity, ActivityWrapper
+from microsoft.teams.api import ActivityBase, ActivityWrapper
 from microsoft.teams.app.app import App
 from microsoft.teams.app.events import ActivityEvent, ErrorEvent
 from microsoft.teams.app.options import AppOptions
@@ -30,7 +30,7 @@ class TestApp:
     def mock_activity_handler(self):
         """Create a mock activity handler."""
 
-        async def handler(activity: Activity) -> dict[str, str]:
+        async def handler(activity: ActivityBase) -> dict[str, str]:
             return {"status": "handled", "activityId": activity.id}
 
         return handler

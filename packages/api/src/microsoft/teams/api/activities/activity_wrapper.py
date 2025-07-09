@@ -5,11 +5,12 @@ Licensed under the MIT License.
 
 from typing import Any
 
-from ..activities import Activity
-from .custom_base_model import CustomBaseModel
+from pydantic import BaseModel
+
+from . import Activity
 
 
-class ActivityWrapper(CustomBaseModel):
+class ActivityWrapper(BaseModel):
     """Wrapper model for validating discriminated union activities"""
 
     activity: Activity
