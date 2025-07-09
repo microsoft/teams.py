@@ -5,7 +5,7 @@ Licensed under the MIT License.
 
 from typing import Any, Dict, List, Optional
 
-from ...activities import ActivityBase
+from ...activity_params import ActivityParams
 from ...models import Account, Conversation, CustomBaseModel
 
 
@@ -38,7 +38,7 @@ class CreateConversationParams(CustomBaseModel):
     """
     The tenant ID for the conversation.
     """
-    activity: Optional[ActivityBase] = None
+    activity: Optional[ActivityParams] = None
     """
     The initial activity to post in the conversation.
     """

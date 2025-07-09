@@ -3,9 +3,13 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from typing import Any, List, Literal, Optional
+from __future__ import annotations
 
-from ...activities import Activity
+from typing import TYPE_CHECKING, Any, List, Literal, Optional
+
+if TYPE_CHECKING:
+    from ...activities import Activity
+
 from ..custom_base_model import CustomBaseModel
 from ..message import Message
 from ..tab import TabEntityContext
@@ -49,7 +53,7 @@ class MessagingExtensionAction(TaskModuleRequest):
     bot_message_preview_action: Literal["edit", "send"]
     "Bot message preview action taken by user."
 
-    bot_activity_preview: Optional[List[Activity]] = None
+    bot_activity_preview: Optional[List["Activity"]] = None
     "Bot activity preview"
 
     message_payload: Optional[Message] = None

@@ -8,7 +8,6 @@ from typing import Annotated, Union
 from pydantic import Field
 
 from .activity import Activity as ActivityBase
-from .activity_wrapper import ActivityWrapper
 from .command import CommandActivity, CommandResultActivity, CommandResultValue, CommandSendActivity, CommandSendValue
 from .conversation import (
     ConversationActivity,
@@ -58,5 +57,4 @@ __all__ = [
     "InstallUpdateActivity",
     "TypingActivity",
     "ConversationEventType",
-    "ActivityWrapper",
 ]

@@ -422,7 +422,6 @@ class TestMessageUpdateActivity:
         activity = self.create_message_update_activity("update-999", "Test")
 
         assert activity.type == "messageUpdate"
-        assert activity._type == "messageUpdate"
 
 
 class TestMessageReactionActivity:

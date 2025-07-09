@@ -18,7 +18,7 @@ class TypingActivity(Activity, CustomBaseModel):
     """
 
     def __init__(self, value: Optional[Dict[str, Any]] = None) -> None:
-        super().__init__({"type": "typing", **(value or {})})
+        super().__init__(value={"type": "typing", **(value or {})})
 
     def with_text(self, value: str) -> Self:
         """Set the text content of the message."""

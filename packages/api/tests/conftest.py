@@ -12,7 +12,7 @@ import pytest
 from dotenv import load_dotenv
 from microsoft.teams.api import (
     Account,
-    Activity,
+    ActivityParams,
     ClientCredentials,
     TokenCredentials,
 )
@@ -124,6 +124,7 @@ def mock_transport():
         elif "/conversations" in str(request.url) and request.method == "POST":
             response_data = {
                 "id": "mock_conversation_id",
+                "type": "message",
                 "activityId": "mock_activity_id",
                 "serviceUrl": "https://mock.service.url",
             }
@@ -245,10 +246,8 @@ def mock_account():
 @pytest.fixture
 def mock_activity():
     """Create a mock activity for testing."""
-    return Activity(
-        type="message",
-        text="Mock activity text",
-        from_=Account(id="sender_id", name="Sender"),
+    return ActivityParams(
+        {"type": "message", "text": "Mock activity text", "from_": Account(id="sender_id", name="Sender")}
     )
 
 

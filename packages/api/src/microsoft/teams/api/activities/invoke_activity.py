@@ -3,7 +3,7 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from abc import ABC, abstractmethod
+from abc import ABC
 from typing import Literal
 
 from ..activities import ActivityBase
@@ -20,8 +20,5 @@ class InvokeActivity(ActivityBase, ABC):
     type: Literal["invoke"] = "invoke"
     """The activity type is always 'invoke' for invoke activities."""
 
-    @property
-    @abstractmethod
-    def name(self) -> str:
-        """The name of the operation associated with the invoke activity."""
-        pass
+    name: str
+    """The name of the operation associated with the invoke activity."""

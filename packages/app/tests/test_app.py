@@ -7,7 +7,9 @@ import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from microsoft.teams.api import ActivityBase, ActivityWrapper
+from microsoft.teams.api import ActivityBase
+from microsoft.teams.api.activities.message import MessageActivity
+from microsoft.teams.api.models import Account, ConversationAccount
 from microsoft.teams.app.app import App
 from microsoft.teams.app.events import ActivityEvent, ErrorEvent
 from microsoft.teams.app.options import AppOptions
@@ -100,8 +102,19 @@ class TestApp:
     @pytest.mark.asyncio
     async def test_activity_processing(self, app_with_activity_handler):
         """Test that activities are processed correctly."""
-        activity = ActivityWrapper.validate_activity(
-            {"type": "message", "id": "test-activity-id", "text": "Hello, world!"}
+        from_account = Account(id="bot-123", name="Test Bot", role="bot")
+        recipient = Account(id="user-456", name="Test User", role="user")
+        conversation = ConversationAccount(id="conv-789", conversation_type="personal")
+
+        activity = MessageActivity(
+            value={
+                "type": "message",
+                "id": "test-activity-id",
+                "text": "Hello, world!",
+                "from_": from_account.model_dump(),
+                "recipient": recipient.model_dump(),
+                "conversation": conversation.model_dump(),
+            }
         )
 
         # Mock the HTTP plugin response method
@@ -126,8 +139,19 @@ class TestApp:
             activity_events.append(event)
             event_received.set()
 
-        activity = ActivityWrapper.validate_activity(
-            {"type": "message", "id": "test-activity-id", "text": "Hello, world!"}
+        from_account = Account(id="bot-123", name="Test Bot", role="bot")
+        recipient = Account(id="user-456", name="Test User", role="user")
+        conversation = ConversationAccount(id="conv-789", conversation_type="personal")
+
+        activity = MessageActivity(
+            value={
+                "type": "message",
+                "id": "test-activity-id",
+                "text": "Hello, world!",
+                "from_": from_account.model_dump(),
+                "recipient": recipient.model_dump(),
+                "conversation": conversation.model_dump(),
+            }
         )
 
         await app_with_activity_handler.handle_activity(activity)
@@ -157,8 +181,19 @@ class TestApp:
 
         app_with_options.activity_handler = failing_handler
 
-        activity = ActivityWrapper.validate_activity(
-            {"type": "message", "id": "test-activity-id", "text": "Hello, world!"}
+        from_account = Account(id="bot-123", name="Test Bot", role="bot")
+        recipient = Account(id="user-456", name="Test User", role="user")
+        conversation = ConversationAccount(id="conv-789", conversation_type="personal")
+
+        activity = MessageActivity(
+            value={
+                "type": "message",
+                "id": "test-activity-id",
+                "text": "Hello, world!",
+                "from_": from_account.model_dump(),
+                "recipient": recipient.model_dump(),
+                "conversation": conversation.model_dump(),
+            }
         )
 
         with pytest.raises(ValueError):
@@ -199,8 +234,19 @@ class TestApp:
             if received_count == 2:
                 both_received.set()
 
-        activity = ActivityWrapper.validate_activity(
-            {"type": "message", "id": "test-activity-id", "text": "Hello, world!"}
+        from_account = Account(id="bot-123", name="Test Bot", role="bot")
+        recipient = Account(id="user-456", name="Test User", role="user")
+        conversation = ConversationAccount(id="conv-789", conversation_type="personal")
+
+        activity = MessageActivity(
+            value={
+                "type": "message",
+                "id": "test-activity-id",
+                "text": "Hello, world!",
+                "from_": from_account.model_dump(),
+                "recipient": recipient.model_dump(),
+                "conversation": conversation.model_dump(),
+            }
         )
 
         await app_with_options.handle_activity(activity)
