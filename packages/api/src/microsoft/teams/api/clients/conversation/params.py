@@ -5,8 +5,8 @@ Licensed under the MIT License.
 
 from typing import Any, Dict, List, Optional
 
-from ...activity_params import ActivityParams
 from ...models import Account, Conversation, CustomBaseModel
+from .activity import ActivityParams
 
 
 class GetConversationsParams(CustomBaseModel):

@@ -5,7 +5,6 @@ Licensed under the MIT License.
 
 from .activities import *  # noqa: F403
 from .activities import __all__ as activities_all
-from .activity_params import ActivityParams
 from .auth import *  # noqa: F403
 from .auth import __all__ as auth_all
 from .clients import *  # noqa: F403
@@ -19,5 +18,4 @@ __all__ = [
     *clients_all,
     *models_all,
     *activities_all,
-    "ActivityParams",
 ]

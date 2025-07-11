@@ -12,10 +12,10 @@ import pytest
 from dotenv import load_dotenv
 from microsoft.teams.api import (
     Account,
-    ActivityParams,
     ClientCredentials,
     TokenCredentials,
 )
+from microsoft.teams.api.clients.conversation import ActivityParams
 from microsoft.teams.api.models.conversation import ConversationResource
 from microsoft.teams.common.http import Client, ClientOptions
 
@@ -247,7 +247,7 @@ def mock_account():
 def mock_activity():
     """Create a mock activity for testing."""
     return ActivityParams(
-        {"type": "message", "text": "Mock activity text", "from_": Account(id="sender_id", name="Sender")}
+        **{"type": "message", "text": "Mock activity text", "from_": Account(id="sender_id", name="Sender")}
     )
 
 

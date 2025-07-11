@@ -7,9 +7,12 @@ from typing import List, Optional
 
 from microsoft.teams.common.http import Client
 
-from ...activity_params import ActivityParams
-from ...models import Account
+from ...models import Account, CustomBaseModel
 from ..base_client import BaseClient
+
+
+class ActivityParams(CustomBaseModel):
+    type: str
 
 
 class ConversationActivityClient(BaseClient):
@@ -43,7 +46,7 @@ class ConversationActivityClient(BaseClient):
             f"{self.service_url}/v3/conversations/{conversation_id}/activities",
             json=activity.model_dump(by_alias=True),
         )
-        return ActivityParams(response.json())
+        return ActivityParams(**response.json())
 
     async def update(self, conversation_id: str, activity_id: str, activity: ActivityParams) -> ActivityParams:
         """
@@ -61,7 +64,7 @@ class ConversationActivityClient(BaseClient):
             f"{self.service_url}/v3/conversations/{conversation_id}/activities/{activity_id}",
             json=activity.model_dump(by_alias=True),
         )
-        return ActivityParams(response.json())
+        return ActivityParams(**response.json())
 
     async def reply(self, conversation_id: str, activity_id: str, activity: ActivityParams) -> ActivityParams:
         """
@@ -75,12 +78,13 @@ class ConversationActivityClient(BaseClient):
         Returns:
             The created reply activity
         """
-        activity.reply_to_id = activity_id
+        activity_json = activity.model_dump(by_alias=True)
+        activity_json["replyToId"] = activity_id
         response = await self.http.post(
             f"{self.service_url}/v3/conversations/{conversation_id}/activities/{activity_id}",
-            json=activity.model_dump(by_alias=True),
+            json=activity_json,
         )
-        return ActivityParams(response.json())
+        return ActivityParams(**response.json())
 
     async def delete(self, conversation_id: str, activity_id: str) -> None:
         """
