@@ -6,14 +6,13 @@ Licensed under the MIT License.
 from .app import App
 from .auth import *  # noqa: F403
 from .auth import __all__ as auth_all
-from .http_plugin import HttpPlugin
 from .options import AppOptions
-from .plugin import PluginProtocol
+from .plugins import *  # noqa: F403
+from .plugins import __all__ as plugins_all
 
 __all__ = [
     "App",
     "AppOptions",
-    "HttpPlugin",
-    "PluginProtocol",
+    *plugins_all,
     *auth_all,
 ]

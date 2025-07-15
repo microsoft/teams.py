@@ -9,7 +9,7 @@ from typing import Any, Callable, List, Optional
 
 from microsoft.teams.common.storage import Storage
 
-from .plugin import PluginProtocol
+from .plugins import PluginProtocol
 
 
 @dataclass

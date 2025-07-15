@@ -5,6 +5,7 @@ Licensed under the MIT License.
 
 from .account import Account, AccountRole, ConversationAccount
 from .action import Action
+from .activity_like import ActivityLike, SentActivity
 from .adaptive_card import *  # noqa: F403
 from .adaptive_card import __all__ as adaptive_card_all
 from .app_based_link_query import AppBasedLinkQuery
@@ -94,4 +95,6 @@ __all__ = [
     *task_module_all,
     "InvokeResponse",
     *o365_all,
+    "ActivityLike",
+    "SentActivity",
 ]

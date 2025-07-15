@@ -16,6 +16,7 @@ dependencies = [
     "uvicorn>=0.34.3",
     "cryptography>=3.4.0",
     "pyjwt[crypto]>=2.10.0",
+    "dependency-injector>=4.48.1",
 ]
 
 [dependency-groups]
