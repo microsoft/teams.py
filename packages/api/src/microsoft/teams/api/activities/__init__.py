@@ -17,11 +17,17 @@ from .conversation import (
     EndOfConversationActivity,
     EndOfConversationCode,
 )
+from .event import *  # noqa: F403
 from .event import EventActivity
+from .event import __all__ as event_all
 from .handoff import HandoffActivity
+from .install_update import *  # noqa: F403
 from .install_update import InstallUpdateActivity
+from .install_update import __all__ as install_update_all
 from .invoke import InvokeActivity
+from .message import *  # noqa: F403
 from .message import MessageActivities
+from .message import __all__ as message_all
 from .trace import TraceActivity
 from .typing import TypingActivity
 
@@ -57,4 +63,7 @@ __all__ = [
     "InstallUpdateActivity",
     "TypingActivity",
     "ConversationEventType",
+    *event_all,
+    *install_update_all,
+    *message_all,
 ]

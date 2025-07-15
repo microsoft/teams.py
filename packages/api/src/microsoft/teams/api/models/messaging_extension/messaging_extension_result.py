@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, List, Optional
 
+# Due to circular imports, we use TYPE_CHECKING to avoid runtime errors.
 if TYPE_CHECKING:
     from ...activities import Activity
 

@@ -246,9 +246,8 @@ def mock_account():
 @pytest.fixture
 def mock_activity():
     """Create a mock activity for testing."""
-    return ActivityParams(
-        **{"type": "message", "text": "Mock activity text", "from_": Account(id="sender_id", name="Sender")}
-    )
+    account = Account(id="sender_id", name="Sender")
+    return ActivityParams(value={"type": "message", "text": "Mock activity text", "from": account.model_dump()})
 
 
 @pytest.fixture

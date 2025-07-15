@@ -3,16 +3,42 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from typing import List, Optional
+from typing import Any, List, Optional, Type
 
 from microsoft.teams.common.http import Client
+from pydantic import create_model
+from pydantic_core import PydanticUndefinedType
 
+from ...activities import ActivityBase
 from ...models import Account, CustomBaseModel
 from ..base_client import BaseClient
 
 
-class ActivityParams(CustomBaseModel):
-    type: str
+def partial_model(model: Type[CustomBaseModel]) -> Type[CustomBaseModel]:
+    base_fields = set(ActivityBase.model_fields.keys())
+    curr_fields = model.model_fields.items()
+    fields: dict[str, Any] = {}
+
+    for field_name, field_info in curr_fields:
+        # Only make ActivityBase fields optional (except 'type')
+        if field_name in base_fields and field_name != "type":
+            annotation = Optional[field_info.annotation]  # type: ignore
+            default = None if isinstance(field_info.default, PydanticUndefinedType) else field_info.default
+            fields[field_name] = (annotation, default)
+        else:
+            fields[field_name] = (field_info.annotation, field_info.default)
+
+    return create_model(
+        f"Partial{model.__name__}",
+        __base__=model,
+        __module__=model.__module__,
+        **{k: v for k, v in fields.items()},
+    )
+
+
+@partial_model
+class ActivityParams(ActivityBase):
+    pass
 
 
 class ConversationActivityClient(BaseClient):
@@ -46,7 +72,7 @@ class ConversationActivityClient(BaseClient):
             f"{self.service_url}/v3/conversations/{conversation_id}/activities",
             json=activity.model_dump(by_alias=True),
         )
-        return ActivityParams(**response.json())
+        return ActivityParams(value={**response.json()})
 
     async def update(self, conversation_id: str, activity_id: str, activity: ActivityParams) -> ActivityParams:
         """
@@ -64,7 +90,7 @@ class ConversationActivityClient(BaseClient):
             f"{self.service_url}/v3/conversations/{conversation_id}/activities/{activity_id}",
             json=activity.model_dump(by_alias=True),
         )
-        return ActivityParams(**response.json())
+        return ActivityParams(value={**response.json()})
 
     async def reply(self, conversation_id: str, activity_id: str, activity: ActivityParams) -> ActivityParams:
         """
@@ -84,7 +110,7 @@ class ConversationActivityClient(BaseClient):
             f"{self.service_url}/v3/conversations/{conversation_id}/activities/{activity_id}",
             json=activity_json,
         )
-        return ActivityParams(**response.json())
+        return ActivityParams(value={**response.json()})
 
     async def delete(self, conversation_id: str, activity_id: str) -> None:
         """
