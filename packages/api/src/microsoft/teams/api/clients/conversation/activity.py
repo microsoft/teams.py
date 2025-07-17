@@ -15,6 +15,10 @@ from ..base_client import BaseClient
 
 
 def partial_model(model: Type[CustomBaseModel]) -> Type[CustomBaseModel]:
+    """ "
+    Creates a partial model, making all fields optional
+    except for the 'type' field.
+    """
     base_fields = set(ActivityBase.model_fields.keys())
     curr_fields = model.model_fields.items()
     fields: dict[str, Any] = {}
