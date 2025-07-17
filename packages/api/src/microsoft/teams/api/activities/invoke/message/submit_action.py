@@ -34,12 +34,7 @@ class MessageSubmitActionInvokeActivity(Activity, CustomBaseModel):
     Represents an activity that is sent when a message submit action is invoked.
     """
 
-    _type: Literal["invoke"] = "invoke"
-
-    @property
-    def type(self) -> str:
-        """The type of the activity."""
-        return self._type
+    type: Literal["invoke"] = "invoke"
 
     name: Literal["message/submitAction"] = "message/submitAction"
     """The name of the operation associated with an invoke or event activity."""

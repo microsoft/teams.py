@@ -16,12 +16,7 @@ EndOfConversationCode = Literal[
 class EndOfConversationActivity(Activity, CustomBaseModel):
     """Activity for end of conversation events."""
 
-    _type: Literal["endOfConversation"] = "endOfConversation"
-
-    @property
-    def type(self) -> str:
-        """The type of the activity."""
-        return self._type
+    type: Literal["endOfConversation"] = "endOfConversation"
 
     code: Optional[EndOfConversationCode] = None
     """

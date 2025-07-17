@@ -12,12 +12,7 @@ from ..activity import Activity
 class MessageReactionActivity(Activity):
     """Represents a message reaction activity in Microsoft Teams."""
 
-    _type: Literal["messageReaction"] = "messageReaction"
-
-    @property
-    def type(self) -> str:
-        """The type of the activity."""
-        return self._type
+    type: Literal["messageReaction"] = "messageReaction"
 
     reactions_added: Optional[List[MessageReaction]] = None
     """The collection of reactions added to the conversation."""

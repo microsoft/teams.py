@@ -14,12 +14,7 @@ class ConfigSubmitInvokeActivity(Activity, CustomBaseModel):
     Represents the config submit invoke activity.
     """
 
-    _type: Literal["invoke"] = "invoke"
-
-    @property
-    def type(self) -> str:
-        """The type of the activity."""
-        return self._type
+    type: Literal["invoke"] = "invoke"
 
     name: Literal["config/submit"] = "config/submit"
     """The name of the operation associated with an invoke or event activity."""

@@ -11,12 +11,7 @@ from .activity import Activity
 
 
 class TraceActivity(Activity, CustomBaseModel, ABC):
-    _type: Literal["trace"] = "trace"
-
-    @property
-    def type(self) -> str:
-        """The type of the activity."""
-        return self._type
+    type: Literal["trace"] = "trace"
 
     name: Optional[str] = None
     """"

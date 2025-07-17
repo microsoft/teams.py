@@ -22,12 +22,7 @@ class MessageUpdateChannelData(ChannelData):
 class MessageUpdateActivity(Activity):
     """Represents a message update activity in Microsoft Teams."""
 
-    _type: Literal["messageUpdate"] = "messageUpdate"
-
-    @property
-    def type(self) -> str:
-        """The type of the activity."""
-        return self._type
+    type: Literal["messageUpdate"] = "messageUpdate"
 
     text: str
     """The text content of the message."""

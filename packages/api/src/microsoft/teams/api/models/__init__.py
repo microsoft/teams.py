@@ -5,7 +5,6 @@ Licensed under the MIT License.
 
 from .account import Account, AccountRole, ConversationAccount
 from .action import Action
-from .activity import Activity
 from .adaptive_card import *  # noqa: F403
 from .adaptive_card import __all__ as adaptive_card_all
 from .app_based_link_query import AppBasedLinkQuery
@@ -30,6 +29,7 @@ from .file import *  # noqa: F403  # noqa: F403
 from .file import __all__ as file_all
 from .importance import Importance
 from .input_hint import InputHint
+from .invoke_response import InvokeResponse
 from .meetings import *  # noqa: F403
 from .meetings import __all__ as meetings_all
 from .message import *  # noqa: F403
@@ -71,7 +71,6 @@ __all__ = [
     "CustomBaseModel",
     "Account",
     "ConversationAccount",
-    "Activity",
     "AccountRole",
     "ConversationAccount",
     "ChannelID",
@@ -93,5 +92,6 @@ __all__ = [
     "TextFormat",
     *tab_all,
     *task_module_all,
+    "InvokeResponse",
     *o365_all,
 ]

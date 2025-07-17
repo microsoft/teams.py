@@ -46,12 +46,7 @@ class MeetingStartEventActivity(Activity, CustomBaseModel):
     Represents a meeting start event activity in Microsoft Teams.
     """
 
-    _type: Literal["event"] = "event"
-
-    @property
-    def type(self) -> str:
-        """The type of the activity."""
-        return self._type
+    type: Literal["event"] = "event"
 
     name: Literal["application/vnd.microsoft.meetingStart"] = "application/vnd.microsoft.meetingStart"
     """

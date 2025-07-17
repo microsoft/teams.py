@@ -19,12 +19,7 @@ class MessageDeleteChannelData(ChannelData):
 class MessageDeleteActivity(Activity):
     """Represents a message delete activity in Microsoft Teams."""
 
-    _type: Literal["messageDelete"] = "messageDelete"
-
-    @property
-    def type(self) -> str:
-        """The type of the activity."""
-        return self._type
+    type: Literal["messageDelete"] = "messageDelete"
 
     channel_data: MessageDeleteChannelData
     """Channel-specific data for message delete events."""

@@ -26,12 +26,7 @@ from ..utils import StripMentionsTextOptions, strip_mentions_text
 class MessageActivity(Activity):
     """Represents a message activity in Microsoft Teams."""
 
-    _type: Literal["message"] = "message"
-
-    @property
-    def type(self) -> str:
-        """The type of the activity."""
-        return self._type
+    type: Literal["message"] = "message"
 
     text: str
     """The text content of the message."""

@@ -60,7 +60,6 @@ class TestMessageActivity:
         """Test that type property returns correct value"""
         activity = self.create_message_activity()
         assert activity.type == "message"
-        assert activity._type == "message"
 
     def test_add_text_method(self):
         """Test adding text to the message"""
@@ -349,7 +348,6 @@ class TestMessageDeleteActivity:
         activity = self.create_message_delete_activity("delete-456")
 
         assert activity.type == "messageDelete"
-        assert activity._type == "messageDelete"
 
 
 class TestMessageUpdateActivity:
@@ -424,7 +422,6 @@ class TestMessageUpdateActivity:
         activity = self.create_message_update_activity("update-999", "Test")
 
         assert activity.type == "messageUpdate"
-        assert activity._type == "messageUpdate"
 
 
 class TestMessageReactionActivity:
@@ -469,7 +466,6 @@ class TestMessageReactionActivity:
         activity = self.create_message_reaction_activity("reaction-456")
 
         assert activity.type == "messageReaction"
-        assert activity._type == "messageReaction"
 
     def test_add_reaction_single(self):
         """Test adding a single reaction"""

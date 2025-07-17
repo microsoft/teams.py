@@ -32,12 +32,7 @@ class CommandResultValue(CustomBaseModel):
 class CommandResultActivity(Activity, CustomBaseModel):
     """Asynchronous external command result."""
 
-    _type: Literal["commandResult"] = "commandResult"
-
-    @property
-    def type(self) -> str:
-        """The type of the activity."""
-        return self._type
+    type: Literal["commandResult"] = "commandResult"
 
     name: str
     """The name of the event."""

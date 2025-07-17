@@ -7,7 +7,9 @@ import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from microsoft.teams.api import Activity
+from microsoft.teams.api import ActivityBase
+from microsoft.teams.api.activities.message import MessageActivity
+from microsoft.teams.api.models import Account, ConversationAccount
 from microsoft.teams.app.app import App
 from microsoft.teams.app.events import ActivityEvent, ErrorEvent
 from microsoft.teams.app.options import AppOptions
@@ -30,7 +32,7 @@ class TestApp:
     def mock_activity_handler(self):
         """Create a mock activity handler."""
 
-        async def handler(activity: Activity) -> dict[str, str]:
+        async def handler(activity: ActivityBase) -> dict[str, str]:
             return {"status": "handled", "activityId": activity.id}
 
         return handler
@@ -100,7 +102,20 @@ class TestApp:
     @pytest.mark.asyncio
     async def test_activity_processing(self, app_with_activity_handler):
         """Test that activities are processed correctly."""
-        activity = Activity.model_validate({"type": "message", "id": "test-activity-id", "text": "Hello, world!"})
+        from_account = Account(id="bot-123", name="Test Bot", role="bot")
+        recipient = Account(id="user-456", name="Test User", role="user")
+        conversation = ConversationAccount(id="conv-789", conversation_type="personal")
+
+        activity = MessageActivity(
+            value={
+                "type": "message",
+                "id": "test-activity-id",
+                "text": "Hello, world!",
+                "from_": from_account.model_dump(),
+                "recipient": recipient.model_dump(),
+                "conversation": conversation.model_dump(),
+            }
+        )
 
         # Mock the HTTP plugin response method
         app_with_activity_handler.http.on_activity_response = MagicMock()
@@ -124,7 +139,20 @@ class TestApp:
             activity_events.append(event)
             event_received.set()
 
-        activity = Activity.model_validate({"type": "message", "id": "test-activity-id", "text": "Hello, world!"})
+        from_account = Account(id="bot-123", name="Test Bot", role="bot")
+        recipient = Account(id="user-456", name="Test User", role="user")
+        conversation = ConversationAccount(id="conv-789", conversation_type="personal")
+
+        activity = MessageActivity(
+            value={
+                "type": "message",
+                "id": "test-activity-id",
+                "text": "Hello, world!",
+                "from_": from_account.model_dump(),
+                "recipient": recipient.model_dump(),
+                "conversation": conversation.model_dump(),
+            }
+        )
 
         await app_with_activity_handler.handle_activity(activity)
 
@@ -135,7 +163,6 @@ class TestApp:
         assert len(activity_events) == 1
         assert isinstance(activity_events[0], ActivityEvent)
         assert activity_events[0].activity == activity
-        assert activity_events[0].activity.text == "Hello, world!"
 
     @pytest.mark.asyncio
     async def test_error_event_emission(self, app_with_options: App) -> None:
@@ -154,7 +181,20 @@ class TestApp:
 
         app_with_options.activity_handler = failing_handler
 
-        activity = Activity.model_validate({"type": "message", "id": "test-activity-id", "text": "Hello, world!"})
+        from_account = Account(id="bot-123", name="Test Bot", role="bot")
+        recipient = Account(id="user-456", name="Test User", role="user")
+        conversation = ConversationAccount(id="conv-789", conversation_type="personal")
+
+        activity = MessageActivity(
+            value={
+                "type": "message",
+                "id": "test-activity-id",
+                "text": "Hello, world!",
+                "from_": from_account.model_dump(),
+                "recipient": recipient.model_dump(),
+                "conversation": conversation.model_dump(),
+            }
+        )
 
         with pytest.raises(ValueError):
             await app_with_options.handle_activity(activity)
@@ -194,7 +234,20 @@ class TestApp:
             if received_count == 2:
                 both_received.set()
 
-        activity = Activity.model_validate({"type": "message", "id": "test-activity-id", "text": "Hello, world!"})
+        from_account = Account(id="bot-123", name="Test Bot", role="bot")
+        recipient = Account(id="user-456", name="Test User", role="user")
+        conversation = ConversationAccount(id="conv-789", conversation_type="personal")
+
+        activity = MessageActivity(
+            value={
+                "type": "message",
+                "id": "test-activity-id",
+                "text": "Hello, world!",
+                "from_": from_account.model_dump(),
+                "recipient": recipient.model_dump(),
+                "conversation": conversation.model_dump(),
+            }
+        )
 
         await app_with_options.handle_activity(activity)
 

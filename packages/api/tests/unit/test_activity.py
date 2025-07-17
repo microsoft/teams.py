@@ -41,11 +41,7 @@ def chat() -> ConversationAccount:
 class ConcreteTestActivity(Activity):
     """Concrete Activity implementation for testing."""
 
-    _type: str = "test"
-
-    @property
-    def type(self) -> str:
-        return self._type
+    type: str = "test"
 
 
 @pytest.fixture

@@ -11,7 +11,7 @@ from .conversation_update import ConversationChannelData, ConversationEventType,
 from .end_of_conversation import EndOfConversationActivity, EndOfConversationCode
 
 ConversationActivity = Annotated[
-    Union[ConversationUpdateActivity, EndOfConversationActivity], Field(discriminator="_type")
+    Union[ConversationUpdateActivity, EndOfConversationActivity], Field(discriminator="type")
 ]
 
 __all__ = [

@@ -14,12 +14,7 @@ class AdaptiveCardActionInvokeActivity(Activity, CustomBaseModel):
     Represents an activity that is sent when an adaptive card action is invoked.
     """
 
-    _type: Literal["invoke"] = "invoke"
-
-    @property
-    def type(self) -> str:
-        """The type of the activity."""
-        return self._type
+    type: Literal["invoke"] = "invoke"
 
     name: Literal["adaptiveCard/action"] = "adaptiveCard/action"
     """The name of the operation associated with an invoke or event activity."""
