@@ -5,9 +5,9 @@ Licensed under the MIT License.
 
 from typing import Annotated, Union
 
-from pydantic import Field
+from pydantic import Field, TypeAdapter
 
-from . import event, install_update, message
+from . import event, install_update, invoke, message
 from .command import CommandActivity, CommandResultActivity, CommandResultValue, CommandSendActivity, CommandSendValue
 from .conversation import (
     ConversationActivity,
@@ -22,13 +22,14 @@ from .event import EventActivity
 from .handoff import HandoffActivity
 from .install_update import *  # noqa: F403
 from .install_update import InstallUpdateActivity
+from .invoke import *
 from .invoke import InvokeActivity
 from .message import *  # noqa: F403
 from .message import MessageActivities
 from .trace import TraceActivity
 from .typing import TypingActivity
 
-Activity = Annotated[
+ActivityUnion = (
     Union[
         HandoffActivity,
         TraceActivity,
@@ -40,8 +41,16 @@ Activity = Annotated[
         InvokeActivity,
         InstallUpdateActivity,
     ],
-    Field(discriminator="type"),
-]
+)
+
+Activity = TypeAdapter[ActivityUnion](
+    Annotated[
+        ActivityUnion,
+        Field(discriminator="type"),
+    ]
+)
+
+Activity.rebuild()
 
 
 # Combine all exports from submodules
@@ -60,7 +69,9 @@ __all__: list[str] = [
     "InstallUpdateActivity",
     "TypingActivity",
     "ConversationEventType",
+    "InvokeActivity",
 ]
 __all__.extend(event.__all__)
 __all__.extend(install_update.__all__)
 __all__.extend(message.__all__)
+__all__.extend(invoke.__all__)

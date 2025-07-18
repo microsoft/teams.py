@@ -35,4 +35,16 @@ InvokeActivity = Annotated[
 ]
 
 
-__all__ = ["InvokeActivity"]
+__all__ = [
+    "InvokeActivity",
+    "FileConsentInvokeActivity",
+    "ExecuteActionInvokeActivity",
+    "MessageExtensionInvokeActivity",
+    "ConfigInvokeActivity",
+    "TabInvokeActivity",
+    "TaskInvokeActivity",
+    "MessageInvokeActivity",
+    "HandoffActionInvokeActivity",
+    "SignInInvokeActivity",
+    "AdaptiveCardInvokeActivity",
+]
