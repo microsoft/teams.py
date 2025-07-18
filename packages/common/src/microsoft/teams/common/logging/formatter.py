@@ -37,7 +37,7 @@ class ConsoleFormatter(logging.Formatter):
         prefix = f"{color.value}{ANSI.BOLD.value}[{level_name}]"
         name = f"{record.name}{ANSI.FOREGROUND_RESET.value}{ANSI.BOLD_RESET.value}"
 
-        message = str(record.msg)
+        message = record.getMessage()
         lines = message.split("\n")
         formatted_lines = [f"{prefix} {name} {line}" for line in lines]
         return "\n".join(formatted_lines)

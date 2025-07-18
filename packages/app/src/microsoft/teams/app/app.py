@@ -4,16 +4,19 @@ Licensed under the MIT License.
 """
 
 import asyncio
+import inspect
 import os
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, List, Optional, TypeVar, Union, overload
+from typing import Any, Awaitable, Callable, Dict, List, Literal, Optional, Type, TypeVar, Union, overload
 
 from microsoft.teams.api import Activity, ApiClient, ClientCredentials, Credentials, JsonWebToken, TokenProtocol
+from microsoft.teams.api.activities import ActivityBase
 from microsoft.teams.common.events import EventEmitter
 from microsoft.teams.common.http import Client
 from microsoft.teams.common.logging import ConsoleLogger
 from microsoft.teams.common.storage import LocalStorage
 
+from .context import Context
 from .events import (
     ActivityEvent,
     ErrorEvent,
@@ -26,8 +29,15 @@ from .events import (
 from .http_plugin import HttpPlugin
 from .options import AppOptions
 from .plugin import PluginProtocol
+from .router import ActivityRouter
 
 F = TypeVar("F", bound=Callable[..., Any])
+
+# Common activity types
+ActivityType = Literal["message", "invoke", "conversationUpdate", "installationUpdate", "messageReaction", "event"]
+
+# Type alias for activity handlers
+ActivityHandler = Callable[[Context], Union[Awaitable[Optional[Dict[str, Any]]], Optional[Dict[str, Any]]]]
 
 
 @dataclass
@@ -54,6 +64,7 @@ class App:
         self.http_client = Client()
 
         self._events = EventEmitter()
+        self._router = ActivityRouter()
 
         self._tokens = AppTokens()
         self.credentials = self._init_credentials()
@@ -245,18 +256,20 @@ class App:
             self._events.emit("error", ErrorEvent(error, context={"method": "_refresh_graph_token"}))
             raise
 
-    async def handle_activity(self, activity: Activity) -> Dict[str, Any]:
+    async def handle_activity(self, input_activity: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Dummy activity handler for testing the event-driven pattern.
+        Handle incoming activities using registered handlers and middleware chain.
 
         Args:
             activity: The Teams activity data
-            token: The authorization token
-            http_plugin: The HTTP plugin instance
 
         Returns:
             Response data to send back
         """
+        self.log.debug(f"Received activity: {input_activity}")
+
+        activity = Activity.validate_python(input_activity)
+        self.log.debug(f"Validated activity: {activity}")
         activity_type = activity.type
         activity_id = activity.id or ""
 
@@ -265,9 +278,19 @@ class App:
         try:
             self._events.emit("activity", ActivityEvent(activity))
 
+            # Create context for middleware chain
+            ctx = Context(activity, self)
+
+            # Get registered handlers for this activity type
+            handlers = self._router.get_handlers(activity_type)
+
             response = None
-            if self.activity_handler:
+            # If no registered handlers, fall back to legacy activity_handler
+            if not handlers and self.activity_handler:
                 response = await self.activity_handler(activity)
+            elif handlers:
+                # Execute middleware chain
+                response = await self._execute_middleware_chain(ctx, handlers)
 
             self.log.info(f"Completed processing activity {activity_id}")
             self.http.on_activity_response(activity_id, response)
@@ -276,6 +299,7 @@ class App:
                 "status": "processed",
                 "message": f"Successfully handled {activity_type} activity",
                 "activityId": activity_id,
+                "response": response,
             }
         except Exception as error:
             self.log.error(f"Failed to process activity {activity_id}: {error}")
@@ -288,6 +312,42 @@ class App:
                 ),
             )
             raise
+
+    async def _execute_middleware_chain(
+        self, ctx: Context, handlers: List[ActivityHandler]
+    ) -> Optional[Dict[str, Any]]:
+        """Execute the middleware chain for activity handlers."""
+        if not handlers:
+            return None
+
+        # Track response from handlers
+        response = None
+
+        # Create the middleware chain
+        async def create_next(index: int) -> Callable[[], Any]:
+            async def next_handler():
+                nonlocal response
+                if index < len(handlers) and response is None:
+                    # Set up next handler for current context
+                    if index + 1 < len(handlers):
+                        ctx.set_next(await create_next(index + 1))
+                    else:
+                        ctx.set_next(lambda: None)  # No-op for last handler
+
+                    # Execute current handler and capture return value
+                    result = await handlers[index](ctx)
+
+                    # If handler returned a response, stop the chain
+                    if result is not None:
+                        response = result if isinstance(result, dict) else {"data": result}
+
+            return next_handler
+
+        # Start the chain
+        first_handler = await create_next(0)
+        await first_handler()
+
+        return response
 
     @overload
     def event(self, func_or_event_type: F) -> F:
@@ -367,3 +427,105 @@ class App:
 
         # Otherwise, return the decorator for later application
         return decorator
+
+    def activity(self, selector: Union[ActivityType, Type[Activity], None] = None) -> Union[F, Callable[[F], F]]:
+        """
+        Decorator to register activity handlers with automatic type inference.
+
+        Can be used in multiple ways:
+        - @app.activity('message') - explicit activity type
+        - @app.activity(MessageActivity) - activity class
+        - @app.activity - auto-detect from type hints
+
+        Args:
+            selector: Activity type string, Activity class, or None for type inference
+
+        Returns:
+            Decorated function or decorator
+
+        Example:
+            ```python
+            @app.activity("message")
+            def handle_message(ctx: Ctx[MessageActivity]):
+                print(f"Message: {ctx.activity.text}")
+
+
+            @app.activity
+            def handle_message(ctx: Ctx[MessageActivity]):
+                print(f"Message: {ctx.activity.text}")
+            ```
+        """
+
+        def decorator(func: F) -> F:
+            activity_type = self._resolve_activity_type(selector, func)
+            self._router.add_handler(activity_type, func)
+            return func
+
+        # Handle direct decoration: @app.activity
+        if callable(selector):
+            func = selector
+            activity_type = self._resolve_activity_type(None, func)
+            self._router.add_handler(activity_type, func)
+            return func
+
+        return decorator
+
+    def _resolve_activity_type(self, selector: Union[ActivityType, Type[Activity], None], func: ActivityHandler) -> str:
+        """Resolve the activity type from various selector formats."""
+        if isinstance(selector, str):
+            return selector
+
+        if selector is not None and hasattr(selector, "__name__"):
+            # Check if it's a subclass of ActivityBase (the real base class)
+            if not (isinstance(selector, type) and issubclass(selector, ActivityBase)):
+                raise ValueError(f"{selector.__name__} is not a subclass of Activity")
+            # Activity class - get the type from the class's type field
+            if hasattr(selector, "__dict__") and "type" in selector.__dict__:
+                # Use the default value from the type field
+                type_field = selector.__dict__["type"]
+                if type_field is not None:
+                    return type_field
+            # If no type field, we can't determine the activity type
+            raise ValueError(f"Activity class {selector.__name__} does not have a 'type' field")
+
+        # Try to extract from type hints
+        sig = inspect.signature(func)
+        for param in sig.parameters.values():
+            if hasattr(param.annotation, "__origin__"):
+                # Handle generic types like Ctx[MessageActivity]
+                args = getattr(param.annotation, "__args__", ())
+                if args:
+                    activity_class = args[0]
+                    # Handle nested generic types and annotations
+                    if hasattr(activity_class, "__origin__") and hasattr(activity_class, "__args__"):
+                        # This might be another generic type, keep unwrapping
+                        activity_class = activity_class.__args__[0] if activity_class.__args__ else activity_class
+
+                    if hasattr(activity_class, "__name__"):
+                        # Check if it's a subclass of ActivityBase (the real base class)
+                        if isinstance(activity_class, type) and issubclass(activity_class, ActivityBase):
+                            # Try to get type from class's type field first
+                            if hasattr(activity_class, "__dict__") and "type" in activity_class.__dict__:
+                                type_field = activity_class.__dict__["type"]
+                                if type_field is not None:
+                                    return type_field
+                            # If no type field, we can't determine the activity type
+                            raise ValueError(f"Activity class {activity_class.__name__} does not have a 'type' field")
+                        # Skip non-Activity classes (like TypeVar, Annotated, etc.)
+                        continue
+            elif hasattr(param.annotation, "__name__"):
+                # Direct activity class annotation
+                # Check if it's a subclass of ActivityBase (the real base class)
+                if not (isinstance(param.annotation, type) and issubclass(param.annotation, ActivityBase)):
+                    raise ValueError(f"{param.annotation.__name__} is not a subclass of Activity")
+                # Try to get type from class's type field first
+                if hasattr(param.annotation, "__dict__") and "type" in param.annotation.__dict__:
+                    type_field = param.annotation.__dict__["type"]
+                    if type_field is not None:
+                        return type_field
+                # If no type field, we can't determine the activity type
+                raise ValueError(f"Activity class {param.annotation.__name__} does not have a 'type' field")
+
+        raise ValueError(
+            f"Could not determine activity type for {func.__name__}. Provide explicit selector or use type hints."
+        )

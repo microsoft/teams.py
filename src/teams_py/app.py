@@ -7,7 +7,9 @@ import asyncio
 import os
 
 from dotenv import load_dotenv
+from microsoft.teams.api import MessageActivity
 from microsoft.teams.app import App, AppOptions
+from microsoft.teams.app.context import Ctx
 from microsoft.teams.app.events import ActivityEvent, ErrorEvent, StartEvent, StopEvent
 
 load_dotenv()
@@ -55,10 +57,18 @@ async def main() -> None:
         )
     )
 
+    @app.activity("message")
+    async def handle_message(ctx: Ctx[MessageActivity]):
+        """Handle message activities using the new decorator system."""
+        print(f"[DECORATOR] Message received: {ctx.activity.text}")
+        print(f"[DECORATOR] From: {ctx.activity.from_}")
+
+        return {"type": "message", "text": f"Echo: {ctx.activity.text}", "timestamp": "2024-01-01T00:00:00Z"}
+
     @app.event
     async def handle_activity(event: ActivityEvent):
         activity = event.activity
-        print(f"[EVENT] Activity received: {activity.get('type')} (ID: {activity.get('id')})")
+        print(f"[EVENT] Activity received: {activity.type} (ID: {activity.id})")
 
     @app.event
     async def handle_error(event: ErrorEvent):
