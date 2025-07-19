@@ -289,7 +289,7 @@ class App(ActivityHandlerMixin):
             ctx = Context(activity, self)
 
             # Get registered handlers for this activity type
-            handlers = self._router.get_handlers(activity_type)
+            handlers = self.router.get_handlers(activity_type)
 
             response = None
             # If no registered handlers, fall back to legacy activity_handler
