@@ -4,13 +4,12 @@ Licensed under the MIT License.
 """
 
 import asyncio
-import inspect
 import os
 from dataclasses import dataclass
-from typing import Any, Awaitable, Callable, Dict, List, Literal, Optional, Type, TypeVar, Union, overload
+from logging import Logger
+from typing import Any, Awaitable, Callable, Dict, List, Optional, TypeVar, Union, overload
 
 from microsoft.teams.api import Activity, ApiClient, ClientCredentials, Credentials, JsonWebToken, TokenProtocol
-from microsoft.teams.api.activities import ActivityBase
 from microsoft.teams.common.events import EventEmitter
 from microsoft.teams.common.http import Client
 from microsoft.teams.common.logging import ConsoleLogger
@@ -27,14 +26,12 @@ from .events import (
     is_registered_event,
 )
 from .http_plugin import HttpPlugin
+from .message_handler import ActivityHandlerMixin
 from .options import AppOptions
 from .plugin import PluginProtocol
 from .router import ActivityRouter
 
 F = TypeVar("F", bound=Callable[..., Any])
-
-# Common activity types
-ActivityType = Literal["message", "invoke", "conversationUpdate", "installationUpdate", "messageReaction", "event"]
 
 # Type alias for activity handlers
 ActivityHandler = Callable[[Context], Union[Awaitable[Optional[Dict[str, Any]]], Optional[Dict[str, Any]]]]
@@ -48,7 +45,7 @@ class AppTokens:
     graph: Optional[TokenProtocol] = None
 
 
-class App:
+class App(ActivityHandlerMixin):
     """
     The main Teams application orchestrator.
 
@@ -64,7 +61,7 @@ class App:
         self.http_client = Client()
 
         self._events = EventEmitter()
-        self._router = ActivityRouter()
+        self._router_instance = ActivityRouter()
 
         self._tokens = AppTokens()
         self.credentials = self._init_credentials()
@@ -117,6 +114,16 @@ class App:
     def tokens(self) -> AppTokens:
         """Current authentication tokens."""
         return self._tokens
+
+    @property
+    def router(self) -> ActivityRouter:
+        """The activity router instance."""
+        return self._router_instance
+
+    @property
+    def logger(self) -> Logger:
+        """The logger instance used by the app."""
+        return self.log
 
     @property
     def id(self) -> Optional[str]:
@@ -427,105 +434,3 @@ class App:
 
         # Otherwise, return the decorator for later application
         return decorator
-
-    def activity(self, selector: Union[ActivityType, Type[Activity], None] = None) -> Union[F, Callable[[F], F]]:
-        """
-        Decorator to register activity handlers with automatic type inference.
-
-        Can be used in multiple ways:
-        - @app.activity('message') - explicit activity type
-        - @app.activity(MessageActivity) - activity class
-        - @app.activity - auto-detect from type hints
-
-        Args:
-            selector: Activity type string, Activity class, or None for type inference
-
-        Returns:
-            Decorated function or decorator
-
-        Example:
-            ```python
-            @app.activity("message")
-            def handle_message(ctx: Ctx[MessageActivity]):
-                print(f"Message: {ctx.activity.text}")
-
-
-            @app.activity
-            def handle_message(ctx: Ctx[MessageActivity]):
-                print(f"Message: {ctx.activity.text}")
-            ```
-        """
-
-        def decorator(func: F) -> F:
-            activity_type = self._resolve_activity_type(selector, func)
-            self._router.add_handler(activity_type, func)
-            return func
-
-        # Handle direct decoration: @app.activity
-        if callable(selector):
-            func = selector
-            activity_type = self._resolve_activity_type(None, func)
-            self._router.add_handler(activity_type, func)
-            return func
-
-        return decorator
-
-    def _resolve_activity_type(self, selector: Union[ActivityType, Type[Activity], None], func: ActivityHandler) -> str:
-        """Resolve the activity type from various selector formats."""
-        if isinstance(selector, str):
-            return selector
-
-        if selector is not None and hasattr(selector, "__name__"):
-            # Check if it's a subclass of ActivityBase (the real base class)
-            if not (isinstance(selector, type) and issubclass(selector, ActivityBase)):
-                raise ValueError(f"{selector.__name__} is not a subclass of Activity")
-            # Activity class - get the type from the class's type field
-            if hasattr(selector, "__dict__") and "type" in selector.__dict__:
-                # Use the default value from the type field
-                type_field = selector.__dict__["type"]
-                if type_field is not None:
-                    return type_field
-            # If no type field, we can't determine the activity type
-            raise ValueError(f"Activity class {selector.__name__} does not have a 'type' field")
-
-        # Try to extract from type hints
-        sig = inspect.signature(func)
-        for param in sig.parameters.values():
-            if hasattr(param.annotation, "__origin__"):
-                # Handle generic types like Ctx[MessageActivity]
-                args = getattr(param.annotation, "__args__", ())
-                if args:
-                    activity_class = args[0]
-                    # Handle nested generic types and annotations
-                    if hasattr(activity_class, "__origin__") and hasattr(activity_class, "__args__"):
-                        # This might be another generic type, keep unwrapping
-                        activity_class = activity_class.__args__[0] if activity_class.__args__ else activity_class
-
-                    if hasattr(activity_class, "__name__"):
-                        # Check if it's a subclass of ActivityBase (the real base class)
-                        if isinstance(activity_class, type) and issubclass(activity_class, ActivityBase):
-                            # Try to get type from class's type field first
-                            if hasattr(activity_class, "__dict__") and "type" in activity_class.__dict__:
-                                type_field = activity_class.__dict__["type"]
-                                if type_field is not None:
-                                    return type_field
-                            # If no type field, we can't determine the activity type
-                            raise ValueError(f"Activity class {activity_class.__name__} does not have a 'type' field")
-                        # Skip non-Activity classes (like TypeVar, Annotated, etc.)
-                        continue
-            elif hasattr(param.annotation, "__name__"):
-                # Direct activity class annotation
-                # Check if it's a subclass of ActivityBase (the real base class)
-                if not (isinstance(param.annotation, type) and issubclass(param.annotation, ActivityBase)):
-                    raise ValueError(f"{param.annotation.__name__} is not a subclass of Activity")
-                # Try to get type from class's type field first
-                if hasattr(param.annotation, "__dict__") and "type" in param.annotation.__dict__:
-                    type_field = param.annotation.__dict__["type"]
-                    if type_field is not None:
-                        return type_field
-                # If no type field, we can't determine the activity type
-                raise ValueError(f"Activity class {param.annotation.__name__} does not have a 'type' field")
-
-        raise ValueError(
-            f"Could not determine activity type for {func.__name__}. Provide explicit selector or use type hints."
-        )
