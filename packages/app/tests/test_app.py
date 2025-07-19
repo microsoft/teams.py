@@ -8,9 +8,11 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from microsoft.teams.api import ActivityBase
+from microsoft.teams.api.activities import InvokeActivity, TypingActivity
 from microsoft.teams.api.activities.message import MessageActivity
 from microsoft.teams.api.models import Account, ConversationAccount
 from microsoft.teams.app.app import App
+from microsoft.teams.app.context import Ctx
 from microsoft.teams.app.events import ActivityEvent, ErrorEvent
 from microsoft.teams.app.options import AppOptions
 
@@ -259,3 +261,104 @@ class TestApp:
         assert len(activity_events_2) == 1
         assert activity_events_1[0].activity == activity
         assert activity_events_2[0].activity == activity
+
+    # Generated Handler Tests
+
+    def test_generated_handler_registration(self, app_with_options: App) -> None:
+        """Test that generated handlers register correctly in the router."""
+
+        @app_with_options.onMessage
+        async def handle_message(ctx: Ctx[MessageActivity]) -> dict:
+            return {"text": "response"}
+
+        # Verify handler was registered
+        message_handlers = app_with_options.router.get_handlers("message")
+        assert len(message_handlers) == 1
+        assert message_handlers[0] == handle_message
+
+    def test_multiple_handlers_same_type(self, app_with_options: App) -> None:
+        """Test that multiple handlers can be registered for the same activity type."""
+
+        @app_with_options.onMessage
+        async def handle_message_1(ctx: Ctx[MessageActivity]) -> dict:
+            return {"handler": "1"}
+
+        @app_with_options.onMessage
+        async def handle_message_2(ctx: Ctx[MessageActivity]) -> dict:
+            return {"handler": "2"}
+
+        # Verify both handlers were registered
+        message_handlers = app_with_options.router.get_handlers("message")
+        assert len(message_handlers) == 2
+        assert handle_message_1 in message_handlers
+        assert handle_message_2 in message_handlers
+
+    def test_different_activity_types_separate_routes(self, app_with_options: App) -> None:
+        """Test that different activity types are routed separately."""
+
+        @app_with_options.onMessage
+        async def handle_message(ctx: Ctx[MessageActivity]) -> dict:
+            return {"type": "message"}
+
+        @app_with_options.onTyping
+        async def handle_typing(ctx: Ctx[TypingActivity]) -> dict:
+            return {"type": "typing"}
+
+        # Verify handlers are in separate routes
+        message_handlers = app_with_options.router.get_handlers("message")
+        typing_handlers = app_with_options.router.get_handlers("typing")
+
+        assert len(message_handlers) == 1
+        assert len(typing_handlers) == 1
+        assert message_handlers[0] == handle_message
+        assert typing_handlers[0] == handle_typing
+
+    @pytest.mark.asyncio
+    async def test_generated_handler_execution(self, app_with_options: App) -> None:
+        """Test that generated handlers are executed correctly."""
+        result_data = {}
+
+        @app_with_options.onMessage
+        async def handle_message(ctx: Ctx[MessageActivity]) -> dict:
+            result_data["called"] = True
+            result_data["activity_text"] = ctx.activity.text
+            return {"response": "handled"}
+
+        from_account = Account(id="bot-123", name="Test Bot", role="bot")
+        recipient = Account(id="user-456", name="Test User", role="user")
+        conversation = ConversationAccount(id="conv-789", conversation_type="personal")
+
+        activity = MessageActivity(
+            id="test-activity-id",
+            type="message",
+            text="Hello from generated handler!",
+            from_=from_account,
+            recipient=recipient,
+            conversation=conversation,
+        )
+
+        # Mock the HTTP plugin response method
+        app_with_options.http.on_activity_response = MagicMock()
+
+        result = await app_with_options.handle_activity(activity)
+
+        # Verify handler was called and executed
+        assert result_data["called"] is True
+        assert result_data["activity_text"] == "Hello from generated handler!"
+        # Verify the handler's response is included in the result
+        assert "response" in result
+        assert result["response"] == {"response": "handled"}
+
+    def test_runtime_type_validation(self, app_with_options: App) -> None:
+        """Test that runtime type validation catches incorrect type annotations."""
+        with pytest.raises(TypeError) as exc_info:
+
+            @app_with_options.onMessage
+            async def handle_wrong_type(ctx: Ctx[InvokeActivity]) -> dict:  # Wrong type!
+                return {"text": "response"}
+
+        # Verify the error message mentions the type mismatch
+        error_msg = str(exc_info.value)
+        assert "InvokeActivity" in error_msg
+        assert "MessageActivity" in error_msg
+        assert "onMessage" in error_msg
