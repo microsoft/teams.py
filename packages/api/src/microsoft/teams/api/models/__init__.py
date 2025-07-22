@@ -41,7 +41,17 @@ from .error import ErrorResponse, HttpError, InnerHttpError
 from .file import *  # noqa: F403
 from .importance import Importance
 from .input_hint import InputHint
-from .invoke_response import InvokeResponse
+from .invoke_response import (
+    AdaptiveCardInvokeResponse,
+    ConfigInvokeResponse,
+    InvokeResponse,
+    MessagingExtensionActionInvokeResponse,
+    MessagingExtensionInvokeResponse,
+    TabInvokeResponse,
+    TaskModuleInvokeResponse,
+    TokenExchangeInvokeResponseType,
+    VoidInvokeResponse,
+)
 from .meetings import *  # noqa: F403
 from .message import *  # noqa: F403
 from .messaging_extension import *  # noqa: F403
@@ -78,6 +88,15 @@ __all__: list[str] = [
     "SuggestedActions",
     "TeamDetails",
     "TextFormat",
+    "InvokeResponse",
+    "ConfigInvokeResponse",
+    "VoidInvokeResponse",
+    "MessagingExtensionInvokeResponse",
+    "MessagingExtensionActionInvokeResponse",
+    "TaskModuleInvokeResponse",
+    "TabInvokeResponse",
+    "AdaptiveCardInvokeResponse",
+    "TokenExchangeInvokeResponseType",
 ]
 __all__.extend(adaptive_card.__all__)
 __all__.extend(attachment.__all__)

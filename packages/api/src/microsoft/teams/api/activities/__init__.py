@@ -64,10 +64,12 @@ __all__: list[str] = [
     "EndOfConversationActivity",
     "EndOfConversationCode",
     "EventActivity",
+    "HandoffActivity",
     "InstallUpdateActivity",
     "TypingActivity",
     "ConversationEventType",
     "InvokeActivity",
+    "TraceActivity",
 ]
 __all__.extend(event.__all__)
 __all__.extend(install_update.__all__)

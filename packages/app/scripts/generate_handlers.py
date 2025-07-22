@@ -7,9 +7,24 @@ import subprocess
 import sys
 from pathlib import Path
 
-sys.path.append(str(Path(__file__).parent.parent))
+# Add paths for dependencies
+app_dir = Path(__file__).parent.parent
+api_dir = app_dir.parent / "api" / "src"
+sys.path.insert(0, str(app_dir / "src"))
+sys.path.insert(0, str(api_dir))
 
-from src.microsoft.teams.app.message_handler.activity_config import ACTIVITY_ROUTES, ActivityConfig
+# Import the activity config directly without going through the package hierarchy
+activity_config_path = app_dir / "src" / "microsoft" / "teams" / "app" / "message_handler" / "activity_config.py"
+
+# Load the activity config module directly
+import importlib.util
+
+spec = importlib.util.spec_from_file_location("activity_config", activity_config_path)
+activity_config = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(activity_config)
+
+ACTIVITY_ROUTES = activity_config.ACTIVITY_ROUTES
+ActivityConfig = activity_config.ActivityConfig
 
 
 def generate_imports() -> str:
@@ -17,20 +32,23 @@ def generate_imports() -> str:
     imports = {
         "from abc import ABC, abstractmethod",
         "from typing import Callable, Optional, Union",
-        "from ..message_handler.activity_context import Context",
+        "from .activity_context import Context",
         "from ..router import ActivityRouter",
         "from .type_validation import validate_handler_type",
         "from .activity_config import ACTIVITY_ROUTES",
-        "from microsoft.teams.api.activities import ActivityBase",
+        "from microsoft.teams.api import ActivityBase",
         "from logging import Logger",
     }
 
     # Add imports for each activity class
     for config in ACTIVITY_ROUTES.values():
-        class_name = config.input_model.__name__
-        if class_name == "Annotated":
-            class_name = config.type_name  # use explicit type_name if provided
+        # Use explicit input_type_name if provided, otherwise fall back to __name__
+        class_name = config.input_type_name or config.input_model.__name__
         imports.add(f"from microsoft.teams.api.activities import {class_name}")
+        if config.output_model:
+            # Use explicit output_type_name if provided, otherwise fall back to __name__
+            output_class_name = config.output_type_name or config.output_model.__name__
+            imports.add(f"from microsoft.teams.api.models.invoke_response import {output_class_name}")
 
     return "\n".join(sorted(imports))
 
@@ -40,12 +58,14 @@ def generate_method(config: ActivityConfig, config_key: str) -> str:
     method_name = config.method_name
     activity_name = config.name
 
-    # Use the explicit type_name if provided, otherwise fall back to __name__
-    input_class_name = config.type_name or config.input_model.__name__
+    # Use the explicit input_type_name if provided, otherwise fall back to __name__
+    input_class_name = config.input_type_name or config.input_model.__name__
 
     # Determine output type
     if config.output_model:
-        output_type = f"Optional[{config.output_model.__name__}]"
+        # Use explicit output_type_name if provided, otherwise fall back to __name__
+        output_class_name = config.output_type_name or config.output_model.__name__
+        output_type = f"Optional[{output_class_name}]"
     else:
         output_type = "None"
 
