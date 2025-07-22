@@ -7,9 +7,9 @@ from datetime import datetime
 from typing import cast
 
 import pytest
-from microsoft.teams.api.activities.activity import Activity
 from microsoft.teams.api.models import (
     Account,
+    ActivityBase,
     ChannelData,
     ChannelInfo,
     CitationIconName,
@@ -38,7 +38,7 @@ def chat() -> ConversationAccount:
     return ConversationAccount(id="1", conversation_type="personal")
 
 
-class ConcreteTestActivity(Activity):
+class ConcreteTestActivity(ActivityBase):
     """Concrete Activity implementation for testing."""
 
     type: str = "test"
