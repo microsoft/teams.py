@@ -26,6 +26,10 @@ from microsoft.teams.api.activities import (
     HandoffActivity,
     InstallUpdateActivity,
     InvokeActivity,
+    MeetingEndEventActivity,
+    MeetingParticipantJoinEventActivity,
+    MeetingParticipantLeaveEventActivity,
+    MeetingStartEventActivity,
     MessageActivity,
     MessageDeleteActivity,
     MessageExtensionAnonQueryLinkInvokeActivity,
@@ -40,6 +44,7 @@ from microsoft.teams.api.activities import (
     MessageInvokeActivity,
     MessageReactionActivity,
     MessageUpdateActivity,
+    ReadReceiptEventActivity,
     SignInTokenExchangeInvokeActivity,
     SignInVerifyStateInvokeActivity,
     TabFetchInvokeActivity,
@@ -107,6 +112,21 @@ class ActivityHandlerMixin(ABC):
             return decorator(handler)
         return decorator
 
+    def onSoftDeleteMessage(self, handler: Callable[[Context[MessageDeleteActivity]], None]) -> Callable:
+        """Register a softDeleteMessage activity handler."""
+
+        def decorator(func: Callable[[Context[MessageDeleteActivity]], None]) -> Callable:
+            validate_handler_type(
+                self.logger, func, MessageDeleteActivity, "onSoftDeleteMessage", "MessageDeleteActivity"
+            )
+            config = ACTIVITY_ROUTES["softDeleteMessage"]
+            self.router.add_handler(config.selector, func)
+            return func
+
+        if handler is not None:
+            return decorator(handler)
+        return decorator
+
     def onMessageReaction(self, handler: Callable[[Context[MessageReactionActivity]], None]) -> Callable:
         """Register a messageReaction activity handler."""
 
@@ -128,6 +148,34 @@ class ActivityHandlerMixin(ABC):
         def decorator(func: Callable[[Context[MessageUpdateActivity]], None]) -> Callable:
             validate_handler_type(self.logger, func, MessageUpdateActivity, "onMessageUpdate", "MessageUpdateActivity")
             config = ACTIVITY_ROUTES["messageUpdate"]
+            self.router.add_handler(config.selector, func)
+            return func
+
+        if handler is not None:
+            return decorator(handler)
+        return decorator
+
+    def onUndeleteMessage(self, handler: Callable[[Context[MessageUpdateActivity]], None]) -> Callable:
+        """Register a undeleteMessage activity handler."""
+
+        def decorator(func: Callable[[Context[MessageUpdateActivity]], None]) -> Callable:
+            validate_handler_type(
+                self.logger, func, MessageUpdateActivity, "onUndeleteMessage", "MessageUpdateActivity"
+            )
+            config = ACTIVITY_ROUTES["undeleteMessage"]
+            self.router.add_handler(config.selector, func)
+            return func
+
+        if handler is not None:
+            return decorator(handler)
+        return decorator
+
+    def onEditMessage(self, handler: Callable[[Context[MessageUpdateActivity]], None]) -> Callable:
+        """Register a editMessage activity handler."""
+
+        def decorator(func: Callable[[Context[MessageUpdateActivity]], None]) -> Callable:
+            validate_handler_type(self.logger, func, MessageUpdateActivity, "onEditMessage", "MessageUpdateActivity")
+            config = ACTIVITY_ROUTES["editMessage"]
             self.router.add_handler(config.selector, func)
             return func
 
@@ -176,6 +224,156 @@ class ActivityHandlerMixin(ABC):
             return decorator(handler)
         return decorator
 
+    def onChannelCreated(self, handler: Callable[[Context[ConversationUpdateActivity]], None]) -> Callable:
+        """Register a channelCreated activity handler."""
+
+        def decorator(func: Callable[[Context[ConversationUpdateActivity]], None]) -> Callable:
+            validate_handler_type(
+                self.logger, func, ConversationUpdateActivity, "onChannelCreated", "ConversationUpdateActivity"
+            )
+            config = ACTIVITY_ROUTES["channelCreated"]
+            self.router.add_handler(config.selector, func)
+            return func
+
+        if handler is not None:
+            return decorator(handler)
+        return decorator
+
+    def onChannelDeleted(self, handler: Callable[[Context[ConversationUpdateActivity]], None]) -> Callable:
+        """Register a channelDeleted activity handler."""
+
+        def decorator(func: Callable[[Context[ConversationUpdateActivity]], None]) -> Callable:
+            validate_handler_type(
+                self.logger, func, ConversationUpdateActivity, "onChannelDeleted", "ConversationUpdateActivity"
+            )
+            config = ACTIVITY_ROUTES["channelDeleted"]
+            self.router.add_handler(config.selector, func)
+            return func
+
+        if handler is not None:
+            return decorator(handler)
+        return decorator
+
+    def onChannelRenamed(self, handler: Callable[[Context[ConversationUpdateActivity]], None]) -> Callable:
+        """Register a channelRenamed activity handler."""
+
+        def decorator(func: Callable[[Context[ConversationUpdateActivity]], None]) -> Callable:
+            validate_handler_type(
+                self.logger, func, ConversationUpdateActivity, "onChannelRenamed", "ConversationUpdateActivity"
+            )
+            config = ACTIVITY_ROUTES["channelRenamed"]
+            self.router.add_handler(config.selector, func)
+            return func
+
+        if handler is not None:
+            return decorator(handler)
+        return decorator
+
+    def onChannelRestored(self, handler: Callable[[Context[ConversationUpdateActivity]], None]) -> Callable:
+        """Register a channelRestored activity handler."""
+
+        def decorator(func: Callable[[Context[ConversationUpdateActivity]], None]) -> Callable:
+            validate_handler_type(
+                self.logger, func, ConversationUpdateActivity, "onChannelRestored", "ConversationUpdateActivity"
+            )
+            config = ACTIVITY_ROUTES["channelRestored"]
+            self.router.add_handler(config.selector, func)
+            return func
+
+        if handler is not None:
+            return decorator(handler)
+        return decorator
+
+    def onTeamArchived(self, handler: Callable[[Context[ConversationUpdateActivity]], None]) -> Callable:
+        """Register a teamArchived activity handler."""
+
+        def decorator(func: Callable[[Context[ConversationUpdateActivity]], None]) -> Callable:
+            validate_handler_type(
+                self.logger, func, ConversationUpdateActivity, "onTeamArchived", "ConversationUpdateActivity"
+            )
+            config = ACTIVITY_ROUTES["teamArchived"]
+            self.router.add_handler(config.selector, func)
+            return func
+
+        if handler is not None:
+            return decorator(handler)
+        return decorator
+
+    def onTeamDeleted(self, handler: Callable[[Context[ConversationUpdateActivity]], None]) -> Callable:
+        """Register a teamDeleted activity handler."""
+
+        def decorator(func: Callable[[Context[ConversationUpdateActivity]], None]) -> Callable:
+            validate_handler_type(
+                self.logger, func, ConversationUpdateActivity, "onTeamDeleted", "ConversationUpdateActivity"
+            )
+            config = ACTIVITY_ROUTES["teamDeleted"]
+            self.router.add_handler(config.selector, func)
+            return func
+
+        if handler is not None:
+            return decorator(handler)
+        return decorator
+
+    def onTeamHardDeleted(self, handler: Callable[[Context[ConversationUpdateActivity]], None]) -> Callable:
+        """Register a teamHardDeleted activity handler."""
+
+        def decorator(func: Callable[[Context[ConversationUpdateActivity]], None]) -> Callable:
+            validate_handler_type(
+                self.logger, func, ConversationUpdateActivity, "onTeamHardDeleted", "ConversationUpdateActivity"
+            )
+            config = ACTIVITY_ROUTES["teamHardDeleted"]
+            self.router.add_handler(config.selector, func)
+            return func
+
+        if handler is not None:
+            return decorator(handler)
+        return decorator
+
+    def onTeamRenamed(self, handler: Callable[[Context[ConversationUpdateActivity]], None]) -> Callable:
+        """Register a teamRenamed activity handler."""
+
+        def decorator(func: Callable[[Context[ConversationUpdateActivity]], None]) -> Callable:
+            validate_handler_type(
+                self.logger, func, ConversationUpdateActivity, "onTeamRenamed", "ConversationUpdateActivity"
+            )
+            config = ACTIVITY_ROUTES["teamRenamed"]
+            self.router.add_handler(config.selector, func)
+            return func
+
+        if handler is not None:
+            return decorator(handler)
+        return decorator
+
+    def onTeamRestored(self, handler: Callable[[Context[ConversationUpdateActivity]], None]) -> Callable:
+        """Register a teamRestored activity handler."""
+
+        def decorator(func: Callable[[Context[ConversationUpdateActivity]], None]) -> Callable:
+            validate_handler_type(
+                self.logger, func, ConversationUpdateActivity, "onTeamRestored", "ConversationUpdateActivity"
+            )
+            config = ACTIVITY_ROUTES["teamRestored"]
+            self.router.add_handler(config.selector, func)
+            return func
+
+        if handler is not None:
+            return decorator(handler)
+        return decorator
+
+    def onTeamUnarchived(self, handler: Callable[[Context[ConversationUpdateActivity]], None]) -> Callable:
+        """Register a teamUnarchived activity handler."""
+
+        def decorator(func: Callable[[Context[ConversationUpdateActivity]], None]) -> Callable:
+            validate_handler_type(
+                self.logger, func, ConversationUpdateActivity, "onTeamUnarchived", "ConversationUpdateActivity"
+            )
+            config = ACTIVITY_ROUTES["teamUnarchived"]
+            self.router.add_handler(config.selector, func)
+            return func
+
+        if handler is not None:
+            return decorator(handler)
+        return decorator
+
     def onEndOfConversation(self, handler: Callable[[Context[EndOfConversationActivity]], None]) -> Callable:
         """Register a endOfConversation activity handler."""
 
@@ -197,6 +395,91 @@ class ActivityHandlerMixin(ABC):
         def decorator(func: Callable[[Context[EventActivity]], None]) -> Callable:
             validate_handler_type(self.logger, func, EventActivity, "onEvent", "EventActivity")
             config = ACTIVITY_ROUTES["event"]
+            self.router.add_handler(config.selector, func)
+            return func
+
+        if handler is not None:
+            return decorator(handler)
+        return decorator
+
+    def onReadReceipt(self, handler: Callable[[Context[ReadReceiptEventActivity]], None]) -> Callable:
+        """Register a readReceipt activity handler."""
+
+        def decorator(func: Callable[[Context[ReadReceiptEventActivity]], None]) -> Callable:
+            validate_handler_type(
+                self.logger, func, ReadReceiptEventActivity, "onReadReceipt", "ReadReceiptEventActivity"
+            )
+            config = ACTIVITY_ROUTES["readReceipt"]
+            self.router.add_handler(config.selector, func)
+            return func
+
+        if handler is not None:
+            return decorator(handler)
+        return decorator
+
+    def onMeetingStart(self, handler: Callable[[Context[MeetingStartEventActivity]], None]) -> Callable:
+        """Register a meetingStart activity handler."""
+
+        def decorator(func: Callable[[Context[MeetingStartEventActivity]], None]) -> Callable:
+            validate_handler_type(
+                self.logger, func, MeetingStartEventActivity, "onMeetingStart", "MeetingStartEventActivity"
+            )
+            config = ACTIVITY_ROUTES["meetingStart"]
+            self.router.add_handler(config.selector, func)
+            return func
+
+        if handler is not None:
+            return decorator(handler)
+        return decorator
+
+    def onMeetingEnd(self, handler: Callable[[Context[MeetingEndEventActivity]], None]) -> Callable:
+        """Register a meetingEnd activity handler."""
+
+        def decorator(func: Callable[[Context[MeetingEndEventActivity]], None]) -> Callable:
+            validate_handler_type(self.logger, func, MeetingEndEventActivity, "onMeetingEnd", "MeetingEndEventActivity")
+            config = ACTIVITY_ROUTES["meetingEnd"]
+            self.router.add_handler(config.selector, func)
+            return func
+
+        if handler is not None:
+            return decorator(handler)
+        return decorator
+
+    def onMeetingParticipantJoin(
+        self, handler: Callable[[Context[MeetingParticipantJoinEventActivity]], None]
+    ) -> Callable:
+        """Register a meetingParticipantJoin activity handler."""
+
+        def decorator(func: Callable[[Context[MeetingParticipantJoinEventActivity]], None]) -> Callable:
+            validate_handler_type(
+                self.logger,
+                func,
+                MeetingParticipantJoinEventActivity,
+                "onMeetingParticipantJoin",
+                "MeetingParticipantJoinEventActivity",
+            )
+            config = ACTIVITY_ROUTES["meetingParticipantJoin"]
+            self.router.add_handler(config.selector, func)
+            return func
+
+        if handler is not None:
+            return decorator(handler)
+        return decorator
+
+    def onMeetingParticipantLeave(
+        self, handler: Callable[[Context[MeetingParticipantLeaveEventActivity]], None]
+    ) -> Callable:
+        """Register a meetingParticipantLeave activity handler."""
+
+        def decorator(func: Callable[[Context[MeetingParticipantLeaveEventActivity]], None]) -> Callable:
+            validate_handler_type(
+                self.logger,
+                func,
+                MeetingParticipantLeaveEventActivity,
+                "onMeetingParticipantLeave",
+                "MeetingParticipantLeaveEventActivity",
+            )
+            config = ACTIVITY_ROUTES["meetingParticipantLeave"]
             self.router.add_handler(config.selector, func)
             return func
 
