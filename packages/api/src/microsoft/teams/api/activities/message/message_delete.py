@@ -5,8 +5,7 @@ Licensed under the MIT License.
 
 from typing import Literal
 
-from ...models import ChannelData
-from ..activity import Activity
+from ...models import ActivityBase, ChannelData
 
 
 class MessageDeleteChannelData(ChannelData):
@@ -16,7 +15,7 @@ class MessageDeleteChannelData(ChannelData):
     """The type of event for message deletion."""
 
 
-class MessageDeleteActivity(Activity):
+class MessageDeleteActivity(ActivityBase):
     """Represents a message delete activity in Microsoft Teams."""
 
     type: Literal["messageDelete"] = "messageDelete"

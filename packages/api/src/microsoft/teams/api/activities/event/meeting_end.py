@@ -6,8 +6,7 @@ Licensed under the MIT License.
 from datetime import datetime
 from typing import Literal
 
-from ...models import CustomBaseModel
-from ..activity import Activity
+from ...models import ActivityBase, CustomBaseModel
 
 
 class MeetingEndEventValue(CustomBaseModel):
@@ -27,7 +26,7 @@ class MeetingEndEventValue(CustomBaseModel):
     """Timestamp for meeting end, in UTC."""
 
 
-class MeetingEndEventActivity(Activity, CustomBaseModel):
+class MeetingEndEventActivity(ActivityBase, CustomBaseModel):
     """
     Represents a meeting end event activity in Microsoft Teams.
     """

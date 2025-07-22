@@ -6,7 +6,7 @@ Licensed under the MIT License.
 from abc import ABC
 from typing import Literal
 
-from ..activities import ActivityBase
+from ..models import ActivityBase
 
 
 class InvokeActivity(ActivityBase, ABC):

@@ -8,6 +8,7 @@ from typing import Any, List, Literal, Optional, Self
 
 from ...models import (
     Account,
+    ActivityBase,
     Attachment,
     AttachmentLayout,
     ChannelData,
@@ -19,11 +20,10 @@ from ...models import (
     SuggestedActions,
     TextFormat,
 )
-from ..activity import Activity
 from ..utils import StripMentionsTextOptions, strip_mentions_text
 
 
-class MessageActivity(Activity):
+class MessageActivity(ActivityBase):
     """Represents a message activity in Microsoft Teams."""
 
     type: Literal["message"] = "message"

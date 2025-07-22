@@ -5,11 +5,10 @@ Licensed under the MIT License.
 
 from typing import Any, Dict, Literal, Optional, Self
 
-from ..models import ChannelData, CustomBaseModel, StreamInfoEntity
-from .activity import Activity
+from ..models import ActivityBase, ChannelData, CustomBaseModel, StreamInfoEntity
 
 
-class TypingActivity(Activity, CustomBaseModel):
+class TypingActivity(ActivityBase, CustomBaseModel):
     type: Literal["typing"] = "typing"
 
     text: Optional[str] = None

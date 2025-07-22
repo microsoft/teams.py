@@ -6,9 +6,8 @@ Licensed under the MIT License.
 from abc import ABC
 from typing import Literal
 
-from ..models import CustomBaseModel
-from .activity import Activity
+from ..models import ActivityBase, CustomBaseModel
 
 
-class HandoffActivity(Activity, CustomBaseModel, ABC):
+class HandoffActivity(ActivityBase, CustomBaseModel, ABC):
     type: Literal["handoff"] = "handoff"

@@ -6,8 +6,7 @@ Licensed under the MIT License.
 from datetime import datetime
 from typing import Any, Literal, Optional, Self
 
-from ...models import ChannelData
-from ..activity import Activity
+from ...models import ActivityBase, ChannelData
 
 MessageEventType = Literal["undeleteMessage", "editMessage"]
 
@@ -19,7 +18,7 @@ class MessageUpdateChannelData(ChannelData):
     """The type of event for message update."""
 
 
-class MessageUpdateActivity(Activity):
+class MessageUpdateActivity(ActivityBase):
     """Represents a message update activity in Microsoft Teams."""
 
     type: Literal["messageUpdate"] = "messageUpdate"

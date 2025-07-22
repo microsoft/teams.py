@@ -9,8 +9,7 @@ from microsoft.teams.common.http import Client
 from pydantic import create_model
 from pydantic_core import PydanticUndefinedType
 
-from ...activities import ActivityBase
-from ...models import Account, CustomBaseModel
+from ...models import Account, ActivityBase, CustomBaseModel
 from ..base_client import BaseClient
 
 

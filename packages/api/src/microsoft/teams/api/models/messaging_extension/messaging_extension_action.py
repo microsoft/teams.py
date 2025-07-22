@@ -5,12 +5,9 @@ Licensed under the MIT License.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, List, Literal, Optional
+from typing import Any, List, Literal, Optional
 
-# Due to circular imports, we use TYPE_CHECKING to avoid runtime errors.
-if TYPE_CHECKING:
-    from ...activities import Activity
-
+from ..activity import Activity as ActivityBase
 from ..custom_base_model import CustomBaseModel
 from ..message import Message
 from ..tab import TabEntityContext
@@ -54,7 +51,7 @@ class MessagingExtensionAction(TaskModuleRequest):
     bot_message_preview_action: Literal["edit", "send"]
     "Bot message preview action taken by user."
 
-    bot_activity_preview: Optional[List["Activity"]] = None
+    bot_activity_preview: Optional[List[ActivityBase]] = None
     "Bot activity preview"
 
     message_payload: Optional[Message] = None
