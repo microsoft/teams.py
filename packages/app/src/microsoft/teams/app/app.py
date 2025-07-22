@@ -9,7 +9,14 @@ from dataclasses import dataclass
 from logging import Logger
 from typing import Any, Callable, Dict, List, Optional, TypeVar, Union, overload
 
-from microsoft.teams.api import Activity, ApiClient, ClientCredentials, Credentials, JsonWebToken, TokenProtocol
+from microsoft.teams.api import (
+    ActivityTypeAdapter,
+    ApiClient,
+    ClientCredentials,
+    Credentials,
+    JsonWebToken,
+    TokenProtocol,
+)
 from microsoft.teams.common.events import EventEmitter
 from microsoft.teams.common.http import Client
 from microsoft.teams.common.logging import ConsoleLogger
@@ -264,7 +271,7 @@ class App(ActivityProcessorMixin):
         """
         self.log.debug(f"Received activity: {input_activity}")
 
-        activity = Activity.validate_python(input_activity)
+        activity = ActivityTypeAdapter.validate_python(input_activity)
         self.log.debug(f"Validated activity: {activity}")
         activity_type = activity.type
         activity_id = activity.id or ""

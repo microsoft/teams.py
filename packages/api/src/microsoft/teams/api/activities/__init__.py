@@ -29,31 +29,30 @@ from .message import MessageActivities
 from .trace import TraceActivity
 from .typing import TypingActivity
 
-ActivityUnion = Union[
-    HandoffActivity,
-    TraceActivity,
-    TypingActivity,
-    CommandActivity,
-    ConversationActivity,
-    MessageActivities,
-    EventActivity,
-    InvokeActivity,
-    InstallUpdateActivity,
+Activity = Annotated[
+    Union[
+        HandoffActivity,
+        TraceActivity,
+        TypingActivity,
+        CommandActivity,
+        ConversationActivity,
+        MessageActivities,
+        EventActivity,
+        InvokeActivity,
+        InstallUpdateActivity,
+    ],
+    Field(discriminator="type"),
 ]
 
-Activity = TypeAdapter[ActivityUnion](
-    Annotated[
-        ActivityUnion,
-        Field(discriminator="type"),
-    ]
-)
-
-Activity.rebuild()
+# Use this if you want to validate an incoming activity.
+ActivityTypeAdapter = TypeAdapter[Activity](Activity)
+ActivityTypeAdapter.rebuild()
 
 
 # Combine all exports from submodules
 __all__: list[str] = [
     "Activity",
+    "ActivityTypeAdapter",
     "CommandSendActivity",
     "CommandResultActivity",
     "CommandSendValue",
