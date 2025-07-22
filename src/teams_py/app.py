@@ -7,7 +7,7 @@ import asyncio
 import os
 
 from dotenv import load_dotenv
-from microsoft.teams.api import InvokeActivity, MessageActivity
+from microsoft.teams.api import Activity, InvokeActivity, MessageActivity, MessageExtensionSubmitActionInvokeActivity
 from microsoft.teams.api.activities import EventActivity, MessageDeleteActivity, TypingActivity
 from microsoft.teams.app import App
 from microsoft.teams.app.events import ActivityEvent, ErrorEvent, StartEvent, StopEvent
@@ -39,22 +39,33 @@ async def main() -> None:
     @app.onMessage
     async def handle_message(ctx: Context[MessageActivity]):
         """Handle message activities using the new generated handler system."""
-        print(f"[GENERATED] Message received: {ctx.activity.text}")
-        print(f"[GENERATED] From: {ctx.activity.from_}")
+        print(f"[GENERATED onMessage] Message received: {ctx.activity.text}")
+        print(f"[GENERATED onMessage] From: {ctx.activity.from_}")
 
         await ctx.next()
 
-    @app.onMessageExtSubmit
-    @app.onActivity
-    async def handle_activity(event):
+    @app.event("activity")
+    async def handle_activity_event(event):
         """Handle all activities using the new generated handler system."""
         activity = event.activity
-        print(f"[GENERATED] Activity received: {activity.type} (ID: {activity.id})")
+        print(f"[GENERATED event('activity')] Activity event: {activity.type} (ID: {activity.id})")
 
     @app.onInvoke
     async def handle_invoke(ctx: Context[InvokeActivity]):
         """Handle invoke activities using the new generated handler system."""
-        print(f"[GENERATED] Invoke received: {ctx.activity.name}")
+        print(f"[GENERATED invoke handler] Invoke received: {ctx.activity.name}")
+
+    @app.onActivity
+    async def handle_activity(ctx: Context[Activity]):
+        """Handle event activities using the new generated handler system."""
+        print(f"[GENERATED onActivity] Event activity received: {ctx.activity.type}")
+        await ctx.next()
+
+    @app.onMessageExtSubmit
+    async def handle_message_ext_submit(ctx: Context[MessageExtensionSubmitActionInvokeActivity]):
+        """Handle message extension submit activities."""
+        print(f"[GENERATED] Message extension submit received: {ctx.activity.text}")
+        return {"status": "success"}
 
     @app.onMessageDelete
     async def handle_message_delete(ctx: Context[MessageDeleteActivity]):
