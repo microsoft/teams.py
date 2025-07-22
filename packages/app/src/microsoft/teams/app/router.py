@@ -3,27 +3,31 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from typing import TYPE_CHECKING, Any, Awaitable, Callable, Dict, List, Optional, Union
+from typing import Any, Awaitable, Callable, Dict, List, Optional, Union
 
-if TYPE_CHECKING:
-    from .context import Context
+from microsoft.teams.api.activities import ActivityBase
+
+from .message_handler.activity_config import RouteSelector
+from .message_handler.activity_context import Context
 
 # Type alias for activity handlers
-ActivityHandler = Callable[["Context"], Union[Awaitable[Optional[Dict[str, Any]]], Optional[Dict[str, Any]]]]
+ActivityHandler = Callable[[Context], Union[Awaitable[Optional[Dict[str, Any]]], Optional[Dict[str, Any]]]]
 
 
 class ActivityRouter:
-    """Routes incoming activities to registered handlers based on activity type."""
+    """Routes incoming activities to registered handlers using selector functions."""
 
     def __init__(self):
-        self._handlers: Dict[str, List[ActivityHandler]] = {}
+        self._routes: List[tuple[RouteSelector, ActivityHandler]] = []
 
-    def add_handler(self, activity_type: str, handler: ActivityHandler) -> None:
-        """Add a handler for a specific activity type."""
-        if activity_type not in self._handlers:
-            self._handlers[activity_type] = []
-        self._handlers[activity_type].append(handler)
+    def add_handler(self, selector: RouteSelector, handler: ActivityHandler) -> None:
+        """Add a handler for a specific activity configuration."""
+        self._routes.append((selector, handler))
 
-    def get_handlers(self, activity_type: str) -> List[ActivityHandler]:
-        """Get all handlers for a specific activity type."""
-        return self._handlers.get(activity_type, [])
+    def select_handlers(self, activity: ActivityBase) -> List[ActivityHandler]:
+        """Select all handlers that match the given activity using selector functions."""
+        matching_handlers = []
+        for selector, handler in self._routes:
+            if selector(activity):
+                matching_handlers.append(handler)
+        return matching_handlers

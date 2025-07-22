@@ -22,26 +22,24 @@ from .event import EventActivity
 from .handoff import HandoffActivity
 from .install_update import *  # noqa: F403
 from .install_update import InstallUpdateActivity
-from .invoke import *
+from .invoke import *  # noqa: F403
 from .invoke import InvokeActivity
 from .message import *  # noqa: F403
 from .message import MessageActivities
 from .trace import TraceActivity
 from .typing import TypingActivity
 
-ActivityUnion = (
-    Union[
-        HandoffActivity,
-        TraceActivity,
-        TypingActivity,
-        CommandActivity,
-        ConversationActivity,
-        MessageActivities,
-        EventActivity,
-        InvokeActivity,
-        InstallUpdateActivity,
-    ],
-)
+ActivityUnion = Union[
+    HandoffActivity,
+    TraceActivity,
+    TypingActivity,
+    CommandActivity,
+    ConversationActivity,
+    MessageActivities,
+    EventActivity,
+    InvokeActivity,
+    InstallUpdateActivity,
+]
 
 Activity = TypeAdapter[ActivityUnion](
     Annotated[

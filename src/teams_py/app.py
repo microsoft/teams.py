@@ -9,36 +9,11 @@ import os
 from dotenv import load_dotenv
 from microsoft.teams.api import InvokeActivity, MessageActivity
 from microsoft.teams.api.activities import EventActivity, MessageDeleteActivity, TypingActivity
-from microsoft.teams.app import App, AppOptions
+from microsoft.teams.app import App
 from microsoft.teams.app.context import Ctx
 from microsoft.teams.app.events import ActivityEvent, ErrorEvent, StartEvent, StopEvent
 
 load_dotenv()
-
-
-async def handle_invoke2(ctx: Ctx[InvokeActivity]):
-    """Handle invoke activities using the new generated handler system."""
-    print(f"[GENERATED] Invoke received: {ctx.activity.name}")
-
-    return {"type": "invokeResponse", "value": {"type": "message", "value": "Invoke handled successfully"}}
-
-
-async def my_activity_handler(activity: dict) -> dict:
-    """Custom activity handler for testing."""
-    activity_type = activity.get("type", "unknown")
-    activity_id = activity.get("id", "unknown")
-
-    print(f"[CUSTOM HANDLER] Processing activity {activity_id} of type {activity_type}")
-
-    await asyncio.sleep(2)
-
-    print(f"[CUSTOM HANDLER] Finished processing activity {activity_id}")
-
-    return {
-        "status": "success",
-        "message": f"Custom handler processed {activity_type}",
-        "timestamp": "2024-01-01T00:00:00Z",
-    }
 
 
 async def main() -> None:
@@ -59,11 +34,7 @@ async def main() -> None:
     print(f"Using CLIENT_SECRET: {client_secret}")
     print(f"Using TENANT_ID: {tenant_id}")
 
-    app = App(
-        AppOptions(
-            activity_handler=my_activity_handler,
-        )
-    )
+    app = App()
 
     @app.onMessage
     async def handle_message(ctx: Ctx[MessageActivity]):
@@ -71,19 +42,23 @@ async def main() -> None:
         print(f"[GENERATED] Message received: {ctx.activity.text}")
         print(f"[GENERATED] From: {ctx.activity.from_}")
 
-        return {"type": "message", "text": f"Echo: {ctx.activity.text}", "timestamp": "2024-01-01T00:00:00Z"}
+        await ctx.next()
+
+    @app.onActivity
+    async def handle_activity(event):
+        """Handle all activities using the new generated handler system."""
+        activity = event.activity
+        print(f"[GENERATED] Activity received: {activity.type} (ID: {activity.id})")
 
     @app.onInvoke
     async def handle_invoke(ctx: Ctx[InvokeActivity]):
         """Handle invoke activities using the new generated handler system."""
         print(f"[GENERATED] Invoke received: {ctx.activity.name}")
-        return {"type": "invokeResponse", "value": {"type": "message", "value": "Invoke handled successfully"}}
 
     @app.onMessageDelete
     async def handle_message_delete(ctx: Ctx[MessageDeleteActivity]):
         """Handle message deletion activities."""
         print(f"[GENERATED] Message deleted: {ctx.activity.id}")
-        return {"status": "acknowledged"}
 
     @app.onTyping
     async def handle_typing(ctx: Ctx[TypingActivity]):
@@ -98,7 +73,7 @@ async def main() -> None:
         return {"status": "processed"}
 
     @app.event
-    async def handle_activity(event: ActivityEvent):
+    async def handle_activity_event(event: ActivityEvent):
         activity = event.activity
         print(f"[EVENT] Activity received: {activity.type} (ID: {activity.id})")
 
