@@ -31,7 +31,7 @@ def generate_imports() -> str:
     """Generate import statements for the generated file."""
     imports = {
         "from abc import ABC, abstractmethod",
-        "from typing import Callable, Optional, Union",
+        "from typing import Callable, Optional, Union, Awaitable",
         "from .activity_context import ActivityContext",
         "from .router import ActivityRouter",
         "from .type_validation import validate_handler_type",
@@ -65,9 +65,9 @@ def generate_method(config: ActivityConfig, config_key: str) -> str:
     if config.output_model:
         # Use explicit output_type_name if provided, otherwise fall back to __name__
         output_class_name = config.output_type_name or config.output_model.__name__
-        output_type = f"Optional[{output_class_name}]"
+        output_type = f"Awaitable[{output_class_name}]"
     else:
-        output_type = "None"
+        output_type = "Awaitable[None]"
 
     return f'''    def {method_name}(self, handler: Callable[[ActivityContext[{input_class_name}]], {output_type}]) -> Callable:
         """Register a {activity_name} activity handler."""
