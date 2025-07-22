@@ -10,7 +10,7 @@ from typing import Any, Awaitable, Callable, Dict, List, Optional
 from microsoft.teams.api import Activity
 from microsoft.teams.common.events import EventEmitter
 
-from .events import ActivityEvent, ErrorEvent
+from .events import ErrorEvent
 from .message_handler import ActivityHandlerMixin
 from .message_handler.activity_context import Context
 from .router import ActivityRouter
@@ -39,19 +39,10 @@ class ActivityProcessorMixin(ActivityHandlerMixin, ABC):
     def events(self) -> EventEmitter:
         """The event emitter instance used by the app."""
 
-    async def process_activity(self, input_activity: Activity) -> Optional[Dict[str, Any]]:
-        self.logger.debug(f"Received activity: {input_activity}")
-
-        activity = Activity.validate_python(input_activity)
-        self.logger.debug(f"Validated activity: {activity}")
-        activity_type = activity.type
-        activity_id = activity.id
-
-        self.logger.info(f"Processing activity {activity_id} of type {activity_type}")
+    async def process_activity(self, activity: Activity) -> Optional[Dict[str, Any]]:
+        self.logger.debug(f"Received activity: {activity}")
 
         try:
-            self.events.emit("activity", ActivityEvent(activity))
-
             # Create context for middleware chain
             ctx = self._build_context(activity)
 
@@ -63,17 +54,17 @@ class ActivityProcessorMixin(ActivityHandlerMixin, ABC):
             if handlers:
                 response = await self.execute_middleware_chain(ctx, handlers)
 
-            self.logger.info(f"Completed processing activity {activity_id}")
+            self.logger.info(f"Completed processing activity {activity.id}")
 
             return response
         except Exception as error:
-            self.logger.error(f"Failed to process activity {activity_id}: {error}")
+            self.logger.error(f"Failed to process activity {activity.id}: {error}")
 
             self._events.emit(
                 "error",
                 ErrorEvent(
                     error,
-                    context={"method": "process_activity", "activity_id": activity_id, "activity_type": activity_type},
+                    context={"method": "process_activity", "activity_id": activity.id, "activity_type": activity.type},
                 ),
             )
             raise

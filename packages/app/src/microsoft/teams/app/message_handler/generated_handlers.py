@@ -10,9 +10,8 @@ from abc import ABC, abstractmethod
 from logging import Logger
 from typing import Callable, Optional
 
-from microsoft.teams.api import ActivityBase
 from microsoft.teams.api.activities import (
-    ActivityBase,
+    Activity,
     AdaptiveCardInvokeActivity,
     CommandResultActivity,
     CommandSendActivity,
@@ -745,11 +744,11 @@ class ActivityHandlerMixin(ABC):
             return decorator(handler)
         return decorator
 
-    def onActivity(self, handler: Callable[[Context[ActivityBase]], None]) -> Callable:
+    def onActivity(self, handler: Callable[[Context[Activity]], None]) -> Callable:
         """Register a activity activity handler."""
 
-        def decorator(func: Callable[[Context[ActivityBase]], None]) -> Callable:
-            validate_handler_type(self.logger, func, ActivityBase, "onActivity", "ActivityBase")
+        def decorator(func: Callable[[Context[Activity]], None]) -> Callable:
+            validate_handler_type(self.logger, func, Activity, "onActivity", "Activity")
             config = ACTIVITY_ROUTES["activity"]
             self.router.add_handler(config.selector, func)
             return func
