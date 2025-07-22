@@ -36,7 +36,7 @@ def generate_imports() -> str:
         "from .router import ActivityRouter",
         "from .type_validation import validate_handler_type",
         "from .activity_route_configs import ACTIVITY_ROUTES",
-        "from microsoft.teams.api import ActivityBase",
+        "from microsoft.teams.models import ActivityBase",
         "from logging import Logger",
     }
 
