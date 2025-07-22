@@ -5,7 +5,7 @@ from microsoft.teams.api import Activity
 T = TypeVar("T", bound=Activity)
 
 
-class Context(Generic[T]):
+class ActivityContext(Generic[T]):
     """Context object passed to activity handlers with middleware support."""
 
     def __init__(

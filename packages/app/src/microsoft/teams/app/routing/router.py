@@ -7,11 +7,11 @@ from typing import Any, Awaitable, Callable, Dict, List, Optional, Union
 
 from microsoft.teams.api.activities import ActivityBase
 
-from .message_handler.activity_config import RouteSelector
-from .message_handler.activity_context import Context
+from .activity_context import ActivityContext
+from .activity_route_configs import RouteSelector
 
 # Type alias for activity handlers
-ActivityHandler = Callable[[Context], Union[Awaitable[Optional[Dict[str, Any]]], Optional[Dict[str, Any]]]]
+ActivityHandler = Callable[[ActivityContext], Union[Awaitable[Optional[Dict[str, Any]]], Optional[Dict[str, Any]]]]
 
 
 class ActivityRouter:

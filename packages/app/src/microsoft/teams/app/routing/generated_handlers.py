@@ -65,9 +65,9 @@ from microsoft.teams.api.models.invoke_response import (
     VoidInvokeResponse,
 )
 
-from ..router import ActivityRouter
-from .activity_config import ACTIVITY_ROUTES
-from .activity_context import Context
+from .activity_context import ActivityContext
+from .activity_route_configs import ACTIVITY_ROUTES
+from .router import ActivityRouter
 from .type_validation import validate_handler_type
 
 
@@ -86,10 +86,10 @@ class ActivityHandlerMixin(ABC):
         """The logger instance used by the app."""
         pass
 
-    def onMessage(self, handler: Callable[[Context[MessageActivity]], None]) -> Callable:
+    def onMessage(self, handler: Callable[[ActivityContext[MessageActivity]], None]) -> Callable:
         """Register a message activity handler."""
 
-        def decorator(func: Callable[[Context[MessageActivity]], None]) -> Callable:
+        def decorator(func: Callable[[ActivityContext[MessageActivity]], None]) -> Callable:
             validate_handler_type(self.logger, func, MessageActivity, "onMessage", "MessageActivity")
             config = ACTIVITY_ROUTES["message"]
             self.router.add_handler(config.selector, func)
@@ -99,10 +99,10 @@ class ActivityHandlerMixin(ABC):
             return decorator(handler)
         return decorator
 
-    def onMessageDelete(self, handler: Callable[[Context[MessageDeleteActivity]], None]) -> Callable:
+    def onMessageDelete(self, handler: Callable[[ActivityContext[MessageDeleteActivity]], None]) -> Callable:
         """Register a messageDelete activity handler."""
 
-        def decorator(func: Callable[[Context[MessageDeleteActivity]], None]) -> Callable:
+        def decorator(func: Callable[[ActivityContext[MessageDeleteActivity]], None]) -> Callable:
             validate_handler_type(self.logger, func, MessageDeleteActivity, "onMessageDelete", "MessageDeleteActivity")
             config = ACTIVITY_ROUTES["messageDelete"]
             self.router.add_handler(config.selector, func)
@@ -112,10 +112,10 @@ class ActivityHandlerMixin(ABC):
             return decorator(handler)
         return decorator
 
-    def onSoftDeleteMessage(self, handler: Callable[[Context[MessageDeleteActivity]], None]) -> Callable:
+    def onSoftDeleteMessage(self, handler: Callable[[ActivityContext[MessageDeleteActivity]], None]) -> Callable:
         """Register a softDeleteMessage activity handler."""
 
-        def decorator(func: Callable[[Context[MessageDeleteActivity]], None]) -> Callable:
+        def decorator(func: Callable[[ActivityContext[MessageDeleteActivity]], None]) -> Callable:
             validate_handler_type(
                 self.logger, func, MessageDeleteActivity, "onSoftDeleteMessage", "MessageDeleteActivity"
             )
@@ -127,10 +127,10 @@ class ActivityHandlerMixin(ABC):
             return decorator(handler)
         return decorator
 
-    def onMessageReaction(self, handler: Callable[[Context[MessageReactionActivity]], None]) -> Callable:
+    def onMessageReaction(self, handler: Callable[[ActivityContext[MessageReactionActivity]], None]) -> Callable:
         """Register a messageReaction activity handler."""
 
-        def decorator(func: Callable[[Context[MessageReactionActivity]], None]) -> Callable:
+        def decorator(func: Callable[[ActivityContext[MessageReactionActivity]], None]) -> Callable:
             validate_handler_type(
                 self.logger, func, MessageReactionActivity, "onMessageReaction", "MessageReactionActivity"
             )
@@ -142,10 +142,10 @@ class ActivityHandlerMixin(ABC):
             return decorator(handler)
         return decorator
 
-    def onMessageUpdate(self, handler: Callable[[Context[MessageUpdateActivity]], None]) -> Callable:
+    def onMessageUpdate(self, handler: Callable[[ActivityContext[MessageUpdateActivity]], None]) -> Callable:
         """Register a messageUpdate activity handler."""
 
-        def decorator(func: Callable[[Context[MessageUpdateActivity]], None]) -> Callable:
+        def decorator(func: Callable[[ActivityContext[MessageUpdateActivity]], None]) -> Callable:
             validate_handler_type(self.logger, func, MessageUpdateActivity, "onMessageUpdate", "MessageUpdateActivity")
             config = ACTIVITY_ROUTES["messageUpdate"]
             self.router.add_handler(config.selector, func)
@@ -155,10 +155,10 @@ class ActivityHandlerMixin(ABC):
             return decorator(handler)
         return decorator
 
-    def onUndeleteMessage(self, handler: Callable[[Context[MessageUpdateActivity]], None]) -> Callable:
+    def onUndeleteMessage(self, handler: Callable[[ActivityContext[MessageUpdateActivity]], None]) -> Callable:
         """Register a undeleteMessage activity handler."""
 
-        def decorator(func: Callable[[Context[MessageUpdateActivity]], None]) -> Callable:
+        def decorator(func: Callable[[ActivityContext[MessageUpdateActivity]], None]) -> Callable:
             validate_handler_type(
                 self.logger, func, MessageUpdateActivity, "onUndeleteMessage", "MessageUpdateActivity"
             )
@@ -170,10 +170,10 @@ class ActivityHandlerMixin(ABC):
             return decorator(handler)
         return decorator
 
-    def onEditMessage(self, handler: Callable[[Context[MessageUpdateActivity]], None]) -> Callable:
+    def onEditMessage(self, handler: Callable[[ActivityContext[MessageUpdateActivity]], None]) -> Callable:
         """Register a editMessage activity handler."""
 
-        def decorator(func: Callable[[Context[MessageUpdateActivity]], None]) -> Callable:
+        def decorator(func: Callable[[ActivityContext[MessageUpdateActivity]], None]) -> Callable:
             validate_handler_type(self.logger, func, MessageUpdateActivity, "onEditMessage", "MessageUpdateActivity")
             config = ACTIVITY_ROUTES["editMessage"]
             self.router.add_handler(config.selector, func)
@@ -183,10 +183,10 @@ class ActivityHandlerMixin(ABC):
             return decorator(handler)
         return decorator
 
-    def onCommand(self, handler: Callable[[Context[CommandSendActivity]], None]) -> Callable:
+    def onCommand(self, handler: Callable[[ActivityContext[CommandSendActivity]], None]) -> Callable:
         """Register a command activity handler."""
 
-        def decorator(func: Callable[[Context[CommandSendActivity]], None]) -> Callable:
+        def decorator(func: Callable[[ActivityContext[CommandSendActivity]], None]) -> Callable:
             validate_handler_type(self.logger, func, CommandSendActivity, "onCommand", "CommandSendActivity")
             config = ACTIVITY_ROUTES["command"]
             self.router.add_handler(config.selector, func)
@@ -196,10 +196,10 @@ class ActivityHandlerMixin(ABC):
             return decorator(handler)
         return decorator
 
-    def onCommandResult(self, handler: Callable[[Context[CommandResultActivity]], None]) -> Callable:
+    def onCommandResult(self, handler: Callable[[ActivityContext[CommandResultActivity]], None]) -> Callable:
         """Register a commandResult activity handler."""
 
-        def decorator(func: Callable[[Context[CommandResultActivity]], None]) -> Callable:
+        def decorator(func: Callable[[ActivityContext[CommandResultActivity]], None]) -> Callable:
             validate_handler_type(self.logger, func, CommandResultActivity, "onCommandResult", "CommandResultActivity")
             config = ACTIVITY_ROUTES["commandResult"]
             self.router.add_handler(config.selector, func)
@@ -209,10 +209,10 @@ class ActivityHandlerMixin(ABC):
             return decorator(handler)
         return decorator
 
-    def onConversationUpdate(self, handler: Callable[[Context[ConversationUpdateActivity]], None]) -> Callable:
+    def onConversationUpdate(self, handler: Callable[[ActivityContext[ConversationUpdateActivity]], None]) -> Callable:
         """Register a conversationUpdate activity handler."""
 
-        def decorator(func: Callable[[Context[ConversationUpdateActivity]], None]) -> Callable:
+        def decorator(func: Callable[[ActivityContext[ConversationUpdateActivity]], None]) -> Callable:
             validate_handler_type(
                 self.logger, func, ConversationUpdateActivity, "onConversationUpdate", "ConversationUpdateActivity"
             )
@@ -224,10 +224,10 @@ class ActivityHandlerMixin(ABC):
             return decorator(handler)
         return decorator
 
-    def onChannelCreated(self, handler: Callable[[Context[ConversationUpdateActivity]], None]) -> Callable:
+    def onChannelCreated(self, handler: Callable[[ActivityContext[ConversationUpdateActivity]], None]) -> Callable:
         """Register a channelCreated activity handler."""
 
-        def decorator(func: Callable[[Context[ConversationUpdateActivity]], None]) -> Callable:
+        def decorator(func: Callable[[ActivityContext[ConversationUpdateActivity]], None]) -> Callable:
             validate_handler_type(
                 self.logger, func, ConversationUpdateActivity, "onChannelCreated", "ConversationUpdateActivity"
             )
@@ -239,10 +239,10 @@ class ActivityHandlerMixin(ABC):
             return decorator(handler)
         return decorator
 
-    def onChannelDeleted(self, handler: Callable[[Context[ConversationUpdateActivity]], None]) -> Callable:
+    def onChannelDeleted(self, handler: Callable[[ActivityContext[ConversationUpdateActivity]], None]) -> Callable:
         """Register a channelDeleted activity handler."""
 
-        def decorator(func: Callable[[Context[ConversationUpdateActivity]], None]) -> Callable:
+        def decorator(func: Callable[[ActivityContext[ConversationUpdateActivity]], None]) -> Callable:
             validate_handler_type(
                 self.logger, func, ConversationUpdateActivity, "onChannelDeleted", "ConversationUpdateActivity"
             )
@@ -254,10 +254,10 @@ class ActivityHandlerMixin(ABC):
             return decorator(handler)
         return decorator
 
-    def onChannelRenamed(self, handler: Callable[[Context[ConversationUpdateActivity]], None]) -> Callable:
+    def onChannelRenamed(self, handler: Callable[[ActivityContext[ConversationUpdateActivity]], None]) -> Callable:
         """Register a channelRenamed activity handler."""
 
-        def decorator(func: Callable[[Context[ConversationUpdateActivity]], None]) -> Callable:
+        def decorator(func: Callable[[ActivityContext[ConversationUpdateActivity]], None]) -> Callable:
             validate_handler_type(
                 self.logger, func, ConversationUpdateActivity, "onChannelRenamed", "ConversationUpdateActivity"
             )
@@ -269,10 +269,10 @@ class ActivityHandlerMixin(ABC):
             return decorator(handler)
         return decorator
 
-    def onChannelRestored(self, handler: Callable[[Context[ConversationUpdateActivity]], None]) -> Callable:
+    def onChannelRestored(self, handler: Callable[[ActivityContext[ConversationUpdateActivity]], None]) -> Callable:
         """Register a channelRestored activity handler."""
 
-        def decorator(func: Callable[[Context[ConversationUpdateActivity]], None]) -> Callable:
+        def decorator(func: Callable[[ActivityContext[ConversationUpdateActivity]], None]) -> Callable:
             validate_handler_type(
                 self.logger, func, ConversationUpdateActivity, "onChannelRestored", "ConversationUpdateActivity"
             )
@@ -284,10 +284,10 @@ class ActivityHandlerMixin(ABC):
             return decorator(handler)
         return decorator
 
-    def onTeamArchived(self, handler: Callable[[Context[ConversationUpdateActivity]], None]) -> Callable:
+    def onTeamArchived(self, handler: Callable[[ActivityContext[ConversationUpdateActivity]], None]) -> Callable:
         """Register a teamArchived activity handler."""
 
-        def decorator(func: Callable[[Context[ConversationUpdateActivity]], None]) -> Callable:
+        def decorator(func: Callable[[ActivityContext[ConversationUpdateActivity]], None]) -> Callable:
             validate_handler_type(
                 self.logger, func, ConversationUpdateActivity, "onTeamArchived", "ConversationUpdateActivity"
             )
@@ -299,10 +299,10 @@ class ActivityHandlerMixin(ABC):
             return decorator(handler)
         return decorator
 
-    def onTeamDeleted(self, handler: Callable[[Context[ConversationUpdateActivity]], None]) -> Callable:
+    def onTeamDeleted(self, handler: Callable[[ActivityContext[ConversationUpdateActivity]], None]) -> Callable:
         """Register a teamDeleted activity handler."""
 
-        def decorator(func: Callable[[Context[ConversationUpdateActivity]], None]) -> Callable:
+        def decorator(func: Callable[[ActivityContext[ConversationUpdateActivity]], None]) -> Callable:
             validate_handler_type(
                 self.logger, func, ConversationUpdateActivity, "onTeamDeleted", "ConversationUpdateActivity"
             )
@@ -314,10 +314,10 @@ class ActivityHandlerMixin(ABC):
             return decorator(handler)
         return decorator
 
-    def onTeamHardDeleted(self, handler: Callable[[Context[ConversationUpdateActivity]], None]) -> Callable:
+    def onTeamHardDeleted(self, handler: Callable[[ActivityContext[ConversationUpdateActivity]], None]) -> Callable:
         """Register a teamHardDeleted activity handler."""
 
-        def decorator(func: Callable[[Context[ConversationUpdateActivity]], None]) -> Callable:
+        def decorator(func: Callable[[ActivityContext[ConversationUpdateActivity]], None]) -> Callable:
             validate_handler_type(
                 self.logger, func, ConversationUpdateActivity, "onTeamHardDeleted", "ConversationUpdateActivity"
             )
@@ -329,10 +329,10 @@ class ActivityHandlerMixin(ABC):
             return decorator(handler)
         return decorator
 
-    def onTeamRenamed(self, handler: Callable[[Context[ConversationUpdateActivity]], None]) -> Callable:
+    def onTeamRenamed(self, handler: Callable[[ActivityContext[ConversationUpdateActivity]], None]) -> Callable:
         """Register a teamRenamed activity handler."""
 
-        def decorator(func: Callable[[Context[ConversationUpdateActivity]], None]) -> Callable:
+        def decorator(func: Callable[[ActivityContext[ConversationUpdateActivity]], None]) -> Callable:
             validate_handler_type(
                 self.logger, func, ConversationUpdateActivity, "onTeamRenamed", "ConversationUpdateActivity"
             )
@@ -344,10 +344,10 @@ class ActivityHandlerMixin(ABC):
             return decorator(handler)
         return decorator
 
-    def onTeamRestored(self, handler: Callable[[Context[ConversationUpdateActivity]], None]) -> Callable:
+    def onTeamRestored(self, handler: Callable[[ActivityContext[ConversationUpdateActivity]], None]) -> Callable:
         """Register a teamRestored activity handler."""
 
-        def decorator(func: Callable[[Context[ConversationUpdateActivity]], None]) -> Callable:
+        def decorator(func: Callable[[ActivityContext[ConversationUpdateActivity]], None]) -> Callable:
             validate_handler_type(
                 self.logger, func, ConversationUpdateActivity, "onTeamRestored", "ConversationUpdateActivity"
             )
@@ -359,10 +359,10 @@ class ActivityHandlerMixin(ABC):
             return decorator(handler)
         return decorator
 
-    def onTeamUnarchived(self, handler: Callable[[Context[ConversationUpdateActivity]], None]) -> Callable:
+    def onTeamUnarchived(self, handler: Callable[[ActivityContext[ConversationUpdateActivity]], None]) -> Callable:
         """Register a teamUnarchived activity handler."""
 
-        def decorator(func: Callable[[Context[ConversationUpdateActivity]], None]) -> Callable:
+        def decorator(func: Callable[[ActivityContext[ConversationUpdateActivity]], None]) -> Callable:
             validate_handler_type(
                 self.logger, func, ConversationUpdateActivity, "onTeamUnarchived", "ConversationUpdateActivity"
             )
@@ -374,10 +374,10 @@ class ActivityHandlerMixin(ABC):
             return decorator(handler)
         return decorator
 
-    def onEndOfConversation(self, handler: Callable[[Context[EndOfConversationActivity]], None]) -> Callable:
+    def onEndOfConversation(self, handler: Callable[[ActivityContext[EndOfConversationActivity]], None]) -> Callable:
         """Register a endOfConversation activity handler."""
 
-        def decorator(func: Callable[[Context[EndOfConversationActivity]], None]) -> Callable:
+        def decorator(func: Callable[[ActivityContext[EndOfConversationActivity]], None]) -> Callable:
             validate_handler_type(
                 self.logger, func, EndOfConversationActivity, "onEndOfConversation", "EndOfConversationActivity"
             )
@@ -389,10 +389,10 @@ class ActivityHandlerMixin(ABC):
             return decorator(handler)
         return decorator
 
-    def onEvent(self, handler: Callable[[Context[EventActivity]], None]) -> Callable:
+    def onEvent(self, handler: Callable[[ActivityContext[EventActivity]], None]) -> Callable:
         """Register a event activity handler."""
 
-        def decorator(func: Callable[[Context[EventActivity]], None]) -> Callable:
+        def decorator(func: Callable[[ActivityContext[EventActivity]], None]) -> Callable:
             validate_handler_type(self.logger, func, EventActivity, "onEvent", "EventActivity")
             config = ACTIVITY_ROUTES["event"]
             self.router.add_handler(config.selector, func)
@@ -402,10 +402,10 @@ class ActivityHandlerMixin(ABC):
             return decorator(handler)
         return decorator
 
-    def onReadReceipt(self, handler: Callable[[Context[ReadReceiptEventActivity]], None]) -> Callable:
+    def onReadReceipt(self, handler: Callable[[ActivityContext[ReadReceiptEventActivity]], None]) -> Callable:
         """Register a readReceipt activity handler."""
 
-        def decorator(func: Callable[[Context[ReadReceiptEventActivity]], None]) -> Callable:
+        def decorator(func: Callable[[ActivityContext[ReadReceiptEventActivity]], None]) -> Callable:
             validate_handler_type(
                 self.logger, func, ReadReceiptEventActivity, "onReadReceipt", "ReadReceiptEventActivity"
             )
@@ -417,10 +417,10 @@ class ActivityHandlerMixin(ABC):
             return decorator(handler)
         return decorator
 
-    def onMeetingStart(self, handler: Callable[[Context[MeetingStartEventActivity]], None]) -> Callable:
+    def onMeetingStart(self, handler: Callable[[ActivityContext[MeetingStartEventActivity]], None]) -> Callable:
         """Register a meetingStart activity handler."""
 
-        def decorator(func: Callable[[Context[MeetingStartEventActivity]], None]) -> Callable:
+        def decorator(func: Callable[[ActivityContext[MeetingStartEventActivity]], None]) -> Callable:
             validate_handler_type(
                 self.logger, func, MeetingStartEventActivity, "onMeetingStart", "MeetingStartEventActivity"
             )
@@ -432,10 +432,10 @@ class ActivityHandlerMixin(ABC):
             return decorator(handler)
         return decorator
 
-    def onMeetingEnd(self, handler: Callable[[Context[MeetingEndEventActivity]], None]) -> Callable:
+    def onMeetingEnd(self, handler: Callable[[ActivityContext[MeetingEndEventActivity]], None]) -> Callable:
         """Register a meetingEnd activity handler."""
 
-        def decorator(func: Callable[[Context[MeetingEndEventActivity]], None]) -> Callable:
+        def decorator(func: Callable[[ActivityContext[MeetingEndEventActivity]], None]) -> Callable:
             validate_handler_type(self.logger, func, MeetingEndEventActivity, "onMeetingEnd", "MeetingEndEventActivity")
             config = ACTIVITY_ROUTES["meetingEnd"]
             self.router.add_handler(config.selector, func)
@@ -446,11 +446,11 @@ class ActivityHandlerMixin(ABC):
         return decorator
 
     def onMeetingParticipantJoin(
-        self, handler: Callable[[Context[MeetingParticipantJoinEventActivity]], None]
+        self, handler: Callable[[ActivityContext[MeetingParticipantJoinEventActivity]], None]
     ) -> Callable:
         """Register a meetingParticipantJoin activity handler."""
 
-        def decorator(func: Callable[[Context[MeetingParticipantJoinEventActivity]], None]) -> Callable:
+        def decorator(func: Callable[[ActivityContext[MeetingParticipantJoinEventActivity]], None]) -> Callable:
             validate_handler_type(
                 self.logger,
                 func,
@@ -467,11 +467,11 @@ class ActivityHandlerMixin(ABC):
         return decorator
 
     def onMeetingParticipantLeave(
-        self, handler: Callable[[Context[MeetingParticipantLeaveEventActivity]], None]
+        self, handler: Callable[[ActivityContext[MeetingParticipantLeaveEventActivity]], None]
     ) -> Callable:
         """Register a meetingParticipantLeave activity handler."""
 
-        def decorator(func: Callable[[Context[MeetingParticipantLeaveEventActivity]], None]) -> Callable:
+        def decorator(func: Callable[[ActivityContext[MeetingParticipantLeaveEventActivity]], None]) -> Callable:
             validate_handler_type(
                 self.logger,
                 func,
@@ -488,11 +488,13 @@ class ActivityHandlerMixin(ABC):
         return decorator
 
     def onConfigOpen(
-        self, handler: Callable[[Context[ConfigFetchInvokeActivity]], Optional[ConfigInvokeResponse]]
+        self, handler: Callable[[ActivityContext[ConfigFetchInvokeActivity]], Optional[ConfigInvokeResponse]]
     ) -> Callable:
         """Register a config.open activity handler."""
 
-        def decorator(func: Callable[[Context[ConfigFetchInvokeActivity]], Optional[ConfigInvokeResponse]]) -> Callable:
+        def decorator(
+            func: Callable[[ActivityContext[ConfigFetchInvokeActivity]], Optional[ConfigInvokeResponse]],
+        ) -> Callable:
             validate_handler_type(
                 self.logger, func, ConfigFetchInvokeActivity, "onConfigOpen", "ConfigFetchInvokeActivity"
             )
@@ -505,12 +507,12 @@ class ActivityHandlerMixin(ABC):
         return decorator
 
     def onConfigSubmit(
-        self, handler: Callable[[Context[ConfigSubmitInvokeActivity]], Optional[ConfigInvokeResponse]]
+        self, handler: Callable[[ActivityContext[ConfigSubmitInvokeActivity]], Optional[ConfigInvokeResponse]]
     ) -> Callable:
         """Register a config.submit activity handler."""
 
         def decorator(
-            func: Callable[[Context[ConfigSubmitInvokeActivity]], Optional[ConfigInvokeResponse]],
+            func: Callable[[ActivityContext[ConfigSubmitInvokeActivity]], Optional[ConfigInvokeResponse]],
         ) -> Callable:
             validate_handler_type(
                 self.logger, func, ConfigSubmitInvokeActivity, "onConfigSubmit", "ConfigSubmitInvokeActivity"
@@ -524,11 +526,13 @@ class ActivityHandlerMixin(ABC):
         return decorator
 
     def onFileConsent(
-        self, handler: Callable[[Context[FileConsentInvokeActivity]], Optional[VoidInvokeResponse]]
+        self, handler: Callable[[ActivityContext[FileConsentInvokeActivity]], Optional[VoidInvokeResponse]]
     ) -> Callable:
         """Register a file.consent activity handler."""
 
-        def decorator(func: Callable[[Context[FileConsentInvokeActivity]], Optional[VoidInvokeResponse]]) -> Callable:
+        def decorator(
+            func: Callable[[ActivityContext[FileConsentInvokeActivity]], Optional[VoidInvokeResponse]],
+        ) -> Callable:
             validate_handler_type(
                 self.logger, func, FileConsentInvokeActivity, "onFileConsent", "FileConsentInvokeActivity"
             )
@@ -541,11 +545,13 @@ class ActivityHandlerMixin(ABC):
         return decorator
 
     def onMessageExecute(
-        self, handler: Callable[[Context[ExecuteActionInvokeActivity]], Optional[VoidInvokeResponse]]
+        self, handler: Callable[[ActivityContext[ExecuteActionInvokeActivity]], Optional[VoidInvokeResponse]]
     ) -> Callable:
         """Register a message.execute activity handler."""
 
-        def decorator(func: Callable[[Context[ExecuteActionInvokeActivity]], Optional[VoidInvokeResponse]]) -> Callable:
+        def decorator(
+            func: Callable[[ActivityContext[ExecuteActionInvokeActivity]], Optional[VoidInvokeResponse]],
+        ) -> Callable:
             validate_handler_type(
                 self.logger, func, ExecuteActionInvokeActivity, "onMessageExecute", "ExecuteActionInvokeActivity"
             )
@@ -560,14 +566,14 @@ class ActivityHandlerMixin(ABC):
     def onMessageExtQueryLink(
         self,
         handler: Callable[
-            [Context[MessageExtensionQueryLinkInvokeActivity]], Optional[MessagingExtensionInvokeResponse]
+            [ActivityContext[MessageExtensionQueryLinkInvokeActivity]], Optional[MessagingExtensionInvokeResponse]
         ],
     ) -> Callable:
         """Register a message.ext.query-link activity handler."""
 
         def decorator(
             func: Callable[
-                [Context[MessageExtensionQueryLinkInvokeActivity]], Optional[MessagingExtensionInvokeResponse]
+                [ActivityContext[MessageExtensionQueryLinkInvokeActivity]], Optional[MessagingExtensionInvokeResponse]
             ],
         ) -> Callable:
             validate_handler_type(
@@ -588,14 +594,15 @@ class ActivityHandlerMixin(ABC):
     def onMessageExtAnonQueryLink(
         self,
         handler: Callable[
-            [Context[MessageExtensionAnonQueryLinkInvokeActivity]], Optional[MessagingExtensionInvokeResponse]
+            [ActivityContext[MessageExtensionAnonQueryLinkInvokeActivity]], Optional[MessagingExtensionInvokeResponse]
         ],
     ) -> Callable:
         """Register a message.ext.anon-query-link activity handler."""
 
         def decorator(
             func: Callable[
-                [Context[MessageExtensionAnonQueryLinkInvokeActivity]], Optional[MessagingExtensionInvokeResponse]
+                [ActivityContext[MessageExtensionAnonQueryLinkInvokeActivity]],
+                Optional[MessagingExtensionInvokeResponse],
             ],
         ) -> Callable:
             validate_handler_type(
@@ -615,12 +622,16 @@ class ActivityHandlerMixin(ABC):
 
     def onMessageExtQuery(
         self,
-        handler: Callable[[Context[MessageExtensionQueryInvokeActivity]], Optional[MessagingExtensionInvokeResponse]],
+        handler: Callable[
+            [ActivityContext[MessageExtensionQueryInvokeActivity]], Optional[MessagingExtensionInvokeResponse]
+        ],
     ) -> Callable:
         """Register a message.ext.query activity handler."""
 
         def decorator(
-            func: Callable[[Context[MessageExtensionQueryInvokeActivity]], Optional[MessagingExtensionInvokeResponse]],
+            func: Callable[
+                [ActivityContext[MessageExtensionQueryInvokeActivity]], Optional[MessagingExtensionInvokeResponse]
+            ],
         ) -> Callable:
             validate_handler_type(
                 self.logger,
@@ -640,14 +651,14 @@ class ActivityHandlerMixin(ABC):
     def onMessageExtSelectItem(
         self,
         handler: Callable[
-            [Context[MessageExtensionSelectItemInvokeActivity]], Optional[MessagingExtensionInvokeResponse]
+            [ActivityContext[MessageExtensionSelectItemInvokeActivity]], Optional[MessagingExtensionInvokeResponse]
         ],
     ) -> Callable:
         """Register a message.ext.select-item activity handler."""
 
         def decorator(
             func: Callable[
-                [Context[MessageExtensionSelectItemInvokeActivity]], Optional[MessagingExtensionInvokeResponse]
+                [ActivityContext[MessageExtensionSelectItemInvokeActivity]], Optional[MessagingExtensionInvokeResponse]
             ],
         ) -> Callable:
             validate_handler_type(
@@ -668,14 +679,16 @@ class ActivityHandlerMixin(ABC):
     def onMessageExtSubmit(
         self,
         handler: Callable[
-            [Context[MessageExtensionSubmitActionInvokeActivity]], Optional[MessagingExtensionActionInvokeResponse]
+            [ActivityContext[MessageExtensionSubmitActionInvokeActivity]],
+            Optional[MessagingExtensionActionInvokeResponse],
         ],
     ) -> Callable:
         """Register a message.ext.submit activity handler."""
 
         def decorator(
             func: Callable[
-                [Context[MessageExtensionSubmitActionInvokeActivity]], Optional[MessagingExtensionActionInvokeResponse]
+                [ActivityContext[MessageExtensionSubmitActionInvokeActivity]],
+                Optional[MessagingExtensionActionInvokeResponse],
             ],
         ) -> Callable:
             validate_handler_type(
@@ -696,14 +709,15 @@ class ActivityHandlerMixin(ABC):
     def onMessageExtOpen(
         self,
         handler: Callable[
-            [Context[MessageExtensionFetchTaskInvokeActivity]], Optional[MessagingExtensionActionInvokeResponse]
+            [ActivityContext[MessageExtensionFetchTaskInvokeActivity]], Optional[MessagingExtensionActionInvokeResponse]
         ],
     ) -> Callable:
         """Register a message.ext.open activity handler."""
 
         def decorator(
             func: Callable[
-                [Context[MessageExtensionFetchTaskInvokeActivity]], Optional[MessagingExtensionActionInvokeResponse]
+                [ActivityContext[MessageExtensionFetchTaskInvokeActivity]],
+                Optional[MessagingExtensionActionInvokeResponse],
             ],
         ) -> Callable:
             validate_handler_type(
@@ -724,14 +738,15 @@ class ActivityHandlerMixin(ABC):
     def onMessageExtQuerySettingsUrl(
         self,
         handler: Callable[
-            [Context[MessageExtensionQuerySettingUrlInvokeActivity]], Optional[MessagingExtensionInvokeResponse]
+            [ActivityContext[MessageExtensionQuerySettingUrlInvokeActivity]], Optional[MessagingExtensionInvokeResponse]
         ],
     ) -> Callable:
         """Register a message.ext.query-settings-url activity handler."""
 
         def decorator(
             func: Callable[
-                [Context[MessageExtensionQuerySettingUrlInvokeActivity]], Optional[MessagingExtensionInvokeResponse]
+                [ActivityContext[MessageExtensionQuerySettingUrlInvokeActivity]],
+                Optional[MessagingExtensionInvokeResponse],
             ],
         ) -> Callable:
             validate_handler_type(
@@ -751,13 +766,15 @@ class ActivityHandlerMixin(ABC):
 
     def onMessageExtSetting(
         self,
-        handler: Callable[[Context[MessageExtensionSettingInvokeActivity]], Optional[MessagingExtensionInvokeResponse]],
+        handler: Callable[
+            [ActivityContext[MessageExtensionSettingInvokeActivity]], Optional[MessagingExtensionInvokeResponse]
+        ],
     ) -> Callable:
         """Register a message.ext.setting activity handler."""
 
         def decorator(
             func: Callable[
-                [Context[MessageExtensionSettingInvokeActivity]], Optional[MessagingExtensionInvokeResponse]
+                [ActivityContext[MessageExtensionSettingInvokeActivity]], Optional[MessagingExtensionInvokeResponse]
             ],
         ) -> Callable:
             validate_handler_type(
@@ -777,12 +794,16 @@ class ActivityHandlerMixin(ABC):
 
     def onMessageExtCardButtonClicked(
         self,
-        handler: Callable[[Context[MessageExtensionCardButtonClickedInvokeActivity]], Optional[VoidInvokeResponse]],
+        handler: Callable[
+            [ActivityContext[MessageExtensionCardButtonClickedInvokeActivity]], Optional[VoidInvokeResponse]
+        ],
     ) -> Callable:
         """Register a message.ext.card-button-clicked activity handler."""
 
         def decorator(
-            func: Callable[[Context[MessageExtensionCardButtonClickedInvokeActivity]], Optional[VoidInvokeResponse]],
+            func: Callable[
+                [ActivityContext[MessageExtensionCardButtonClickedInvokeActivity]], Optional[VoidInvokeResponse]
+            ],
         ) -> Callable:
             validate_handler_type(
                 self.logger,
@@ -800,12 +821,12 @@ class ActivityHandlerMixin(ABC):
         return decorator
 
     def onDialogOpen(
-        self, handler: Callable[[Context[TaskFetchInvokeActivity]], Optional[TaskModuleInvokeResponse]]
+        self, handler: Callable[[ActivityContext[TaskFetchInvokeActivity]], Optional[TaskModuleInvokeResponse]]
     ) -> Callable:
         """Register a dialog.open activity handler."""
 
         def decorator(
-            func: Callable[[Context[TaskFetchInvokeActivity]], Optional[TaskModuleInvokeResponse]],
+            func: Callable[[ActivityContext[TaskFetchInvokeActivity]], Optional[TaskModuleInvokeResponse]],
         ) -> Callable:
             validate_handler_type(self.logger, func, TaskFetchInvokeActivity, "onDialogOpen", "TaskFetchInvokeActivity")
             config = ACTIVITY_ROUTES["dialog.open"]
@@ -817,12 +838,12 @@ class ActivityHandlerMixin(ABC):
         return decorator
 
     def onDialogSubmit(
-        self, handler: Callable[[Context[TaskSubmitInvokeActivity]], Optional[TaskModuleInvokeResponse]]
+        self, handler: Callable[[ActivityContext[TaskSubmitInvokeActivity]], Optional[TaskModuleInvokeResponse]]
     ) -> Callable:
         """Register a dialog.submit activity handler."""
 
         def decorator(
-            func: Callable[[Context[TaskSubmitInvokeActivity]], Optional[TaskModuleInvokeResponse]],
+            func: Callable[[ActivityContext[TaskSubmitInvokeActivity]], Optional[TaskModuleInvokeResponse]],
         ) -> Callable:
             validate_handler_type(
                 self.logger, func, TaskSubmitInvokeActivity, "onDialogSubmit", "TaskSubmitInvokeActivity"
@@ -835,10 +856,14 @@ class ActivityHandlerMixin(ABC):
             return decorator(handler)
         return decorator
 
-    def onTabOpen(self, handler: Callable[[Context[TabFetchInvokeActivity]], Optional[TabInvokeResponse]]) -> Callable:
+    def onTabOpen(
+        self, handler: Callable[[ActivityContext[TabFetchInvokeActivity]], Optional[TabInvokeResponse]]
+    ) -> Callable:
         """Register a tab.open activity handler."""
 
-        def decorator(func: Callable[[Context[TabFetchInvokeActivity]], Optional[TabInvokeResponse]]) -> Callable:
+        def decorator(
+            func: Callable[[ActivityContext[TabFetchInvokeActivity]], Optional[TabInvokeResponse]],
+        ) -> Callable:
             validate_handler_type(self.logger, func, TabFetchInvokeActivity, "onTabOpen", "TabFetchInvokeActivity")
             config = ACTIVITY_ROUTES["tab.open"]
             self.router.add_handler(config.selector, func)
@@ -849,11 +874,13 @@ class ActivityHandlerMixin(ABC):
         return decorator
 
     def onTabSubmit(
-        self, handler: Callable[[Context[TabSubmitInvokeActivity]], Optional[TabInvokeResponse]]
+        self, handler: Callable[[ActivityContext[TabSubmitInvokeActivity]], Optional[TabInvokeResponse]]
     ) -> Callable:
         """Register a tab.submit activity handler."""
 
-        def decorator(func: Callable[[Context[TabSubmitInvokeActivity]], Optional[TabInvokeResponse]]) -> Callable:
+        def decorator(
+            func: Callable[[ActivityContext[TabSubmitInvokeActivity]], Optional[TabInvokeResponse]],
+        ) -> Callable:
             validate_handler_type(self.logger, func, TabSubmitInvokeActivity, "onTabSubmit", "TabSubmitInvokeActivity")
             config = ACTIVITY_ROUTES["tab.submit"]
             self.router.add_handler(config.selector, func)
@@ -864,11 +891,13 @@ class ActivityHandlerMixin(ABC):
         return decorator
 
     def onMessageSubmit(
-        self, handler: Callable[[Context[MessageInvokeActivity]], Optional[VoidInvokeResponse]]
+        self, handler: Callable[[ActivityContext[MessageInvokeActivity]], Optional[VoidInvokeResponse]]
     ) -> Callable:
         """Register a message.submit activity handler."""
 
-        def decorator(func: Callable[[Context[MessageInvokeActivity]], Optional[VoidInvokeResponse]]) -> Callable:
+        def decorator(
+            func: Callable[[ActivityContext[MessageInvokeActivity]], Optional[VoidInvokeResponse]],
+        ) -> Callable:
             validate_handler_type(self.logger, func, MessageInvokeActivity, "onMessageSubmit", "MessageInvokeActivity")
             config = ACTIVITY_ROUTES["message.submit"]
             self.router.add_handler(config.selector, func)
@@ -879,11 +908,13 @@ class ActivityHandlerMixin(ABC):
         return decorator
 
     def onHandoffAction(
-        self, handler: Callable[[Context[HandoffActionInvokeActivity]], Optional[VoidInvokeResponse]]
+        self, handler: Callable[[ActivityContext[HandoffActionInvokeActivity]], Optional[VoidInvokeResponse]]
     ) -> Callable:
         """Register a handoff.action activity handler."""
 
-        def decorator(func: Callable[[Context[HandoffActionInvokeActivity]], Optional[VoidInvokeResponse]]) -> Callable:
+        def decorator(
+            func: Callable[[ActivityContext[HandoffActionInvokeActivity]], Optional[VoidInvokeResponse]],
+        ) -> Callable:
             validate_handler_type(
                 self.logger, func, HandoffActionInvokeActivity, "onHandoffAction", "HandoffActionInvokeActivity"
             )
@@ -896,12 +927,17 @@ class ActivityHandlerMixin(ABC):
         return decorator
 
     def onSigninTokenExchange(
-        self, handler: Callable[[Context[SignInTokenExchangeInvokeActivity]], Optional[TokenExchangeInvokeResponseType]]
+        self,
+        handler: Callable[
+            [ActivityContext[SignInTokenExchangeInvokeActivity]], Optional[TokenExchangeInvokeResponseType]
+        ],
     ) -> Callable:
         """Register a signin.token-exchange activity handler."""
 
         def decorator(
-            func: Callable[[Context[SignInTokenExchangeInvokeActivity]], Optional[TokenExchangeInvokeResponseType]],
+            func: Callable[
+                [ActivityContext[SignInTokenExchangeInvokeActivity]], Optional[TokenExchangeInvokeResponseType]
+            ],
         ) -> Callable:
             validate_handler_type(
                 self.logger,
@@ -919,12 +955,12 @@ class ActivityHandlerMixin(ABC):
         return decorator
 
     def onSigninVerifyState(
-        self, handler: Callable[[Context[SignInVerifyStateInvokeActivity]], Optional[VoidInvokeResponse]]
+        self, handler: Callable[[ActivityContext[SignInVerifyStateInvokeActivity]], Optional[VoidInvokeResponse]]
     ) -> Callable:
         """Register a signin.verify-state activity handler."""
 
         def decorator(
-            func: Callable[[Context[SignInVerifyStateInvokeActivity]], Optional[VoidInvokeResponse]],
+            func: Callable[[ActivityContext[SignInVerifyStateInvokeActivity]], Optional[VoidInvokeResponse]],
         ) -> Callable:
             validate_handler_type(
                 self.logger,
@@ -942,12 +978,12 @@ class ActivityHandlerMixin(ABC):
         return decorator
 
     def onCardAction(
-        self, handler: Callable[[Context[AdaptiveCardInvokeActivity]], Optional[AdaptiveCardInvokeResponse]]
+        self, handler: Callable[[ActivityContext[AdaptiveCardInvokeActivity]], Optional[AdaptiveCardInvokeResponse]]
     ) -> Callable:
         """Register a card.action activity handler."""
 
         def decorator(
-            func: Callable[[Context[AdaptiveCardInvokeActivity]], Optional[AdaptiveCardInvokeResponse]],
+            func: Callable[[ActivityContext[AdaptiveCardInvokeActivity]], Optional[AdaptiveCardInvokeResponse]],
         ) -> Callable:
             validate_handler_type(
                 self.logger, func, AdaptiveCardInvokeActivity, "onCardAction", "AdaptiveCardInvokeActivity"
@@ -960,10 +996,10 @@ class ActivityHandlerMixin(ABC):
             return decorator(handler)
         return decorator
 
-    def onInvoke(self, handler: Callable[[Context[InvokeActivity]], None]) -> Callable:
+    def onInvoke(self, handler: Callable[[ActivityContext[InvokeActivity]], None]) -> Callable:
         """Register a invoke activity handler."""
 
-        def decorator(func: Callable[[Context[InvokeActivity]], None]) -> Callable:
+        def decorator(func: Callable[[ActivityContext[InvokeActivity]], None]) -> Callable:
             validate_handler_type(self.logger, func, InvokeActivity, "onInvoke", "InvokeActivity")
             config = ACTIVITY_ROUTES["invoke"]
             self.router.add_handler(config.selector, func)
@@ -973,10 +1009,10 @@ class ActivityHandlerMixin(ABC):
             return decorator(handler)
         return decorator
 
-    def onInstallationUpdate(self, handler: Callable[[Context[InstallUpdateActivity]], None]) -> Callable:
+    def onInstallationUpdate(self, handler: Callable[[ActivityContext[InstallUpdateActivity]], None]) -> Callable:
         """Register a installationUpdate activity handler."""
 
-        def decorator(func: Callable[[Context[InstallUpdateActivity]], None]) -> Callable:
+        def decorator(func: Callable[[ActivityContext[InstallUpdateActivity]], None]) -> Callable:
             validate_handler_type(
                 self.logger, func, InstallUpdateActivity, "onInstallationUpdate", "InstallUpdateActivity"
             )
@@ -988,10 +1024,10 @@ class ActivityHandlerMixin(ABC):
             return decorator(handler)
         return decorator
 
-    def onTyping(self, handler: Callable[[Context[TypingActivity]], None]) -> Callable:
+    def onTyping(self, handler: Callable[[ActivityContext[TypingActivity]], None]) -> Callable:
         """Register a typing activity handler."""
 
-        def decorator(func: Callable[[Context[TypingActivity]], None]) -> Callable:
+        def decorator(func: Callable[[ActivityContext[TypingActivity]], None]) -> Callable:
             validate_handler_type(self.logger, func, TypingActivity, "onTyping", "TypingActivity")
             config = ACTIVITY_ROUTES["typing"]
             self.router.add_handler(config.selector, func)
@@ -1001,10 +1037,10 @@ class ActivityHandlerMixin(ABC):
             return decorator(handler)
         return decorator
 
-    def onTrace(self, handler: Callable[[Context[TraceActivity]], None]) -> Callable:
+    def onTrace(self, handler: Callable[[ActivityContext[TraceActivity]], None]) -> Callable:
         """Register a trace activity handler."""
 
-        def decorator(func: Callable[[Context[TraceActivity]], None]) -> Callable:
+        def decorator(func: Callable[[ActivityContext[TraceActivity]], None]) -> Callable:
             validate_handler_type(self.logger, func, TraceActivity, "onTrace", "TraceActivity")
             config = ACTIVITY_ROUTES["trace"]
             self.router.add_handler(config.selector, func)
@@ -1014,10 +1050,10 @@ class ActivityHandlerMixin(ABC):
             return decorator(handler)
         return decorator
 
-    def onHandoff(self, handler: Callable[[Context[HandoffActivity]], None]) -> Callable:
+    def onHandoff(self, handler: Callable[[ActivityContext[HandoffActivity]], None]) -> Callable:
         """Register a handoff activity handler."""
 
-        def decorator(func: Callable[[Context[HandoffActivity]], None]) -> Callable:
+        def decorator(func: Callable[[ActivityContext[HandoffActivity]], None]) -> Callable:
             validate_handler_type(self.logger, func, HandoffActivity, "onHandoff", "HandoffActivity")
             config = ACTIVITY_ROUTES["handoff"]
             self.router.add_handler(config.selector, func)
@@ -1027,10 +1063,10 @@ class ActivityHandlerMixin(ABC):
             return decorator(handler)
         return decorator
 
-    def onActivity(self, handler: Callable[[Context[Activity]], None]) -> Callable:
+    def onActivity(self, handler: Callable[[ActivityContext[Activity]], None]) -> Callable:
         """Register a activity activity handler."""
 
-        def decorator(func: Callable[[Context[Activity]], None]) -> Callable:
+        def decorator(func: Callable[[ActivityContext[Activity]], None]) -> Callable:
             validate_handler_type(self.logger, func, Activity, "onActivity", "Activity")
             config = ACTIVITY_ROUTES["activity"]
             self.router.add_handler(config.selector, func)
