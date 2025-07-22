@@ -22,6 +22,10 @@ from microsoft.teams.api import (
     HandoffActivity,
     InstallUpdateActivity,
     InvokeActivity,
+    MeetingEndEventActivity,
+    MeetingParticipantJoinEventActivity,
+    MeetingParticipantLeaveEventActivity,
+    MeetingStartEventActivity,
     MessageActivity,
     MessageDeleteActivity,
     MessageExtensionAnonQueryLinkInvokeActivity,
@@ -45,6 +49,7 @@ from microsoft.teams.api import (
     TraceActivity,
     TypingActivity,
 )
+from microsoft.teams.api.activities.event.read_reciept import ReadReceiptEventActivity
 from microsoft.teams.api.models.invoke_response import (
     AdaptiveCardInvokeResponse,
     ConfigInvokeResponse,
@@ -92,7 +97,6 @@ ACTIVITY_ROUTES: Dict[str, ActivityConfig] = {
         input_model=MessageActivity,
         selector=lambda activity: isinstance(activity, MessageActivity),
         output_model=None,
-        input_type_name="MessageActivity",
     ),
     "messageDelete": ActivityConfig(
         name="messageDelete",
@@ -100,7 +104,14 @@ ACTIVITY_ROUTES: Dict[str, ActivityConfig] = {
         input_model=MessageDeleteActivity,
         selector=lambda activity: isinstance(activity, MessageDeleteActivity),
         output_model=None,
-        input_type_name="MessageDeleteActivity",
+    ),
+    "softDeleteMessage": ActivityConfig(
+        name="softDeleteMessage",
+        method_name="onSoftDeleteMessage",
+        input_model=MessageDeleteActivity,
+        selector=lambda activity: isinstance(activity, MessageDeleteActivity)
+        and activity.channel_data.event_type == "softDeleteMessage",
+        output_model=None,
     ),
     "messageReaction": ActivityConfig(
         name="messageReaction",
@@ -108,7 +119,6 @@ ACTIVITY_ROUTES: Dict[str, ActivityConfig] = {
         input_model=MessageReactionActivity,
         selector=lambda activity: isinstance(activity, MessageReactionActivity),
         output_model=None,
-        input_type_name="MessageReactionActivity",
     ),
     "messageUpdate": ActivityConfig(
         name="messageUpdate",
@@ -116,7 +126,22 @@ ACTIVITY_ROUTES: Dict[str, ActivityConfig] = {
         input_model=MessageUpdateActivity,
         selector=lambda activity: isinstance(activity, MessageUpdateActivity),
         output_model=None,
-        input_type_name="MessageUpdateActivity",
+    ),
+    "undeleteMessage": ActivityConfig(
+        name="undeleteMessage",
+        method_name="onUndeleteMessage",
+        input_model=MessageUpdateActivity,
+        selector=lambda activity: isinstance(activity, MessageUpdateActivity)
+        and activity.channel_data.event_type == "undeleteMessage",
+        output_model=None,
+    ),
+    "editMessage": ActivityConfig(
+        name="editMessage",
+        method_name="onEditMessage",
+        input_model=MessageUpdateActivity,
+        selector=lambda activity: isinstance(activity, MessageUpdateActivity)
+        and activity.channel_data.event_type == "editMessage",
+        output_model=None,
     ),
     # Command Activities
     "command": ActivityConfig(
@@ -125,7 +150,6 @@ ACTIVITY_ROUTES: Dict[str, ActivityConfig] = {
         input_model=CommandSendActivity,
         selector=lambda activity: isinstance(activity, CommandSendActivity),
         output_model=None,
-        input_type_name="CommandSendActivity",
     ),
     "commandResult": ActivityConfig(
         name="commandResult",
@@ -133,7 +157,6 @@ ACTIVITY_ROUTES: Dict[str, ActivityConfig] = {
         input_model=CommandResultActivity,
         selector=lambda activity: isinstance(activity, CommandResultActivity),
         output_model=None,
-        input_type_name="CommandResultActivity",
     ),
     # Conversation Activities
     "conversationUpdate": ActivityConfig(
@@ -142,7 +165,86 @@ ACTIVITY_ROUTES: Dict[str, ActivityConfig] = {
         input_model=ConversationUpdateActivity,
         selector=lambda activity: isinstance(activity, ConversationUpdateActivity),
         output_model=None,
-        input_type_name="ConversationUpdateActivity",
+    ),
+    "channelCreated": ActivityConfig(
+        name="channelCreated",
+        method_name="onChannelCreated",
+        input_model=ConversationUpdateActivity,
+        selector=lambda activity: isinstance(activity, ConversationUpdateActivity)
+        and activity.channel_data.event_type == "channelCreated",
+        output_model=None,
+    ),
+    "channelDeleted": ActivityConfig(
+        name="channelDeleted",
+        method_name="onChannelDeleted",
+        input_model=ConversationUpdateActivity,
+        selector=lambda activity: isinstance(activity, ConversationUpdateActivity)
+        and activity.channel_data.event_type == "channelDeleted",
+        output_model=None,
+    ),
+    "channelRenamed": ActivityConfig(
+        name="channelRenamed",
+        method_name="onChannelRenamed",
+        input_model=ConversationUpdateActivity,
+        selector=lambda activity: isinstance(activity, ConversationUpdateActivity)
+        and activity.channel_data.event_type == "channelRenamed",
+        output_model=None,
+    ),
+    "channelRestored": ActivityConfig(
+        name="channelRestored",
+        method_name="onChannelRestored",
+        input_model=ConversationUpdateActivity,
+        selector=lambda activity: isinstance(activity, ConversationUpdateActivity)
+        and activity.channel_data.event_type == "channelRestored",
+        output_model=None,
+    ),
+    "teamArchived": ActivityConfig(
+        name="teamArchived",
+        method_name="onTeamArchived",
+        input_model=ConversationUpdateActivity,
+        selector=lambda activity: isinstance(activity, ConversationUpdateActivity)
+        and activity.channel_data.event_type == "teamArchived",
+        output_model=None,
+    ),
+    "teamDeleted": ActivityConfig(
+        name="teamDeleted",
+        method_name="onTeamDeleted",
+        input_model=ConversationUpdateActivity,
+        selector=lambda activity: isinstance(activity, ConversationUpdateActivity)
+        and activity.channel_data.event_type == "teamDeleted",
+        output_model=None,
+    ),
+    "teamHardDeleted": ActivityConfig(
+        name="teamHardDeleted",
+        method_name="onTeamHardDeleted",
+        input_model=ConversationUpdateActivity,
+        selector=lambda activity: isinstance(activity, ConversationUpdateActivity)
+        and activity.channel_data.event_type == "teamHardDeleted",
+        output_model=None,
+    ),
+    "teamRenamed": ActivityConfig(
+        name="teamRenamed",
+        method_name="onTeamRenamed",
+        input_model=ConversationUpdateActivity,
+        selector=lambda activity: isinstance(activity, ConversationUpdateActivity)
+        and activity.channel_data.event_type == "teamRenamed",
+        output_model=None,
+    ),
+    "teamRestored": ActivityConfig(
+        name="teamRestored",
+        method_name="onTeamRestored",
+        input_model=ConversationUpdateActivity,
+        selector=lambda activity: isinstance(activity, ConversationUpdateActivity)
+        and activity.channel_data.event_type == "teamRestored",
+        output_model=None,
+    ),
+    "teamUnarchived": ActivityConfig(
+        name="teamUnarchived",
+        method_name="onTeamUnarchived",
+        input_model=ConversationUpdateActivity,
+        selector=lambda activity: isinstance(activity, ConversationUpdateActivity)
+        and activity.channel_data.event_type == "teamUnarchived",
+        output_model=None,
     ),
     "endOfConversation": ActivityConfig(
         name="endOfConversation",
@@ -150,7 +252,6 @@ ACTIVITY_ROUTES: Dict[str, ActivityConfig] = {
         input_model=EndOfConversationActivity,
         selector=lambda activity: isinstance(activity, EndOfConversationActivity),
         output_model=None,
-        input_type_name="EndOfConversationActivity",
     ),
     # Complex Union Activities (discriminated by sub-fields)
     "event": ActivityConfig(
@@ -161,6 +262,44 @@ ACTIVITY_ROUTES: Dict[str, ActivityConfig] = {
         output_model=None,
         input_type_name="EventActivity",
     ),
+    "readReceipt": ActivityConfig(
+        name="readReceipt",
+        method_name="onReadReceipt",
+        input_model=ReadReceiptEventActivity,
+        selector=lambda activity: activity.type == "event" and activity.name == "application/vnd.microsoft.readReceipt",
+        output_model=None,
+    ),
+    "meetingStart": ActivityConfig(
+        name="meetingStart",
+        method_name="onMeetingStart",
+        input_model=MeetingStartEventActivity,
+        selector=lambda activity: activity.type == "event"
+        and activity.name == "application/vnd.microsoft.meetingStart",
+        output_model=None,
+    ),
+    "meetingEnd": ActivityConfig(
+        name="meetingEnd",
+        method_name="onMeetingEnd",
+        input_model=MeetingEndEventActivity,
+        selector=lambda activity: activity.type == "event" and activity.name == "application/vnd.microsoft.meetingEnd",
+        output_model=None,
+    ),
+    "meetingParticipantJoin": ActivityConfig(
+        name="meetingParticipantJoin",
+        method_name="onMeetingParticipantJoin",
+        input_model=MeetingParticipantJoinEventActivity,
+        selector=lambda activity: activity.type == "event"
+        and activity.name == "application/vnd.microsoft.meetingParticipantJoin",
+        output_model=None,
+    ),
+    "meetingParticipantLeave": ActivityConfig(
+        name="meetingParticipantLeave",
+        method_name="onMeetingParticipantLeave",
+        input_model=MeetingParticipantLeaveEventActivity,
+        selector=lambda activity: activity.type == "event"
+        and activity.name == "application/vnd.microsoft.meetingParticipantLeave",
+        output_model=None,
+    ),
     # Invoke Activities with specific names and response types
     "config.open": ActivityConfig(
         name="config.open",
@@ -169,7 +308,6 @@ ACTIVITY_ROUTES: Dict[str, ActivityConfig] = {
         selector=lambda activity: isinstance(activity, ConfigFetchInvokeActivity),
         output_model=ConfigInvokeResponse,
         output_type_name="ConfigInvokeResponse",
-        input_type_name="ConfigFetchInvokeActivity",
     ),
     "config.submit": ActivityConfig(
         name="config.submit",
@@ -178,7 +316,6 @@ ACTIVITY_ROUTES: Dict[str, ActivityConfig] = {
         selector=lambda activity: isinstance(activity, ConfigSubmitInvokeActivity),
         output_model=ConfigInvokeResponse,
         output_type_name="ConfigInvokeResponse",
-        input_type_name="ConfigSubmitInvokeActivity",
     ),
     "file.consent": ActivityConfig(
         name="file.consent",
@@ -187,7 +324,6 @@ ACTIVITY_ROUTES: Dict[str, ActivityConfig] = {
         selector=lambda activity: activity.type == "invoke" and activity.name == "fileConsent/invoke",
         output_model=VoidInvokeResponse,
         output_type_name="VoidInvokeResponse",
-        input_type_name="FileConsentInvokeActivity",
     ),
     "message.execute": ActivityConfig(
         name="message.execute",
@@ -196,7 +332,6 @@ ACTIVITY_ROUTES: Dict[str, ActivityConfig] = {
         selector=lambda activity: activity.type == "invoke" and activity.name == "actionableMessage/executeAction",
         output_model=VoidInvokeResponse,
         output_type_name="VoidInvokeResponse",
-        input_type_name="ExecuteActionInvokeActivity",
     ),
     "message.ext.query-link": ActivityConfig(
         name="message.ext.query-link",
@@ -205,7 +340,6 @@ ACTIVITY_ROUTES: Dict[str, ActivityConfig] = {
         selector=lambda activity: activity.type == "invoke" and activity.name == "composeExtension/queryLink",
         output_model=MessagingExtensionInvokeResponse,
         output_type_name="MessagingExtensionInvokeResponse",
-        input_type_name="MessageExtensionQueryLinkInvokeActivity",
     ),
     "message.ext.anon-query-link": ActivityConfig(
         name="message.ext.anon-query-link",
@@ -214,7 +348,6 @@ ACTIVITY_ROUTES: Dict[str, ActivityConfig] = {
         selector=lambda activity: activity.type == "invoke" and activity.name == "composeExtension/anonymousQueryLink",
         output_model=MessagingExtensionInvokeResponse,
         output_type_name="MessagingExtensionInvokeResponse",
-        input_type_name="MessageExtensionAnonQueryLinkInvokeActivity",
     ),
     "message.ext.query": ActivityConfig(
         name="message.ext.query",
@@ -224,7 +357,6 @@ ACTIVITY_ROUTES: Dict[str, ActivityConfig] = {
         and activity.name == "composeExtension/query",
         output_model=MessagingExtensionInvokeResponse,
         output_type_name="MessagingExtensionInvokeResponse",
-        input_type_name="MessageExtensionQueryInvokeActivity",
     ),
     "message.ext.select-item": ActivityConfig(
         name="message.ext.select-item",
@@ -234,7 +366,6 @@ ACTIVITY_ROUTES: Dict[str, ActivityConfig] = {
         and activity.name == "composeExtension/selectItem",
         output_model=MessagingExtensionInvokeResponse,
         output_type_name="MessagingExtensionInvokeResponse",
-        input_type_name="MessageExtensionSelectItemInvokeActivity",
     ),
     "message.ext.submit": ActivityConfig(
         name="message.ext.submit",
@@ -244,7 +375,6 @@ ACTIVITY_ROUTES: Dict[str, ActivityConfig] = {
         and activity.name == "composeExtension/submitAction",
         output_model=MessagingExtensionActionInvokeResponse,
         output_type_name="MessagingExtensionActionInvokeResponse",
-        input_type_name="MessageExtensionSubmitActionInvokeActivity",
     ),
     "message.ext.open": ActivityConfig(
         name="message.ext.open",
@@ -254,7 +384,6 @@ ACTIVITY_ROUTES: Dict[str, ActivityConfig] = {
         and activity.name == "composeExtension/fetchTask",
         output_model=MessagingExtensionActionInvokeResponse,
         output_type_name="MessagingExtensionActionInvokeResponse",
-        input_type_name="MessageExtensionFetchTaskInvokeActivity",
     ),
     "message.ext.query-settings-url": ActivityConfig(
         name="message.ext.query-settings-url",
@@ -264,7 +393,6 @@ ACTIVITY_ROUTES: Dict[str, ActivityConfig] = {
         and activity.name == "composeExtension/querySettingUrl",
         output_model=MessagingExtensionInvokeResponse,
         output_type_name="MessagingExtensionInvokeResponse",
-        input_type_name="MessageExtensionQuerySettingUrlInvokeActivity",
     ),
     "message.ext.setting": ActivityConfig(
         name="message.ext.setting",
@@ -274,7 +402,6 @@ ACTIVITY_ROUTES: Dict[str, ActivityConfig] = {
         and activity.name == "composeExtension/setting",
         output_model=MessagingExtensionInvokeResponse,
         output_type_name="MessagingExtensionInvokeResponse",
-        input_type_name="MessageExtensionSettingInvokeActivity",
     ),
     "message.ext.card-button-clicked": ActivityConfig(
         name="message.ext.card-button-clicked",
@@ -283,7 +410,6 @@ ACTIVITY_ROUTES: Dict[str, ActivityConfig] = {
         selector=lambda activity: isinstance(activity, MessageExtensionCardButtonClickedInvokeActivity),
         output_model=VoidInvokeResponse,
         output_type_name="VoidInvokeResponse",
-        input_type_name="MessageExtensionCardButtonClickedInvokeActivity",
     ),
     "dialog.open": ActivityConfig(
         name="dialog.open",
@@ -292,7 +418,6 @@ ACTIVITY_ROUTES: Dict[str, ActivityConfig] = {
         selector=lambda activity: activity.type == "invoke" and activity.name == "task/fetch",
         output_model=TaskModuleInvokeResponse,
         output_type_name="TaskModuleInvokeResponse",
-        input_type_name="TaskFetchInvokeActivity",
     ),
     "dialog.submit": ActivityConfig(
         name="dialog.submit",
@@ -301,7 +426,6 @@ ACTIVITY_ROUTES: Dict[str, ActivityConfig] = {
         selector=lambda activity: activity.type == "invoke" and activity.name == "task/submit",
         output_model=TaskModuleInvokeResponse,
         output_type_name="TaskModuleInvokeResponse",
-        input_type_name="TaskSubmitInvokeActivity",
     ),
     "tab.open": ActivityConfig(
         name="tab.open",
@@ -310,7 +434,6 @@ ACTIVITY_ROUTES: Dict[str, ActivityConfig] = {
         selector=lambda activity: activity.type == "invoke" and activity.name == "tab/fetch",
         output_model=TabInvokeResponse,
         output_type_name="TabInvokeResponse",
-        input_type_name="TabFetchInvokeActivity",
     ),
     "tab.submit": ActivityConfig(
         name="tab.submit",
@@ -319,7 +442,6 @@ ACTIVITY_ROUTES: Dict[str, ActivityConfig] = {
         selector=lambda activity: activity.type == "invoke" and activity.name == "tab/submit",
         output_model=TabInvokeResponse,
         output_type_name="TabInvokeResponse",
-        input_type_name="TabSubmitInvokeActivity",
     ),
     "message.submit": ActivityConfig(
         name="message.submit",
@@ -337,7 +459,6 @@ ACTIVITY_ROUTES: Dict[str, ActivityConfig] = {
         selector=lambda activity: activity.type == "invoke" and activity.name == "handoff/action",
         output_model=VoidInvokeResponse,
         output_type_name="VoidInvokeResponse",
-        input_type_name="HandoffActionInvokeActivity",
     ),
     "signin.token-exchange": ActivityConfig(
         name="signin.token-exchange",
@@ -346,7 +467,6 @@ ACTIVITY_ROUTES: Dict[str, ActivityConfig] = {
         selector=lambda activity: activity.type == "invoke" and activity.name == "signin/tokenExchange",
         output_model=TokenExchangeInvokeResponseType,
         output_type_name="TokenExchangeInvokeResponseType",
-        input_type_name="SignInTokenExchangeInvokeActivity",
     ),
     "signin.verify-state": ActivityConfig(
         name="signin.verify-state",
@@ -355,7 +475,6 @@ ACTIVITY_ROUTES: Dict[str, ActivityConfig] = {
         selector=lambda activity: activity.type == "invoke" and activity.name == "signin/verifyState",
         output_model=VoidInvokeResponse,
         output_type_name="VoidInvokeResponse",
-        input_type_name="SignInVerifyStateInvokeActivity",
     ),
     "card.action": ActivityConfig(
         name="card.action",
@@ -390,7 +509,6 @@ ACTIVITY_ROUTES: Dict[str, ActivityConfig] = {
         input_model=TypingActivity,
         selector=lambda activity: isinstance(activity, TypingActivity),
         output_model=None,
-        input_type_name="TypingActivity",
     ),
     "trace": ActivityConfig(
         name="trace",
@@ -398,7 +516,6 @@ ACTIVITY_ROUTES: Dict[str, ActivityConfig] = {
         input_model=TraceActivity,
         selector=lambda activity: isinstance(activity, TraceActivity),
         output_model=None,
-        input_type_name="TraceActivity",
     ),
     "handoff": ActivityConfig(
         name="handoff",
@@ -406,7 +523,6 @@ ACTIVITY_ROUTES: Dict[str, ActivityConfig] = {
         input_model=HandoffActivity,
         selector=lambda activity: isinstance(activity, HandoffActivity),
         output_model=None,
-        input_type_name="HandoffActivity",
     ),
     # Generic Activity Handler (catch-all)
     "activity": ActivityConfig(
