@@ -9,7 +9,7 @@ import inspect
 from logging import Logger
 from typing import Callable, Type
 
-from ..context import Context
+from ..message_handler.activity_context import Context
 
 
 def validate_handler_type(

@@ -7,7 +7,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-sys.path.append("..")
+sys.path.append(str(Path(__file__).parent.parent))
 
 from src.microsoft.teams.app.message_handler.activity_config import ACTIVITY_ROUTES, ActivityConfig
 
@@ -17,15 +17,16 @@ def generate_imports() -> str:
     imports = {
         "from abc import ABC, abstractmethod",
         "from typing import Callable, Optional, Union",
-        "from ..context import Context",
+        "from ..message_handler.activity_context import Context",
         "from ..router import ActivityRouter",
         "from .type_validation import validate_handler_type",
+        "from .activity_config import ACTIVITY_ROUTES",
         "from microsoft.teams.api.activities import ActivityBase",
         "from logging import Logger",
     }
 
     # Add imports for each activity class
-    for config in ACTIVITY_ROUTES:
+    for config in ACTIVITY_ROUTES.values():
         class_name = config.input_model.__name__
         if class_name == "Annotated":
             class_name = config.type_name  # use explicit type_name if provided
@@ -34,7 +35,7 @@ def generate_imports() -> str:
     return "\n".join(sorted(imports))
 
 
-def generate_method(config: ActivityConfig) -> str:
+def generate_method(config: ActivityConfig, config_key: str) -> str:
     """Generate a single handler method with strict typing and runtime validation."""
     method_name = config.method_name
     activity_name = config.name
@@ -46,13 +47,14 @@ def generate_method(config: ActivityConfig) -> str:
     if config.output_model:
         output_type = f"Optional[{config.output_model.__name__}]"
     else:
-        output_type = "Optional[dict]"
+        output_type = "None"
 
     return f'''    def {method_name}(self, handler: Callable[[Context[{input_class_name}]], {output_type}]) -> Callable:
         """Register a {activity_name} activity handler."""
         def decorator(func: Callable[[Context[{input_class_name}]], {output_type}]) -> Callable:
             validate_handler_type(self.logger, func, {input_class_name}, "{method_name}", "{input_class_name}")
-            self.router.add_handler("{activity_name}", func)
+            config = ACTIVITY_ROUTES["{config_key}"]
+            self.router.add_handler(config.selector, func)
             return func
 
         if handler is not None:
@@ -64,8 +66,8 @@ def generate_mixin_class() -> str:
     """Generate the complete ActivityHandlerMixin class."""
     methods = []
 
-    for config in ACTIVITY_ROUTES:
-        methods.append(generate_method(config))
+    for config_key, config in ACTIVITY_ROUTES.items():
+        methods.append(generate_method(config, config_key))
 
     methods_code = "\n\n".join(methods)
 
@@ -126,7 +128,7 @@ def generate_activity_handlers():
 
     print(f"✅ Generated {len(ACTIVITY_ROUTES)} activity handlers in {output_path}")
     print("📝 Generated methods:")
-    for config in ACTIVITY_ROUTES:
+    for config in ACTIVITY_ROUTES.values():
         print(f"   - {config.method_name}() for {config.name} activities")
 
     # execute poe fmt on the generated file

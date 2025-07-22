@@ -7,7 +7,7 @@ import asyncio
 import os
 from dataclasses import dataclass
 from logging import Logger
-from typing import Any, Awaitable, Callable, Dict, List, Optional, TypeVar, Union, overload
+from typing import Any, Callable, Dict, List, Optional, TypeVar, Union, overload
 
 from microsoft.teams.api import Activity, ApiClient, ClientCredentials, Credentials, JsonWebToken, TokenProtocol
 from microsoft.teams.common.events import EventEmitter
@@ -15,7 +15,7 @@ from microsoft.teams.common.http import Client
 from microsoft.teams.common.logging import ConsoleLogger
 from microsoft.teams.common.storage import LocalStorage
 
-from .context import Context
+from .app_process import ActivityProcessorMixin
 from .events import (
     ActivityEvent,
     ErrorEvent,
@@ -26,15 +26,10 @@ from .events import (
     is_registered_event,
 )
 from .http_plugin import HttpPlugin
-from .message_handler import ActivityHandlerMixin
 from .options import AppOptions
 from .plugin import PluginProtocol
-from .router import ActivityRouter
 
 F = TypeVar("F", bound=Callable[..., Any])
-
-# Type alias for activity handlers
-ActivityHandler = Callable[[Context], Union[Awaitable[Optional[Dict[str, Any]]], Optional[Dict[str, Any]]]]
 
 
 @dataclass
@@ -45,7 +40,7 @@ class AppTokens:
     graph: Optional[TokenProtocol] = None
 
 
-class App(ActivityHandlerMixin):
+class App(ActivityProcessorMixin):
     """
     The main Teams application orchestrator.
 
@@ -61,17 +56,11 @@ class App(ActivityHandlerMixin):
         self.http_client = Client()
 
         self._events = EventEmitter()
-        self._router_instance = ActivityRouter()
 
         self._tokens = AppTokens()
         self.credentials = self._init_credentials()
 
         self.api = ApiClient("https://smba.trafficmanager.net/teams", self.http_client)
-
-        # TODO: Initialize graph client when available
-        # self.graph = GraphClient(self.http_client)
-
-        self.activity_handler = self.options.activity_handler
 
         plugins: List[PluginProtocol] = list(self.options.plugins or [])
 
@@ -116,14 +105,14 @@ class App(ActivityHandlerMixin):
         return self._tokens
 
     @property
-    def router(self) -> ActivityRouter:
-        """The activity router instance."""
-        return self._router_instance
-
-    @property
     def logger(self) -> Logger:
         """The logger instance used by the app."""
         return self.log
+
+    @property
+    def events(self) -> EventEmitter:
+        """The event emitter instance used by the app."""
+        return self._events
 
     @property
     def id(self) -> Optional[str]:
@@ -284,22 +273,7 @@ class App(ActivityHandlerMixin):
 
         try:
             self._events.emit("activity", ActivityEvent(activity))
-
-            # Create context for middleware chain
-            ctx = Context(activity, self)
-
-            # Get registered handlers for this activity type
-            handlers = self.router.get_handlers(activity_type)
-
-            response = None
-            # If no registered handlers, fall back to legacy activity_handler
-            if not handlers and self.activity_handler:
-                response = await self.activity_handler(activity)
-            elif handlers:
-                # Execute middleware chain
-                response = await self._execute_middleware_chain(ctx, handlers)
-
-            self.log.info(f"Completed processing activity {activity_id}")
+            response = await self.process_activity(activity)
             self.http.on_activity_response(activity_id, response)
 
             return {
@@ -319,42 +293,6 @@ class App(ActivityHandlerMixin):
                 ),
             )
             raise
-
-    async def _execute_middleware_chain(
-        self, ctx: Context, handlers: List[ActivityHandler]
-    ) -> Optional[Dict[str, Any]]:
-        """Execute the middleware chain for activity handlers."""
-        if not handlers:
-            return None
-
-        # Track response from handlers
-        response = None
-
-        # Create the middleware chain
-        async def create_next(index: int) -> Callable[[], Any]:
-            async def next_handler():
-                nonlocal response
-                if index < len(handlers) and response is None:
-                    # Set up next handler for current context
-                    if index + 1 < len(handlers):
-                        ctx.set_next(await create_next(index + 1))
-                    else:
-                        ctx.set_next(lambda: None)  # No-op for last handler
-
-                    # Execute current handler and capture return value
-                    result = await handlers[index](ctx)
-
-                    # If handler returned a response, stop the chain
-                    if result is not None:
-                        response = result if isinstance(result, dict) else {"data": result}
-
-            return next_handler
-
-        # Start the chain
-        first_handler = await create_next(0)
-        await first_handler()
-
-        return response
 
     @overload
     def event(self, func_or_event_type: F) -> F:
