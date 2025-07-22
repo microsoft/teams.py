@@ -48,11 +48,6 @@ Activity = Annotated[
 
 __all__ = [
     "Activity",
-<<<<<<< Updated upstream
-    "ActivityBase",
-=======
-    "ActivityTypeAdapter",
->>>>>>> Stashed changes
     "CommandSendActivity",
     "CommandResultActivity",
     "CommandSendValue",
