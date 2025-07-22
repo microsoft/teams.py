@@ -10,8 +10,8 @@ from dotenv import load_dotenv
 from microsoft.teams.api import InvokeActivity, MessageActivity
 from microsoft.teams.api.activities import EventActivity, MessageDeleteActivity, TypingActivity
 from microsoft.teams.app import App
-from microsoft.teams.app.context import Ctx
 from microsoft.teams.app.events import ActivityEvent, ErrorEvent, StartEvent, StopEvent
+from microsoft.teams.app.message_handler.activity_context import Context
 
 load_dotenv()
 
@@ -37,13 +37,14 @@ async def main() -> None:
     app = App()
 
     @app.onMessage
-    async def handle_message(ctx: Ctx[MessageActivity]):
+    async def handle_message(ctx: Context[MessageActivity]):
         """Handle message activities using the new generated handler system."""
         print(f"[GENERATED] Message received: {ctx.activity.text}")
         print(f"[GENERATED] From: {ctx.activity.from_}")
 
         await ctx.next()
 
+    @app.onMessageExtSubmit
     @app.onActivity
     async def handle_activity(event):
         """Handle all activities using the new generated handler system."""
@@ -51,23 +52,23 @@ async def main() -> None:
         print(f"[GENERATED] Activity received: {activity.type} (ID: {activity.id})")
 
     @app.onInvoke
-    async def handle_invoke(ctx: Ctx[InvokeActivity]):
+    async def handle_invoke(ctx: Context[InvokeActivity]):
         """Handle invoke activities using the new generated handler system."""
         print(f"[GENERATED] Invoke received: {ctx.activity.name}")
 
     @app.onMessageDelete
-    async def handle_message_delete(ctx: Ctx[MessageDeleteActivity]):
+    async def handle_message_delete(ctx: Context[MessageDeleteActivity]):
         """Handle message deletion activities."""
         print(f"[GENERATED] Message deleted: {ctx.activity.id}")
 
     @app.onTyping
-    async def handle_typing(ctx: Ctx[TypingActivity]):
+    async def handle_typing(ctx: Context[TypingActivity]):
         """Handle typing indicator activities."""
         print(f"[GENERATED] User is typing: {ctx.activity.from_}")
         return None  # Typing activities typically don't need responses
 
     @app.onEvent
-    async def handle_event_activity(ctx: Ctx[EventActivity]):
+    async def handle_event_activity(ctx: Context[EventActivity]):
         """Handle event activities (meetings, etc.)."""
         print(f"[GENERATED] Event received: {ctx.activity.name}")
         return {"status": "processed"}
