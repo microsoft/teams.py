@@ -5,11 +5,10 @@ Licensed under the MIT License.
 
 from typing import List, Literal, Optional, Self
 
-from ...models import MessageReaction
-from ..activity import Activity
+from ...models import ActivityBase, MessageReaction
 
 
-class MessageReactionActivity(Activity):
+class MessageReactionActivity(ActivityBase):
     """Represents a message reaction activity in Microsoft Teams."""
 
     type: Literal["messageReaction"] = "messageReaction"

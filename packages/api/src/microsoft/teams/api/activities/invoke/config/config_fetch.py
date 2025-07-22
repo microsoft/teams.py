@@ -5,11 +5,10 @@ Licensed under the MIT License.
 
 from typing import Any, Literal, Optional
 
-from ....models import ConversationReference, CustomBaseModel
-from ...activity import Activity
+from ....models import ActivityBase, ConversationReference, CustomBaseModel
 
 
-class ConfigFetchInvokeActivity(Activity, CustomBaseModel):
+class ConfigFetchInvokeActivity(ActivityBase, CustomBaseModel):
     """
     Represents the config fetch invoke activity.
     """

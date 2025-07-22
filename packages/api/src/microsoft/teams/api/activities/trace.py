@@ -6,11 +6,10 @@ Licensed under the MIT License.
 from abc import ABC
 from typing import Any, Literal, Optional
 
-from ..models import ConversationReference, CustomBaseModel
-from .activity import Activity
+from ..models import ActivityBase, ConversationReference, CustomBaseModel
 
 
-class TraceActivity(Activity, CustomBaseModel, ABC):
+class TraceActivity(ActivityBase, CustomBaseModel, ABC):
     type: Literal["trace"] = "trace"
 
     name: Optional[str] = None

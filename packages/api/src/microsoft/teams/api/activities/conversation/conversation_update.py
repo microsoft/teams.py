@@ -5,8 +5,7 @@ Licensed under the MIT License.
 
 from typing import List, Literal, Optional
 
-from ...models import Account, ChannelData, CustomBaseModel
-from ..activity import Activity
+from ...models import Account, ActivityBase, ChannelData, CustomBaseModel
 
 ConversationEventType = Literal[
     "channelCreated",
@@ -29,7 +28,7 @@ class ConversationChannelData(ChannelData, CustomBaseModel):
     """The type of event that occurred."""
 
 
-class ConversationUpdateActivity(Activity, CustomBaseModel):
+class ConversationUpdateActivity(ActivityBase, CustomBaseModel):
     """Activity for conversation updates."""
 
     type: Literal["conversationUpdate"] = "conversationUpdate"

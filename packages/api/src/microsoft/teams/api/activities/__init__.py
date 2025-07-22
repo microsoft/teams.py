@@ -7,7 +7,6 @@ from typing import Annotated, Union
 
 from pydantic import Field
 
-from .activity import Activity as ActivityBase
 from .command import CommandActivity, CommandResultActivity, CommandResultValue, CommandSendActivity, CommandSendValue
 from .conversation import (
     ConversationActivity,
@@ -49,7 +48,11 @@ Activity = Annotated[
 
 __all__ = [
     "Activity",
+<<<<<<< Updated upstream
     "ActivityBase",
+=======
+    "ActivityTypeAdapter",
+>>>>>>> Stashed changes
     "CommandSendActivity",
     "CommandResultActivity",
     "CommandSendValue",

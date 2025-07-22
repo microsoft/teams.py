@@ -5,15 +5,14 @@ Licensed under the MIT License.
 
 from typing import Literal, Optional
 
-from ...models import CustomBaseModel
-from ..activity import Activity
+from ...models import ActivityBase, CustomBaseModel
 
 EndOfConversationCode = Literal[
     "unknown", "completedSuccessfully", "userCancelled", "botTimedOut", "botIssuedInvalidMessage", "channelFailed"
 ]
 
 
-class EndOfConversationActivity(Activity, CustomBaseModel):
+class EndOfConversationActivity(ActivityBase, CustomBaseModel):
     """Activity for end of conversation events."""
 
     type: Literal["endOfConversation"] = "endOfConversation"

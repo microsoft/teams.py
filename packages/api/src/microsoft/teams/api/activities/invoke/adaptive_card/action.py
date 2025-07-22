@@ -5,11 +5,10 @@ Licensed under the MIT License.
 
 from typing import Literal
 
-from ....models import AdaptiveCardInvokeValue, CustomBaseModel
-from ...activity import Activity
+from ....models import ActivityBase, AdaptiveCardInvokeValue, CustomBaseModel
 
 
-class AdaptiveCardActionInvokeActivity(Activity, CustomBaseModel):
+class AdaptiveCardActionInvokeActivity(ActivityBase, CustomBaseModel):
     """
     Represents an activity that is sent when an adaptive card action is invoked.
     """

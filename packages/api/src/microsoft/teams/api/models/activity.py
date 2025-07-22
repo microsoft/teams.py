@@ -6,26 +6,26 @@ Licensed under the MIT License.
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Self
 
-from ..models import (
-    Account,
-    AIMessageEntity,
+from microsoft.teams.api.models.account import Account, ConversationAccount
+from microsoft.teams.api.models.channel_data.channel_data import ChannelData
+from microsoft.teams.api.models.channel_data.channel_info import ChannelInfo
+from microsoft.teams.api.models.channel_data.notification_info import NotificationInfo
+from microsoft.teams.api.models.channel_data.team_info import TeamInfo
+from microsoft.teams.api.models.channel_id import ChannelID
+from microsoft.teams.api.models.conversation.conversation_reference import ConversationReference
+from microsoft.teams.api.models.entity.ai_message_entity import AIMessageEntity
+from microsoft.teams.api.models.entity.citation_entity import (
     Appearance,
-    ChannelData,
-    ChannelID,
-    ChannelInfo,
     CitationAppearance,
     CitationEntity,
     Claim,
-    ConversationAccount,
-    ConversationReference,
-    CustomBaseModel,
-    Entity,
     Image,
-    MeetingInfo,
-    MessageEntity,
-    NotificationInfo,
-    TeamInfo,
 )
+from microsoft.teams.api.models.entity.entity import Entity
+from microsoft.teams.api.models.entity.message_entity import MessageEntity
+from microsoft.teams.api.models.meetings.meeting_info import MeetingInfo
+
+from .custom_base_model import CustomBaseModel
 
 
 class Activity(CustomBaseModel):

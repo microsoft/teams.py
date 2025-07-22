@@ -5,8 +5,7 @@ Licensed under the MIT License.
 
 from typing import Any, Literal, Optional
 
-from ...models import CustomBaseModel
-from ..activity import Activity
+from ...models import ActivityBase, CustomBaseModel
 
 
 class CommandSendValue(CustomBaseModel):
@@ -25,7 +24,7 @@ class CommandSendValue(CustomBaseModel):
     """
 
 
-class CommandSendActivity(Activity, CustomBaseModel):
+class CommandSendActivity(ActivityBase, CustomBaseModel):
     """Send command activity."""
 
     type: Literal["command"] = "command"

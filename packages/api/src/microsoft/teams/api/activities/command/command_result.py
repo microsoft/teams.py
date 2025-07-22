@@ -5,8 +5,7 @@ Licensed under the MIT License.
 
 from typing import Any, Literal, Optional
 
-from ...models import CustomBaseModel
-from ..activity import Activity
+from ...models import ActivityBase, CustomBaseModel
 
 
 class CommandResultValue(CustomBaseModel):
@@ -29,7 +28,7 @@ class CommandResultValue(CustomBaseModel):
     """The optional error, if the command result indicates a failure."""
 
 
-class CommandResultActivity(Activity, CustomBaseModel):
+class CommandResultActivity(ActivityBase, CustomBaseModel):
     """Asynchronous external command result."""
 
     type: Literal["commandResult"] = "commandResult"

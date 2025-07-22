@@ -5,11 +5,10 @@ Licensed under the MIT License.
 
 from typing import Any, Literal, Optional
 
-from ....models import ConversationReference, CustomBaseModel
-from ...activity import Activity
+from ....models import ActivityBase, ConversationReference, CustomBaseModel
 
 
-class ConfigSubmitInvokeActivity(Activity, CustomBaseModel):
+class ConfigSubmitInvokeActivity(ActivityBase, CustomBaseModel):
     """
     Represents the config submit invoke activity.
     """

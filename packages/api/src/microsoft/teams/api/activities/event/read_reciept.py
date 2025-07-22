@@ -6,11 +6,10 @@ Licensed under the MIT License.
 from abc import ABC
 from typing import Literal
 
-from ...models import CustomBaseModel
-from ..activity import Activity
+from ...models import ActivityBase, CustomBaseModel
 
 
-class ReadReceiptEventActivity(Activity, CustomBaseModel, ABC):
+class ReadReceiptEventActivity(ActivityBase, CustomBaseModel, ABC):
     """
     Represents a read receipt event activity in Microsoft Teams.
     """
