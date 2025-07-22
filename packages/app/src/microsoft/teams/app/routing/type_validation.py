@@ -9,7 +9,7 @@ import inspect
 from logging import Logger
 from typing import Callable, Type
 
-from ..message_handler.activity_context import Context
+from .activity_context import ActivityContext
 
 
 def validate_handler_type(
@@ -37,7 +37,7 @@ def validate_handler_type(
 
             # Check if it's Context[SomeActivity]
             if hasattr(param_type, "__origin__") and hasattr(param_type, "__args__"):
-                if param_type.__origin__ is Context and param_type.__args__:
+                if param_type.__origin__ is ActivityContext and param_type.__args__:
                     actual_activity_type = param_type.__args__[0]
 
                     if actual_activity_type != expected_activity_type:
