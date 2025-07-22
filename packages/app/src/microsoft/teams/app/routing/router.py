@@ -5,7 +5,7 @@ Licensed under the MIT License.
 
 from typing import Any, Awaitable, Callable, Dict, List, Optional, Union
 
-from microsoft.teams.api.activities import ActivityBase
+from microsoft.teams.api.models import ActivityBase
 
 from .activity_context import ActivityContext
 from .activity_route_configs import RouteSelector
