@@ -3,6 +3,7 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
+import importlib.util
 import subprocess
 import sys
 from pathlib import Path
@@ -14,12 +15,11 @@ sys.path.insert(0, str(app_dir / "src"))
 sys.path.insert(0, str(api_dir))
 
 # Import the activity config directly without going through the package hierarchy
-activity_config_path = app_dir / "src" / "microsoft" / "teams" / "app" / "message_handler" / "activity_config.py"
+activity_config_path = app_dir / "src" / "microsoft" / "teams" / "app" / "routing" / "activity_route_configs.py"
 
-# Load the activity config module directly
-import importlib.util
-
-spec = importlib.util.spec_from_file_location("activity_config", activity_config_path)
+# Load the activity config module directly because we don't want to have a dependency on the package
+# as it will lead to a circular dependency
+spec = importlib.util.spec_from_file_location("activity_route_config", activity_config_path)
 activity_config = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(activity_config)
 
@@ -32,10 +32,10 @@ def generate_imports() -> str:
     imports = {
         "from abc import ABC, abstractmethod",
         "from typing import Callable, Optional, Union",
-        "from .activity_context import Context",
-        "from ..router import ActivityRouter",
+        "from .activity_context import ActivityContext",
+        "from .router import ActivityRouter",
         "from .type_validation import validate_handler_type",
-        "from .activity_config import ACTIVITY_ROUTES",
+        "from .activity_route_configs import ACTIVITY_ROUTES",
         "from microsoft.teams.api import ActivityBase",
         "from logging import Logger",
     }
@@ -69,9 +69,9 @@ def generate_method(config: ActivityConfig, config_key: str) -> str:
     else:
         output_type = "None"
 
-    return f'''    def {method_name}(self, handler: Callable[[Context[{input_class_name}]], {output_type}]) -> Callable:
+    return f'''    def {method_name}(self, handler: Callable[[ActivityContext[{input_class_name}]], {output_type}]) -> Callable:
         """Register a {activity_name} activity handler."""
-        def decorator(func: Callable[[Context[{input_class_name}]], {output_type}]) -> Callable:
+        def decorator(func: Callable[[ActivityContext[{input_class_name}]], {output_type}]) -> Callable:
             validate_handler_type(self.logger, func, {input_class_name}, "{method_name}", "{input_class_name}")
             config = ACTIVITY_ROUTES["{config_key}"]
             self.router.add_handler(config.selector, func)
@@ -79,7 +79,7 @@ def generate_method(config: ActivityConfig, config_key: str) -> str:
 
         if handler is not None:
             return decorator(handler)
-        return decorator'''
+        return decorator'''  # noqa: E501, W291, W293, W391
 
 
 def generate_mixin_class() -> str:
@@ -139,7 +139,7 @@ def generate_activity_handlers():
     # Write to the message_handler directory in the source code
     # Use Path(__file__) to find this script's location, then navigate to the target
     script_dir = Path(__file__).parent
-    source_dir = script_dir.parent / "src" / "microsoft" / "teams" / "app" / "message_handler"
+    source_dir = script_dir.parent / "src" / "microsoft" / "teams" / "app" / "routing"
     output_path = source_dir / "generated_handlers.py"
 
     # Ensure the target directory exists

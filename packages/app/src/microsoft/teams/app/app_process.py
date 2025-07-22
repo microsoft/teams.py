@@ -11,12 +11,12 @@ from microsoft.teams.api import Activity
 from microsoft.teams.common.events import EventEmitter
 
 from .events import ErrorEvent
-from .message_handler import ActivityHandlerMixin
-from .message_handler.activity_context import Context
-from .router import ActivityRouter
+from .routing.activity_context import ActivityContext
+from .routing.generated_handlers import ActivityHandlerMixin
+from .routing.router import ActivityRouter
 
 # Type alias for activity handlers
-ActivityHandler = Callable[[Context], Awaitable[Optional[Dict[str, Any]]]]
+ActivityHandler = Callable[[ActivityContext], Awaitable[Optional[Dict[str, Any]]]]
 
 
 class ActivityProcessorMixin(ActivityHandlerMixin, ABC):
@@ -69,7 +69,7 @@ class ActivityProcessorMixin(ActivityHandlerMixin, ABC):
             )
             raise
 
-    def _build_context(self, activity: Activity) -> Context:
+    def _build_context(self, activity: Activity) -> ActivityContext:
         """Build the context object for activity processing.
 
         Args:
@@ -79,9 +79,11 @@ class ActivityProcessorMixin(ActivityHandlerMixin, ABC):
             Context object for middleware chain execution
         """
 
-        return Context(activity)
+        return ActivityContext(activity)
 
-    async def execute_middleware_chain(self, ctx: Context, handlers: List[ActivityHandler]) -> Optional[Dict[str, Any]]:
+    async def execute_middleware_chain(
+        self, ctx: ActivityContext, handlers: List[ActivityHandler]
+    ) -> Optional[Dict[str, Any]]:
         """Execute the middleware chain for activity handlers.
 
         Args:

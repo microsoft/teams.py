@@ -11,7 +11,7 @@ from microsoft.teams.api import Activity, InvokeActivity, MessageActivity, Messa
 from microsoft.teams.api.activities import EventActivity, MessageDeleteActivity, TypingActivity
 from microsoft.teams.app import App
 from microsoft.teams.app.events import ActivityEvent, ErrorEvent, StartEvent, StopEvent
-from microsoft.teams.app.message_handler.activity_context import Context
+from microsoft.teams.app.routing.activity_context import ActivityContext
 
 load_dotenv()
 
@@ -37,7 +37,7 @@ async def main() -> None:
     app = App()
 
     @app.onMessage
-    async def handle_message(ctx: Context[MessageActivity]):
+    async def handle_message(ctx: ActivityContext[MessageActivity]):
         """Handle message activities using the new generated handler system."""
         print(f"[GENERATED onMessage] Message received: {ctx.activity.text}")
         print(f"[GENERATED onMessage] From: {ctx.activity.from_}")
@@ -51,43 +51,43 @@ async def main() -> None:
         print(f"[GENERATED event('activity')] Activity event: {activity.type} (ID: {activity.id})")
 
     @app.onInvoke
-    async def handle_invoke(ctx: Context[InvokeActivity]):
+    async def handle_invoke(ctx: ActivityContext[InvokeActivity]):
         """Handle invoke activities using the new generated handler system."""
         print(f"[GENERATED invoke handler] Invoke received: {ctx.activity.name}")
 
     @app.onActivity
-    async def handle_activity(ctx: Context[Activity]):
+    async def handle_activity(ctx: ActivityContext[Activity]):
         """Handle event activities using the new generated handler system."""
         print(f"[GENERATED onActivity] Event activity received: {ctx.activity.type}")
         await ctx.next()
 
     @app.onMessageExtSubmit
-    async def handle_message_ext_submit(ctx: Context[MessageExtensionSubmitActionInvokeActivity]):
+    async def handle_message_ext_submit(ctx: ActivityContext[MessageExtensionSubmitActionInvokeActivity]):
         """Handle message extension submit activities."""
         print(f"[GENERATED] Message extension submit received: {ctx.activity.text}")
         return {"status": "success"}
 
     @app.onMessageDelete
-    async def handle_message_delete(ctx: Context[MessageDeleteActivity]):
+    async def handle_message_delete(ctx: ActivityContext[MessageDeleteActivity]):
         """Handle message deletion activities."""
         print(f"[GENERATED] Message deleted: {ctx.activity.id}")
 
     @app.onTyping
-    async def handle_typing(ctx: Context[TypingActivity]):
+    async def handle_typing(ctx: ActivityContext[TypingActivity]):
         """Handle typing indicator activities."""
         print(f"[GENERATED] User is typing: {ctx.activity.from_}")
         return None  # Typing activities typically don't need responses
 
     @app.onEvent
-    async def handle_event_activity(ctx: Context[EventActivity]):
+    async def handle_event_activity(ctx: ActivityContext[EventActivity]):
         """Handle event activities (meetings, etc.)."""
         print(f"[GENERATED] Event received: {ctx.activity.name}")
         return {"status": "processed"}
 
     @app.event
-    async def handle_activity_event(event: ActivityEvent):
+    async def handle_activity_event_without_explicit_annotation(event: ActivityEvent):
         activity = event.activity
-        print(f"[EVENT] Activity received: {activity.type} (ID: {activity.id})")
+        print(f"[EVENT (no annotation)] Activity received: {activity.type} (ID: {activity.id})")
 
     @app.event
     async def handle_error(event: ErrorEvent):
