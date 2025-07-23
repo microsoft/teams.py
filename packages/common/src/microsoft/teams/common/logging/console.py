@@ -45,10 +45,12 @@ class ConsoleLogger:
         handler.setFormatter(ConsoleFormatter())
         logger.addHandler(handler)
 
-        level = (os.environ.get("LOG_LEVEL") or (options and options.get("level")) or "info").lower()
+        options_level = options.get("level", "info") if options else "info"
+        level = (os.environ.get("LOG_LEVEL") or options_level).lower()
         logger.setLevel(self._levels.get(level, logging.INFO))
 
-        pattern = os.environ.get("LOG") or (options and options.get("pattern")) or "*"
+        options_pattern = options.get("pattern", "*") if options else "*"
+        pattern = os.environ.get("LOG") or options_pattern
         logger.addFilter(ConsoleFilter(pattern))
 
         return logger

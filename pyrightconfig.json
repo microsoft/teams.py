@@ -1,0 +1,17 @@
+{
+  "include": [
+    "packages/api/src",
+    "packages/common/src", 
+    "packages/cards/src",
+    "packages/app/src"
+  ],
+  "extraPaths": [
+    "packages/api/src",
+    "packages/common/src",
+    "packages/cards/src",
+    "packages/app/src",
+  ],
+  "typeCheckingMode": "strict",
+  "reportIncompatibleVariableOverride": "none",
+  "reportIncompatibleMethodOverride": "none",
+}

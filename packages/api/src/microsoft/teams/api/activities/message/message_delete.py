@@ -20,5 +20,5 @@ class MessageDeleteActivity(ActivityBase):
 
     type: Literal["messageDelete"] = "messageDelete"
 
-    channel_data: MessageDeleteChannelData
+    channel_data: MessageDeleteChannelData  # pyright: ignore [reportGeneralTypeIssues]
     """Channel-specific data for message delete events."""

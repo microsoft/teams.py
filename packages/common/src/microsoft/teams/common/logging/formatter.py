@@ -30,7 +30,7 @@ class ConsoleFormatter(logging.Formatter):
             str: The formatted log message.
         """
         if isinstance(record.msg, (dict, list)):
-            record.msg = json.dumps(record.msg, indent=2)
+            record.msg = json.dumps(record.msg, indent=2)  # pyright: ignore[reportUnknownMemberType]
 
         level_name = record.levelname.upper()
         color = self._colors.get(level_name, ANSI.FOREGROUND_CYAN)

@@ -14,7 +14,7 @@ MessageEventType = Literal["undeleteMessage", "editMessage"]
 class MessageUpdateChannelData(ChannelData):
     """Channel data specific to message update activities."""
 
-    event_type: MessageEventType
+    event_type: MessageEventType  # pyright: ignore [reportGeneralTypeIssues]
     """The type of event for message update."""
 
 
@@ -41,7 +41,7 @@ class MessageUpdateActivity(ActivityBase):
     value: Optional[Any] = None
     """A value that is associated with the activity."""
 
-    channel_data: MessageUpdateChannelData
+    channel_data: MessageUpdateChannelData  # pyright: ignore [reportGeneralTypeIssues]
     """Channel-specific data for message update events."""
 
     def with_text(self, text: str) -> Self:

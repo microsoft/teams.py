@@ -75,7 +75,7 @@ class ConversationActivityClient(BaseClient):
             f"{self.service_url}/v3/conversations/{conversation_id}/activities",
             json=activity.model_dump(by_alias=True),
         )
-        return ActivityParams(value={**response.json()})
+        return ActivityParams(value={**response.json()})  # pyright: ignore [reportCallIssue]
 
     async def update(self, conversation_id: str, activity_id: str, activity: ActivityParams) -> ActivityParams:
         """
@@ -93,7 +93,7 @@ class ConversationActivityClient(BaseClient):
             f"{self.service_url}/v3/conversations/{conversation_id}/activities/{activity_id}",
             json=activity.model_dump(by_alias=True),
         )
-        return ActivityParams(value={**response.json()})
+        return ActivityParams(value={**response.json()})  # pyright: ignore [reportCallIssue]
 
     async def reply(self, conversation_id: str, activity_id: str, activity: ActivityParams) -> ActivityParams:
         """
@@ -113,7 +113,7 @@ class ConversationActivityClient(BaseClient):
             f"{self.service_url}/v3/conversations/{conversation_id}/activities/{activity_id}",
             json=activity_json,
         )
-        return ActivityParams(value={**response.json()})
+        return ActivityParams(value={**response.json()})  # pyright: ignore [reportCallIssue]
 
     async def delete(self, conversation_id: str, activity_id: str) -> None:
         """

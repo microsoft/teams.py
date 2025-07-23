@@ -28,4 +28,4 @@ class AppOptions:
     # Infrastructure
     logger: Optional[Logger] = None
     storage: Optional[Storage[str, Any]] = None
-    plugins: List[PluginProtocol] = field(default_factory=list)
+    plugins: List[PluginProtocol] = field(default_factory=List[PluginProtocol])

@@ -24,7 +24,7 @@ ConversationEventType = Literal[
 class ConversationChannelData(ChannelData, CustomBaseModel):
     """Extended ChannelData with event type."""
 
-    event_type: ConversationEventType
+    event_type: ConversationEventType  # pyright: ignore [reportGeneralTypeIssues]
     """The type of event that occurred."""
 
 
@@ -45,5 +45,5 @@ class ConversationUpdateActivity(ActivityBase, CustomBaseModel):
     history_disclosed: Optional[bool] = None
     """Indicates whether the prior history of the channel is disclosed."""
 
-    channel_data: ConversationChannelData
+    channel_data: ConversationChannelData  # pyright: ignore [reportGeneralTypeIssues]
     """Channel data with event type information."""
