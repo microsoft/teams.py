@@ -11,7 +11,7 @@ from .activity_context import ActivityContext
 from .activity_route_configs import RouteSelector
 
 # Type alias for activity handlers
-ActivityHandler = Callable[[ActivityContext], Union[Awaitable[Optional[Dict[str, Any]]], Optional[Dict[str, Any]]]]
+ActivityHandler = Callable[[ActivityContext], Union[Awaitable[Optional[Any]], Optional[Dict[str, Any]]]]
 
 
 class ActivityRouter:

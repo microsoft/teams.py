@@ -36,7 +36,7 @@ async def main() -> None:
 
     app = App()
 
-    @app.onMessage
+    @app.on_message
     async def handle_message(ctx: ActivityContext[MessageActivity]):
         """Handle message activities using the new generated handler system."""
         print(f"[GENERATED onMessage] Message received: {ctx.activity.text}")
@@ -50,35 +50,35 @@ async def main() -> None:
         activity = event.activity
         print(f"[GENERATED event('activity')] Activity event: {activity.type} (ID: {activity.id})")
 
-    @app.onInvoke
+    @app.on_invoke
     async def handle_invoke(ctx: ActivityContext[InvokeActivity]):
         """Handle invoke activities using the new generated handler system."""
         print(f"[GENERATED invoke handler] Invoke received: {ctx.activity.name}")
 
-    @app.onActivity
+    @app.on_activity
     async def handle_activity(ctx: ActivityContext[Activity]):
         """Handle event activities using the new generated handler system."""
         print(f"[GENERATED onActivity] Event activity received: {ctx.activity.type}")
         await ctx.next()
 
-    @app.onMessageExtSubmit
+    @app.on_message_ext_submit
     async def handle_message_ext_submit(ctx: ActivityContext[MessageExtensionSubmitActionInvokeActivity]):
         """Handle message extension submit activities."""
         print(f"[GENERATED] Message extension submit received: {ctx.activity.text}")
         return {"status": "success"}
 
-    @app.onMessageDelete
+    @app.on_message_delete
     async def handle_message_delete(ctx: ActivityContext[MessageDeleteActivity]):
         """Handle message deletion activities."""
         print(f"[GENERATED] Message deleted: {ctx.activity.id}")
 
-    @app.onTyping
+    @app.on_typing
     async def handle_typing(ctx: ActivityContext[TypingActivity]):
         """Handle typing indicator activities."""
         print(f"[GENERATED] User is typing: {ctx.activity.from_}")
         return None  # Typing activities typically don't need responses
 
-    @app.onEvent
+    @app.on_event
     async def handle_event_activity(ctx: ActivityContext[EventActivity]):
         """Handle event activities (meetings, etc.)."""
         print(f"[GENERATED] Event received: {ctx.activity.name}")

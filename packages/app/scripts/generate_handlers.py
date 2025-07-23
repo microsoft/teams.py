@@ -31,7 +31,7 @@ def generate_imports() -> str:
     """Generate import statements for the generated file."""
     imports = {
         "from abc import ABC, abstractmethod",
-        "from typing import Callable, Optional, Union, Awaitable",
+        "from typing import Callable, Optional, Union, Awaitable, overload",
         "from .activity_context import ActivityContext",
         "from .router import ActivityRouter",
         "from .type_validation import validate_handler_type",
@@ -69,9 +69,17 @@ def generate_method(config: ActivityConfig, config_key: str) -> str:
     else:
         output_type = "Awaitable[None]"
 
-    return f'''    def {method_name}(self, handler: Callable[[ActivityContext[{input_class_name}]], {output_type}]) -> Callable:
+    returnTypeStr = f"Callable[[ActivityContext[{input_class_name}]], {output_type}]"
+
+    return f'''    @overload
+    def {method_name}(self, handler: {returnTypeStr}) -> {returnTypeStr}: ...
+        
+    @overload
+    def {method_name}(self, handler: None = ...) -> {returnTypeStr}: ...
+        
+    def {method_name}(self, handler: Optional[{returnTypeStr}] = None) -> Callable[[{returnTypeStr}], {returnTypeStr}] | {returnTypeStr}:
         """Register a {activity_name} activity handler."""
-        def decorator(func: Callable[[ActivityContext[{input_class_name}]], {output_type}]) -> Callable:
+        def decorator(func: {returnTypeStr}) -> {returnTypeStr}:
             validate_handler_type(self.logger, func, {input_class_name}, "{method_name}", "{input_class_name}")
             config = ACTIVITY_ROUTES["{config_key}"]
             self.router.add_handler(config.selector, func)
