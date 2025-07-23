@@ -8,7 +8,7 @@ from typing import Literal
 from ....models import ActivityBase, AdaptiveCardInvokeValue, CustomBaseModel
 
 
-class AdaptiveCardActionInvokeActivity(ActivityBase, CustomBaseModel):
+class AdaptiveCardInvokeActivity(ActivityBase, CustomBaseModel):
     """
     Represents an activity that is sent when an adaptive card action is invoked.
     """

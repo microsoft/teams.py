@@ -5,23 +5,26 @@ Licensed under the MIT License.
 
 import importlib.util
 import subprocess
-import sys
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-# Add paths for dependencies
-app_dir = Path(__file__).parent.parent
-api_dir = app_dir.parent / "api" / "src"
-sys.path.insert(0, str(app_dir / "src"))
-sys.path.insert(0, str(api_dir))
+if TYPE_CHECKING:
+    import microsoft.teams.app.routing.activity_route_configs as activity_config
 
 # Import the activity config directly without going through the package hierarchy
-activity_config_path = app_dir / "src" / "microsoft" / "teams" / "app" / "routing" / "activity_route_configs.py"
+activity_config_path = (
+    Path(__file__).parent.parent / "src" / "microsoft" / "teams" / "app" / "routing" / "activity_route_configs.py"
+)
 
 # Load the activity config module directly because we don't want to have a dependency on the package
 # as it will lead to a circular dependency
-spec = importlib.util.spec_from_file_location("activity_route_config", activity_config_path)
-activity_config = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(activity_config)
+# https://stackoverflow.com/questions/67631/how-can-i-import-a-module-dynamically-given-the-full-path
+if not TYPE_CHECKING:
+    spec = importlib.util.spec_from_file_location("activity_route_config", activity_config_path)
+    assert spec is not None, f"Could not find activity_route_configs.py at {activity_config_path}"
+    activity_config = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None, f"Could not load activity_route_configs.py at {activity_config_path}"
+    spec.loader.exec_module(activity_config)
 
 ACTIVITY_ROUTES = activity_config.ACTIVITY_ROUTES
 ActivityConfig = activity_config.ActivityConfig
@@ -44,7 +47,10 @@ def generate_imports() -> str:
     for config in ACTIVITY_ROUTES.values():
         # Use explicit input_type_name if provided, otherwise fall back to __name__
         class_name = config.input_type_name or config.input_model.__name__
-        imports.add(f"from microsoft.teams.api.activities import {class_name}")
+        if class_name == "ActivityBase":
+            imports.add(f"from microsoft.teams.api.models import {class_name}")
+        else:
+            imports.add(f"from microsoft.teams.api.activities import {class_name}")
         if config.output_model:
             # Use explicit output_type_name if provided, otherwise fall back to __name__
             output_class_name = config.output_type_name or config.output_model.__name__
@@ -53,7 +59,7 @@ def generate_imports() -> str:
     return "\n".join(sorted(imports))
 
 
-def generate_method(config: ActivityConfig, config_key: str) -> str:
+def generate_method(config: ActivityConfig, config_key: str) -> str:  # type: ignore[valid-type]
     """Generate a single handler method with strict typing and runtime validation."""
     method_name = config.method_name
     activity_name = config.name
