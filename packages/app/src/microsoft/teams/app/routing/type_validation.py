@@ -1,19 +1,21 @@
 """
 Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
-
-Runtime type validation utilities for activity handlers.
 """
 
 import inspect
 from logging import Logger
-from typing import Callable, Type
+from typing import Any, Callable
 
 from .activity_context import ActivityContext
 
 
 def validate_handler_type(
-    logger: Logger, func: Callable, expected_activity_type: Type, method_name: str, expected_type_name: str = None
+    logger: Logger,
+    func: Callable[[Any], Any],
+    expected_activity_type: Any,
+    method_name: str,
+    expected_type_name: str = None,
 ) -> None:
     """
     Validate that a handler function has the correct type annotation.

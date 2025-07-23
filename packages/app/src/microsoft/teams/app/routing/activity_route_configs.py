@@ -7,7 +7,6 @@ from typing import Callable, Dict, NamedTuple, Optional, Type, cast
 
 from microsoft.teams.api import (
     Activity,
-    ActivityBase,
     AdaptiveCardInvokeActivity,
     CommandResultActivity,
     CommandSendActivity,
@@ -50,6 +49,7 @@ from microsoft.teams.api import (
     TypingActivity,
 )
 from microsoft.teams.api.activities.event.read_reciept import ReadReceiptEventActivity
+from microsoft.teams.api.models import ActivityBase
 from microsoft.teams.api.models.invoke_response import (
     AdaptiveCardInvokeResponse,
     ConfigInvokeResponse,
@@ -60,6 +60,7 @@ from microsoft.teams.api.models.invoke_response import (
     TokenExchangeInvokeResponseType,
     VoidInvokeResponse,
 )
+from pydantic import BaseModel
 
 RouteSelector = Callable[[ActivityBase], bool]
 
@@ -79,7 +80,7 @@ class ActivityConfig(NamedTuple):
     selector: RouteSelector
     """Function that determines if this route matches the given activity."""
 
-    output_model: Optional[Type] = None
+    output_model: Optional[BaseModel] = None
     """The output model class type. None if no specific output type."""
 
     input_type_name: Optional[str] = None
