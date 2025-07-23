@@ -5,7 +5,7 @@ Licensed under the MIT License.
 
 from abc import ABC, abstractmethod
 from logging import Logger
-from typing import Any, Awaitable, Callable, Dict, List, Optional
+from typing import Any, Awaitable, Callable, Dict, List, Optional, TypeVar
 
 from microsoft.teams.api import Activity
 from microsoft.teams.common.events import EventEmitter
@@ -17,6 +17,7 @@ from .routing.router import ActivityRouter
 
 # Type alias for activity handlers
 ActivityHandler = Callable[[ActivityContext], Awaitable[Optional[Dict[str, Any]]]]
+T = TypeVar("T", bound=Activity)
 
 
 class ActivityProcessorMixin(ActivityHandlerMixin, ABC):
@@ -69,7 +70,7 @@ class ActivityProcessorMixin(ActivityHandlerMixin, ABC):
             )
             raise
 
-    def _build_context(self, activity: Activity) -> ActivityContext:
+    def _build_context(self, activity: T) -> ActivityContext[T]:
         """Build the context object for activity processing.
 
         Args:
