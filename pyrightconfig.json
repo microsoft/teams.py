@@ -2,6 +2,8 @@
   "include": [
     "packages"
   ],
+  "venv": ".venv",
+  "venvPath": ".",
   "extraPaths": [
     "packages/api/src",
     "packages/common/src",

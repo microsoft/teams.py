@@ -7,28 +7,13 @@ import asyncio
 import os
 
 from dotenv import load_dotenv
-from microsoft.teams.app import App, AppOptions
+from microsoft.teams.api import Activity, InvokeActivity, MessageActivity, MessageExtensionSubmitActionInvokeActivity
+from microsoft.teams.api.activities import EventActivity, MessageDeleteActivity, TypingActivity
+from microsoft.teams.app import App
 from microsoft.teams.app.events import ActivityEvent, ErrorEvent, StartEvent, StopEvent
+from microsoft.teams.app.routing.activity_context import ActivityContext
 
 load_dotenv()
-
-
-async def my_activity_handler(activity: dict) -> dict:
-    """Custom activity handler for testing."""
-    activity_type = activity.get("type", "unknown")
-    activity_id = activity.get("id", "unknown")
-
-    print(f"[CUSTOM HANDLER] Processing activity {activity_id} of type {activity_type}")
-
-    await asyncio.sleep(2)
-
-    print(f"[CUSTOM HANDLER] Finished processing activity {activity_id}")
-
-    return {
-        "status": "success",
-        "message": f"Custom handler processed {activity_type}",
-        "timestamp": "2024-01-01T00:00:00Z",
-    }
 
 
 async def main() -> None:
@@ -49,16 +34,60 @@ async def main() -> None:
     print(f"Using CLIENT_SECRET: {client_secret}")
     print(f"Using TENANT_ID: {tenant_id}")
 
-    app = App(
-        AppOptions(
-            activity_handler=my_activity_handler,
-        )
-    )
+    app = App()
+
+    @app.on_message
+    async def handle_message(ctx: ActivityContext[MessageActivity]):
+        """Handle message activities using the new generated handler system."""
+        print(f"[GENERATED onMessage] Message received: {ctx.activity.text}")
+        print(f"[GENERATED onMessage] From: {ctx.activity.from_}")
+
+        await ctx.next()
+
+    @app.event("activity")
+    async def handle_activity_event(event):
+        """Handle all activities using the new generated handler system."""
+        activity = event.activity
+        print(f"[GENERATED event('activity')] Activity event: {activity.type} (ID: {activity.id})")
+
+    @app.on_invoke
+    async def handle_invoke(ctx: ActivityContext[InvokeActivity]):
+        """Handle invoke activities using the new generated handler system."""
+        print(f"[GENERATED invoke handler] Invoke received: {ctx.activity.name}")
+
+    @app.on_activity
+    async def handle_activity(ctx: ActivityContext[Activity]):
+        """Handle event activities using the new generated handler system."""
+        print(f"[GENERATED onActivity] Event activity received: {ctx.activity.type}")
+        await ctx.next()
+
+    @app.on_message_ext_submit
+    async def handle_message_ext_submit(ctx: ActivityContext[MessageExtensionSubmitActionInvokeActivity]):
+        """Handle message extension submit activities."""
+        print(f"[GENERATED] Message extension submit received: {ctx.activity.text}")
+        return {"status": "success"}
+
+    @app.on_message_delete
+    async def handle_message_delete(ctx: ActivityContext[MessageDeleteActivity]):
+        """Handle message deletion activities."""
+        print(f"[GENERATED] Message deleted: {ctx.activity.id}")
+
+    @app.on_typing
+    async def handle_typing(ctx: ActivityContext[TypingActivity]):
+        """Handle typing indicator activities."""
+        print(f"[GENERATED] User is typing: {ctx.activity.from_}")
+        return None  # Typing activities typically don't need responses
+
+    @app.on_event
+    async def handle_event_activity(ctx: ActivityContext[EventActivity]):
+        """Handle event activities (meetings, etc.)."""
+        print(f"[GENERATED] Event received: {ctx.activity.name}")
+        return {"status": "processed"}
 
     @app.event
-    async def handle_activity(event: ActivityEvent):
+    async def handle_activity_event_without_explicit_annotation(event: ActivityEvent):
         activity = event.activity
-        print(f"[EVENT] Activity received: {activity.get('type')} (ID: {activity.get('id')})")
+        print(f"[EVENT (no annotation)] Activity received: {activity.type} (ID: {activity.id})")
 
     @app.event
     async def handle_error(event: ErrorEvent):

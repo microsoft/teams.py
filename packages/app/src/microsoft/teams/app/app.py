@@ -6,14 +6,23 @@ Licensed under the MIT License.
 import asyncio
 import os
 from dataclasses import dataclass
+from logging import Logger
 from typing import Any, Callable, Dict, List, Optional, TypeVar, Union, overload
 
-from microsoft.teams.api import Activity, ApiClient, ClientCredentials, Credentials, JsonWebToken, TokenProtocol
+from microsoft.teams.api import (
+    ActivityTypeAdapter,
+    ApiClient,
+    ClientCredentials,
+    Credentials,
+    JsonWebToken,
+    TokenProtocol,
+)
 from microsoft.teams.common.events import EventEmitter
 from microsoft.teams.common.http import Client
 from microsoft.teams.common.logging import ConsoleLogger
 from microsoft.teams.common.storage import LocalStorage
 
+from .app_process import ActivityProcessorMixin
 from .events import (
     ActivityEvent,
     ErrorEvent,
@@ -26,6 +35,7 @@ from .events import (
 from .http_plugin import HttpPlugin
 from .options import AppOptions
 from .plugin import PluginProtocol
+from .routing.router import ActivityRouter
 
 F = TypeVar("F", bound=Callable[..., Any])
 
@@ -38,7 +48,7 @@ class AppTokens:
     graph: Optional[TokenProtocol] = None
 
 
-class App:
+class App(ActivityProcessorMixin):
     """
     The main Teams application orchestrator.
 
@@ -54,16 +64,12 @@ class App:
         self.http_client = Client()
 
         self._events = EventEmitter()
+        self._router = ActivityRouter()
 
         self._tokens = AppTokens()
         self.credentials = self._init_credentials()
 
         self.api = ApiClient("https://smba.trafficmanager.net/teams", self.http_client)
-
-        # TODO: Initialize graph client when available
-        # self.graph = GraphClient(self.http_client)
-
-        self.activity_handler = self.options.activity_handler
 
         plugins: List[PluginProtocol] = list(self.options.plugins or [])
 
@@ -106,6 +112,21 @@ class App:
     def tokens(self) -> AppTokens:
         """Current authentication tokens."""
         return self._tokens
+
+    @property
+    def logger(self) -> Logger:
+        """The logger instance used by the app."""
+        return self.log
+
+    @property
+    def events(self) -> EventEmitter:
+        """The event emitter instance used by the app."""
+        return self._events
+
+    @property
+    def router(self) -> ActivityRouter:
+        """The activity router instance."""
+        return self._router
 
     @property
     def id(self) -> Optional[str]:
@@ -245,18 +266,20 @@ class App:
             self._events.emit("error", ErrorEvent(error, context={"method": "_refresh_graph_token"}))
             raise
 
-    async def handle_activity(self, activity: Activity) -> Dict[str, Any]:
+    async def handle_activity(self, input_activity: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Dummy activity handler for testing the event-driven pattern.
+        Handle incoming activities using registered handlers and middleware chain.
 
         Args:
             activity: The Teams activity data
-            token: The authorization token
-            http_plugin: The HTTP plugin instance
 
         Returns:
             Response data to send back
         """
+        self.log.debug(f"Received activity: {input_activity}")
+
+        activity = ActivityTypeAdapter.validate_python(input_activity)
+        self.log.debug(f"Validated activity: {activity}")
         activity_type = activity.type
         activity_id = activity.id or ""
 
@@ -264,18 +287,14 @@ class App:
 
         try:
             self._events.emit("activity", ActivityEvent(activity))
-
-            response = None
-            if self.activity_handler:
-                response = await self.activity_handler(activity)
-
-            self.log.info(f"Completed processing activity {activity_id}")
+            response = await self.process_activity(activity)
             self.http.on_activity_response(activity_id, response)
 
             return {
                 "status": "processed",
                 "message": f"Successfully handled {activity_type} activity",
                 "activityId": activity_id,
+                "response": response,
             }
         except Exception as error:
             self.log.error(f"Failed to process activity {activity_id}: {error}")

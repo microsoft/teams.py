@@ -7,12 +7,13 @@ import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from microsoft.teams.api import ActivityBase
+from microsoft.teams.api.activities import InvokeActivity, TypingActivity
 from microsoft.teams.api.activities.message import MessageActivity
 from microsoft.teams.api.models import Account, ConversationAccount
 from microsoft.teams.app.app import App
 from microsoft.teams.app.events import ActivityEvent, ErrorEvent
 from microsoft.teams.app.options import AppOptions
+from microsoft.teams.app.routing.activity_context import ActivityContext
 
 
 class TestApp:
@@ -32,12 +33,12 @@ class TestApp:
     def mock_activity_handler(self):
         """Create a mock activity handler."""
 
-        async def handler(activity: ActivityBase) -> dict[str, str]:
-            return {"status": "handled", "activityId": activity.id}
+        async def handler(ctx) -> None:
+            pass
 
         return handler
 
-    @pytest.fixture
+    @pytest.fixture(scope="function")
     def basic_options(self, mock_logger, mock_storage):
         """Create basic app options."""
         return AppOptions(
@@ -47,16 +48,23 @@ class TestApp:
             client_secret="test-secret",
         )
 
-    @pytest.fixture
+    @pytest.fixture(scope="function")
     def app_with_options(self, basic_options):
         """Create App with basic options."""
         return App(basic_options)
 
-    @pytest.fixture
-    def app_with_activity_handler(self, basic_options, mock_activity_handler):
+    @pytest.fixture(scope="function")
+    def app_with_activity_handler(self, mock_logger, mock_storage, mock_activity_handler):
         """Create App with activity handler."""
-        basic_options.activity_handler = mock_activity_handler
-        return App(basic_options)
+        options = AppOptions(
+            logger=mock_logger,
+            storage=mock_storage,
+            client_id="test-client-id",
+            client_secret="test-secret",
+        )
+        app = App(options)
+        app.on_activity(mock_activity_handler)
+        return app
 
     def test_app_starts_successfully(self, basic_options):
         """Test that app can be created and initialized."""
@@ -154,7 +162,7 @@ class TestApp:
             }
         )
 
-        await app_with_activity_handler.handle_activity(activity)
+        await app_with_activity_handler.handle_activity(activity.model_dump())
 
         # Wait for the async event handler to complete
         await asyncio.wait_for(event_received.wait(), timeout=1.0)
@@ -179,7 +187,7 @@ class TestApp:
         async def failing_handler(_activity):
             raise ValueError("Test error")
 
-        app_with_options.activity_handler = failing_handler
+        app_with_options.on_activity(failing_handler)
 
         from_account = Account(id="bot-123", name="Test Bot", role="bot")
         recipient = Account(id="user-456", name="Test User", role="user")
@@ -197,7 +205,7 @@ class TestApp:
         )
 
         with pytest.raises(ValueError):
-            await app_with_options.handle_activity(activity)
+            await app_with_options.handle_activity(activity.model_dump())
 
         # Wait for the async error event handler to complete
         await asyncio.wait_for(error_received.wait(), timeout=1.0)
@@ -249,7 +257,7 @@ class TestApp:
             }
         )
 
-        await app_with_options.handle_activity(activity)
+        await app_with_options.handle_activity(activity.model_dump())
 
         # Wait for both async event handlers to complete
         await asyncio.wait_for(both_received.wait(), timeout=1.0)
@@ -259,3 +267,155 @@ class TestApp:
         assert len(activity_events_2) == 1
         assert activity_events_1[0].activity == activity
         assert activity_events_2[0].activity == activity
+
+    # Generated Handler Tests
+
+    def test_generated_handler_registration(self, app_with_options: App) -> None:
+        """Test that generated handlers register correctly in the router."""
+
+        @app_with_options.on_message
+        async def handle_message(ctx: ActivityContext[MessageActivity]) -> None:
+            assert ctx.activity.type == "message"
+
+        from_account = Account(id="bot-123", name="Test Bot", role="bot")
+        recipient = Account(id="user-456", name="Test User", role="user")
+        conversation = ConversationAccount(id="conv-789", conversation_type="personal")
+
+        message_activity = MessageActivity(
+            id="test-activity-id",
+            type="message",
+            text="Hello from generated handler!",
+            from_=from_account,
+            recipient=recipient,
+            conversation=conversation,
+        )
+
+        # Verify handler was registered
+        message_handlers = app_with_options.router.select_handlers(message_activity)
+        assert len(message_handlers) == 1
+        assert message_handlers[0] == handle_message
+
+    def test_multiple_handlers_same_type(self, app_with_options: App) -> None:
+        """Test that multiple handlers can be registered for the same activity type."""
+
+        @app_with_options.on_message
+        async def handle_message_1(ctx: ActivityContext[MessageActivity]) -> None:
+            pass
+
+        @app_with_options.on_message
+        async def handle_message_2(ctx: ActivityContext[MessageActivity]) -> None:
+            pass
+
+        from_account = Account(id="bot-123", name="Test Bot", role="bot")
+        recipient = Account(id="user-456", name="Test User", role="user")
+        conversation = ConversationAccount(id="conv-789", conversation_type="personal")
+
+        message_activity = MessageActivity(
+            id="test-activity-id",
+            type="message",
+            text="Hello from generated handler!",
+            from_=from_account,
+            recipient=recipient,
+            conversation=conversation,
+        )
+
+        # Verify both handlers were registered
+        message_handlers = app_with_options.router.select_handlers(message_activity)
+        assert len(message_handlers) == 2
+        assert handle_message_1 in message_handlers
+        assert handle_message_2 in message_handlers
+
+    def test_different_activity_types_separate_routes(self, app_with_options: App) -> None:
+        """Test that different activity types are routed separately."""
+
+        @app_with_options.on_message
+        async def handle_message(ctx: ActivityContext[MessageActivity]) -> None:
+            pass
+
+        @app_with_options.on_typing
+        async def handle_typing(ctx: ActivityContext[TypingActivity]) -> None:
+            pass
+
+        from_account = Account(id="bot-123", name="Test Bot", role="bot")
+        recipient = Account(id="user-456", name="Test User", role="user")
+        conversation = ConversationAccount(id="conv-789", conversation_type="personal")
+
+        message_activity = MessageActivity(
+            id="test-activity-id",
+            type="message",
+            text="Hello from generated handler!",
+            from_=from_account,
+            recipient=recipient,
+            conversation=conversation,
+        )
+
+        typing_activity = TypingActivity(
+            id="test-typing-id",
+            type="typing",
+            from_=from_account,
+            recipient=recipient,
+            conversation=conversation,
+        )
+
+        # Verify handlers are in separate routes
+        message_handlers = app_with_options.router.select_handlers(message_activity)
+        typing_handlers = app_with_options.router.select_handlers(typing_activity)
+
+        assert len(message_handlers) == 1
+        assert len(typing_handlers) == 1
+        assert message_handlers[0] == handle_message
+        assert typing_handlers[0] == handle_typing
+
+    @pytest.mark.asyncio
+    async def test_generated_handler_execution(self, app_with_options: App) -> None:
+        """Test that generated handlers are executed correctly."""
+        handler_data = {}
+
+        @app_with_options.on_message
+        async def handle_message(ctx: ActivityContext[MessageActivity]) -> None:
+            handler_data["called"] = True
+            handler_data["activity_text"] = ctx.activity.text
+
+        from_account = Account(id="bot-123", name="Test Bot", role="bot")
+        recipient = Account(id="user-456", name="Test User", role="user")
+        conversation = ConversationAccount(id="conv-789", conversation_type="personal")
+
+        activity = MessageActivity(
+            id="test-activity-id",
+            type="message",
+            text="Hello from generated handler!",
+            from_=from_account,
+            recipient=recipient,
+            conversation=conversation,
+        )
+
+        # Mock the HTTP plugin response method
+        app_with_options.http.on_activity_response = MagicMock()
+
+        result = await app_with_options.handle_activity(activity.model_dump())
+
+        # Verify handler was called and executed
+        assert handler_data["called"] is True
+        assert handler_data["activity_text"] == "Hello from generated handler!"
+        # Verify the handler's response is included in the result
+        assert "response" in result
+        assert result == {
+            "activityId": "test-activity-id",
+            "message": "Successfully handled message activity",
+            "response": None,
+            "status": "processed",
+        }
+
+    def test_runtime_type_validation(self, app_with_options: App) -> None:
+        """Test that runtime type validation catches incorrect type annotations."""
+        with pytest.raises(TypeError) as exc_info:
+
+            @app_with_options.on_message  # type: ignore
+            async def handle_wrong_type(ctx: ActivityContext[InvokeActivity]) -> None:  # Wrong type!
+                pass
+
+        # Verify the error message mentions the type mismatch
+        error_msg = str(exc_info.value)
+        assert "InvokeActivity" in error_msg
+        assert "MessageActivity" in error_msg
+        assert "on_message" in error_msg

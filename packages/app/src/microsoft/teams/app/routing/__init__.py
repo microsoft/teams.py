@@ -3,6 +3,6 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from .action import AdaptiveCardInvokeActivity
+from .generated_handlers import ActivityHandlerMixin
 
-__all__ = ["AdaptiveCardInvokeActivity"]
+__all__ = ["ActivityHandlerMixin"]
