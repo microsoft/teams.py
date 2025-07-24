@@ -520,7 +520,7 @@ class TestMessageReactionActivity:
         activity.add_reaction(reaction1)
         activity.remove_reaction(reaction2)  # Should match reaction1
 
-        assert activity.reactions_added and len(activity.reactions_added) == 0  # Removed from added
+        assert activity.reactions_added is not None and len(activity.reactions_added) == 0  # Removed from added
         assert activity.reactions_removed and len(activity.reactions_removed) == 1  # Added to removed
         assert activity.reactions_removed[0] == reaction2
 
@@ -686,7 +686,7 @@ class TestMessageActivityIntegration:
         assert activity.id == "msg-deserialize"
         assert activity.text == "Hello world!"
         assert activity.importance == Importance.NORMAL
-        assert activity.entities and len(activity.entities) == 1
+        assert activity.entities is not None and len(activity.entities) == 1
 
     def test_all_activity_types_have_correct_type(self):
         """Test that all activity types return correct type values"""

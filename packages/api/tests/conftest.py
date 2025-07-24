@@ -249,7 +249,7 @@ def mock_account():
 def mock_activity():
     """Create a mock activity for testing."""
     account = Account(id="sender_id", name="Sender")
-    return ActivityParams(value={"type": "message", "text": "Mock activity text", "from": account.model_dump()})  # pyright: ignore[reportCallIssue]
+    return ActivityParams(**{"type": "message", "text": "Mock activity text", "from": account.model_dump()})  # pyright: ignore[reportCallIssue]
 
 
 @pytest.fixture
