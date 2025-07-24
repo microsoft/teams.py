@@ -1,3 +1,8 @@
+"""
+Copyright (c) Microsoft Corporation. All rights reserved.
+Licensed under the MIT License.
+"""
+
 from typing import Awaitable, Callable, Generic, Optional, TypeVar
 
 from microsoft.teams.api import ActivityBase
