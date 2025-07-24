@@ -14,6 +14,7 @@ from microsoft.teams.api.activities.message import (
     MessageUpdateActivity,
     MessageUpdateChannelData,
 )
+from microsoft.teams.api.activities.message.message_update import MessageEventType
 from microsoft.teams.api.activities.utils import StripMentionsTextOptions
 from microsoft.teams.api.models import (
     Account,
@@ -39,13 +40,11 @@ class TestMessageActivity:
         conversation = ConversationAccount(id="conv-789", conversation_type="personal")
 
         activity = MessageActivity(
-            **{
-                "id": "msg-123",
-                "text": text,
-                "from": from_account,
-                "conversation": conversation,
-                "recipient": recipient,
-            }
+            id="msg-123",
+            text=text,
+            from_=from_account,
+            conversation=conversation,
+            recipient=recipient,
         )
         return activity
 
@@ -98,6 +97,7 @@ class TestMessageActivity:
         result = activity.add_attachments(attachment1, attachment2)
 
         assert result is activity
+        assert activity.attachments is not None
         assert len(activity.attachments) == 2
         assert activity.attachments[0] == attachment1
         assert activity.attachments[1] == attachment2
@@ -140,6 +140,7 @@ class TestMessageActivity:
         activity.add_mention(account, text="Custom Bot Name")
 
         assert activity.text == "Hello <at>Custom Bot Name</at>"
+        assert activity.entities is not None
         mention = cast(MentionEntity, activity.entities[0])
         assert mention.text == "<at>Custom Bot Name</at>"
 
@@ -151,6 +152,7 @@ class TestMessageActivity:
         activity.add_mention(account, add_text=False)
 
         assert activity.text == "Hello world"  # Text unchanged
+        assert activity.entities is not None
         assert len(activity.entities) == 1
         mention = cast(MentionEntity, activity.entities[0])
         assert mention.mentioned.id == "user-789"
@@ -163,6 +165,7 @@ class TestMessageActivity:
         result = activity.add_card("application/vnd.microsoft.card.adaptive", card_content)
 
         assert result is activity
+        assert activity.attachments is not None
         assert len(activity.attachments) == 1
         attachment = activity.attachments[0]
         assert attachment.content_type == "application/vnd.microsoft.card.adaptive"
@@ -263,7 +266,7 @@ class TestMessageActivity:
 
         assert result is activity
         assert activity.channel_data is not None
-        assert len(activity.entities) == 1
+        assert activity.entities and len(activity.entities) == 1
 
         stream_entity = activity.entities[0]
         assert isinstance(stream_entity, StreamInfoEntity)
@@ -302,8 +305,8 @@ class TestMessageActivity:
 
         # Verify final state
         assert "Meeting with <at>Alice</at> and <at>Bob</at> scheduled." in activity.text
-        assert len(activity.entities) == 2  # Two mentions
-        assert len(activity.attachments) == 1
+        assert activity.entities and len(activity.entities) == 2  # Two mentions
+        assert activity.attachments and len(activity.attachments) == 1
         assert activity.importance == Importance.HIGH
         assert activity.delivery_mode == "notification"
         assert activity.input_hint == "acceptingInput"
@@ -320,13 +323,11 @@ class TestMessageDeleteActivity:
         channel_data = MessageDeleteChannelData()
 
         activity = MessageDeleteActivity(
-            value={
-                "id": activity_id,
-                "channel_data": channel_data,
-                "from": from_account,
-                "conversation": conversation,
-                "recipient": recipient,
-            }
+            id=activity_id,
+            channel_data=channel_data,
+            from_=from_account,
+            conversation=conversation,
+            recipient=recipient,
         )
         return activity
 
@@ -354,7 +355,7 @@ class TestMessageUpdateActivity:
     """Test MessageUpdateActivity functionality"""
 
     def create_message_update_activity(
-        self, activity_id: str = "update-123", text: str = "Updated text", event_type: str = "editMessage"
+        self, activity_id: str = "update-123", text: str = "Updated text", event_type: MessageEventType = "editMessage"
     ) -> MessageUpdateActivity:
         """Create a basic message update activity for testing"""
         from_account = Account(id="bot-123", name="Test Bot", role="bot")
@@ -363,14 +364,12 @@ class TestMessageUpdateActivity:
         channel_data = MessageUpdateChannelData(event_type=event_type)
 
         activity = MessageUpdateActivity(
-            value={
-                "id": activity_id,
-                "text": text,
-                "channel_data": channel_data,
-                "from": from_account,
-                "conversation": conversation,
-                "recipient": recipient,
-            }
+            id=activity_id,
+            text=text,
+            channel_data=channel_data,
+            from_=from_account,
+            conversation=conversation,
+            recipient=recipient,
         )
         return activity
 
@@ -398,18 +397,16 @@ class TestMessageUpdateActivity:
         expiration = datetime.now()
 
         activity = MessageUpdateActivity(
-            value={
-                "id": "update-789",
-                "text": "Test message",
-                "channel_data": channel_data,
-                "speak": "Spoken text",
-                "summary": "Message summary",
-                "expiration": expiration,
-                "value": {"custom": "data"},
-                "from": from_account,
-                "conversation": conversation,
-                "recipient": recipient,
-            }
+            id="update-789",
+            text="Test message",
+            channel_data=channel_data,
+            speak="Spoken text",
+            summary="Message summary",
+            expiration=expiration,
+            value={"custom": "data"},
+            from_=from_account,
+            conversation=conversation,
+            recipient=recipient,
         )
 
         assert activity.speak == "Spoken text"
@@ -434,18 +431,16 @@ class TestMessageReactionActivity:
         conversation = ConversationAccount(id="conv-789", conversation_type="personal")
 
         activity = MessageReactionActivity(
-            value={
-                "id": activity_id,
-                "from": from_account,
-                "conversation": conversation,
-                "recipient": recipient,
-            }
+            id=activity_id,
+            from_=from_account,
+            conversation=conversation,
+            recipient=recipient,
         )
         return activity
 
     def create_message_reaction(self, reaction_type: str = "like") -> MessageReaction:
         """Create a message reaction for testing"""
-        user = MessageUser(id="user-123", name="Test User")
+        user = MessageUser(id="user-123", display_name="Test User")
         return MessageReaction(
             type=MessageReactionType(reaction_type),
             user=user,
@@ -487,7 +482,7 @@ class TestMessageReactionActivity:
 
         activity.add_reaction(reaction1).add_reaction(reaction2)
 
-        assert len(activity.reactions_added) == 2
+        assert activity.reactions_added and len(activity.reactions_added) == 2
         assert activity.reactions_added[0] == reaction1
         assert activity.reactions_added[1] == reaction2
 
@@ -507,7 +502,7 @@ class TestMessageReactionActivity:
     def test_remove_reaction_from_added_list(self):
         """Test removing reaction that exists in added list"""
         activity = self.create_message_reaction_activity("reaction-303")
-        user = MessageUser(id="user-123", name="Test User")
+        user = MessageUser(id="user-123", display_name="Test User")
 
         # Create two similar reactions (same type and user)
         reaction1 = MessageReaction(
@@ -525,16 +520,16 @@ class TestMessageReactionActivity:
         activity.add_reaction(reaction1)
         activity.remove_reaction(reaction2)  # Should match reaction1
 
-        assert len(activity.reactions_added) == 0  # Removed from added
-        assert len(activity.reactions_removed) == 1  # Added to removed
+        assert activity.reactions_added and len(activity.reactions_added) == 0  # Removed from added
+        assert activity.reactions_removed and len(activity.reactions_removed) == 1  # Added to removed
         assert activity.reactions_removed[0] == reaction2
 
     def test_remove_reaction_different_user(self):
         """Test removing reaction with different user doesn't affect added list"""
         activity = self.create_message_reaction_activity("reaction-404")
 
-        user1 = MessageUser(id="user-1", name="User 1")
-        user2 = MessageUser(id="user-2", name="User 2")
+        user1 = MessageUser(id="user-1", display_name="User 1")
+        user2 = MessageUser(id="user-2", display_name="User 2")
 
         reaction1 = MessageReaction(type=MessageReactionType("like"), user=user1)
         reaction2 = MessageReaction(type=MessageReactionType("like"), user=user2)
@@ -543,15 +538,15 @@ class TestMessageReactionActivity:
         activity.remove_reaction(reaction2)
 
         # reaction1 should still be in added list (different user)
-        assert len(activity.reactions_added) == 1
+        assert activity.reactions_added and len(activity.reactions_added) == 1
         assert activity.reactions_added[0] == reaction1
-        assert len(activity.reactions_removed) == 1
+        assert activity.reactions_removed and len(activity.reactions_removed) == 1
         assert activity.reactions_removed[0] == reaction2
 
     def test_remove_reaction_different_type(self):
         """Test removing reaction with different type doesn't affect added list"""
         activity = self.create_message_reaction_activity("reaction-505")
-        user = MessageUser(id="user-123", name="Test User")
+        user = MessageUser(id="user-123", display_name="Test User")
 
         reaction1 = MessageReaction(type=MessageReactionType("like"), user=user)
         reaction2 = MessageReaction(type=MessageReactionType("heart"), user=user)
@@ -560,17 +555,17 @@ class TestMessageReactionActivity:
         activity.remove_reaction(reaction2)
 
         # reaction1 should still be in added list (different type)
-        assert len(activity.reactions_added) == 1
+        assert activity.reactions_added and len(activity.reactions_added) == 1
         assert activity.reactions_added[0] == reaction1
-        assert len(activity.reactions_removed) == 1
+        assert activity.reactions_removed and len(activity.reactions_removed) == 1
         assert activity.reactions_removed[0] == reaction2
 
     def test_complex_reaction_scenario(self):
         """Test complex scenario with multiple adds and removes"""
         activity = self.create_message_reaction_activity("reaction-606")
 
-        user1 = MessageUser(id="user-1", name="User 1")
-        user2 = MessageUser(id="user-2", name="User 2")
+        user1 = MessageUser(id="user-1", display_name="User 1")
+        user2 = MessageUser(id="user-2", display_name="User 2")
 
         like1 = MessageReaction(type=MessageReactionType("like"), user=user1)
         like2 = MessageReaction(type=MessageReactionType("like"), user=user2)
@@ -584,12 +579,12 @@ class TestMessageReactionActivity:
         activity.remove_reaction(like1_remove)
 
         # Should have removed like1, but kept like2 and heart1
-        assert len(activity.reactions_added) == 2
+        assert activity.reactions_added and len(activity.reactions_added) == 2
         assert like2 in activity.reactions_added
         assert heart1 in activity.reactions_added
         assert like1 not in activity.reactions_added
 
-        assert len(activity.reactions_removed) == 1
+        assert activity.reactions_removed and len(activity.reactions_removed) == 1
         assert activity.reactions_removed[0] == like1_remove
 
     def test_reaction_edge_cases(self):
@@ -603,14 +598,14 @@ class TestMessageReactionActivity:
         # Try to remove similar reaction (should not match due to user comparison)
         reaction_with_user = MessageReaction(
             type=MessageReactionType("like"),
-            user=MessageUser(id="user-123", name="User"),
+            user=MessageUser(id="user-123", display_name="User"),
         )
         activity.remove_reaction(reaction_with_user)
 
         # Original reaction should still be in added list
-        assert len(activity.reactions_added) == 1
+        assert activity.reactions_added and len(activity.reactions_added) == 1
         assert activity.reactions_added[0] == reaction_no_user
-        assert len(activity.reactions_removed) == 1
+        assert activity.reactions_removed and len(activity.reactions_removed) == 1
         assert activity.reactions_removed[0] == reaction_with_user
 
 
@@ -624,14 +619,12 @@ class TestMessageActivityIntegration:
         conversation = ConversationAccount(id="conv-789", conversation_type="personal")
 
         activity = MessageActivity(
-            value={
-                "id": "msg-serialize",
-                "text": "Hello <at>Bot</at>!",
-                "importance": Importance.HIGH,
-                "from": from_account,
-                "conversation": conversation,
-                "recipient": recipient,
-            }
+            id="msg-serialize",
+            text="Hello <at>Bot</at>!",
+            importance=Importance.HIGH,
+            from_=from_account,
+            conversation=conversation,
+            recipient=recipient,
         )
 
         # Add mention
@@ -675,12 +668,25 @@ class TestMessageActivityIntegration:
             ],
         }
 
-        activity = MessageActivity(value=data)
+        activity = MessageActivity(
+            id=data["id"],
+            text=data["text"],
+            importance=Importance.NORMAL,
+            from_=data["from"],
+            conversation=data["conversation"],
+            recipient=data["recipient"],
+            entities=[
+                MentionEntity(
+                    mentioned=Account(id="user-123", name="User", role="user"),
+                    text="<at>User</at>",
+                )
+            ],
+        )
 
         assert activity.id == "msg-deserialize"
         assert activity.text == "Hello world!"
         assert activity.importance == Importance.NORMAL
-        assert len(activity.entities) == 1
+        assert activity.entities and len(activity.entities) == 1
 
     def test_all_activity_types_have_correct_type(self):
         """Test that all activity types return correct type values"""
@@ -692,49 +698,41 @@ class TestMessageActivityIntegration:
         activities = [
             (
                 MessageActivity(
-                    value={
-                        "id": "1",
-                        "text": "test",
-                        "from": from_account,
-                        "conversation": conversation,
-                        "recipient": recipient,
-                    }
+                    id="1",
+                    text="test",
+                    from_=from_account,
+                    conversation=conversation,
+                    recipient=recipient,
                 ),
                 "message",
             ),
             (
                 MessageDeleteActivity(
-                    value={
-                        "id": "2",
-                        "channel_data": MessageDeleteChannelData(),
-                        "from": from_account,
-                        "conversation": conversation,
-                        "recipient": recipient,
-                    }
+                    id="2",
+                    channel_data=MessageDeleteChannelData(),
+                    from_=from_account,
+                    conversation=conversation,
+                    recipient=recipient,
                 ),
                 "messageDelete",
             ),
             (
                 MessageUpdateActivity(
-                    value={
-                        "id": "3",
-                        "text": "test",
-                        "channel_data": MessageUpdateChannelData(event_type="editMessage"),
-                        "from": from_account,
-                        "conversation": conversation,
-                        "recipient": recipient,
-                    }
+                    id="3",
+                    text="test",
+                    channel_data=MessageUpdateChannelData(event_type="editMessage"),
+                    from_=from_account,
+                    conversation=conversation,
+                    recipient=recipient,
                 ),
                 "messageUpdate",
             ),
             (
                 MessageReactionActivity(
-                    value={
-                        "id": "4",
-                        "from": from_account,
-                        "conversation": conversation,
-                        "recipient": recipient,
-                    }
+                    id="4",
+                    from_=from_account,
+                    conversation=conversation,
+                    recipient=recipient,
                 ),
                 "messageReaction",
             ),

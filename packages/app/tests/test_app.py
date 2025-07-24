@@ -107,7 +107,7 @@ class TestApp:
         conversation = ConversationAccount(id="conv-789", conversation_type="personal")
 
         activity = MessageActivity(
-            value={
+            **{
                 "type": "message",
                 "id": "test-activity-id",
                 "text": "Hello, world!",
@@ -144,7 +144,7 @@ class TestApp:
         conversation = ConversationAccount(id="conv-789", conversation_type="personal")
 
         activity = MessageActivity(
-            value={
+            **{
                 "type": "message",
                 "id": "test-activity-id",
                 "text": "Hello, world!",
@@ -186,7 +186,7 @@ class TestApp:
         conversation = ConversationAccount(id="conv-789", conversation_type="personal")
 
         activity = MessageActivity(
-            value={
+            **{
                 "type": "message",
                 "id": "test-activity-id",
                 "text": "Hello, world!",
@@ -207,8 +207,8 @@ class TestApp:
         assert isinstance(error_events[0], ErrorEvent)
         assert isinstance(error_events[0].error, ValueError)
         assert str(error_events[0].error) == "Test error"
-        assert error_events[0].context["method"] == "handle_activity"
-        assert error_events[0].context["activity_id"] == "test-activity-id"
+        assert error_events[0].context and error_events[0].context["method"] == "handle_activity"
+        assert error_events[0].context and error_events[0].context["activity_id"] == "test-activity-id"
 
     @pytest.mark.asyncio
     async def test_multiple_event_handlers(self, app_with_options: App) -> None:
@@ -239,7 +239,7 @@ class TestApp:
         conversation = ConversationAccount(id="conv-789", conversation_type="personal")
 
         activity = MessageActivity(
-            value={
+            **{
                 "type": "message",
                 "id": "test-activity-id",
                 "text": "Hello, world!",
