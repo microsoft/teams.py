@@ -46,7 +46,7 @@ def generate_imports() -> str:
     # Add imports for each activity class
     for config in ACTIVITY_ROUTES.values():
         # Use explicit input_type_name if provided, otherwise fall back to __name__
-        class_name = config.input_type_name or config.input_model.__name__
+        class_name = config.input_model if isinstance(config.input_model, str) else config.input_model.__name__
         if class_name == "ActivityBase":
             imports.add(f"from microsoft.teams.api.models import {class_name}")
         else:
@@ -65,7 +65,7 @@ def generate_method(config: ActivityConfig, config_key: str) -> str:  # type: ig
     activity_name = config.name
 
     # Use the explicit input_type_name if provided, otherwise fall back to __name__
-    input_class_name = config.input_type_name or config.input_model.__name__
+    input_class_name = config.input_model if isinstance(config.input_model, str) else config.input_model.__name__
 
     # Determine output type
     if config.output_model:

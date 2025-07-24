@@ -5,19 +5,14 @@ Licensed under the MIT License.
 
 from abc import ABC, abstractmethod
 from logging import Logger
-from typing import Any, Awaitable, Callable, Dict, List, Optional, TypeVar
+from typing import Any, Callable, Dict, List, Optional
 
-from microsoft.teams.api import Activity
+from microsoft.teams.api import Activity, ActivityBase
 from microsoft.teams.common.events import EventEmitter
 
-from .events import ErrorEvent
 from .routing.activity_context import ActivityContext
 from .routing.generated_handlers import ActivityHandlerMixin
-from .routing.router import ActivityRouter
-
-# Type alias for activity handlers
-ActivityHandler = Callable[[ActivityContext], Awaitable[Optional[Dict[str, Any]]]]
-T = TypeVar("T", bound=Activity)
+from .routing.router import ActivityHandler, ActivityRouter
 
 
 class ActivityProcessorMixin(ActivityHandlerMixin, ABC):
@@ -43,34 +38,22 @@ class ActivityProcessorMixin(ActivityHandlerMixin, ABC):
     async def process_activity(self, activity: Activity) -> Optional[Dict[str, Any]]:
         self.logger.debug(f"Received activity: {activity}")
 
-        try:
-            # Create context for middleware chain
-            ctx = self._build_context(activity)
+        # Create context for middleware chain
+        ctx = self._build_context(activity)
 
-            # Get registered handlers for this activity type
-            handlers = self.router.select_handlers(activity)
+        # Get registered handlers for this activity type
+        handlers = self.router.select_handlers(activity)
 
-            response = None
-            # If no registered handlers, fall back to legacy activity_handler
-            if handlers:
-                response = await self.execute_middleware_chain(ctx, handlers)
+        response = None
+        # If no registered handlers, fall back to legacy activity_handler
+        if handlers:
+            response = await self.execute_middleware_chain(ctx, handlers)
 
-            self.logger.info(f"Completed processing activity {activity.id}")
+        self.logger.info("Completed processing activity")
 
-            return response
-        except Exception as error:
-            self.logger.error(f"Failed to process activity {activity.id}: {error}")
+        return response
 
-            self._events.emit(
-                "error",
-                ErrorEvent(
-                    error,
-                    context={"method": "process_activity", "activity_id": activity.id, "activity_type": activity.type},
-                ),
-            )
-            raise
-
-    def _build_context(self, activity: T) -> ActivityContext[T]:
+    def _build_context(self, activity: Activity) -> ActivityContext[ActivityBase]:
         """Build the context object for activity processing.
 
         Args:
@@ -83,7 +66,7 @@ class ActivityProcessorMixin(ActivityHandlerMixin, ABC):
         return ActivityContext(activity)
 
     async def execute_middleware_chain(
-        self, ctx: ActivityContext, handlers: List[ActivityHandler]
+        self, ctx: ActivityContext[ActivityBase], handlers: List[ActivityHandler]
     ) -> Optional[Dict[str, Any]]:
         """Execute the middleware chain for activity handlers.
 
@@ -120,7 +103,7 @@ class ActivityProcessorMixin(ActivityHandlerMixin, ABC):
 
                     # If handler returned a response, stop the chain
                     if result is not None:
-                        response = result if isinstance(result, dict) else None
+                        response = result
 
             return next_handler
 

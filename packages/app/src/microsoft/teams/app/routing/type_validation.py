@@ -5,7 +5,7 @@ Licensed under the MIT License.
 
 import inspect
 from logging import Logger
-from typing import Any, Callable
+from typing import Any, Callable, Optional
 
 from .activity_context import ActivityContext
 
@@ -15,7 +15,7 @@ def validate_handler_type(
     func: Callable[[Any], Any],
     expected_activity_type: Any,
     method_name: str,
-    expected_type_name: str = None,
+    expected_type_name: Optional[str] = None,
 ) -> None:
     """
     Validate that a handler function has the correct type annotation.

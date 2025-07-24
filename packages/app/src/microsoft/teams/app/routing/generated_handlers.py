@@ -41,8 +41,8 @@ from microsoft.teams.api.activities import (
     MessageExtensionSelectItemInvokeActivity,
     MessageExtensionSettingInvokeActivity,
     MessageExtensionSubmitActionInvokeActivity,
-    MessageInvokeActivity,
     MessageReactionActivity,
+    MessageSubmitActionInvokeActivity,
     MessageUpdateActivity,
     ReadReceiptEventActivity,
     SignInTokenExchangeInvokeActivity,
@@ -1912,31 +1912,37 @@ class ActivityHandlerMixin(ABC):
 
     @overload
     def on_message_submit(
-        self, handler: Callable[[ActivityContext[MessageInvokeActivity]], Awaitable[VoidInvokeResponse]]
-    ) -> Callable[[ActivityContext[MessageInvokeActivity]], Awaitable[VoidInvokeResponse]]: ...
+        self, handler: Callable[[ActivityContext[MessageSubmitActionInvokeActivity]], Awaitable[VoidInvokeResponse]]
+    ) -> Callable[[ActivityContext[MessageSubmitActionInvokeActivity]], Awaitable[VoidInvokeResponse]]: ...
 
     @overload
     def on_message_submit(
         self, handler: None = ...
-    ) -> Callable[[ActivityContext[MessageInvokeActivity]], Awaitable[VoidInvokeResponse]]: ...
+    ) -> Callable[[ActivityContext[MessageSubmitActionInvokeActivity]], Awaitable[VoidInvokeResponse]]: ...
 
     def on_message_submit(
         self,
-        handler: Optional[Callable[[ActivityContext[MessageInvokeActivity]], Awaitable[VoidInvokeResponse]]] = None,
+        handler: Optional[
+            Callable[[ActivityContext[MessageSubmitActionInvokeActivity]], Awaitable[VoidInvokeResponse]]
+        ] = None,
     ) -> (
         Callable[
-            [Callable[[ActivityContext[MessageInvokeActivity]], Awaitable[VoidInvokeResponse]]],
-            Callable[[ActivityContext[MessageInvokeActivity]], Awaitable[VoidInvokeResponse]],
+            [Callable[[ActivityContext[MessageSubmitActionInvokeActivity]], Awaitable[VoidInvokeResponse]]],
+            Callable[[ActivityContext[MessageSubmitActionInvokeActivity]], Awaitable[VoidInvokeResponse]],
         ]
-        | Callable[[ActivityContext[MessageInvokeActivity]], Awaitable[VoidInvokeResponse]]
+        | Callable[[ActivityContext[MessageSubmitActionInvokeActivity]], Awaitable[VoidInvokeResponse]]
     ):
         """Register a message.submit activity handler."""
 
         def decorator(
-            func: Callable[[ActivityContext[MessageInvokeActivity]], Awaitable[VoidInvokeResponse]],
-        ) -> Callable[[ActivityContext[MessageInvokeActivity]], Awaitable[VoidInvokeResponse]]:
+            func: Callable[[ActivityContext[MessageSubmitActionInvokeActivity]], Awaitable[VoidInvokeResponse]],
+        ) -> Callable[[ActivityContext[MessageSubmitActionInvokeActivity]], Awaitable[VoidInvokeResponse]]:
             validate_handler_type(
-                self.logger, func, MessageInvokeActivity, "on_message_submit", "MessageInvokeActivity"
+                self.logger,
+                func,
+                MessageSubmitActionInvokeActivity,
+                "on_message_submit",
+                "MessageSubmitActionInvokeActivity",
             )
             config = ACTIVITY_ROUTES["message.submit"]
             self.router.add_handler(config.selector, func)
