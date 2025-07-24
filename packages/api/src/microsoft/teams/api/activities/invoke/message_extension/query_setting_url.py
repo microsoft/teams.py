@@ -17,7 +17,7 @@ class MessageExtensionQuerySettingUrlInvokeActivity(InvokeActivity):
     query for setting URL configuration.
     """
 
-    name: Literal["composeExtension/querySettingUrl"] = "composeExtension/querySettingUrl"
+    name: Literal["composeExtension/querySettingUrl"] = "composeExtension/querySettingUrl"  # pyright: ignore [reportIncompatibleVariableOverride]
     """The name of the operation associated with an invoke or event activity."""
 
     value: MessagingExtensionQuery

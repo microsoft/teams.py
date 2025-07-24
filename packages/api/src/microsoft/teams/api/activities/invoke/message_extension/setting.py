@@ -17,7 +17,7 @@ class MessageExtensionSettingInvokeActivity(InvokeActivity):
     setting-related operations.
     """
 
-    name: Literal["composeExtension/setting"] = "composeExtension/setting"
+    name: Literal["composeExtension/setting"] = "composeExtension/setting"  # pyright: ignore [reportIncompatibleVariableOverride]
     """The name of the operation associated with an invoke or event activity."""
 
     value: MessagingExtensionQuery

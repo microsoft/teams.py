@@ -42,7 +42,7 @@ class MeetingParticipantEventActivity(ActivityBase, CustomBaseModel):
     Represents a meeting participant event activity in Microsoft Teams.
     """
 
-    type: Literal["event"] = "event"
+    type: Literal["event"] = "event"  # pyright: ignore [reportIncompatibleVariableOverride]
 
     value: MeetingParticipantEventValue
     """

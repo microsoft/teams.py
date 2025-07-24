@@ -15,7 +15,7 @@ EndOfConversationCode = Literal[
 class EndOfConversationActivity(ActivityBase, CustomBaseModel):
     """Activity for end of conversation events."""
 
-    type: Literal["endOfConversation"] = "endOfConversation"
+    type: Literal["endOfConversation"] = "endOfConversation"  # pyright: ignore [reportIncompatibleVariableOverride]
 
     code: Optional[EndOfConversationCode] = None
     """

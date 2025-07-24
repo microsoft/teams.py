@@ -14,7 +14,7 @@ class ReadReceiptEventActivity(ActivityBase, CustomBaseModel, ABC):
     Represents a read receipt event activity in Microsoft Teams.
     """
 
-    type: Literal["event"] = "event"
+    type: Literal["event"] = "event"  # pyright: ignore [reportIncompatibleVariableOverride]
 
     name: Literal["application/vnd.microsoft.readReceipt"] = "application/vnd.microsoft.readReceipt"
     """

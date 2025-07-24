@@ -33,7 +33,7 @@ class MessageSubmitActionInvokeActivity(ActivityBase, CustomBaseModel):
     Represents an activity that is sent when a message submit action is invoked.
     """
 
-    type: Literal["invoke"] = "invoke"
+    type: Literal["invoke"] = "invoke"  # pyright: ignore [reportIncompatibleVariableOverride]
 
     name: Literal["message/submitAction"] = "message/submitAction"
     """The name of the operation associated with an invoke or event activity."""

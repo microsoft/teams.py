@@ -13,7 +13,7 @@ class AdaptiveCardActionInvokeActivity(ActivityBase, CustomBaseModel):
     Represents an activity that is sent when an adaptive card action is invoked.
     """
 
-    type: Literal["invoke"] = "invoke"
+    type: Literal["invoke"] = "invoke"  # pyright: ignore [reportIncompatibleVariableOverride]
 
     name: Literal["adaptiveCard/action"] = "adaptiveCard/action"
     """The name of the operation associated with an invoke or event activity."""

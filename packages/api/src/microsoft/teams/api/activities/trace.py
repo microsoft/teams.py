@@ -10,7 +10,7 @@ from ..models import ActivityBase, ConversationReference, CustomBaseModel
 
 
 class TraceActivity(ActivityBase, CustomBaseModel, ABC):
-    type: Literal["trace"] = "trace"
+    type: Literal["trace"] = "trace"  # pyright: ignore [reportIncompatibleVariableOverride]
 
     name: Optional[str] = None
     """"

@@ -10,4 +10,4 @@ from ..models import ActivityBase, CustomBaseModel
 
 
 class HandoffActivity(ActivityBase, CustomBaseModel, ABC):
-    type: Literal["handoff"] = "handoff"
+    type: Literal["handoff"] = "handoff"  # pyright: ignore [reportIncompatibleVariableOverride]

@@ -227,7 +227,9 @@ def mock_client_credentials():
 def mock_token_credentials():
     """Create mock token credentials for testing."""
 
-    async def mock_token_factory(scope: str, tenant_id: Optional[str] = None) -> str:
+    async def mock_token_factory(scope: str | list[str], tenant_id: Optional[str] = None) -> str:
+        if isinstance(scope, list):
+            scope = ",".join(scope)
         return f"mock_token_for_{scope.replace('/', '_')}"
 
     return TokenCredentials(client_id="mock_client_id", token=mock_token_factory, tenant_id="mock_tenant_id")
@@ -247,7 +249,7 @@ def mock_account():
 def mock_activity():
     """Create a mock activity for testing."""
     account = Account(id="sender_id", name="Sender")
-    return ActivityParams(value={"type": "message", "text": "Mock activity text", "from": account.model_dump()})
+    return ActivityParams(value={"type": "message", "text": "Mock activity text", "from": account.model_dump()})  # pyright: ignore[reportCallIssue]
 
 
 @pytest.fixture

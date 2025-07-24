@@ -17,7 +17,7 @@ class FileConsentInvokeActivity(InvokeActivity):
     (either accepting or declining file upload).
     """
 
-    name: Literal["fileConsent/invoke"] = "fileConsent/invoke"
+    name: Literal["fileConsent/invoke"] = "fileConsent/invoke"  # pyright: ignore [reportIncompatibleVariableOverride]
     """The name of the operation associated with an invoke or event activity."""
 
     value: FileConsentCardResponse

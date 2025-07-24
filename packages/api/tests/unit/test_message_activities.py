@@ -39,7 +39,7 @@ class TestMessageActivity:
         conversation = ConversationAccount(id="conv-789", conversation_type="personal")
 
         activity = MessageActivity(
-            value={
+            **{
                 "id": "msg-123",
                 "text": text,
                 "from": from_account,

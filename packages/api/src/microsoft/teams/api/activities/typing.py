@@ -9,7 +9,7 @@ from ..models import ActivityBase, ChannelData, CustomBaseModel, StreamInfoEntit
 
 
 class TypingActivity(ActivityBase, CustomBaseModel):
-    type: Literal["typing"] = "typing"
+    type: Literal["typing"] = "typing"  # pyright: ignore [reportIncompatibleVariableOverride]
 
     text: Optional[str] = None
     """

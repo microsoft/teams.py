@@ -17,7 +17,7 @@ class MessageExtensionSubmitActionInvokeActivity(InvokeActivity):
     in a messaging extension.
     """
 
-    name: Literal["composeExtension/submitAction"] = "composeExtension/submitAction"
+    name: Literal["composeExtension/submitAction"] = "composeExtension/submitAction"  # pyright: ignore [reportIncompatibleVariableOverride]
     """The name of the operation associated with an invoke or event activity."""
 
     value: MessagingExtensionAction

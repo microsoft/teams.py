@@ -12,7 +12,7 @@ from .task_module_task_info import TaskModuleTaskInfo
 class TaskModuleContinueResponse(TaskModuleResponseBase):
     """Task Module Response with continue action."""
 
-    type: Literal["continue"] = "continue"
+    type: Literal["continue"] = "continue"  # pyright: ignore [reportIncompatibleVariableOverride]
     """Type of response, always 'continue' for this class."""
 
     value: Optional[TaskModuleTaskInfo] = None

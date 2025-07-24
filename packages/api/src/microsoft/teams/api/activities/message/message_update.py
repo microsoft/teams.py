@@ -14,14 +14,14 @@ MessageEventType = Literal["undeleteMessage", "editMessage"]
 class MessageUpdateChannelData(ChannelData):
     """Channel data specific to message update activities."""
 
-    event_type: MessageEventType  # pyright: ignore [reportGeneralTypeIssues]
+    event_type: MessageEventType  # pyright: ignore [reportGeneralTypeIssues, reportIncompatibleVariableOverride]
     """The type of event for message update."""
 
 
 class MessageUpdateActivity(ActivityBase):
     """Represents a message update activity in Microsoft Teams."""
 
-    type: Literal["messageUpdate"] = "messageUpdate"
+    type: Literal["messageUpdate"] = "messageUpdate"  # pyright: ignore [reportIncompatibleVariableOverride]
 
     text: str
     """The text content of the message."""
@@ -41,7 +41,7 @@ class MessageUpdateActivity(ActivityBase):
     value: Optional[Any] = None
     """A value that is associated with the activity."""
 
-    channel_data: MessageUpdateChannelData  # pyright: ignore [reportGeneralTypeIssues]
+    channel_data: MessageUpdateChannelData  # pyright: ignore [reportGeneralTypeIssues, reportIncompatibleVariableOverride]
     """Channel-specific data for message update events."""
 
     def with_text(self, text: str) -> Self:
