@@ -31,7 +31,7 @@ class CommandResultValue(CustomBaseModel):
 class CommandResultActivity(ActivityBase, CustomBaseModel):
     """Asynchronous external command result."""
 
-    type: Literal["commandResult"] = "commandResult"
+    type: Literal["commandResult"] = "commandResult"  # pyright: ignore[reportIncompatibleVariableOverride]
 
     name: str
     """The name of the event."""

@@ -17,7 +17,7 @@ class InvokeActivity(ActivityBase, ABC):
     interactive functionality like adaptive cards, messaging extensions, and task modules.
     """
 
-    type: Literal["invoke"] = "invoke"
+    type: Literal["invoke"] = "invoke"  # pyright: ignore [reportIncompatibleVariableOverride]
     """The activity type is always 'invoke' for invoke activities."""
 
     name: str

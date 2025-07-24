@@ -27,9 +27,11 @@ class EventEmitterProtocol(Protocol):
 
     def on(self, event: str, handler: EventHandler) -> int:
         """Register an event handler. Returns subscription ID."""
+        ...
 
     def once(self, event: str, handler: EventHandler) -> int:
         """Register a one-time event handler. Returns subscription ID."""
+        ...
 
     def off(self, subscription_id: int) -> None:
         """Remove an event handler by subscription ID."""
@@ -61,8 +63,9 @@ class EventEmitter(EventEmitterProtocol):
         self._subscriptions: Dict[str, List[Subscription]] = {}
 
         # Use provided logger or create default console logger
-        if options and options.get("logger"):
-            self._logger = options["logger"]
+        logger = options.get("logger") if options else None
+        if logger:
+            self._logger = logger.getChild("microsoft.teams.common.events.EventEmitter")
         else:
             self._logger = ConsoleLogger().create_logger("microsoft.teams.common.events.EventEmitter")
 
@@ -146,7 +149,7 @@ class EventEmitter(EventEmitterProtocol):
         handler_count = len(self._subscriptions[event])
         self._logger.debug("Emitting event '%s' to %d handler(s)", event, handler_count)
 
-        awaitables = []
+        awaitables: list[Awaitable[None]] = []
 
         for subscription in self._subscriptions[event][:]:  # Copy to avoid modification during iteration
             try:

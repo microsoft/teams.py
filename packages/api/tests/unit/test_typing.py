@@ -29,14 +29,14 @@ class TestTyping:
 
     def test_should_build(self, user: Account, bot: Account, chat: ConversationAccount) -> None:
         """Test basic activity construction."""
-        activity = TypingActivity({"id": "1", "from": user, "conversation": chat, "recipient": bot})
+        activity = TypingActivity(**{"id": "1", "from": user, "conversation": chat, "recipient": bot})
         assert activity.type == "typing"
         assert activity.text is None
 
     def test_should_build_with_text(self, user: Account, bot: Account, chat: ConversationAccount) -> None:
         """Test activity construction with text manipulation."""
         activity = (
-            TypingActivity({"id": "1", "from": user, "conversation": chat, "recipient": bot})
+            TypingActivity(**{"id": "1", "from": user, "conversation": chat, "recipient": bot})
             .with_text("test")
             .add_text("ing123")
         )

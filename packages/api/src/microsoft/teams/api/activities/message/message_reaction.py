@@ -11,7 +11,7 @@ from ...models import ActivityBase, MessageReaction
 class MessageReactionActivity(ActivityBase):
     """Represents a message reaction activity in Microsoft Teams."""
 
-    type: Literal["messageReaction"] = "messageReaction"
+    type: Literal["messageReaction"] = "messageReaction"  # pyright: ignore [reportIncompatibleVariableOverride]
 
     reactions_added: Optional[List[MessageReaction]] = None
     """The collection of reactions added to the conversation."""

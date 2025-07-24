@@ -27,7 +27,7 @@ class CommandSendValue(CustomBaseModel):
 class CommandSendActivity(ActivityBase, CustomBaseModel):
     """Send command activity."""
 
-    type: Literal["command"] = "command"
+    type: Literal["command"] = "command"  # pyright: ignore [reportIncompatibleVariableOverride]
 
     name: str
     """The name of the event."""

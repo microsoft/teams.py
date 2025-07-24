@@ -34,11 +34,11 @@ class ClientOptions:
     """
 
     base_url: Optional[str] = None
-    headers: Dict[str, str] = field(default_factory=dict)
+    headers: Dict[str, str] = field(default_factory=dict[str, str])
     timeout: Optional[float] = None
     logger: Optional[logging.Logger] = None
     token: Optional[Token] = None
-    interceptors: Optional[List[Interceptor]] = field(default_factory=list)
+    interceptors: Optional[List[Interceptor]] = field(default_factory=list[Interceptor])
 
 
 class Client:

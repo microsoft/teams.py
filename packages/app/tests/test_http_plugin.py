@@ -71,7 +71,6 @@ class TestHttpPlugin:
         assert hasattr(plugin_with_validator, "put")
         assert hasattr(plugin_with_validator, "patch")
         assert hasattr(plugin_with_validator, "delete")
-        assert hasattr(plugin_with_validator, "route")
         assert hasattr(plugin_with_validator, "middleware")
 
         # These should be bound to the FastAPI app methods

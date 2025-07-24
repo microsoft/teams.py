@@ -17,7 +17,7 @@ class ExecuteActionInvokeActivity(InvokeActivity):
     in an O365 connector card message.
     """
 
-    name: Literal["actionableMessage/executeAction"] = "actionableMessage/executeAction"
+    name: Literal["actionableMessage/executeAction"] = "actionableMessage/executeAction"  # pyright: ignore [reportIncompatibleVariableOverride]
     """The name of the operation associated with an invoke or event activity."""
 
     value: O365ConnectorCardActionQuery

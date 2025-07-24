@@ -23,12 +23,11 @@ class TestConversationClient:
 
         assert client.http == mock_http_client
         assert client.service_url == service_url
-        assert client._activities is not None
-        assert client._members is not None
+        assert client.activities_client is not None
+        assert client.members_client is not None
 
     def test_conversation_client_initialization_with_options(self):
         """Test ConversationClient initialization with ClientOptions."""
-        from microsoft.teams.common.http import ClientOptions
 
         service_url = "https://test.service.url"
         options = ClientOptions(base_url="https://test.api.com")
@@ -227,8 +226,8 @@ class TestConversationClientHttpClientSharing:
         service_url = "https://test.service.url"
         client = ConversationClient(service_url, mock_http_client)
 
-        assert client._activities.http == mock_http_client
-        assert client._members.http == mock_http_client
+        assert client.activities_client.http == mock_http_client
+        assert client.members_client.http == mock_http_client
 
     def test_http_client_update_propagates(self, mock_http_client):
         """Test that updating HTTP client propagates to sub-clients."""
@@ -242,5 +241,5 @@ class TestConversationClientHttpClientSharing:
 
         assert client.http == new_http_client
 
-        assert client._activities.http == new_http_client
-        assert client._members.http == new_http_client
+        assert client.activities_client.http == new_http_client
+        assert client.members_client.http == new_http_client

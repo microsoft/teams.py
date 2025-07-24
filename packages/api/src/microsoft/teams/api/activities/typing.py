@@ -3,21 +3,18 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from typing import Any, Dict, Literal, Optional, Self
+from typing import Literal, Optional, Self
 
 from ..models import ActivityBase, ChannelData, CustomBaseModel, StreamInfoEntity
 
 
 class TypingActivity(ActivityBase, CustomBaseModel):
-    type: Literal["typing"] = "typing"
+    type: Literal["typing"] = "typing"  # pyright: ignore [reportIncompatibleVariableOverride]
 
     text: Optional[str] = None
     """
     The text content of the message.
     """
-
-    def __init__(self, value: Optional[Dict[str, Any]] = None) -> None:
-        super().__init__(value={"type": "typing", **(value or {})})
 
     def with_text(self, value: str) -> Self:
         """Set the text content of the message."""

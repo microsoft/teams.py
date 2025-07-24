@@ -17,7 +17,7 @@ class TabFetchInvokeActivity(InvokeActivity):
     or configuration for display.
     """
 
-    name: Literal["tab/fetch"] = "tab/fetch"
+    name: Literal["tab/fetch"] = "tab/fetch"  # pyright: ignore [reportIncompatibleVariableOverride]
     """The name of the operation associated with an invoke or event activity."""
 
     value: TabRequest

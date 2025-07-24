@@ -7,7 +7,7 @@ import asyncio
 import os
 from contextlib import asynccontextmanager
 from logging import Logger
-from typing import Any, Awaitable, Callable, Dict, Optional
+from typing import Any, AsyncGenerator, Awaitable, Callable, Dict, Optional
 
 import uvicorn
 from fastapi import FastAPI, HTTPException, Request
@@ -48,7 +48,7 @@ class HttpPlugin:
 
         # Setup FastAPI app with lifespan
         @asynccontextmanager
-        async def lifespan(_app: FastAPI) -> Any:
+        async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
             # Startup
             self.logger.info(f"listening on port {self._port} 🚀")
             if self._on_ready_callback:
@@ -67,7 +67,6 @@ class HttpPlugin:
         self.put = self.app.put
         self.patch = self.app.patch
         self.delete = self.app.delete
-        self.route = self.app.route
         self.middleware = self.app.middleware
 
         # Setup routes and error handlers
@@ -290,7 +289,6 @@ class HttpPlugin:
     def _setup_routes(self) -> None:
         """Setup FastAPI routes."""
 
-        @self.app.post("/api/messages")  # type: ignore[misc]
         async def on_activity(request: Request) -> Any:
             """Handle incoming Teams activity."""
             # Authenticate request and extract token
@@ -299,7 +297,10 @@ class HttpPlugin:
             # Process the activity
             return await self._handle_activity_request(request)
 
-        @self.app.get("/")  # type: ignore[misc]
+        self.app.post("/api/messages")(on_activity)
+
         async def health_check() -> Dict[str, Any]:
             """Basic health check endpoint."""
             return {"status": "healthy", "port": self._port}
+
+        self.app.get("/")(health_check)

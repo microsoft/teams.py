@@ -9,7 +9,7 @@ from ...models import ActivityBase, CustomBaseModel
 
 
 class InstalledActivity(ActivityBase, CustomBaseModel):
-    type: Literal["installationUpdate"] = "installationUpdate"
+    type: Literal["installationUpdate"] = "installationUpdate"  # pyright: ignore [reportIncompatibleVariableOverride]
 
     action: Literal["add"] = "add"
     """Install update action"""

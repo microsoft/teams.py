@@ -22,42 +22,42 @@ class CardAttachmentData(CustomBaseModel):
 
 
 class AdaptiveCardAttachment(CardAttachmentData):
-    content_type: Literal["application/vnd.microsoft.card.adaptive"]
+    content_type: Literal["application/vnd.microsoft.card.adaptive"] = "application/vnd.microsoft.card.adaptive"  # pyright: ignore [reportIncompatibleVariableOverride]
     content: AdaptiveCard
 
 
 class AnimationCardAttachment(CardAttachmentData):
-    content_type: Literal["application/vnd.microsoft.card.animation"]
+    content_type: Literal["application/vnd.microsoft.card.animation"] = "application/vnd.microsoft.card.animation"  # pyright: ignore [reportIncompatibleVariableOverride]
     content: AnimationCard
 
 
 class AudioCardAttachment(CardAttachmentData):
-    content_type: Literal["application/vnd.microsoft.card.audio"]
+    content_type: Literal["application/vnd.microsoft.card.audio"] = "application/vnd.microsoft.card.audio"  # pyright: ignore [reportIncompatibleVariableOverride]
     content: AudioCard
 
 
 class HeroCardAttachment(CardAttachmentData):
-    content_type: Literal["application/vnd.microsoft.card.hero"]
+    content_type: Literal["application/vnd.microsoft.card.hero"] = "application/vnd.microsoft.card.hero"  # pyright: ignore [reportIncompatibleVariableOverride]
     content: HeroCard
 
 
 class OAuthCardAttachment(CardAttachmentData):
-    content_type: Literal["application/vnd.microsoft.card.oauth"]
+    content_type: Literal["application/vnd.microsoft.card.oauth"] = "application/vnd.microsoft.card.oauth"  # pyright: ignore [reportIncompatibleVariableOverride]
     content: OAuthCard
 
 
 class SigninCardAttachment(CardAttachmentData):
-    content_type: Literal["application/vnd.microsoft.card.signin"]
+    content_type: Literal["application/vnd.microsoft.card.signin"] = "application/vnd.microsoft.card.signin"  # pyright: ignore [reportIncompatibleVariableOverride]
     content: SignInCard
 
 
 class ThumbnailCardAttachment(CardAttachmentData):
-    content_type: Literal["application/vnd.microsoft.card.thumbnail"]
+    content_type: Literal["application/vnd.microsoft.card.thumbnail"] = "application/vnd.microsoft.card.thumbnail"  # pyright: ignore [reportIncompatibleVariableOverride]
     content: ThumbnailCard
 
 
 class VideoCardAttachment(CardAttachmentData):
-    content_type: Literal["application/vnd.microsoft.card.video"]
+    content_type: Literal["application/vnd.microsoft.card.video"] = "application/vnd.microsoft.card.video"  # pyright: ignore [reportIncompatibleVariableOverride]
     content: VideoCard
 
 
@@ -107,8 +107,5 @@ def card_attachment(type: CardAttachmentTypes, content: Any) -> CardAttachment:
         A card attachment of the specified type with the given content
     """
     attachment_class = type.value
-    attachment_type = CardAttachmentType(type.name)
-    attachment: CardAttachment = attachment_class(
-        content_type=f"application/vnd.microsoft.card.{attachment_type.value}", content=content
-    )
-    return attachment
+    attachment = attachment_class(content=content)
+    return attachment  # type: ignore

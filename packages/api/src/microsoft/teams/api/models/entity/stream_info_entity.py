@@ -11,7 +11,7 @@ from ..custom_base_model import CustomBaseModel
 class StreamInfoEntity(CustomBaseModel):
     """Entity containing streaming information"""
 
-    type: Literal["streaminfo"]
+    type: Literal["streaminfo"] = "streaminfo"
     "Type identifier for stream info"
 
     stream_id: Optional[str] = None

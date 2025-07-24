@@ -17,7 +17,7 @@ class MessageExtensionQueryLinkInvokeActivity(InvokeActivity):
     in a messaging extension.
     """
 
-    name: Literal["composeExtension/queryLink"] = "composeExtension/queryLink"
+    name: Literal["composeExtension/queryLink"] = "composeExtension/queryLink"  # pyright: ignore [reportIncompatibleVariableOverride]
     """The name of the operation associated with an invoke or event activity."""
 
     value: AppBasedLinkQuery

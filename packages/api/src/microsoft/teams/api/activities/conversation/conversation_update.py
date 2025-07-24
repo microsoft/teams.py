@@ -24,14 +24,14 @@ ConversationEventType = Literal[
 class ConversationChannelData(ChannelData, CustomBaseModel):
     """Extended ChannelData with event type."""
 
-    event_type: ConversationEventType
+    event_type: ConversationEventType  # pyright: ignore [reportGeneralTypeIssues, reportIncompatibleVariableOverride]
     """The type of event that occurred."""
 
 
 class ConversationUpdateActivity(ActivityBase, CustomBaseModel):
     """Activity for conversation updates."""
 
-    type: Literal["conversationUpdate"] = "conversationUpdate"
+    type: Literal["conversationUpdate"] = "conversationUpdate"  # pyright: ignore[reportIncompatibleVariableOverride]
 
     members_added: Optional[List[Account]] = None
     """The collection of members added to the conversation."""
@@ -45,5 +45,5 @@ class ConversationUpdateActivity(ActivityBase, CustomBaseModel):
     history_disclosed: Optional[bool] = None
     """Indicates whether the prior history of the channel is disclosed."""
 
-    channel_data: ConversationChannelData
+    channel_data: ConversationChannelData  # pyright: ignore [reportGeneralTypeIssues, reportIncompatibleVariableOverride]
     """Channel data with event type information."""

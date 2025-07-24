@@ -4,7 +4,7 @@ Licensed under the MIT License.
 """
 
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Self
+from typing import Any, List, Optional, Self
 
 from microsoft.teams.api.models.account import Account, ConversationAccount
 from microsoft.teams.api.models.channel_data.channel_data import ChannelData
@@ -57,7 +57,7 @@ class Activity(CustomBaseModel):
     For example, 2016-09-23T13:07:49.4714686-07:00.
     """
 
-    channel_id: ChannelID
+    channel_id: ChannelID = "msteams"
     """Contains an ID that uniquely identifies the channel. Set by the channel."""
 
     from_: Account
@@ -80,10 +80,6 @@ class Activity(CustomBaseModel):
 
     channel_data: Optional[ChannelData] = None
     """Contains channel-specific content."""
-
-    def __init__(self, value: Dict[str, Any]) -> None:
-        """Initialize the activity."""
-        super().__init__(**{"channel_id": "msteams", **value})
 
     @property
     def channel(self) -> Optional[ChannelInfo]:

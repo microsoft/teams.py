@@ -52,9 +52,7 @@ class TestServiceTokenValidator:
     def mock_jwks_response(self):
         """Create mock JWKS response."""
 
-        return JwksResponse(
-            keys=[JwksKey(kty="RSA", kid="test-key-id", alg="RS256", use="sig", n="test-modulus", e="AQAB")]
-        )
+        return JwksResponse(keys=[JwksKey(kty="RSA", kid="test-key-id", alg="RS256", use="sig")])
 
     def test_init_with_app_id(self):
         """Test ServiceTokenValidator initialization with app ID."""

@@ -26,7 +26,7 @@ from ..utils import StripMentionsTextOptions, strip_mentions_text
 class MessageActivity(ActivityBase):
     """Represents a message activity in Microsoft Teams."""
 
-    type: Literal["message"] = "message"
+    type: Literal["message"] = "message"  # pyright: ignore [reportIncompatibleVariableOverride]
 
     text: str
     """The text content of the message."""
