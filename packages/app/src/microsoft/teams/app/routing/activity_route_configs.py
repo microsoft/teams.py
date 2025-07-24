@@ -3,23 +3,25 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from typing import Callable, Dict, NamedTuple, Optional, Type, cast
+from dataclasses import dataclass
+from typing import Dict, Optional, Type, cast
 
 from microsoft.teams.api import (
-    Activity,
-    AdaptiveCardInvokeActivity,
+    ActivityBase,
+    AdaptiveCardInvokeResponse,
     CommandResultActivity,
     CommandSendActivity,
     ConfigFetchInvokeActivity,
+    ConfigInvokeResponse,
     ConfigSubmitInvokeActivity,
     ConversationUpdateActivity,
+    CustomBaseModel,
     EndOfConversationActivity,
     EventActivity,
     ExecuteActionInvokeActivity,
     FileConsentInvokeActivity,
     HandoffActionInvokeActivity,
     HandoffActivity,
-    InstallUpdateActivity,
     InvokeActivity,
     MeetingEndEventActivity,
     MeetingParticipantJoinEventActivity,
@@ -36,36 +38,31 @@ from microsoft.teams.api import (
     MessageExtensionSelectItemInvokeActivity,
     MessageExtensionSettingInvokeActivity,
     MessageExtensionSubmitActionInvokeActivity,
-    MessageInvokeActivity,
     MessageReactionActivity,
+    MessageSubmitActionInvokeActivity,
     MessageUpdateActivity,
+    MessagingExtensionActionInvokeResponse,
+    MessagingExtensionInvokeResponse,
+    ReadReceiptEventActivity,
     SignInTokenExchangeInvokeActivity,
     SignInVerifyStateInvokeActivity,
     TabFetchInvokeActivity,
+    TabInvokeResponse,
     TabSubmitInvokeActivity,
     TaskFetchInvokeActivity,
+    TaskModuleInvokeResponse,
     TaskSubmitInvokeActivity,
+    TokenExchangeInvokeResponseType,
     TraceActivity,
     TypingActivity,
-)
-from microsoft.teams.api.activities.event.read_reciept import ReadReceiptEventActivity
-from microsoft.teams.api.models import ActivityBase
-from microsoft.teams.api.models.invoke_response import (
-    AdaptiveCardInvokeResponse,
-    ConfigInvokeResponse,
-    MessagingExtensionActionInvokeResponse,
-    MessagingExtensionInvokeResponse,
-    TabInvokeResponse,
-    TaskModuleInvokeResponse,
-    TokenExchangeInvokeResponseType,
     VoidInvokeResponse,
 )
-from pydantic import BaseModel
 
-RouteSelector = Callable[[ActivityBase], bool]
+from .router import RouteSelector
 
 
-class ActivityConfig(NamedTuple):
+@dataclass(frozen=True)
+class ActivityConfig:
     """Configuration for an activity handler."""
 
     name: str
@@ -74,17 +71,14 @@ class ActivityConfig(NamedTuple):
     method_name: str
     """The generated method name (e.g., 'onMessage', 'onInvoke')."""
 
-    input_model: Type[ActivityBase]
+    input_model: str | Type[ActivityBase]
     """The input activity class type."""
 
     selector: RouteSelector
     """Function that determines if this route matches the given activity."""
 
-    output_model: Optional[BaseModel] = None
+    output_model: Optional[Type[CustomBaseModel]] = None
     """The output model class type. None if no specific output type."""
-
-    input_type_name: Optional[str] = None
-    """Override for the input type name in generated code. If None, uses input_model.__name__."""
 
     output_type_name: Optional[str] = None
     """Override for the output type name in generated code. If None, uses output_model.__name__."""
@@ -258,10 +252,9 @@ ACTIVITY_ROUTES: Dict[str, ActivityConfig] = {
     "event": ActivityConfig(
         name="event",
         method_name="on_event",
-        input_model=EventActivity,
+        input_model="EventActivity",
         selector=lambda activity: activity.type == "event",
         output_model=None,
-        input_type_name="EventActivity",
     ),
     "read_receipt": ActivityConfig(
         name="read_receipt",
@@ -453,12 +446,11 @@ ACTIVITY_ROUTES: Dict[str, ActivityConfig] = {
     "message.submit": ActivityConfig(
         name="message.submit",
         method_name="on_message_submit",
-        input_model=MessageInvokeActivity,
+        input_model=MessageSubmitActionInvokeActivity,
         selector=lambda activity: activity.type == "invoke"
         and cast(InvokeActivity, activity).name == "message/submitAction",
         output_model=VoidInvokeResponse,
         output_type_name="VoidInvokeResponse",
-        input_type_name="MessageInvokeActivity",
     ),
     "handoff.action": ActivityConfig(
         name="handoff.action",
@@ -489,29 +481,26 @@ ACTIVITY_ROUTES: Dict[str, ActivityConfig] = {
     "card.action": ActivityConfig(
         name="card.action",
         method_name="on_card_action",
-        input_model=AdaptiveCardInvokeActivity,
+        input_model="AdaptiveCardInvokeActivity",
         selector=lambda activity: activity.type == "invoke"
         and cast(InvokeActivity, activity).name == "adaptiveCard/action",
         output_model=AdaptiveCardInvokeResponse,
         output_type_name="AdaptiveCardInvokeResponse",
-        input_type_name="AdaptiveCardInvokeActivity",
     ),
     # Generic invoke handler (fallback for any invoke not matching specific aliases)
     "invoke": ActivityConfig(
         name="invoke",
         method_name="on_invoke",
-        input_model=InvokeActivity,
+        input_model="InvokeActivity",
         selector=lambda activity: activity.type == "invoke",
         output_model=None,
-        input_type_name="InvokeActivity",
     ),
     "installation_update": ActivityConfig(
         name="installation_update",
         method_name="on_installation_update",
-        input_model=InstallUpdateActivity,
+        input_model="InstallUpdateActivity",
         selector=lambda activity: activity.type == "installationUpdate",
         output_model=None,
-        input_type_name="InstallUpdateActivity",
     ),
     # Other Core Activities
     "typing": ActivityConfig(
@@ -539,9 +528,8 @@ ACTIVITY_ROUTES: Dict[str, ActivityConfig] = {
     "activity": ActivityConfig(
         name="activity",
         method_name="on_activity",
-        input_model=Activity,
+        input_model="Activity",
         selector=lambda activity: True,
         output_model=None,
-        input_type_name="Activity",
     ),
 }

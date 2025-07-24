@@ -1,8 +1,8 @@
 from typing import Awaitable, Callable, Generic, Optional, TypeVar
 
-from microsoft.teams.api import Activity
+from microsoft.teams.api import ActivityBase
 
-T = TypeVar("T", bound=Activity)
+T = TypeVar("T", bound=ActivityBase, contravariant=True)
 
 
 class ActivityContext(Generic[T]):
