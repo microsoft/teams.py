@@ -35,6 +35,7 @@ from .events import (
 from .http_plugin import HttpPlugin
 from .options import AppOptions
 from .plugin import PluginProtocol
+from .routing.router import ActivityRouter
 
 F = TypeVar("F", bound=Callable[..., Any])
 
@@ -63,6 +64,7 @@ class App(ActivityProcessorMixin):
         self.http_client = Client()
 
         self._events = EventEmitter()
+        self._router = ActivityRouter()
 
         self._tokens = AppTokens()
         self.credentials = self._init_credentials()
@@ -120,6 +122,11 @@ class App(ActivityProcessorMixin):
     def events(self) -> EventEmitter:
         """The event emitter instance used by the app."""
         return self._events
+
+    @property
+    def router(self) -> ActivityRouter:
+        """The activity router instance."""
+        return self._router
 
     @property
     def id(self) -> Optional[str]:

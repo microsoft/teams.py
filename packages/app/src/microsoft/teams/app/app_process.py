@@ -18,12 +18,10 @@ from .routing.router import ActivityHandler, ActivityRouter
 class ActivityProcessorMixin(ActivityHandlerMixin, ABC):
     """Mixin that provides activity processing functionality with middleware chain support."""
 
-    _router_instance = ActivityRouter()
-
     @property
+    @abstractmethod
     def router(self) -> ActivityRouter:
         """The activity router instance."""
-        return self._router_instance
 
     @property
     @abstractmethod
