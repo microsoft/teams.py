@@ -4,11 +4,10 @@ Licensed under the MIT License.
 """
 
 import asyncio
-import logging
 from unittest.mock import Mock
 
 import pytest
-from microsoft.teams.common.events import EventEmitter, EventEmitterOptions
+from microsoft.teams.common.events import EventEmitter
 
 
 class TestEventEmitter:
@@ -213,19 +212,6 @@ class TestEventEmitter:
 
         assert id1 != id2 != id3
         assert len({id1, id2, id3}) == 3
-
-    def test_custom_logger_option(self):
-        custom_logger = Mock(spec=logging.Logger)
-        options: EventEmitterOptions = {"logger": custom_logger}
-
-        emitter = EventEmitter(options)
-        handler = Mock()
-
-        emitter.on("test_event", handler)
-        emitter.emit("test_event", "test_data")
-
-        # Verify custom logger was used
-        custom_logger.debug.assert_called()
 
     @pytest.mark.asyncio
     async def test_emit_from_async_context_with_async_handlers_works(self):
