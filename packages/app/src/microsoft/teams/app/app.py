@@ -9,18 +9,19 @@ from dataclasses import dataclass
 from logging import Logger
 from typing import Any, Callable, Dict, List, Optional, TypeVar, Union, overload
 
+from dotenv import load_dotenv
 from microsoft.teams.api import (
+    ActivityBase,
+    ActivityParams,
     ActivityTypeAdapter,
     ApiClient,
     ClientCredentials,
+    ConversationReference,
     Credentials,
     JsonWebToken,
     TokenProtocol,
 )
-from microsoft.teams.common.events import EventEmitter
-from microsoft.teams.common.http import Client
-from microsoft.teams.common.logging import ConsoleLogger
-from microsoft.teams.common.storage import LocalStorage
+from microsoft.teams.common import Client, ClientOptions, ConsoleLogger, EventEmitter, LocalStorage
 
 from .app_process import ActivityProcessorMixin
 from .events import (
@@ -32,12 +33,14 @@ from .events import (
     get_event_type_from_signature,
     is_registered_event,
 )
-from .http_plugin import HttpPlugin
+from .http_plugin import HttpActivityEvent, HttpPlugin
 from .options import AppOptions
 from .plugin import PluginProtocol
+from .routing.activity_context import ActivityContext
 from .routing.router import ActivityRouter
 
 F = TypeVar("F", bound=Callable[..., Any])
+load_dotenv()
 
 
 @dataclass
@@ -223,6 +226,7 @@ class App(ActivityProcessorMixin):
     async def _refresh_bot_token(self, force: bool = False) -> None:
         """Refresh the bot authentication token."""
         if not self.credentials:
+            self.log.warning("No credentials provided, skipping bot token refresh")
             return
 
         if not force and self._tokens.bot and not self._tokens.bot.is_expired():
@@ -245,6 +249,7 @@ class App(ActivityProcessorMixin):
     async def _refresh_graph_token(self, force: bool = False) -> None:
         """Refresh the Graph API token."""
         if not self.credentials:
+            self.log.warning("No credentials provided, skipping bot token refresh")
             return
 
         if not force and self._tokens.graph and not self._tokens.graph.is_expired():
@@ -256,7 +261,7 @@ class App(ActivityProcessorMixin):
         try:
             # TODO: Implement graph token refresh when graph client is available
             # token_response = await self.api.bots.token.get_graph(self.credentials)
-            # self._tokens.graph = JsonWebToken(token_response.access_token)
+            # self._tokens.graph = TokenProtocol(token_response.access_token)
             self.log.debug("Graph token refresh not yet implemented")
 
             # When implemented, emit token event:
@@ -266,7 +271,7 @@ class App(ActivityProcessorMixin):
             self._events.emit("error", ErrorEvent(error, context={"method": "_refresh_graph_token"}))
             raise
 
-    async def handle_activity(self, input_activity: Dict[str, Any]) -> Dict[str, Any]:
+    async def handle_activity(self, input_activity: HttpActivityEvent) -> Dict[str, Any]:
         """
         Handle incoming activities using registered handlers and middleware chain.
 
@@ -278,7 +283,7 @@ class App(ActivityProcessorMixin):
         """
         self.log.debug(f"Received activity: {input_activity}")
 
-        activity = ActivityTypeAdapter.validate_python(input_activity)
+        activity = ActivityTypeAdapter.validate_python(input_activity.activity_payload)
         self.log.debug(f"Validated activity: {activity}")
         activity_type = activity.type
         activity_id = activity.id or ""
@@ -287,7 +292,8 @@ class App(ActivityProcessorMixin):
 
         try:
             self._events.emit("activity", ActivityEvent(activity))
-            response = await self.process_activity(activity)
+            ctx = self.build_context(activity, input_activity.token)
+            response = await self.process_activity(ctx)
             self.http.on_activity_response(activity_id, response)
 
             return {
@@ -307,6 +313,42 @@ class App(ActivityProcessorMixin):
                 ),
             )
             raise
+
+    def build_context(self, activity: ActivityBase, token: TokenProtocol) -> ActivityContext[ActivityBase]:
+        """Build the context object for activity processing.
+
+        Args:
+            activity: The validated Activity object
+
+        Returns:
+            Context object for middleware chain execution
+        """
+
+        service_url = activity.service_url or token.service_url
+        conversation_ref = ConversationReference(
+            activity_id=activity.id,
+            channel_id=activity.channel_id,
+            service_url=service_url,
+            conversation=activity.conversation,
+            bot=activity.from_,
+        )
+        api_client = ApiClient(service_url, self.http_client.clone(ClientOptions(token=self.tokens.bot)))
+
+        async def send(message: str):
+            """Placeholder for send method, can be implemented in context."""
+            message_activity = ActivityParams(
+                **{
+                    "type": "message",
+                    "text": message,
+                    "from": conversation_ref.bot,
+                    "conversation": conversation_ref.conversation,
+                }
+            )
+            res = await api_client.conversations.activities(conversation_ref.conversation.id).create(message_activity)
+
+            return res
+
+        return ActivityContext(activity, self.id or "", self.logger, conversation_ref, send=send)
 
     @overload
     def event(self, func_or_event_type: F) -> F:

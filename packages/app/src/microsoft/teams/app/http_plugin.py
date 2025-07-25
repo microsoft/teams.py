@@ -4,19 +4,68 @@ Licensed under the MIT License.
 """
 
 import asyncio
-import os
 from contextlib import asynccontextmanager
+from dataclasses import dataclass
 from logging import Logger
-from typing import Any, AsyncGenerator, Awaitable, Callable, Dict, Optional
+from typing import Any, AsyncGenerator, Awaitable, Callable, Dict, Literal, Optional
 
 import uvicorn
 from fastapi import FastAPI, HTTPException, Request
+from microsoft.teams.api import TokenProtocol
 from microsoft.teams.common.logging import ConsoleLogger
 
 from .auth import (
     ServiceTokenValidator,
     TokenValidationError,
 )
+
+
+@dataclass
+class HttpActivityEvent:
+    activity_payload: Dict[str, Any]
+    token: TokenProtocol
+
+
+ActivityHandler = Callable[[HttpActivityEvent], Awaitable[Any]]
+
+
+class FakeToken(TokenProtocol):
+    def __init__(self, service_url: str = ""):
+        self._service_url = service_url
+
+    @property
+    def app_id(self) -> str:
+        return ""
+
+    @property
+    def app_display_name(self) -> Optional[str]:
+        return None
+
+    @property
+    def tenant_id(self) -> Optional[str]:
+        return None
+
+    @property
+    def service_url(self) -> str:
+        return self._service_url
+
+    @property
+    def from_(self) -> Literal["azure"]:
+        return "azure"
+
+    @property
+    def from_id(self) -> str:
+        return ""
+
+    @property
+    def expiration(self) -> Optional[int]:
+        return None
+
+    def is_expired(self, buffer_ms: int = 5 * 60 * 1000) -> bool:
+        return False
+
+    def __str__(self) -> str:
+        return "FakeToken"
 
 
 class HttpPlugin:
@@ -28,7 +77,7 @@ class HttpPlugin:
         self,
         app_id: Optional[str],
         logger: Optional[Logger] = None,
-        activity_handler: Optional[Callable[..., Any]] = None,
+        activity_handler: Optional[ActivityHandler] = None,
     ):
         self.logger = logger or ConsoleLogger().create_logger("@teams/http-plugin")
         self._server: Optional[uvicorn.Server] = None
@@ -158,7 +207,7 @@ class HttpPlugin:
         else:
             self.logger.error(f"Plugin error: {error}")
 
-    async def _process_activity(self, activity: Dict[str, Any], activity_id: str) -> None:
+    async def _process_activity(self, activity: Dict[str, Any], activity_id: str, token: TokenProtocol) -> None:
         """
         Process an activity via the registered handler.
 
@@ -170,7 +219,8 @@ class HttpPlugin:
         try:
             # Call the activity handler
             if self.activity_handler:
-                await self.activity_handler(activity)
+                event = HttpActivityEvent(activity, token)
+                await self.activity_handler(event)
             else:
                 self.on_activity_response(
                     activity_id,
@@ -198,7 +248,7 @@ class HttpPlugin:
 
         return authorization.removeprefix("Bearer ")
 
-    async def _authenticate_request(self, request: Request) -> tuple[Optional[str], Optional[str]]:
+    async def _authenticate_request(self, request: Request) -> tuple[TokenProtocol, Optional[str]]:
         """
         Extract and validate JWT token from request.
 
@@ -209,25 +259,19 @@ class HttpPlugin:
             HTTPException: If authentication fails
         """
         authorization = request.headers.get("authorization")
-        token = self._extract_bearer_token(authorization)
+        raw_token = self._extract_bearer_token(authorization)
 
-        if not token:
-            # Only allow missing tokens in local development
-            if os.getenv("ENVIRONMENT") == "local":
-                self.logger.debug("No authorization header in local development - allowing request")
-                return None, None
-            else:
-                self.logger.warning("Unauthorized request - missing or invalid authorization header")
-                raise HTTPException(status_code=401, detail="unauthorized")
+        if not raw_token:
+            self.logger.warning("Unauthorized request - missing or invalid authorization header")
+            raise HTTPException(status_code=401, detail="unauthorized")
 
         # Validate JWT token following Bot Framework protocol
+        # Parse body to get service URL for validation
+        body = await request.json()
+        service_url = body.get("serviceUrl")
         if self.token_validator:
-            # Parse body to get service URL for validation
-            body = await request.json()
-            service_url = body.get("serviceUrl")
-
             try:
-                await self.token_validator.validate_token(token, service_url)
+                token = await self.token_validator.validate_token(raw_token, service_url)
                 self.logger.debug("JWT token validation successful")
                 return token, service_url
             except TokenValidationError as e:
@@ -239,9 +283,10 @@ class HttpPlugin:
         else:
             # No validator available (no app_id provided) - basic presence check only
             self.logger.warning("No token validator available - only checking token presence")
-            return token, None
+            fake_token = FakeToken(service_url or "")
+            return fake_token, service_url
 
-    async def _handle_activity_request(self, request: Request) -> Any:
+    async def _handle_activity_request(self, request: Request, token: TokenProtocol) -> Any:
         """
         Process the activity request and coordinate response.
 
@@ -268,7 +313,7 @@ class HttpPlugin:
             try:
                 # Call the activity handler asynchronously
                 self.logger.debug(f"Processing activity {activity_id} via handler...")
-                asyncio.create_task(self._process_activity(body, activity_id))
+                asyncio.create_task(self._process_activity(body, activity_id, token))
             except Exception as error:
                 self.logger.error(f"Failed to start activity processing: {error}")
                 response_future.set_exception(error)
@@ -292,10 +337,10 @@ class HttpPlugin:
         async def on_activity(request: Request) -> Any:
             """Handle incoming Teams activity."""
             # Authenticate request and extract token
-            _token, _service_url = await self._authenticate_request(request)
+            token, _service_url = await self._authenticate_request(request)
 
             # Process the activity
-            return await self._handle_activity_request(request)
+            return await self._handle_activity_request(request, token)
 
         self.app.post("/api/messages")(on_activity)
 

@@ -51,7 +51,7 @@ class _ActivityBase(CustomBaseModel):
     For example, 2016-09-23T13:07:49.4714686-07:00.
     """
 
-    channel_id: Optional[ChannelID] = "msteams"
+    channel_id: ChannelID = "msteams"
     """Contains an ID that uniquely identifies the channel. Set by the channel."""
 
     from_: Account

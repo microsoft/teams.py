@@ -20,7 +20,7 @@ dependencies = [
 "microsoft-teams-cards" = { workspace = true }
 
 [tool.uv.workspace]
-members = ["packages/*"]
+members = ["packages/*", "tests/echo"]
 
 [build-system]
 requires = ["hatchling"]
