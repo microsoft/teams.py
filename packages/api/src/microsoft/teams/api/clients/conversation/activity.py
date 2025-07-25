@@ -3,45 +3,89 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from typing import Any, List, Optional, Type
+from typing import List, Optional, Union
 
 from microsoft.teams.common.http import Client
-from pydantic import create_model
-from pydantic_core import PydanticUndefinedType
+from pydantic import Field
+from typing_extensions import Annotated
 
-from ...models import Account, ActivityBase, CustomBaseModel
+from ...activities.command import CommandResultActivityInput, CommandSendActivityInput
+from ...activities.conversation import ConversationUpdateActivityInput, EndOfConversationActivityInput
+from ...activities.event import (
+    MeetingEndEventActivityInput,
+    MeetingParticipantJoinEventActivityInput,
+    MeetingParticipantLeaveEventActivityInput,
+    MeetingStartEventActivityInput,
+    ReadReceiptEventActivityInput,
+)
+from ...activities.handoff import HandoffActivityInput
+from ...activities.install_update import InstalledActivityInput, UninstalledActivityInput
+from ...activities.invoke import AdaptiveCardInvokeActivity
+from ...activities.invoke.config import ConfigFetchInvokeActivityInput, ConfigSubmitInvokeActivityInput
+from ...activities.invoke.execute_action import ExecuteActionInvokeActivityInput
+from ...activities.invoke.file_consent import FileConsentInvokeActivityInput
+from ...activities.invoke.handoff_action import HandoffActionInvokeActivityInput
+from ...activities.invoke.message.submit_action import MessageSubmitActionInvokeActivityInput
+from ...activities.invoke.sign_in.token_exchange import SignInTokenExchangeInvokeActivityInput
+from ...activities.invoke.sign_in.verify_state import SignInVerifyStateInvokeActivityInput
+from ...activities.invoke.tab.tab_fetch import TabFetchInvokeActivityInput
+from ...activities.invoke.tab.tab_submit import TabSubmitInvokeActivityInput
+from ...activities.invoke.task.task_fetch import TaskFetchInvokeActivityInput
+from ...activities.invoke.task.task_submit import TaskSubmitInvokeActivityInput
+from ...activities.message import (
+    MessageActivityInput,
+    MessageDeleteActivityInput,
+    MessageReactionActivityInput,
+    MessageUpdateActivityInput,
+)
+from ...activities.trace import TraceActivityInput
+from ...activities.typing import TypingActivityInput
+from ...models import Account, Resource
 from ..base_client import BaseClient
 
-
-def partial_model(model: Type[CustomBaseModel]) -> Type[CustomBaseModel]:
-    """ "
-    Creates a partial model, making all fields optional
-    except for the 'type' field.
-    """
-    base_fields = set(ActivityBase.model_fields.keys())
-    curr_fields = model.model_fields.items()
-    fields: dict[str, Any] = {}
-
-    for field_name, field_info in curr_fields:
-        # Only make ActivityBase fields optional (except 'type')
-        if field_name in base_fields and field_name != "type":
-            annotation = Optional[field_info.annotation]  # type: ignore
-            default = None if isinstance(field_info.default, PydanticUndefinedType) else field_info.default
-            fields[field_name] = (annotation, default)
-        else:
-            fields[field_name] = (field_info.annotation, field_info.default)
-
-    return create_model(
-        f"Partial{model.__name__}",
-        __base__=model,
-        __module__=model.__module__,
-        **{k: v for k, v in fields.items()},
-    )
-
-
-@partial_model
-class ActivityParams(ActivityBase):
-    pass
+# Union of all activity input types (each defined next to their respective activities)
+ActivityParams = Annotated[
+    Union[
+        # Simple activities
+        ConversationUpdateActivityInput,
+        EndOfConversationActivityInput,
+        HandoffActivityInput,
+        TraceActivityInput,
+        TypingActivityInput,
+        # Message activities
+        MessageActivityInput,
+        MessageDeleteActivityInput,
+        MessageReactionActivityInput,
+        MessageUpdateActivityInput,
+        # Command activities
+        CommandSendActivityInput,
+        CommandResultActivityInput,
+        # Event activities
+        ReadReceiptEventActivityInput,
+        MeetingStartEventActivityInput,
+        MeetingEndEventActivityInput,
+        MeetingParticipantJoinEventActivityInput,
+        MeetingParticipantLeaveEventActivityInput,
+        # Install/Update activities
+        InstalledActivityInput,
+        UninstalledActivityInput,
+        # Invoke activities
+        AdaptiveCardInvokeActivity,
+        ConfigFetchInvokeActivityInput,
+        ConfigSubmitInvokeActivityInput,
+        ExecuteActionInvokeActivityInput,
+        FileConsentInvokeActivityInput,
+        HandoffActionInvokeActivityInput,
+        MessageSubmitActionInvokeActivityInput,
+        SignInTokenExchangeInvokeActivityInput,
+        SignInVerifyStateInvokeActivityInput,
+        TabFetchInvokeActivityInput,
+        TabSubmitInvokeActivityInput,
+        TaskFetchInvokeActivityInput,
+        TaskSubmitInvokeActivityInput,
+    ],
+    Field(discriminator="type"),
+]
 
 
 class ConversationActivityClient(BaseClient):
@@ -60,7 +104,7 @@ class ConversationActivityClient(BaseClient):
         super().__init__(http_client)
         self.service_url = service_url
 
-    async def create(self, conversation_id: str, activity: ActivityParams) -> ActivityParams:
+    async def create(self, conversation_id: str, activity: ActivityParams) -> Resource:
         """
         Create a new activity in a conversation.
 
@@ -75,9 +119,9 @@ class ConversationActivityClient(BaseClient):
             f"{self.service_url}/v3/conversations/{conversation_id}/activities",
             json=activity.model_dump(by_alias=True),
         )
-        return ActivityParams(**response.json())
+        return Resource(**response.json())
 
-    async def update(self, conversation_id: str, activity_id: str, activity: ActivityParams) -> ActivityParams:
+    async def update(self, conversation_id: str, activity_id: str, activity: ActivityParams) -> Resource:
         """
         Update an existing activity in a conversation.
 
@@ -93,9 +137,9 @@ class ConversationActivityClient(BaseClient):
             f"{self.service_url}/v3/conversations/{conversation_id}/activities/{activity_id}",
             json=activity.model_dump(by_alias=True),
         )
-        return ActivityParams(**response.json())
+        return Resource(**response.json())
 
-    async def reply(self, conversation_id: str, activity_id: str, activity: ActivityParams) -> ActivityParams:
+    async def reply(self, conversation_id: str, activity_id: str, activity: ActivityParams) -> Resource:
         """
         Reply to an activity in a conversation.
 
@@ -113,7 +157,7 @@ class ConversationActivityClient(BaseClient):
             f"{self.service_url}/v3/conversations/{conversation_id}/activities/{activity_id}",
             json=activity_json,
         )
-        return ActivityParams(**response.json())
+        return Resource(**response.json())
 
     async def delete(self, conversation_id: str, activity_id: str) -> None:
         """

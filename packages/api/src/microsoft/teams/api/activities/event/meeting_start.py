@@ -7,6 +7,7 @@ from datetime import datetime
 from typing import Literal
 
 from ...models import ActivityBase, CustomBaseModel
+from ..utils import input_model
 
 
 class MeetingStartEventValue(CustomBaseModel):
@@ -56,3 +57,13 @@ class MeetingStartEventActivity(ActivityBase, CustomBaseModel):
     """
     The value of the event activity
     """
+
+
+@input_model
+class MeetingStartEventActivityInput(MeetingStartEventActivity):
+    """
+    Input type for MeetingStartEventActivity where ActivityBase fields are optional
+    but event-specific fields retain their required status.
+    """
+
+    pass

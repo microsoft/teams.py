@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from typing import Any, List, Literal, Optional
 
-from ..activity import Activity as ActivityBase
+from ...models import ActivityBase as ActivityBase
 from ..custom_base_model import CustomBaseModel
 from ..message import Message
 from ..tab import TabEntityContext

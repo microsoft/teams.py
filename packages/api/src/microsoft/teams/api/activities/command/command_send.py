@@ -6,6 +6,7 @@ Licensed under the MIT License.
 from typing import Any, Literal, Optional
 
 from ...models import ActivityBase, CustomBaseModel
+from ..utils import input_model
 
 
 class CommandSendValue(CustomBaseModel):
@@ -34,3 +35,13 @@ class CommandSendActivity(ActivityBase, CustomBaseModel):
 
     value: Optional[CommandSendValue] = None
     """The value for this command."""
+
+
+@input_model
+class CommandSendActivityInput(CommandSendActivity):
+    """
+    Input type for CommandSendActivity where ActivityBase fields are optional
+    but command-specific fields retain their required status.
+    """
+
+    pass

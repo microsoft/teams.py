@@ -7,6 +7,7 @@ from datetime import datetime
 from typing import Any, Literal, Optional, Self
 
 from ...models import ActivityBase, ChannelData
+from ..utils import input_model
 
 MessageEventType = Literal["undeleteMessage", "editMessage"]
 
@@ -95,3 +96,13 @@ class MessageUpdateActivity(ActivityBase):
         """
         self.expiration = expiration
         return self
+
+
+@input_model
+class MessageUpdateActivityInput(MessageUpdateActivity):
+    """
+    Input type for MessageUpdateActivity where ActivityBase fields are optional
+    but messageUpdate-specific fields retain their required status.
+    """
+
+    pass

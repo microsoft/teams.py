@@ -6,6 +6,7 @@ Licensed under the MIT License.
 from typing import List, Literal, Optional
 
 from ...models import Account, ActivityBase, ChannelData, CustomBaseModel
+from ..utils import input_model
 
 ConversationEventType = Literal[
     "channelCreated",
@@ -47,3 +48,13 @@ class ConversationUpdateActivity(ActivityBase, CustomBaseModel):
 
     channel_data: ConversationChannelData  # pyright: ignore [reportGeneralTypeIssues, reportIncompatibleVariableOverride]
     """Channel data with event type information."""
+
+
+@input_model
+class ConversationUpdateActivityInput(ConversationUpdateActivity):
+    """
+    Input type for ConversationUpdateActivity where ActivityBase fields are optional
+    but conversationUpdate-specific fields retain their required status.
+    """
+
+    pass

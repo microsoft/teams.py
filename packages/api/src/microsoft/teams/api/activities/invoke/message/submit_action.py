@@ -5,7 +5,9 @@ Licensed under the MIT License.
 
 from typing import Literal, Optional
 
-from ....models import ActivityBase, ConversationReference, CustomBaseModel
+from ....models import ConversationReference, CustomBaseModel
+from ...invoke_activity import InvokeActivity
+from ...utils import input_model
 
 
 class MessageSubmitActionValue(CustomBaseModel):
@@ -28,14 +30,12 @@ class MessageSubmitActionInvokeValue(CustomBaseModel):
     """The value associated with the action."""
 
 
-class MessageSubmitActionInvokeActivity(ActivityBase, CustomBaseModel):
+class MessageSubmitActionInvokeActivity(InvokeActivity):
     """
     Represents an activity that is sent when a message submit action is invoked.
     """
 
-    type: Literal["invoke"] = "invoke"  # pyright: ignore [reportIncompatibleVariableOverride]
-
-    name: Literal["message/submitAction"] = "message/submitAction"
+    name: Literal["message/submitAction"] = "message/submitAction"  # pyright: ignore [reportIncompatibleVariableOverride]
     """The name of the operation associated with an invoke or event activity."""
 
     value: MessageSubmitActionInvokeValue
@@ -43,3 +43,13 @@ class MessageSubmitActionInvokeActivity(ActivityBase, CustomBaseModel):
 
     relates_to: Optional[ConversationReference] = None
     """A reference to another conversation or activity."""
+
+
+@input_model
+class MessageSubmitActionInvokeActivityInput(MessageSubmitActionInvokeActivity):
+    """
+    Input type for MessageSubmitActionInvokeActivity where ActivityBase fields are optional
+    but invoke-specific fields retain their required status.
+    """
+
+    pass

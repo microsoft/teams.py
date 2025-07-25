@@ -7,6 +7,7 @@ from abc import ABC
 from typing import Any, Literal, Optional
 
 from ..models import ActivityBase, ConversationReference, CustomBaseModel
+from .utils import input_model
 
 
 class TraceActivity(ActivityBase, CustomBaseModel, ABC):
@@ -36,3 +37,13 @@ class TraceActivity(ActivityBase, CustomBaseModel, ABC):
     """
     A reference to another conversation or activity.
     """
+
+
+@input_model
+class TraceActivityInput(TraceActivity):
+    """
+    Input type for TraceActivity where ActivityBase fields are optional
+    but trace-specific fields retain their required status.
+    """
+
+    pass

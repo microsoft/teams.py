@@ -7,6 +7,7 @@ from datetime import datetime
 from typing import Literal
 
 from ...models import ActivityBase, CustomBaseModel
+from ..utils import input_model
 
 
 class MeetingEndEventValue(CustomBaseModel):
@@ -36,3 +37,13 @@ class MeetingEndEventActivity(ActivityBase, CustomBaseModel):
     name: Literal["application/vnd.microsoft.meetingEnd"] = "application/vnd.microsoft.meetingEnd"
 
     value: MeetingEndEventValue
+
+
+@input_model
+class MeetingEndEventActivityInput(MeetingEndEventActivity):
+    """
+    Input type for MeetingEndEventActivity where ActivityBase fields are optional
+    but event-specific fields retain their required status.
+    """
+
+    pass

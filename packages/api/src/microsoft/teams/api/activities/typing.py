@@ -6,6 +6,7 @@ Licensed under the MIT License.
 from typing import Literal, Optional, Self
 
 from ..models import ActivityBase, ChannelData, CustomBaseModel, StreamInfoEntity
+from .utils import input_model
 
 
 class TypingActivity(ActivityBase, CustomBaseModel):
@@ -38,3 +39,13 @@ class TypingActivity(ActivityBase, CustomBaseModel):
         self.channel_data.stream_sequence = sequence
 
         return self.add_entity(StreamInfoEntity(stream_id=self.id, stream_type="streaming", stream_sequence=sequence))
+
+
+@input_model
+class TypingActivityInput(TypingActivity):
+    """
+    Input type for TypingActivity where ActivityBase fields are optional
+    but typing-specific fields retain their required status.
+    """
+
+    pass

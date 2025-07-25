@@ -6,6 +6,7 @@ Licensed under the MIT License.
 from typing import List, Literal, Optional, Self
 
 from ...models import ActivityBase, MessageReaction
+from ..utils import input_model
 
 
 class MessageReactionActivity(ActivityBase):
@@ -70,3 +71,13 @@ class MessageReactionActivity(ActivityBase):
 
         self.reactions_removed.append(reaction)
         return self
+
+
+@input_model
+class MessageReactionActivityInput(MessageReactionActivity):
+    """
+    Input type for MessageReactionActivity where ActivityBase fields are optional
+    but messageReaction-specific fields retain their required status.
+    """
+
+    pass

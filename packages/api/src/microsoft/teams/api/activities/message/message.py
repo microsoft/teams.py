@@ -20,7 +20,7 @@ from ...models import (
     SuggestedActions,
     TextFormat,
 )
-from ..utils import StripMentionsTextOptions, strip_mentions_text
+from ..utils import StripMentionsTextOptions, input_model, strip_mentions_text
 
 
 class MessageActivity(ActivityBase):
@@ -210,3 +210,13 @@ class MessageActivity(ActivityBase):
         stream_entity = StreamInfoEntity(type="streaminfo", stream_id=self.id, stream_type="final")
 
         return self.add_entity(stream_entity)
+
+
+@input_model
+class MessageActivityInput(MessageActivity):
+    """
+    Input type for MessageActivity where ActivityBase fields are optional
+    but message-specific fields (like 'text') retain their required status.
+    """
+
+    pass

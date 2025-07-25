@@ -6,6 +6,7 @@ Licensed under the MIT License.
 from typing import Literal
 
 from ...models import ActivityBase, ChannelData
+from ..utils import input_model
 
 
 class MessageDeleteChannelData(ChannelData):
@@ -22,3 +23,13 @@ class MessageDeleteActivity(ActivityBase):
 
     channel_data: MessageDeleteChannelData  # pyright: ignore [reportGeneralTypeIssues, reportIncompatibleVariableOverride]
     """Channel-specific data for message delete events."""
+
+
+@input_model
+class MessageDeleteActivityInput(MessageDeleteActivity):
+    """
+    Input type for MessageDeleteActivity where ActivityBase fields are optional
+    but messageDelete-specific fields retain their required status.
+    """
+
+    pass
