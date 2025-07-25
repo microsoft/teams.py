@@ -10,10 +10,7 @@
     "packages/cards/src",
     "packages/app/src"
   ],
-  "typeCheckingMode": "basic",
-  "strict": [
-    "packages/*/src"
-  ],
+  "typeCheckingMode": "strict",
   "reportIncompatibleVariableOverride": "none",
   "reportIncompatibleMethodOverride": "none"
 }

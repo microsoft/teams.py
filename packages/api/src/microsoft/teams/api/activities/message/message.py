@@ -9,6 +9,7 @@ from typing import Any, List, Literal, Optional, Self
 from ...models import (
     Account,
     ActivityBase,
+    ActivityInputBase,
     Attachment,
     AttachmentLayout,
     ChannelData,
@@ -20,15 +21,16 @@ from ...models import (
     SuggestedActions,
     TextFormat,
 )
-from ..utils import StripMentionsTextOptions, input_model, strip_mentions_text
+from ...models.custom_base_model import CustomBaseModel
+from ..utils import StripMentionsTextOptions, strip_mentions_text
 
 
-class MessageActivity(ActivityBase):
-    """Represents a message activity in Microsoft Teams."""
+class _MessageBase(CustomBaseModel):
+    """Base class containing shared message activity fields (all Optional except type)."""
 
-    type: Literal["message"] = "message"  # pyright: ignore [reportIncompatibleVariableOverride]
+    type: Literal["message"] = "message"
 
-    text: str
+    text: Optional[str] = None
     """The text content of the message."""
 
     speak: Optional[str] = None
@@ -70,7 +72,68 @@ class MessageActivity(ActivityBase):
     value: Optional[Any] = None
     """A value that is associated with the activity."""
 
-    # Utility methods
+
+class MessageActivity(ActivityBase, _MessageBase):
+    """Output model for received message activities with required fields and read-only properties."""
+
+    text: str  # pyright: ignore [reportGeneralTypeIssues, reportIncompatibleVariableOverride]
+    """The text content of the message."""
+
+    def is_recipient_mentioned(self) -> bool:
+        """
+        Check if the recipient account is mentioned in the message.
+
+        Returns:
+            True if the recipient is mentioned
+        """
+        if not self.entities or not self.recipient:
+            return False
+
+        for entity in self.entities or []:
+            if isinstance(entity, MentionEntity):
+                mentioned_id = entity.mentioned.id
+                if mentioned_id == self.recipient.id:
+                    return True
+        return False
+
+    def get_account_mention(self, account_id: str) -> Optional[MentionEntity]:
+        """
+        Get a mention entity by account ID.
+
+        Args:
+            account_id: The account ID to search for
+
+        Returns:
+            The mention entity if found, None otherwise
+        """
+        if not self.entities:
+            return None
+
+        for entity in self.entities or []:
+            if isinstance(entity, MentionEntity):
+                if entity.mentioned.id == account_id:
+                    return entity
+        return None
+
+    def strip_mentions_text(self, options: Optional[StripMentionsTextOptions] = None) -> Self:
+        """
+        Remove "<at>...</at>" text from the message.
+
+        Args:
+            options: Options for stripping mentions
+
+        Returns:
+            Self for method chaining
+        """
+
+        stripped_text = strip_mentions_text(self, options)
+        if stripped_text is not None:
+            self.text = stripped_text
+        return self
+
+
+class MessageActivityInput(ActivityInputBase, _MessageBase):
+    """Input model for creating message activities with builder methods."""
 
     def add_text(self, text: str) -> Self:
         """
@@ -82,7 +145,10 @@ class MessageActivity(ActivityBase):
         Returns:
             Self for method chaining
         """
-        self.text += text
+        if self.text is None:
+            self.text = text
+        else:
+            self.text += text
         return self
 
     def add_attachments(self, *attachments: Attachment) -> Self:
@@ -135,22 +201,6 @@ class MessageActivity(ActivityBase):
         card_attachment = Attachment(content_type=content_type, content=content)
 
         return self.add_attachments(card_attachment)
-
-    def strip_mentions_text(self, options: Optional[StripMentionsTextOptions] = None) -> Self:
-        """
-        Remove "<at>...</at>" text from the message.
-
-        Args:
-            options: Options for stripping mentions
-
-        Returns:
-            Self for method chaining
-        """
-
-        stripped_text = strip_mentions_text(self, options)
-        if stripped_text is not None:
-            self.text = stripped_text
-        return self
 
     def is_recipient_mentioned(self) -> bool:
         """
@@ -210,13 +260,3 @@ class MessageActivity(ActivityBase):
         stream_entity = StreamInfoEntity(type="streaminfo", stream_id=self.id, stream_type="final")
 
         return self.add_entity(stream_entity)
-
-
-@input_model
-class MessageActivityInput(MessageActivity):
-    """
-    Input type for MessageActivity where ActivityBase fields are optional
-    but message-specific fields (like 'text') retain their required status.
-    """
-
-    pass

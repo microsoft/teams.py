@@ -6,8 +6,8 @@ Licensed under the MIT License.
 from datetime import datetime
 from typing import Any, Literal, Optional, Self
 
-from ...models import ActivityBase, ChannelData
-from ..utils import input_model
+from ...models import ActivityBase, ActivityInputBase, ChannelData
+from ...models.custom_base_model import CustomBaseModel
 
 MessageEventType = Literal["undeleteMessage", "editMessage"]
 
@@ -15,16 +15,16 @@ MessageEventType = Literal["undeleteMessage", "editMessage"]
 class MessageUpdateChannelData(ChannelData):
     """Channel data specific to message update activities."""
 
-    event_type: MessageEventType  # pyright: ignore [reportGeneralTypeIssues, reportIncompatibleVariableOverride]
+    event_type: MessageEventType  # pyright: ignore [reportGeneralTypeIssues]
     """The type of event for message update."""
 
 
-class MessageUpdateActivity(ActivityBase):
-    """Represents a message update activity in Microsoft Teams."""
+class _MessageUpdateBase(CustomBaseModel):
+    """Base class containing shared message update activity fields (all Optional except type)."""
 
-    type: Literal["messageUpdate"] = "messageUpdate"  # pyright: ignore [reportIncompatibleVariableOverride]
+    type: Literal["messageUpdate"] = "messageUpdate"
 
-    text: str
+    text: Optional[str] = None
     """The text content of the message."""
 
     speak: Optional[str] = None
@@ -42,8 +42,22 @@ class MessageUpdateActivity(ActivityBase):
     value: Optional[Any] = None
     """A value that is associated with the activity."""
 
-    channel_data: MessageUpdateChannelData  # pyright: ignore [reportGeneralTypeIssues, reportIncompatibleVariableOverride]
+    channel_data: Optional[MessageUpdateChannelData] = None
     """Channel-specific data for message update events."""
+
+
+class MessageUpdateActivity(ActivityBase, _MessageUpdateBase):
+    """Output model for received message update activities with required fields and read-only properties."""
+
+    text: str  # pyright: ignore [reportGeneralTypeIssues]
+    """The text content of the message."""
+
+    channel_data: MessageUpdateChannelData  # pyright: ignore [reportGeneralTypeIssues]
+    """Channel-specific data for message update events."""
+
+
+class MessageUpdateActivityInput(ActivityInputBase, _MessageUpdateBase):
+    """Input model for creating message update activities with builder methods."""
 
     def with_text(self, text: str) -> Self:
         """
@@ -96,13 +110,3 @@ class MessageUpdateActivity(ActivityBase):
         """
         self.expiration = expiration
         return self
-
-
-@input_model
-class MessageUpdateActivityInput(MessageUpdateActivity):
-    """
-    Input type for MessageUpdateActivity where ActivityBase fields are optional
-    but messageUpdate-specific fields retain their required status.
-    """
-
-    pass

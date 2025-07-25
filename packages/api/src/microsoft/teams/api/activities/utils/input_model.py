@@ -3,7 +3,7 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from typing import Any, Optional, Type
+from typing import Any, Optional, Type, TypeVar
 
 from pydantic import create_model
 from pydantic_core import PydanticUndefinedType
@@ -11,8 +11,10 @@ from pydantic_core import PydanticUndefinedType
 from ...models import ActivityBase as ActivityBase
 from ...models import CustomBaseModel
 
+T = TypeVar("T", bound=CustomBaseModel)
 
-def input_model(model: Type[CustomBaseModel]) -> Type[CustomBaseModel]:
+
+def input_model(model: Type[T]) -> Type[T]:
     """
     Creates an input model from an activity model, making all ActivityBase fields optional
     except for the 'type' field, while preserving activity-specific field requirements.
