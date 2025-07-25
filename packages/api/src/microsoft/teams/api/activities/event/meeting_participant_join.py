@@ -6,7 +6,7 @@ Licensed under the MIT License.
 from typing import Literal
 
 from ...models import CustomBaseModel
-from ...utils import input_model
+from ..utils import input_model
 from .meeting_participant import MeetingParticipantEventActivity
 
 

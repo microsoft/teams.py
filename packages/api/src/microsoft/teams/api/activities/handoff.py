@@ -11,7 +11,7 @@ from .utils import input_model
 
 
 class HandoffActivity(ActivityBase, CustomBaseModel, ABC):
-    type: Literal["handoff"] = "handoff"
+    type: Literal["handoff"] = "handoff"  # pyright: ignore [reportIncompatibleVariableOverride]
 
 
 @input_model
