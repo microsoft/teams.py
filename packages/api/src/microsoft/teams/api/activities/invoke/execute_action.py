@@ -7,7 +7,6 @@ from typing import Literal, Optional
 
 from ...models import ConversationReference, O365ConnectorCardActionQuery
 from ..invoke_activity import InvokeActivity
-from ..utils import input_model
 
 
 class ExecuteActionInvokeActivity(InvokeActivity):
@@ -26,13 +25,3 @@ class ExecuteActionInvokeActivity(InvokeActivity):
 
     relates_to: Optional[ConversationReference] = None
     """A reference to another conversation or activity."""
-
-
-@input_model
-class ExecuteActionInvokeActivityInput(ExecuteActionInvokeActivity):
-    """
-    Input type for ExecuteActionInvokeActivity where ActivityBase fields are optional
-    but invoke-specific fields retain their required status.
-    """
-
-    pass

@@ -7,7 +7,6 @@ from typing import Any, Literal, Optional
 
 from ....models import ConversationReference
 from ...invoke_activity import InvokeActivity
-from ...utils import input_model
 
 
 class ConfigSubmitInvokeActivity(InvokeActivity):
@@ -25,13 +24,3 @@ class ConfigSubmitInvokeActivity(InvokeActivity):
 
     relates_to: Optional[ConversationReference] = None
     """A reference to another conversation or activity."""
-
-
-@input_model
-class ConfigSubmitInvokeActivityInput(ConfigSubmitInvokeActivity):
-    """
-    Input type for ConfigSubmitInvokeActivity where ActivityBase fields are optional
-    but invoke-specific fields retain their required status.
-    """
-
-    pass

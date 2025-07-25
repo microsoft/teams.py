@@ -25,6 +25,17 @@ EventActivity = Annotated[
     Field(discriminator="name"),
 ]
 
+EventActivityInput = Annotated[
+    Union[
+        ReadReceiptEventActivityInput,
+        MeetingStartEventActivityInput,
+        MeetingEndEventActivityInput,
+        MeetingParticipantJoinEventActivityInput,
+        MeetingParticipantLeaveEventActivityInput,
+    ],
+    Field(discriminator="name"),
+]
+
 __all__ = [
     "MeetingEndEventActivity",
     "MeetingEndEventActivityInput",
@@ -38,4 +49,5 @@ __all__ = [
     "ReadReceiptEventActivity",
     "ReadReceiptEventActivityInput",
     "EventActivity",
+    "EventActivityInput",
 ]

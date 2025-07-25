@@ -7,7 +7,6 @@ from typing import Literal
 
 from ....models import AdaptiveCardInvokeValue
 from ...invoke_activity import InvokeActivity
-from ...utils import input_model
 
 
 class AdaptiveCardInvokeActivity(InvokeActivity):
@@ -22,13 +21,3 @@ class AdaptiveCardInvokeActivity(InvokeActivity):
 
     value: AdaptiveCardInvokeValue
     """A value that is associated with the activity."""
-
-
-@input_model
-class AdaptiveCardInvokeActivityInput(AdaptiveCardInvokeActivity):
-    """
-    Input type for AdaptiveCardInvokeActivity where ActivityBase fields are optional
-    but invoke-specific fields retain their required status.
-    """
-
-    pass

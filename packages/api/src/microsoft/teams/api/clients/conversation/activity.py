@@ -11,27 +11,9 @@ from typing_extensions import Annotated
 
 from ...activities.command import CommandResultActivityInput, CommandSendActivityInput
 from ...activities.conversation import ConversationUpdateActivityInput, EndOfConversationActivityInput
-from ...activities.event import (
-    MeetingEndEventActivityInput,
-    MeetingParticipantJoinEventActivityInput,
-    MeetingParticipantLeaveEventActivityInput,
-    MeetingStartEventActivityInput,
-    ReadReceiptEventActivityInput,
-)
+from ...activities.event import EventActivityInput
 from ...activities.handoff import HandoffActivityInput
-from ...activities.install_update import InstalledActivityInput, UninstalledActivityInput
-from ...activities.invoke import AdaptiveCardInvokeActivity
-from ...activities.invoke.config import ConfigFetchInvokeActivityInput, ConfigSubmitInvokeActivityInput
-from ...activities.invoke.execute_action import ExecuteActionInvokeActivityInput
-from ...activities.invoke.file_consent import FileConsentInvokeActivityInput
-from ...activities.invoke.handoff_action import HandoffActionInvokeActivityInput
-from ...activities.invoke.message.submit_action import MessageSubmitActionInvokeActivityInput
-from ...activities.invoke.sign_in.token_exchange import SignInTokenExchangeInvokeActivityInput
-from ...activities.invoke.sign_in.verify_state import SignInVerifyStateInvokeActivityInput
-from ...activities.invoke.tab.tab_fetch import TabFetchInvokeActivityInput
-from ...activities.invoke.tab.tab_submit import TabSubmitInvokeActivityInput
-from ...activities.invoke.task.task_fetch import TaskFetchInvokeActivityInput
-from ...activities.invoke.task.task_submit import TaskSubmitInvokeActivityInput
+from ...activities.install_update import InstallUpdateActivityInput
 from ...activities.message import (
     MessageActivityInput,
     MessageDeleteActivityInput,
@@ -61,28 +43,9 @@ ActivityParams = Annotated[
         CommandSendActivityInput,
         CommandResultActivityInput,
         # Event activities
-        ReadReceiptEventActivityInput,
-        MeetingStartEventActivityInput,
-        MeetingEndEventActivityInput,
-        MeetingParticipantJoinEventActivityInput,
-        MeetingParticipantLeaveEventActivityInput,
+        EventActivityInput,
         # Install/Update activities
-        InstalledActivityInput,
-        UninstalledActivityInput,
-        # Invoke activities
-        AdaptiveCardInvokeActivity,
-        ConfigFetchInvokeActivityInput,
-        ConfigSubmitInvokeActivityInput,
-        ExecuteActionInvokeActivityInput,
-        FileConsentInvokeActivityInput,
-        HandoffActionInvokeActivityInput,
-        MessageSubmitActionInvokeActivityInput,
-        SignInTokenExchangeInvokeActivityInput,
-        SignInVerifyStateInvokeActivityInput,
-        TabFetchInvokeActivityInput,
-        TabSubmitInvokeActivityInput,
-        TaskFetchInvokeActivityInput,
-        TaskSubmitInvokeActivityInput,
+        InstallUpdateActivityInput,
     ],
     Field(discriminator="type"),
 ]

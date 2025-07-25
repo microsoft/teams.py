@@ -11,6 +11,9 @@ from .add import InstalledActivity, InstalledActivityInput
 from .remove import UninstalledActivity, UninstalledActivityInput
 
 InstallUpdateActivity = Annotated[Union[InstalledActivity, UninstalledActivity], Field(discriminator="action")]
+InstallUpdateActivityInput = Annotated[
+    Union[InstalledActivityInput, UninstalledActivityInput], Field(discriminator="action")
+]
 
 __all__ = [
     "InstalledActivity",
@@ -18,4 +21,5 @@ __all__ = [
     "UninstalledActivity",
     "UninstalledActivityInput",
     "InstallUpdateActivity",
+    "InstallUpdateActivityInput",
 ]

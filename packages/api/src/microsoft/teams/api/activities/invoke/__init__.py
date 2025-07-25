@@ -40,7 +40,6 @@ InvokeActivity = Annotated[
     Field(discriminator="name"),
 ]
 
-
 __all__ = [
     "InvokeActivity",
     "FileConsentInvokeActivity",

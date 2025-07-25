@@ -7,8 +7,8 @@ from typing import Annotated, Union
 
 from pydantic import Field
 
-from .config_fetch import ConfigFetchInvokeActivity, ConfigFetchInvokeActivityInput
-from .config_submit import ConfigSubmitInvokeActivity, ConfigSubmitInvokeActivityInput
+from .config_fetch import ConfigFetchInvokeActivity
+from .config_submit import ConfigSubmitInvokeActivity
 
 ConfigInvokeActivity = Annotated[
     Union[ConfigFetchInvokeActivity, ConfigSubmitInvokeActivity], Field(discriminator="name")
@@ -16,8 +16,6 @@ ConfigInvokeActivity = Annotated[
 
 __all__ = [
     "ConfigFetchInvokeActivity",
-    "ConfigFetchInvokeActivityInput",
     "ConfigSubmitInvokeActivity",
-    "ConfigSubmitInvokeActivityInput",
     "ConfigInvokeActivity",
 ]
