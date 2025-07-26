@@ -4,7 +4,7 @@ Licensed under the MIT License.
 """
 
 from logging import Logger
-from typing import Awaitable, Callable, Generic, Optional, TypeVar
+from typing import Any, Awaitable, Callable, Generic, Optional, TypeVar
 
 from microsoft.teams.api import (
     ActivityBase,
@@ -13,6 +13,7 @@ from microsoft.teams.api import (
     MessageActivityInput,
     Resource,
 )
+from microsoft.teams.common import Storage
 
 T = TypeVar("T", bound=ActivityBase, contravariant=True)
 
@@ -23,7 +24,13 @@ class ActivityContext(Generic[T]):
     """Context object passed to activity handlers with middleware support."""
 
     def __init__(
-        self, activity: T, app_id: str, logger: Logger, conversation_ref: ConversationReference, send: SendCallable
+        self,
+        activity: T,
+        app_id: str,
+        logger: Logger,
+        storage: Storage[str, Any],
+        conversation_ref: ConversationReference,
+        send: SendCallable,
     ):
         self.activity = activity
         self.app_id = app_id

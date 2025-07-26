@@ -347,7 +347,7 @@ class App(ActivityProcessorMixin):
 
             return res
 
-        return ActivityContext(activity, self.id or "", self.logger, conversation_ref, send=send)
+        return ActivityContext(activity, self.id or "", self.logger, self.storage, conversation_ref, send=send)
 
     @overload
     def event(self, func_or_event_type: F) -> F:
