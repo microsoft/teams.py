@@ -2,6 +2,7 @@
 Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
+# pyright: basic
 
 import os
 from pathlib import Path
@@ -15,7 +16,7 @@ from microsoft.teams.api import (
     ClientCredentials,
     TokenCredentials,
 )
-from microsoft.teams.api.clients.conversation import ActivityParams
+from microsoft.teams.api.activities.message import MessageActivityInput
 from microsoft.teams.api.models.conversation import ConversationResource
 from microsoft.teams.common.http import Client, ClientOptions
 
@@ -249,7 +250,7 @@ def mock_account():
 def mock_activity():
     """Create a mock activity for testing."""
     account = Account(id="sender_id", name="Sender")
-    return ActivityParams(**{"type": "message", "text": "Mock activity text", "from": account.model_dump()})  # pyright: ignore[reportCallIssue]
+    return MessageActivityInput(type="message", text="Mock activity text", from_=account)
 
 
 @pytest.fixture

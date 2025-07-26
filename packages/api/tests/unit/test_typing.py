@@ -2,9 +2,10 @@
 Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
+# pyright: basic
 
 import pytest
-from microsoft.teams.api.activities.typing import TypingActivity
+from microsoft.teams.api.activities.typing import TypingActivityInput
 from microsoft.teams.api.models import Account, ConversationAccount
 
 
@@ -29,14 +30,14 @@ class TestTyping:
 
     def test_should_build(self, user: Account, bot: Account, chat: ConversationAccount) -> None:
         """Test basic activity construction."""
-        activity = TypingActivity(**{"id": "1", "from": user, "conversation": chat, "recipient": bot})
+        activity = TypingActivityInput(id="1", from_=user, conversation=chat, recipient=bot)
         assert activity.type == "typing"
         assert activity.text is None
 
     def test_should_build_with_text(self, user: Account, bot: Account, chat: ConversationAccount) -> None:
         """Test activity construction with text manipulation."""
         activity = (
-            TypingActivity(**{"id": "1", "from": user, "conversation": chat, "recipient": bot})
+            TypingActivityInput(id="1", from_=user, conversation=chat, recipient=bot)
             .with_text("test")
             .add_text("ing123")
         )
