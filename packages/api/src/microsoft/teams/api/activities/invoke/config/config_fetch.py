@@ -14,9 +14,9 @@ class ConfigFetchInvokeActivity(InvokeActivity, CustomBaseModel):
     Represents the config fetch invoke activity.
     """
 
-    type: Literal["invoke"] = "invoke"  # pyright: ignore [reportIncompatibleVariableOverride]
+    type: Literal["invoke"] = "invoke"  #
 
-    name: Literal["config/fetch"] = "config/fetch"  # pyright: ignore [reportIncompatibleVariableOverride]
+    name: Literal["config/fetch"] = "config/fetch"  #
     """The name of the operation associated with an invoke or event activity."""
 
     value: Any

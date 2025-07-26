@@ -12,7 +12,7 @@ from ...models.custom_base_model import CustomBaseModel
 class MessageDeleteChannelData(ChannelData):
     """Channel data specific to message delete activities."""
 
-    event_type: Literal["softDeleteMessage"] = "softDeleteMessage"  # pyright: ignore [reportIncompatibleVariableOverride]
+    event_type: Literal["softDeleteMessage"] = "softDeleteMessage"  #
     """The type of event for message deletion."""
 
 

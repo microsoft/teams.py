@@ -9,7 +9,7 @@ from ...models import ActivityBase, CustomBaseModel
 
 
 class UninstalledActivity(ActivityBase, CustomBaseModel):
-    type: Literal["installationUpdate"] = "installationUpdate"  # pyright: ignore [reportIncompatibleVariableOverride]
+    type: Literal["installationUpdate"] = "installationUpdate"  #
 
     action: Literal["remove"] = "remove"
     """Uninstall update action"""

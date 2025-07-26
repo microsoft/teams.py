@@ -17,7 +17,7 @@ class MessageExtensionFetchTaskInvokeActivity(InvokeActivity):
     fetch a task module for user interaction.
     """
 
-    name: Literal["composeExtension/fetchTask"] = "composeExtension/fetchTask"  # pyright: ignore [reportIncompatibleVariableOverride]
+    name: Literal["composeExtension/fetchTask"] = "composeExtension/fetchTask"  #
     """The name of the operation associated with an invoke or event activity."""
 
     value: MessagingExtensionAction

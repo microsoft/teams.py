@@ -35,7 +35,7 @@ class MessageSubmitActionInvokeActivity(InvokeActivity):
     Represents an activity that is sent when a message submit action is invoked.
     """
 
-    name: Literal["message/submitAction"] = "message/submitAction"  # pyright: ignore [reportIncompatibleVariableOverride]
+    name: Literal["message/submitAction"] = "message/submitAction"  #
     """The name of the operation associated with an invoke or event activity."""
 
     value: MessageSubmitActionInvokeValue

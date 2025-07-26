@@ -14,9 +14,9 @@ class ConfigSubmitInvokeActivity(InvokeActivity):
     Represents the config submit invoke activity.
     """
 
-    type: Literal["invoke"] = "invoke"  # pyright: ignore [reportIncompatibleVariableOverride]
+    type: Literal["invoke"] = "invoke"  #
 
-    name: Literal["config/submit"] = "config/submit"  # pyright: ignore [reportIncompatibleVariableOverride]
+    name: Literal["config/submit"] = "config/submit"  #
     """The name of the operation associated with an invoke or event activity."""
 
     value: Any

@@ -18,7 +18,7 @@ class TaskSubmitInvokeActivity(InvokeActivity):
     user submission or interaction.
     """
 
-    name: Literal["task/submit"] = "task/submit"  # pyright: ignore [reportIncompatibleVariableOverride]
+    name: Literal["task/submit"] = "task/submit"  #
     """The name of the operation associated with an invoke or event activity."""
 
     value: TaskModuleRequest

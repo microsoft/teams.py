@@ -31,7 +31,7 @@ class MeetingEndEventActivity(ActivityBase, CustomBaseModel):
     Represents a meeting end event activity in Microsoft Teams.
     """
 
-    type: Literal["event"] = "event"  # pyright: ignore [reportIncompatibleVariableOverride]
+    type: Literal["event"] = "event"  #
 
     name: Literal["application/vnd.microsoft.meetingEnd"] = "application/vnd.microsoft.meetingEnd"
 

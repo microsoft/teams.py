@@ -18,7 +18,7 @@ class SignInTokenExchangeInvokeActivity(InvokeActivity):
     during the sign-in process.
     """
 
-    name: Literal["signin/tokenExchange"] = "signin/tokenExchange"  # pyright: ignore [reportIncompatibleVariableOverride]
+    name: Literal["signin/tokenExchange"] = "signin/tokenExchange"  #
     """The name of the operation associated with an invoke or event activity."""
 
     value: SignInExchangeToken
