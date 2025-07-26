@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from typing import List, Optional
 
-from ...models import ActivityBase as ActivityBase
+from ...models.activity import Activity as ActivityBase
 from ..attachment.attachment_layout import AttachmentLayout
 from ..custom_base_model import CustomBaseModel
 from .messaging_extension_attachment import MessagingExtensionAttachment

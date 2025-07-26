@@ -8,8 +8,7 @@ from typing import Any, Optional, Type, TypeVar
 from pydantic import create_model
 from pydantic_core import PydanticUndefinedType
 
-from ...models import ActivityBase as ActivityBase
-from ...models import CustomBaseModel
+from ...models import ActivityBase, CustomBaseModel
 
 T = TypeVar("T", bound=CustomBaseModel)
 
