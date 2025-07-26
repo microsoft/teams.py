@@ -12,13 +12,13 @@ from typing import Any, Callable, Dict, List, Optional, TypeVar, Union, overload
 from dotenv import load_dotenv
 from microsoft.teams.api import (
     ActivityBase,
-    ActivityParams,
     ActivityTypeAdapter,
     ApiClient,
     ClientCredentials,
     ConversationReference,
     Credentials,
     JsonWebToken,
+    MessageActivityInput,
     TokenProtocol,
 )
 from microsoft.teams.common import Client, ClientOptions, ConsoleLogger, EventEmitter, LocalStorage
@@ -336,14 +336,7 @@ class App(ActivityProcessorMixin):
 
         async def send(message: str):
             """Placeholder for send method, can be implemented in context."""
-            message_activity = ActivityParams(
-                **{
-                    "type": "message",
-                    "text": message,
-                    "from": conversation_ref.bot,
-                    "conversation": conversation_ref.conversation,
-                }
-            )
+            message_activity = MessageActivityInput(text=message)
             res = await api_client.conversations.activities(conversation_ref.conversation.id).create(message_activity)
 
             return res

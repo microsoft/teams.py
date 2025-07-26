@@ -6,11 +6,11 @@ Licensed under the MIT License.
 from logging import Logger
 from typing import Awaitable, Callable, Generic, Optional, TypeVar
 
-from microsoft.teams.api import ActivityBase, ConversationReference, ConversationResource
+from microsoft.teams.api import ActivityBase, ConversationReference, Resource
 
 T = TypeVar("T", bound=ActivityBase, contravariant=True)
 
-SendCallable = Callable[[str], Awaitable[ConversationResource]]
+SendCallable = Callable[[str], Awaitable[Resource]]
 
 
 class ActivityContext(Generic[T]):
