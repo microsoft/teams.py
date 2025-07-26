@@ -6,19 +6,18 @@ Licensed under the MIT License.
 from abc import ABC
 from typing import Literal
 
-from ..models import ActivityBase, CustomBaseModel
-from .utils import input_model
+from ..models import ActivityBase, ActivityInputBase, CustomBaseModel
 
 
-class HandoffActivity(ActivityBase, CustomBaseModel, ABC):
-    type: Literal["handoff"] = "handoff"  # pyright: ignore [reportIncompatibleVariableOverride]
+class _HandoffBase(CustomBaseModel):
+    """Base class containing shared handoff activity fields (all Optional except type)."""
+
+    type: Literal["handoff"] = "handoff"
 
 
-@input_model
-class HandoffActivityInput(HandoffActivity):
-    """
-    Input type for HandoffActivity where ActivityBase fields are optional
-    but handoff-specific fields retain their required status.
-    """
+class HandoffActivity(ActivityBase, _HandoffBase, ABC):
+    """Output model for received handoff activities with required fields and read-only properties."""
 
-    pass
+
+class HandoffActivityInput(ActivityInputBase, _HandoffBase):
+    """Input model for creating handoff activities with builder methods."""

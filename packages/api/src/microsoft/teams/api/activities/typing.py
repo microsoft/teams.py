@@ -5,17 +5,26 @@ Licensed under the MIT License.
 
 from typing import Literal, Optional, Self
 
-from ..models import ActivityBase, ChannelData, CustomBaseModel, StreamInfoEntity
-from .utils import input_model
+from ..models import ActivityBase, ActivityInputBase, ChannelData, CustomBaseModel, StreamInfoEntity
 
 
-class TypingActivity(ActivityBase, CustomBaseModel):
-    type: Literal["typing"] = "typing"  # pyright: ignore [reportIncompatibleVariableOverride]
+class _TypingBase(CustomBaseModel):
+    """Base class containing shared typing activity fields (all Optional except type)."""
+
+    type: Literal["typing"] = "typing"
 
     text: Optional[str] = None
     """
     The text content of the message.
     """
+
+
+class TypingActivity(ActivityBase, _TypingBase):
+    """Output model for received typing activities with required fields and read-only properties."""
+
+
+class TypingActivityInput(ActivityInputBase, _TypingBase):
+    """Input model for creating typing activities with builder methods."""
 
     def with_text(self, value: str) -> Self:
         """Set the text content of the message."""
@@ -39,13 +48,3 @@ class TypingActivity(ActivityBase, CustomBaseModel):
         self.channel_data.stream_sequence = sequence
 
         return self.add_entity(StreamInfoEntity(stream_id=self.id, stream_type="streaming", stream_sequence=sequence))
-
-
-@input_model
-class TypingActivityInput(TypingActivity):
-    """
-    Input type for TypingActivity where ActivityBase fields are optional
-    but typing-specific fields retain their required status.
-    """
-
-    pass

@@ -1,5 +1,4 @@
 {
   "extends": "../../pyrightconfig.json",
-  "include": ["."],
   "typeCheckingMode": "basic"
 }

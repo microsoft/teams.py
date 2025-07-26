@@ -11,9 +11,7 @@ from typing_extensions import Annotated
 
 from ...activities.command import CommandResultActivityInput, CommandSendActivityInput
 from ...activities.conversation import ConversationUpdateActivityInput, EndOfConversationActivityInput
-from ...activities.event import EventActivityInput
 from ...activities.handoff import HandoffActivityInput
-from ...activities.install_update import InstallUpdateActivityInput
 from ...activities.message import (
     MessageActivityInput,
     MessageDeleteActivityInput,
@@ -43,9 +41,7 @@ ActivityParams = Annotated[
         CommandSendActivityInput,
         CommandResultActivityInput,
         # Event activities
-        EventActivityInput,
         # Install/Update activities
-        InstallUpdateActivityInput,
     ],
     Field(discriminator="type"),
 ]

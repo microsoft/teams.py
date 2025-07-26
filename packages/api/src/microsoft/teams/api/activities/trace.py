@@ -6,24 +6,25 @@ Licensed under the MIT License.
 from abc import ABC
 from typing import Any, Literal, Optional
 
-from ..models import ActivityBase, ConversationReference, CustomBaseModel
-from .utils import input_model
+from ..models import ActivityBase, ActivityInputBase, ConversationReference, CustomBaseModel
 
 
-class TraceActivity(ActivityBase, CustomBaseModel, ABC):
-    type: Literal["trace"] = "trace"  # pyright: ignore [reportIncompatibleVariableOverride]
+class _TraceBase(CustomBaseModel):
+    """Base class containing shared trace activity fields (all Optional except type)."""
+
+    type: Literal["trace"] = "trace"
 
     name: Optional[str] = None
     """"
     The name of the operation associated with an invoke or event activity.
     """
 
-    label: str
+    label: Optional[str] = None
     """
     A descriptive label for the activity.
     """
 
-    value_type: str
+    value_type: Optional[str] = None
     """
     The type of the activity's value object.
     """
@@ -39,11 +40,19 @@ class TraceActivity(ActivityBase, CustomBaseModel, ABC):
     """
 
 
-@input_model
-class TraceActivityInput(TraceActivity):
+class TraceActivity(ActivityBase, _TraceBase, ABC):
+    """Output model for received trace activities with required fields and read-only properties."""
+
+    label: str  # pyright: ignore [reportGeneralTypeIssues]
     """
-    Input type for TraceActivity where ActivityBase fields are optional
-    but trace-specific fields retain their required status.
+    A descriptive label for the activity.
     """
 
-    pass
+    value_type: str  # pyright: ignore [reportGeneralTypeIssues]
+    """
+    The type of the activity's value object.
+    """
+
+
+class TraceActivityInput(ActivityInputBase, _TraceBase):
+    """Input model for creating trace activities with builder methods."""

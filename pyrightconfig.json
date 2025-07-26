@@ -2,6 +2,9 @@
   "include": [
     "packages"
   ],
+  "exclude": [
+    "packages/*/tests/**"
+  ],
   "venv": ".venv",
   "venvPath": ".",
   "extraPaths": [

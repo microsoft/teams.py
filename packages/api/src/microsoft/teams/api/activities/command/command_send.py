@@ -5,8 +5,7 @@ Licensed under the MIT License.
 
 from typing import Any, Literal, Optional
 
-from ...models import ActivityBase, CustomBaseModel
-from ..utils import input_model
+from ...models import ActivityBase, ActivityInputBase, CustomBaseModel
 
 
 class CommandSendValue(CustomBaseModel):
@@ -25,23 +24,26 @@ class CommandSendValue(CustomBaseModel):
     """
 
 
-class CommandSendActivity(ActivityBase, CustomBaseModel):
-    """Send command activity."""
+class _CommandSendBase(CustomBaseModel):
+    """Base class containing shared command send activity fields (all Optional except type)."""
 
-    type: Literal["command"] = "command"  # pyright: ignore [reportIncompatibleVariableOverride]
+    type: Literal["command"] = "command"
 
-    name: str
+    name: Optional[str] = None
     """The name of the event."""
 
     value: Optional[CommandSendValue] = None
     """The value for this command."""
 
 
-@input_model
-class CommandSendActivityInput(CommandSendActivity):
-    """
-    Input type for CommandSendActivity where ActivityBase fields are optional
-    but command-specific fields retain their required status.
-    """
+class CommandSendActivity(ActivityBase, _CommandSendBase):
+    """Output model for received command send activities with required fields and read-only properties."""
+
+    name: str  # pyright: ignore [reportGeneralTypeIssues, reportIncompatibleVariableOverride]
+    """The name of the event."""
+
+
+class CommandSendActivityInput(ActivityInputBase, _CommandSendBase):
+    """Input model for creating command send activities with builder methods."""
 
     pass

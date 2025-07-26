@@ -3,10 +3,10 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from typing import Literal
+from typing import Literal, Optional
 
-from ...models import ActivityBase, ChannelData
-from ..utils import input_model
+from ...models import ActivityBase, ActivityInputBase, ChannelData
+from ...models.custom_base_model import CustomBaseModel
 
 
 class MessageDeleteChannelData(ChannelData):
@@ -16,20 +16,21 @@ class MessageDeleteChannelData(ChannelData):
     """The type of event for message deletion."""
 
 
-class MessageDeleteActivity(ActivityBase):
-    """Represents a message delete activity in Microsoft Teams."""
+class _MessageDeleteBase(CustomBaseModel):
+    """Base class containing shared message delete activity fields (all Optional except type)."""
 
-    type: Literal["messageDelete"] = "messageDelete"  # pyright: ignore [reportIncompatibleVariableOverride]
+    type: Literal["messageDelete"] = "messageDelete"
 
-    channel_data: MessageDeleteChannelData  # pyright: ignore [reportGeneralTypeIssues, reportIncompatibleVariableOverride]
+    channel_data: Optional[MessageDeleteChannelData] = None
     """Channel-specific data for message delete events."""
 
 
-@input_model
-class MessageDeleteActivityInput(MessageDeleteActivity):
-    """
-    Input type for MessageDeleteActivity where ActivityBase fields are optional
-    but messageDelete-specific fields retain their required status.
-    """
+class MessageDeleteActivity(ActivityBase, _MessageDeleteBase):
+    """Output model for received message delete activities with required fields and read-only properties."""
 
-    pass
+    channel_data: MessageDeleteChannelData  # pyright: ignore [reportGeneralTypeIssues]
+    """Channel-specific data for message delete events."""
+
+
+class MessageDeleteActivityInput(ActivityInputBase, _MessageDeleteBase):
+    """Input model for creating message delete activities with builder methods."""

@@ -7,12 +7,12 @@ from typing import Annotated, Union
 
 from pydantic import Field
 
-from .meeting_end import MeetingEndEventActivity, MeetingEndEventActivityInput
+from .meeting_end import MeetingEndEventActivity
 from .meeting_participant import MeetingParticipantEventActivity
-from .meeting_participant_join import MeetingParticipantJoinEventActivity, MeetingParticipantJoinEventActivityInput
-from .meeting_participant_leave import MeetingParticipantLeaveEventActivity, MeetingParticipantLeaveEventActivityInput
-from .meeting_start import MeetingStartEventActivity, MeetingStartEventActivityInput
-from .read_reciept import ReadReceiptEventActivity, ReadReceiptEventActivityInput
+from .meeting_participant_join import MeetingParticipantJoinEventActivity
+from .meeting_participant_leave import MeetingParticipantLeaveEventActivity
+from .meeting_start import MeetingStartEventActivity
+from .read_reciept import ReadReceiptEventActivity
 
 EventActivity = Annotated[
     Union[
@@ -25,29 +25,12 @@ EventActivity = Annotated[
     Field(discriminator="name"),
 ]
 
-EventActivityInput = Annotated[
-    Union[
-        ReadReceiptEventActivityInput,
-        MeetingStartEventActivityInput,
-        MeetingEndEventActivityInput,
-        MeetingParticipantJoinEventActivityInput,
-        MeetingParticipantLeaveEventActivityInput,
-    ],
-    Field(discriminator="name"),
-]
-
 __all__ = [
     "MeetingEndEventActivity",
-    "MeetingEndEventActivityInput",
     "MeetingStartEventActivity",
-    "MeetingStartEventActivityInput",
     "MeetingParticipantEventActivity",
     "MeetingParticipantJoinEventActivity",
-    "MeetingParticipantJoinEventActivityInput",
     "MeetingParticipantLeaveEventActivity",
-    "MeetingParticipantLeaveEventActivityInput",
     "ReadReceiptEventActivity",
-    "ReadReceiptEventActivityInput",
     "EventActivity",
-    "EventActivityInput",
 ]

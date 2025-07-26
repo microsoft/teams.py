@@ -7,7 +7,6 @@ from abc import ABC
 from typing import Literal
 
 from ...models import ActivityBase, CustomBaseModel
-from ..utils import input_model
 
 
 class ReadReceiptEventActivity(ActivityBase, CustomBaseModel, ABC):
@@ -21,13 +20,3 @@ class ReadReceiptEventActivity(ActivityBase, CustomBaseModel, ABC):
     """
     The name of the operation associated with an invoke or event activity.
     """
-
-
-@input_model
-class ReadReceiptEventActivityInput(ReadReceiptEventActivity):
-    """
-    Input type for ReadReceiptEventActivity where ActivityBase fields are optional
-    but event-specific fields retain their required status.
-    """
-
-    pass
