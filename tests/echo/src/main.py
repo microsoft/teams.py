@@ -4,7 +4,6 @@ Licensed under the MIT License.
 """
 
 import asyncio
-import os
 
 from microsoft.teams.api import MessageActivity
 from microsoft.teams.app import ActivityContext, App
@@ -24,10 +23,5 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
         await ctx.send(f"You said '{ctx.activity.text}'")
 
 
-async def main():
-    port = int(os.getenv("PORT", "3978"))
-    await app.start(port=port)
-
-
 if __name__ == "__main__":
-    asyncio.run(main())
+    asyncio.run(app.start())
