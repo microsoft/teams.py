@@ -335,6 +335,11 @@ class App(ActivityProcessorMixin):
         )
         api_client = ApiClient(service_url, self.http_client.clone(ClientOptions(token=self.tokens.bot)))
 
+        # TODO: The actual send logic should be in the plugin
+        # Once the HTTP plugin can accept all the parts needed to make
+        # the http call (like the api, tokens etc)
+        # then we can pass the sender to this function, and then have the
+        # sender do the actual sending.
         async def send(message: str | ActivityParams):
             """Placeholder for send method, can be implemented in context."""
             activity = MessageActivityInput(text=message) if isinstance(message, str) else message
