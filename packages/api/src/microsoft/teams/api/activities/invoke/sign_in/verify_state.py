@@ -7,7 +7,6 @@ from typing import Literal
 
 from ....models import SignInStateVerifyQuery
 from ...invoke_activity import InvokeActivity
-from ...utils import input_model
 
 
 class SignInVerifyStateInvokeActivity(InvokeActivity):
@@ -23,13 +22,3 @@ class SignInVerifyStateInvokeActivity(InvokeActivity):
 
     value: SignInStateVerifyQuery
     """A value that is associated with the activity."""
-
-
-@input_model
-class SignInVerifyStateInvokeActivityInput(SignInVerifyStateInvokeActivity):
-    """
-    Input type for SignInVerifyStateInvokeActivity where ActivityBase fields are optional
-    but invoke-specific fields retain their required status.
-    """
-
-    pass

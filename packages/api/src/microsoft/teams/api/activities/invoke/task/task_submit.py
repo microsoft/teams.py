@@ -7,7 +7,6 @@ from typing import Literal, Optional
 
 from ....models import ConversationReference, TaskModuleRequest
 from ...invoke_activity import InvokeActivity
-from ...utils import input_model
 
 
 class TaskSubmitInvokeActivity(InvokeActivity):
@@ -26,13 +25,3 @@ class TaskSubmitInvokeActivity(InvokeActivity):
 
     relates_to: Optional[ConversationReference] = None
     """A reference to another conversation or activity."""
-
-
-@input_model
-class TaskSubmitInvokeActivityInput(TaskSubmitInvokeActivity):
-    """
-    Input type for TaskSubmitInvokeActivity where ActivityBase fields are optional
-    but invoke-specific fields retain their required status.
-    """
-
-    pass

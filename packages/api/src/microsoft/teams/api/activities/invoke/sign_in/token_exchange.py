@@ -7,7 +7,6 @@ from typing import Literal
 
 from ....models import SignInExchangeToken
 from ...invoke_activity import InvokeActivity
-from ...utils import input_model
 
 
 class SignInTokenExchangeInvokeActivity(InvokeActivity):
@@ -23,13 +22,3 @@ class SignInTokenExchangeInvokeActivity(InvokeActivity):
 
     value: SignInExchangeToken
     """A value that is associated with the activity."""
-
-
-@input_model
-class SignInTokenExchangeInvokeActivityInput(SignInTokenExchangeInvokeActivity):
-    """
-    Input type for SignInTokenExchangeInvokeActivity where ActivityBase fields are optional
-    but invoke-specific fields retain their required status.
-    """
-
-    pass

@@ -7,7 +7,6 @@ from typing import Literal, Optional
 
 from ....models import ConversationReference, TaskModuleRequest
 from ...invoke_activity import InvokeActivity
-from ...utils import input_model
 
 
 class TaskFetchInvokeActivity(InvokeActivity):
@@ -26,13 +25,3 @@ class TaskFetchInvokeActivity(InvokeActivity):
 
     relates_to: Optional[ConversationReference] = None
     """A reference to another conversation or activity."""
-
-
-@input_model
-class TaskFetchInvokeActivityInput(TaskFetchInvokeActivity):
-    """
-    Input type for TaskFetchInvokeActivity where ActivityBase fields are optional
-    but invoke-specific fields retain their required status.
-    """
-
-    pass
