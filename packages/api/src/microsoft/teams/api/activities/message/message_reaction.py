@@ -5,13 +5,14 @@ Licensed under the MIT License.
 
 from typing import List, Literal, Optional, Self
 
-from ...models import ActivityBase, MessageReaction
+from ...models import ActivityBase, ActivityInputBase, MessageReaction
+from ...models.custom_base_model import CustomBaseModel
 
 
-class MessageReactionActivity(ActivityBase):
-    """Represents a message reaction activity in Microsoft Teams."""
+class _MessageReactionBase(CustomBaseModel):
+    """Base class containing shared message reaction activity fields (all Optional except type)."""
 
-    type: Literal["messageReaction"] = "messageReaction"  # pyright: ignore [reportIncompatibleVariableOverride]
+    type: Literal["messageReaction"] = "messageReaction"
 
     reactions_added: Optional[List[MessageReaction]] = None
     """The collection of reactions added to the conversation."""
@@ -19,7 +20,13 @@ class MessageReactionActivity(ActivityBase):
     reactions_removed: Optional[List[MessageReaction]] = None
     """The collection of reactions removed from the conversation."""
 
-    # Reaction management methods
+
+class MessageReactionActivity(_MessageReactionBase, ActivityBase):
+    """Output model for received message reaction activities with required fields and read-only properties."""
+
+
+class MessageReactionActivityInput(_MessageReactionBase, ActivityInputBase):
+    """Input model for creating message reaction activities with builder methods."""
 
     def add_reaction(self, reaction: MessageReaction) -> Self:
         """

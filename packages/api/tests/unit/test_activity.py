@@ -2,6 +2,7 @@
 Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
+# pyright: basic
 
 from datetime import datetime
 from typing import cast
@@ -9,7 +10,7 @@ from typing import cast
 import pytest
 from microsoft.teams.api.models import (
     Account,
-    ActivityBase,
+    ActivityInputBase,
     ChannelData,
     ChannelInfo,
     CitationIconName,
@@ -38,7 +39,7 @@ def chat() -> ConversationAccount:
     return ConversationAccount(id="1", conversation_type="personal")
 
 
-class ConcreteTestActivity(ActivityBase):
+class ConcreteTestActivity(ActivityInputBase):
     """Concrete Activity implementation for testing."""
 
     type: str = "test"
@@ -48,12 +49,10 @@ class ConcreteTestActivity(ActivityBase):
 def test_activity(user: Account, bot: Account, chat: ConversationAccount) -> ConcreteTestActivity:
     """Create a test activity with required fields set."""
     activity = ConcreteTestActivity(
-        **{
-            "id": "1",
-            "from": user,
-            "conversation": chat,
-            "recipient": bot,
-        }
+        id="1",
+        from_=user,
+        conversation=chat,
+        recipient=bot,
     )
     return activity
 

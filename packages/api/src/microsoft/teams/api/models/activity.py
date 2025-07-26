@@ -28,14 +28,8 @@ from microsoft.teams.api.models.meetings.meeting_info import MeetingInfo
 from .custom_base_model import CustomBaseModel
 
 
-class Activity(CustomBaseModel):
-    """Base class for all activities."""
-
-    type: str
-    """Contains the type of the activity."""
-
-    id: str
-    """Contains an ID that uniquely identifies the activity on the channel."""
+class _ActivityBase(CustomBaseModel):
+    """Base class containing shared activity fields."""
 
     service_url: Optional[str] = None
     """Contains the URL that specifies the channel's service endpoint. Set by the channel."""
@@ -69,9 +63,6 @@ class Activity(CustomBaseModel):
     relates_to: Optional[ConversationReference] = None
     """A reference to another conversation or activity."""
 
-    recipient: Account
-    """Identifies the recipient of the message."""
-
     reply_to_id: Optional[str] = None
     """Contains the ID of the message to which this message is a reply."""
 
@@ -80,6 +71,28 @@ class Activity(CustomBaseModel):
 
     channel_data: Optional[ChannelData] = None
     """Contains channel-specific content."""
+
+
+class ActivityInput(_ActivityBase):
+    """Input model for creating activities with builder methods."""
+
+    type: Optional[str] = None
+    """Contains the type of the activity."""
+
+    id: Optional[str] = None
+    """Contains an ID that uniquely identifies the activity on the channel."""
+
+    channel_id: Optional[ChannelID] = None
+    """Contains an ID that uniquely identifies the channel. Set by the channel."""
+
+    from_: Optional[Account] = None
+    """Identifies the sender of the message."""
+
+    conversation: Optional[ConversationAccount] = None
+    """Identifies the conversation to which the activity belongs."""
+
+    recipient: Optional[Account] = None
+    """Identifies the recipient of the message."""
 
     @property
     def channel(self) -> Optional[ChannelInfo]:
@@ -236,7 +249,7 @@ class Activity(CustomBaseModel):
 
     def is_streaming(self) -> bool:
         """Check if this is a streaming activity."""
-        return bool(self.entities and any(e.type == "streaminfo" for e in self.entities))
+        return bool(self.entities and any(e.type == "streaminfo" for e in self.entities or []))
 
     def ensure_single_root_level_message_entity(self) -> MessageEntity:
         """
@@ -259,3 +272,54 @@ class Activity(CustomBaseModel):
             index = self.entities.index(old_entity)
             self.entities.pop(index)
             self.entities.insert(index, new_entity)
+
+
+class Activity(_ActivityBase):
+    """Output model for received activities with required fields and read-only properties."""
+
+    type: str
+    """Contains the type of the activity."""
+
+    id: str
+    """Contains an ID that uniquely identifies the activity on the channel."""
+
+    channel_id: ChannelID = "msteams"
+    """Contains an ID that uniquely identifies the channel. Set by the channel."""
+
+    from_: Account
+    """Identifies the sender of the message."""
+
+    conversation: ConversationAccount
+    """Identifies the conversation to which the activity belongs."""
+
+    recipient: Account
+    """Identifies the recipient of the message."""
+
+    @property
+    def channel(self) -> Optional[ChannelInfo]:
+        """Information about the channel in which the message was sent."""
+        return self.channel_data.channel if self.channel_data else None
+
+    @property
+    def team(self) -> Optional[TeamInfo]:
+        """Information about the team in which the message was sent."""
+        return self.channel_data.team if self.channel_data else None
+
+    @property
+    def meeting(self) -> Optional[MeetingInfo]:
+        """Information about the tenant in which the message was sent."""
+        return self.channel_data.meeting if self.channel_data else None
+
+    @property
+    def notification(self) -> Optional[NotificationInfo]:
+        """Notification settings for the message."""
+        return self.channel_data.notification if self.channel_data else None
+
+    @property
+    def tenant(self) -> Any:
+        """Information about the tenant in which the message was sent."""
+        return self.channel_data.tenant if self.channel_data else None
+
+    def is_streaming(self) -> bool:
+        """Check if this is a streaming activity."""
+        return bool(self.entities and any(e.type == "streaminfo" for e in self.entities or []))

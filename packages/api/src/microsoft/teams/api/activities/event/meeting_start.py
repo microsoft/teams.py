@@ -45,7 +45,7 @@ class MeetingStartEventActivity(ActivityBase, CustomBaseModel):
     Represents a meeting start event activity in Microsoft Teams.
     """
 
-    type: Literal["event"] = "event"  # pyright: ignore [reportIncompatibleVariableOverride]
+    type: Literal["event"] = "event"  #
 
     name: Literal["application/vnd.microsoft.meetingStart"] = "application/vnd.microsoft.meetingStart"
     """

@@ -11,7 +11,7 @@ from .task_module_response_base import TaskModuleResponseBase
 class TaskModuleMessageResponse(TaskModuleResponseBase):
     """Task Module response with message action."""
 
-    type: Literal["message"] = "message"  # pyright: ignore [reportIncompatibleVariableOverride]
+    type: Literal["message"] = "message"  #
     """Type of response, always 'message' for this class."""
 
     value: Optional[str] = None

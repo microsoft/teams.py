@@ -5,17 +5,18 @@ Licensed under the MIT License.
 
 from typing import Any, Literal, Optional
 
-from ....models import ActivityBase, ConversationReference, CustomBaseModel
+from ....models import ConversationReference, CustomBaseModel
+from ...invoke_activity import InvokeActivity
 
 
-class ConfigFetchInvokeActivity(ActivityBase, CustomBaseModel):
+class ConfigFetchInvokeActivity(InvokeActivity, CustomBaseModel):
     """
     Represents the config fetch invoke activity.
     """
 
-    type: Literal["invoke"] = "invoke"  # pyright: ignore [reportIncompatibleVariableOverride]
+    type: Literal["invoke"] = "invoke"  #
 
-    name: Literal["config/fetch"] = "config/fetch"
+    name: Literal["config/fetch"] = "config/fetch"  #
     """The name of the operation associated with an invoke or event activity."""
 
     value: Any

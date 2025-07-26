@@ -25,6 +25,7 @@ from . import (
 from .account import Account, AccountRole, ConversationAccount
 from .action import Action
 from .activity import Activity as ActivityBase
+from .activity import ActivityInput as ActivityInputBase
 from .adaptive_card import *  # noqa: F403
 from .app_based_link_query import AppBasedLinkQuery
 from .attachment import *  # noqa: F403
@@ -72,6 +73,7 @@ __all__: list[str] = [
     "AccountRole",
     "Action",
     "ActivityBase",
+    "ActivityInputBase",
     "AppBasedLinkQuery",
     "CacheInfo",
     "ChannelID",

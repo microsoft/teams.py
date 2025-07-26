@@ -5,17 +5,18 @@ Licensed under the MIT License.
 
 from typing import Any, Literal, Optional
 
-from ....models import ActivityBase, ConversationReference, CustomBaseModel
+from ....models import ConversationReference
+from ...invoke_activity import InvokeActivity
 
 
-class ConfigSubmitInvokeActivity(ActivityBase, CustomBaseModel):
+class ConfigSubmitInvokeActivity(InvokeActivity):
     """
     Represents the config submit invoke activity.
     """
 
-    type: Literal["invoke"] = "invoke"  # pyright: ignore [reportIncompatibleVariableOverride]
+    type: Literal["invoke"] = "invoke"  #
 
-    name: Literal["config/submit"] = "config/submit"
+    name: Literal["config/submit"] = "config/submit"  #
     """The name of the operation associated with an invoke or event activity."""
 
     value: Any

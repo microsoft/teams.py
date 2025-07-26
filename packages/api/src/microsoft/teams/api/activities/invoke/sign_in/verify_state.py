@@ -17,7 +17,7 @@ class SignInVerifyStateInvokeActivity(InvokeActivity):
     during the sign-in process.
     """
 
-    name: Literal["signin/verifyState"] = "signin/verifyState"  # pyright: ignore [reportIncompatibleVariableOverride]
+    name: Literal["signin/verifyState"] = "signin/verifyState"  #
     """The name of the operation associated with an invoke or event activity."""
 
     value: SignInStateVerifyQuery

@@ -3,13 +3,13 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from typing import Any, Dict, Optional, Union
+from typing import Dict, Optional, Union
 
 from microsoft.teams.common.http import Client, ClientOptions
 
 from ...models import ConversationResource
 from ..base_client import BaseClient
-from .activity import ConversationActivityClient
+from .activity import ActivityParams, ConversationActivityClient
 from .member import ConversationMemberClient
 from .params import (
     CreateConversationParams,
@@ -29,29 +29,29 @@ class ConversationOperations:
 class ActivityOperations(ConversationOperations):
     """Operations for managing activities in a conversation."""
 
-    async def create(self, activity: Any) -> Any:
+    async def create(self, activity: ActivityParams):
         return await self._client.activities_client.create(self._conversation_id, activity)
 
-    async def update(self, activity_id: str, activity: Any) -> Any:
+    async def update(self, activity_id: str, activity: ActivityParams):
         return await self._client.activities_client.update(self._conversation_id, activity_id, activity)
 
-    async def reply(self, activity_id: str, activity: Any) -> Any:
+    async def reply(self, activity_id: str, activity: ActivityParams):
         return await self._client.activities_client.reply(self._conversation_id, activity_id, activity)
 
-    async def delete(self, activity_id: str) -> None:
+    async def delete(self, activity_id: str):
         await self._client.activities_client.delete(self._conversation_id, activity_id)
 
-    async def get_members(self, activity_id: str) -> Any:
+    async def get_members(self, activity_id: str):
         return await self._client.activities_client.get_members(self._conversation_id, activity_id)
 
 
 class MemberOperations(ConversationOperations):
     """Operations for managing members in a conversation."""
 
-    async def get_all(self) -> Any:
+    async def get_all(self):
         return await self._client.members_client.get(self._conversation_id)
 
-    async def get(self, member_id: str) -> Any:
+    async def get(self, member_id: str):
         return await self._client.members_client.get_by_id(self._conversation_id, member_id)
 
     async def delete(self, member_id: str) -> None:

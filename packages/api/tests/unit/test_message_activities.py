@@ -2,15 +2,17 @@
 Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
+# pyright: basic
 
 from datetime import datetime
 from typing import cast
 
 from microsoft.teams.api.activities.message import (
     MessageActivity,
+    MessageActivityInput,
     MessageDeleteActivity,
     MessageDeleteChannelData,
-    MessageReactionActivity,
+    MessageReactionActivityInput,
     MessageUpdateActivity,
     MessageUpdateChannelData,
 )
@@ -33,13 +35,13 @@ from microsoft.teams.api.models import (
 class TestMessageActivity:
     """Test MessageActivity functionality"""
 
-    def create_message_activity(self, text: str = "Hello world!") -> MessageActivity:
+    def create_message_activity(self, text: str = "Hello world!") -> MessageActivityInput:
         """Create a basic message activity for testing"""
         from_account = Account(id="bot-123", name="Test Bot", role="bot")
         recipient = Account(id="user-456", name="Test User", role="user")
         conversation = ConversationAccount(id="conv-789", conversation_type="personal")
 
-        activity = MessageActivity(
+        activity = MessageActivityInput(
             id="msg-123",
             text=text,
             from_=from_account,
@@ -173,7 +175,16 @@ class TestMessageActivity:
 
     def test_strip_mentions_text_basic(self):
         """Test stripping mentions from text"""
-        activity = self.create_message_activity("Hello <at>Bot</at>! How are you?")
+        from_account = Account(id="bot-123", name="Test Bot", role="bot")
+        recipient = Account(id="user-456", name="Test User", role="user")
+        conversation = ConversationAccount(id="conv-789", conversation_type="personal")
+        activity = MessageActivity(
+            id="msg-123",
+            text="Hello <at>Bot</at>! How are you?",
+            from_=from_account,
+            conversation=conversation,
+            recipient=recipient,
+        )
         # Add mention entity
         account = Account(id="bot-123", name="Bot", role="bot")
         mention = MentionEntity(mentioned=account, text="<at>Bot</at>")
@@ -186,7 +197,17 @@ class TestMessageActivity:
 
     def test_strip_mentions_text_with_options(self):
         """Test stripping mentions with options"""
-        activity = self.create_message_activity("Hello <at>Bot</at>!")
+        from_account = Account(id="bot-123", name="Test Bot", role="bot")
+        recipient = Account(id="user-456", name="Test User", role="user")
+        conversation = ConversationAccount(id="conv-789", conversation_type="personal")
+        activity = MessageActivity(
+            id="msg-123",
+            text="Hello <at>Bot</at>!",
+            from_=from_account,
+            conversation=conversation,
+            recipient=recipient,
+        )
+        # Add mention entity
         account = Account(id="bot-123", name="Bot", role="bot")
         mention = MentionEntity(mentioned=account, text="<at>Bot</at>")
         activity.entities = [mention]
@@ -304,7 +325,7 @@ class TestMessageActivity:
         activity.input_hint = "acceptingInput"
 
         # Verify final state
-        assert "Meeting with <at>Alice</at> and <at>Bob</at> scheduled." in activity.text
+        assert activity.text and activity.text.find("Meeting with <at>Alice</at> and <at>Bob</at> scheduled.") >= 0
         assert activity.entities and len(activity.entities) == 2  # Two mentions
         assert activity.attachments and len(activity.attachments) == 1
         assert activity.importance == Importance.HIGH
@@ -424,13 +445,13 @@ class TestMessageUpdateActivity:
 class TestMessageReactionActivity:
     """Test MessageReactionActivity functionality"""
 
-    def create_message_reaction_activity(self, activity_id: str = "reaction-123") -> MessageReactionActivity:
+    def create_message_reaction_activity(self, activity_id: str = "reaction-123") -> MessageReactionActivityInput:
         """Create a basic message reaction activity for testing"""
         from_account = Account(id="bot-123", name="Test Bot", role="bot")
         recipient = Account(id="user-456", name="Test User", role="user")
         conversation = ConversationAccount(id="conv-789", conversation_type="personal")
 
-        activity = MessageReactionActivity(
+        activity = MessageReactionActivityInput(
             id=activity_id,
             from_=from_account,
             conversation=conversation,
@@ -618,7 +639,7 @@ class TestMessageActivityIntegration:
         recipient = Account(id="user-456", name="Test User", role="user")
         conversation = ConversationAccount(id="conv-789", conversation_type="personal")
 
-        activity = MessageActivity(
+        activity = MessageActivityInput(
             id="msg-serialize",
             text="Hello <at>Bot</at>!",
             importance=Importance.HIGH,
@@ -668,7 +689,7 @@ class TestMessageActivityIntegration:
             ],
         }
 
-        activity = MessageActivity(
+        activity = MessageActivityInput(
             id=data["id"],
             text=data["text"],
             importance=Importance.NORMAL,
@@ -697,7 +718,7 @@ class TestMessageActivityIntegration:
 
         activities = [
             (
-                MessageActivity(
+                MessageActivityInput(
                     id="1",
                     text="test",
                     from_=from_account,
@@ -728,7 +749,7 @@ class TestMessageActivityIntegration:
                 "messageUpdate",
             ),
             (
-                MessageReactionActivity(
+                MessageReactionActivityInput(
                     id="4",
                     from_=from_account,
                     conversation=conversation,

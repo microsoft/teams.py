@@ -17,7 +17,7 @@ class MessageExtensionSelectItemInvokeActivity(InvokeActivity):
     from a messaging extension search result.
     """
 
-    name: Literal["composeExtension/selectItem"] = "composeExtension/selectItem"  # pyright: ignore [reportIncompatibleVariableOverride]
+    name: Literal["composeExtension/selectItem"] = "composeExtension/selectItem"  #
     """The name of the operation associated with an invoke or event activity."""
 
     value: Any

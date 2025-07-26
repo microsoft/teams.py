@@ -17,7 +17,7 @@ class TaskFetchInvokeActivity(InvokeActivity):
     configuration or content for display.
     """
 
-    name: Literal["task/fetch"] = "task/fetch"  # pyright: ignore [reportIncompatibleVariableOverride]
+    name: Literal["task/fetch"] = "task/fetch"  #
     """The name of the operation associated with an invoke or event activity."""
 
     value: TaskModuleRequest

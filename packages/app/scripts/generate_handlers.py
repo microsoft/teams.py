@@ -59,7 +59,7 @@ def generate_imports() -> str:
     return "\n".join(sorted(imports))
 
 
-def generate_method(config: ActivityConfig, config_key: str) -> str:  # type: ignore[valid-type]
+def generate_method(config: ActivityConfig, config_key: str) -> str:
     """Generate a single handler method with strict typing and runtime validation."""
     method_name = config.method_name
     activity_name = config.name
@@ -98,7 +98,7 @@ def generate_method(config: ActivityConfig, config_key: str) -> str:  # type: ig
 
 def generate_mixin_class() -> str:
     """Generate the complete ActivityHandlerMixin class."""
-    methods = []
+    methods: list[str] = []
 
     for config_key, config in ACTIVITY_ROUTES.items():
         methods.append(generate_method(config, config_key))

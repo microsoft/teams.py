@@ -17,7 +17,7 @@ class MessageExtensionAnonQueryLinkInvokeActivity(InvokeActivity):
     in a messaging extension.
     """
 
-    name: Literal["composeExtension/anonymousQueryLink"] = "composeExtension/anonymousQueryLink"  # pyright: ignore [reportIncompatibleVariableOverride]
+    name: Literal["composeExtension/anonymousQueryLink"] = "composeExtension/anonymousQueryLink"  #
     """The name of the operation associated with an invoke or event activity."""
 
     value: AppBasedLinkQuery
