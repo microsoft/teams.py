@@ -12,6 +12,7 @@ from typing import Any, Callable, Dict, List, Optional, TypeVar, Union, overload
 from dotenv import load_dotenv
 from microsoft.teams.api import (
     ActivityBase,
+    ActivityParams,
     ActivityTypeAdapter,
     ApiClient,
     ClientCredentials,
@@ -334,10 +335,10 @@ class App(ActivityProcessorMixin):
         )
         api_client = ApiClient(service_url, self.http_client.clone(ClientOptions(token=self.tokens.bot)))
 
-        async def send(message: str):
+        async def send(message: str | ActivityParams):
             """Placeholder for send method, can be implemented in context."""
-            message_activity = MessageActivityInput(text=message)
-            res = await api_client.conversations.activities(conversation_ref.conversation.id).create(message_activity)
+            activity = MessageActivityInput(text=message) if isinstance(message, str) else message
+            res = await api_client.conversations.activities(conversation_ref.conversation.id).create(activity)
 
             return res
 
