@@ -46,7 +46,7 @@ class _MessageUpdateBase(CustomBaseModel):
     """Channel-specific data for message update events."""
 
 
-class MessageUpdateActivity(ActivityBase, _MessageUpdateBase):
+class MessageUpdateActivity(_MessageUpdateBase, ActivityBase):
     """Output model for received message update activities with required fields and read-only properties."""
 
     text: str  # pyright: ignore [reportGeneralTypeIssues]
@@ -56,7 +56,7 @@ class MessageUpdateActivity(ActivityBase, _MessageUpdateBase):
     """Channel-specific data for message update events."""
 
 
-class MessageUpdateActivityInput(ActivityInputBase, _MessageUpdateBase):
+class MessageUpdateActivityInput(_MessageUpdateBase, ActivityInputBase):
     """Input model for creating message update activities with builder methods."""
 
     def with_text(self, text: str) -> Self:

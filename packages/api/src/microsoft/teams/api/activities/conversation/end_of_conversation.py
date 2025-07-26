@@ -28,12 +28,12 @@ class _EndOfConversationBase(CustomBaseModel):
     """The text content of the message."""
 
 
-class EndOfConversationActivity(ActivityBase, _EndOfConversationBase):
+class EndOfConversationActivity(_EndOfConversationBase, ActivityBase):
     """Output model for received end of conversation activities with required fields and read-only properties."""
 
     text: str  # pyright: ignore [reportGeneralTypeIssues]
     """The text content of the message."""
 
 
-class EndOfConversationActivityInput(ActivityInputBase, _EndOfConversationBase):
+class EndOfConversationActivityInput(_EndOfConversationBase, ActivityInputBase):
     """Input model for creating end of conversation activities with builder methods."""

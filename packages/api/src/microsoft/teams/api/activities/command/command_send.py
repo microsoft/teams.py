@@ -36,14 +36,14 @@ class _CommandSendBase(CustomBaseModel):
     """The value for this command."""
 
 
-class CommandSendActivity(ActivityBase, _CommandSendBase):
+class CommandSendActivity(_CommandSendBase, ActivityBase):
     """Output model for received command send activities with required fields and read-only properties."""
 
     name: str  # pyright: ignore [reportGeneralTypeIssues, reportIncompatibleVariableOverride]
     """The name of the event."""
 
 
-class CommandSendActivityInput(ActivityInputBase, _CommandSendBase):
+class CommandSendActivityInput(_CommandSendBase, ActivityInputBase):
     """Input model for creating command send activities with builder methods."""
 
     pass

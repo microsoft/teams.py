@@ -21,11 +21,11 @@ class _MessageReactionBase(CustomBaseModel):
     """The collection of reactions removed from the conversation."""
 
 
-class MessageReactionActivity(ActivityBase, _MessageReactionBase):
+class MessageReactionActivity(_MessageReactionBase, ActivityBase):
     """Output model for received message reaction activities with required fields and read-only properties."""
 
 
-class MessageReactionActivityInput(ActivityInputBase, _MessageReactionBase):
+class MessageReactionActivityInput(_MessageReactionBase, ActivityInputBase):
     """Input model for creating message reaction activities with builder methods."""
 
     def add_reaction(self, reaction: MessageReaction) -> Self:

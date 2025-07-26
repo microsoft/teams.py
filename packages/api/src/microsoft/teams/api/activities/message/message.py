@@ -73,7 +73,7 @@ class _MessageBase(CustomBaseModel):
     """A value that is associated with the activity."""
 
 
-class MessageActivity(ActivityBase, _MessageBase):
+class MessageActivity(_MessageBase, ActivityBase):
     """Output model for received message activities with required fields and read-only properties."""
 
     text: str  # pyright: ignore [reportGeneralTypeIssues, reportIncompatibleVariableOverride]
@@ -132,7 +132,7 @@ class MessageActivity(ActivityBase, _MessageBase):
         return self
 
 
-class MessageActivityInput(ActivityInputBase, _MessageBase):
+class MessageActivityInput(_MessageBase, ActivityInputBase):
     """Input model for creating message activities with builder methods."""
 
     def add_text(self, text: str) -> Self:

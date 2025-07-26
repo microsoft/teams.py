@@ -25,12 +25,12 @@ class _MessageDeleteBase(CustomBaseModel):
     """Channel-specific data for message delete events."""
 
 
-class MessageDeleteActivity(ActivityBase, _MessageDeleteBase):
+class MessageDeleteActivity(_MessageDeleteBase, ActivityBase):
     """Output model for received message delete activities with required fields and read-only properties."""
 
     channel_data: MessageDeleteChannelData  # pyright: ignore [reportGeneralTypeIssues]
     """Channel-specific data for message delete events."""
 
 
-class MessageDeleteActivityInput(ActivityInputBase, _MessageDeleteBase):
+class MessageDeleteActivityInput(_MessageDeleteBase, ActivityInputBase):
     """Input model for creating message delete activities with builder methods."""

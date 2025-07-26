@@ -3,7 +3,6 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from abc import ABC
 from typing import Any, Literal, Optional
 
 from ..models import ActivityBase, ActivityInputBase, ConversationReference, CustomBaseModel
@@ -40,7 +39,7 @@ class _TraceBase(CustomBaseModel):
     """
 
 
-class TraceActivity(ActivityBase, _TraceBase, ABC):
+class TraceActivity(_TraceBase, ActivityBase):
     """Output model for received trace activities with required fields and read-only properties."""
 
     label: str  # pyright: ignore [reportGeneralTypeIssues]
@@ -54,5 +53,5 @@ class TraceActivity(ActivityBase, _TraceBase, ABC):
     """
 
 
-class TraceActivityInput(ActivityInputBase, _TraceBase):
+class TraceActivityInput(_TraceBase, ActivityInputBase):
     """Input model for creating trace activities with builder methods."""

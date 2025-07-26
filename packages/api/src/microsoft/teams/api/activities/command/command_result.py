@@ -40,14 +40,14 @@ class _CommandResultBase(CustomBaseModel):
     """The value for this command."""
 
 
-class CommandResultActivity(ActivityBase, _CommandResultBase):
+class CommandResultActivity(_CommandResultBase, ActivityBase):
     """Output model for received command result activities with required fields and read-only properties."""
 
     name: str  # pyright: ignore [reportGeneralTypeIssues, reportIncompatibleVariableOverride]
     """The name of the event."""
 
 
-class CommandResultActivityInput(ActivityInputBase, _CommandResultBase):
+class CommandResultActivityInput(_CommandResultBase, ActivityInputBase):
     """Input model for creating command result activities with builder methods."""
 
     pass

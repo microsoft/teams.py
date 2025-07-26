@@ -19,11 +19,11 @@ class _TypingBase(CustomBaseModel):
     """
 
 
-class TypingActivity(ActivityBase, _TypingBase):
+class TypingActivity(_TypingBase, ActivityBase):
     """Output model for received typing activities with required fields and read-only properties."""
 
 
-class TypingActivityInput(ActivityInputBase, _TypingBase):
+class TypingActivityInput(_TypingBase, ActivityInputBase):
     """Input model for creating typing activities with builder methods."""
 
     def with_text(self, value: str) -> Self:
