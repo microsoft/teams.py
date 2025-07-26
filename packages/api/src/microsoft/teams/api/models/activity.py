@@ -76,9 +76,6 @@ class _ActivityBase(CustomBaseModel):
 class ActivityInput(_ActivityBase):
     """Input model for creating activities with builder methods."""
 
-    type: Optional[str] = None
-    """Contains the type of the activity."""
-
     id: Optional[str] = None
     """Contains an ID that uniquely identifies the activity on the channel."""
 
@@ -276,9 +273,6 @@ class ActivityInput(_ActivityBase):
 
 class Activity(_ActivityBase):
     """Output model for received activities with required fields and read-only properties."""
-
-    type: str
-    """Contains the type of the activity."""
 
     id: str
     """Contains an ID that uniquely identifies the activity on the channel."""
