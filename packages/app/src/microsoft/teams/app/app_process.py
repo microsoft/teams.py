@@ -7,8 +7,7 @@ from abc import ABC, abstractmethod
 from logging import Logger
 from typing import Any, Callable, Dict, List, Optional
 
-from microsoft.teams.api import Activity, ActivityBase
-from microsoft.teams.common.events import EventEmitter
+from microsoft.teams.api import ActivityBase
 
 from .routing.activity_context import ActivityContext
 from .routing.generated_handlers import ActivityHandlerMixin
@@ -28,40 +27,20 @@ class ActivityProcessorMixin(ActivityHandlerMixin, ABC):
     def logger(self) -> Logger:
         """The logger instance used by the app."""
 
-    @property
-    @abstractmethod
-    def events(self) -> EventEmitter:
-        """The event emitter instance used by the app."""
-
-    async def process_activity(self, activity: Activity) -> Optional[Dict[str, Any]]:
-        self.logger.debug(f"Received activity: {activity}")
-
-        # Create context for middleware chain
-        ctx = self._build_context(activity)
+    async def process_activity(self, activityCtx: ActivityContext[ActivityBase]) -> Optional[Dict[str, Any]]:
+        self.logger.debug(f"Received activity: {activityCtx.activity}")
 
         # Get registered handlers for this activity type
-        handlers = self.router.select_handlers(activity)
+        handlers = self.router.select_handlers(activityCtx.activity)
 
         response = None
         # If no registered handlers, fall back to legacy activity_handler
         if handlers:
-            response = await self.execute_middleware_chain(ctx, handlers)
+            response = await self.execute_middleware_chain(activityCtx, handlers)
 
         self.logger.info("Completed processing activity")
 
         return response
-
-    def _build_context(self, activity: Activity) -> ActivityContext[ActivityBase]:
-        """Build the context object for activity processing.
-
-        Args:
-            activity: The validated Activity object
-
-        Returns:
-            Context object for middleware chain execution
-        """
-
-        return ActivityContext(activity)
 
     async def execute_middleware_chain(
         self, ctx: ActivityContext[ActivityBase], handlers: List[ActivityHandler]

@@ -9,6 +9,7 @@ from typing import Any, Dict, Optional
 
 import jwt
 from jwt.algorithms import get_default_algorithms
+from microsoft.teams.api import JsonWebToken
 from microsoft.teams.common.http import Client
 from microsoft.teams.common.logging import ConsoleLogger
 from pydantic import BaseModel, ConfigDict
@@ -106,7 +107,7 @@ class ServiceTokenValidator:
         self._metadata_cache: Optional[OpenIdMetadata] = None
         self._metadata_cache_expiry: float = 0.0
 
-    async def validate_token(self, raw_token: str, service_url: Optional[str] = None) -> Any:
+    async def validate_token(self, raw_token: str, service_url: Optional[str] = None) -> JsonWebToken:
         """
         Validate a Bot Framework JWT token.
 
@@ -188,7 +189,9 @@ class ServiceTokenValidator:
             self._validate_service_url(verified_payload, service_url)
 
         self.logger.debug("Bot Framework token validation successful")
-        return verified_payload
+        return JsonWebToken(
+            value=raw_token,
+        )
 
     def _validate_basic_claims(self, payload: Dict[str, Any]) -> None:
         """Validate basic token claims."""
@@ -200,7 +203,7 @@ class ServiceTokenValidator:
 
         # Check audience
         if payload.get("aud") != self.app_id:
-            self.logger.error(f"Invalid audience: {payload.get('aud')}")
+            self.logger.error(f"Invalid audience: {payload.get('aud')} for app ID {self.app_id}")
             raise TokenValidationError(
                 TokenValidationErrorCode.INVALID_AUDIENCE, f"Invalid audience: {payload.get('aud')}"
             )

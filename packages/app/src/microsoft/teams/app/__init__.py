@@ -9,12 +9,8 @@ from .auth import *  # noqa: F403
 from .http_plugin import HttpPlugin
 from .options import AppOptions
 from .plugin import PluginProtocol
+from .routing import ActivityContext
 
 # Combine all exports from submodules
-__all__: list[str] = [
-    "App",
-    "AppOptions",
-    "HttpPlugin",
-    "PluginProtocol",
-]
+__all__: list[str] = ["App", "AppOptions", "HttpPlugin", "PluginProtocol", "ActivityContext"]
 __all__.extend(auth.__all__)

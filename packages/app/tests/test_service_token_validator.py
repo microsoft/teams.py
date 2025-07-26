@@ -8,6 +8,7 @@ import time
 from unittest.mock import MagicMock, patch
 
 import pytest
+from microsoft.teams.api.auth.json_web_token import JsonWebToken
 from microsoft.teams.app import (
     ServiceTokenValidator,
     TokenValidationError,
@@ -29,6 +30,7 @@ class TestServiceTokenValidator:
         return {
             "iss": EXPECTED_ISSUER,
             "aud": "test-app-id",
+            "appid": "test-app-id",
             "exp": current_time + 3600,  # Expires in 1 hour
             "iat": current_time,  # Issued now
             "serviceurl": "https://smba.trafficmanager.net/teams",
@@ -86,7 +88,9 @@ class TestServiceTokenValidator:
             patch("jwt.get_unverified_header", return_value=valid_token_header),
         ):
             result = await validator.validate_token(token, "https://smba.trafficmanager.net/teams")
-            assert result == valid_token_payload
+            assert isinstance(result, JsonWebToken)
+            assert result.audience == valid_token_payload["aud"]
+            assert result.app_id == valid_token_payload["appid"]
 
     @pytest.mark.asyncio
     async def test_validate_token_empty_token(self, validator):
@@ -339,4 +343,6 @@ class TestServiceTokenValidator:
         ):
             # Don't pass service_url parameter
             result = await validator.validate_token(token)
-            assert result == valid_token_payload
+            assert isinstance(result, JsonWebToken)
+            assert result.audience == valid_token_payload["aud"]
+            assert result.app_id == valid_token_payload["appid"]
