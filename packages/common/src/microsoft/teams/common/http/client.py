@@ -4,6 +4,7 @@ Licensed under the MIT License.
 """
 
 import inspect
+import json
 import logging
 from dataclasses import dataclass, field
 from typing import Any, Awaitable, Callable, Dict, List, Optional
@@ -17,6 +18,29 @@ from .client_token import Token, resolve_token
 from .interceptor import Interceptor, InterceptorRequestContext, InterceptorResponseContext
 
 console_logger = ConsoleLogger()
+
+
+def _wrap_response_json(response: httpx.Response, logger: logging.Logger) -> None:
+    """
+    Wrap the response.json method to handle JSONDecodeError gracefully.
+
+    Args:
+        response: The httpx.Response object to wrap.
+        logger: Logger instance for warning messages.
+    """
+    original_json = response.json
+
+    def safe_json(**kwargs: Any) -> Any:
+        try:
+            return original_json(**kwargs)
+        except json.JSONDecodeError as e:
+            if "Expecting value: line 1 column 1 (char 0)" in str(e):
+                logger.warning(f"Failed to decode JSON response from {response.url}. Returning empty dict.")
+                return {}
+            else:
+                raise
+
+    response.json = safe_json
 
 
 @dataclass(frozen=True)
@@ -119,6 +143,7 @@ class Client:
         req_headers = await self._prepare_headers(headers, token)
         response = await self.http.get(url, headers=req_headers, params=params, **kwargs)
         response.raise_for_status()
+        _wrap_response_json(response, self._logger)
         return response
 
     async def post(
@@ -163,6 +188,7 @@ class Client:
             **kwargs,
         )
         response.raise_for_status()
+        _wrap_response_json(response, self._logger)
         return response
 
     async def put(
@@ -207,6 +233,7 @@ class Client:
             **kwargs,
         )
         response.raise_for_status()
+        _wrap_response_json(response, self._logger)
         return response
 
     async def patch(
@@ -251,6 +278,7 @@ class Client:
             **kwargs,
         )
         response.raise_for_status()
+        _wrap_response_json(response, self._logger)
         return response
 
     async def delete(
@@ -278,6 +306,7 @@ class Client:
         req_headers = await self._prepare_headers(headers, token)
         response = await self.http.delete(url, headers=req_headers, params=params, **kwargs)
         response.raise_for_status()
+        _wrap_response_json(response, self._logger)
         return response
 
     async def request(
@@ -325,6 +354,7 @@ class Client:
             **kwargs,
         )
         response.raise_for_status()
+        _wrap_response_json(response, self._logger)
         return response
 
     async def _resolve_token(self, token: Optional[Token]) -> Optional[str]:

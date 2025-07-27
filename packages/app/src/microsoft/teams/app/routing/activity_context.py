@@ -3,21 +3,50 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
+import base64
+import json
+from dataclasses import dataclass
 from logging import Logger
 from typing import Any, Awaitable, Callable, Generic, Optional, TypeVar
 
 from microsoft.teams.api import (
     ActivityBase,
     ActivityParams,
+    ApiClient,
+    CardAction,
+    CardActionType,
     ConversationReference,
+    GetBotSignInResourceParams,
+    GetUserTokenParams,
     MessageActivityInput,
     Resource,
+    SignOutUserParams,
+    TokenExchangeResource,
+    TokenExchangeState,
+    TokenPostResource,
 )
+from microsoft.teams.api.models.attachment.card_attachment import OAuthCardAttachment, card_attachment
+from microsoft.teams.api.models.oauth import OAuthCard
+from microsoft.teams.cards import AdaptiveCard
 from microsoft.teams.common import Storage
 
 T = TypeVar("T", bound=ActivityBase, contravariant=True)
 
-SendCallable = Callable[[str | ActivityParams], Awaitable[Resource]]
+SendCallable = Callable[[str | ActivityParams | AdaptiveCard], Awaitable[Resource]]
+
+
+@dataclass
+class SignInOptions:
+    """Options for the signin method."""
+
+    oauth_card_text: str = "Please Sign In..."
+    sign_in_button_text: str = "Sign In"
+    override_sign_in_activity: Optional[
+        Callable[[Optional[TokenExchangeResource], Optional[TokenPostResource], Optional[str]], ActivityParams]
+    ] = None
+
+
+DEFAULT_SIGNIN_OPTIONS = SignInOptions()
 
 
 class ActivityContext(Generic[T]):
@@ -29,14 +58,19 @@ class ActivityContext(Generic[T]):
         app_id: str,
         logger: Logger,
         storage: Storage[str, Any],
+        api: ApiClient,
         conversation_ref: ConversationReference,
         send: SendCallable,
+        connection_name: str = "graph",
     ):
         self.activity = activity
         self.app_id = app_id
         self.logger = logger
         self.conversation_ref = conversation_ref
         self.send = send
+        self.storage = storage
+        self.api = api
+        self.connection_name = connection_name
 
         self._next_handler: Optional[Callable[[], Awaitable[None]]] = None
 
@@ -78,3 +112,97 @@ class ActivityContext(Generic[T]):
         else:
             self.logger.debug("Skipping building blockquote for activity type: %s", type(self.activity).__name__)
         return None
+
+    async def sign_in(self, options: Optional[SignInOptions] = None) -> Optional[str]:
+        """
+        Initiate a sign-in flow for the user.
+
+        Args:
+            options: Optional signin options to customize the flow
+
+        Returns:
+            The token if already available, otherwise None after sending OAuth card
+        """
+        signin_opts = options or DEFAULT_SIGNIN_OPTIONS
+        oauth_card_text = signin_opts.oauth_card_text
+        sign_in_button_text = signin_opts.sign_in_button_text
+
+        try:
+            # Try to get existing token
+            token_params = GetUserTokenParams(
+                channel_id=self.activity.channel_id,
+                user_id=self.activity.from_.id,
+                connection_name=self.connection_name,
+            )
+            res = await self.api.users.token.get(token_params)
+            return res.token
+        except Exception:
+            # Token not available, continue with OAuth flow
+            pass
+
+        # Create token exchange state
+        token_exchange_state = TokenExchangeState(
+            connection_name=self.connection_name,
+            conversation=self.conversation_ref,
+            relates_to=self.activity.relates_to,
+            ms_app_id=self.app_id,
+        )
+
+        # Check if this is a group conversation
+        # if self.activity.conversation.is_group:
+        #     _conv_create_res = await self.api.conversations.create(
+        #         CreateConversationParams(
+        #             tenant_id=self.activity.conversation.tenant_id,
+        #             is_group=False,
+        #             bot=self.activity.recipient,
+        #             members=[self.activity.from_],
+        #         )
+        #     )
+        #     await self.send(MessageActivityInput(text=oauth_card_text))
+        #     # TODO: should we send it to the 1:1 chat?
+
+        # Encode state
+        state = base64.b64encode(json.dumps(token_exchange_state.model_dump()).encode()).decode()
+
+        # Get sign-in resource
+        resource_params = GetBotSignInResourceParams(state=state)
+        resource = await self.api.bots.sign_in.get_resource(resource_params)
+
+        payload = MessageActivityInput(recipient=self.activity.from_, input_hint="acceptingInput").add_attachments(
+            card_attachment(
+                attachment=OAuthCardAttachment(
+                    content=OAuthCard(
+                        text=oauth_card_text,
+                        connection_name=self.connection_name,
+                        token_exchange_resource=resource.token_exchange_resource,
+                        token_post_resource=resource.token_post_resource,
+                        buttons=[
+                            CardAction(
+                                type=CardActionType.SIGN_IN, title=sign_in_button_text, value=resource.sign_in_link
+                            )
+                        ],
+                    )
+                ),
+            )
+        )
+
+        await self.send(payload)
+
+        return None
+
+    async def sign_out(self) -> None:
+        """
+        Sign out the user by clearing their token.
+
+        This method will remove the user's token from the storage.
+        """
+        try:
+            sign_out_params = SignOutUserParams(
+                channel_id=self.activity.channel_id,
+                user_id=self.activity.from_.id,
+                connection_name=self.connection_name,
+            )
+            await self.api.users.token.sign_out(sign_out_params)
+            self.logger.debug(f"User {self.activity.from_.id} signed out successfully.")
+        except Exception as e:
+            self.logger.error(f"Failed to sign out user: {e}")

@@ -4,10 +4,11 @@ Licensed under the MIT License.
 """
 
 import asyncio
+import importlib.metadata
 import os
 from dataclasses import dataclass
 from logging import Logger
-from typing import Any, Callable, Dict, List, Optional, TypeVar, Union, overload
+from typing import Any, Callable, Dict, List, Optional, TypeVar, Union, cast, overload
 
 from dotenv import load_dotenv
 from microsoft.teams.api import (
@@ -22,8 +23,10 @@ from microsoft.teams.api import (
     MessageActivityInput,
     TokenProtocol,
 )
+from microsoft.teams.cards import AdaptiveCard
 from microsoft.teams.common import Client, ClientOptions, ConsoleLogger, EventEmitter, LocalStorage
 
+from .app_oauth import OauthHandlers
 from .app_process import ActivityProcessorMixin
 from .events import (
     ActivityEvent,
@@ -40,8 +43,12 @@ from .plugin import PluginProtocol
 from .routing.activity_context import ActivityContext
 from .routing.router import ActivityRouter
 
+version = importlib.metadata.version("microsoft-teams-app")
+
 F = TypeVar("F", bound=Callable[..., Any])
 load_dotenv()
+
+USER_AGENT = f"teams.py[app]/{version}"
 
 
 @dataclass
@@ -65,15 +72,22 @@ class App(ActivityProcessorMixin):
         self.log = self.options.logger or ConsoleLogger().create_logger("@teams/app")
         self.storage = self.options.storage or LocalStorage()
 
-        self.http_client = Client()
+        self.http_client = Client(
+            ClientOptions(
+                headers={"User-Agent": USER_AGENT},
+            )
+        )
 
-        self._events = EventEmitter()
+        self._events = EventEmitter[EventType]()
         self._router = ActivityRouter()
 
         self._tokens = AppTokens()
         self.credentials = self._init_credentials()
 
-        self.api = ApiClient("https://smba.trafficmanager.net/teams", self.http_client)
+        self.api = ApiClient(
+            "https://smba.trafficmanager.net/teams",
+            self.http_client.clone(ClientOptions(token=lambda: self.tokens.bot)),
+        )
 
         plugins: List[PluginProtocol] = list(self.options.plugins or [])
 
@@ -102,6 +116,14 @@ class App(ActivityProcessorMixin):
         self._port: Optional[int] = None
         self._running = False
 
+        # default event handlers
+        oauth_handlers = OauthHandlers(
+            default_connection_name=self.options.default_connection_name or "default",
+            event_emitter=self._events,
+        )
+        self.on_signin_token_exchange(oauth_handlers.sign_in_token_exchange)
+        self.on_signin_verify_state(oauth_handlers.sign_in_verify_state)
+
     @property
     def port(self) -> Optional[int]:
         """Port the app is running on."""
@@ -123,7 +145,7 @@ class App(ActivityProcessorMixin):
         return self.log
 
     @property
-    def events(self) -> EventEmitter:
+    def events(self) -> EventEmitter[EventType]:
         """The event emitter instance used by the app."""
         return self._events
 
@@ -327,11 +349,13 @@ class App(ActivityProcessorMixin):
 
         service_url = activity.service_url or token.service_url
         conversation_ref = ConversationReference(
-            activity_id=activity.id,
-            channel_id=activity.channel_id,
             service_url=service_url,
+            activity_id=activity.id,
+            bot=activity.recipient,
+            channel_id=activity.channel_id,
             conversation=activity.conversation,
-            bot=activity.from_,
+            locale=activity.locale,
+            user=activity.from_,
         )
         api_client = ApiClient(service_url, self.http_client.clone(ClientOptions(token=self.tokens.bot)))
 
@@ -340,14 +364,21 @@ class App(ActivityProcessorMixin):
         # the http call (like the api, tokens etc)
         # then we can pass the sender to this function, and then have the
         # sender do the actual sending.
-        async def send(message: str | ActivityParams):
+        async def send(message: str | ActivityParams | AdaptiveCard):
             """Placeholder for send method, can be implemented in context."""
-            activity = MessageActivityInput(text=message) if isinstance(message, str) else message
+            if isinstance(message, str):
+                activity = MessageActivityInput(text=message)
+            elif isinstance(message, AdaptiveCard):
+                activity = MessageActivityInput().add_card(message)
+            else:
+                activity = message
             res = await api_client.conversations.activities(conversation_ref.conversation.id).create(activity)
 
             return res
 
-        return ActivityContext(activity, self.id or "", self.logger, self.storage, conversation_ref, send=send)
+        return ActivityContext(
+            activity, self.id or "", self.logger, self.storage, self.api, conversation_ref, send=send
+        )
 
     @overload
     def event(self, func_or_event_type: F) -> F:
@@ -414,6 +445,7 @@ class App(ActivityProcessorMixin):
             # Validate the detected type against registered events
             if not is_registered_event(detected_type):
                 raise ValueError(f"Event type '{detected_type}' is not registered. ")
+            detected_type = cast(EventType, detected_type)
 
             # add it to the event emitter
             self._events.on(detected_type, func)
