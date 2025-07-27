@@ -60,19 +60,31 @@ class ActivityContext(Generic[T]):
         storage: Storage[str, Any],
         api: ApiClient,
         conversation_ref: ConversationReference,
-        send: SendCallable,
+        is_signed_in: bool,
         connection_name: str = "graph",
     ):
         self.activity = activity
         self.app_id = app_id
         self.logger = logger
         self.conversation_ref = conversation_ref
-        self.send = send
         self.storage = storage
         self.api = api
         self.connection_name = connection_name
+        self.is_signed_in = is_signed_in
 
         self._next_handler: Optional[Callable[[], Awaitable[None]]] = None
+
+    async def send(self, message: str | ActivityParams | AdaptiveCard) -> Resource:
+        """Send a message to the conversation."""
+        if isinstance(message, str):
+            activity = MessageActivityInput(text=message)
+        elif isinstance(message, AdaptiveCard):
+            activity = MessageActivityInput().add_card(message)
+        else:
+            activity = message
+
+        res = await self.api.conversations.activities(self.conversation_ref.conversation.id).create(activity)
+        return res
 
     async def reply(self, input: str | ActivityParams) -> Resource:
         """Send a reply to the activity."""

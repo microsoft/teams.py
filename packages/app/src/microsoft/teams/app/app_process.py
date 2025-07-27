@@ -3,29 +3,21 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from abc import ABC, abstractmethod
 from logging import Logger
 from typing import Any, Callable, Dict, List, Optional
 
 from microsoft.teams.api import ActivityBase
 
 from .routing.activity_context import ActivityContext
-from .routing.generated_handlers import ActivityHandlerMixin
 from .routing.router import ActivityHandler, ActivityRouter
 
 
-class ActivityProcessorMixin(ActivityHandlerMixin, ABC):
-    """Mixin that provides activity processing functionality with middleware chain support."""
+class ActivityProcessor:
+    """Provides activity processing functionality with middleware chain support."""
 
-    @property
-    @abstractmethod
-    def router(self) -> ActivityRouter:
-        """The activity router instance."""
-
-    @property
-    @abstractmethod
-    def logger(self) -> Logger:
-        """The logger instance used by the app."""
+    def __init__(self, router: ActivityRouter, logger: Logger) -> None:
+        self.router = router
+        self.logger = logger
 
     async def process_activity(self, activityCtx: ActivityContext[ActivityBase]) -> Optional[Dict[str, Any]]:
         self.logger.debug(f"Received activity: {activityCtx.activity}")

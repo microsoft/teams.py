@@ -34,45 +34,52 @@ class OauthHandlers:
         log = ctx.logger
         activity = ctx.activity
         api = ctx.api
-        if activity.value.connection_name != self.default_connection_name:
-            log.warning(
-                f"Sign-in token exchange invoked with connection name '{activity.value.connection_name}', "
-                f"but default connection name is '{self.default_connection_name}'. Token verification will likely fail."
-            )
-
+        next_handler = ctx.next
         try:
-            token = await api.users.token.exchange(
-                ExchangeUserTokenParams(
-                    connection_name=activity.value.connection_name,
-                    user_id=activity.from_.id,
-                    channel_id=activity.channel_id,
-                    exchange_request=TokenExchangeRequest(
-                        token=activity.value.token,
+            if activity.value.connection_name != self.default_connection_name:
+                log.warning(
+                    f"Sign-in token exchange invoked with connection name '{activity.value.connection_name}', "
+                    f"but default connection name is '{self.default_connection_name}'. "
+                    f"Token verification will likely fail."
+                )
+
+            try:
+                token = await api.users.token.exchange(
+                    ExchangeUserTokenParams(
+                        connection_name=activity.value.connection_name,
+                        user_id=activity.from_.id,
+                        channel_id=activity.channel_id,
+                        exchange_request=TokenExchangeRequest(
+                            token=activity.value.token,
+                        ),
+                    )
+                )
+                self.event_emitter.emit("sign_in", SignInEvent(activity_ctx=ctx, token_response=token))
+                return TokenExchangeInvokeResponseType(status=200)
+            except Exception as e:
+                ctx.logger.error(
+                    f"Error exchanging token for user {activity.from_.id} in "
+                    f"conversation {activity.conversation.id}: {e}"
+                )
+                if isinstance(e, HTTPStatusError):
+                    status = e.response.status_code
+                    if status not in (404, 400, 412):
+                        self.event_emitter.emit("error", ErrorEvent(error=e, context={"activity": activity}))
+                        return TokenExchangeInvokeResponseType(status=status or 500)
+                ctx.logger.warning(
+                    f"Unable to exchange token for user {activity.from_.id} in "
+                    f"conversation {activity.conversation.id}: {e}"
+                )
+                return TokenExchangeInvokeResponseType(
+                    status=412,
+                    body=TokenExchangeInvokeResponse(
+                        id=activity.value.id,
+                        connection_name=activity.value.connection_name,
+                        failure_detail=str(e) or "unable to exchange token...",
                     ),
                 )
-            )
-            self.event_emitter.emit("sign_in", SignInEvent(activity_ctx=ctx, token_response=token))
-            return TokenExchangeInvokeResponseType(status=200)
-        except Exception as e:
-            ctx.logger.error(
-                f"Error exchanging token for user {activity.from_.id} in conversation {activity.conversation.id}: {e}"
-            )
-            if isinstance(e, HTTPStatusError):
-                status = e.response.status_code
-                if status not in (404, 400, 412):
-                    self.event_emitter.emit("error", ErrorEvent(error=e, context={"activity": activity}))
-                    return TokenExchangeInvokeResponseType(status=status or 500)
-            ctx.logger.warning(
-                f"Unable to exchange token for user {activity.from_.id} in conversation {activity.conversation.id}: {e}"
-            )
-            return TokenExchangeInvokeResponseType(
-                status=412,
-                body=TokenExchangeInvokeResponse(
-                    id=activity.value.id,
-                    connection_name=activity.value.connection_name,
-                    failure_detail=str(e) or "unable to exchange token...",
-                ),
-            )
+        finally:
+            await next_handler()
 
     async def sign_in_verify_state(self, ctx: ActivityContext[SignInVerifyStateInvokeActivity]) -> VoidInvokeResponse:
         """
@@ -81,40 +88,46 @@ class OauthHandlers:
         log = ctx.logger
         activity = ctx.activity
         api = ctx.api
-        if not activity.value.state:
-            log.warning(
-                f"Auth state not present for conversation id '{activity.conversation.id}' "
-                f"and user id '{activity.from_.id}'. "
-            )
-            return VoidInvokeResponse(status=404)
-
-        log.debug(
-            f"Verifying sign-in state for user {activity.from_.id} in conversation"
-            f"{activity.conversation.id} with state {activity.value.state}"
-        )
-
+        next_handler = ctx.next
         try:
-            token = await api.users.token.get(
-                GetUserTokenParams(
-                    connection_name=self.default_connection_name,
-                    user_id=activity.from_.id,
-                    channel_id=activity.channel_id,
-                    code=activity.value.state,
+            if not activity.value.state:
+                log.warning(
+                    f"Auth state not present for conversation id '{activity.conversation.id}' "
+                    f"and user id '{activity.from_.id}'. "
                 )
+                return VoidInvokeResponse(status=404)
+
+            log.debug(
+                f"Verifying sign-in state for user {activity.from_.id} in conversation"
+                f"{activity.conversation.id} with state {activity.value.state}"
             )
-            self.event_emitter.emit("sign_in", SignInEvent(activity_ctx=ctx, token_response=token))
-            log.debug(f"Sign-in state verified for user {activity.from_.id} in conversation {activity.conversation.id}")
-            return VoidInvokeResponse(status=200)
-        except Exception as e:
-            log.error(
-                f"Error verifying sign-in state for user {activity.from_.id} in conversation"
-                f"{activity.conversation.id}: {e}"
-            )
-            if isinstance(e, HTTPStatusError):
-                status = e.response.status_code
-                if status not in (404, 400, 412):
-                    self.event_emitter.emit("error", ErrorEvent(error=e, context={"activity": activity}))
-                    return VoidInvokeResponse(status=status or 500)
-            return VoidInvokeResponse(
-                status=412,
-            )
+
+            try:
+                token = await api.users.token.get(
+                    GetUserTokenParams(
+                        connection_name=self.default_connection_name,
+                        user_id=activity.from_.id,
+                        channel_id=activity.channel_id,
+                        code=activity.value.state,
+                    )
+                )
+                self.event_emitter.emit("sign_in", SignInEvent(activity_ctx=ctx, token_response=token))
+                log.debug(
+                    f"Sign-in state verified for user {activity.from_.id} in conversation {activity.conversation.id}"
+                )
+                return VoidInvokeResponse(status=200)
+            except Exception as e:
+                log.error(
+                    f"Error verifying sign-in state for user {activity.from_.id} in conversation"
+                    f"{activity.conversation.id}: {e}"
+                )
+                if isinstance(e, HTTPStatusError):
+                    status = e.response.status_code
+                    if status not in (404, 400, 412):
+                        self.event_emitter.emit("error", ErrorEvent(error=e, context={"activity": activity}))
+                        return VoidInvokeResponse(status=status or 500)
+                return VoidInvokeResponse(
+                    status=412,
+                )
+        finally:
+            await next_handler()

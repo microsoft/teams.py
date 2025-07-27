@@ -22,10 +22,11 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
         await ctx.reply("Hello! How can I assist you today?")
     if "sign in" in ctx.activity.text.lower():
         ctx.logger.info("User requested sign-in.")
-        token = await ctx.sign_in()
-        if token:
+        if ctx.is_signed_in:
             await ctx.send("You are already signed in. Logging you out.")
             await ctx.sign_out()
+        else:
+            await ctx.sign_in()
     else:
         await ctx.send(f"You said '{ctx.activity.text}'")
 

@@ -13,21 +13,19 @@ from typing import Any, Callable, Dict, List, Optional, TypeVar, Union, cast, ov
 from dotenv import load_dotenv
 from microsoft.teams.api import (
     ActivityBase,
-    ActivityParams,
     ActivityTypeAdapter,
     ApiClient,
     ClientCredentials,
     ConversationReference,
     Credentials,
+    GetUserTokenParams,
     JsonWebToken,
-    MessageActivityInput,
     TokenProtocol,
 )
-from microsoft.teams.cards import AdaptiveCard
 from microsoft.teams.common import Client, ClientOptions, ConsoleLogger, EventEmitter, LocalStorage
 
 from .app_oauth import OauthHandlers
-from .app_process import ActivityProcessorMixin
+from .app_process import ActivityProcessor
 from .events import (
     ActivityEvent,
     ErrorEvent,
@@ -40,8 +38,7 @@ from .events import (
 from .http_plugin import HttpActivityEvent, HttpPlugin
 from .options import AppOptions
 from .plugin import PluginProtocol
-from .routing.activity_context import ActivityContext
-from .routing.router import ActivityRouter
+from .routing import ActivityContext, ActivityHandlerMixin, ActivityRouter
 
 version = importlib.metadata.version("microsoft-teams-app")
 
@@ -59,7 +56,7 @@ class AppTokens:
     graph: Optional[TokenProtocol] = None
 
 
-class App(ActivityProcessorMixin):
+class App(ActivityHandlerMixin):
     """
     The main Teams application orchestrator.
 
@@ -80,6 +77,7 @@ class App(ActivityProcessorMixin):
 
         self._events = EventEmitter[EventType]()
         self._router = ActivityRouter()
+        self._activity_processor = ActivityProcessor(self._router, self.log)
 
         self._tokens = AppTokens()
         self.credentials = self._init_credentials()
@@ -315,8 +313,8 @@ class App(ActivityProcessorMixin):
 
         try:
             self._events.emit("activity", ActivityEvent(activity))
-            ctx = self.build_context(activity, input_activity.token)
-            response = await self.process_activity(ctx)
+            ctx = await self.build_context(activity, input_activity.token)
+            response = await self._activity_processor.process_activity(ctx)
             self.http.on_activity_response(activity_id, response)
 
             return {
@@ -337,7 +335,7 @@ class App(ActivityProcessorMixin):
             )
             raise
 
-    def build_context(self, activity: ActivityBase, token: TokenProtocol) -> ActivityContext[ActivityBase]:
+    async def build_context(self, activity: ActivityBase, token: TokenProtocol) -> ActivityContext[ActivityBase]:
         """Build the context object for activity processing.
 
         Args:
@@ -359,25 +357,23 @@ class App(ActivityProcessorMixin):
         )
         api_client = ApiClient(service_url, self.http_client.clone(ClientOptions(token=self.tokens.bot)))
 
-        # TODO: The actual send logic should be in the plugin
-        # Once the HTTP plugin can accept all the parts needed to make
-        # the http call (like the api, tokens etc)
-        # then we can pass the sender to this function, and then have the
-        # sender do the actual sending.
-        async def send(message: str | ActivityParams | AdaptiveCard):
-            """Placeholder for send method, can be implemented in context."""
-            if isinstance(message, str):
-                activity = MessageActivityInput(text=message)
-            elif isinstance(message, AdaptiveCard):
-                activity = MessageActivityInput().add_card(message)
-            else:
-                activity = message
-            res = await api_client.conversations.activities(conversation_ref.conversation.id).create(activity)
-
-            return res
+        # Check if user is signed in
+        is_signed_in = False
+        try:
+            await api_client.users.token.get(
+                GetUserTokenParams(
+                    connection_name=self.options.default_connection_name or "default",
+                    user_id=activity.from_.id,
+                    channel_id=activity.channel_id,
+                )
+            )
+            is_signed_in = True
+        except Exception:
+            # User token not available
+            pass
 
         return ActivityContext(
-            activity, self.id or "", self.logger, self.storage, self.api, conversation_ref, send=send
+            activity, self.id or "", self.logger, self.storage, api_client, conversation_ref, is_signed_in
         )
 
     @overload
