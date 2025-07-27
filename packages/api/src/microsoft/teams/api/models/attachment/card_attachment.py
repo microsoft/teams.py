@@ -12,6 +12,7 @@ from ..card import AnimationCard, AudioCard, HeroCard, ThumbnailCard, VideoCard
 from ..custom_base_model import CustomBaseModel
 from ..oauth import OAuthCard
 from ..sign_in import SignInCard
+from .attachment import Attachment
 
 
 class CardAttachmentData(CustomBaseModel):
@@ -95,7 +96,7 @@ CardAttachment = Union[
 ]
 
 
-def card_attachment(type: CardAttachmentTypes, content: Any) -> CardAttachment:
+def card_attachment(attachment: CardAttachment) -> Attachment:
     """
     Create a card attachment of the specified type
 
@@ -106,6 +107,7 @@ def card_attachment(type: CardAttachmentTypes, content: Any) -> CardAttachment:
     Returns:
         A card attachment of the specified type with the given content
     """
-    attachment_class = type.value
-    attachment = attachment_class(content=content)
-    return attachment  # type: ignore
+    return Attachment(
+        content_type=attachment.content_type,
+        content=attachment.content,
+    )

@@ -113,6 +113,6 @@ class UserTokenClient(BaseClient):
         response = await self.http.post(
             "https://token.botframework.com/api/usertoken/exchange",
             params=query_params,
-            json={"exchangeRequest": params.exchange_request.model_dump()},
+            json=params.exchange_request.model_dump(),
         )
         return TokenResponse.model_validate(response.json())

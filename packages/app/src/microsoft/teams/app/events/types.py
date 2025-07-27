@@ -4,9 +4,16 @@ Licensed under the MIT License.
 """
 
 from dataclasses import dataclass
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Union
 
-from microsoft.teams.api import Activity
+from microsoft.teams.api import (
+    Activity,
+    SignInTokenExchangeInvokeActivity,
+    SignInVerifyStateInvokeActivity,
+    TokenResponse,
+)
+
+from ..routing import ActivityContext
 
 
 @dataclass
@@ -50,3 +57,12 @@ class StopEvent:
 
     def __repr__(self) -> str:
         return "StopEvent()"
+
+
+@dataclass
+class SignInEvent:
+    activity_ctx: Union[
+        ActivityContext[SignInVerifyStateInvokeActivity],
+        ActivityContext[SignInTokenExchangeInvokeActivity],
+    ]
+    token_response: TokenResponse

@@ -5,7 +5,7 @@ Licensed under the MIT License.
 
 from .base import EventProtocol
 from .registry import EventType, get_event_type_from_signature, is_registered_event
-from .types import ActivityEvent, ErrorEvent, StartEvent, StopEvent
+from .types import ActivityEvent, ErrorEvent, SignInEvent, StartEvent, StopEvent
 
 __all__ = [
     "EventProtocol",
@@ -14,6 +14,7 @@ __all__ = [
     "StartEvent",
     "StopEvent",
     "EventType",
+    "SignInEvent",
     "get_event_type_from_signature",
     "is_registered_event",
 ]

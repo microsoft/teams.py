@@ -6,13 +6,17 @@ Licensed under the MIT License.
 from datetime import datetime
 from typing import Any, List, Literal, Optional, Self
 
+from microsoft.teams.cards import AdaptiveCard
+
 from ...models import (
     Account,
     ActivityBase,
     ActivityInputBase,
+    AdaptiveCardAttachment,
     Attachment,
     AttachmentLayout,
     ChannelData,
+    CustomBaseModel,
     DeliveryMode,
     Importance,
     InputHint,
@@ -21,7 +25,6 @@ from ...models import (
     SuggestedActions,
     TextFormat,
 )
-from ...models.custom_base_model import CustomBaseModel
 from ..utils import StripMentionsTextOptions, strip_mentions_text
 
 
@@ -187,20 +190,23 @@ class MessageActivityInput(_MessageBase, ActivityInputBase):
 
         return self.add_entity(mention_entity)
 
-    def add_card(self, content_type: str, content: Any) -> Self:
+    def add_card(self, card: AdaptiveCard) -> Self:
         """
         Add a card attachment to the message.
 
         Args:
-            content_type: The content type of the card
+            card: The card attachment to add
             content: The card content
 
         Returns:
             Self for method chaining
         """
-        card_attachment = Attachment(content_type=content_type, content=content)
+        card_attachment = AdaptiveCardAttachment(
+            content=card,
+        )
+        attachment = Attachment(content_type=card_attachment.content_type, content=card)
 
-        return self.add_attachments(card_attachment)
+        return self.add_attachments(attachment)
 
     def is_recipient_mentioned(self) -> bool:
         """
