@@ -30,6 +30,7 @@ from microsoft.teams.api.models import (
     MessageUser,
     StreamInfoEntity,
 )
+from microsoft.teams.cards import AdaptiveCard
 
 
 class TestMessageActivity:
@@ -162,16 +163,16 @@ class TestMessageActivity:
     def test_add_card_method(self):
         """Test adding a card attachment"""
         activity = self.create_message_activity()
-        card_content = {"type": "AdaptiveCard", "version": "1.3"}
+        card = AdaptiveCard()
 
-        result = activity.add_card("application/vnd.microsoft.card.adaptive", card_content)
+        result = activity.add_card(card)
 
         assert result is activity
         assert activity.attachments is not None
         assert len(activity.attachments) == 1
         attachment = activity.attachments[0]
         assert attachment.content_type == "application/vnd.microsoft.card.adaptive"
-        assert attachment.content == card_content
+        assert attachment.content == card
 
     def test_strip_mentions_text_basic(self):
         """Test stripping mentions from text"""
@@ -316,8 +317,8 @@ class TestMessageActivity:
         activity.add_mention(user1).add_text(" and ").add_mention(user2).add_text(" scheduled.")
 
         # Add attachment
-        card_content = {"type": "AdaptiveCard", "version": "1.3"}
-        activity.add_card("application/vnd.microsoft.card.adaptive", card_content)
+        card = AdaptiveCard()
+        activity.add_card(card)
 
         # Set properties
         activity.importance = Importance.HIGH
