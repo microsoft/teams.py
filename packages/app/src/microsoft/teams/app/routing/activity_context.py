@@ -61,7 +61,7 @@ class ActivityContext(Generic[T]):
         api: ApiClient,
         conversation_ref: ConversationReference,
         is_signed_in: bool,
-        connection_name: str = "graph",
+        connection_name: str,
     ):
         self.activity = activity
         self.app_id = app_id

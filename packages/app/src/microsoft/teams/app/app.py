@@ -373,7 +373,14 @@ class App(ActivityHandlerMixin):
             pass
 
         return ActivityContext(
-            activity, self.id or "", self.logger, self.storage, api_client, conversation_ref, is_signed_in
+            activity,
+            self.id or "",
+            self.logger,
+            self.storage,
+            api_client,
+            conversation_ref,
+            is_signed_in,
+            self.options.default_connection_name,
         )
 
     @overload

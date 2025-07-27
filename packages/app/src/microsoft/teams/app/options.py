@@ -27,4 +27,4 @@ class AppOptions:
     plugins: List[PluginProtocol] = field(default_factory=list[PluginProtocol])
 
     # Oauth
-    default_connection_name: Optional[str] = "graph"
+    default_connection_name: str = "graph"
