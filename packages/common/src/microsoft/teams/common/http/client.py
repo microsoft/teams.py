@@ -34,7 +34,7 @@ def _wrap_response_json(response: httpx.Response, logger: logging.Logger) -> Non
         try:
             return original_json(**kwargs)
         except json.JSONDecodeError as e:
-            if "Expecting value: line 1 column 1 (char 0)" in str(e):
+            if e.pos == 0:
                 logger.warning(f"Failed to decode JSON response from {response.url}. Returning empty dict.")
                 return {}
             else:
