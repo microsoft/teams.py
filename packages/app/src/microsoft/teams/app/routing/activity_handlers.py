@@ -80,7 +80,7 @@ class ActivityHandlerMixin(GeneratedActivityHandlerMixin, ABC):
                 elif isinstance(pattern, str):
                     res = ctx.text == pattern
                 else:
-                    match = pattern.match(ctx.text)
+                    match = pattern.match(ctx.text or "")
                     res = match is not None
                 return res
 
