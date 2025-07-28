@@ -13,7 +13,7 @@ import uvicorn
 from fastapi import FastAPI, Request
 from microsoft.teams.api import ActivityParams, TokenProtocol
 from microsoft.teams.api.models import ConversationReference, Resource
-from microsoft.teams.app.plugins import Sender, StreamerProtocol
+from microsoft.teams.app.plugins import PluginStartEvent, Sender, StreamerProtocol
 from microsoft.teams.common.logging import ConsoleLogger
 
 from .auth import create_jwt_validation_middleware
@@ -107,9 +107,10 @@ class HttpPlugin(Sender):
         """Set callback to call when HTTP server is stopped."""
         self._on_stopped_callback = callback
 
-    async def on_start(self, port: int) -> None:
+    async def on_start(self, event: PluginStartEvent) -> None:
         """Start the HTTP server."""
-        self._port = port
+        port = event.port
+        self._port = event.port
 
         try:
             config = uvicorn.Config(app=self.app, host="0.0.0.0", port=port, log_level="info")
