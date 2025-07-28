@@ -480,7 +480,7 @@ class TestApp:
     def test_on_message_pattern_string_match(self, app_with_options: App) -> None:
         """Test on_message_pattern with string pattern matching."""
 
-        @app_with_options.on_message_pattern("hello")
+        @app_with_options.on_message_pattern("hello world")
         async def handle_hello(ctx: ActivityContext[MessageActivity]) -> None:
             pass
 

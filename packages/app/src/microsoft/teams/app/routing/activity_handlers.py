@@ -78,7 +78,7 @@ class ActivityHandlerMixin(GeneratedActivityHandlerMixin, ABC):
                 if not isinstance(ctx, MessageActivity):
                     res = False
                 elif isinstance(pattern, str):
-                    res = pattern in ctx.text
+                    res = ctx.text == pattern
                 else:
                     match = pattern.match(ctx.text)
                     res = match is not None
