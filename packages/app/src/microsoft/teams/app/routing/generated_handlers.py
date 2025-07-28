@@ -71,7 +71,7 @@ from .router import ActivityRouter
 from .type_validation import validate_handler_type
 
 
-class ActivityHandlerMixin(ABC):
+class GeneratedActivityHandlerMixin(ABC):
     """Mixin class providing typed activity handler registration methods."""
 
     @property

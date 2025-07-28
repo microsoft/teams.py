@@ -476,3 +476,88 @@ class TestApp:
         assert "InvokeActivity" in error_msg
         assert "MessageActivity" in error_msg
         assert "on_message" in error_msg
+
+    def test_on_message_pattern_string_match(self, app_with_options: App) -> None:
+        """Test on_message_pattern with string pattern matching."""
+
+        @app_with_options.on_message_pattern("hello")
+        async def handle_hello(ctx: ActivityContext[MessageActivity]) -> None:
+            pass
+
+        from_account = Account(id="bot-123", name="Test Bot", role="bot")
+        recipient = Account(id="user-456", name="Test User", role="user")
+        conversation = ConversationAccount(id="conv-789", conversation_type="personal")
+
+        # Test matching message
+        matching_activity = MessageActivity(
+            id="test-activity-id",
+            type="message",
+            text="hello world",
+            from_=from_account,
+            recipient=recipient,
+            conversation=conversation,
+            channel_id="msteams",
+        )
+
+        # Test non-matching message
+        non_matching_activity = MessageActivity(
+            id="test-activity-id-2",
+            type="message",
+            text="goodbye world",
+            from_=from_account,
+            recipient=recipient,
+            conversation=conversation,
+            channel_id="msteams",
+        )
+
+        # Verify handler was registered and can match
+        handlers = app_with_options.router.select_handlers(matching_activity)
+        assert len(handlers) == 1
+        assert handlers[0] == handle_hello
+
+        # Verify non-matching activity doesn't match
+        non_matching_handlers = app_with_options.router.select_handlers(non_matching_activity)
+        assert len(non_matching_handlers) == 0
+
+    def test_on_message_pattern_regex_match(self, app_with_options: App) -> None:
+        """Test on_message_pattern with regex pattern matching."""
+        import re
+
+        @app_with_options.on_message_pattern(re.compile(r"hello \w+"))
+        async def handle_hello_pattern(ctx: ActivityContext[MessageActivity]) -> None:
+            pass
+
+        from_account = Account(id="bot-123", name="Test Bot", role="bot")
+        recipient = Account(id="user-456", name="Test User", role="user")
+        conversation = ConversationAccount(id="conv-789", conversation_type="personal")
+
+        # Test matching message
+        matching_activity = MessageActivity(
+            id="test-activity-id",
+            type="message",
+            text="hello world",
+            from_=from_account,
+            recipient=recipient,
+            conversation=conversation,
+            channel_id="msteams",
+        )
+
+        # Test non-matching message
+        non_matching_activity = MessageActivity(
+            id="test-activity-id-2",
+            type="message",
+            text="hello",  # Missing word after hello
+            from_=from_account,
+            recipient=recipient,
+            conversation=conversation,
+            channel_id="msteams",
+        )
+
+        # Verify handler was registered and can match
+        handlers = app_with_options.router.select_handlers(matching_activity)
+        assert len(handlers) == 1
+        assert handlers[0] == handle_hello_pattern
+
+        # Verify non-matching activity doesn't match
+        non_matching_handlers = app_with_options.router.select_handlers(non_matching_activity)
+        assert len(non_matching_handlers) == 0
