@@ -29,7 +29,7 @@ Emitted when the plugin receives an activity
 
 
 class Plugin:
-    """Protocol for Teams app plugins."""
+    """The base plugin for Teams app plugins."""
 
     async def on_init(self) -> None:
         """Lifecycle method called by the App when the plugin is initialized."""
