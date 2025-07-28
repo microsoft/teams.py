@@ -11,6 +11,9 @@
       "packages/app/src"
    ],
    "typeCheckingMode":"strict",
-   "reportIncompatibleVariableOverride":"none",
-   "reportIncompatibleMethodOverride":"none"
+   "executionEnvironments": [{
+      "root": "packages/api/src",
+      "reportIncompatibleVariableOverride":"none",
+      "reportIncompatibleMethodOverride":"none"
+   }]
 }
