@@ -7,10 +7,10 @@ import inspect
 from typing import Any, Callable, Dict, Literal, Optional, Type, cast
 
 from .base import EventProtocol
-from .types import ActivityEvent, ErrorEvent, StartEvent, StopEvent
+from .types import ActivityEvent, ErrorEvent, SignInEvent, StartEvent, StopEvent
 
 # Core event type literals for type safety
-EventType = Literal["activity", "error", "start", "stop"]
+EventType = Literal["activity", "error", "start", "stop", "sign_in"]
 
 # Registry mapping event names to their corresponding event classes
 EVENT_TYPE_REGISTRY: Dict[str, Type[EventProtocol]] = {
@@ -18,6 +18,7 @@ EVENT_TYPE_REGISTRY: Dict[str, Type[EventProtocol]] = {
     "error": ErrorEvent,
     "start": StartEvent,
     "stop": StopEvent,
+    "sign_in": SignInEvent,
 }
 
 # Reverse lookup: event class to event name

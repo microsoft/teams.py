@@ -5,12 +5,11 @@ Licensed under the MIT License.
 
 from typing import Literal
 
-from ...models import CustomBaseModel
-from ..activity import Activity
+from ...models import ActivityBase, CustomBaseModel
 
 
-class UninstalledActivity(Activity, CustomBaseModel):
-    type: Literal["installationUpdate"] = "installationUpdate"
+class UninstalledActivity(ActivityBase, CustomBaseModel):
+    type: Literal["installationUpdate"] = "installationUpdate"  #
 
     action: Literal["remove"] = "remove"
     """Uninstall update action"""

@@ -24,7 +24,7 @@ class HandoffActionInvokeActivity(InvokeActivity):
     typically used for transferring conversation control.
     """
 
-    name: Literal["handoff/action"] = "handoff/action"
+    name: Literal["handoff/action"] = "handoff/action"  #
     """The name of the operation associated with an invoke or event activity."""
 
     value: HandoffActionValue

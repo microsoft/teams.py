@@ -6,17 +6,17 @@ Licensed under the MIT License.
 from typing import Any, Literal, Optional
 
 from ....models import ConversationReference, CustomBaseModel
-from ...activity import Activity
+from ...invoke_activity import InvokeActivity
 
 
-class ConfigFetchInvokeActivity(Activity, CustomBaseModel):
+class ConfigFetchInvokeActivity(InvokeActivity, CustomBaseModel):
     """
     Represents the config fetch invoke activity.
     """
 
-    type: Literal["invoke"] = "invoke"
+    type: Literal["invoke"] = "invoke"  #
 
-    name: Literal["config/fetch"] = "config/fetch"
+    name: Literal["config/fetch"] = "config/fetch"  #
     """The name of the operation associated with an invoke or event activity."""
 
     value: Any

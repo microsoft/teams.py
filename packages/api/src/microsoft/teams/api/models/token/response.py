@@ -25,7 +25,7 @@ class TokenResponse(CustomBaseModel):
     """
     The user token.
     """
-    expiration: str
+    expiration: Optional[str] = None
     """
     The expiration of the token.
     """

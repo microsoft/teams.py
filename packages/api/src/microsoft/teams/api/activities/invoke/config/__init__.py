@@ -14,4 +14,8 @@ ConfigInvokeActivity = Annotated[
     Union[ConfigFetchInvokeActivity, ConfigSubmitInvokeActivity], Field(discriminator="name")
 ]
 
-__all__ = ["ConfigFetchInvokeActivity", "ConfigSubmitInvokeActivity", "ConfigInvokeActivity"]
+__all__ = [
+    "ConfigFetchInvokeActivity",
+    "ConfigSubmitInvokeActivity",
+    "ConfigInvokeActivity",
+]

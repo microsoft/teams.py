@@ -17,7 +17,7 @@ class MessageExtensionQueryInvokeActivity(InvokeActivity):
     in a messaging extension.
     """
 
-    name: Literal["composeExtension/query"] = "composeExtension/query"
+    name: Literal["composeExtension/query"] = "composeExtension/query"  #
     """The name of the operation associated with an invoke or event activity."""
 
     value: MessagingExtensionQuery

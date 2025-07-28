@@ -3,23 +3,20 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
+from . import bot, conversation, meeting, team, user
 from .api_client import ApiClient
 from .bot import *  # noqa: F403
-from .bot import __all__ as bot_all
 from .conversation import *  # noqa: F403
-from .conversation import __all__ as conversation_all
 from .meeting import *  # noqa: F403
-from .meeting import __all__ as meeting_all
 from .team import *  # noqa: F403
-from .team import __all__ as team_all
 from .user import *  # noqa: F403
-from .user import __all__ as user_all
 
-__all__ = [
+# Combine all exports from submodules
+__all__: list[str] = [
     "ApiClient",
-    *conversation_all,
-    *user_all,
-    *bot_all,
-    *meeting_all,
-    *team_all,
 ]
+__all__.extend(bot.__all__)
+__all__.extend(conversation.__all__)
+__all__.extend(meeting.__all__)
+__all__.extend(team.__all__)
+__all__.extend(user.__all__)

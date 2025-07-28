@@ -3,13 +3,14 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from typing import Any, Dict, Literal, Optional, Self
+from typing import Literal, Optional, Self
 
-from ..models import ChannelData, CustomBaseModel, StreamInfoEntity
-from .activity import Activity
+from ..models import ActivityBase, ActivityInputBase, ChannelData, CustomBaseModel, StreamInfoEntity
 
 
-class TypingActivity(Activity, CustomBaseModel):
+class _TypingBase(CustomBaseModel):
+    """Base class containing shared typing activity fields (all Optional except type)."""
+
     type: Literal["typing"] = "typing"
 
     text: Optional[str] = None
@@ -17,8 +18,13 @@ class TypingActivity(Activity, CustomBaseModel):
     The text content of the message.
     """
 
-    def __init__(self, value: Optional[Dict[str, Any]] = None) -> None:
-        super().__init__(value={"type": "typing", **(value or {})})
+
+class TypingActivity(_TypingBase, ActivityBase):
+    """Output model for received typing activities with required fields and read-only properties."""
+
+
+class TypingActivityInput(_TypingBase, ActivityInputBase):
+    """Input model for creating typing activities with builder methods."""
 
     def with_text(self, value: str) -> Self:
         """Set the text content of the message."""

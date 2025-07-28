@@ -3,14 +3,14 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from abc import ABC
 from typing import Any, Literal, Optional
 
-from ..models import ConversationReference, CustomBaseModel
-from .activity import Activity
+from ..models import ActivityBase, ActivityInputBase, ConversationReference, CustomBaseModel
 
 
-class TraceActivity(Activity, CustomBaseModel, ABC):
+class _TraceBase(CustomBaseModel):
+    """Base class containing shared trace activity fields (all Optional except type)."""
+
     type: Literal["trace"] = "trace"
 
     name: Optional[str] = None
@@ -18,12 +18,12 @@ class TraceActivity(Activity, CustomBaseModel, ABC):
     The name of the operation associated with an invoke or event activity.
     """
 
-    label: str
+    label: Optional[str] = None
     """
     A descriptive label for the activity.
     """
 
-    value_type: str
+    value_type: Optional[str] = None
     """
     The type of the activity's value object.
     """
@@ -37,3 +37,21 @@ class TraceActivity(Activity, CustomBaseModel, ABC):
     """
     A reference to another conversation or activity.
     """
+
+
+class TraceActivity(_TraceBase, ActivityBase):
+    """Output model for received trace activities with required fields and read-only properties."""
+
+    label: str  # pyright: ignore [reportGeneralTypeIssues]
+    """
+    A descriptive label for the activity.
+    """
+
+    value_type: str  # pyright: ignore [reportGeneralTypeIssues]
+    """
+    The type of the activity's value object.
+    """
+
+
+class TraceActivityInput(_TraceBase, ActivityInputBase):
+    """Input model for creating trace activities with builder methods."""

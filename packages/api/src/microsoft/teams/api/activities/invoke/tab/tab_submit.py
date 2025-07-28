@@ -17,7 +17,7 @@ class TabSubmitInvokeActivity(InvokeActivity):
     or handles user interaction.
     """
 
-    name: Literal["tab/submit"] = "tab/submit"
+    name: Literal["tab/submit"] = "tab/submit"  #
     """The name of the operation associated with an invoke or event activity."""
 
     value: TabRequest

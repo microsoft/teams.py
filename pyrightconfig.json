@@ -1,0 +1,16 @@
+{
+   "include":[
+      "packages/**/src/**/*.py"
+   ],
+   "venv":".venv",
+   "venvPath":".",
+   "extraPaths":[
+      "packages/api/src",
+      "packages/common/src",
+      "packages/cards/src",
+      "packages/app/src"
+   ],
+   "typeCheckingMode":"strict",
+   "reportIncompatibleVariableOverride":"none",
+   "reportIncompatibleMethodOverride":"none"
+}

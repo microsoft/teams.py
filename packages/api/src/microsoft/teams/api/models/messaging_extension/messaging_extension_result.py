@@ -5,12 +5,9 @@ Licensed under the MIT License.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, List, Optional
+from typing import List, Optional
 
-# Due to circular imports, we use TYPE_CHECKING to avoid runtime errors.
-if TYPE_CHECKING:
-    from ...activities import Activity
-
+from ...models.activity import Activity as ActivityBase
 from ..attachment.attachment_layout import AttachmentLayout
 from ..custom_base_model import CustomBaseModel
 from .messaging_extension_attachment import MessagingExtensionAttachment
@@ -38,5 +35,5 @@ class MessagingExtensionResult(CustomBaseModel):
     text: Optional[str] = None
     "(Only when type is message) Text"
 
-    activity_preview: Optional["Activity"] = None
+    activity_preview: Optional[ActivityBase] = None
     "(Only when type is botMessagePreview) Message activity to preview"

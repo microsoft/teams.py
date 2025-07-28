@@ -6,7 +6,7 @@ Licensed under the MIT License.
 from abc import ABC
 from typing import Literal
 
-from ..activities import ActivityBase
+from ..models import ActivityBase
 
 
 class InvokeActivity(ActivityBase, ABC):
@@ -17,7 +17,7 @@ class InvokeActivity(ActivityBase, ABC):
     interactive functionality like adaptive cards, messaging extensions, and task modules.
     """
 
-    type: Literal["invoke"] = "invoke"
+    type: Literal["invoke"] = "invoke"  #
     """The activity type is always 'invoke' for invoke activities."""
 
     name: str

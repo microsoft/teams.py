@@ -5,8 +5,8 @@ Licensed under the MIT License.
 
 from typing import Optional, Union
 
-from microsoft.teams.common.http import Client as HttpClient
-from microsoft.teams.common.http import ClientOptions
+from microsoft.teams.common import Client as HttpClient
+from microsoft.teams.common import ClientOptions
 
 from .base_client import BaseClient
 from .bot import BotClient

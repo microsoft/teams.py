@@ -68,20 +68,10 @@ jobs:
         with:
           args: "format"
 
-      - name: Type Check (MyPy)
+      - name: Type Check (PyRight)
         run: |
           source .venv/bin/activate  # Execute script in current shell to use virtual environment
-          # The below commands are used to make type checking less strict, such as when working with external libraries that don't have complete type hints:
-          # --ignore-missing-imports: Ignore missing imports for missing type hints in imported modules
-          # --show-traceback: Show detailed error traces
-          # --disable-error-code=import-untyped: Ignore untyped imports
-          # --disable-error-code=no-untyped-call: Ignore calls to functions without type hints
-          mypy --config-file mypy.ini \
-            --ignore-missing-imports \
-            --show-traceback \
-            --disable-error-code=import-untyped \
-            --disable-error-code=no-untyped-call \
-            packages/
+          pyright
 
       - name: Run Tests
         run: |

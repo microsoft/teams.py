@@ -12,6 +12,7 @@ from ..card import AnimationCard, AudioCard, HeroCard, ThumbnailCard, VideoCard
 from ..custom_base_model import CustomBaseModel
 from ..oauth import OAuthCard
 from ..sign_in import SignInCard
+from .attachment import Attachment
 
 
 class CardAttachmentData(CustomBaseModel):
@@ -22,42 +23,42 @@ class CardAttachmentData(CustomBaseModel):
 
 
 class AdaptiveCardAttachment(CardAttachmentData):
-    content_type: Literal["application/vnd.microsoft.card.adaptive"]
+    content_type: Literal["application/vnd.microsoft.card.adaptive"] = "application/vnd.microsoft.card.adaptive"  #
     content: AdaptiveCard
 
 
 class AnimationCardAttachment(CardAttachmentData):
-    content_type: Literal["application/vnd.microsoft.card.animation"]
+    content_type: Literal["application/vnd.microsoft.card.animation"] = "application/vnd.microsoft.card.animation"  #
     content: AnimationCard
 
 
 class AudioCardAttachment(CardAttachmentData):
-    content_type: Literal["application/vnd.microsoft.card.audio"]
+    content_type: Literal["application/vnd.microsoft.card.audio"] = "application/vnd.microsoft.card.audio"  #
     content: AudioCard
 
 
 class HeroCardAttachment(CardAttachmentData):
-    content_type: Literal["application/vnd.microsoft.card.hero"]
+    content_type: Literal["application/vnd.microsoft.card.hero"] = "application/vnd.microsoft.card.hero"  #
     content: HeroCard
 
 
 class OAuthCardAttachment(CardAttachmentData):
-    content_type: Literal["application/vnd.microsoft.card.oauth"]
+    content_type: Literal["application/vnd.microsoft.card.oauth"] = "application/vnd.microsoft.card.oauth"  #
     content: OAuthCard
 
 
 class SigninCardAttachment(CardAttachmentData):
-    content_type: Literal["application/vnd.microsoft.card.signin"]
+    content_type: Literal["application/vnd.microsoft.card.signin"] = "application/vnd.microsoft.card.signin"  #
     content: SignInCard
 
 
 class ThumbnailCardAttachment(CardAttachmentData):
-    content_type: Literal["application/vnd.microsoft.card.thumbnail"]
+    content_type: Literal["application/vnd.microsoft.card.thumbnail"] = "application/vnd.microsoft.card.thumbnail"  #
     content: ThumbnailCard
 
 
 class VideoCardAttachment(CardAttachmentData):
-    content_type: Literal["application/vnd.microsoft.card.video"]
+    content_type: Literal["application/vnd.microsoft.card.video"] = "application/vnd.microsoft.card.video"  #
     content: VideoCard
 
 
@@ -95,7 +96,7 @@ CardAttachment = Union[
 ]
 
 
-def card_attachment(type: CardAttachmentTypes, content: Any) -> CardAttachment:
+def card_attachment(attachment: CardAttachment) -> Attachment:
     """
     Create a card attachment of the specified type
 
@@ -106,9 +107,7 @@ def card_attachment(type: CardAttachmentTypes, content: Any) -> CardAttachment:
     Returns:
         A card attachment of the specified type with the given content
     """
-    attachment_class = type.value
-    attachment_type = CardAttachmentType(type.name)
-    attachment: CardAttachment = attachment_class(
-        content_type=f"application/vnd.microsoft.card.{attachment_type.value}", content=content
+    return Attachment(
+        content_type=attachment.content_type,
+        content=attachment.content,
     )
-    return attachment

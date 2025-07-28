@@ -4,19 +4,26 @@ Licensed under the MIT License.
 """
 
 import asyncio
-import os
 from contextlib import asynccontextmanager
+from dataclasses import dataclass
 from logging import Logger
-from typing import Any, Awaitable, Callable, Dict, Optional
+from typing import Any, AsyncGenerator, Awaitable, Callable, Dict, Optional
 
 import uvicorn
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, Request
+from microsoft.teams.api import TokenProtocol
 from microsoft.teams.common.logging import ConsoleLogger
 
-from .auth import (
-    ServiceTokenValidator,
-    TokenValidationError,
-)
+from .auth import create_jwt_validation_middleware
+
+
+@dataclass
+class HttpActivityEvent:
+    activity_payload: Dict[str, Any]
+    token: TokenProtocol
+
+
+ActivityHandler = Callable[[HttpActivityEvent], Awaitable[Any]]
 
 
 class HttpPlugin:
@@ -28,7 +35,8 @@ class HttpPlugin:
         self,
         app_id: Optional[str],
         logger: Optional[Logger] = None,
-        activity_handler: Optional[Callable[..., Any]] = None,
+        enable_token_validation: bool = True,
+        activity_handler: Optional[ActivityHandler] = None,
     ):
         self.logger = logger or ConsoleLogger().create_logger("@teams/http-plugin")
         self._server: Optional[uvicorn.Server] = None
@@ -43,12 +51,9 @@ class HttpPlugin:
         # Once plugins work, this should be injected in.
         self.activity_handler = activity_handler
 
-        # Bot token validator (only create if app_id is provided)
-        self.token_validator = ServiceTokenValidator(app_id, self.logger) if app_id else None
-
         # Setup FastAPI app with lifespan
         @asynccontextmanager
-        async def lifespan(_app: FastAPI) -> Any:
+        async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
             # Startup
             self.logger.info(f"listening on port {self._port} 🚀")
             if self._on_ready_callback:
@@ -61,13 +66,19 @@ class HttpPlugin:
 
         self.app = FastAPI(lifespan=lifespan)
 
+        # Add JWT validation middleware
+        if app_id and enable_token_validation:
+            jwt_middleware = create_jwt_validation_middleware(
+                app_id=app_id, logger=self.logger, paths=["/api/messages"]
+            )
+            self.app.middleware("http")(jwt_middleware)
+
         # Expose FastAPI routing methods (like TypeScript exposes Express methods)
         self.get = self.app.get
         self.post = self.app.post
         self.put = self.app.put
         self.patch = self.app.patch
         self.delete = self.app.delete
-        self.route = self.app.route
         self.middleware = self.app.middleware
 
         # Setup routes and error handlers
@@ -159,7 +170,7 @@ class HttpPlugin:
         else:
             self.logger.error(f"Plugin error: {error}")
 
-    async def _process_activity(self, activity: Dict[str, Any], activity_id: str) -> None:
+    async def _process_activity(self, activity: Dict[str, Any], activity_id: str, token: TokenProtocol) -> None:
         """
         Process an activity via the registered handler.
 
@@ -171,7 +182,8 @@ class HttpPlugin:
         try:
             # Call the activity handler
             if self.activity_handler:
-                await self.activity_handler(activity)
+                event = HttpActivityEvent(activity, token)
+                await self.activity_handler(event)
             else:
                 self.on_activity_response(
                     activity_id,
@@ -189,70 +201,22 @@ class HttpPlugin:
         # For now, just log and return success
         return {"status": "received"}
 
-    def _extract_bearer_token(self, authorization: Optional[str]) -> Optional[str]:
-        """Extract Bearer token from Authorization header."""
-        if not authorization:
-            return None
-
-        if not authorization.startswith("Bearer "):
-            return None
-
-        return authorization.removeprefix("Bearer ")
-
-    async def _authenticate_request(self, request: Request) -> tuple[Optional[str], Optional[str]]:
-        """
-        Extract and validate JWT token from request.
-
-        Returns:
-            Tuple of (token, service_url) if authentication succeeds
-
-        Raises:
-            HTTPException: If authentication fails
-        """
-        authorization = request.headers.get("authorization")
-        token = self._extract_bearer_token(authorization)
-
-        if not token:
-            # Only allow missing tokens in local development
-            if os.getenv("ENVIRONMENT") == "local":
-                self.logger.debug("No authorization header in local development - allowing request")
-                return None, None
-            else:
-                self.logger.warning("Unauthorized request - missing or invalid authorization header")
-                raise HTTPException(status_code=401, detail="unauthorized")
-
-        # Validate JWT token following Bot Framework protocol
-        if self.token_validator:
-            # Parse body to get service URL for validation
-            body = await request.json()
-            service_url = body.get("serviceUrl")
-
-            try:
-                await self.token_validator.validate_token(token, service_url)
-                self.logger.debug("JWT token validation successful")
-                return token, service_url
-            except TokenValidationError as e:
-                self.logger.warning(f"JWT token validation failed: {e}")
-                raise HTTPException(status_code=401, detail="unauthorized") from e
-            except Exception as e:
-                self.logger.error(f"Unexpected error during token validation: {e}")
-                raise HTTPException(status_code=500, detail="internal server error") from e
-        else:
-            # No validator available (no app_id provided) - basic presence check only
-            self.logger.warning("No token validator available - only checking token presence")
-            return token, None
-
     async def _handle_activity_request(self, request: Request) -> Any:
         """
         Process the activity request and coordinate response.
 
         Args:
-            request: The FastAPI request object
-            token: The validated JWT token (if any)
+            request: The FastAPI request object (token is in request.state.validated_token)
 
         Returns:
             The activity processing result
         """
+        # Get validated token from middleware (always present if middleware is active)
+        token = getattr(request.state, "validated_token", None)
+        if not token or not isinstance(token, TokenProtocol):
+            self.logger.error("No valid token found in request state")
+            return {"error": "Unauthorized", "status": 401}
+
         # Parse activity data
         body = await request.json()
         activity_type = body.get("type", "unknown")
@@ -269,7 +233,7 @@ class HttpPlugin:
             try:
                 # Call the activity handler asynchronously
                 self.logger.debug(f"Processing activity {activity_id} via handler...")
-                asyncio.create_task(self._process_activity(body, activity_id))
+                asyncio.create_task(self._process_activity(body, activity_id, token))
             except Exception as error:
                 self.logger.error(f"Failed to start activity processing: {error}")
                 response_future.set_exception(error)
@@ -290,16 +254,15 @@ class HttpPlugin:
     def _setup_routes(self) -> None:
         """Setup FastAPI routes."""
 
-        @self.app.post("/api/messages")  # type: ignore[misc]
         async def on_activity(request: Request) -> Any:
             """Handle incoming Teams activity."""
-            # Authenticate request and extract token
-            _token, _service_url = await self._authenticate_request(request)
-
-            # Process the activity
+            # Process the activity (token validation handled by middleware)
             return await self._handle_activity_request(request)
 
-        @self.app.get("/")  # type: ignore[misc]
+        self.app.post("/api/messages")(on_activity)
+
         async def health_check() -> Dict[str, Any]:
             """Basic health check endpoint."""
             return {"status": "healthy", "port": self._port}
+
+        self.app.get("/")(health_check)

@@ -3,13 +3,13 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from typing import Any, Optional, Union
+from typing import Dict, Optional, Union
 
 from microsoft.teams.common.http import Client, ClientOptions
 
 from ...models import ConversationResource
 from ..base_client import BaseClient
-from .activity import ConversationActivityClient
+from .activity import ActivityParams, ConversationActivityClient
 from .member import ConversationMemberClient
 from .params import (
     CreateConversationParams,
@@ -29,33 +29,33 @@ class ConversationOperations:
 class ActivityOperations(ConversationOperations):
     """Operations for managing activities in a conversation."""
 
-    async def create(self, activity: Any) -> Any:
-        return await self._client._activities.create(self._conversation_id, activity)
+    async def create(self, activity: ActivityParams):
+        return await self._client.activities_client.create(self._conversation_id, activity)
 
-    async def update(self, activity_id: str, activity: Any) -> Any:
-        return await self._client._activities.update(self._conversation_id, activity_id, activity)
+    async def update(self, activity_id: str, activity: ActivityParams):
+        return await self._client.activities_client.update(self._conversation_id, activity_id, activity)
 
-    async def reply(self, activity_id: str, activity: Any) -> Any:
-        return await self._client._activities.reply(self._conversation_id, activity_id, activity)
+    async def reply(self, activity_id: str, activity: ActivityParams):
+        return await self._client.activities_client.reply(self._conversation_id, activity_id, activity)
 
-    async def delete(self, activity_id: str) -> None:
-        await self._client._activities.delete(self._conversation_id, activity_id)
+    async def delete(self, activity_id: str):
+        await self._client.activities_client.delete(self._conversation_id, activity_id)
 
-    async def get_members(self, activity_id: str) -> Any:
-        return await self._client._activities.get_members(self._conversation_id, activity_id)
+    async def get_members(self, activity_id: str):
+        return await self._client.activities_client.get_members(self._conversation_id, activity_id)
 
 
 class MemberOperations(ConversationOperations):
     """Operations for managing members in a conversation."""
 
-    async def get_all(self) -> Any:
-        return await self._client._members.get(self._conversation_id)
+    async def get_all(self):
+        return await self._client.members_client.get(self._conversation_id)
 
-    async def get(self, member_id: str) -> Any:
-        return await self._client._members.get_by_id(self._conversation_id, member_id)
+    async def get(self, member_id: str):
+        return await self._client.members_client.get_by_id(self._conversation_id, member_id)
 
     async def delete(self, member_id: str) -> None:
-        await self._client._members.delete(self._conversation_id, member_id)
+        await self._client.members_client.delete(self._conversation_id, member_id)
 
 
 class ConversationClient(BaseClient):
@@ -71,8 +71,8 @@ class ConversationClient(BaseClient):
         super().__init__(options)
         self.service_url = service_url
 
-        self._activities = ConversationActivityClient(service_url, self.http)
-        self._members = ConversationMemberClient(service_url, self.http)
+        self._activities_client = ConversationActivityClient(service_url, self.http)
+        self._members_client = ConversationMemberClient(service_url, self.http)
 
     @property
     def http(self) -> Client:
@@ -83,8 +83,18 @@ class ConversationClient(BaseClient):
     def http(self, value: Client) -> None:
         """Set the HTTP client instance and propagate to sub-clients."""
         self._http = value
-        self._activities.http = value
-        self._members.http = value
+        self._activities_client.http = value
+        self._members_client.http = value
+
+    @property
+    def activities_client(self) -> ConversationActivityClient:
+        """Get the activities client."""
+        return self._activities_client
+
+    @property
+    def members_client(self) -> ConversationMemberClient:
+        """Get the members client."""
+        return self._members_client
 
     def activities(self, conversation_id: str) -> ActivityOperations:
         """Get activity operations for a conversation.
@@ -117,7 +127,7 @@ class ConversationClient(BaseClient):
         Returns:
             A response containing the list of conversations and a continuation token.
         """
-        query_params = {}
+        query_params: Dict[str, str] = {}
         if params and params.continuation_token:
             query_params["continuationToken"] = params.continuation_token
 

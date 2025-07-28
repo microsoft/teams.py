@@ -2,14 +2,15 @@
 Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
+# pyright: basic
 
 from datetime import datetime
 from typing import cast
 
 import pytest
-from microsoft.teams.api.activities.activity import Activity
 from microsoft.teams.api.models import (
     Account,
+    ActivityInputBase,
     ChannelData,
     ChannelInfo,
     CitationIconName,
@@ -38,7 +39,7 @@ def chat() -> ConversationAccount:
     return ConversationAccount(id="1", conversation_type="personal")
 
 
-class ConcreteTestActivity(Activity):
+class ConcreteTestActivity(ActivityInputBase):
     """Concrete Activity implementation for testing."""
 
     type: str = "test"
@@ -48,12 +49,10 @@ class ConcreteTestActivity(Activity):
 def test_activity(user: Account, bot: Account, chat: ConversationAccount) -> ConcreteTestActivity:
     """Create a test activity with required fields set."""
     activity = ConcreteTestActivity(
-        value={
-            "id": "1",
-            "from": user,
-            "conversation": chat,
-            "recipient": bot,
-        }
+        id="1",
+        from_=user,
+        conversation=chat,
+        recipient=bot,
     )
     return activity
 
@@ -123,32 +122,32 @@ class TestActivity:
         assert activity.conversation == chat
         assert activity.recipient == bot
         assert activity.tenant.id == "tenant-id"
-        assert activity.channel.id == "channel-id"
-        assert activity.team.id == "team-id"
-        assert activity.meeting.id == "meeting-id"
-        assert activity.notification.alert is True
+        assert activity.channel and activity.channel.id == "channel-id"
+        assert activity.team and activity.team.id == "team-id"
+        assert activity.meeting and activity.meeting.id == "meeting-id"
+        assert activity.notification and activity.notification.alert is True
 
     def test_should_add_ai_label(self, test_activity: ConcreteTestActivity) -> None:
         activity = test_activity.add_ai_generated()
 
         assert activity.type == "test"
-        assert len(activity.entities) == 1
+        assert activity.entities and len(activity.entities) == 1
         message_entity = cast(MessageEntity, activity.entities[0])
-        assert message_entity.additional_type[0] == "AIGeneratedContent"
+        assert message_entity.additional_type and message_entity.additional_type[0] == "AIGeneratedContent"
 
     def test_should_add_feedback_label(self, test_activity: ConcreteTestActivity) -> None:
         activity = test_activity.add_feedback()
 
         assert activity.type == "test"
-        assert activity.channel_data.feedback_loop_enabled is True
+        assert activity.channel_data and activity.channel_data.feedback_loop_enabled is True
 
     def test_should_add_citation(self, test_activity: ConcreteTestActivity) -> None:
         activity = test_activity.add_citation(0, CitationAppearance(abstract="test", name="test"))
 
         assert activity.type == "test"
-        assert len(activity.entities) == 1
+        assert activity.entities and len(activity.entities) == 1
         citation_entity = cast(CitationEntity, activity.entities[0])
-        assert len(citation_entity.citation) == 1
+        assert citation_entity.citation and len(citation_entity.citation) == 1
 
     def test_should_add_citation_with_icon(self, test_activity: ConcreteTestActivity) -> None:
         activity = test_activity.add_citation(
@@ -156,8 +155,11 @@ class TestActivity:
         )
 
         assert activity.type == "test"
-        assert len(activity.entities) == 1
+        assert activity.entities and len(activity.entities) == 1
         citation_entity = cast(CitationEntity, activity.entities[0])
+        assert citation_entity.citation and len(citation_entity.citation) == 1
         assert citation_entity.citation[0].appearance.abstract == "test"
         assert citation_entity.citation[0].appearance.name == "test"
-        assert citation_entity.citation[0].appearance.image.name == "GIF"
+        assert (
+            citation_entity.citation[0].appearance.image and citation_entity.citation[0].appearance.image.name == "GIF"
+        )

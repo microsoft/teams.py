@@ -5,8 +5,7 @@ Licensed under the MIT License.
 
 from typing import Any, Literal, Optional
 
-from ...models import CustomBaseModel
-from ..activity import Activity
+from ...models import ActivityBase, ActivityInputBase, CustomBaseModel
 
 
 class CommandResultValue(CustomBaseModel):
@@ -29,13 +28,26 @@ class CommandResultValue(CustomBaseModel):
     """The optional error, if the command result indicates a failure."""
 
 
-class CommandResultActivity(Activity, CustomBaseModel):
-    """Asynchronous external command result."""
+class _CommandResultBase(CustomBaseModel):
+    """Base class containing shared command result activity fields (all Optional except type)."""
 
     type: Literal["commandResult"] = "commandResult"
 
-    name: str
+    name: Optional[str] = None
     """The name of the event."""
 
     value: Optional[CommandResultValue] = None
     """The value for this command."""
+
+
+class CommandResultActivity(_CommandResultBase, ActivityBase):
+    """Output model for received command result activities with required fields and read-only properties."""
+
+    name: str  # pyright: ignore [reportGeneralTypeIssues, reportIncompatibleVariableOverride]
+    """The name of the event."""
+
+
+class CommandResultActivityInput(_CommandResultBase, ActivityInputBase):
+    """Input model for creating command result activities with builder methods."""
+
+    pass

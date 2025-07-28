@@ -6,8 +6,8 @@ Licensed under the MIT License.
 from datetime import datetime
 from typing import Any, Literal, Optional, Self
 
-from ...models import ChannelData
-from ..activity import Activity
+from ...models import ActivityBase, ActivityInputBase, ChannelData
+from ...models.custom_base_model import CustomBaseModel
 
 MessageEventType = Literal["undeleteMessage", "editMessage"]
 
@@ -15,16 +15,16 @@ MessageEventType = Literal["undeleteMessage", "editMessage"]
 class MessageUpdateChannelData(ChannelData):
     """Channel data specific to message update activities."""
 
-    event_type: MessageEventType
+    event_type: MessageEventType  # pyright: ignore [reportGeneralTypeIssues]
     """The type of event for message update."""
 
 
-class MessageUpdateActivity(Activity):
-    """Represents a message update activity in Microsoft Teams."""
+class _MessageUpdateBase(CustomBaseModel):
+    """Base class containing shared message update activity fields (all Optional except type)."""
 
     type: Literal["messageUpdate"] = "messageUpdate"
 
-    text: str
+    text: Optional[str] = None
     """The text content of the message."""
 
     speak: Optional[str] = None
@@ -42,8 +42,22 @@ class MessageUpdateActivity(Activity):
     value: Optional[Any] = None
     """A value that is associated with the activity."""
 
-    channel_data: MessageUpdateChannelData
+    channel_data: Optional[MessageUpdateChannelData] = None
     """Channel-specific data for message update events."""
+
+
+class MessageUpdateActivity(_MessageUpdateBase, ActivityBase):
+    """Output model for received message update activities with required fields and read-only properties."""
+
+    text: str  # pyright: ignore [reportGeneralTypeIssues]
+    """The text content of the message."""
+
+    channel_data: MessageUpdateChannelData  # pyright: ignore [reportGeneralTypeIssues]
+    """Channel-specific data for message update events."""
+
+
+class MessageUpdateActivityInput(_MessageUpdateBase, ActivityInputBase):
+    """Input model for creating message update activities with builder methods."""
 
     def with_text(self, text: str) -> Self:
         """

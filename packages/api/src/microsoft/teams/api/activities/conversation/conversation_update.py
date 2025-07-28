@@ -5,8 +5,7 @@ Licensed under the MIT License.
 
 from typing import List, Literal, Optional
 
-from ...models import Account, ChannelData, CustomBaseModel
-from ..activity import Activity
+from ...models import Account, ActivityBase, ActivityInputBase, ChannelData, CustomBaseModel
 
 ConversationEventType = Literal[
     "channelCreated",
@@ -25,12 +24,12 @@ ConversationEventType = Literal[
 class ConversationChannelData(ChannelData, CustomBaseModel):
     """Extended ChannelData with event type."""
 
-    event_type: ConversationEventType
+    event_type: ConversationEventType  # pyright: ignore [reportGeneralTypeIssues, reportIncompatibleVariableOverride]
     """The type of event that occurred."""
 
 
-class ConversationUpdateActivity(Activity, CustomBaseModel):
-    """Activity for conversation updates."""
+class _ConversationUpdateBase(CustomBaseModel):
+    """Base class containing shared conversation update activity fields (all Optional except type)."""
 
     type: Literal["conversationUpdate"] = "conversationUpdate"
 
@@ -46,5 +45,18 @@ class ConversationUpdateActivity(Activity, CustomBaseModel):
     history_disclosed: Optional[bool] = None
     """Indicates whether the prior history of the channel is disclosed."""
 
-    channel_data: ConversationChannelData
+    channel_data: Optional[ConversationChannelData] = None
     """Channel data with event type information."""
+
+
+class ConversationUpdateActivity(_ConversationUpdateBase, ActivityBase):
+    """Output model for received conversation update activities with required fields and read-only properties."""
+
+    channel_data: ConversationChannelData  # pyright: ignore [reportGeneralTypeIssues, reportIncompatibleVariableOverride]
+    """Channel data with event type information."""
+
+
+class ConversationUpdateActivityInput(_ConversationUpdateBase, ActivityInputBase):
+    """Input model for creating conversation update activities with builder methods."""
+
+    pass

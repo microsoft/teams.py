@@ -5,9 +5,11 @@ Licensed under the MIT License.
 
 import asyncio
 import logging
-from typing import Any, Awaitable, Callable, Dict, List, Optional, Protocol, TypedDict, Union
+from typing import Any, Awaitable, Callable, Dict, Generic, List, Optional, Protocol, TypedDict, TypeVar, Union
 
 from ..logging import ConsoleLogger
+
+EventTypeT = TypeVar("EventTypeT", bound=str, contravariant=True)
 
 EventHandler = Union[
     Callable[[Any], None],  # Sync handler
@@ -22,19 +24,21 @@ class Subscription(TypedDict):
     handler: EventHandler
 
 
-class EventEmitterProtocol(Protocol):
+class EventEmitterProtocol(Protocol, Generic[EventTypeT]):
     """Interface for event emitter functionality."""
 
-    def on(self, event: str, handler: EventHandler) -> int:
+    def on(self, event: EventTypeT, handler: EventHandler) -> int:
         """Register an event handler. Returns subscription ID."""
+        ...
 
-    def once(self, event: str, handler: EventHandler) -> int:
+    def once(self, event: EventTypeT, handler: EventHandler) -> int:
         """Register a one-time event handler. Returns subscription ID."""
+        ...
 
     def off(self, subscription_id: int) -> None:
         """Remove an event handler by subscription ID."""
 
-    def emit(self, event: str, value: Any = None) -> None:
+    def emit(self, event: EventTypeT, value: Any = None) -> None:
         """Emit an event synchronously."""
 
 
@@ -48,7 +52,7 @@ class EventEmitterOptions(TypedDict, total=False):
     logger: logging.Logger
 
 
-class EventEmitter(EventEmitterProtocol):
+class EventEmitter(EventEmitterProtocol[EventTypeT]):
     """
     Event emitter implementation inspired by TypeScript/Node.js EventEmitter.
 
@@ -61,12 +65,13 @@ class EventEmitter(EventEmitterProtocol):
         self._subscriptions: Dict[str, List[Subscription]] = {}
 
         # Use provided logger or create default console logger
-        if options and options.get("logger"):
-            self._logger = options["logger"]
+        logger = options.get("logger") if options else None
+        if logger:
+            self._logger = logger.getChild("microsoft.teams.common.events.EventEmitter")
         else:
             self._logger = ConsoleLogger().create_logger("microsoft.teams.common.events.EventEmitter")
 
-    def on(self, event: str, handler: EventHandler) -> int:
+    def on(self, event: EventTypeT, handler: EventHandler) -> int:
         """
         Register an event handler.
 
@@ -87,7 +92,7 @@ class EventEmitter(EventEmitterProtocol):
         self._logger.debug("Registered handler for event '%s' with id %d", event, subscription_id)
         return subscription_id
 
-    def once(self, event: str, handler: EventHandler) -> int:
+    def once(self, event: EventTypeT, handler: EventHandler) -> int:
         """
         Register a one-time event handler that will be removed after first execution.
 
@@ -129,7 +134,7 @@ class EventEmitter(EventEmitterProtocol):
                         del self._subscriptions[event_name]
                     return
 
-    def emit(self, event: str, value: Any = None) -> None:
+    def emit(self, event: EventTypeT, value: Any = None) -> None:
         """
         Emit an event synchronously to all registered handlers.
 
@@ -146,7 +151,7 @@ class EventEmitter(EventEmitterProtocol):
         handler_count = len(self._subscriptions[event])
         self._logger.debug("Emitting event '%s' to %d handler(s)", event, handler_count)
 
-        awaitables = []
+        awaitables: list[Awaitable[None]] = []
 
         for subscription in self._subscriptions[event][:]:  # Copy to avoid modification during iteration
             try:

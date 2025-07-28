@@ -3,11 +3,12 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from typing import Optional, Protocol
+from typing import Optional, Protocol, runtime_checkable
 
 from .caller import CallerType
 
 
+@runtime_checkable
 class TokenProtocol(Protocol):
     """Any authorized token."""
 

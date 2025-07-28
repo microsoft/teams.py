@@ -17,7 +17,7 @@ class MessageExtensionCardButtonClickedInvokeActivity(InvokeActivity):
     on a card within a messaging extension.
     """
 
-    name: Literal["composeExtension/onCardButtonClicked"] = "composeExtension/onCardButtonClicked"
+    name: Literal["composeExtension/onCardButtonClicked"] = "composeExtension/onCardButtonClicked"  #
     """The name of the operation associated with an invoke or event activity."""
 
     value: Any

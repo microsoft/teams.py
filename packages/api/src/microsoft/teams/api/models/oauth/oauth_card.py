@@ -3,8 +3,9 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from typing import Optional
+from typing import List, Optional
 
+from ..card.card_action import CardAction
 from ..custom_base_model import CustomBaseModel
 from ..token import TokenPostResource
 from ..token_exchange import TokenExchangeResource
@@ -24,3 +25,5 @@ class OAuthCard(CustomBaseModel):
 
     token_post_resource: Optional[TokenPostResource] = None
     "The token for directly post a token to token service"
+
+    buttons: Optional[List[CardAction]] = None

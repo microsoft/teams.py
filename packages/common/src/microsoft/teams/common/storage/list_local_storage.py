@@ -16,25 +16,25 @@ class ListLocalStorage(ListStorage[V]):
     def __init__(self, items: Optional[List[V]] = None):
         self._items = items or []
 
-    def get(self, index: int) -> Optional[V]:
-        if index < 0 or index >= len(self._items):
+    def get(self, key: int) -> Optional[V]:
+        if key < 0 or key >= len(self._items):
             return None
-        return self._items[index]
+        return self._items[key]
 
-    async def async_get(self, index: int) -> Optional[V]:
-        return self.get(index)
+    async def async_get(self, key: int) -> Optional[V]:
+        return self.get(key)
 
-    def set(self, index: int, value: V) -> None:
-        self._items[index] = value
+    def set(self, key: int, value: V) -> None:
+        self._items[key] = value
 
-    async def async_set(self, index: int, value: V) -> None:
-        return self.set(index, value)
+    async def async_set(self, key: int, value: V) -> None:
+        return self.set(key, value)
 
-    def delete(self, index: int) -> None:
-        del self._items[index]
+    def delete(self, key: int) -> None:
+        del self._items[key]
 
-    async def async_delete(self, index: int) -> None:
-        return self.delete(index)
+    async def async_delete(self, key: int) -> None:
+        return self.delete(key)
 
     def append(self, value: V) -> None:
         return self._items.append(value)

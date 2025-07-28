@@ -101,37 +101,6 @@ def create_package(package_name: str) -> None:
         with open(root_pyproject_path, "w") as f:
             f.write(content)
 
-    # Step 6: Update mypy.ini with new package path
-    mypy_ini_path = Path("mypy.ini")
-    if mypy_ini_path.exists():
-        with open(mypy_ini_path, "r") as f:
-            content = f.read()
-
-        new_src_path = f"packages/{package_dir}/src"
-
-        if "mypy_path = " in content:
-            # Find the mypy_path line and add the new package
-            lines = content.split("\n")
-            for i, line in enumerate(lines):
-                if line.startswith("mypy_path = "):
-                    current_paths = line.replace("mypy_path = ", "").split(":")
-                    if new_src_path not in current_paths:
-                        current_paths.append(new_src_path)
-                        # Sort paths for consistency
-                        current_paths.sort()
-                        lines[i] = f"mypy_path = {':'.join(current_paths)}"
-                    break
-        else:
-            # Add mypy_path if it doesn't exist
-            lines = content.split("\n")
-            for i, line in enumerate(lines):
-                if line.startswith("explicit_package_bases = true"):
-                    lines.insert(i + 1, f"mypy_path = {new_src_path}")
-                    break
-
-        with open(mypy_ini_path, "w") as f:
-            f.write("\n".join(lines))
-
     print(f"\nPackage {package_name} created successfully!")
     print(f"Location: {package_path}")
     print("\nNext steps:")

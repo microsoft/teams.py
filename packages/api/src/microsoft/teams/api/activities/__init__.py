@@ -5,9 +5,9 @@ Licensed under the MIT License.
 
 from typing import Annotated, Union
 
-from pydantic import Field
+from pydantic import Field, TypeAdapter
 
-from .activity import Activity as ActivityBase
+from . import event, install_update, invoke, message
 from .command import CommandActivity, CommandResultActivity, CommandResultValue, CommandSendActivity, CommandSendValue
 from .conversation import (
     ConversationActivity,
@@ -19,15 +19,13 @@ from .conversation import (
 )
 from .event import *  # noqa: F403
 from .event import EventActivity
-from .event import __all__ as event_all
 from .handoff import HandoffActivity
 from .install_update import *  # noqa: F403
 from .install_update import InstallUpdateActivity
-from .install_update import __all__ as install_update_all
+from .invoke import *  # noqa: F403
 from .invoke import InvokeActivity
 from .message import *  # noqa: F403
 from .message import MessageActivities
-from .message import __all__ as message_all
 from .trace import TraceActivity
 from .typing import TypingActivity
 
@@ -46,10 +44,15 @@ Activity = Annotated[
     Field(discriminator="type"),
 ]
 
+# Use this if you want to validate an incoming activity.
+ActivityTypeAdapter = TypeAdapter[Activity](Activity)
+ActivityTypeAdapter.rebuild()
 
-__all__ = [
+
+# Combine all exports from submodules
+__all__: list[str] = [
     "Activity",
-    "ActivityBase",
+    "ActivityTypeAdapter",
     "CommandSendActivity",
     "CommandResultActivity",
     "CommandSendValue",
@@ -60,10 +63,14 @@ __all__ = [
     "EndOfConversationActivity",
     "EndOfConversationCode",
     "EventActivity",
+    "HandoffActivity",
     "InstallUpdateActivity",
     "TypingActivity",
     "ConversationEventType",
-    *event_all,
-    *install_update_all,
-    *message_all,
+    "InvokeActivity",
+    "TraceActivity",
 ]
+__all__.extend(event.__all__)
+__all__.extend(install_update.__all__)
+__all__.extend(message.__all__)
+__all__.extend(invoke.__all__)

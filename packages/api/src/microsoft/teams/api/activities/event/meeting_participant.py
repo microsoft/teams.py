@@ -5,8 +5,7 @@ Licensed under the MIT License.
 
 from typing import List, Literal
 
-from ...models import Account, CustomBaseModel
-from ..activity import Activity
+from ...models import Account, ActivityBase, CustomBaseModel
 
 
 class MeetingParticipantInfo(CustomBaseModel):
@@ -38,12 +37,12 @@ class MeetingParticipantEventValue(CustomBaseModel):
     """The list of participants in the meeting."""
 
 
-class MeetingParticipantEventActivity(Activity, CustomBaseModel):
+class MeetingParticipantEventActivity(ActivityBase, CustomBaseModel):
     """
     Represents a meeting participant event activity in Microsoft Teams.
     """
 
-    type: Literal["event"] = "event"
+    type: Literal["event"] = "event"  #
 
     value: MeetingParticipantEventValue
     """
