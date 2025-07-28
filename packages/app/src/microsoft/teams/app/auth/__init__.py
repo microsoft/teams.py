@@ -3,14 +3,13 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
+from .jwt_middleware import JwtValidationMiddleware, create_jwt_validation_middleware
 from .service_token_validator import (
     ServiceTokenValidator,
-    TokenValidationError,
-    TokenValidationErrorCode,
 )
 
 __all__ = [
     "ServiceTokenValidator",
-    "TokenValidationError",
-    "TokenValidationErrorCode",
+    "JwtValidationMiddleware",
+    "create_jwt_validation_middleware",
 ]

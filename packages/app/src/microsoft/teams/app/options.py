@@ -25,6 +25,7 @@ class AppOptions:
     logger: Optional[Logger] = None
     storage: Optional[Storage[str, Any]] = None
     plugins: List[PluginProtocol] = field(default_factory=list[PluginProtocol])
+    enable_token_validation: bool = True
 
     # Oauth
     default_connection_name: str = "graph"

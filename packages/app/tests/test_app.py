@@ -13,8 +13,9 @@ from microsoft.teams.api.activities.message import MessageActivity, MessageActiv
 from microsoft.teams.api.activities.typing import TypingActivity
 from microsoft.teams.api.models import Account, ConversationAccount
 from microsoft.teams.app.app import App
+from microsoft.teams.app.auth.jwt_middleware import FakeToken
 from microsoft.teams.app.events import ActivityEvent, ErrorEvent
-from microsoft.teams.app.http_plugin import FakeToken, HttpActivityEvent
+from microsoft.teams.app.http_plugin import HttpActivityEvent
 from microsoft.teams.app.options import AppOptions
 from microsoft.teams.app.routing.activity_context import ActivityContext
 

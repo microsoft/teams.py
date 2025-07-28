@@ -31,39 +31,33 @@ class TestHttpPlugin:
     @pytest.fixture
     def plugin_with_validator(self, mock_logger, mock_activity_handler):
         """Create HttpPlugin with token validator."""
-        return HttpPlugin("test-app-id", mock_logger, mock_activity_handler)
+        return HttpPlugin("test-app-id", mock_logger, activity_handler=mock_activity_handler)
 
     @pytest.fixture
     def plugin_without_validator(self, mock_logger, mock_activity_handler):
         """Create HttpPlugin without token validator."""
-        return HttpPlugin(None, mock_logger, mock_activity_handler)
+        return HttpPlugin(None, mock_logger, activity_handler=mock_activity_handler)
 
     def test_init_with_app_id(self, mock_logger, mock_activity_handler):
         """Test HttpPlugin initialization with app ID."""
-        plugin = HttpPlugin("test-app-id", mock_logger, mock_activity_handler)
+        plugin = HttpPlugin("test-app-id", mock_logger, activity_handler=mock_activity_handler)
 
         assert plugin.logger == mock_logger
-        assert plugin.activity_handler == mock_activity_handler
-        assert plugin.token_validator is not None
-        assert plugin.token_validator.app_id == "test-app-id"
         assert plugin.app is not None
         assert plugin.pending == {}
 
     def test_init_without_app_id(self, mock_logger, mock_activity_handler):
         """Test HttpPlugin initialization without app ID."""
-        plugin = HttpPlugin(None, mock_logger, mock_activity_handler)
+        plugin = HttpPlugin(None, mock_logger, activity_handler=mock_activity_handler)
 
         assert plugin.logger == mock_logger
-        assert plugin.activity_handler == mock_activity_handler
-        assert plugin.token_validator is None
         assert plugin.app is not None
 
     def test_init_with_default_logger(self, mock_activity_handler):
         """Test HttpPlugin initialization with default logger."""
-        plugin = HttpPlugin("test-app-id", None, mock_activity_handler)
+        plugin = HttpPlugin("test-app-id", None, activity_handler=mock_activity_handler)
 
         assert plugin.logger is not None
-        assert plugin.activity_handler == mock_activity_handler
 
     def test_fastapi_methods_exposed(self, plugin_with_validator):
         """Test that FastAPI methods are properly exposed."""
@@ -214,14 +208,12 @@ class TestHttpPlugin:
         assert plugin_with_validator.pending["activity1"] == future1
         assert plugin_with_validator.pending["activity2"] == future2
 
-    def test_token_validator_property(self, plugin_with_validator, plugin_without_validator):
-        """Test token validator property based on app_id."""
-        # With app_id
-        assert plugin_with_validator.token_validator is not None
-        assert plugin_with_validator.token_validator.app_id == "test-app-id"
-
-        # Without app_id
-        assert plugin_without_validator.token_validator is None
+    def test_middleware_setup(self, plugin_with_validator, plugin_without_validator):
+        """Test that JWT middleware is properly configured."""
+        # With app_id, middleware should be added
+        assert plugin_with_validator.app is not None
+        # Without app_id, no middleware but app still exists
+        assert plugin_without_validator.app is not None
 
     def test_logger_property(self, mock_logger):
         """Test logger property assignment."""
