@@ -197,7 +197,8 @@ class App(ActivityHandlerMixin):
                 self._events.emit("start", StartEvent(port=self._port))
 
             self.http.on_ready_callback = on_http_ready
-            await self.http.on_start(self._port)
+            event = PluginStartEvent(port=self._port)
+            await self.http.on_start(event)
 
         except Exception as error:
             self._running = False

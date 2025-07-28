@@ -9,6 +9,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from microsoft.teams.app.http_plugin import HttpPlugin
+from microsoft.teams.app.plugins import PluginStartEvent
 
 
 class TestHttpPlugin:
@@ -142,8 +143,8 @@ class TestHttpPlugin:
 
             # Mock the serve method to not actually start server
             mock_server.serve.return_value = None
-
-            await plugin_with_validator.on_start(3978)
+            event = PluginStartEvent(port=3978)
+            await plugin_with_validator.on_start(event)
 
             # Verify server was configured and started
             mock_config.assert_called_once()
@@ -162,7 +163,8 @@ class TestHttpPlugin:
             mock_server_class.return_value = mock_server
 
             with pytest.raises(OSError, match="Port already in use"):
-                await plugin_with_validator.on_start(3978)
+                event = PluginStartEvent(port=3978)
+                await plugin_with_validator.on_start(event)
 
     @pytest.mark.asyncio
     async def test_on_stop(self, plugin_with_validator):
