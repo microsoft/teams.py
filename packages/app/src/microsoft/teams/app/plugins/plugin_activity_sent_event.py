@@ -8,13 +8,13 @@ from typing import TYPE_CHECKING
 from microsoft.teams.api.models import ConversationReference, Resource
 
 if TYPE_CHECKING:
-    from .sender import SenderProtocol
+    from .sender import Sender
 
 
 class PluginActivitySentEvent(ConversationReference):
     """Event emitted by a plugin when an activity is sent."""
 
-    sender: "SenderProtocol"
+    sender: "Sender"
     """The sender of the activity"""
 
     activity: Resource

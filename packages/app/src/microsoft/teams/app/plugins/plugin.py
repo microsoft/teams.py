@@ -28,7 +28,7 @@ Emitted when the plugin receives an activity
 """
 
 
-class PluginProtocol:
+class Plugin:
     """Protocol for Teams app plugins."""
 
     async def on_init(self) -> None:

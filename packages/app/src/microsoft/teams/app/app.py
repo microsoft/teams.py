@@ -37,7 +37,7 @@ from .events import (
 )
 from .http_plugin import HttpActivityEvent, HttpPlugin
 from .options import AppOptions
-from .plugins import PluginProtocol, PluginStartEvent
+from .plugins import Plugin, PluginStartEvent
 from .routing import ActivityContext, ActivityHandlerMixin, ActivityRouter
 
 version = importlib.metadata.version("microsoft-teams-app")
@@ -87,7 +87,7 @@ class App(ActivityHandlerMixin):
             self.http_client.clone(ClientOptions(token=lambda: self.tokens.bot)),
         )
 
-        plugins: List[PluginProtocol] = list(self.options.plugins or [])
+        plugins: List[Plugin] = list(self.options.plugins or [])
 
         http_plugin = None
         for i, plugin in enumerate(plugins):

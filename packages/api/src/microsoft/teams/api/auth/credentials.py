@@ -5,7 +5,7 @@ Licensed under the MIT License.
 
 from typing import Awaitable, Callable, Optional, Union
 
-from ..models.custom_base_model import CustomBaseModel
+from ..models import CustomBaseModel
 
 
 class ClientCredentials(CustomBaseModel):

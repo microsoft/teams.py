@@ -9,13 +9,13 @@ from microsoft.teams.api.activities import Activity
 from microsoft.teams.api.models import ConversationReference, InvokeResponse
 
 if TYPE_CHECKING:
-    from .sender import SenderProtocol
+    from .sender import Sender
 
 
 class PluginActivityResponseEvent(ConversationReference):
     """Event emitted by a plugin before an activity response is sent"""
 
-    sender: "SenderProtocol"
+    sender: "Sender"
     """The sender"""
 
     activity: Activity

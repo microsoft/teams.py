@@ -13,7 +13,7 @@ import uvicorn
 from fastapi import FastAPI, Request
 from microsoft.teams.api import ActivityParams, TokenProtocol
 from microsoft.teams.api.models import ConversationReference, Resource
-from microsoft.teams.app.plugins import SenderProtocol, StreamerProtocol
+from microsoft.teams.app.plugins import Sender, StreamerProtocol
 from microsoft.teams.common.logging import ConsoleLogger
 
 from .auth import create_jwt_validation_middleware
@@ -28,7 +28,7 @@ class HttpActivityEvent:
 ActivityHandler = Callable[[HttpActivityEvent], Awaitable[Any]]
 
 
-class HttpPlugin(SenderProtocol):
+class HttpPlugin(Sender):
     """
     Basic HTTP plugin that provides a FastAPI server for Teams activities.
     """

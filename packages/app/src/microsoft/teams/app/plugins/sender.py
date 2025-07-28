@@ -8,11 +8,11 @@ from abc import abstractmethod
 from microsoft.teams.api.clients.conversation import ActivityParams
 from microsoft.teams.api.models import ConversationReference, Resource
 
-from .plugin import PluginProtocol
+from .plugin import Plugin
 from .streamer import StreamerProtocol
 
 
-class SenderProtocol(PluginProtocol):
+class Sender(Plugin):
     """A plugin that can send activities"""
 
     @abstractmethod

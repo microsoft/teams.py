@@ -9,13 +9,13 @@ from microsoft.teams.api import Activity, TokenProtocol
 from microsoft.teams.api.models.conversation import ConversationReference
 
 if TYPE_CHECKING:
-    from .sender import SenderProtocol
+    from .sender import Sender
 
 
 class PluginActivityEvent(ConversationReference):
     """Event emitted by a plugin when an activity is received."""
 
-    sender: "SenderProtocol"
+    sender: "Sender"
     """The sender"""
 
     token: TokenProtocol
