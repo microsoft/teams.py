@@ -26,7 +26,6 @@ from .account import Account, AccountRole, ConversationAccount
 from .action import Action
 from .activity import Activity as ActivityBase
 from .activity import ActivityInput as ActivityInputBase
-from .activity_like import ActivityLike, SentActivity
 from .adaptive_card import *  # noqa: F403
 from .app_based_link_query import AppBasedLinkQuery
 from .attachment import *  # noqa: F403
@@ -100,8 +99,6 @@ __all__: list[str] = [
     "TabInvokeResponse",
     "AdaptiveCardInvokeResponse",
     "TokenExchangeInvokeResponseType",
-    "ActivityLike",
-    "SentActivity",
 ]
 __all__.extend(adaptive_card.__all__)
 __all__.extend(attachment.__all__)

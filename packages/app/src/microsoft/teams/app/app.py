@@ -37,7 +37,7 @@ from .events import (
 )
 from .http_plugin import HttpActivityEvent, HttpPlugin
 from .options import AppOptions
-from .plugin import PluginProtocol
+from .plugins import PluginProtocol, PluginStartEvent
 from .routing import ActivityContext, ActivityHandlerMixin, ActivityRouter
 
 version = importlib.metadata.version("microsoft-teams-app")
@@ -187,7 +187,8 @@ class App(ActivityHandlerMixin):
             # Start all plugins except HTTP plugin first
             for plugin in self.plugins:
                 if plugin is not self.http:
-                    await plugin.on_start(self._port)
+                    event = PluginStartEvent(port=self._port)
+                    await plugin.on_start(event)
 
             # Set callback and start HTTP plugin
             async def on_http_ready() -> None:
