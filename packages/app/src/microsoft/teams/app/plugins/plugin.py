@@ -55,7 +55,7 @@ class PluginProtocol:
         """Called by the App when an activity is sent"""
         ...
 
-    def on_activity_response(self, event: PluginActivityResponseEvent) -> None:
+    async def on_activity_response(self, event: PluginActivityResponseEvent) -> None:
         """Called by the App when an activity response is sent."""
         ...
 
