@@ -3,16 +3,19 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
+from typing import TYPE_CHECKING
+
 from microsoft.teams.api import Activity, TokenProtocol
 from microsoft.teams.api.models.conversation import ConversationReference
 
-from .sender import SenderProtocol
+if TYPE_CHECKING:
+    from .sender import SenderProtocol
 
 
 class PluginActivityEvent(ConversationReference):
     """Event emitted by a plugin when an activity is received."""
 
-    sender: SenderProtocol
+    sender: "SenderProtocol"
     """The sender"""
 
     token: TokenProtocol

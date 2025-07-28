@@ -3,17 +3,18 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 from microsoft.teams.api import Activity, CustomBaseModel
 
-from .plugin import PluginProtocol
+if TYPE_CHECKING:
+    from .plugin import PluginProtocol
 
 
 class PluginErrorEvent(CustomBaseModel):
     """Event emitted when an error occurs."""
 
-    sender: Optional[PluginProtocol]
+    sender: Optional["PluginProtocol"]
     """The sender"""
 
     error: Exception
