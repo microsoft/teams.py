@@ -74,15 +74,13 @@ class ActivityHandlerMixin(GeneratedActivityHandlerMixin, ABC):
             validate_handler_type(self.logger, func, MessageActivity, "on_message", "MessageActivity")
 
             def selector(ctx: ActivityBase) -> bool:
-                res = False
                 if not isinstance(ctx, MessageActivity):
-                    res = False
+                    return False
                 elif isinstance(pattern, str):
-                    res = ctx.text == pattern
+                    return ctx.text == pattern
                 else:
                     match = pattern.match(ctx.text or "")
-                    res = match is not None
-                return res
+                    return match is not None
 
             self.router.add_handler(selector, func)
             return func
