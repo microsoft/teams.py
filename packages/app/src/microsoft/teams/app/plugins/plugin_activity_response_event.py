@@ -18,7 +18,7 @@ class PluginActivityResponseEvent(ConversationReference):
     """The sender"""
 
     activity: Activity
-    """The inbouund request activity payload"""
+    """The inbound request activity payload"""
 
     response: InvokeResponse[Any]
     """The response"""
