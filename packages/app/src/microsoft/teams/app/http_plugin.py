@@ -7,17 +7,14 @@ import asyncio
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from logging import Logger
-from typing import Any, AsyncGenerator, Awaitable, Callable, Dict, Literal, Optional
+from typing import Any, AsyncGenerator, Awaitable, Callable, Dict, Optional
 
 import uvicorn
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, Request
 from microsoft.teams.api import TokenProtocol
 from microsoft.teams.common.logging import ConsoleLogger
 
-from .auth import (
-    ServiceTokenValidator,
-    TokenValidationError,
-)
+from .auth import create_jwt_validation_middleware
 
 
 @dataclass
@@ -29,45 +26,6 @@ class HttpActivityEvent:
 ActivityHandler = Callable[[HttpActivityEvent], Awaitable[Any]]
 
 
-class FakeToken(TokenProtocol):
-    def __init__(self, service_url: str = ""):
-        self._service_url = service_url
-
-    @property
-    def app_id(self) -> str:
-        return ""
-
-    @property
-    def app_display_name(self) -> Optional[str]:
-        return None
-
-    @property
-    def tenant_id(self) -> Optional[str]:
-        return None
-
-    @property
-    def service_url(self) -> str:
-        return self._service_url
-
-    @property
-    def from_(self) -> Literal["azure"]:
-        return "azure"
-
-    @property
-    def from_id(self) -> str:
-        return ""
-
-    @property
-    def expiration(self) -> Optional[int]:
-        return None
-
-    def is_expired(self, buffer_ms: int = 5 * 60 * 1000) -> bool:
-        return False
-
-    def __str__(self) -> str:
-        return "FakeToken"
-
-
 class HttpPlugin:
     """
     Basic HTTP plugin that provides a FastAPI server for Teams activities.
@@ -77,6 +35,7 @@ class HttpPlugin:
         self,
         app_id: Optional[str],
         logger: Optional[Logger] = None,
+        enable_token_validation: bool = True,
         activity_handler: Optional[ActivityHandler] = None,
     ):
         self.logger = logger or ConsoleLogger().create_logger("@teams/http-plugin")
@@ -92,9 +51,6 @@ class HttpPlugin:
         # Once plugins work, this should be injected in.
         self.activity_handler = activity_handler
 
-        # Bot token validator (only create if app_id is provided)
-        self.token_validator = ServiceTokenValidator(app_id, self.logger) if app_id else None
-
         # Setup FastAPI app with lifespan
         @asynccontextmanager
         async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
@@ -109,6 +65,13 @@ class HttpPlugin:
                 await self._on_stopped_callback()
 
         self.app = FastAPI(lifespan=lifespan)
+
+        # Add JWT validation middleware
+        if app_id and enable_token_validation:
+            jwt_middleware = create_jwt_validation_middleware(
+                app_id=app_id, logger=self.logger, paths=["/api/messages"]
+            )
+            self.app.middleware("http")(jwt_middleware)
 
         # Expose FastAPI routing methods (like TypeScript exposes Express methods)
         self.get = self.app.get
@@ -238,65 +201,22 @@ class HttpPlugin:
         # For now, just log and return success
         return {"status": "received"}
 
-    def _extract_bearer_token(self, authorization: Optional[str]) -> Optional[str]:
-        """Extract Bearer token from Authorization header."""
-        if not authorization:
-            return None
-
-        if not authorization.startswith("Bearer "):
-            return None
-
-        return authorization.removeprefix("Bearer ")
-
-    async def _authenticate_request(self, request: Request) -> tuple[TokenProtocol, Optional[str]]:
-        """
-        Extract and validate JWT token from request.
-
-        Returns:
-            Tuple of (token, service_url) if authentication succeeds
-
-        Raises:
-            HTTPException: If authentication fails
-        """
-        authorization = request.headers.get("authorization")
-        raw_token = self._extract_bearer_token(authorization)
-
-        if not raw_token:
-            self.logger.warning("Unauthorized request - missing or invalid authorization header")
-            raise HTTPException(status_code=401, detail="unauthorized")
-
-        # Validate JWT token following Bot Framework protocol
-        # Parse body to get service URL for validation
-        body = await request.json()
-        service_url = body.get("serviceUrl")
-        if self.token_validator:
-            try:
-                token = await self.token_validator.validate_token(raw_token, service_url)
-                self.logger.debug("JWT token validation successful")
-                return token, service_url
-            except TokenValidationError as e:
-                self.logger.warning(f"JWT token validation failed: {e}")
-                raise HTTPException(status_code=401, detail="unauthorized") from e
-            except Exception as e:
-                self.logger.error(f"Unexpected error during token validation: {e}")
-                raise HTTPException(status_code=500, detail="internal server error") from e
-        else:
-            # No validator available (no app_id provided) - basic presence check only
-            self.logger.warning("No token validator available - only checking token presence")
-            fake_token = FakeToken(service_url or "")
-            return fake_token, service_url
-
-    async def _handle_activity_request(self, request: Request, token: TokenProtocol) -> Any:
+    async def _handle_activity_request(self, request: Request) -> Any:
         """
         Process the activity request and coordinate response.
 
         Args:
-            request: The FastAPI request object
-            token: The validated JWT token (if any)
+            request: The FastAPI request object (token is in request.state.validated_token)
 
         Returns:
             The activity processing result
         """
+        # Get validated token from middleware (always present if middleware is active)
+        token = getattr(request.state, "validated_token", None)
+        if not token or not isinstance(token, TokenProtocol):
+            self.logger.error("No valid token found in request state")
+            return {"error": "Unauthorized", "status": 401}
+
         # Parse activity data
         body = await request.json()
         activity_type = body.get("type", "unknown")
@@ -336,11 +256,8 @@ class HttpPlugin:
 
         async def on_activity(request: Request) -> Any:
             """Handle incoming Teams activity."""
-            # Authenticate request and extract token
-            token, _service_url = await self._authenticate_request(request)
-
-            # Process the activity
-            return await self._handle_activity_request(request, token)
+            # Process the activity (token validation handled by middleware)
+            return await self._handle_activity_request(request)
 
         self.app.post("/api/messages")(on_activity)
 

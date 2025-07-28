@@ -101,7 +101,7 @@ class App(ActivityHandlerMixin):
             if self.credentials and hasattr(self.credentials, "client_id"):
                 app_id = self.credentials.client_id
 
-            http_plugin = HttpPlugin(app_id, self.log, self.handle_activity)
+            http_plugin = HttpPlugin(app_id, self.log, self.options.enable_token_validation, self.handle_activity)
 
         plugins.append(http_plugin)
 
@@ -116,7 +116,7 @@ class App(ActivityHandlerMixin):
 
         # default event handlers
         oauth_handlers = OauthHandlers(
-            default_connection_name=self.options.default_connection_name or "default",
+            default_connection_name=self.options.default_connection_name,
             event_emitter=self._events,
         )
         self.on_signin_token_exchange(oauth_handlers.sign_in_token_exchange)

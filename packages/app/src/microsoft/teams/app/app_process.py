@@ -30,7 +30,7 @@ class ActivityProcessor:
         if handlers:
             response = await self.execute_middleware_chain(activityCtx, handlers)
 
-        self.logger.info("Completed processing activity")
+        self.logger.debug("Completed processing activity")
 
         return response
 

@@ -5,18 +5,58 @@ Licensed under the MIT License.
 # pyright: basic
 
 import asyncio
+from typing import Optional
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from microsoft.teams.api import TokenProtocol
 from microsoft.teams.api.activities import InvokeActivity
 from microsoft.teams.api.activities.message import MessageActivity, MessageActivityInput
 from microsoft.teams.api.activities.typing import TypingActivity
 from microsoft.teams.api.models import Account, ConversationAccount
 from microsoft.teams.app.app import App
 from microsoft.teams.app.events import ActivityEvent, ErrorEvent
-from microsoft.teams.app.http_plugin import FakeToken, HttpActivityEvent
+from microsoft.teams.app.http_plugin import HttpActivityEvent
 from microsoft.teams.app.options import AppOptions
 from microsoft.teams.app.routing.activity_context import ActivityContext
+
+
+class FakeToken(TokenProtocol):
+    """Fake token for testing."""
+
+    @property
+    def app_id(self) -> str:
+        return "test-app-id"
+
+    @property
+    def app_display_name(self) -> Optional[str]:
+        return "Test App"
+
+    @property
+    def tenant_id(self) -> Optional[str]:
+        return "test-tenant-id"
+
+    @property
+    def service_url(self) -> str:
+        return "https://test.service.url"
+
+    @property
+    def from_(self) -> str:
+        return "azure"
+
+    @property
+    def from_id(self) -> str:
+        return "test-from-id"
+
+    @property
+    def expiration(self) -> Optional[int]:
+        return None
+
+    def is_expired(self, buffer_ms: int = 5 * 60 * 1000) -> bool:
+        return False
+
+    def __str__(self) -> str:
+        return "FakeToken"
 
 
 class TestApp:
