@@ -39,12 +39,43 @@ class ActivityHandlerMixin(GeneratedActivityHandlerMixin, ABC):
     ) -> Callable[
         [Callable[[ActivityContext[MessageActivity]], Awaitable[None]]],
         Callable[[ActivityContext[MessageActivity]], Awaitable[None]],
-    ]: ...
+    ]:
+        """
+        Register a message handler that matches a specific text pattern.
+        Args:
+            pattern: The regex pattern to match against incoming messages
+
+        Usage:
+
+            @app.on_message_pattern(re.compile(r"hello|hi|greetings"))
+            async def handle_greeting(ctx: ActivityContext[MessageActivity]) -> None:
+                ...
+
+            @app.on_message_pattern("hello")
+            async def handle_hello(ctx: ActivityContext[MessageActivity]) -> None:
+                ...
+
+        """
+        ...
 
     @overload
     def on_message_pattern(
         self, pattern: str | Pattern[str], handler: Callable[[ActivityContext[MessageActivity]], Awaitable[None]]
-    ) -> Callable[[ActivityContext[MessageActivity]], Awaitable[None]]: ...
+    ) -> Callable[[ActivityContext[MessageActivity]], Awaitable[None]]:
+        """
+        Register a message handler that matches a specific text pattern.
+        Args:
+            pattern: The regex pattern to match against incoming messages
+
+        Usage:
+
+            async def handle_greeting(ctx: ActivityContext[MessageActivity]) -> None:
+                ...
+            app.on_message_pattern(re.compile(r"hello|hi|greetings"), handle_greeting)
+            app.on_message_pattern("hello", handle_greeting)
+
+        """
+        ...
 
     def on_message_pattern(
         self,
