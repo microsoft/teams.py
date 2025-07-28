@@ -9,7 +9,7 @@ from typing import Any, List, Optional
 
 from microsoft.teams.common.storage import Storage
 
-from .plugin import PluginProtocol
+from .plugins import Plugin
 
 
 @dataclass
@@ -24,7 +24,7 @@ class AppOptions:
     # Infrastructure
     logger: Optional[Logger] = None
     storage: Optional[Storage[str, Any]] = None
-    plugins: List[PluginProtocol] = field(default_factory=list[PluginProtocol])
+    plugins: List[Plugin] = field(default_factory=list[Plugin])
     enable_token_validation: bool = True
 
     # Oauth

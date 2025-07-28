@@ -11,7 +11,9 @@ from typing import Any, AsyncGenerator, Awaitable, Callable, Dict, Optional
 
 import uvicorn
 from fastapi import FastAPI, Request
-from microsoft.teams.api import TokenProtocol
+from microsoft.teams.api import ActivityParams, TokenProtocol
+from microsoft.teams.api.models import ConversationReference, Resource
+from microsoft.teams.app.plugins import PluginStartEvent, Sender, StreamerProtocol
 from microsoft.teams.common.logging import ConsoleLogger
 
 from .auth import create_jwt_validation_middleware
@@ -26,7 +28,7 @@ class HttpActivityEvent:
 ActivityHandler = Callable[[HttpActivityEvent], Awaitable[Any]]
 
 
-class HttpPlugin:
+class HttpPlugin(Sender):
     """
     Basic HTTP plugin that provides a FastAPI server for Teams activities.
     """
@@ -38,6 +40,7 @@ class HttpPlugin:
         enable_token_validation: bool = True,
         activity_handler: Optional[ActivityHandler] = None,
     ):
+        super().__init__()
         self.logger = logger or ConsoleLogger().create_logger("@teams/http-plugin")
         self._server: Optional[uvicorn.Server] = None
         self._port: Optional[int] = None
@@ -104,9 +107,10 @@ class HttpPlugin:
         """Set callback to call when HTTP server is stopped."""
         self._on_stopped_callback = callback
 
-    async def on_start(self, port: int) -> None:
+    async def on_start(self, event: PluginStartEvent) -> None:
         """Start the HTTP server."""
-        self._port = port
+        port = event.port
+        self._port = event.port
 
         try:
             config = uvicorn.Config(app=self.app, host="0.0.0.0", port=port, log_level="info")
@@ -266,3 +270,9 @@ class HttpPlugin:
             return {"status": "healthy", "port": self._port}
 
         self.app.get("/")(health_check)
+
+    async def send(self, activity: ActivityParams, ref: ConversationReference) -> Resource:
+        raise NotImplementedError
+
+    async def create_stream(self, ref: ConversationReference) -> StreamerProtocol:
+        raise NotImplementedError
