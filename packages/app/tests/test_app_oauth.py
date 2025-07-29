@@ -27,7 +27,7 @@ from microsoft.teams.app.events import ErrorEvent, SignInEvent
 from microsoft.teams.app.routing import ActivityContext
 from microsoft.teams.common import EventEmitter
 
-#
+# pyright: basic
 
 
 class TestOauthHandlers:

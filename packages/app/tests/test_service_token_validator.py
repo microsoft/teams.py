@@ -10,7 +10,7 @@ import pytest
 from microsoft.teams.api import JsonWebToken
 from microsoft.teams.app.auth.service_token_validator import ServiceTokenValidator
 
-#
+# pyright: basic
 
 
 class TestServiceTokenValidator:

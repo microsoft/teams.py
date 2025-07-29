@@ -1,4 +1,7 @@
 {
+   "include":[
+      "packages/**/src/**/*.py"
+   ],
    "venv":".venv",
    "venvPath":".",
    "extraPaths":[
@@ -7,8 +10,7 @@
       "packages/cards/src",
       "packages/app/src"
    ],
-   "typeCheckingMode":"basic",
-   "strict": ["packages/**/src/**/*.py"],
+   "typeCheckingMode":"strict",
    "executionEnvironments": [{
       "root": "packages/api/src",
       "reportIncompatibleVariableOverride":"none",

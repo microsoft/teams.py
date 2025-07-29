@@ -2,7 +2,7 @@
 Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
-#
+# pyright: basic
 
 import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
