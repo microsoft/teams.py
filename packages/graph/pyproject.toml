@@ -1,0 +1,58 @@
+[project]
+name = "microsoft-teams-graph"
+version = "0.1.0"
+description = "Microsoft Graph integration for Teams AI Python SDK"
+readme = "README.md"
+license = { file = "../../LICENSE" }
+authors = [
+    { name = "Microsoft Corporation", email = "teams-ai-sdk@microsoft.com" }
+]
+keywords = ["microsoft", "teams", "graph", "ai", "sdk"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+requires-python = ">=3.9"
+dependencies = [
+    "microsoft-teams-api>=0.1.0",
+    "microsoft-teams-app>=0.1.0", 
+    "azure-identity>=1.15.0",
+    "msgraph-sdk>=1.0.0"
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-mock>=3.10.0",
+    "ruff>=0.1.0",
+    "pyright>=1.1.0"
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/microsoft"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py39"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "YTT", "ANN", "S", "BLE", "FBT", "B", "A", "COM", "C4", "DTZ", "T10", "DJ", "EM", "EXE", "FA", "ISC", "ICN", "G", "INP", "PIE", "T20", "PYI", "PT", "Q", "RSE", "RET", "SIM", "TID", "TCH", "INT", "ARG", "PTH", "ERA", "PD", "PGH", "PL", "TRY", "FLY", "NPY", "PERF", "FURB", "LOG", "RUF"]
+ignore = ["ANN101", "ANN102", "ANN401", "S101", "PLR0913", "PLR0912"]
+
+[tool.pyright]
+include = ["src"]
+exclude = ["tests"]
+reportMissingImports = true
+reportMissingTypeStubs = false
+pythonVersion = "3.9"
