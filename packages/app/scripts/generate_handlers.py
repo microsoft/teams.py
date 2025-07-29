@@ -105,7 +105,7 @@ def generate_mixin_class() -> str:
 
     methods_code = "\n\n".join(methods)
 
-    return f'''class ActivityHandlerMixin(ABC):
+    return f'''class GeneratedActivityHandlerMixin(ABC):
     """Mixin class providing typed activity handler registration methods."""
 
     @property

@@ -4,11 +4,18 @@ Licensed under the MIT License.
 """
 
 import asyncio
+import re
 
 from microsoft.teams.api import MessageActivity
 from microsoft.teams.app import ActivityContext, App
 
 app = App()
+
+
+@app.on_message_pattern(re.compile(r"hello|hi|greetings"))
+async def handle_greeting(ctx: ActivityContext[MessageActivity]) -> None:
+    """Handle greeting messages."""
+    await ctx.reply("Hello! How can I assist you today?")
 
 
 @app.on_message
