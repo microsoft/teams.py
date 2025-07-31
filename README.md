@@ -20,7 +20,7 @@ Install [uv](https://docs.astral.sh/uv/getting-started/installation/)
 
 ## Creating a new package
 
-We use [cookiecutter](https://cookiecutter.readthedocs.io/en/latest/index.html) to create new packages. To create a new package, run:
+We use [cookiecutter](https://cookiecutter.readthedocs.io/en/latest/README.html) to create new packages. To create a new package, run:
 
 ```bash
 cookiecutter templates/package -o packages
