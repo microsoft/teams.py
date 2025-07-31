@@ -1,0 +1,23 @@
+[project]
+name = "microsoft-teams-graph"
+version = "0.1.0"
+description = "Add your description here"
+authors = [{ name = "Microsoft", email = "teams@microsoft.com" }]
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "azure-identity>=1.15.0",
+    "msgraph-sdk>=1.0.0"]
+
+[build-system]
+requires = ["uv_build>=0.8.0,<0.9"]
+build-backend = "uv_build"
+
+repository = "https://github.com/microsoft/teams.py"
+
+keywords = ["microsoft", "teams", "ai", "bot", "agents"]
+
+license = "MIT"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/microsoft"]

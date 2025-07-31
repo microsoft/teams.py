@@ -11,9 +11,12 @@ dependencies = [
     "microsoft-teams-common",
     "pytest-asyncio>=1.0.0",
     "python-dotenv>=1.0.0",
+    "azure-identity>=1.15.0",
+    "msgraph-sdk>=1.0.0"
 ]
 
 [tool.uv.sources]
+"microsoft-teams-graph" = { workspace = true }
 "microsoft-teams-app" = { workspace = true }
 "microsoft-teams-api" = { workspace = true }
 "microsoft-teams-common" = { workspace = true }

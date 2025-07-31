@@ -9,6 +9,10 @@ from microsoft.teams.api import MessageActivity
 from microsoft.teams.app import ActivityContext, App, SignInEvent
 from microsoft.teams.app.events.types import ErrorEvent
 
+# from msgraph import enable_graph_integration
+
+# from microsoft.teams.graph import enable_graph_integration
+
 app = App()
 
 
