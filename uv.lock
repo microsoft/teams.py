@@ -7,7 +7,6 @@ members = [
     "microsoft-teams",
     "microsoft-teams-api",
     "microsoft-teams-app",
-    "microsoft-teams-auth",
     "microsoft-teams-cards",
     "microsoft-teams-common",
     "oauth",
@@ -593,11 +592,6 @@ test = [
     { name = "pytest", specifier = ">=8.0.0" },
     { name = "pytest-asyncio", specifier = ">=0.24.0" },
 ]
-
-[[package]]
-name = "microsoft-teams-auth"
-version = "0.1.0"
-source = { editable = "packages/auth" }
 
 [[package]]
 name = "microsoft-teams-cards"
