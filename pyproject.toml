@@ -14,6 +14,7 @@ dependencies = [
 ]
 
 [tool.uv.sources]
+"microsoft-teams-auth" = { workspace = true }
 "microsoft-teams-app" = { workspace = true }
 "microsoft-teams-api" = { workspace = true }
 "microsoft-teams-common" = { workspace = true }
@@ -31,7 +32,8 @@ dev = [
     "poethepoet>=0.35.0",
     "pre-commit>=4.2.0",
     "ruff>=0.11.13",
-    "pyright>=1.1.403"
+    "pyright>=1.1.403",
+    "cookiecutter>=2.6.0",
 ]
 
 [tool.ruff]
