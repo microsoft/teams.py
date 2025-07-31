@@ -9,6 +9,7 @@ dependencies = [
     "microsoft-teams-api",
     "microsoft-teams-cards", 
     "microsoft-teams-common",
+    "microsoft-teams-graph",
     "pytest-asyncio>=1.0.0",
     "python-dotenv>=1.0.0",
     "azure-identity>=1.15.0",

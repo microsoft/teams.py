@@ -681,6 +681,7 @@ dependencies = [
     { name = "microsoft-teams-app" },
     { name = "microsoft-teams-cards" },
     { name = "microsoft-teams-common" },
+    { name = "microsoft-teams-graph" },
     { name = "msgraph-sdk" },
     { name = "pytest-asyncio" },
     { name = "python-dotenv" },
@@ -701,6 +702,7 @@ requires-dist = [
     { name = "microsoft-teams-app", editable = "packages/app" },
     { name = "microsoft-teams-cards", editable = "packages/cards" },
     { name = "microsoft-teams-common", editable = "packages/common" },
+    { name = "microsoft-teams-graph", editable = "packages/graph" },
     { name = "msgraph-sdk", specifier = ">=1.0.0" },
     { name = "pytest-asyncio", specifier = ">=1.0.0" },
     { name = "python-dotenv", specifier = ">=1.0.0" },
@@ -989,6 +991,7 @@ dependencies = [
     { name = "azure-identity" },
     { name = "dotenv" },
     { name = "microsoft-teams-app" },
+    { name = "microsoft-teams-graph" },
     { name = "msgraph-sdk" },
 ]
 
@@ -997,6 +1000,7 @@ requires-dist = [
     { name = "azure-identity", specifier = ">=1.15.0" },
     { name = "dotenv", specifier = ">=0.9.9" },
     { name = "microsoft-teams-app", editable = "packages/app" },
+    { name = "microsoft-teams-graph", editable = "packages/graph" },
     { name = "msgraph-sdk", specifier = ">=1.0.0" },
 ]
 
