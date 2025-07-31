@@ -33,5 +33,5 @@ Follow the prompts to name the package and the directory. It should create the p
 Similarly, to create a new test package, run:
 
 ```bash
-cookiecutter templates/app -o apps
+cookiecutter templates/test -o tests
 ```
