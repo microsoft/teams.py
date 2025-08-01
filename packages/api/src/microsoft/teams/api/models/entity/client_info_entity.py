@@ -3,7 +3,7 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from typing import Literal
+from typing import Literal, Optional
 
 from ..custom_base_model import CustomBaseModel
 
@@ -17,11 +17,11 @@ class ClientInfoEntity(CustomBaseModel):
     locale: str
     "Client locale (ex en-US)"
 
-    country: str
+    country: Optional[str]
     "Client country code (ex US)"
 
-    platform: str
+    platform: Optional[str]
     "Client platform (ex Web)"
 
-    timezone: str
+    timezone: Optional[str]
     "Client timezone (ex America/New_York)"

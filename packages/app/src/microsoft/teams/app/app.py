@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from logging import Logger
 from typing import Any, Callable, Dict, List, Optional, TypeVar, Union, cast, overload
 
-from dotenv import load_dotenv
+from dotenv import find_dotenv, load_dotenv  # type: ignore
 from microsoft.teams.api import (
     ActivityBase,
     ActivityTypeAdapter,
@@ -43,7 +43,7 @@ from .routing import ActivityContext, ActivityHandlerMixin, ActivityRouter
 version = importlib.metadata.version("microsoft-teams-app")
 
 F = TypeVar("F", bound=Callable[..., Any])
-load_dotenv()
+load_dotenv(find_dotenv(usecwd=True))
 
 USER_AGENT = f"teams.py[app]/{version}"
 

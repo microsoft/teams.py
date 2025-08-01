@@ -76,7 +76,7 @@ class ConversationActivityClient(BaseClient):
         """
         response = await self.http.post(
             f"{self.service_url}/v3/conversations/{conversation_id}/activities",
-            json=activity.model_dump(by_alias=True),
+            json=activity.model_dump(by_alias=True, exclude_none=True),
         )
         return Resource(**response.json())
 
