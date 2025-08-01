@@ -481,6 +481,7 @@ ACTIVITY_ROUTES: Dict[str, ActivityConfig] = {
         selector=lambda activity: activity.type == "invoke"
         and cast(InvokeActivity, activity).name == "signin/tokenExchange",
         output_type_name="TokenExchangeInvokeResponseType",
+        is_invoke=True,
     ),
     "signin.verify-state": ActivityConfig(
         name="signin.verify-state",

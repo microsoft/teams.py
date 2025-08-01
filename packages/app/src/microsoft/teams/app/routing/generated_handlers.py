@@ -2555,41 +2555,67 @@ class GeneratedActivityHandlerMixin(ABC):
     def on_signin_token_exchange(
         self,
         handler: Callable[
-            [ActivityContext[SignInTokenExchangeInvokeActivity]], Awaitable[TokenExchangeInvokeResponseType]
+            [ActivityContext[SignInTokenExchangeInvokeActivity]],
+            Awaitable[Union[InvokeResponse[TokenExchangeInvokeResponseType], TokenExchangeInvokeResponseType]],
         ],
-    ) -> Callable[[ActivityContext[SignInTokenExchangeInvokeActivity]], Awaitable[TokenExchangeInvokeResponseType]]: ...
+    ) -> Callable[
+        [ActivityContext[SignInTokenExchangeInvokeActivity]],
+        Awaitable[Union[InvokeResponse[TokenExchangeInvokeResponseType], TokenExchangeInvokeResponseType]],
+    ]: ...
 
     @overload
     def on_signin_token_exchange(
         self,
     ) -> Callable[
-        [Callable[[ActivityContext[SignInTokenExchangeInvokeActivity]], Awaitable[TokenExchangeInvokeResponseType]]],
-        Callable[[ActivityContext[SignInTokenExchangeInvokeActivity]], Awaitable[TokenExchangeInvokeResponseType]],
+        [
+            Callable[
+                [ActivityContext[SignInTokenExchangeInvokeActivity]],
+                Awaitable[Union[InvokeResponse[TokenExchangeInvokeResponseType], TokenExchangeInvokeResponseType]],
+            ]
+        ],
+        Callable[
+            [ActivityContext[SignInTokenExchangeInvokeActivity]],
+            Awaitable[Union[InvokeResponse[TokenExchangeInvokeResponseType], TokenExchangeInvokeResponseType]],
+        ],
     ]: ...
 
     def on_signin_token_exchange(
         self,
         handler: Optional[
-            Callable[[ActivityContext[SignInTokenExchangeInvokeActivity]], Awaitable[TokenExchangeInvokeResponseType]]
+            Callable[
+                [ActivityContext[SignInTokenExchangeInvokeActivity]],
+                Awaitable[Union[InvokeResponse[TokenExchangeInvokeResponseType], TokenExchangeInvokeResponseType]],
+            ]
         ] = None,
     ) -> (
         Callable[
             [
                 Callable[
-                    [ActivityContext[SignInTokenExchangeInvokeActivity]], Awaitable[TokenExchangeInvokeResponseType]
+                    [ActivityContext[SignInTokenExchangeInvokeActivity]],
+                    Awaitable[Union[InvokeResponse[TokenExchangeInvokeResponseType], TokenExchangeInvokeResponseType]],
                 ]
             ],
-            Callable[[ActivityContext[SignInTokenExchangeInvokeActivity]], Awaitable[TokenExchangeInvokeResponseType]],
+            Callable[
+                [ActivityContext[SignInTokenExchangeInvokeActivity]],
+                Awaitable[Union[InvokeResponse[TokenExchangeInvokeResponseType], TokenExchangeInvokeResponseType]],
+            ],
         ]
-        | Callable[[ActivityContext[SignInTokenExchangeInvokeActivity]], Awaitable[TokenExchangeInvokeResponseType]]
+        | Callable[
+            [ActivityContext[SignInTokenExchangeInvokeActivity]],
+            Awaitable[Union[InvokeResponse[TokenExchangeInvokeResponseType], TokenExchangeInvokeResponseType]],
+        ]
     ):
         """Register a signin.token-exchange activity handler."""
 
         def decorator(
             func: Callable[
-                [ActivityContext[SignInTokenExchangeInvokeActivity]], Awaitable[TokenExchangeInvokeResponseType]
+                [ActivityContext[SignInTokenExchangeInvokeActivity]],
+                Awaitable[Union[InvokeResponse[TokenExchangeInvokeResponseType], TokenExchangeInvokeResponseType]],
             ],
-        ) -> Callable[[ActivityContext[SignInTokenExchangeInvokeActivity]], Awaitable[TokenExchangeInvokeResponseType]]:
+        ) -> Callable[
+            [ActivityContext[SignInTokenExchangeInvokeActivity]],
+            Awaitable[Union[InvokeResponse[TokenExchangeInvokeResponseType], TokenExchangeInvokeResponseType]],
+        ]:
             validate_handler_type(
                 self.logger,
                 func,
