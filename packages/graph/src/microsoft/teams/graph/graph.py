@@ -86,7 +86,7 @@ class _TokenCredential:
 def enable_graph_integration(scopes: Optional[List[str]] = None) -> None:
     """Enable Microsoft Graph integration for Teams ActivityContext.
 
-    This function adds a 'graph' property to ActivityContext that provides
+    This function adds a 'get_graph_client' method to ActivityContext that provides
     access to Microsoft Graph APIs using the user's OAuth token.
 
     Args:
@@ -98,18 +98,32 @@ def enable_graph_integration(scopes: Optional[List[str]] = None) -> None:
 
     from microsoft.teams.app import ActivityContext
 
-    def get_graph_client(self: ActivityContext[Any]) -> Optional[GraphClient]:
+    async def get_graph_client(self: ActivityContext[Any]) -> Optional[GraphClient]:
         """Get authenticated Graph client for the current user."""
-        # For now, we'll use a simple check - in real implementation this would
-        # integrate with the Teams SDK's OAuth system
+        # Check if user is signed in
         if not self.is_signed_in:
             return None
 
-        # This is a placeholder - actual token would come from OAuth flow
-        # In a real implementation, this would get the token from the Teams SDK's auth system
-        mock_token = "placeholder_token"
-        return GraphClient(mock_token, scopes)
+        try:
+            # Get the user's access token from the Teams OAuth system
+            from microsoft.teams.api import GetUserTokenParams
 
-    # Add the graph property to ActivityContext
-    ActivityContext.graph = property(get_graph_client)  # pyright: ignore[reportAttributeAccessIssue]
+            token_params = GetUserTokenParams(
+                user_id=self.activity.from_.id,
+                connection_name=self.connection_name,
+                channel_id=self.activity.channel_id,
+            )
+            token_response = await self.api.users.token.get(token_params)
+
+            if not token_response.token:
+                return None
+
+            return GraphClient(token_response.token, scopes)
+        except Exception as e:
+            # Token retrieval failed - user may need to sign in again
+            self.logger.warning(f"Failed to get user token for Graph client: {e}")
+            return None
+
+    # Add the graph method to ActivityContext
+    ActivityContext.get_graph_client = get_graph_client  # pyright: ignore[reportAttributeAccessIssue]
     print("Microsoft Graph integration enabled")

@@ -4,7 +4,6 @@ Licensed under the MIT License.
 """
 
 import asyncio
-import os
 
 from dotenv.main import load_dotenv
 from microsoft.teams.api import MessageActivity
@@ -20,11 +19,6 @@ app = App(AppOptions(default_connection_name="graph"))
 # Enable Graph integration
 enable_graph_integration()
 
-# Debug: Print environment variables to see if they're loaded
-print(f"CLIENT_ID: {os.getenv('CLIENT_ID', 'NOT FOUND')}")
-print(f"CLIENT_SECRET: {os.getenv('CLIENT_SECRET', 'NOT FOUND')}")
-print(f"TENANT_ID: {os.getenv('TENANT_ID', 'NOT FOUND')}")
-
 
 @app.on_message
 async def handle_message(ctx: ActivityContext[MessageActivity]):
@@ -38,32 +32,63 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
         # Test Graph functionality
         await ctx.send("Testing Graph integration...")
         try:
-            graph_client = getattr(ctx, "graph", None)
-            if graph_client is not None:
-                await ctx.send("Graph client available! Testing user info...")
-                await graph_client.get_me()
-                await ctx.send("Graph test successful! User info retrieved.")
+            get_graph_client = getattr(ctx, "get_graph_client", None)
+            if get_graph_client is not None:
+                graph_client = await get_graph_client()
+                if graph_client is not None:
+                    await ctx.send("Graph client available! Testing user info...")
+                    user_info = await graph_client.get_me()
+                    print(f"User info retrieved: {user_info}")
+                    # Handle user_info as a dict since Graph API returns dict-like objects
+                    try:
+                        if hasattr(user_info, "get"):
+                            display_name = str(user_info.get("displayName", "N/A"))  # pyright: ignore[reportUnknownMemberType]
+                        elif hasattr(user_info, "__dict__"):
+                            display_name = str(getattr(user_info, "display_name", "N/A"))
+                        else:
+                            display_name = str(user_info)
+                    except Exception:
+                        display_name = "N/A"
+                    await ctx.send(f"Graph test successful! User info retrieved: {display_name}")
+                else:
+                    await ctx.send("Graph client not available - user may not be signed in properly.")
             else:
-                await ctx.send("Graph client not available - user may not be signed in properly.")
+                await ctx.send("Graph integration not enabled.")
         except Exception as e:
             await ctx.send(f"Graph test failed: {str(e)}")
     elif "teams" in user_text and ctx.is_signed_in:
         # Test Teams Graph functionality
         await ctx.send("Testing Teams Graph integration...")
         try:
-            graph_client = getattr(ctx, "graph", None)
-            if graph_client is not None:
-                await graph_client.get_my_teams()
-                await ctx.send("Teams Graph test successful! Teams info retrieved.")
+            get_graph_client = getattr(ctx, "get_graph_client", None)
+            if get_graph_client is not None:
+                graph_client = await get_graph_client()
+                if graph_client is not None:
+                    teams_info = await graph_client.get_my_teams()
+                    # Handle teams_info as a dict since Graph API returns dict-like objects
+                    try:
+                        if hasattr(teams_info, "get"):
+                            teams_list = teams_info.get("value", [])  # pyright: ignore[reportUnknownMemberType]
+                            teams_count = len(teams_list) if teams_list else 0  # pyright: ignore[reportUnknownArgumentType]
+                        elif hasattr(teams_info, "__dict__"):
+                            teams_list = getattr(teams_info, "value", [])
+                            teams_count = len(teams_list) if teams_list else 0
+                        else:
+                            teams_count = 0
+                    except Exception:
+                        teams_count = 0
+                    await ctx.send(f"Teams Graph test successful! Found {teams_count} teams.")
+                else:
+                    await ctx.send("Graph client not available for Teams query.")
             else:
-                await ctx.send("Graph client not available for Teams query.")
+                await ctx.send("Graph integration not enabled.")
         except Exception as e:
             await ctx.send(f"Teams Graph test failed: {str(e)}")
     elif ctx.is_signed_in:
         await ctx.send(
             "You are signed in! Try typing 'graph' or 'teams' to test Graph functionality, or I'll sign you out."
         )
-        await ctx.sign_out()
+        # await ctx.sign_out()
     else:
         ctx.logger.info("User requested sign-in.")
         await ctx.sign_in()
