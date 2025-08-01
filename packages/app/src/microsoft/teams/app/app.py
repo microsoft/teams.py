@@ -37,7 +37,7 @@ from .events import (
 )
 from .http_plugin import HttpActivityEvent, HttpPlugin
 from .options import AppOptions
-from .plugins import Plugin, PluginStartEvent
+from .plugins import Plugin, PluginActivityResponseEvent, PluginStartEvent
 from .routing import ActivityContext, ActivityHandlerMixin, ActivityRouter
 
 version = importlib.metadata.version("microsoft-teams-app")
@@ -317,7 +317,14 @@ class App(ActivityHandlerMixin):
             self._events.emit("activity", ActivityEvent(activity))
             ctx = await self.build_context(activity, input_activity.token)
             response = await self._activity_processor.process_activity(ctx)
-            self.http.on_activity_response(activity_id, response)
+            await self.http.on_activity_response(
+                PluginActivityResponseEvent(
+                    conversation_ref=ctx.conversation_ref,
+                    sender=self.http,
+                    activity=activity,
+                    response=response,
+                ),
+            )
 
             return {
                 "status": "processed",
