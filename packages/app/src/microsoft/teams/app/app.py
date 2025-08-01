@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from logging import Logger
 from typing import Any, Callable, Dict, List, Optional, TypeVar, Union, cast, overload
 
-from dotenv import load_dotenv
+from dotenv import find_dotenv, load_dotenv
 from microsoft.teams.api import (
     ActivityBase,
     ActivityTypeAdapter,
@@ -43,7 +43,7 @@ from .routing import ActivityContext, ActivityHandlerMixin, ActivityRouter
 version = importlib.metadata.version("microsoft-teams-app")
 
 F = TypeVar("F", bound=Callable[..., Any])
-load_dotenv()
+load_dotenv(find_dotenv(usecwd=True))
 
 USER_AGENT = f"teams.py[app]/{version}"
 
@@ -471,3 +471,19 @@ class App(ActivityHandlerMixin):
 
         # Otherwise, return the decorator for later application
         return decorator
+
+    def page(self, name: str, dir_path: str, page_path: Optional[str] = None) -> None:
+        """
+        Register a static page to serve at a specific path.
+
+        Args:
+            name: Unique name for the page
+            dir_path: Directory containing the static files
+            page_path: Optional path to serve the page at (defaults to /pages/{name})
+
+        Example:
+            ```python
+            app.page("customform", os.path.join(os.path.dirname(__file__), "views", "customform"), "/tabs/dialog-form")
+            ```
+        """
+        self.http.mount(name, dir_path, page_path=page_path)
