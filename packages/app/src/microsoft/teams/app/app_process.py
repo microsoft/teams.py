@@ -29,7 +29,9 @@ class ActivityProcessor:
         # If no registered handlers, fall back to legacy activity_handler
         if handlers:
             middleware_result = await self.execute_middleware_chain(activityCtx, handlers)
-            if middleware_result is None or not is_invoke_response(middleware_result):
+            if middleware_result is None:
+                pass
+            elif not is_invoke_response(middleware_result):
                 response = InvokeResponse[Any](status=200, body=middleware_result)
             else:
                 response = cast(InvokeResponse[Any], middleware_result)
