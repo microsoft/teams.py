@@ -25,3 +25,7 @@ py.typed
 CLAUDE.md
 
 .env
+
+# IDE and settings
+.claude/
+.vscode/
