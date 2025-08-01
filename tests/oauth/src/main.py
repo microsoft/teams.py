@@ -42,7 +42,7 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
                     # Handle user_info as a dict since Graph API returns dict-like objects
                     try:
                         if hasattr(user_info, "get"):
-                            display_name = str(user_info.get("displayName", "N/A"))  # pyright: ignore[reportUnknownMemberType]
+                            display_name = str(user_info.get("display_name", "N/A"))  # pyright: ignore[reportUnknownMemberType]
                         elif hasattr(user_info, "__dict__"):
                             display_name = str(getattr(user_info, "display_name", "N/A"))
                         else:
