@@ -83,13 +83,6 @@ class ActivityContext(Generic[T]):
         else:
             activity = message
 
-        if getattr(activity, "conversation", None) is None:
-            activity.conversation = self.conversation_ref.conversation
-        if getattr(activity, "from_", None) is None:
-            activity.from_ = self.conversation_ref.bot
-        if getattr(activity, "recipient", None) is None:
-            activity.recipient = self.conversation_ref.user
-
         res = await self.api.conversations.activities(self.conversation_ref.conversation.id).create(activity)
         return res
 

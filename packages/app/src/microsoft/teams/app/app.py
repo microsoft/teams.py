@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from logging import Logger
 from typing import Any, Callable, Dict, List, Optional, TypeVar, Union, cast, overload
 
-from dotenv import find_dotenv, load_dotenv  # type: ignore
+from dotenv import find_dotenv, load_dotenv
 from microsoft.teams.api import (
     ActivityBase,
     ActivityTypeAdapter,
