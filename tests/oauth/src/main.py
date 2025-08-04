@@ -5,16 +5,12 @@ Licensed under the MIT License.
 
 import asyncio
 
-from dotenv.main import load_dotenv
 from microsoft.teams.api import MessageActivity
-from microsoft.teams.app import ActivityContext, App, AppOptions, SignInEvent
+from microsoft.teams.app import ActivityContext, App, SignInEvent
 from microsoft.teams.app.events.types import ErrorEvent
 from microsoft.teams.graph import enable_graph_integration
 
-load_dotenv()
-
-# Create app with token validation disabled for testing
-app = App(AppOptions(default_connection_name="graph"))
+app = App()
 
 # Enable Graph integration
 enable_graph_integration()
