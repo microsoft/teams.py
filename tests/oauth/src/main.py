@@ -64,6 +64,12 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
             if get_graph_client is not None:
                 graph_client = await get_graph_client()
                 if graph_client is not None:
+                    # First check what scopes we have
+                    await ctx.send("Checking token scopes...")
+                    await graph_client.check_token_scopes()
+
+                    # Then try to get teams
+                    await ctx.send("Attempting to get teams...")
                     teams_info = await graph_client.get_my_teams()
                     # Handle teams_info as a dict since Graph API returns dict-like objects
                     try:
@@ -84,11 +90,15 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
                 await ctx.send("Graph integration not enabled.")
         except Exception as e:
             await ctx.send(f"Teams Graph test failed: {str(e)}")
+    elif "signout" in user_text and ctx.is_signed_in:
+        # Sign out the user when they explicitly request it
+        await ctx.send("Signing you out now...")
+        await ctx.sign_out()
+        await ctx.send("You have been signed out. Send any message to sign in again.")
     elif ctx.is_signed_in:
         await ctx.send(
-            "You are signed in! Try typing 'graph' or 'teams' to test Graph functionality, or I'll sign you out."
+            "You are signed in! Try typing 'graph' or 'teams' to test Graph functionality, or 'signout' to sign out."
         )
-        # await ctx.sign_out()
     else:
         ctx.logger.info("User requested sign-in.")
         await ctx.sign_in()
@@ -102,7 +112,8 @@ async def handle_sign_in(event: SignInEvent):
         "Try these Graph tests:\n"
         "- Type 'graph' to test user info retrieval\n"
         "- Type 'teams' to test Teams data retrieval\n"
-        "- Type anything else to sign out"
+        "- Type 'signout' to sign out\n"
+        "- Type anything else to see this menu"
     )
 
 
