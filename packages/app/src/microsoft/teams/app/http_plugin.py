@@ -7,10 +7,12 @@ import asyncio
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from logging import Logger
+from pathlib import Path
 from typing import Any, AsyncGenerator, Awaitable, Callable, Dict, Optional, cast
 
 import uvicorn
 from fastapi import FastAPI, Request, Response
+from fastapi.staticfiles import StaticFiles
 from microsoft.teams.api import ActivityParams, TokenProtocol
 from microsoft.teams.api.models import ConversationReference, Resource
 from microsoft.teams.app.plugins import (
@@ -309,3 +311,13 @@ class HttpPlugin(Sender):
 
     async def create_stream(self, ref: ConversationReference) -> StreamerProtocol:
         raise NotImplementedError
+
+    def mount(self, name: str, dir_path: Path | str, page_path: Optional[str] = None) -> None:
+        """
+        Serve a static page at the given path.
+
+        Args:
+            name: The name of the page (used in URL)
+            page_path: The path to the static HTML file
+        """
+        self.app.mount(page_path or f"/{name}", StaticFiles(directory=dir_path, check_dir=True, html=True), name=name)

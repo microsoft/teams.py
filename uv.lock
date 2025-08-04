@@ -3,6 +3,7 @@ requires-python = ">=3.12"
 
 [manifest]
 members = [
+    "dialogs",
     "echo",
     "microsoft-teams",
     "microsoft-teams-api",
@@ -285,6 +286,21 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/65/f9/2a408d460eedb264f7ea919754c526c8f3a18c026496cacb7dd6960766d2/dependency_injector-4.48.1-cp38-abi3-musllinux_1_2_x86_64.whl", hash = "sha256:1994622eae8917138626303b176cba4c74e625ba1e588cb09d673ca175d299a2", size = 1863948 },
     { url = "https://files.pythonhosted.org/packages/6e/8a/2edaef77e725dd8b1a625c84cbccb0f445afe58277c7b243cbf58784826a/dependency_injector-4.48.1-cp38-abi3-win32.whl", hash = "sha256:58d4d81f92e3267c331f160cbbb517fd7644b95ee57a0d6e4b01f53a7e437a4a", size = 1516768 },
     { url = "https://files.pythonhosted.org/packages/8c/41/4bf523af7e1b7f367499f8b8709e0e807e9a14c7d1674b0442d7f84403c8/dependency_injector-4.48.1-cp38-abi3-win_amd64.whl", hash = "sha256:572b22b7db9b103718ea52634b5ca1ef763278338310254334f4633a57c9f0e7", size = 1639850 },
+]
+
+[[package]]
+name = "dialogs"
+version = "0.1.0"
+source = { virtual = "tests/dialogs" }
+dependencies = [
+    { name = "dotenv" },
+    { name = "microsoft-teams-app" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "dotenv", specifier = ">=0.9.9" },
+    { name = "microsoft-teams-app", editable = "packages/app" },
 ]
 
 [[package]]
