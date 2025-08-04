@@ -237,6 +237,12 @@ class App(ActivityHandlerMixin):
         client_secret = self.options.client_secret or os.getenv("CLIENT_SECRET")
         tenant_id = self.options.tenant_id or os.getenv("TENANT_ID")
 
+        self.log.debug(f"Using CLIENT_ID: {client_id}")
+        if not tenant_id:
+            self.log.warning("TENANT_ID is not set, assuming multi-tenant app")
+        else:
+            self.log.debug(f"Using TENANT_ID: {tenant_id} (assuming single-tenant app)")
+
         if client_id and client_secret:
             return ClientCredentials(client_id=client_id, client_secret=client_secret, tenant_id=tenant_id)
 
