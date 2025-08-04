@@ -37,8 +37,6 @@ class GraphClient:
         self._access_token = access_token
         # Use scopes that are actually granted in your Azure App Registration
         self._scopes = scopes or ["User.Read", "User.ReadBasic.All", "Team.ReadBasic.All", "offline_access"]
-        print(f"These are the scopes requested: {scopes}")
-        print(f"These are the default scopes: {self._scopes}")
 
         # Create Graph service client with token credential
         self._client = GraphServiceClient(credentials=_TokenCredential(access_token), scopes=self._scopes)
@@ -69,25 +67,7 @@ class GraphClient:
             return result.__dict__ if hasattr(result, "__dict__") else {}
         except Exception as e:
             print(f"Error getting teams: {e}")
-            # Check if it's a permission error
-            if "403" in str(e) or "Forbidden" in str(e):
-                print("\n🚨 PERMISSIONS ERROR:")
-                print("Your OAuth token doesn't have the required Graph API permissions.")
-                print("\nCURRENT AZURE PERMISSIONS STATUS:")
-                print("✅ User.Read (Delegated) - Granted")
-                print("✅ User.ReadBasic.All (Delegated) - Granted")
-                print("✅ Team.ReadBasic.All (Delegated) - Granted")
-                print("✅ offline_access (Delegated) - Granted")
-                print("⚠️  User.Read.All (Delegated) - NOT GRANTED")
-                print("⚠️  Team.ReadBasic.All (Application) - NOT GRANTED")
-                print("\nTO FIX THIS:")
-                print("1. In Azure Portal, click 'Grant admin consent for teamsaiacc' button")
-                print("2. Or remove the Application permission for Team.ReadBasic.All (you only need Delegated)")
-                print("3. Update your Teams app OAuth connection to request these scopes:")
-                print("   User.Read User.ReadBasic.All Team.ReadBasic.All offline_access")
-                print("4. Users need to sign in again to get new permissions")
-                print(f"Required scopes: {self._scopes}")
-            raise
+            return {}
 
     async def get_team(self, team_id: str) -> Dict[str, Any]:
         """Get specific team information."""

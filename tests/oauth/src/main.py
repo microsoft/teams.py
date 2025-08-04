@@ -49,7 +49,7 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
                             display_name = str(user_info)
                     except Exception:
                         display_name = "N/A"
-                    await ctx.send(f"Graph test successful! User info retrieved: {display_name}")
+                    await ctx.send(f"Graph test successful!  \nUser info retrieved.  \nDisplay Name: {display_name}")
                 else:
                     await ctx.send("Graph client not available - user may not be signed in properly.")
             else:
@@ -67,7 +67,6 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
                     # First check what scopes we have
                     await ctx.send("Checking token scopes...")
                     await graph_client.check_token_scopes()
-
                     # Then try to get teams
                     await ctx.send("Attempting to get teams...")
                     teams_info = await graph_client.get_my_teams()
@@ -83,7 +82,7 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
                             teams_count = 0
                     except Exception:
                         teams_count = 0
-                    await ctx.send(f"Teams Graph test successful! Found {teams_count} teams.")
+                    await ctx.send(f"Teams Graph test successful!  \nFound {teams_count} teams.")
                 else:
                     await ctx.send("Graph client not available for Teams query.")
             else:
