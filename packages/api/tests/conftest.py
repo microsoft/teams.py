@@ -14,10 +14,10 @@ from dotenv import load_dotenv
 from microsoft.teams.api import (
     Account,
     ClientCredentials,
+    ConversationResource,
+    MessageActivityInput,
     TokenCredentials,
 )
-from microsoft.teams.api.activities.message import MessageActivityInput
-from microsoft.teams.api.models.conversation import ConversationResource
 from microsoft.teams.common.http import Client, ClientOptions
 
 try:

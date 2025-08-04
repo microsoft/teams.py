@@ -3,15 +3,15 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Any, Dict, NamedTuple, Optional
 
-from microsoft.teams.api import Activity, CustomBaseModel
+from microsoft.teams.api import Activity
 
 if TYPE_CHECKING:
     from .plugin import Plugin
 
 
-class PluginErrorEvent(CustomBaseModel):
+class PluginErrorEvent(NamedTuple):
     """Event emitted when an error occurs."""
 
     sender: Optional["Plugin"]
@@ -20,5 +20,5 @@ class PluginErrorEvent(CustomBaseModel):
     error: Exception
     """The error"""
 
-    activity: Optional[Activity]
+    activity: Optional[Activity] | Dict[str, Any]
     """The activity"""

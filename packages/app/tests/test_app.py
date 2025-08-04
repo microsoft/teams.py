@@ -168,7 +168,7 @@ class TestApp:
         )
 
         # Mock the HTTP plugin response method
-        app_with_activity_handler.http.on_activity_response = MagicMock()
+        app_with_activity_handler.http.on_activity_response = AsyncMock()
 
         http_event = HttpActivityEvent(activity_payload=activity.model_dump(by_alias=True), token=FakeToken())
         result = await app_with_activity_handler.handle_activity(http_event)
@@ -445,7 +445,7 @@ class TestApp:
         )
 
         # Mock the HTTP plugin response method
-        app_with_options.http.on_activity_response = MagicMock()
+        app_with_options.http.on_activity_response = AsyncMock()
 
         result = await app_with_options.handle_activity(
             HttpActivityEvent(activity_payload=activity.model_dump(by_alias=True), token=FakeToken())
