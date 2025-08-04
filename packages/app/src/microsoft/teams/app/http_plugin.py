@@ -7,7 +7,6 @@ import asyncio
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from logging import Logger
-from pathlib import Path
 from typing import Any, AsyncGenerator, Awaitable, Callable, Dict, Optional, cast
 
 import uvicorn
@@ -171,7 +170,7 @@ class HttpPlugin(Sender):
             activity_id: The ID of the activity that failed (if applicable)
             plugin: The plugin that caused the error (if applicable)
         """
-        activity_id: str | None = None
+        activity_id: Optional[str] = None
         if event.activity:
             if isinstance(event.activity, dict):
                 activity_id = event.activity.get("id")
@@ -275,9 +274,9 @@ class HttpPlugin(Sender):
             """Handle incoming Teams activity."""
             # Process the activity (token validation handled by middleware)
             result = await self._handle_activity_request(request)
-            status_code: int | None = None
+            status_code: Optional[int] = None
             body: Optional[Dict[str, Any]] = None
-            resp_dict: Dict[str, Any] | None = None
+            resp_dict: Optional[Dict[str, Any]] = None
             if isinstance(result, dict):
                 resp_dict = cast(Dict[str, Any], result)
             elif isinstance(result, BaseModel):

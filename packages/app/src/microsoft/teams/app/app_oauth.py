@@ -3,7 +3,7 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from typing import Union
+from typing import Optional, Union
 
 from httpx import HTTPStatusError
 from microsoft.teams.api import (
@@ -85,7 +85,7 @@ class OauthHandlers:
 
     async def sign_in_verify_state(
         self, ctx: ActivityContext[SignInVerifyStateInvokeActivity]
-    ) -> InvokeResponse[None] | None:
+    ) -> Optional[InvokeResponse[None]]:
         """
         Decorator to register a function that handles the sign-in token exchange.
         """

@@ -3,7 +3,7 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from typing import TYPE_CHECKING, Any, NamedTuple
+from typing import TYPE_CHECKING, Any, NamedTuple, Optional
 
 from microsoft.teams.api import Activity
 from microsoft.teams.api.models import ConversationReference, InvokeResponse
@@ -24,5 +24,5 @@ class PluginActivityResponseEvent(NamedTuple):
     activity: Activity
     """The inbound request activity payload"""
 
-    response: InvokeResponse[Any] | None
+    response: Optional[InvokeResponse[Any]]
     """The response"""

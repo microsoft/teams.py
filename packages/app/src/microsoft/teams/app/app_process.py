@@ -25,7 +25,7 @@ class ActivityProcessor:
         # Get registered handlers for this activity type
         handlers = self.router.select_handlers(activityCtx.activity)
 
-        response: InvokeResponse[Any] | None = None
+        response: Optional[InvokeResponse[Any]] = None
         # If no registered handlers, fall back to legacy activity_handler
         if handlers:
             middleware_result = await self.execute_middleware_chain(activityCtx, handlers)
