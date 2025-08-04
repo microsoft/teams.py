@@ -1,69 +1,116 @@
-# Microsoft 365 Agents Toolkit Configuration: Oauth
+# Teams OAuth with Microsoft Graph Integration
 
-Use this if you want to enable user authentication in your Teams application.
+This is a Python Teams application that demonstrates OAuth authentication and Microsoft Graph API integration using the Teams AI Python SDK.
 
-## Welcome to Microsoft 365 Agents Toolkit!
+## Features
 
-### Pre-requisites
+- **OAuth Authentication** - Users can sign in with their Microsoft 365 account
+- **Microsoft Graph Integration** - Access user profile and Teams data via Graph APIs
+- **Interactive Testing** - Commands to test different Graph API endpoints
+- **Comprehensive Error Handling** - Clear guidance for permission issues
 
-- [Visual Studio v17.14.0 or above](https://visualstudio.microsoft.com/vs/)
-- [Microsoft 365 Agents Toolkit Extension for Visual Studio](https://learn.microsoft.com/en-us/microsoftteams/platform/toolkit/toolkit-v4/install-teams-toolkit-vs)
+## Prerequisites
 
-### Quick Start
+- Python 3.12 or higher
+- Azure App Registration with proper permissions
+- Teams Developer Portal app configuration
 
-1. In the debug dropdown menu, select Dev Tunnels > Create A Tunnel (set authentication type to Public) or select an existing public dev tunnel
-</br>![image](https://raw.githubusercontent.com/OfficeDev/TeamsFx/dev/docs/images/visualstudio/debug/create-devtunnel-button.png)
-2. Right-click the 'TeamsApp' project in Solution Explorer and select **Microsoft 365 Agents Toolkit > Select Microsoft 365 Account**
-3. Sign in to Microsoft 365 Agents Toolkit with a **Microsoft 365 work or school account**
-4. Configure the Launch profile to be `Microsoft Teams (Browser)`.
-5. Press F5, or select Debug > Start Debugging menu in Visual Studio to start your app.
-</br>![image](https://raw.githubusercontent.com/OfficeDev/TeamsFx/dev/docs/images/visualstudio/debug/debug-button.png)
-5. In the opened web browser, select Add button to install the app in Teams.
+## Quick Start
 
+### 1. Install Dependencies
 
-### Get more info
-
-New to Teams app development or Microsoft 365 Agents Toolkit? Explore Teams app manifests, cloud deployment, and much more in the https://aka.ms/teams-toolkit-vs-docs.
-
-### Report an issue
-
-Select Visual Studio > Help > Send Feedback > Report a Problem. 
-Or, create an issue directly in our GitHub repository:
-https://github.com/OfficeDev/TeamsFx/issues
-
-## How to update scopes
-
-1. In the `aad.manifest.json` file, update the `requiredResourceAccess` list to add the required scopes.
-
-2. In the `infra/botRegistration/azurebot.bicep` file, under the `botServicesMicrosoftGraphConnection` resource, update the `properties.scopes` string to be a comma-delimeted list of the required scopes.
-
-### Example
-
-If you want to add the `People.Read.All` and `User.ReadBasic.All` scopes.
-
-1. Your `requiredResourceAccess` property should look like:
-
-```json
-"requiredResourceAccess": [
-    {
-        "resourceAppId": "Microsoft Graph",
-        "resourceAccess": [
-            {
-                "id": "People.Read.All",
-                "type": "Scope"
-            }
-        ]
-    },
-    {
-        "resourceAppId": "Microsoft Graph",
-        "resourceAccess": [
-            {
-                "id": "User.ReadBasic.All",
-                "type": "Scope"
-            }
-        ]
-    },
-]
+```bash
+cd tests/oauth
+pip install -r requirements.txt
 ```
 
-2. Update the `properties.scopes` to be `People.Read.All,User.ReadBasic.All`.
+### 2. Configure Environment
+
+Create a `.env` file in the `tests/oauth/src/` directory:
+
+```env
+CLIENT_ID=your_azure_app_client_id
+CLIENT_SECRET=your_azure_app_client_secret
+TENANT_ID=your_azure_tenant_id
+```
+
+### 3. Run the Application
+
+```bash
+cd tests/oauth/src
+python main.py
+```
+
+## Testing Graph Integration
+
+Once the app is running and users are signed in, they can test Graph functionality:
+
+- **Type `graph`** - Test user profile retrieval
+- **Type `teams`** - Test Teams data access with scope validation
+- **Type `signout`** - Sign out the current user
+- **Any other message** - Show help menu
+
+## Azure App Registration Setup
+
+### Required Graph API Permissions
+
+Add these **Delegated** permissions in your Azure App Registration:
+
+1. **Microsoft Graph**:
+   - `User.Read` - Read user profile (required)
+   - `User.ReadBasic.All` - Read basic profiles of all users
+   - `Team.ReadBasic.All` - Read basic team information
+   - `offline_access` - Maintain access to data
+
+### OAuth Connection Configuration
+
+In your Teams app OAuth settings, configure these scopes:
+
+```
+User.Read User.ReadBasic.All Team.ReadBasic.All offline_access
+```
+
+### Admin Consent
+
+**Important**: After adding permissions, click "Grant admin consent" in the Azure Portal.
+
+## Troubleshooting
+
+### Common Issues
+
+**403 Forbidden Errors**
+- Verify all required permissions are granted in Azure Portal
+- Ensure admin consent has been provided
+- Check that OAuth connection requests the correct scopes
+- Users may need to sign out and sign in again to get new permissions
+
+**Token Not Available**
+- Ensure user is signed in before accessing Graph APIs
+- Check that `default_connection_name` is set to "graph" in the app configuration
+- Verify OAuth connection is properly configured
+
+### Debug Information
+
+The application provides detailed logging when Graph API calls fail, including:
+- Current token scopes
+- Required permissions for specific operations
+- Step-by-step setup instructions for Azure Portal
+
+## Graph Integration Code
+
+The Graph integration is powered by the `microsoft-teams-graph` package. Key implementation details:
+
+```python
+from microsoft.teams.graph import enable_graph_integration
+
+# Enable Graph integration
+enable_graph_integration()
+
+# Access Graph client in message handlers
+graph_client = await ctx.get_graph_client()
+if graph_client:
+    user_info = await graph_client.get_me()
+    teams_info = await graph_client.get_my_teams()
+```
+
+For more details, see the Graph package documentation in `/packages/graph/README.md`.
