@@ -35,8 +35,7 @@ class GraphClient:
             raise ImportError("msgraph-sdk is required for Graph integration")
 
         self._access_token = access_token
-        # Use scopes that are actually granted in your Azure App Registration
-        self._scopes = scopes or ["User.Read", "User.ReadBasic.All", "Team.ReadBasic.All", "offline_access"]
+        self._scopes = scopes
 
         # Create Graph service client with token credential
         self._client = GraphServiceClient(credentials=_TokenCredential(access_token), scopes=self._scopes)
@@ -53,20 +52,20 @@ class GraphClient:
         try:
             # Try calling /me first - this only requires User.Read
             await self.get_me()
-            print("✓ Token has User.Read scope - /me call succeeded")
-        except Exception as e:
-            print(f"✗ Token missing User.Read scope - /me call failed: {e}")
+            # Note: This will be logged by the calling ActivityContext
+        except Exception:
+            # Note: This will be logged by the calling ActivityContext
+            raise
 
     async def get_my_teams(self) -> Dict[str, Any]:
         """Get teams the current user belongs to."""
         if not self._client:
             raise RuntimeError("Graph client not initialized")
-        print(f"These are the scopes in the request: {self._scopes}")
         try:
             result = await self._client.me.joined_teams.get()
             return result.__dict__ if hasattr(result, "__dict__") else {}
-        except Exception as e:
-            print(f"Error getting teams: {e}")
+        except Exception:
+            # Return empty dict on error, let caller handle logging
             return {}
 
     async def get_team(self, team_id: str) -> Dict[str, Any]:
@@ -108,7 +107,9 @@ def enable_graph_integration(scopes: Optional[List[str]] = None) -> None:
         scopes: Optional list of Graph API scopes to request
     """
     if not _msgraph_available:
-        print("Warning: msgraph-sdk not available, Graph integration disabled")
+        import logging
+
+        logging.getLogger(__name__).warning("msgraph-sdk not available, Graph integration disabled")
         return
 
     from microsoft.teams.app import ActivityContext
@@ -141,4 +142,7 @@ def enable_graph_integration(scopes: Optional[List[str]] = None) -> None:
 
     # Add the graph method to ActivityContext
     ActivityContext.get_graph_client = get_graph_client  # pyright: ignore[reportAttributeAccessIssue]
-    print("Microsoft Graph integration enabled")
+
+    import logging
+
+    logging.getLogger(__name__).info("Microsoft Graph integration enabled")
