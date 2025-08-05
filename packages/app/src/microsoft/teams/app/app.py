@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from logging import Logger
 from typing import Any, Callable, Dict, List, Optional, TypeVar, Union, cast, overload
 
-from dotenv import load_dotenv
+from dotenv import find_dotenv, load_dotenv
 from microsoft.teams.api import (
     ActivityBase,
     ActivityTypeAdapter,
@@ -37,13 +37,13 @@ from .events import (
 )
 from .http_plugin import HttpActivityEvent, HttpPlugin
 from .options import AppOptions
-from .plugins import Plugin, PluginStartEvent
+from .plugins import Plugin, PluginActivityResponseEvent, PluginStartEvent
 from .routing import ActivityContext, ActivityHandlerMixin, ActivityRouter
 
 version = importlib.metadata.version("microsoft-teams-app")
 
 F = TypeVar("F", bound=Callable[..., Any])
-load_dotenv()
+load_dotenv(find_dotenv(usecwd=True))
 
 USER_AGENT = f"teams.py[app]/{version}"
 
@@ -237,6 +237,12 @@ class App(ActivityHandlerMixin):
         client_secret = self.options.client_secret or os.getenv("CLIENT_SECRET")
         tenant_id = self.options.tenant_id or os.getenv("TENANT_ID")
 
+        self.log.debug(f"Using CLIENT_ID: {client_id}")
+        if not tenant_id:
+            self.log.warning("TENANT_ID is not set, assuming multi-tenant app")
+        else:
+            self.log.debug(f"Using TENANT_ID: {tenant_id} (assuming single-tenant app)")
+
         if client_id and client_secret:
             return ClientCredentials(client_id=client_id, client_secret=client_secret, tenant_id=tenant_id)
 
@@ -317,7 +323,14 @@ class App(ActivityHandlerMixin):
             self._events.emit("activity", ActivityEvent(activity))
             ctx = await self.build_context(activity, input_activity.token)
             response = await self._activity_processor.process_activity(ctx)
-            self.http.on_activity_response(activity_id, response)
+            await self.http.on_activity_response(
+                PluginActivityResponseEvent(
+                    conversation_ref=ctx.conversation_ref,
+                    sender=self.http,
+                    activity=activity,
+                    response=response,
+                ),
+            )
 
             return {
                 "status": "processed",
@@ -464,3 +477,19 @@ class App(ActivityHandlerMixin):
 
         # Otherwise, return the decorator for later application
         return decorator
+
+    def page(self, name: str, dir_path: str, page_path: Optional[str] = None) -> None:
+        """
+        Register a static page to serve at a specific path.
+
+        Args:
+            name: Unique name for the page
+            dir_path: Directory containing the static files
+            page_path: Optional path to serve the page at (defaults to /pages/{name})
+
+        Example:
+            ```python
+            app.page("customform", os.path.join(os.path.dirname(__file__), "views", "customform"), "/tabs/dialog-form")
+            ```
+        """
+        self.http.mount(name, dir_path, page_path=page_path)

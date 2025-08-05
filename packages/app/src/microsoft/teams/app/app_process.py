@@ -4,9 +4,9 @@ Licensed under the MIT License.
 """
 
 from logging import Logger
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, cast
 
-from microsoft.teams.api import ActivityBase
+from microsoft.teams.api import ActivityBase, InvokeResponse, is_invoke_response
 
 from .routing.activity_context import ActivityContext
 from .routing.router import ActivityHandler, ActivityRouter
@@ -19,16 +19,22 @@ class ActivityProcessor:
         self.router = router
         self.logger = logger
 
-    async def process_activity(self, activityCtx: ActivityContext[ActivityBase]) -> Optional[Dict[str, Any]]:
+    async def process_activity(self, activityCtx: ActivityContext[ActivityBase]) -> Optional[InvokeResponse[Any]]:
         self.logger.debug(f"Received activity: {activityCtx.activity}")
 
         # Get registered handlers for this activity type
         handlers = self.router.select_handlers(activityCtx.activity)
 
-        response = None
+        response: Optional[InvokeResponse[Any]] = None
         # If no registered handlers, fall back to legacy activity_handler
         if handlers:
-            response = await self.execute_middleware_chain(activityCtx, handlers)
+            middleware_result = await self.execute_middleware_chain(activityCtx, handlers)
+            if middleware_result is None:
+                pass
+            elif not is_invoke_response(middleware_result):
+                response = InvokeResponse[Any](status=200, body=middleware_result)
+            else:
+                response = cast(InvokeResponse[Any], middleware_result)
 
         self.logger.debug("Completed processing activity")
 

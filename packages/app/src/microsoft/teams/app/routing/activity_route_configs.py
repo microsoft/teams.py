@@ -4,11 +4,10 @@ Licensed under the MIT License.
 """
 
 from dataclasses import dataclass
-from typing import Dict, Optional, Type, cast
+from typing import Callable, Dict, Optional, Type, cast
 
 from microsoft.teams.api import (
     ActivityBase,
-    AdaptiveCardInvokeResponse,
     CommandResultActivity,
     CommandSendActivity,
     ConfigFetchInvokeActivity,
@@ -52,13 +51,11 @@ from microsoft.teams.api import (
     TaskFetchInvokeActivity,
     TaskModuleInvokeResponse,
     TaskSubmitInvokeActivity,
-    TokenExchangeInvokeResponseType,
     TraceActivity,
     TypingActivity,
-    VoidInvokeResponse,
 )
 
-from .router import RouteSelector
+RouteSelector = Callable[[ActivityBase], bool]
 
 
 @dataclass(frozen=True)
@@ -82,6 +79,9 @@ class ActivityConfig:
 
     output_type_name: Optional[str] = None
     """Override for the output type name in generated code. If None, uses output_model.__name__."""
+
+    is_invoke: bool = False
+    """Whether this config is for an invoke activity. Defaults to False."""
 
 
 ACTIVITY_ROUTES: Dict[str, ActivityConfig] = {
@@ -304,6 +304,7 @@ ACTIVITY_ROUTES: Dict[str, ActivityConfig] = {
         selector=lambda activity: isinstance(activity, ConfigFetchInvokeActivity),
         output_model=ConfigInvokeResponse,
         output_type_name="ConfigInvokeResponse",
+        is_invoke=True,
     ),
     "config.submit": ActivityConfig(
         name="config.submit",
@@ -312,6 +313,7 @@ ACTIVITY_ROUTES: Dict[str, ActivityConfig] = {
         selector=lambda activity: isinstance(activity, ConfigSubmitInvokeActivity),
         output_model=ConfigInvokeResponse,
         output_type_name="ConfigInvokeResponse",
+        is_invoke=True,
     ),
     "file.consent": ActivityConfig(
         name="file.consent",
@@ -319,8 +321,8 @@ ACTIVITY_ROUTES: Dict[str, ActivityConfig] = {
         input_model=FileConsentInvokeActivity,
         selector=lambda activity: activity.type == "invoke"
         and cast(InvokeActivity, activity).name == "fileConsent/invoke",
-        output_model=VoidInvokeResponse,
-        output_type_name="VoidInvokeResponse",
+        output_model=None,
+        is_invoke=True,
     ),
     "message.execute": ActivityConfig(
         name="message.execute",
@@ -328,8 +330,8 @@ ACTIVITY_ROUTES: Dict[str, ActivityConfig] = {
         input_model=ExecuteActionInvokeActivity,
         selector=lambda activity: activity.type == "invoke"
         and cast(InvokeActivity, activity).name == "actionableMessage/executeAction",
-        output_model=VoidInvokeResponse,
-        output_type_name="VoidInvokeResponse",
+        output_model=None,
+        is_invoke=True,
     ),
     "message.ext.query-link": ActivityConfig(
         name="message.ext.query-link",
@@ -339,6 +341,7 @@ ACTIVITY_ROUTES: Dict[str, ActivityConfig] = {
         and cast(InvokeActivity, activity).name == "composeExtension/queryLink",
         output_model=MessagingExtensionInvokeResponse,
         output_type_name="MessagingExtensionInvokeResponse",
+        is_invoke=True,
     ),
     "message.ext.anon-query-link": ActivityConfig(
         name="message.ext.anon-query-link",
@@ -348,6 +351,7 @@ ACTIVITY_ROUTES: Dict[str, ActivityConfig] = {
         and cast(InvokeActivity, activity).name == "composeExtension/anonymousQueryLink",
         output_model=MessagingExtensionInvokeResponse,
         output_type_name="MessagingExtensionInvokeResponse",
+        is_invoke=True,
     ),
     "message.ext.query": ActivityConfig(
         name="message.ext.query",
@@ -357,6 +361,7 @@ ACTIVITY_ROUTES: Dict[str, ActivityConfig] = {
         and activity.name == "composeExtension/query",
         output_model=MessagingExtensionInvokeResponse,
         output_type_name="MessagingExtensionInvokeResponse",
+        is_invoke=True,
     ),
     "message.ext.select-item": ActivityConfig(
         name="message.ext.select-item",
@@ -366,6 +371,7 @@ ACTIVITY_ROUTES: Dict[str, ActivityConfig] = {
         and activity.name == "composeExtension/selectItem",
         output_model=MessagingExtensionInvokeResponse,
         output_type_name="MessagingExtensionInvokeResponse",
+        is_invoke=True,
     ),
     "message.ext.submit": ActivityConfig(
         name="message.ext.submit",
@@ -375,6 +381,7 @@ ACTIVITY_ROUTES: Dict[str, ActivityConfig] = {
         and activity.name == "composeExtension/submitAction",
         output_model=MessagingExtensionActionInvokeResponse,
         output_type_name="MessagingExtensionActionInvokeResponse",
+        is_invoke=True,
     ),
     "message.ext.open": ActivityConfig(
         name="message.ext.open",
@@ -384,6 +391,7 @@ ACTIVITY_ROUTES: Dict[str, ActivityConfig] = {
         and activity.name == "composeExtension/fetchTask",
         output_model=MessagingExtensionActionInvokeResponse,
         output_type_name="MessagingExtensionActionInvokeResponse",
+        is_invoke=True,
     ),
     "message.ext.query-settings-url": ActivityConfig(
         name="message.ext.query-settings-url",
@@ -393,6 +401,7 @@ ACTIVITY_ROUTES: Dict[str, ActivityConfig] = {
         and activity.name == "composeExtension/querySettingUrl",
         output_model=MessagingExtensionInvokeResponse,
         output_type_name="MessagingExtensionInvokeResponse",
+        is_invoke=True,
     ),
     "message.ext.setting": ActivityConfig(
         name="message.ext.setting",
@@ -402,14 +411,15 @@ ACTIVITY_ROUTES: Dict[str, ActivityConfig] = {
         and activity.name == "composeExtension/setting",
         output_model=MessagingExtensionInvokeResponse,
         output_type_name="MessagingExtensionInvokeResponse",
+        is_invoke=True,
     ),
     "message.ext.card-button-clicked": ActivityConfig(
         name="message.ext.card-button-clicked",
         method_name="on_message_ext_card_button_clicked",
         input_model=MessageExtensionCardButtonClickedInvokeActivity,
         selector=lambda activity: isinstance(activity, MessageExtensionCardButtonClickedInvokeActivity),
-        output_model=VoidInvokeResponse,
-        output_type_name="VoidInvokeResponse",
+        output_model=None,
+        is_invoke=True,
     ),
     "dialog.open": ActivityConfig(
         name="dialog.open",
@@ -418,6 +428,7 @@ ACTIVITY_ROUTES: Dict[str, ActivityConfig] = {
         selector=lambda activity: activity.type == "invoke" and cast(InvokeActivity, activity).name == "task/fetch",
         output_model=TaskModuleInvokeResponse,
         output_type_name="TaskModuleInvokeResponse",
+        is_invoke=True,
     ),
     "dialog.submit": ActivityConfig(
         name="dialog.submit",
@@ -426,6 +437,7 @@ ACTIVITY_ROUTES: Dict[str, ActivityConfig] = {
         selector=lambda activity: activity.type == "invoke" and cast(InvokeActivity, activity).name == "task/submit",
         output_model=TaskModuleInvokeResponse,
         output_type_name="TaskModuleInvokeResponse",
+        is_invoke=True,
     ),
     "tab.open": ActivityConfig(
         name="tab.open",
@@ -434,6 +446,7 @@ ACTIVITY_ROUTES: Dict[str, ActivityConfig] = {
         selector=lambda activity: activity.type == "invoke" and cast(InvokeActivity, activity).name == "tab/fetch",
         output_model=TabInvokeResponse,
         output_type_name="TabInvokeResponse",
+        is_invoke=True,
     ),
     "tab.submit": ActivityConfig(
         name="tab.submit",
@@ -442,6 +455,7 @@ ACTIVITY_ROUTES: Dict[str, ActivityConfig] = {
         selector=lambda activity: activity.type == "invoke" and cast(InvokeActivity, activity).name == "tab/submit",
         output_model=TabInvokeResponse,
         output_type_name="TabInvokeResponse",
+        is_invoke=True,
     ),
     "message.submit": ActivityConfig(
         name="message.submit",
@@ -449,16 +463,16 @@ ACTIVITY_ROUTES: Dict[str, ActivityConfig] = {
         input_model=MessageSubmitActionInvokeActivity,
         selector=lambda activity: activity.type == "invoke"
         and cast(InvokeActivity, activity).name == "message/submitAction",
-        output_model=VoidInvokeResponse,
-        output_type_name="VoidInvokeResponse",
+        output_model=None,
+        is_invoke=True,
     ),
     "handoff.action": ActivityConfig(
         name="handoff.action",
         method_name="on_handoff_action",
         input_model=HandoffActionInvokeActivity,
         selector=lambda activity: activity.type == "invoke" and cast(InvokeActivity, activity).name == "handoff/action",
-        output_model=VoidInvokeResponse,
-        output_type_name="VoidInvokeResponse",
+        output_model=None,
+        is_invoke=True,
     ),
     "signin.token-exchange": ActivityConfig(
         name="signin.token-exchange",
@@ -466,8 +480,8 @@ ACTIVITY_ROUTES: Dict[str, ActivityConfig] = {
         input_model=SignInTokenExchangeInvokeActivity,
         selector=lambda activity: activity.type == "invoke"
         and cast(InvokeActivity, activity).name == "signin/tokenExchange",
-        output_model=TokenExchangeInvokeResponseType,
         output_type_name="TokenExchangeInvokeResponseType",
+        is_invoke=True,
     ),
     "signin.verify-state": ActivityConfig(
         name="signin.verify-state",
@@ -475,8 +489,8 @@ ACTIVITY_ROUTES: Dict[str, ActivityConfig] = {
         input_model=SignInVerifyStateInvokeActivity,
         selector=lambda activity: activity.type == "invoke"
         and cast(InvokeActivity, activity).name == "signin/verifyState",
-        output_model=VoidInvokeResponse,
-        output_type_name="VoidInvokeResponse",
+        output_model=None,
+        is_invoke=True,
     ),
     "card.action": ActivityConfig(
         name="card.action",
@@ -484,8 +498,8 @@ ACTIVITY_ROUTES: Dict[str, ActivityConfig] = {
         input_model="AdaptiveCardInvokeActivity",
         selector=lambda activity: activity.type == "invoke"
         and cast(InvokeActivity, activity).name == "adaptiveCard/action",
-        output_model=AdaptiveCardInvokeResponse,
         output_type_name="AdaptiveCardInvokeResponse",
+        is_invoke=True,
     ),
     # Generic invoke handler (fallback for any invoke not matching specific aliases)
     "invoke": ActivityConfig(

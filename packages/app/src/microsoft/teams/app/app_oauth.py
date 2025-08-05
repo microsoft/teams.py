@@ -3,16 +3,18 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
+from typing import Optional, Union
+
 from httpx import HTTPStatusError
 from microsoft.teams.api import (
     ExchangeUserTokenParams,
     GetUserTokenParams,
+    InvokeResponse,
     SignInTokenExchangeInvokeActivity,
     SignInVerifyStateInvokeActivity,
     TokenExchangeInvokeResponse,
     TokenExchangeInvokeResponseType,
     TokenExchangeRequest,
-    VoidInvokeResponse,
 )
 from microsoft.teams.common import EventEmitter
 
@@ -27,7 +29,7 @@ class OauthHandlers:
 
     async def sign_in_token_exchange(
         self, ctx: ActivityContext[SignInTokenExchangeInvokeActivity]
-    ) -> TokenExchangeInvokeResponseType:
+    ) -> Union[TokenExchangeInvokeResponseType, InvokeResponse[TokenExchangeInvokeResponseType]]:
         """
         Decorator to register a function that handles the sign-in token exchange.
         """
@@ -55,7 +57,7 @@ class OauthHandlers:
                     )
                 )
                 self.event_emitter.emit("sign_in", SignInEvent(activity_ctx=ctx, token_response=token))
-                return TokenExchangeInvokeResponseType(status=200)
+                return None
             except Exception as e:
                 ctx.logger.error(
                     f"Error exchanging token for user {activity.from_.id} in "
@@ -65,12 +67,12 @@ class OauthHandlers:
                     status = e.response.status_code
                     if status not in (404, 400, 412):
                         self.event_emitter.emit("error", ErrorEvent(error=e, context={"activity": activity}))
-                        return TokenExchangeInvokeResponseType(status=status or 500)
+                        return InvokeResponse(status=status or 500)
                 ctx.logger.warning(
                     f"Unable to exchange token for user {activity.from_.id} in "
                     f"conversation {activity.conversation.id}: {e}"
                 )
-                return TokenExchangeInvokeResponseType(
+                return InvokeResponse(
                     status=412,
                     body=TokenExchangeInvokeResponse(
                         id=activity.value.id,
@@ -81,7 +83,9 @@ class OauthHandlers:
         finally:
             await next_handler()
 
-    async def sign_in_verify_state(self, ctx: ActivityContext[SignInVerifyStateInvokeActivity]) -> VoidInvokeResponse:
+    async def sign_in_verify_state(
+        self, ctx: ActivityContext[SignInVerifyStateInvokeActivity]
+    ) -> Optional[InvokeResponse[None]]:
         """
         Decorator to register a function that handles the sign-in token exchange.
         """
@@ -95,7 +99,7 @@ class OauthHandlers:
                     f"Auth state not present for conversation id '{activity.conversation.id}' "
                     f"and user id '{activity.from_.id}'. "
                 )
-                return VoidInvokeResponse(status=404)
+                return InvokeResponse(status=404)
 
             log.debug(
                 f"Verifying sign-in state for user {activity.from_.id} in conversation"
@@ -115,7 +119,7 @@ class OauthHandlers:
                 log.debug(
                     f"Sign-in state verified for user {activity.from_.id} in conversation {activity.conversation.id}"
                 )
-                return VoidInvokeResponse(status=200)
+                return None
             except Exception as e:
                 log.error(
                     f"Error verifying sign-in state for user {activity.from_.id} in conversation"
@@ -125,8 +129,8 @@ class OauthHandlers:
                     status = e.response.status_code
                     if status not in (404, 400, 412):
                         self.event_emitter.emit("error", ErrorEvent(error=e, context={"activity": activity}))
-                        return VoidInvokeResponse(status=status or 500)
-                return VoidInvokeResponse(
+                        return InvokeResponse(status=status or 500)
+                return InvokeResponse(
                     status=412,
                 )
         finally:

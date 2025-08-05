@@ -8,11 +8,10 @@ from typing import Any, Awaitable, Callable, List, Optional
 from microsoft.teams.api.models import ActivityBase
 
 from .activity_context import ActivityContext
+from .activity_route_configs import RouteSelector
 
 # Type alias for activity handlers
 ActivityHandler = Callable[[ActivityContext[ActivityBase]], Awaitable[Optional[Any]]]
-
-RouteSelector = Callable[[ActivityBase], bool]
 
 
 class ActivityRouter:

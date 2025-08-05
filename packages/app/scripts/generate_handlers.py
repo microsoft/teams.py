@@ -20,7 +20,16 @@ activity_config_path = (
 # as it will lead to a circular dependency
 # https://stackoverflow.com/questions/67631/how-can-i-import-a-module-dynamically-given-the-full-path
 if not TYPE_CHECKING:
-    spec = importlib.util.spec_from_file_location("activity_route_config", activity_config_path)
+    import sys
+
+    # Add the src directory to sys.path so relative imports work
+    src_path = str(Path(__file__).parent.parent / "src")
+    if src_path not in sys.path:
+        sys.path.insert(0, src_path)
+
+    spec = importlib.util.spec_from_file_location(
+        "microsoft.teams.app.routing.activity_route_configs", activity_config_path
+    )
     assert spec is not None, f"Could not find activity_route_configs.py at {activity_config_path}"
     activity_config = importlib.util.module_from_spec(spec)
     assert spec.loader is not None, f"Could not load activity_route_configs.py at {activity_config_path}"
@@ -41,6 +50,7 @@ def generate_imports() -> str:
         "from .activity_route_configs import ACTIVITY_ROUTES",
         "from microsoft.teams.models import ActivityBase",
         "from logging import Logger",
+        "from microsoft.teams.api import InvokeResponse",
     }
 
     # Add imports for each activity class
@@ -51,9 +61,14 @@ def generate_imports() -> str:
             imports.add(f"from microsoft.teams.api.models import {class_name}")
         else:
             imports.add(f"from microsoft.teams.api.activities import {class_name}")
-        if config.output_model:
+        if config.output_model or config.output_type_name:
             # Use explicit output_type_name if provided, otherwise fall back to __name__
-            output_class_name = config.output_type_name or config.output_model.__name__
+            output_class_name = config.output_type_name
+            if not output_class_name:
+                if config.output_model:
+                    output_class_name = config.output_model.__name__
+                else:
+                    raise ValueError(f"Output type for {config.name} must be specified in the config or as a string.")
             imports.add(f"from microsoft.teams.api.models.invoke_response import {output_class_name}")
 
     return "\n".join(sorted(imports))
@@ -68,22 +83,33 @@ def generate_method(config: ActivityConfig, config_key: str) -> str:
     input_class_name = config.input_model if isinstance(config.input_model, str) else config.input_model.__name__
 
     # Determine output type
-    if config.output_model:
+    if config.output_type_name or config.output_model:
         # Use explicit output_type_name if provided, otherwise fall back to __name__
-        output_class_name = config.output_type_name or config.output_model.__name__
+        output_class_name = config.output_type_name
+        if not output_class_name:
+            if config.output_model:
+                output_class_name = config.output_model.__name__
+            else:
+                raise ValueError(f"Output type for {method_name} must be specified in the config or as a string.")
+        if config.is_invoke:
+            output_class_name = f"Union[InvokeResponse[{output_class_name}], {output_class_name}]"
         output_type = f"Awaitable[{output_class_name}]"
     else:
-        output_type = "Awaitable[None]"
+        if config.is_invoke:
+            output_type = "Awaitable[Union[InvokeResponse[None], None]]"
+        else:
+            output_type = "Awaitable[None]"
 
     returnTypeStr = f"Callable[[ActivityContext[{input_class_name}]], {output_type}]"
+    returnTypeDecoratorStr = f"Callable[[{returnTypeStr}], {returnTypeStr}]"
 
     return f'''    @overload
     def {method_name}(self, handler: {returnTypeStr}) -> {returnTypeStr}: ...
         
     @overload
-    def {method_name}(self, handler: None = ...) -> {returnTypeStr}: ...
+    def {method_name}(self) -> {returnTypeDecoratorStr}: ...
         
-    def {method_name}(self, handler: Optional[{returnTypeStr}] = None) -> Callable[[{returnTypeStr}], {returnTypeStr}] | {returnTypeStr}:
+    def {method_name}(self, handler: Optional[{returnTypeStr}] = None) -> {returnTypeDecoratorStr} | {returnTypeStr}:
         """Register a {activity_name} activity handler."""
         def decorator(func: {returnTypeStr}) -> {returnTypeStr}:
             validate_handler_type(self.logger, func, {input_class_name}, "{method_name}", "{input_class_name}")
