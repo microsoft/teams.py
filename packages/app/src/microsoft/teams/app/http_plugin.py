@@ -214,7 +214,7 @@ class HttpPlugin(Sender):
     async def _on_activity(self, request: Request) -> Dict[str, Any]:
         """Handle incoming Teams activity."""
         body = await request.json()
-        self.logger.info(f"Received activity: {body}")
+        self.logger.info(f"Received activity: {body.get('type', 'unknown')}")
 
         # For now, just log and return success
         return {"status": "received"}
@@ -294,7 +294,6 @@ class HttpPlugin(Sender):
             if status_code is not None:
                 response.status_code = status_code
 
-            self.logger.info(f"Returning response: {resp_dict}")
             if body is not None:
                 return body
             return cast(Any, result)
