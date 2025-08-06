@@ -25,6 +25,7 @@ from microsoft.teams.api.activities import (
     FileConsentInvokeActivity,
     HandoffActionInvokeActivity,
     HandoffActivity,
+    InstalledActivity,
     InstallUpdateActivity,
     InvokeActivity,
     MeetingEndEventActivity,
@@ -54,6 +55,7 @@ from microsoft.teams.api.activities import (
     TaskSubmitInvokeActivity,
     TraceActivity,
     TypingActivity,
+    UninstalledActivity,
 )
 from microsoft.teams.api.models.invoke_response import (
     AdaptiveCardInvokeResponse,
@@ -2828,6 +2830,78 @@ class GeneratedActivityHandlerMixin(ABC):
                 self.logger, func, InstallUpdateActivity, "on_installation_update", "InstallUpdateActivity"
             )
             config = ACTIVITY_ROUTES["installation_update"]
+            self.router.add_handler(config.selector, func)
+            return func
+
+        if handler is not None:
+            return decorator(handler)
+        return decorator
+
+    @overload
+    def on_install_add(
+        self, handler: Callable[[ActivityContext[InstalledActivity]], Awaitable[None]]
+    ) -> Callable[[ActivityContext[InstalledActivity]], Awaitable[None]]: ...
+
+    @overload
+    def on_install_add(
+        self,
+    ) -> Callable[
+        [Callable[[ActivityContext[InstalledActivity]], Awaitable[None]]],
+        Callable[[ActivityContext[InstalledActivity]], Awaitable[None]],
+    ]: ...
+
+    def on_install_add(
+        self, handler: Optional[Callable[[ActivityContext[InstalledActivity]], Awaitable[None]]] = None
+    ) -> (
+        Callable[
+            [Callable[[ActivityContext[InstalledActivity]], Awaitable[None]]],
+            Callable[[ActivityContext[InstalledActivity]], Awaitable[None]],
+        ]
+        | Callable[[ActivityContext[InstalledActivity]], Awaitable[None]]
+    ):
+        """Register a install.add activity handler."""
+
+        def decorator(
+            func: Callable[[ActivityContext[InstalledActivity]], Awaitable[None]],
+        ) -> Callable[[ActivityContext[InstalledActivity]], Awaitable[None]]:
+            validate_handler_type(self.logger, func, InstalledActivity, "on_install_add", "InstalledActivity")
+            config = ACTIVITY_ROUTES["install.add"]
+            self.router.add_handler(config.selector, func)
+            return func
+
+        if handler is not None:
+            return decorator(handler)
+        return decorator
+
+    @overload
+    def on_install_remove(
+        self, handler: Callable[[ActivityContext[UninstalledActivity]], Awaitable[None]]
+    ) -> Callable[[ActivityContext[UninstalledActivity]], Awaitable[None]]: ...
+
+    @overload
+    def on_install_remove(
+        self,
+    ) -> Callable[
+        [Callable[[ActivityContext[UninstalledActivity]], Awaitable[None]]],
+        Callable[[ActivityContext[UninstalledActivity]], Awaitable[None]],
+    ]: ...
+
+    def on_install_remove(
+        self, handler: Optional[Callable[[ActivityContext[UninstalledActivity]], Awaitable[None]]] = None
+    ) -> (
+        Callable[
+            [Callable[[ActivityContext[UninstalledActivity]], Awaitable[None]]],
+            Callable[[ActivityContext[UninstalledActivity]], Awaitable[None]],
+        ]
+        | Callable[[ActivityContext[UninstalledActivity]], Awaitable[None]]
+    ):
+        """Register a install.remove activity handler."""
+
+        def decorator(
+            func: Callable[[ActivityContext[UninstalledActivity]], Awaitable[None]],
+        ) -> Callable[[ActivityContext[UninstalledActivity]], Awaitable[None]]:
+            validate_handler_type(self.logger, func, UninstalledActivity, "on_install_remove", "UninstalledActivity")
+            config = ACTIVITY_ROUTES["install.remove"]
             self.router.add_handler(config.selector, func)
             return func
 

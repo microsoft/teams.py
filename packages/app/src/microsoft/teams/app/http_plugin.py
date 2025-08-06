@@ -214,7 +214,7 @@ class HttpPlugin(Sender):
     async def _on_activity(self, request: Request) -> Dict[str, Any]:
         """Handle incoming Teams activity."""
         body = await request.json()
-        self.logger.info(f"Received activity: {body.get('type', 'unknown')}")
+        self.logger.info(f"Received activity: {body}")
 
         # For now, just log and return success
         return {"status": "received"}
@@ -282,7 +282,7 @@ class HttpPlugin(Sender):
             if isinstance(result, dict):
                 resp_dict = cast(Dict[str, Any], result)
             elif isinstance(result, BaseModel):
-                resp_dict = result.model_dump()
+                resp_dict = result.model_dump(exclude_none=True)
 
             # if resp_dict has status set it
             if resp_dict and "status" in resp_dict:
@@ -294,6 +294,7 @@ class HttpPlugin(Sender):
             if status_code is not None:
                 response.status_code = status_code
 
+            self.logger.info(f"Returning response: {resp_dict}")
             if body is not None:
                 return body
             return cast(Any, result)
