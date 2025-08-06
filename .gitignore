@@ -24,4 +24,4 @@ ref/
 py.typed
 CLAUDE.md
 
-.env
+.env.claude/
