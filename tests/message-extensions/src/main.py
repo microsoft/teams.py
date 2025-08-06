@@ -6,6 +6,7 @@ Licensed under the MIT License.
 import asyncio
 import os
 from pathlib import Path
+from typing import cast
 
 from microsoft.teams.api import (
     AdaptiveCardAttachment,
@@ -41,6 +42,7 @@ from microsoft.teams.api.models import (
     TaskModuleContinueResponse,
 )
 from microsoft.teams.app import ActivityContext, App
+from typing_extensions import Any, Dict
 
 from .cards import (
     create_card,
@@ -225,7 +227,7 @@ async def handle_config_open(ctx: ActivityContext[ConfigFetchInvokeActivity]):
 async def handle_config_submit(ctx: ActivityContext[ConfigSubmitInvokeActivity]):
     value = ctx.activity.value
     assert isinstance(value, dict), "ConfigSubmitInvokeActivity value must be a dictionary"
-    state = ctx.activity.value.get("data", None)
+    state = cast(Dict[str, Any], value).get("data", None)
 
     return ConfigInvokeResponse(config=TaskModuleMessageResponse(value=f"Configuration saved with value: {state}"))
 
