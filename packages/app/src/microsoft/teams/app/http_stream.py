@@ -40,6 +40,8 @@ class HttpStream(StreamerProtocol):
         self._result: Optional[Resource] = None
         self._lock = asyncio.Lock()
         self._timeout: Optional[asyncio.Task[None]] = None
+        self._id_set_event = asyncio.Event()
+        self._queue_empty_event = asyncio.Event()
 
     @property
     def closed(self) -> bool:
@@ -65,6 +67,9 @@ class HttpStream(StreamerProtocol):
             activity = MessageActivityInput(text=activity, type="message")
         self._queue.append(activity)
 
+        # Clear the queue empty event since we just added an item
+        self._queue_empty_event.clear()
+
         self._timeout = asyncio.create_task(self._delayed_flush())
 
     def update(self, text: str) -> None:
@@ -80,8 +85,20 @@ class HttpStream(StreamerProtocol):
             return None
 
         # Wait until _id is set and queue is empty
-        while not self._id or self._queue:  # noqa: ASYNC110
-            await asyncio.sleep(0.05)
+        while not self._id or self._queue:
+            # Create tasks for the events we're waiting for
+            tasks: List[asyncio.Task[bool]] = []
+            if not self._id:
+                tasks.append(asyncio.create_task(self._id_set_event.wait()))
+            if self._queue:
+                tasks.append(asyncio.create_task(self._queue_empty_event.wait()))
+
+            if tasks:
+                # Wait for at least one event to be set
+                await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+                # Cancel any remaining tasks
+                for task in tasks:
+                    task.cancel()
 
         # Build final message
         activity = MessageActivityInput(text=self._text).with_id(self._id).with_channel_data(self._channel_data)
@@ -124,8 +141,8 @@ class HttpStream(StreamerProtocol):
                     self._text += activity.text or ""
                     self._attachments.extend(activity.attachments or [])
                     self._entities.extend(activity.entities or [])
-                if hasattr(activity, "channel_data") and activity.channel_data:  # type: ignore
-                    merged = {**self._channel_data.model_dump(), **activity.channel_data.model_dump()}  # type: ignore
+                if isinstance(activity, (MessageActivityInput, TypingActivityInput)) and activity.channel_data:
+                    merged = {**self._channel_data.model_dump(), **activity.channel_data.model_dump()}
                     self._channel_data = ChannelData(**merged)
                 if (
                     isinstance(activity, TypingActivityInput)
@@ -158,6 +175,12 @@ class HttpStream(StreamerProtocol):
             if self._id is None:
                 self._id = res.id
                 print(f"Stream ID set: {self._id}")
+                # Signal that ID has been set
+                self._id_set_event.set()
+
+            # Signal if queue is now empty
+            if not self._queue:
+                self._queue_empty_event.set()
 
             # If more queued, schedule another flush
             if self._queue:
