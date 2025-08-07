@@ -182,7 +182,6 @@ class HttpStream(StreamerProtocol):
             self._index += 1
             if self._id is None:
                 self._id = res.id
-                print(f"Stream ID set: {self._id}")
                 # Signal that ID has been set
                 self._id_set_event.set()
 
