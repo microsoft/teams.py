@@ -67,12 +67,13 @@ class TeamsTokenCredential(TokenCredential):
             # Run the async token retrieval
             token_response = loop.run_until_complete(self._get_token_async())
 
-            # Create AccessToken with expiration (default to 1 hour if not provided)
-            expires_on = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=1)
+            # Use actual token expiration from response
+            expires_on = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=1)  # Default fallback
             if token_response.expiration:
                 try:
-                    expires_on = datetime.datetime.fromisoformat(token_response.expiration)
-                except ValueError:
+                    # Parse the expiration from token response
+                    expires_on = datetime.datetime.fromisoformat(token_response.expiration.replace("Z", "+00:00"))
+                except (ValueError, AttributeError):
                     # If parsing fails, use default expiration
                     pass
 

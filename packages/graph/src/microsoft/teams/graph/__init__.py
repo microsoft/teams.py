@@ -3,7 +3,7 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from typing import Any, List, Optional
+from typing import Any, Optional
 
 from azure.core.exceptions import ClientAuthenticationError
 from microsoft.teams.app.routing.activity_context import ActivityContext
@@ -11,13 +11,11 @@ from msgraph.graph_service_client import GraphServiceClient
 
 from .auth_provider import TeamsTokenCredential
 
-# Default Microsoft Graph scopes
-_DEFAULT_SCOPES = ["https://graph.microsoft.com/.default"]
+# Remove default scopes - let Graph SDK handle defaults
 
 
-async def get_graph_client(
+def get_graph_client(
     context: "ActivityContext[Any]",
-    scopes: Optional[List[str]] = None,
     connection_name: Optional[str] = None,
 ) -> GraphServiceClient:
     """
@@ -28,7 +26,6 @@ async def get_graph_client(
 
     Args:
         context: The Teams activity context containing user authentication state
-        scopes: List of Microsoft Graph scopes (defaults to ['.default'])
         connection_name: OAuth connection name (defaults to context.connection_name)
 
     Returns:
@@ -41,24 +38,19 @@ async def get_graph_client(
     Example:
         ```python
         @app.on_message
-        async def handle_message(ctx: ActivityContext):
+        def handle_message(ctx: ActivityContext):
             if not ctx.is_signed_in:
-                await ctx.sign_in()
+                # User needs to sign in first
                 return
 
-            # Get Graph client with default scopes
-            graph = await get_graph_client(ctx)
+            # Get Graph client (now synchronous)
+            graph = get_graph_client(ctx)
 
             # Make Graph API calls
-            me = await graph.me.get()
-            messages = await graph.me.messages.get()
+            me = graph.me.get()
+            messages = graph.me.messages.get()
 
-            await ctx.send(f"Hello {me.display_name}, you have {len(messages.value)} messages")
-        ```
-
-        ```python
-        # Custom scopes example
-        graph = await get_graph_client(ctx, scopes=["User.Read", "Mail.Read"])
+            ctx.send(f"Hello {me.display_name}, you have {len(messages.value)} messages")
         ```
     """
     if not context:
@@ -67,22 +59,20 @@ async def get_graph_client(
     if not context.activity or not context.activity.from_:
         raise ValueError("Context must contain valid activity with sender information")
 
-    # Use provided scopes or defaults
-    request_scopes = scopes or _DEFAULT_SCOPES
     connection = connection_name or context.connection_name
 
     # Verify user is signed in
     if not context.is_signed_in:
         raise ClientAuthenticationError(
-            "User is not signed in. Call 'await context.sign_in()' before accessing Microsoft Graph."
+            "User is not signed in. Call 'context.sign_in()' before accessing Microsoft Graph."
         )
 
     try:
         # Create Teams token credential
         credential = TeamsTokenCredential(context, connection)
 
-        # Create Graph service client
-        client = GraphServiceClient(credentials=credential, scopes=request_scopes)
+        # Create Graph service client (let SDK handle default scopes)
+        client = GraphServiceClient(credentials=credential)
 
         return client
 
@@ -94,12 +84,12 @@ async def get_graph_client(
         raise ClientAuthenticationError(f"Failed to create Microsoft Graph client: {str(e)}") from e
 
 
-async def get_user_graph_client(context: "ActivityContext[Any]") -> GraphServiceClient:
+def get_user_graph_client(context: "ActivityContext[Any]") -> GraphServiceClient:
     """
-    Convenience function to get a Graph client with user-focused scopes.
+    Convenience function to get a Graph client for user-focused operations.
 
-    This is equivalent to calling get_graph_client() with User.Read scope,
-    but provides a more explicit name for user-focused operations.
+    This is equivalent to calling get_graph_client() but provides a more explicit name
+    for user-focused operations.
 
     Args:
         context: The Teams activity context containing user authentication state
@@ -110,7 +100,7 @@ async def get_user_graph_client(context: "ActivityContext[Any]") -> GraphService
     Raises:
         ClientAuthenticationError: If the user is not signed in or authentication fails
     """
-    return await get_graph_client(context, scopes=["User.Read"])
+    return get_graph_client(context)
 
 
 # Export public API

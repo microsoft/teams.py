@@ -82,8 +82,8 @@ async def handle_profile_command(ctx: ActivityContext[MessageActivity]):
             await ctx.sign_in()
             return
 
-        # Get Graph client with user scopes
-        graph = await get_user_graph_client(ctx)
+        # Get Graph client with user scopes (now synchronous)
+        graph = get_user_graph_client(ctx)
 
         # Fetch user profile
         me = await graph.me.get()
@@ -120,11 +120,20 @@ async def handle_emails_command(ctx: ActivityContext[MessageActivity]):
             await ctx.sign_in()
             return
 
-        # Get Graph client with mail reading permissions
-        graph = await get_graph_client(ctx, scopes=["User.Read", "Mail.Read"])
+        # Get Graph client (now synchronous, no scopes needed)
+        graph = get_graph_client(ctx)
 
-        # Fetch recent messages (top 5)
-        messages = await graph.me.messages.get(top=5)
+        # Fetch recent messages (top 5) using proper RequestConfiguration pattern
+        from msgraph.generated.users.item.messages.messages_request_builder import MessagesRequestBuilder
+
+        query_params = MessagesRequestBuilder.MessagesRequestBuilderGetQueryParameters(
+            select=["subject", "from", "receivedDateTime"], top=5
+        )
+        request_config = MessagesRequestBuilder.MessagesRequestBuilderGetRequestConfiguration(
+            query_parameters=query_params
+        )
+
+        messages = await graph.me.messages.get(request_configuration=request_config)
 
         if messages and messages.value:
             email_list = "📧 **Your Recent Emails**\n\n"
@@ -132,7 +141,7 @@ async def handle_emails_command(ctx: ActivityContext[MessageActivity]):
             for i, message in enumerate(messages.value[:5], 1):
                 subject = message.subject or "No Subject"
                 sender = (
-                    message.sender.email_address.name if message.sender and message.sender.email_address else "Unknown"
+                    message.from_.email_address.name if message.from_ and message.from_.email_address else "Unknown"
                 )
                 received = (
                     message.received_date_time.strftime("%Y-%m-%d %H:%M") if message.received_date_time else "Unknown"
