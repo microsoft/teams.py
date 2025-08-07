@@ -26,7 +26,7 @@ class Message(CustomBaseModel):
     reply_to_id: Optional[str] = None
     "Id of the parent/root message of the thread."
 
-    message_type: Optional[Literal["message"]]
+    message_type: Optional[Literal["message"]] = "message"
     "Type of message - automatically set to message."
 
     created_date_time: Optional[str] = None
@@ -53,7 +53,7 @@ class Message(CustomBaseModel):
     link_to_message: Optional[str] = None
     "Link back to the message."
 
-    from_: Optional[MessageFrom]
+    from_: Optional[MessageFrom] = None
     "Sender of the message."
 
     body: Optional[MessageBody] = None
