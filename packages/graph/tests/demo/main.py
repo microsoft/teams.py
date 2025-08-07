@@ -3,16 +3,6 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-"""
-Copyright (c) Microsoft Corporation. All rights reserved.
-Licensed under the MIT License.
-
-Microsoft Teams Graph Integration - Demo Application
-
-This demo shows how to use the Microsoft Graph integration with the Teams AI SDK.
-It demonstrates user authentication, Graph API calls, and error handling.
-"""
-
 import asyncio
 
 from azure.core.exceptions import ClientAuthenticationError
@@ -124,7 +114,9 @@ async def handle_emails_command(ctx: ActivityContext[MessageActivity]):
         graph = get_graph_client(ctx)
 
         # Fetch recent messages (top 5) using proper RequestConfiguration pattern
-        from msgraph.generated.users.item.messages.messages_request_builder import MessagesRequestBuilder
+        from msgraph.generated.users.item.messages.messages_request_builder import (  # type: ignore
+            MessagesRequestBuilder,
+        )
 
         query_params = MessagesRequestBuilder.MessagesRequestBuilderGetQueryParameters(
             select=["subject", "from", "receivedDateTime"], top=5
