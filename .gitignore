@@ -25,3 +25,4 @@ py.typed
 CLAUDE.md
 
 .env.claude/
+.claude/
