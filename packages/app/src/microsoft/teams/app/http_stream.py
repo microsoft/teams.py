@@ -58,6 +58,14 @@ class HttpStream(StreamerProtocol):
         """The sequence number, representing the number of stream activities sent."""
         return self._index
 
+    @property
+    def events(self) -> EventEmitter[IStreamerEvents]:
+        """
+        Provides access to event listener registration for stream events,
+        but does not allow emitting them directly.
+        """
+        return self._events
+
     def emit(self, activity: Union[MessageActivityInput, TypingActivityInput, str]) -> None:
         if self._timeout is not None:
             self._timeout.cancel()

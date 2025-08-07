@@ -8,6 +8,7 @@ from typing import Literal, Optional, Protocol, Union
 from microsoft.teams.api.activities.message import MessageActivityInput
 from microsoft.teams.api.activities.typing import TypingActivityInput
 from microsoft.teams.api.models.resource import Resource
+from microsoft.teams.common.events.event_emitter import EventEmitter
 
 # Define the event names that streamers should support
 IStreamerEvents = Literal["chunk", "close"]
@@ -33,6 +34,14 @@ class StreamerProtocol(Protocol):
 
         Several chunks can be aggregated into one stream activity
         due to differences in Api rate limits.
+        """
+        ...
+
+    @property
+    def events(self) -> EventEmitter[IStreamerEvents]:
+        """
+        Provides access to event listener registration for stream events,
+        but does not allow emitting them directly.
         """
         ...
 

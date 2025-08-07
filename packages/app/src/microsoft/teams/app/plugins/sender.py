@@ -21,6 +21,6 @@ class Sender(Plugin):
         pass
 
     @abstractmethod
-    async def create_stream(self, ref: ConversationReference) -> StreamerProtocol:
+    def create_stream(self, ref: ConversationReference) -> StreamerProtocol:
         """Called by the App to create a new activity stream"""
         pass
