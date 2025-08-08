@@ -4,10 +4,28 @@ Licensed under the MIT License.
 """
 
 from logging import Logger
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Union, cast
 
-from microsoft.teams.api import ActivityBase
+from microsoft.teams.api import (
+    ActivityBase,
+    ActivityParams,
+    ApiClient,
+    ConversationReference,
+    GetUserTokenParams,
+    InvokeResponse,
+    SentActivity,
+    TokenProtocol,
+)
+from microsoft.teams.app import ActivityResponseEvent, ActivitySentEvent
+from microsoft.teams.cards.adaptive_card import AdaptiveCard
+from microsoft.teams.common.http.client import Client, ClientOptions
+from microsoft.teams.common.storage.local_storage import LocalStorage
+from microsoft.teams.common.storage.storage import Storage
 
+from .app_events import EventManager
+from .app_tokens import AppTokens
+from .events import ActivityEvent
+from .plugins import PluginActivityEvent, PluginBase, Sender
 from .routing.activity_context import ActivityContext
 from .routing.router import ActivityHandler, ActivityRouter
 
@@ -15,20 +33,124 @@ from .routing.router import ActivityHandler, ActivityRouter
 class ActivityProcessor:
     """Provides activity processing functionality with middleware chain support."""
 
-    def __init__(self, router: ActivityRouter, logger: Logger) -> None:
+    def __init__(
+        self,
+        router: ActivityRouter,
+        logger: Logger,
+        id: Optional[str],
+        storage: Union[Storage[str, Any], LocalStorage[Any]],
+        default_connection_name: str,
+        http_client: Client,
+        token: AppTokens,
+    ) -> None:
         self.router = router
         self.logger = logger
+        self.id = id
+        self.storage = storage
+        self.default_connection_name = default_connection_name
+        self.http_client = http_client
+        self.tokens = token
 
-    async def process_activity(self, activityCtx: ActivityContext[ActivityBase]) -> Optional[Dict[str, Any]]:
+    async def build_context(self, activity: ActivityBase, token: TokenProtocol) -> ActivityContext[ActivityBase]:
+        """Build the context object for activity processing.
+
+        Args:
+            activity: The validated Activity object
+
+        Returns:
+            Context object for middleware chain execution
+        """
+
+        service_url = activity.service_url or token.service_url
+        conversation_ref = ConversationReference(
+            service_url=service_url,
+            activity_id=activity.id,
+            bot=activity.recipient,
+            channel_id=activity.channel_id,
+            conversation=activity.conversation,
+            locale=activity.locale,
+            user=activity.from_,
+        )
+        api_client = ApiClient(service_url, self.http_client.clone(ClientOptions(token=self.tokens.bot)))
+
+        # Check if user is signed in
+        is_signed_in = False
+        try:
+            await api_client.users.token.get(
+                GetUserTokenParams(
+                    connection_name=self.default_connection_name or "default",
+                    user_id=activity.from_.id,
+                    channel_id=activity.channel_id,
+                )
+            )
+            is_signed_in = True
+        except Exception:
+            # User token not available
+            pass
+
+        return ActivityContext(
+            activity,
+            self.id or "",
+            self.logger,
+            self.storage,
+            api_client,
+            conversation_ref,
+            is_signed_in,
+            self.default_connection_name,
+        )
+
+    async def process_activity(
+        self, plugins: List[PluginBase], sender: Sender, event: ActivityEvent, event_manager: EventManager
+    ) -> Optional[InvokeResponse[Any]]:
+        # TODO: Add print statements
+
+        activityCtx = await self.build_context(event.activity, event.token)
+
         self.logger.debug(f"Received activity: {activityCtx.activity}")
 
         # Get registered handlers for this activity type
         handlers = self.router.select_handlers(activityCtx.activity)
 
-        response = None
+        def create_route(plugin: PluginBase) -> ActivityHandler:
+            async def route(ctx: ActivityContext[ActivityBase]) -> Optional[Any]:
+                await plugin.on_activity(PluginActivityEvent(sender=sender, activity=event.activity, token=event.token))
+                await ctx.next()
+
+            return route
+
+        for plugin in reversed(plugins):
+            if hasattr(plugin, "on_activity") and callable(plugin.on_activity):
+                handlers.insert(0, create_route(plugin))
+
+        send = activityCtx.send
+
+        async def updated_send(message: str | ActivityParams | AdaptiveCard) -> SentActivity:
+            res = await send(message)
+
+            await event_manager.on_activity_sent(
+                sender, ActivitySentEvent(sender=sender, activity=res), plugins=plugins
+            )
+            return res
+
+        activityCtx.send = updated_send
+
+        response: Optional[InvokeResponse[Any]] = None
+
         # If no registered handlers, fall back to legacy activity_handler
         if handlers:
-            response = await self.execute_middleware_chain(activityCtx, handlers)
+            middleware_result = await self.execute_middleware_chain(activityCtx, handlers)
+            if middleware_result is None:
+                pass
+            # TODO: Commented out - need to pull from main branch
+            # elif not is_invoke_response(middleware_result):
+            #     response = InvokeResponse[Any](status=200, body=middleware_result)
+            else:
+                response = cast(InvokeResponse[Any], middleware_result)
+
+            if response:
+                await event_manager.on_activity_response(
+                    sender, ActivityResponseEvent(activity=event.activity, response=response), plugins=plugins
+                )
 
         self.logger.debug("Completed processing activity")
 
@@ -46,7 +168,7 @@ class ActivityProcessor:
         Returns:
             Response from handlers, if any
         """
-        if not handlers:
+        if not handlers or len(handlers) == 0:
             return None
 
         # Track response from handlers

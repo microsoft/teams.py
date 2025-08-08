@@ -4,13 +4,22 @@ Licensed under the MIT License.
 """
 
 import inspect
-from typing import Any, Callable, Dict, Literal, Optional, Type, cast
+from typing import Any, Callable, Dict, Literal, Optional, Type, Union, cast
 
 from .base import EventProtocol
-from .types import ActivityEvent, ErrorEvent, SignInEvent, StartEvent, StopEvent
+from .types import (
+    ActivityEvent,
+    ActivityResponseEvent,
+    ActivitySentEvent,
+    ErrorEvent,
+    SignInEvent,
+    StartEvent,
+    StopEvent,
+)
 
 # Core event type literals for type safety
-EventType = Literal["activity", "error", "start", "stop", "sign_in"]
+CoreEventType = Literal["activity", "error", "start", "stop", "sign_in", "activity_response", "activity_sent"]
+EventType = Union[CoreEventType, str]
 
 # Registry mapping event names to their corresponding event classes
 EVENT_TYPE_REGISTRY: Dict[str, Type[EventProtocol]] = {
@@ -19,6 +28,8 @@ EVENT_TYPE_REGISTRY: Dict[str, Type[EventProtocol]] = {
     "start": StartEvent,
     "stop": StopEvent,
     "sign_in": SignInEvent,
+    "activity_response": ActivityResponseEvent,
+    "activity_sent": ActivitySentEvent,
 }
 
 # Reverse lookup: event class to event name

@@ -8,13 +8,13 @@ from typing import TYPE_CHECKING, Optional
 from microsoft.teams.api import Activity, CustomBaseModel
 
 if TYPE_CHECKING:
-    from .plugin import Plugin
+    from .plugin_base import PluginBase
 
 
 class PluginErrorEvent(CustomBaseModel):
     """Event emitted when an error occurs."""
 
-    sender: Optional["Plugin"]
+    sender: Optional["PluginBase"] = None
     """The sender"""
 
     error: Exception

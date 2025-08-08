@@ -20,7 +20,7 @@ from ...activities.message import (
 )
 from ...activities.trace import TraceActivityInput
 from ...activities.typing import TypingActivityInput
-from ...models import Account, Resource
+from ...models import Account, SentActivity
 from ..base_client import BaseClient
 
 # Union of all activity input types (each defined next to their respective activities)
@@ -63,7 +63,7 @@ class ConversationActivityClient(BaseClient):
         super().__init__(http_client)
         self.service_url = service_url
 
-    async def create(self, conversation_id: str, activity: ActivityParams) -> Resource:
+    async def create(self, conversation_id: str, activity: ActivityParams) -> SentActivity:
         """
         Create a new activity in a conversation.
 
@@ -78,9 +78,9 @@ class ConversationActivityClient(BaseClient):
             f"{self.service_url}/v3/conversations/{conversation_id}/activities",
             json=activity.model_dump(by_alias=True),
         )
-        return Resource(**response.json())
+        return SentActivity(**response.json())
 
-    async def update(self, conversation_id: str, activity_id: str, activity: ActivityParams) -> Resource:
+    async def update(self, conversation_id: str, activity_id: str, activity: ActivityParams) -> SentActivity:
         """
         Update an existing activity in a conversation.
 
@@ -96,9 +96,9 @@ class ConversationActivityClient(BaseClient):
             f"{self.service_url}/v3/conversations/{conversation_id}/activities/{activity_id}",
             json=activity.model_dump(by_alias=True),
         )
-        return Resource(**response.json())
+        return SentActivity(**response.json())
 
-    async def reply(self, conversation_id: str, activity_id: str, activity: ActivityParams) -> Resource:
+    async def reply(self, conversation_id: str, activity_id: str, activity: ActivityParams) -> SentActivity:
         """
         Reply to an activity in a conversation.
 
@@ -116,7 +116,7 @@ class ConversationActivityClient(BaseClient):
             f"{self.service_url}/v3/conversations/{conversation_id}/activities/{activity_id}",
             json=activity_json,
         )
-        return Resource(**response.json())
+        return SentActivity(**response.json())
 
     async def delete(self, conversation_id: str, activity_id: str) -> None:
         """

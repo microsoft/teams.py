@@ -6,17 +6,17 @@ Licensed under the MIT License.
 from abc import abstractmethod
 
 from microsoft.teams.api.clients.conversation import ActivityParams
-from microsoft.teams.api.models import ConversationReference, Resource
+from microsoft.teams.api.models import ConversationReference, SentActivity
 
-from .plugin import Plugin
+from .plugin_base import PluginBase
 from .streamer import StreamerProtocol
 
 
-class Sender(Plugin):
+class Sender(PluginBase):
     """A plugin that can send activities"""
 
     @abstractmethod
-    async def send(self, activity: ActivityParams, ref: ConversationReference) -> Resource:
+    async def send(self, activity: ActivityParams, ref: ConversationReference) -> SentActivity:
         """Called by the App to send an activity"""
         pass
 

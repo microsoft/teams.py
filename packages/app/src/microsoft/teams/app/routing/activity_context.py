@@ -19,7 +19,7 @@ from microsoft.teams.api import (
     GetBotSignInResourceParams,
     GetUserTokenParams,
     MessageActivityInput,
-    Resource,
+    SentActivity,
     SignOutUserParams,
     TokenExchangeResource,
     TokenExchangeState,
@@ -32,7 +32,7 @@ from microsoft.teams.common import Storage
 
 T = TypeVar("T", bound=ActivityBase, contravariant=True)
 
-SendCallable = Callable[[str | ActivityParams | AdaptiveCard], Awaitable[Resource]]
+SendCallable = Callable[[str | ActivityParams | AdaptiveCard], Awaitable[SentActivity]]
 
 
 @dataclass
@@ -74,7 +74,7 @@ class ActivityContext(Generic[T]):
 
         self._next_handler: Optional[Callable[[], Awaitable[None]]] = None
 
-    async def send(self, message: str | ActivityParams | AdaptiveCard) -> Resource:
+    async def send(self, message: str | ActivityParams | AdaptiveCard) -> SentActivity:
         """Send a message to the conversation."""
         if isinstance(message, str):
             activity = MessageActivityInput(text=message)
@@ -86,7 +86,7 @@ class ActivityContext(Generic[T]):
         res = await self.api.conversations.activities(self.conversation_ref.conversation.id).create(activity)
         return res
 
-    async def reply(self, input: str | ActivityParams) -> Resource:
+    async def reply(self, input: str | ActivityParams) -> SentActivity:
         """Send a reply to the activity."""
         activity = MessageActivityInput(text=input) if isinstance(input, str) else input
         if isinstance(activity, MessageActivityInput):

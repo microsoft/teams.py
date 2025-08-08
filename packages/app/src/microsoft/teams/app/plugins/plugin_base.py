@@ -6,7 +6,7 @@ Licensed under the MIT License.
 from typing import Callable
 
 from microsoft.teams.api.clients.conversation import ActivityParams
-from microsoft.teams.api.models import Resource
+from microsoft.teams.api.models import SentActivity
 from microsoft.teams.api.models.conversation import ConversationReference
 
 from ..events import ActivityEvent, ErrorEvent
@@ -28,7 +28,7 @@ Emitted when the plugin receives an activity
 """
 
 
-class Plugin:
+class PluginBase:
     """The base plugin for Teams app plugins."""
 
     async def on_init(self) -> None:
@@ -59,7 +59,7 @@ class Plugin:
         """Called by the App when an activity response is sent."""
         ...
 
-    async def send(self, activity: ActivityParams, ref: ConversationReference) -> Resource:
+    async def send(self, activity: ActivityParams, ref: ConversationReference) -> SentActivity:
         """Called by the App to send an activity"""
         ...
 

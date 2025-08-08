@@ -53,4 +53,9 @@ class ConsoleLogger:
         pattern = os.environ.get("LOG") or options_pattern
         logger.addFilter(ConsoleFilter(pattern))
 
+        self._logger = logger
+
         return logger
+
+    def get_child(self, name: str) -> logging.Logger:
+        return self._logger.getChild(name)

@@ -4,41 +4,47 @@ Licensed under the MIT License.
 """
 
 import asyncio
+import importlib.metadata
 from contextlib import asynccontextmanager
-from dataclasses import dataclass
 from logging import Logger
-from typing import Any, AsyncGenerator, Awaitable, Callable, Dict, Optional
+from typing import Annotated, Any, AsyncGenerator, Awaitable, Callable, Dict, Optional
 
 import uvicorn
 from fastapi import FastAPI, Request
-from microsoft.teams.api import ActivityParams, TokenProtocol
-from microsoft.teams.api.models import ConversationReference, Resource
+from microsoft.teams.api import Activity, ActivityParams, ApiClient, ConversationReference, TokenProtocol
 from microsoft.teams.app.plugins import PluginStartEvent, Sender, StreamerProtocol
+from microsoft.teams.common.http.client import Client, ClientOptions
 from microsoft.teams.common.logging import ConsoleLogger
 
 from .auth import create_jwt_validation_middleware
+from .events import ActivityEvent, ErrorEvent
+from .plugins import DependencyMetadata, EventMetadata, LoggerDependencyOptions
+from .plugins.metadata import PluginOptions, plugin
+
+version = importlib.metadata.version("microsoft-teams-app")
 
 
-@dataclass
-class HttpActivityEvent:
-    activity_payload: Dict[str, Any]
-    token: TokenProtocol
-
-
-ActivityHandler = Callable[[HttpActivityEvent], Awaitable[Any]]
-
-
+@plugin(PluginOptions(name="http", version=version, description="the default plugin for sending/receiving activities"))
 class HttpPlugin(Sender):
     """
     Basic HTTP plugin that provides a FastAPI server for Teams activities.
     """
+
+    logger: Annotated[Logger, LoggerDependencyOptions()]
+
+    on_error_event: Annotated[Callable[[ErrorEvent], None], EventMetadata(name="error")]
+    on_activity_event: Annotated[Callable[[ActivityEvent], None], EventMetadata(name="activity")]
+
+    client: Annotated[Client, DependencyMetadata()]
+
+    bot_token: Annotated[Optional[Callable[[], TokenProtocol]], DependencyMetadata(optional=True)]
+    graph_token: Annotated[Optional[Callable[[], TokenProtocol]], DependencyMetadata(optional=True)]
 
     def __init__(
         self,
         app_id: Optional[str],
         logger: Optional[Logger] = None,
         enable_token_validation: bool = True,
-        activity_handler: Optional[ActivityHandler] = None,
     ):
         super().__init__()
         self.logger = logger or ConsoleLogger().create_logger("@teams/http-plugin")
@@ -49,10 +55,6 @@ class HttpPlugin(Sender):
 
         # Storage for pending HTTP responses by activity ID
         self.pending: Dict[str, asyncio.Future[Any]] = {}
-
-        # Activity handler for processing.
-        # Once plugins work, this should be injected in.
-        self.activity_handler = activity_handler
 
         # Setup FastAPI app with lifespan
         @asynccontextmanager
@@ -174,7 +176,20 @@ class HttpPlugin(Sender):
         else:
             self.logger.error(f"Plugin error: {error}")
 
-    async def _process_activity(self, activity: Dict[str, Any], activity_id: str, token: TokenProtocol) -> None:
+    async def send(self, activity: ActivityParams, ref: ConversationReference) -> Dict[str, Any]:
+        api = ApiClient(service_url=ref.service_url, options=self.client.clone(ClientOptions(token=self.bot_token)))
+
+        activity.from_ = ref.bot
+        activity.conversation = ref.conversation
+
+        if activity.id:
+            res = await api.conversations.activities(ref.conversation.id).update(activity.id, activity)
+            return {**activity.model_dump(), **res.model_dump()}
+
+        res = await api.conversations.activities(ref.conversation.id).create(activity)
+        return {**activity.model_dump(), **res.model_dump()}
+
+    async def _process_activity(self, activity: Activity, activity_id: str, token: TokenProtocol) -> None:
         """
         Process an activity via the registered handler.
 
@@ -184,26 +199,23 @@ class HttpPlugin(Sender):
             activity_id: The activity ID for response coordination
         """
         try:
-            # Call the activity handler
-            if self.activity_handler:
-                event = HttpActivityEvent(activity, token)
-                await self.activity_handler(event)
+            if callable(self.on_activity_event):
+                event = ActivityEvent(activity=activity, sender=self, token=token)
+                self.on_activity_event(event)
             else:
                 self.on_activity_response(
                     activity_id,
                     {"status": "received", "message": "No handler registered"},
                 )
         except Exception as error:
-            # Complete with error
             self.on_error(error, activity_id)
 
-    async def _on_activity(self, request: Request) -> Dict[str, Any]:
-        """Handle incoming Teams activity."""
-        body = await request.json()
-        self.logger.info(f"Received activity: {body.get('type', 'unknown')}")
-
-        # For now, just log and return success
-        return {"status": "received"}
+    # TODO: REFACTOR 1.0
+    # async def on_activity(self, request: Request) -> Dict[str, Any]:
+    #     """Handle incoming Teams activity."""
+    #     body = await request.json()
+    #     self.logger.info(f"Received activity: {body.get('type', 'unknown')}")
+    #     return {"status": "received"}
 
     async def _handle_activity_request(self, request: Request) -> Any:
         """
@@ -233,7 +245,7 @@ class HttpPlugin(Sender):
         self.pending[activity_id] = response_future
 
         # Fire activity processing via callback
-        if self.activity_handler:
+        if callable(self.on_activity_event):
             try:
                 # Call the activity handler asynchronously
                 self.logger.debug(f"Processing activity {activity_id} via handler...")
@@ -270,9 +282,6 @@ class HttpPlugin(Sender):
             return {"status": "healthy", "port": self._port}
 
         self.app.get("/")(health_check)
-
-    async def send(self, activity: ActivityParams, ref: ConversationReference) -> Resource:
-        raise NotImplementedError
 
     async def create_stream(self, ref: ConversationReference) -> StreamerProtocol:
         raise NotImplementedError
