@@ -23,7 +23,20 @@ from .plugins.streamer import IStreamerEvents, StreamerProtocol
 
 
 class HttpStream(StreamerProtocol):
+    """
+    HTTP-based streaming implementation for Microsoft Teams activities.
+    """
+
     def __init__(self, client: ApiClient, ref: ConversationReference, logger: Optional[Logger] = None):
+        """
+        Initialize a new HttpStream instance.
+
+        Args:
+            client (ApiClient): The API client used to send activities to Microsoft Teams.
+            ref (ConversationReference): Reference to the Teams conversation.
+            logger (Optional[Logger]): Custom logger instance for debugging and monitoring..
+        """
+        super().__init__()
         self._client = client
         self._ref = ref
         self._logger = logger or ConsoleLogger().create_logger("@teams/http-stream")
@@ -67,6 +80,12 @@ class HttpStream(StreamerProtocol):
         return self._events
 
     def emit(self, activity: Union[MessageActivityInput, TypingActivityInput, str]) -> None:
+        """
+        Emit a new activity to the stream.
+
+        Args:
+            activity: The activity to emit.
+        """
         if self._timeout is not None:
             self._timeout.cancel()
             self._timeout = None
@@ -81,6 +100,12 @@ class HttpStream(StreamerProtocol):
         self._timeout = asyncio.create_task(self._delayed_flush())
 
     def update(self, text: str) -> None:
+        """
+        Send status updates before emitting (ex. "Thinking...").
+
+        Args:
+            text: The status text to send.
+        """
         self.emit(TypingActivityInput().with_text(text).with_channel_data(ChannelData(stream_type="informative")))
 
     async def close(self) -> Optional[Resource]:
@@ -130,10 +155,16 @@ class HttpStream(StreamerProtocol):
         return res
 
     async def _delayed_flush(self):
+        """
+        Wait for a short period before flushing the activity queue.
+        """
         await asyncio.sleep(0.2)
         await self._flush()
 
     async def _flush(self) -> None:
+        """
+        Flush the current activity queue.
+        """
         # If there are no items in the queue, nothing to flush
         async with self._lock:
             if not self._queue:
@@ -194,6 +225,12 @@ class HttpStream(StreamerProtocol):
                 self._flush_task = asyncio.create_task(self._delayed_flush())
 
     async def _send_activity(self, to_send: Union[TypingActivityInput, MessageActivityInput]) -> Resource:
+        """
+        Send or update an activity to the Teams conversation.
+
+        Args:
+            activity: The activity to send.
+        """
         to_send.from_ = self._ref.bot
         to_send.conversation = self._ref.conversation
 
