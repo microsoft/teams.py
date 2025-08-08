@@ -3,36 +3,34 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-import asyncio
 import datetime
-from typing import Any, Optional
+from typing import Any, Optional, Union
 
 from azure.core.credentials import AccessToken, TokenCredential
 from azure.core.exceptions import ClientAuthenticationError
-from microsoft.teams.api.clients.user.params import GetUserTokenParams
-from microsoft.teams.app.routing.activity_context import ActivityContext
+from microsoft.teams.api.models.token.response import TokenResponse
 
 
-class TeamsTokenCredential(TokenCredential):
+class DirectTokenCredential(TokenCredential):
     """
-    Azure Core TokenCredential implementation that bridges Teams OAuth tokens
-    with Microsoft Graph SDK authentication requirements.
+    Azure Core TokenCredential implementation using direct tokens.
 
-    This credential obtains access tokens through the Teams Bot Framework Token Service,
-    leveraging the existing OAuth flow configured in the Teams application.
+    This credential accepts tokens directly (as strings or TokenResponse objects)
+    without requiring an ActivityContext dependency. This provides maximum flexibility
+    for creating Graph clients in any scenario where tokens are available.
     """
 
-    def __init__(self, context: "ActivityContext[Any]", connection_name: Optional[str] = None) -> None:
+    def __init__(self, token: Union[str, TokenResponse], connection_name: Optional[str] = None) -> None:
         """
-        Initialize the Teams token credential.
+        Initialize the direct token credential.
 
         Args:
-            context: The Teams activity context containing user and API client information
-            connection_name: OAuth connection name (defaults to context.connection_name)
+            token: The access token (string) or TokenResponse object
+            connection_name: OAuth connection name for logging/tracking purposes
         """
-        self._context = context
-        self._connection_name = connection_name or context.connection_name
-        self._cached_token: Optional[AccessToken] = None
+        self._token = token
+        self._connection_name = connection_name
+        self._cached_access_token: Optional[AccessToken] = None
 
     def get_token(
         self, *scopes: str, claims: Optional[str] = None, tenant_id: Optional[str] = None, **kwargs: Any
@@ -41,71 +39,82 @@ class TeamsTokenCredential(TokenCredential):
         Retrieve an access token for Microsoft Graph.
 
         Args:
-            *scopes: The scopes for which the token is being requested
-            claims: Additional claims to include in the token request
-            tenant_id: The tenant ID (ignored - determined by Teams context)
+            *scopes: The scopes for which the token is being requested (ignored - token is pre-authorized)
+            claims: Additional claims to include in the token request (ignored)
+            tenant_id: The tenant ID (ignored - determined by token)
             **kwargs: Additional keyword arguments
 
         Returns:
             AccessToken: The access token for Microsoft Graph
 
         Raises:
-            ClientAuthenticationError: If authentication fails or user is not signed in
+            ClientAuthenticationError: If the token is invalid or expired
         """
         try:
-            # Check if we have a cached token that's still valid
-            if self._cached_token and self._is_token_valid(self._cached_token):
-                return self._cached_token
+            # Check if we have a valid cached access token
+            if self._cached_access_token and self._is_token_valid(self._cached_access_token):
+                return self._cached_access_token
 
-            # Get or create event loop
-            try:
-                loop = asyncio.get_event_loop()
-            except RuntimeError:
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
+            # Extract token string and expiration
+            if isinstance(self._token, TokenResponse):
+                token_string = self._token.token
+                expires_on = self._parse_expiration(self._token.expiration)
+            else:
+                # Handle string tokens
+                token_string = str(self._token)
+                # For string tokens, assume 1-hour validity as fallback
+                expires_on = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=1)
 
-            # Run the async token retrieval
-            token_response = loop.run_until_complete(self._get_token_async())
+            if not token_string:
+                raise ClientAuthenticationError("Token string is empty or None")
 
-            # Use actual token expiration from response
-            expires_on = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=1)  # Default fallback
-            if token_response.expiration:
-                try:
-                    # Parse the expiration from token response
-                    expires_on = datetime.datetime.fromisoformat(token_response.expiration.replace("Z", "+00:00"))
-                except (ValueError, AttributeError):
-                    # If parsing fails, use default expiration
-                    pass
+            # Create access token
+            access_token = AccessToken(token=token_string, expires_on=int(expires_on.timestamp()))
 
-            access_token = AccessToken(token=token_response.token, expires_on=int(expires_on.timestamp()))
-
-            # Cache the token for future use
-            self._cached_token = access_token
+            # Cache for reuse
+            self._cached_access_token = access_token
 
             return access_token
 
         except Exception as e:
-            # Check if user needs to sign in
-            if not self._context.is_signed_in:
-                raise ClientAuthenticationError(
-                    "User is not signed in. Call 'await context.sign_in()' first to authenticate the user."
-                ) from e
+            if isinstance(e, ClientAuthenticationError):
+                raise
+            raise ClientAuthenticationError(f"Failed to create access token: {str(e)}") from e
 
-            # Re-raise as authentication error with context
-            raise ClientAuthenticationError(f"Failed to obtain access token for Microsoft Graph: {str(e)}") from e
+    def _parse_expiration(self, expiration: Optional[str]) -> datetime.datetime:
+        """
+        Parse expiration time from TokenResponse.
 
-    async def _get_token_async(self):
-        """Async helper to get token from Teams API."""
-        token_params = GetUserTokenParams(
-            channel_id=self._context.activity.channel_id,
-            user_id=self._context.activity.from_.id,
-            connection_name=self._connection_name,
-        )
-        return await self._context.api.users.token.get(token_params)
+        Args:
+            expiration: Expiration string from TokenResponse
+
+        Returns:
+            datetime: Parsed expiration time or fallback time
+        """
+        if not expiration:
+            # Default to 1 hour if no expiration provided
+            return datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=1)
+
+        try:
+            # Handle ISO format with Z suffix
+            if expiration.endswith("Z"):
+                expiration = expiration.replace("Z", "+00:00")
+
+            # Handle epoch timestamp (if it's a number string)
+            if expiration.isdigit():
+                return datetime.datetime.fromtimestamp(int(expiration), tz=datetime.timezone.utc)
+
+            # Parse as ISO format datetime
+            return datetime.datetime.fromisoformat(expiration)
+
+        except (ValueError, AttributeError):
+            # If parsing fails, log and use default expiration
+            # In a real scenario, you might want to log this
+            return datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=1)
 
     def _is_token_valid(self, token: AccessToken) -> bool:
         """
-        Check if a cached token is still valid.
+        Check if a cached access token is still valid.
 
         Args:
             token: The access token to check

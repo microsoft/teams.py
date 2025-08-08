@@ -9,7 +9,7 @@ from azure.core.exceptions import ClientAuthenticationError
 from microsoft.teams.api import MessageActivity
 from microsoft.teams.app import ActivityContext, App, SignInEvent
 from microsoft.teams.app.events.types import ErrorEvent
-from microsoft.teams.graph import get_graph_client, get_user_graph_client
+from microsoft.teams.graph import get_graph_client
 
 app = App()
 
@@ -64,7 +64,7 @@ async def handle_signout_command(ctx: ActivityContext[MessageActivity]):
 
 
 async def handle_profile_command(ctx: ActivityContext[MessageActivity]):
-    """Handle profile command using Graph API."""
+    """Handle profile command using Graph API with direct token usage."""
     try:
         # Check if user is signed in
         if not ctx.is_signed_in:
@@ -72,8 +72,25 @@ async def handle_profile_command(ctx: ActivityContext[MessageActivity]):
             await ctx.sign_in()
             return
 
-        # Get Graph client with user scopes (now synchronous)
-        graph = get_user_graph_client(ctx)
+        # Get user token directly from Teams API
+        from microsoft.teams.api.clients.user.params import GetUserTokenParams
+
+        token_params = GetUserTokenParams(
+            channel_id=ctx.activity.channel_id,
+            user_id=ctx.activity.from_.id,
+            connection_name=ctx.connection_name,
+        )
+
+        try:
+            token_response = await ctx.api.users.token.get(token_params)
+        except Exception as e:
+            ctx.logger.error(f"Failed to get user token: {e}")
+            await ctx.send("🔐 Failed to get authentication token. Please try signing in again.")
+            await ctx.sign_in()
+            return
+
+        # Create Graph client with direct token
+        graph = get_graph_client(token_response, connection_name=ctx.connection_name)
 
         # Fetch user profile
         me = await graph.me.get()
@@ -102,7 +119,7 @@ async def handle_profile_command(ctx: ActivityContext[MessageActivity]):
 
 
 async def handle_emails_command(ctx: ActivityContext[MessageActivity]):
-    """Handle emails command using Graph API with Mail.Read scope."""
+    """Handle emails command using Graph API with direct token usage."""
     try:
         # Check if user is signed in
         if not ctx.is_signed_in:
@@ -110,8 +127,25 @@ async def handle_emails_command(ctx: ActivityContext[MessageActivity]):
             await ctx.sign_in()
             return
 
-        # Get Graph client (now synchronous, no scopes needed)
-        graph = get_graph_client(ctx)
+        # Get user token directly from Teams API
+        from microsoft.teams.api.clients.user.params import GetUserTokenParams
+
+        token_params = GetUserTokenParams(
+            channel_id=ctx.activity.channel_id,
+            user_id=ctx.activity.from_.id,
+            connection_name=ctx.connection_name,
+        )
+
+        try:
+            token_response = await ctx.api.users.token.get(token_params)
+        except Exception as e:
+            ctx.logger.error(f"Failed to get user token: {e}")
+            await ctx.send("🔐 Failed to get authentication token. Please try signing in again.")
+            await ctx.sign_in()
+            return
+
+        # Create Graph client with direct token
+        graph = get_graph_client(token_response, connection_name=ctx.connection_name)
 
         # Fetch recent messages (top 5) using proper RequestConfiguration pattern
         from msgraph.generated.users.item.messages.messages_request_builder import (  # type: ignore
@@ -160,7 +194,7 @@ async def handle_help_command(ctx: ActivityContext[MessageActivity]):
     """Handle help command."""
     help_text = (
         "🤖 **Teams Graph Demo Bot**\n\n"
-        "This bot demonstrates Microsoft Graph integration with the Teams AI SDK.\n\n"
+        "This bot demonstrates Microsoft Graph integration with the Teams AI SDK using direct token management.\n\n"
         "**Available Commands:**\n"
         "• **signin** - Sign in to your Microsoft account\n"
         "• **signout** - Sign out of your account\n"
@@ -171,6 +205,9 @@ async def handle_help_command(ctx: ActivityContext[MessageActivity]):
         "1. Type `signin` to authenticate\n"
         "2. Once signed in, try `profile` or `emails`\n"
         "3. Type `signout` when you're done\n\n"
+        "**Technical Details:**\n"
+        "This bot uses the new direct token approach where tokens are retrieved explicitly\n"
+        "from the Teams API and passed directly to the Microsoft Graph client.\n\n"
         "**Note:** This bot requires appropriate permissions to access your Microsoft Graph data."
     )
     await ctx.send(help_text)

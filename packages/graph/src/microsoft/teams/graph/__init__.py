@@ -3,75 +3,71 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from typing import Any, Optional
+from typing import Optional, Union
 
 from azure.core.exceptions import ClientAuthenticationError
-from microsoft.teams.app.routing.activity_context import ActivityContext
+from microsoft.teams.api.models.token.response import TokenResponse
 from msgraph.graph_service_client import GraphServiceClient
 
-from .auth_provider import TeamsTokenCredential
-
-# Remove default scopes - let Graph SDK handle defaults
+from .auth_provider import DirectTokenCredential
 
 
 def get_graph_client(
-    context: "ActivityContext[Any]",
+    token: Union[str, TokenResponse],
+    *,
     connection_name: Optional[str] = None,
 ) -> GraphServiceClient:
     """
-    Get a configured Microsoft Graph client for the authenticated user.
+    Get a configured Microsoft Graph client using a direct token.
 
-    This function creates a GraphServiceClient instance that uses the Teams OAuth token
-    from the provided context.
+    This function creates a GraphServiceClient instance that uses the provided token
+    directly, without requiring an ActivityContext dependency.
 
     Args:
-        context: The Teams activity context containing user authentication state
-        connection_name: OAuth connection name (defaults to context.connection_name)
+        token: The access token (string) or TokenResponse object containing the token
+        connection_name: OAuth connection name for logging/tracking purposes (optional)
 
     Returns:
         GraphServiceClient: A configured client ready for Microsoft Graph API calls
 
     Raises:
-        ClientAuthenticationError: If the user is not signed in or authentication fails
-        ValueError: If the context is invalid
+        ClientAuthenticationError: If the token is invalid or authentication fails
+        ValueError: If the token is None or empty
 
     Example:
         ```python
-        @app.on_message
-        def handle_message(ctx: ActivityContext):
-            if not ctx.is_signed_in:
-                # User needs to sign in first
-                return
+        # Using TokenResponse (recommended - includes expiration info)
+        token_params = GetUserTokenParams(
+            channel_id=ctx.activity.channel_id,
+            user_id=ctx.activity.from_.id,
+            connection_name=ctx.connection_name,
+        )
+        token_response = await ctx.api.users.token.get(token_params)
+        graph = get_graph_client(token_response, connection_name="graph")
 
-            # Get Graph client (now synchronous)
-            graph = get_graph_client(ctx)
+        # Using string token directly
+        token_string = "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIs..."
+        graph = get_graph_client(token_string)
 
-            # Make Graph API calls
-            me = graph.me.get()
-            messages = graph.me.messages.get()
-
-            ctx.send(f"Hello {me.display_name}, you have {len(messages.value)} messages")
+        # Make Graph API calls
+        me = await graph.me.get()
+        messages = await graph.me.messages.get()
         ```
     """
-    if not context:
-        raise ValueError("Context cannot be None")
+    if not token:
+        raise ValueError("Token cannot be None or empty")
 
-    if not context.activity or not context.activity.from_:
-        raise ValueError("Context must contain valid activity with sender information")
+    if isinstance(token, TokenResponse) and not token.token:
+        raise ValueError("TokenResponse must contain a valid token")
 
-    connection = connection_name or context.connection_name
-
-    # Verify user is signed in
-    if not context.is_signed_in:
-        raise ClientAuthenticationError(
-            "User is not signed in. Call 'context.sign_in()' before accessing Microsoft Graph."
-        )
+    if isinstance(token, str) and not token.strip():
+        raise ValueError("Token string cannot be empty or whitespace")
 
     try:
-        # Create Teams token credential
-        credential = TeamsTokenCredential(context, connection)
+        # Create direct token credential
+        credential = DirectTokenCredential(token, connection_name)
 
-        # Create Graph service client (let SDK handle default scopes)
+        # Create Graph service client
         client = GraphServiceClient(credentials=credential)
 
         return client
@@ -84,28 +80,8 @@ def get_graph_client(
         raise ClientAuthenticationError(f"Failed to create Microsoft Graph client: {str(e)}") from e
 
 
-def get_user_graph_client(context: "ActivityContext[Any]") -> GraphServiceClient:
-    """
-    Convenience function to get a Graph client for user-focused operations.
-
-    This is equivalent to calling get_graph_client() but provides a more explicit name
-    for user-focused operations.
-
-    Args:
-        context: The Teams activity context containing user authentication state
-
-    Returns:
-        GraphServiceClient: A configured client for user-focused Graph operations
-
-    Raises:
-        ClientAuthenticationError: If the user is not signed in or authentication fails
-    """
-    return get_graph_client(context)
-
-
 # Export public API
 __all__ = [
     "get_graph_client",
-    "get_user_graph_client",
-    "TeamsTokenCredential",
+    "DirectTokenCredential",
 ]
