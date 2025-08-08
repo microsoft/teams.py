@@ -1,0 +1,14 @@
+README.md
+pyproject.toml
+src/microsoft/teams/graph/__init__.py
+src/microsoft/teams/graph/auth_provider.py
+src/microsoft/teams/graph/py.typed
+src/microsoft_teams_graph.egg-info/PKG-INFO
+src/microsoft_teams_graph.egg-info/SOURCES.txt
+src/microsoft_teams_graph.egg-info/dependency_links.txt
+src/microsoft_teams_graph.egg-info/requires.txt
+src/microsoft_teams_graph.egg-info/top_level.txt
+tests/conftest.py
+tests/test_graph_integration.py
+tests/demo/README.md
+tests/demo/main.py

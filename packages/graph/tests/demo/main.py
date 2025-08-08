@@ -4,14 +4,17 @@ Licensed under the MIT License.
 """
 
 import asyncio
+import os
 
 from azure.core.exceptions import ClientAuthenticationError
 from microsoft.teams.api import MessageActivity
-from microsoft.teams.app import ActivityContext, App, SignInEvent
+from microsoft.teams.app import ActivityContext, App, AppOptions, SignInEvent
 from microsoft.teams.app.events.types import ErrorEvent
 from microsoft.teams.graph import get_graph_client
 
-app = App()
+# Create app with OAuth connection
+app_options = AppOptions(default_connection_name=os.getenv("CONNECTION_NAME", "graph"))
+app = App(app_options)
 
 
 @app.on_message
@@ -235,4 +238,7 @@ async def handle_error_event(event: ErrorEvent):
 
 if __name__ == "__main__":
     print("🚀 Starting Teams Graph Demo Bot...")
-    asyncio.run(app.start())
+    import os
+
+    port = int(os.getenv("PORT", "3979"))  # Default to 3979 if not set
+    asyncio.run(app.start(port))
