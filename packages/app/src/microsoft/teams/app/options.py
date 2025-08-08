@@ -24,7 +24,7 @@ class AppOptions:
     # Infrastructure
     logger: Optional[Logger] = None
     storage: Optional[Storage[str, Any]] = None
-    plugins: List[Plugin] = field(default_factory=list[Plugin])
+    plugins: List[Plugin[Any]] = field(default_factory=list[Plugin[Any]])
     enable_token_validation: bool = True
 
     # Oauth

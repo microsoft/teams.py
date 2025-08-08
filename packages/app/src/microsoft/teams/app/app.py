@@ -8,10 +8,11 @@ import importlib.metadata
 import os
 from dataclasses import dataclass
 from logging import Logger
-from typing import Any, Callable, Dict, List, Optional, TypeVar, Union, cast, overload
+from typing import Any, Callable, Dict, List, Optional, Type, TypeVar, Union, cast, overload
 
 from dotenv import find_dotenv, load_dotenv
 from microsoft.teams.api import (
+    Activity,
     ActivityBase,
     ActivityTypeAdapter,
     ApiClient,
@@ -22,6 +23,7 @@ from microsoft.teams.api import (
     JsonWebToken,
     TokenProtocol,
 )
+from microsoft.teams.app.plugins.plugin_activity_event import PluginActivityEvent
 from microsoft.teams.common import Client, ClientOptions, ConsoleLogger, EventEmitter, LocalStorage
 
 from .app_oauth import OauthHandlers
@@ -43,6 +45,7 @@ from .routing import ActivityContext, ActivityHandlerMixin, ActivityRouter
 version = importlib.metadata.version("microsoft-teams-app")
 
 F = TypeVar("F", bound=Callable[..., Any])
+R = TypeVar("R")
 load_dotenv(find_dotenv(usecwd=True))
 
 USER_AGENT = f"teams.py[app]/{version}"
@@ -87,7 +90,7 @@ class App(ActivityHandlerMixin):
             self.http_client.clone(ClientOptions(token=lambda: self.tokens.bot)),
         )
 
-        plugins: List[Plugin] = list(self.options.plugins or [])
+        plugins: List[Plugin[Any]] = list(self.options.plugins or [])
 
         http_plugin = None
         for i, plugin in enumerate(plugins):
@@ -321,7 +324,7 @@ class App(ActivityHandlerMixin):
 
         try:
             self._events.emit("activity", ActivityEvent(activity))
-            ctx = await self.build_context(activity, input_activity.token)
+            ctx = await self._build_context(activity, input_activity.token)
             response = await self._activity_processor.process_activity(ctx)
             await self.http.on_activity_response(
                 PluginActivityResponseEvent(
@@ -350,7 +353,7 @@ class App(ActivityHandlerMixin):
             )
             raise
 
-    async def build_context(self, activity: ActivityBase, token: TokenProtocol) -> ActivityContext[ActivityBase]:
+    async def _build_context(self, activity: Activity, token: TokenProtocol) -> ActivityContext[ActivityBase]:
         """Build the context object for activity processing.
 
         Args:
@@ -389,6 +392,11 @@ class App(ActivityHandlerMixin):
             # User token not available
             pass
 
+        context_by_plugin: dict[Type[Plugin[Any]], Any] = {}
+        for plugin in self.plugins:
+            ctx = await plugin.on_activity(PluginActivityEvent(sender=self.http, token=token, activity=activity))
+            context_by_plugin[type(plugin)] = ctx
+
         return ActivityContext(
             activity,
             self.id or "",
@@ -399,6 +407,7 @@ class App(ActivityHandlerMixin):
             conversation_ref,
             is_signed_in,
             self.options.default_connection_name,
+            context_by_plugin,
         )
 
     @overload
