@@ -39,7 +39,9 @@ class HttpStream(StreamerProtocol):
         super().__init__()
         self._client = client
         self._ref = ref
-        self._logger = logger or ConsoleLogger().create_logger("@teams/http-stream")
+        self._logger = (
+            logger.getChild("@teams/http-stream") if logger else ConsoleLogger().create_logger("@teams/http-stream")
+        )
         self._events = EventEmitter[IStreamerEvents]()
 
         self._index = 1
@@ -87,7 +89,9 @@ class HttpStream(StreamerProtocol):
             activity: The activity to emit.
         """
         if self._timeout is not None:
-            self._timeout.cancel()
+            # Only cancel if flush hasn't started (lock not acquired)
+            if not self._lock.locked():
+                self._timeout.cancel()
             self._timeout = None
 
         if isinstance(activity, str):
