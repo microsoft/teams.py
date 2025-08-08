@@ -1,15 +1,17 @@
 # Teams Graph Integration Demo
 
 This demo application showcases how to use Microsoft Graph APIs within a Teams bot built with the
-Teams AI SDK for Python.
+Teams AI SDK for Python using the new direct token approach.
 
 ## Features
 
 - User authentication via Teams OAuth
-- Profile information retrieval
+- Direct token retrieval from Teams API
+- Profile information retrieval with Microsoft Graph
 - Email listing with Mail.Read scope
 - Proper error handling and user feedback
 - Interactive command interface
+- Demonstrates Phase 1 DirectTokenCredential implementation
 
 ## Commands
 
@@ -26,6 +28,11 @@ Teams AI SDK for Python.
 3. Configure appropriate Microsoft Graph permissions:
    - `User.Read` (for profile access)
    - `Mail.Read` (for email access)
+4. Create a `.env` file with required environment variables:
+   ```
+   CONNECTION_NAME=graph
+   PORT=3979
+   ```
 
 ## Running
 
@@ -33,15 +40,39 @@ From the demo directory:
 
 ```bash
 python main.py
+```
 
 Or from the repository root:
+
+```bash
 python packages/graph/tests/demo/main.py
+```
 
-Architecture
+## Architecture
 
-The demo uses the microsoft.teams.graph package which provides:
+The demo uses the `microsoft.teams.graph` package which provides:
 
-- get_graph_client() - Main factory function for Graph clients
-- get_user_graph_client() - Convenience function with User.Read scope
-- TeamsTokenCredential - Bridge between Teams OAuth and Azure identity
+- **`get_graph_client()`** - Main factory function accepting `Union[str, TokenResponse]`
+- **`DirectTokenCredential`** - Azure TokenCredential implementation for direct token usage
+- **Direct Token Approach** - No ActivityContext dependency, explicit token retrieval
+
+### Key Implementation Details
+
+```python
+# Get token directly from Teams API
+token_params = GetUserTokenParams(
+    channel_id=ctx.activity.channel_id,
+    user_id=ctx.activity.from_.id,
+    connection_name=ctx.connection_name,
+)
+token_response = await ctx.api.users.token.get(token_params)
+
+# Create Graph client with direct token
+graph = get_graph_client(token_response, connection_name=ctx.connection_name)
+
+# Make Graph API calls
+me = await graph.me.get()
+```
+
+This approach provides maximum flexibility and can be used in any scenario where tokens are available, not just within ActivityContext.
 ```
