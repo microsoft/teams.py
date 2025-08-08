@@ -26,7 +26,7 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
     if not ctx.is_signed_in:
         await ctx.sign_in()
         return
-    
+
     # Get user token directly from Teams API
     token_params = GetUserTokenParams(
         channel_id=ctx.activity.channel_id,
@@ -34,10 +34,10 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
         connection_name=ctx.connection_name,
     )
     token_response = await ctx.api.users.token.get(token_params)
-    
+
     # Create Graph client with direct token
     graph = get_graph_client(token_response, connection_name="graph")
-    
+
     # Make Graph API calls
     me = await graph.me.get()
     await ctx.send(f"Hello {me.display_name}!")
@@ -48,6 +48,7 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
 The package accepts tokens in two ways:
 
 ### Using TokenResponse (Recommended)
+
 ```python
 # TokenResponse includes expiration information
 token_response = await ctx.api.users.token.get(token_params)
@@ -55,6 +56,7 @@ graph = get_graph_client(token_response, connection_name="graph")
 ```
 
 ### Using String Tokens
+
 ```python
 # Raw token string (expiration defaults to 1 hour)
 token_string = "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIs..."
@@ -75,7 +77,7 @@ me = await graph.me.get()
 from msgraph.generated.users.item.messages.messages_request_builder import MessagesRequestBuilder
 
 query_params = MessagesRequestBuilder.MessagesRequestBuilderGetQueryParameters(
-    select=["subject", "from", "receivedDateTime"], 
+    select=["subject", "from", "receivedDateTime"],
     top=5
 )
 request_config = MessagesRequestBuilder.MessagesRequestBuilderGetRequestConfiguration(
@@ -92,4 +94,3 @@ messages = await graph.me.messages.get(request_configuration=request_config)
 - Azure Identity library (azure-identity)
 - Cryptography library (cryptography)
 - PyJWT with crypto support (PyJWT[crypto])
-EOF < /dev/null
