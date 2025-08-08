@@ -29,7 +29,7 @@ class HttpStream(StreamerProtocol):
         self._logger = logger or ConsoleLogger().create_logger("@teams/http-stream")
         self._events = EventEmitter[IStreamerEvents]()
 
-        self._index = 0
+        self._index = 1
         self._id: Optional[str] = None
         self._text: str = ""
         self._attachments: List[Attachment] = []
@@ -88,7 +88,7 @@ class HttpStream(StreamerProtocol):
             self._logger.debug("stream already closed with result")
             return self._result
 
-        if not self._index and not self._queue:
+        if self._index == 1 and not self._queue:
             self._logger.debug("no content")
             return None
 
@@ -118,7 +118,7 @@ class HttpStream(StreamerProtocol):
         self._events.emit("close", res)
 
         # Reset state
-        self._index = 0
+        self._index = 1
         self._id = None
         self._text = ""
         self._attachments = []
@@ -176,7 +176,7 @@ class HttpStream(StreamerProtocol):
             if self._id:
                 to_send = to_send.with_id(self._id)
             to_send = to_send.add_stream_update(self._index)
-            res = await retry(lambda: self._send_activity(to_send), options=RetryOptions(logger=self._logger))  # type: ignore
+            res = await retry(lambda: self._send_activity(to_send), options=RetryOptions(logger=self._logger))
 
             self._events.emit("chunk", res)
             self._index += 1

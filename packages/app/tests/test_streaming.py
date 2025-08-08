@@ -52,7 +52,7 @@ class TestHttpStream:
     def test_initial_state(self, http_stream):
         assert not http_stream.closed
         assert http_stream.count == 0
-        assert http_stream.sequence == 0
+        assert http_stream.sequence == 1
         assert http_stream._text == ""
         assert len(http_stream._attachments) == 0
         assert len(http_stream._entities) == 0
@@ -65,7 +65,7 @@ class TestHttpStream:
         await asyncio.wait_for(http_stream._delayed_flush(), timeout=1.0)
 
         assert http_stream.count == 0
-        assert http_stream.sequence > 0
+        assert http_stream.sequence == 2
 
     @pytest.mark.asyncio
     async def test_emit_activity(self, http_stream, mock_api_client):
@@ -76,7 +76,7 @@ class TestHttpStream:
         await asyncio.wait_for(http_stream._delayed_flush(), timeout=0.3)
 
         assert http_stream.count == 0
-        assert http_stream.sequence == 1
+        assert http_stream.sequence == 2
 
         mock_api_client.conversations.activities().create.assert_called_once()
         sent_activity = mock_api_client.conversations.activities().create.call_args[0][0]
@@ -92,7 +92,7 @@ class TestHttpStream:
         await asyncio.wait_for(http_stream._delayed_flush(), timeout=0.3)
 
         assert http_stream.count == 0
-        assert http_stream.sequence == 1
+        assert http_stream.sequence == 2
 
         mock_api_client.conversations.activities().create.assert_called()
         first_call_args = mock_api_client.conversations.activities().create.call_args_list[0]
@@ -116,7 +116,7 @@ class TestHttpStream:
         await asyncio.wait_for(http_stream._delayed_flush(), timeout=0.3)
 
         assert http_stream.count == 0
-        assert http_stream.sequence == 1
+        assert http_stream.sequence == 2
         mock_api_client.conversations.activities().create.assert_called_once()
         sent_activity = mock_api_client.conversations.activities().create.call_args[0][0]
         assert isinstance(sent_activity, TypingActivityInput)
@@ -170,7 +170,7 @@ class TestHttpStream:
 
         # Should have processed 10 messages and left 5 in the queue
         assert http_stream.count == 5
-        assert http_stream.sequence == 1
+        assert http_stream.sequence == 2
         # Confirm that combined string contains the first 10 messages
         expected_text = "".join([f"Message {i}" for i in range(10)])
         args = mock_api_client.conversations.activities().create.call_args[0]
@@ -180,7 +180,7 @@ class TestHttpStream:
         # Check that the remaining messages are also flushed
         await asyncio.wait_for(http_stream._delayed_flush(), timeout=0.3)
         assert http_stream.count == 0
-        assert http_stream.sequence == 2
+        assert http_stream.sequence == 3
         # Confirm that combined string contains the last 5 messages
         expected_text = "".join([f"Message {i}" for i in range(15)])
         args = mock_api_client.conversations.activities().create.call_args[0]
@@ -246,7 +246,7 @@ class TestStreamingIntegration:
         assert isinstance(args[0], TypingActivityInput)
         assert args[0].text == expected_text
         assert stream.count == 0
-        assert stream.sequence == 1
+        assert stream.sequence == 2
         assert stream._id == "mock-id"
 
         stream.emit("Bye!")
@@ -258,7 +258,7 @@ class TestStreamingIntegration:
         assert isinstance(args[0], TypingActivityInput)
         assert args[0].text == expected_text
         assert stream.count == 0
-        assert stream.sequence == 2
+        assert stream.sequence == 3
         assert stream._id == "mock-id"
 
         # Close the stream
@@ -269,6 +269,6 @@ class TestStreamingIntegration:
         assert isinstance(args[0], MessageActivityInput)
         assert args[0].text == expected_text
         assert stream.count == 0
-        assert stream.sequence == 0
+        assert stream.sequence == 1
         assert stream._id is None
         assert stream.closed

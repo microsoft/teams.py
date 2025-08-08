@@ -22,6 +22,7 @@ from microsoft.teams.api import (
     JsonWebToken,
     TokenProtocol,
 )
+from microsoft.teams.app.http_stream import HttpStream
 from microsoft.teams.common import Client, ClientOptions, ConsoleLogger, EventEmitter, LocalStorage
 
 from .app_oauth import OauthHandlers
@@ -330,6 +331,9 @@ class App(ActivityHandlerMixin):
             self._events.emit("activity", ActivityEvent(activity))
             ctx = await self.build_context(activity, input_activity.token)
             response = await self._activity_processor.process_activity(ctx)
+
+            await ctx.stream.close()
+
             await self.http.on_activity_response(
                 PluginActivityResponseEvent(
                     conversation_ref=ctx.conversation_ref,
@@ -394,13 +398,19 @@ class App(ActivityHandlerMixin):
             # User token not available
             pass
 
+        # TODO: use http client when dependency injection is done
+        # stream = self.http.create_stream(conversation_ref)
+        stream = HttpStream(api_client, conversation_ref)
+
         return ActivityContext(
+            self.http,
             activity,
             self.id or "",
             self.logger,
             self.storage,
             api_client,
             conversation_ref,
+            stream,
             is_signed_in,
             self.options.default_connection_name,
         )

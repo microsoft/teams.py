@@ -4,7 +4,7 @@ Licensed under the MIT License.
 """
 
 from dataclasses import dataclass
-from typing import Any, Dict, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, Optional, Union
 
 from microsoft.teams.api import (
     Activity,
@@ -13,7 +13,8 @@ from microsoft.teams.api import (
     TokenResponse,
 )
 
-from ..routing import ActivityContext
+if TYPE_CHECKING:
+    from ..routing import ActivityContext
 
 
 @dataclass
@@ -62,7 +63,7 @@ class StopEvent:
 @dataclass
 class SignInEvent:
     activity_ctx: Union[
-        ActivityContext[SignInVerifyStateInvokeActivity],
-        ActivityContext[SignInTokenExchangeInvokeActivity],
+        "ActivityContext[SignInVerifyStateInvokeActivity]",
+        "ActivityContext[SignInTokenExchangeInvokeActivity]",
     ]
     token_response: TokenResponse
