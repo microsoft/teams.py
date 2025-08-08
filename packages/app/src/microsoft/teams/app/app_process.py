@@ -76,7 +76,7 @@ class ActivityProcessor:
                     # Execute current handler and capture return value
                     result = await handlers[index](ctx)
 
-                    # Update the response
+                    # Update the response iff response hasn't already been received
                     if result is not None:
                         response = result
 
