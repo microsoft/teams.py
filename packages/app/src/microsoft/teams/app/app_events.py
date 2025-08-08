@@ -27,10 +27,7 @@ class EventManager:
 
     async def on_activity(self, event: ActivityEvent, plugins: List[PluginBase]) -> None:
         self.event_emitter.emit("activity", event)
-        # TODO: Fix for passing self
-        await self.activity_processor.process_activity(
-            plugins=plugins, sender=event.sender, event=event, event_manager=self
-        )
+        await self.activity_processor.process_activity(plugins=plugins, sender=event.sender, event=event)
 
     async def on_activity_sent(self, sender: Sender, event: ActivitySentEvent, plugins: List[PluginBase]) -> None:
         for plugin in plugins:

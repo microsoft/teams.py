@@ -4,7 +4,7 @@ Licensed under the MIT License.
 """
 
 from logging import Logger
-from typing import Any, Callable, Dict, List, Optional, Union, cast
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union, cast
 
 from microsoft.teams.api import (
     ActivityBase,
@@ -18,15 +18,13 @@ from microsoft.teams.api import (
     TokenProtocol,
     is_invoke_response,
 )
-from microsoft.teams.app import ActivityResponseEvent, ActivitySentEvent
 from microsoft.teams.cards.adaptive_card import AdaptiveCard
-from microsoft.teams.common.http.client import Client, ClientOptions
-from microsoft.teams.common.storage.local_storage import LocalStorage
-from microsoft.teams.common.storage.storage import Storage
+from microsoft.teams.common import Client, ClientOptions, LocalStorage, Storage
 
-from .app_events import EventManager
+if TYPE_CHECKING:
+    from .app_events import EventManager
 from .app_tokens import AppTokens
-from .events import ActivityEvent
+from .events import ActivityEvent, ActivityResponseEvent, ActivitySentEvent
 from .plugins import PluginActivityEvent, PluginBase, Sender
 from .routing.activity_context import ActivityContext
 from .routing.router import ActivityHandler, ActivityRouter
@@ -52,6 +50,10 @@ class ActivityProcessor:
         self.default_connection_name = default_connection_name
         self.http_client = http_client
         self.tokens = token
+
+        # This will be set after the EventManager is initialized due to
+        # a circular dependency
+        self.event_manager: Optional["EventManager"] = None
 
     async def build_context(self, activity: ActivityBase, token: TokenProtocol) -> ActivityContext[ActivityBase]:
         """Build the context object for activity processing.
@@ -105,10 +107,8 @@ class ActivityProcessor:
         )
 
     async def process_activity(
-        self, plugins: List[PluginBase], sender: Sender, event: ActivityEvent, event_manager: EventManager
+        self, plugins: List[PluginBase], sender: Sender, event: ActivityEvent
     ) -> Optional[InvokeResponse[Any]]:
-        # TODO: Add print statements
-
         activityCtx = await self.build_context(event.activity, event.token)
 
         self.logger.debug(f"Received activity: {activityCtx.activity}")
@@ -124,7 +124,8 @@ class ActivityProcessor:
             return route
 
         for plugin in reversed(plugins):
-            if hasattr(plugin, "on_activity") and callable(plugin.on_activity):
+            if hasattr(plugin, "on_activity_event") and callable(plugin.on_activity):
+                self.logger.info(f"Adding the on_activity_event handler for plugin {plugin.__class__.__name__}")
                 handlers.insert(0, create_route(plugin))
 
         send = activityCtx.send
@@ -134,7 +135,12 @@ class ActivityProcessor:
         ) -> SentActivity:
             res = await send(message)
 
-            await event_manager.on_activity_sent(
+            if not self.event_manager:
+                raise ValueError("EventManager was not initialized properly")
+
+            self.logger.info("Calling on_activity_sent for plugins")
+
+            await self.event_manager.on_activity_sent(
                 sender, ActivitySentEvent(sender=sender, activity=res), plugins=plugins
             )
             return res
@@ -153,8 +159,11 @@ class ActivityProcessor:
             else:
                 response = cast(InvokeResponse[Any], middleware_result)
 
+            if not self.event_manager:
+                raise ValueError("EventManager was not initialized properly")
+
             if response:
-                await event_manager.on_activity_response(
+                await self.event_manager.on_activity_response(
                     sender, ActivityResponseEvent(activity=event.activity, response=response), plugins=plugins
                 )
 

@@ -7,6 +7,7 @@ from logging import Logger
 from typing import Any, List, Optional, cast, get_type_hints
 
 from dependency_injector import providers
+from microsoft.teams.api.activities import Activity
 from microsoft.teams.common.events.event_emitter import EventEmitter
 from microsoft.teams.common.logging.console import ConsoleLogger
 
@@ -25,6 +26,13 @@ from .plugins import (
 
 
 class PluginManager:
+    """
+    Manages plugins for the Teams app.
+
+    This class is responsible for initializing plugins, injecting dependencies, and handling events.
+    It uses dependency injection to provide plugins with the necessary dependencies and event handlers.
+    """
+
     def __init__(
         self, container: Container, event_manager: EventManager, logger: Logger, event_emitter: EventEmitter[EventType]
     ):
@@ -35,40 +43,39 @@ class PluginManager:
         self.event_emitter = event_emitter
 
     def initialize_plugins(self, plugins: List[PluginBase]) -> List[PluginBase]:
-        """Adds a plugin."""
+        """Initializes and adds all the plugins for the app."""
 
         for plugin in plugins:
             metadata = get_metadata(plugin)
-
-            if metadata is None:
-                raise ValueError(f"Plugin {plugin.__class__.__name__} missing metadata")
-
             name = metadata.name
+            class_name = plugin.__class__.__name__
+
+            self.logger.info(f"Initializing the plugin {class_name}")
 
             if not name:
-                raise ValueError(f"Plugin {plugin.__class__.__name__} missing name in metadata")
+                raise ValueError(f"Plugin {class_name} missing name in metadata")
 
             if self.get_plugin(name):
-                raise ValueError(f"Duplicate plugin {name} found")
+                raise ValueError(f"duplicate plugin {name} found")
 
             self.plugins.append(plugin)
             self.container.set_provider(name, providers.Object(plugin))
 
-            class_name = plugin.__class__.__name__
             if class_name != name:
                 self.container.set_provider(class_name, providers.Object(plugin))
 
+        self.logger.info("Successfully initialized all plugins")
         return self.plugins
 
     def get_plugin(self, name: str) -> Optional[PluginBase]:
-        """Get plugin by name."""
+        """Gets the plugin by name."""
         for plugin in self.plugins:
             metadata = get_metadata(plugin)
-            if metadata and metadata.name == name:
+            if metadata.name == name:
                 return plugin
 
     def inject(self, plugin: PluginBase) -> None:
-        """Inject dependencies and events into the plugin."""
+        """Injects dependencies and events into the plugin."""
 
         hints = get_type_hints(plugin, include_extras=True)
 
@@ -78,47 +85,73 @@ class PluginManager:
 
             for meta in metadata:
                 if isinstance(meta, EventMetadata):
-                    if meta.name == "error":
+                    self.logger.info(
+                        f"Initializing the event dependencies for {plugin.__class__.__name__}.{field_name}"
+                    )
+                    self._inject_events(meta, plugin, field_name)
 
-                        async def error_handler(event: PluginErrorEvent) -> None:
-                            await self.event_manager.on_error(
-                                ErrorEvent(error=event.error, activity=event.activity, sender=plugin), self.plugins
-                            )
-
-                        setattr(plugin, field_name, error_handler)
-                    if meta.name == "activity":
-
-                        async def activity_handler(event: PluginActivityEvent) -> None:
-                            sender = cast(Sender, plugin)
-                            await self.event_manager.on_activity(
-                                ActivityEvent(activity=event.activity, sender=sender, token=event.token), self.plugins
-                            )
-
-                        setattr(plugin, field_name, activity_handler)
-                    elif meta.name == "custom":
-
-                        async def custom_handler(name: str, event: Any) -> None:
-                            if is_registered_event(name):
-                                self.logger.warning(
-                                    f"event {name} is reserved by core app-events but an plugin is trying to emit it"
-                                )
-                                return
-                            self.event_emitter.emit(name, event)
-
-                        setattr(plugin, field_name, custom_handler)
                 elif isinstance(meta, DependencyMetadata):
-                    dependency = None
-                    if origin:
-                        dependency = getattr(self.container, origin, None)
-                    if not dependency:
-                        dependency = getattr(self.container, field_name, None)
-                    if not dependency:
-                        if not meta.optional:
-                            raise ValueError(
-                                f"dependency of {origin} of property {field_name} not found "
-                                + "but plugin {plugin.__class__.__name__} depends on it"
-                            )
-                    if field_name == "logger":
-                        dependency = cast(ConsoleLogger, dependency)
-                        dependency = dependency.get_child(plugin.__class__.__name__)
-                    setattr(plugin, field_name, dependency)
+                    self.logger.info(
+                        f"Initializing the dependency {meta.name} for {plugin.__class__.__name__}.{field_name}"
+                    )
+                    self.inject_dependencies(meta, plugin, origin, field_name)
+
+    def _inject_events(self, meta: EventMetadata, plugin: PluginBase, field_name: str) -> None:
+        """Injects event handlers into the plugin based on metadata info."""
+        if meta.name == "error":
+            self.logger.info("Injecting the error event")
+
+            async def error_handler(event: PluginErrorEvent) -> None:
+                activity = cast(Activity, event.activity)
+                await self.event_manager.on_error(
+                    ErrorEvent(error=event.error, activity=activity, sender=plugin), self.plugins
+                )
+
+            setattr(plugin, field_name, error_handler)
+        if meta.name == "activity":
+            self.logger.info("Injecting the activity event")
+
+            async def activity_handler(event: PluginActivityEvent) -> None:
+                sender = cast(Sender, plugin)
+                await self.event_manager.on_activity(
+                    ActivityEvent(activity=event.activity, sender=sender, token=event.token), self.plugins
+                )
+
+            setattr(plugin, field_name, activity_handler)
+        elif meta.name == "custom":
+            self.logger.info("Injecting the custom event")
+
+            async def custom_handler(name: str, event: Any) -> None:
+                if is_registered_event(name):
+                    self.logger.warning(
+                        f"event {name} is reserved by core app-events but an plugin is trying to emit it"
+                    )
+                    return
+                self.event_emitter.emit(name, event)
+
+            setattr(plugin, field_name, custom_handler)
+
+    def inject_dependencies(
+        self, meta: DependencyMetadata, plugin: PluginBase, type_name: Any, field_name: str
+    ) -> None:
+        """Injects dependencies into the plugin based on metadata info."""
+        dependency = None
+
+        self.logger.info(f"Injecting the dependency {meta.name} into {plugin.__class__.__name__}")
+
+        if type_name:
+            dependency = getattr(self.container, type_name, None)
+        if not dependency:
+            dependency = getattr(self.container, field_name, None)
+        if not dependency:
+            if not meta.optional:
+                raise ValueError(
+                    f"dependency of {type_name} of property {field_name} not found "
+                    + "but plugin {plugin.__class__.__name__} depends on it"
+                )
+        if field_name == "logger":
+            self.logger.info("Injecting the logger dependency")
+            dependency = cast(ConsoleLogger, dependency)
+            dependency = dependency.get_child(plugin.__class__.__name__)
+        setattr(plugin, field_name, dependency)
+        self.logger.info(f"Succesfully injected the dependency {meta.name} into {plugin.__class__.__name__}")

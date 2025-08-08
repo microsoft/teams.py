@@ -78,7 +78,8 @@ class ConversationActivityClient(BaseClient):
             f"{self.service_url}/v3/conversations/{conversation_id}/activities",
             json=activity.model_dump(by_alias=True, exclude_none=True),
         )
-        return SentActivity(**response.json())
+
+        return SentActivity.model_validate_json(response.json())
 
     async def update(self, conversation_id: str, activity_id: str, activity: ActivityParams) -> SentActivity:
         """
@@ -96,7 +97,7 @@ class ConversationActivityClient(BaseClient):
             f"{self.service_url}/v3/conversations/{conversation_id}/activities/{activity_id}",
             json=activity.model_dump(by_alias=True),
         )
-        return SentActivity(**response.json())
+        return SentActivity.model_validate_json(response.json())
 
     async def reply(self, conversation_id: str, activity_id: str, activity: ActivityParams) -> SentActivity:
         """
@@ -116,7 +117,7 @@ class ConversationActivityClient(BaseClient):
             f"{self.service_url}/v3/conversations/{conversation_id}/activities/{activity_id}",
             json=activity_json,
         )
-        return SentActivity(**response.json())
+        return SentActivity.model_validate_json(response.json())
 
     async def delete(self, conversation_id: str, activity_id: str) -> None:
         """

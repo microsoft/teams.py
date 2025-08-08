@@ -227,13 +227,6 @@ class HttpPlugin(Sender):
             # Complete with error
             await self.on_error(PluginErrorEvent(sender=self, error=error, activity=activity))
 
-    # TODO: REFACTOR 1.0
-    # async def on_activity(self, request: Request) -> Dict[str, Any]:
-    #     """Handle incoming Teams activity."""
-    #     body = await request.json()
-    #     self.logger.info(f"Received activity: {body.get('type', 'unknown')}")
-    #     return {"status": "received"}
-
     async def _handle_activity_request(self, request: Request) -> Any:
         """
         Process the activity request and coordinate response.

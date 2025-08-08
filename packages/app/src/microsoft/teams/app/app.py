@@ -96,7 +96,7 @@ class App(ActivityHandlerMixin):
         http_plugin = None
         for i, plugin in enumerate(plugins):
             meta = get_metadata(plugin)
-            if meta and meta.name == "HttpPlugin":
+            if meta.name == "HttpPlugin":
                 http_plugin = plugin
                 plugins.pop(i)
                 break
@@ -109,14 +109,7 @@ class App(ActivityHandlerMixin):
             http_plugin = HttpPlugin(app_id, self.log, self.options.enable_token_validation)
 
         plugins.insert(0, http_plugin)
-
-        self.http: HttpPlugin = cast(HttpPlugin, http_plugin)
-
-        self._plugin_manager = PluginManager(self.container, self.event_manager, self.log, self._events)
-        self.plugins = self._plugin_manager.initialize_plugins(plugins)
-
-        # TODO: REFACTOR 1.0 - When plugin architecture is done, remove this manual wiring
-        # self.http.activity_handler = self.handle_activity
+        self.http = cast(HttpPlugin, http_plugin)
 
         self._port: Optional[int] = None
         self._running = False
@@ -131,6 +124,9 @@ class App(ActivityHandlerMixin):
             self.tokens,
         )
         self.event_manager = EventManager(self._events, self.activity_processor)
+        self.activity_processor.event_manager = self.event_manager
+        self._plugin_manager = PluginManager(self.container, self.event_manager, self.log, self._events)
+        self.plugins = self._plugin_manager.initialize_plugins(plugins)
 
         # default event handlers
         oauth_handlers = OauthHandlers(
@@ -202,7 +198,6 @@ class App(ActivityHandlerMixin):
             await self._refresh_tokens(force=True)
             self._running = True
 
-            # Initialize the plugins
             for plugin in self.plugins:
                 # Inject the dependencies
                 self._plugin_manager.inject(plugin)
@@ -348,50 +343,6 @@ class App(ActivityHandlerMixin):
 
             self._events.emit("error", ErrorEvent(error, context={"method": "_refresh_graph_token"}))
             raise
-
-    # TODO: REMOVE 1.0
-    # async def handle_activity(self, event: ActivityEvent) -> Dict[str, Any]:
-    #     """
-    #     Handle incoming activities using registered handlers and middleware chain.
-    #     """
-    #     self.log.debug(f"Received activity: {event}")
-
-    #     activity = ActivityTypeAdapter.validate_python(event.activity_payload)
-    #     self.log.debug(f"Validated activity: {activity}")
-    #     activity_type = activity.type
-    #     activity_id = activity.id or ""
-
-    #     self.log.info(f"Processing activity {activity_id} of type {activity_type}")
-    # try:
-    #     self._events.emit("activity", ActivityEvent(activity))
-    #     ctx = await self.build_context(activity, input_activity.token)
-    #     response = await self._activity_processor.process_activity(ctx)
-    #     await self.http.on_activity_response(
-    #         PluginActivityResponseEvent(
-    #             conversation_ref=ctx.conversation_ref,
-    #             sender=self.http,
-    #             activity=activity,
-    #             response=response,
-    #         ),
-    #     )
-
-    #     return {
-    #         "status": "processed",
-    #         "message": f"Successfully handled {activity_type} activity",
-    #         "activityId": activity_id,
-    #         "response": response,
-    #     }
-    # except Exception as error:
-    #     self.log.error(f"Failed to process activity {activity_id}: {error}")
-
-    #     self._events.emit(
-    #         "error",
-    #         ErrorEvent(
-    #             error,
-    #             context={"method": "handle_activity", "activity_id": activity_id, "activity_type": activity_type},
-    #         ),
-    #     )
-    #     raise
 
     @overload
     def event(self, func_or_event_type: F) -> F:

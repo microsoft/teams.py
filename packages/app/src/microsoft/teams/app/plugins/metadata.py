@@ -22,7 +22,7 @@ def plugin(metadata: Optional[PluginOptions] = None):
     """Turns any class into a plugin using the decorator pattern."""
 
     def decorator(cls: Any) -> Any:
-        if metadata is None:
+        if not metadata:
             updated_metadata = PluginOptions(name=cls.__name__, version="0.0.0", description="")
             setattr(cls, PLUGIN_METADATA_KEY, updated_metadata)
         else:
@@ -36,9 +36,12 @@ def plugin(metadata: Optional[PluginOptions] = None):
     return decorator
 
 
-def get_metadata(cls: Any) -> Optional[PluginOptions]:
+def get_metadata(cls: Any) -> PluginOptions:
     """Get plugin metadata from a class."""
-    return getattr(cls, PLUGIN_METADATA_KEY, None)
+    metadata = getattr(cls, PLUGIN_METADATA_KEY, None)
+    if not metadata:
+        raise ValueError(f"type {cls.__name__} is not a valid plugin")
+    return metadata
 
 
 PluginEventName = Literal["error", "activity", "custom"]
@@ -54,10 +57,13 @@ class EventMetadata:
 
 @dataclass
 class DependencyMetadata:
-    """Metadata for a plugin dependency"""
+    """Information associated with a plugin dependency"""
 
     name: Optional[str] = None
+    "The name used to resolve the dependency."
+
     optional: Optional[bool] = False
+    "If optional, the app will now throw if the dependency is not found."
 
 
 @dataclass
