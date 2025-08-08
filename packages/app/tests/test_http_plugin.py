@@ -5,11 +5,18 @@ Licensed under the MIT License.
 # pyright: basic
 
 import asyncio
+from typing import cast
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from microsoft.teams.app.http_plugin import HttpPlugin
-from microsoft.teams.app.plugins import PluginStartEvent
+from microsoft.teams.api import (
+    ConfigResponse,
+    ConversationReference,
+    InvokeResponse,
+    MessageActivity,
+    MessageActivityInput,
+)
+from microsoft.teams.app import HttpPlugin, PluginActivityResponseEvent, PluginErrorEvent, PluginStartEvent
 
 
 class TestHttpPlugin:
@@ -73,61 +80,99 @@ class TestHttpPlugin:
         assert plugin_with_validator.get == plugin_with_validator.app.get
         assert plugin_with_validator.post == plugin_with_validator.app.post
 
-    def test_on_activity_response_success(self, plugin_with_validator):
+    @pytest.mark.asyncio
+    async def test_on_activity_response_success(self, plugin_with_validator, mock_account):
         """Test successful activity response completion."""
         # Create a pending future
         future = asyncio.get_event_loop().create_future()
         plugin_with_validator.pending["test-id"] = future
 
-        response_data = {"status": "success"}
-        plugin_with_validator.on_activity_response("test-id", response_data)
+        mock_activity = cast(
+            MessageActivity,
+            MessageActivityInput(type="message", text="Mock activity text", from_=mock_account, id="test-id"),
+        )
+
+        response_data = InvokeResponse(body=cast(ConfigResponse, {"status": "success"}), status=200)
+        await plugin_with_validator.on_activity_response(
+            PluginActivityResponseEvent(
+                conversation_ref=cast(ConversationReference, {"id": "test-conversation-id"}),
+                sender=plugin_with_validator,
+                activity=mock_activity,
+                response=response_data,
+            )
+        )
 
         assert future.done()
         assert future.result() == response_data
 
-    def test_on_activity_response_no_pending(self, plugin_with_validator):
+    @pytest.mark.asyncio
+    async def test_on_activity_response_no_pending(self, plugin_with_validator, mock_account):
         """Test activity response with no pending future."""
-        response_data = {"status": "success"}
-        # Should not raise exception
-        plugin_with_validator.on_activity_response("non-existent-id", response_data)
 
-    def test_on_activity_response_already_done(self, plugin_with_validator):
+        mock_activity = cast(
+            MessageActivity,
+            MessageActivityInput(type="message", text="Mock activity text", from_=mock_account, id="random-id"),
+        )
+        response_data = InvokeResponse(body=cast(ConfigResponse, {"status": "success"}), status=200)
+        # Should not raise exception
+        await plugin_with_validator.on_activity_response(
+            PluginActivityResponseEvent(
+                conversation_ref=cast(ConversationReference, {"id": "test-conversation-id"}),
+                sender=plugin_with_validator,
+                activity=mock_activity,
+                response=response_data,
+            )
+        )
+
+    @pytest.mark.asyncio
+    async def test_on_activity_response_already_done(self, plugin_with_validator, mock_account):
         """Test activity response when future is already done."""
         future = asyncio.get_event_loop().create_future()
         future.set_result("already done")
         plugin_with_validator.pending["test-id"] = future
 
-        response_data = {"status": "success"}
+        mock_activity = cast(
+            MessageActivity,
+            MessageActivityInput(type="message", text="Mock activity text", from_=mock_account, id="test-id"),
+        )
+        response_data = InvokeResponse(body=cast(ConfigResponse, {"status": "success"}), status=200)
         # Should not raise exception
-        plugin_with_validator.on_activity_response("test-id", response_data)
+        await plugin_with_validator.on_activity_response(
+            PluginActivityResponseEvent(
+                conversation_ref=cast(ConversationReference, {"id": "test-conversation-id"}),
+                sender=plugin_with_validator,
+                activity=mock_activity,
+                response=response_data,
+            )
+        )
 
         # Future should still have original result
         assert future.result() == "already done"
 
-    def test_on_error_with_activity_id(self, plugin_with_validator):
+    @pytest.mark.asyncio
+    async def test_on_error_with_activity_id(self, plugin_with_validator):
         """Test error handling with activity ID."""
         # Create a pending future
         future = asyncio.get_event_loop().create_future()
         plugin_with_validator.pending["test-id"] = future
 
         error = ValueError("Test error")
-        plugin_with_validator.on_error(error, "test-id")
+        await plugin_with_validator.on_error(
+            PluginErrorEvent(sender=plugin_with_validator, activity={"id": "test-id"}, error=error)
+        )
 
         assert future.done()
         with pytest.raises(ValueError, match="Test error"):
             future.result()
 
-    def test_on_error_no_activity_id(self, plugin_with_validator):
-        """Test error handling without activity ID."""
-        error = ValueError("Test error")
-        # Should not raise exception
-        plugin_with_validator.on_error(error)
-
-    def test_on_error_no_pending_future(self, plugin_with_validator):
+    @pytest.mark.asyncio
+    async def test_on_error_no_pending_future(self, plugin_with_validator):
         """Test error handling with no pending future."""
         error = ValueError("Test error")
         # Should not raise exception
-        plugin_with_validator.on_error(error, "non-existent-id")
+        await plugin_with_validator.on_error(
+            PluginErrorEvent(sender=plugin_with_validator, activity={"id": "non-existent-test-id"}, error=error)
+        )
 
     @pytest.mark.asyncio
     async def test_on_start_success(self, plugin_with_validator):

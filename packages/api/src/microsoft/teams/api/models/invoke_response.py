@@ -39,7 +39,7 @@ class InvokeResponse(CustomBaseModel, Generic[T]):
     This class supports the framework and is not intended to be called directly for your code.
     """
 
-    status: int
+    status: int = 200
     """The HTTP status code of the response."""
 
     body: Optional[T] = None
@@ -62,36 +62,11 @@ def is_invoke_response(value: Any) -> bool:
 
 
 # Specific invoke response types for different invoke names
-ConfigInvokeResponse = InvokeResponse[ConfigResponse]
-VoidInvokeResponse = InvokeResponse[None]
-MessagingExtensionInvokeResponse = InvokeResponse[MessagingExtensionResponse]
-MessagingExtensionActionInvokeResponse = InvokeResponse[MessagingExtensionActionResponse]
-TaskModuleInvokeResponse = InvokeResponse[TaskModuleResponse]
-TabInvokeResponse = InvokeResponse[TabResponse]
-AdaptiveCardInvokeResponse = InvokeResponse[AdaptiveCardActionResponse]
-TokenExchangeInvokeResponseType = InvokeResponse[Union[TokenExchangeInvokeResponse, None]]
-
-INVOKE_RESPONSE_BODY_BY_INVOKE_NAME: dict[str, type[InvokeResponse[Any]]] = {
-    "config/fetch": ConfigInvokeResponse,
-    "config/submit": ConfigInvokeResponse,
-    "composeExtension/onCardButtonClicked": VoidInvokeResponse,
-    "composeExtension/queryLink": MessagingExtensionInvokeResponse,
-    "composeExtension/anonymousQueryLink": MessagingExtensionInvokeResponse,
-    "composeExtension/query": MessagingExtensionInvokeResponse,
-    "composeExtension/selectItem": MessagingExtensionInvokeResponse,
-    "composeExtension/querySettingUrl": MessagingExtensionInvokeResponse,
-    "composeExtension/setting": MessagingExtensionInvokeResponse,
-    "composeExtension/submitAction": MessagingExtensionActionInvokeResponse,
-    "composeExtension/fetchTask": MessagingExtensionActionInvokeResponse,
-    "task/fetch": TaskModuleInvokeResponse,
-    "task/submit": TaskModuleInvokeResponse,
-    "tab/fetch": TabInvokeResponse,
-    "tab/submit": TabInvokeResponse,
-    "adaptiveCard/action": AdaptiveCardInvokeResponse,
-    "signin/tokenExchange": TokenExchangeInvokeResponseType,
-    "signin/verifyState": VoidInvokeResponse,
-    "fileConsent/invoke": VoidInvokeResponse,
-    "actionableMessage/executeAction": VoidInvokeResponse,
-    "message/submitAction": VoidInvokeResponse,
-    "handoff/action": VoidInvokeResponse,
-}
+ConfigInvokeResponse = ConfigResponse
+VoidInvokeResponse = None
+MessagingExtensionInvokeResponse = MessagingExtensionResponse
+MessagingExtensionActionInvokeResponse = MessagingExtensionActionResponse
+TaskModuleInvokeResponse = TaskModuleResponse
+TabInvokeResponse = TabResponse
+AdaptiveCardInvokeResponse = AdaptiveCardActionResponse
+TokenExchangeInvokeResponseType = Union[TokenExchangeInvokeResponse, None]

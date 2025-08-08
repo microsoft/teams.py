@@ -10,7 +10,7 @@ from logging import Logger
 from typing import Any, Callable, List, Optional, TypeVar, Union, cast, overload
 
 from dependency_injector import providers
-from dotenv import load_dotenv
+from dotenv import find_dotenv, load_dotenv
 from microsoft.teams.api import (
     ApiClient,
     ClientCredentials,
@@ -46,7 +46,7 @@ from .routing import ActivityHandlerMixin, ActivityRouter
 version = importlib.metadata.version("microsoft-teams-app")
 
 F = TypeVar("F", bound=Callable[..., Any])
-load_dotenv()
+load_dotenv(find_dotenv(usecwd=True))
 
 USER_AGENT = f"teams.py[app]/{version}"
 
@@ -286,6 +286,12 @@ class App(ActivityHandlerMixin):
         client_secret = self.options.client_secret or os.getenv("CLIENT_SECRET")
         tenant_id = self.options.tenant_id or os.getenv("TENANT_ID")
 
+        self.log.debug(f"Using CLIENT_ID: {client_id}")
+        if not tenant_id:
+            self.log.warning("TENANT_ID is not set, assuming multi-tenant app")
+        else:
+            self.log.debug(f"Using TENANT_ID: {tenant_id} (assuming single-tenant app)")
+
         if client_id and client_secret:
             return ClientCredentials(client_id=client_id, client_secret=client_secret, tenant_id=tenant_id)
 
@@ -356,30 +362,36 @@ class App(ActivityHandlerMixin):
     #     activity_id = activity.id or ""
 
     #     self.log.info(f"Processing activity {activity_id} of type {activity_type}")
+    # try:
+    #     self._events.emit("activity", ActivityEvent(activity))
+    #     ctx = await self.build_context(activity, input_activity.token)
+    #     response = await self._activity_processor.process_activity(ctx)
+    #     await self.http.on_activity_response(
+    #         PluginActivityResponseEvent(
+    #             conversation_ref=ctx.conversation_ref,
+    #             sender=self.http,
+    #             activity=activity,
+    #             response=response,
+    #         ),
+    #     )
 
-    #     try:
-    #         self._events.emit("activity", ActivityEvent(activity))
-    #         ctx = await self.build_context(activity, event.token)
-    #         response = await self.activity_processor.process_activity(ctx, self.plugins)
-    #         self.http.on_activity_response(activity_id, response)
+    #     return {
+    #         "status": "processed",
+    #         "message": f"Successfully handled {activity_type} activity",
+    #         "activityId": activity_id,
+    #         "response": response,
+    #     }
+    # except Exception as error:
+    #     self.log.error(f"Failed to process activity {activity_id}: {error}")
 
-    #         return {
-    #             "status": "processed",
-    #             "message": f"Successfully handled {activity_type} activity",
-    #             "activityId": activity_id,
-    #             "response": response,
-    #         }
-    #     except Exception as error:
-    #         self.log.error(f"Failed to process activity {activity_id}: {error}")
-
-    #         self._events.emit(
-    #             "error",
-    #             ErrorEvent(
-    #                 error,
-    #                 context={"method": "handle_activity", "activity_id": activity_id, "activity_type": activity_type},
-    #             ),
-    #         )
-    #         raise
+    #     self._events.emit(
+    #         "error",
+    #         ErrorEvent(
+    #             error,
+    #             context={"method": "handle_activity", "activity_id": activity_id, "activity_type": activity_type},
+    #         ),
+    #     )
+    #     raise
 
     @overload
     def event(self, func_or_event_type: F) -> F:
@@ -460,3 +472,19 @@ class App(ActivityHandlerMixin):
 
         # Otherwise, return the decorator for later application
         return decorator
+
+    def page(self, name: str, dir_path: str, page_path: Optional[str] = None) -> None:
+        """
+        Register a static page to serve at a specific path.
+
+        Args:
+            name: Unique name for the page
+            dir_path: Directory containing the static files
+            page_path: Optional path to serve the page at (defaults to /pages/{name})
+
+        Example:
+            ```python
+            app.page("customform", os.path.join(os.path.dirname(__file__), "views", "customform"), "/tabs/dialog-form")
+            ```
+        """
+        self.http.mount(name, dir_path, page_path=page_path)

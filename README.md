@@ -17,3 +17,21 @@ Install [uv](https://docs.astral.sh/uv/getting-started/installation/)
 > **Note:** After the initial setup, you need to activate the virtual environment each time you start a new terminal session
 
 3. Install pre-commit hooks: `pre-commit install`
+
+## Creating a new package
+
+We use [cookiecutter](https://cookiecutter.readthedocs.io/en/latest/README.html) to create new packages. To create a new package, run:
+
+```bash
+cookiecutter templates/package -o packages
+```
+
+Follow the prompts to name the package and the directory. It should create the package folder in the `packages` directory.
+
+## Creating a new test package
+
+Similarly, to create a new test package, run:
+
+```bash
+cookiecutter templates/test -o tests
+```

@@ -3,9 +3,9 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from typing import TYPE_CHECKING, Any, NamedTuple
+from typing import TYPE_CHECKING, Any, NamedTuple, Optional
 
-from microsoft.teams.api.activities import Activity
+from microsoft.teams.api import Activity
 from microsoft.teams.api.models import InvokeResponse
 
 if TYPE_CHECKING:
@@ -21,5 +21,5 @@ class PluginActivityResponseEvent(NamedTuple):
     activity: Activity
     """The inbound request activity payload"""
 
-    response: InvokeResponse[Any]
+    response: Optional[InvokeResponse[Any]]
     """The response"""

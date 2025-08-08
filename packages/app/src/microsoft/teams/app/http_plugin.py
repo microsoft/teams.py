@@ -7,18 +7,29 @@ import asyncio
 import importlib.metadata
 from contextlib import asynccontextmanager
 from logging import Logger
-from typing import Annotated, Any, AsyncGenerator, Awaitable, Callable, Dict, Optional
+from pathlib import Path
+from typing import Annotated, Any, AsyncGenerator, Awaitable, Callable, Dict, Optional, cast
 
 import uvicorn
-from fastapi import FastAPI, Request
-from microsoft.teams.api import Activity, ActivityParams, ApiClient, ConversationReference, TokenProtocol
-from microsoft.teams.app.plugins import PluginStartEvent, Sender, StreamerProtocol
+from fastapi import FastAPI, Request, Response
+from fastapi.staticfiles import StaticFiles
+from microsoft.teams.api import Activity, ActivityParams, ApiClient, ConversationReference, SentActivity, TokenProtocol
 from microsoft.teams.common.http.client import Client, ClientOptions
 from microsoft.teams.common.logging import ConsoleLogger
+from pydantic import BaseModel
 
 from .auth import create_jwt_validation_middleware
 from .events import ActivityEvent, ErrorEvent
-from .plugins import DependencyMetadata, EventMetadata, LoggerDependencyOptions
+from .plugins import (
+    DependencyMetadata,
+    EventMetadata,
+    LoggerDependencyOptions,
+    PluginActivityResponseEvent,
+    PluginErrorEvent,
+    PluginStartEvent,
+    Sender,
+    StreamerProtocol,
+)
 from .plugins.metadata import PluginOptions, plugin
 
 version = importlib.metadata.version("microsoft-teams-app")
@@ -137,7 +148,7 @@ class HttpPlugin(Sender):
             self.logger.info("Stopping HTTP server")
             self._server.should_exit = True
 
-    def on_activity_response(self, activity_id: str, response_data: Any) -> None:
+    async def on_activity_response(self, event: PluginActivityResponseEvent) -> None:
         """
         Complete a pending activity response.
 
@@ -149,15 +160,14 @@ class HttpPlugin(Sender):
             response_data: The response data to send back
             plugin: The plugin that sent the response
         """
-        future = self.pending.get(activity_id)
+        future = self.pending.get(event.activity.id)
         if future and not future.done():
-            future.set_result(response_data)
-            self.logger.debug(f"Activity {activity_id} response completed")
+            future.set_result(event.response)
 
         else:
-            self.logger.warning(f"No pending future found for activity {activity_id}")
+            self.logger.warning(f"No pending future found for activity {event.activity.id}")
 
-    def on_error(self, error: Exception, activity_id: Optional[str] = None) -> None:
+    async def on_error(self, event: PluginErrorEvent) -> None:
         """
         Handle errors from the App.
 
@@ -166,6 +176,13 @@ class HttpPlugin(Sender):
             activity_id: The ID of the activity that failed (if applicable)
             plugin: The plugin that caused the error (if applicable)
         """
+        activity_id: Optional[str] = None
+        if event.activity:
+            if isinstance(event.activity, dict):
+                activity_id = event.activity.get("id")
+            else:
+                activity_id = event.activity.id
+        error = event.error
         if activity_id:
             future = self.pending.get(activity_id)
             if future and not future.done():
@@ -176,7 +193,7 @@ class HttpPlugin(Sender):
         else:
             self.logger.error(f"Plugin error: {error}")
 
-    async def send(self, activity: ActivityParams, ref: ConversationReference) -> Dict[str, Any]:
+    async def send(self, activity: ActivityParams, ref: ConversationReference) -> SentActivity:
         api = ApiClient(service_url=ref.service_url, options=self.client.clone(ClientOptions(token=self.bot_token)))
 
         activity.from_ = ref.bot
@@ -184,10 +201,10 @@ class HttpPlugin(Sender):
 
         if activity.id:
             res = await api.conversations.activities(ref.conversation.id).update(activity.id, activity)
-            return {**activity.model_dump(), **res.model_dump()}
+            return SentActivity(**{**activity.model_dump(), **res.model_dump()})
 
         res = await api.conversations.activities(ref.conversation.id).create(activity)
-        return {**activity.model_dump(), **res.model_dump()}
+        return SentActivity(**{**activity.model_dump(), **res.model_dump()})
 
     async def _process_activity(self, activity: Activity, activity_id: str, token: TokenProtocol) -> None:
         """
@@ -203,12 +220,12 @@ class HttpPlugin(Sender):
                 event = ActivityEvent(activity=activity, sender=self, token=token)
                 self.on_activity_event(event)
             else:
-                self.on_activity_response(
-                    activity_id,
-                    {"status": "received", "message": "No handler registered"},
+                await self.on_error(
+                    PluginErrorEvent(sender=self, error=Exception("No activity handler registered"), activity=activity)
                 )
         except Exception as error:
-            self.on_error(error, activity_id)
+            # Complete with error
+            await self.on_error(PluginErrorEvent(sender=self, error=error, activity=activity))
 
     # TODO: REFACTOR 1.0
     # async def on_activity(self, request: Request) -> Dict[str, Any]:
@@ -270,10 +287,31 @@ class HttpPlugin(Sender):
     def _setup_routes(self) -> None:
         """Setup FastAPI routes."""
 
-        async def on_activity(request: Request) -> Any:
+        async def on_activity(request: Request, response: Response) -> Any:
             """Handle incoming Teams activity."""
             # Process the activity (token validation handled by middleware)
-            return await self._handle_activity_request(request)
+            result = await self._handle_activity_request(request)
+            status_code: Optional[int] = None
+            body: Optional[Dict[str, Any]] = None
+            resp_dict: Optional[Dict[str, Any]] = None
+            if isinstance(result, dict):
+                resp_dict = cast(Dict[str, Any], result)
+            elif isinstance(result, BaseModel):
+                resp_dict = result.model_dump(exclude_none=True)
+
+            # if resp_dict has status set it
+            if resp_dict and "status" in resp_dict:
+                status_code = resp_dict.get("status")
+
+            if resp_dict and "body" in resp_dict:
+                body = resp_dict.get("body", None)
+
+            if status_code is not None:
+                response.status_code = status_code
+
+            if body is not None:
+                return body
+            return cast(Any, result)
 
         self.app.post("/api/messages")(on_activity)
 
@@ -285,3 +323,13 @@ class HttpPlugin(Sender):
 
     async def create_stream(self, ref: ConversationReference) -> StreamerProtocol:
         raise NotImplementedError
+
+    def mount(self, name: str, dir_path: Path | str, page_path: Optional[str] = None) -> None:
+        """
+        Serve a static page at the given path.
+
+        Args:
+            name: The name of the page (used in URL)
+            page_path: The path to the static HTML file
+        """
+        self.app.mount(page_path or f"/{name}", StaticFiles(directory=dir_path, check_dir=True, html=True), name=name)

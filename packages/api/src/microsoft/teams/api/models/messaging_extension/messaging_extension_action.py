@@ -48,7 +48,7 @@ class MessagingExtensionAction(TaskModuleRequest):
     command_context: Literal["message", "compose", "commandbox"]
     "The context from which the command originates."
 
-    bot_message_preview_action: Literal["edit", "send"]
+    bot_message_preview_action: Optional[Literal["edit", "send"]] = None
     "Bot message preview action taken by user."
 
     bot_activity_preview: Optional[List[ActivityBase]] = None

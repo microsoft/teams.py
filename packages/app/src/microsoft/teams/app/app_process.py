@@ -13,8 +13,10 @@ from microsoft.teams.api import (
     ConversationReference,
     GetUserTokenParams,
     InvokeResponse,
+    JsonWebToken,
     SentActivity,
     TokenProtocol,
+    is_invoke_response,
 )
 from microsoft.teams.app import ActivityResponseEvent, ActivitySentEvent
 from microsoft.teams.cards.adaptive_card import AdaptiveCard
@@ -75,14 +77,16 @@ class ActivityProcessor:
 
         # Check if user is signed in
         is_signed_in = False
+        user_token: Optional[TokenProtocol] = None
         try:
-            await api_client.users.token.get(
+            user_token_res = await api_client.users.token.get(
                 GetUserTokenParams(
                     connection_name=self.default_connection_name or "default",
                     user_id=activity.from_.id,
                     channel_id=activity.channel_id,
                 )
             )
+            user_token = JsonWebToken(user_token_res.token)
             is_signed_in = True
         except Exception:
             # User token not available
@@ -94,6 +98,7 @@ class ActivityProcessor:
             self.logger,
             self.storage,
             api_client,
+            user_token,
             conversation_ref,
             is_signed_in,
             self.default_connection_name,
@@ -124,7 +129,9 @@ class ActivityProcessor:
 
         send = activityCtx.send
 
-        async def updated_send(message: str | ActivityParams | AdaptiveCard) -> SentActivity:
+        async def updated_send(
+            message: str | ActivityParams | AdaptiveCard, conversation_id: Optional[str] = None
+        ) -> SentActivity:
             res = await send(message)
 
             await event_manager.on_activity_sent(
@@ -141,9 +148,8 @@ class ActivityProcessor:
             middleware_result = await self.execute_middleware_chain(activityCtx, handlers)
             if middleware_result is None:
                 pass
-            # TODO: Commented out - need to pull from main branch
-            # elif not is_invoke_response(middleware_result):
-            #     response = InvokeResponse[Any](status=200, body=middleware_result)
+            elif not is_invoke_response(middleware_result):
+                response = InvokeResponse[Any](status=200, body=middleware_result)
             else:
                 response = cast(InvokeResponse[Any], middleware_result)
 

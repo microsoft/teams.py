@@ -145,7 +145,6 @@ class EventEmitter(EventEmitterProtocol[EventTypeT]):
             value: Data to pass to event handlers
         """
         if event not in self._subscriptions:
-            self._logger.debug("No handlers registered for event '%s'", event)
             return
 
         handler_count = len(self._subscriptions[event])

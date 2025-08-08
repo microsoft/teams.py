@@ -126,8 +126,7 @@ class TestOauthHandlers:
         )
 
         # Verify response
-        assert isinstance(result, InvokeResponse) and result.body is None
-        assert result.status == 200
+        assert result is None
 
         # Verify next handler called
         mock_context.next.assert_called_once()
@@ -250,8 +249,7 @@ class TestOauthHandlers:
         assert mock_context.logger.debug.call_count == 2
 
         # Verify response
-        assert isinstance(result, InvokeResponse) and result.body is None
-        assert result.status == 200
+        assert result is None
 
         # Verify next handler called
         mock_context.next.assert_called_once()

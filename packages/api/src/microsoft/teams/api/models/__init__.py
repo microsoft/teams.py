@@ -52,6 +52,7 @@ from .invoke_response import (
     TaskModuleInvokeResponse,
     TokenExchangeInvokeResponseType,
     VoidInvokeResponse,
+    is_invoke_response,
 )
 from .meetings import *  # noqa: F403
 from .message import *  # noqa: F403
@@ -99,6 +100,7 @@ __all__: list[str] = [
     "TabInvokeResponse",
     "AdaptiveCardInvokeResponse",
     "TokenExchangeInvokeResponseType",
+    "is_invoke_response",
 ]
 __all__.extend(adaptive_card.__all__)
 __all__.extend(attachment.__all__)
