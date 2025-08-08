@@ -20,6 +20,9 @@ dmypy.json
 
 # other
 .DS_STORE
+*.bak
+*~
+*.tmp
 
 ref/
 py.typed
