@@ -5,12 +5,11 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "microsoft-teams-graph"
 version = "1.0.0"
-description = "Microsoft Teams Graph SDK for Python"
+description = "The Graph package for a Microsoft Teams agent"
 readme = "README.md"
 license = { text = "MIT" }
-authors = [
-    { name = "Microsoft Teams", email = "teams-python@microsoft.com" }
-]
+authors = [{ name = "Microsoft", email = "teams@microsoft.com" }]
+keywords = ["microsoft", "teams", "ai", "bot", "agents"]
 requires-python = ">=3.8"
 dependencies = [
     "azure-identity",

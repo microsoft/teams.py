@@ -63,7 +63,6 @@ class ActivityContext(Generic[T]):
         is_signed_in: bool,
         connection_name: str,
     ):
-        # Probably create and pass in the graph client here to the context
         self.activity = activity
         self.app_id = app_id
         self.logger = logger

@@ -20,9 +20,6 @@ def get_graph_client(
     """
     Get a configured Microsoft Graph client using a direct token.
 
-    This function creates a GraphServiceClient instance that uses the provided token
-    directly, without requiring an ActivityContext dependency.
-
     Args:
         token: The access token (string) or TokenResponse object containing the token
         connection_name: OAuth connection name for logging/tracking purposes (optional)

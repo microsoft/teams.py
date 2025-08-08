@@ -15,9 +15,6 @@ class DirectTokenCredential(TokenCredential):
     """
     Azure Core TokenCredential implementation using direct tokens.
 
-    This credential accepts tokens directly (as strings or TokenResponse objects)
-    without requiring an ActivityContext dependency. This provides maximum flexibility
-    for creating Graph clients in any scenario where tokens are available.
     """
 
     def __init__(self, token: Union[str, TokenResponse], connection_name: Optional[str] = None) -> None:

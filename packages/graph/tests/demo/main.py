@@ -4,6 +4,7 @@ Licensed under the MIT License.
 """
 
 import asyncio
+import logging
 import os
 
 from azure.core.exceptions import ClientAuthenticationError
@@ -11,6 +12,9 @@ from microsoft.teams.api import MessageActivity
 from microsoft.teams.app import ActivityContext, App, AppOptions, SignInEvent
 from microsoft.teams.app.events.types import ErrorEvent
 from microsoft.teams.graph import get_graph_client
+
+# Set up logging
+logger = logging.getLogger(__name__)
 
 # Create app with OAuth connection
 app_options = AppOptions(default_connection_name=os.getenv("CONNECTION_NAME", "graph"))
@@ -38,12 +42,12 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
     else:
         # Default response with help
         await ctx.send(
-            "👋 Hello! I'm a Teams Graph demo bot.\n\n"
-            "Available commands:\n"
-            "• **signin** - Sign in to your Microsoft account\n"
-            "• **signout** - Sign out\n"
-            "• **profile** - Show your profile info\n"
-            "• **emails** - List your recent emails\n"
+            "👋 **Hello! I'm a Teams Graph demo bot.**\n\n"
+            "**Available commands:**\n\n"
+            "• **signin** - Sign in to your Microsoft account\n\n"
+            "• **signout** - Sign out\n\n"
+            "• **profile** - Show your profile info\n\n"
+            "• **emails** - List your recent emails\n\n"
             "• **help** - Show this help message"
         )
 
@@ -101,10 +105,10 @@ async def handle_profile_command(ctx: ActivityContext[MessageActivity]):
         if me:
             profile_info = (
                 f"👤 **Your Profile**\n\n"
-                f"**Name:** {me.display_name or 'N/A'}\n"
-                f"**Email:** {me.user_principal_name or 'N/A'}\n"
-                f"**Job Title:** {me.job_title or 'N/A'}\n"
-                f"**Department:** {me.department or 'N/A'}\n"
+                f"**Name:** {me.display_name or 'N/A'}\n\n"
+                f"**Email:** {me.user_principal_name or 'N/A'}\n\n"
+                f"**Job Title:** {me.job_title or 'N/A'}\n\n"
+                f"**Department:** {me.department or 'N/A'}\n\n"
                 f"**Office:** {me.office_location or 'N/A'}"
             )
             await ctx.send(profile_info)
@@ -177,8 +181,8 @@ async def handle_emails_command(ctx: ActivityContext[MessageActivity]):
                 )
 
                 email_list += f"**{i}.** {subject}\n"
-                email_list += f"   From: {sender}\n"
-                email_list += f"   Received: {received}\n\n"
+                email_list += f"   **From:** {sender}\n"
+                email_list += f"   **Received:** {received}\n\n"
 
             await ctx.send(email_list)
         else:
@@ -198,18 +202,18 @@ async def handle_help_command(ctx: ActivityContext[MessageActivity]):
     help_text = (
         "🤖 **Teams Graph Demo Bot**\n\n"
         "This bot demonstrates Microsoft Graph integration with the Teams AI SDK using direct token management.\n\n"
-        "**Available Commands:**\n"
-        "• **signin** - Sign in to your Microsoft account\n"
-        "• **signout** - Sign out of your account\n"
-        "• **profile** - View your Microsoft profile information\n"
-        "• **emails** - List your 5 most recent emails\n"
+        "**Available Commands:**\n\n"
+        "• **signin** - Sign in to your Microsoft account\n\n"
+        "• **signout** - Sign out of your account\n\n"
+        "• **profile** - View your Microsoft profile information\n\n"
+        "• **emails** - List your 5 most recent emails\n\n"
         "• **help** - Show this help message\n\n"
-        "**Getting Started:**\n"
-        "1. Type `signin` to authenticate\n"
-        "2. Once signed in, try `profile` or `emails`\n"
+        "**Getting Started:**\n\n"
+        "1. Type `signin` to authenticate\n\n"
+        "2. Once signed in, try `profile` or `emails`\n\n"
         "3. Type `signout` when you're done\n\n"
-        "**Technical Details:**\n"
-        "This bot uses the new direct token approach where tokens are retrieved explicitly\n"
+        "**Technical Details:**\n\n"
+        "This bot uses the new direct token approach where tokens are retrieved explicitly "
         "from the Teams API and passed directly to the Microsoft Graph client.\n\n"
         "**Note:** This bot requires appropriate permissions to access your Microsoft Graph data."
     )
@@ -221,23 +225,23 @@ async def handle_sign_in_event(event: SignInEvent):
     """Handle successful sign-in events."""
     await event.activity_ctx.send(
         "✅ **Successfully signed in!**\n\n"
-        "You can now use these commands:\n"
-        "• `profile` - View your profile\n"
-        "• `emails` - View your recent emails\n"
-        "• `signout` - Sign out when done"
+        "You can now use these commands:\n\n"
+        "• **profile** - View your profile\n\n"
+        "• **emails** - View your recent emails\n\n"
+        "• **signout** - Sign out when done"
     )
 
 
 @app.event("error")
 async def handle_error_event(event: ErrorEvent):
     """Handle error events."""
-    print(f"❌ Error occurred: {event.error}")
+    logger.error(f"Error occurred: {event.error}")
     if event.context:
-        print(f"Context: {event.context}")
+        logger.error(f"Context: {event.context}")
 
 
 if __name__ == "__main__":
-    print("🚀 Starting Teams Graph Demo Bot...")
+    logger.info("Starting Teams Graph Demo Bot...")
     import os
 
     port = int(os.getenv("PORT", "3979"))  # Default to 3979 if not set

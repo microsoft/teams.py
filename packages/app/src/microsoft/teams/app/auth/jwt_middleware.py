@@ -3,15 +3,12 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-import logging
 from typing import Any, Awaitable, Callable
 
 import jwt
 from fastapi import HTTPException, Request, Response
 
 from .service_token_validator import ServiceTokenValidator
-
-logger = logging.getLogger(__name__)
 
 
 def create_jwt_validation_middleware(
