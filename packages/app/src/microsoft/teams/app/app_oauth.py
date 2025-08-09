@@ -10,7 +10,6 @@ from microsoft.teams.api import (
     ExchangeUserTokenParams,
     GetUserTokenParams,
     InvokeResponse,
-    SignInTokenExchangeInvokeActivity,
     SignInVerifyStateInvokeActivity,
     TokenExchangeInvokeResponse,
     TokenExchangeInvokeResponseType,
@@ -28,7 +27,7 @@ class OauthHandlers:
         self.event_emitter = event_emitter
 
     async def sign_in_token_exchange(
-        self, ctx: ActivityContext[SignInTokenExchangeInvokeActivity]
+        self, ctx: ActivityContext
     ) -> Union[TokenExchangeInvokeResponseType, InvokeResponse[TokenExchangeInvokeResponseType]]:
         """
         Decorator to register a function that handles the sign-in token exchange.
