@@ -6,10 +6,12 @@ on:
   pull_request:
     paths:
       - packages/**
+      - .github/workflows/ci.yml
   push:
     branches: ["main"]
     paths:
       - packages/**
+      - .github/workflows/ci.yml
 
 # Declare default permissions as read only.
 permissions: read-all
