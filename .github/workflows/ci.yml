@@ -71,7 +71,7 @@ jobs:
           args: "format"
 
       - name: Type Check (PyRight)
-        run: uv run pyright
+        uses: jakebailey/pyright-action@v2
 
       - name: Run Tests
         run: |
