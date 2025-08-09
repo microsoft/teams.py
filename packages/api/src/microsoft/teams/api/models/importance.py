@@ -3,12 +3,7 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from enum import Enum
+from typing import Literal
 
-
-class Importance(str, Enum):
-    """Enum for user identity types."""
-
-    LOW = "low"
-    NORMAL = "normal"
-    HIGH = "high"
+# Message importance levels.
+Importance = Literal["low", "normal", "high"] | str

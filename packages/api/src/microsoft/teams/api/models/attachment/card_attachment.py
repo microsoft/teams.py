@@ -3,7 +3,6 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from enum import Enum
 from typing import Any, Literal, Union
 
 from microsoft.teams.cards import AdaptiveCard
@@ -60,28 +59,6 @@ class ThumbnailCardAttachment(CardAttachmentData):
 class VideoCardAttachment(CardAttachmentData):
     content_type: Literal["application/vnd.microsoft.card.video"] = "application/vnd.microsoft.card.video"  #
     content: VideoCard
-
-
-class CardAttachmentTypes(str, Enum):
-    ADAPTIVE = AdaptiveCardAttachment
-    ANIMATION = AnimationCardAttachment
-    AUDIO = AudioCardAttachment
-    HERO = HeroCardAttachment
-    OAUTH = OAuthCardAttachment
-    SIGN_IN = SigninCardAttachment
-    THUMBNAIL = ThumbnailCardAttachment
-    VIDEO = VideoCardAttachment
-
-
-class CardAttachmentType(str, Enum):
-    ADAPTIVE = "adaptive"
-    ANIMATION = "animation"
-    AUDIO = "audio"
-    HERO = "hero"
-    OAUTH = "oauth"
-    SIGN_IN = "signin"
-    THUMBNAIL = "thumbnail"
-    VIDEO = "video"
 
 
 CardAttachment = Union[

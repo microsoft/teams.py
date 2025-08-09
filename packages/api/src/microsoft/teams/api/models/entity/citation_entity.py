@@ -3,7 +3,6 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from enum import Enum
 from typing import Any, List, Literal, Optional
 
 from pydantic import field_validator
@@ -11,29 +10,33 @@ from pydantic import field_validator
 from ..custom_base_model import CustomBaseModel
 from .message_entity import MessageEntity
 
-
-class CitationIconName(str, Enum):
-    MICROSOFT_WORD = "Microsoft Word"
-    MICROSOFT_EXCEL = "Microsoft Excel"
-    MICROSOFT_POWERPOINT = "Microsoft PowerPoint"
-    MICROSOFT_ONENOTE = "Microsoft OneNote"
-    MICROSOFT_SHAREPOINT = "Microsoft SharePoint"
-    MICROSOFT_VISIO = "Microsoft Visio"
-    MICROSOFT_LOOP = "Microsoft Loop"
-    MICROSOFT_WHITEBOARD = "Microsoft Whiteboard"
-    ADOBE_ILLUSTRATOR = "Adobe Illustrator"
-    ADOBE_PHOTOSHOP = "Adobe Photoshop"
-    ADOBE_INDESIGN = "Adobe InDesign"
-    ADOBE_FLASH = "Adobe Flash"
-    SKETCH = "Sketch"
-    SOURCE_CODE = "Source Code"
-    IMAGE = "Image"
-    GIF = "GIF"
-    VIDEO = "Video"
-    SOUND = "Sound"
-    ZIP = "ZIP"
-    TEXT = "Text"
-    PDF = "PDF"
+# Citation icon names for different file types and applications.
+CitationIconName = (
+    Literal[
+        "Microsoft Word",
+        "Microsoft Excel",
+        "Microsoft PowerPoint",
+        "Microsoft OneNote",
+        "Microsoft SharePoint",
+        "Microsoft Visio",
+        "Microsoft Loop",
+        "Microsoft Whiteboard",
+        "Adobe Illustrator",
+        "Adobe Photoshop",
+        "Adobe InDesign",
+        "Adobe Flash",
+        "Sketch",
+        "Source Code",
+        "Image",
+        "GIF",
+        "Video",
+        "Sound",
+        "ZIP",
+        "Text",
+        "PDF",
+    ]
+    | str
+)
 
 
 class CitationUsageInfo(CustomBaseModel):

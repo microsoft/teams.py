@@ -3,6 +3,17 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from typing import Literal, Union
+from typing import Literal
 
-MessageReactionType = Union[Literal["like", "heart", "laugh", "surprised", "sad", "angry", "plusOne"], str]
+MessageReactionType = (
+    Literal[
+        "like",
+        "heart",
+        "laugh",
+        "surprised",
+        "sad",
+        "angry",
+        "plusOne",
+    ]
+    | str
+)

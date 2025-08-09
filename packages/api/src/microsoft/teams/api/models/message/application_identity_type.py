@@ -3,14 +3,16 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from enum import Enum
+from typing import Literal
 
-
-class ApplicationIdentityType(str, Enum):
-    """Enum for application identity types."""
-
-    AAD_APPLICATION = "aadApplication"
-    BOT = "BOT"
-    TENANT_BOT = "tenantBot"
-    OFFICE_365_CONNECTOR = "office365Connector"
-    WEBHOOK = "webhook"
+# Enum for application identity types.
+ApplicationIdentityType = (
+    Literal[
+        "aadApplication",
+        "BOT",
+        "tenantBot",
+        "office365Connector",
+        "webhook",
+    ]
+    | str
+)

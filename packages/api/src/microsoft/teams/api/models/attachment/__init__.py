@@ -10,8 +10,6 @@ from .card_attachment import (
     AnimationCardAttachment,
     AudioCardAttachment,
     CardAttachment,
-    CardAttachmentType,
-    CardAttachmentTypes,
     HeroCardAttachment,
     OAuthCardAttachment,
     SigninCardAttachment,
@@ -23,7 +21,6 @@ from .card_attachment import (
 __all__ = [
     "Attachment",
     "AttachmentLayout",
-    "CardAttachmentTypes",
     "AdaptiveCardAttachment",
     "AnimationCardAttachment",
     "AudioCardAttachment",
@@ -32,7 +29,6 @@ __all__ = [
     "SigninCardAttachment",
     "ThumbnailCardAttachment",
     "VideoCardAttachment",
-    "CardAttachmentType",
     "CardAttachment",
     "card_attachment",
 ]
