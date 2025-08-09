@@ -25,7 +25,7 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
     print(f"[GENERATED onMessage] From: {ctx.activity.from_}")
 
     if "reply" in ctx.activity.text.lower():
-        await ctx.reply("Hello! How can I assist you today?")
+        await ctx.reply()
     else:
         await ctx.send(f"You said '{ctx.activity.text}'")
 

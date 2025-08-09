@@ -59,7 +59,6 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           uv sync --frozen --all-packages --group dev
-          source .venv/bin/activate
 
       - name: Lint (Ruff)
         uses: astral-sh/ruff-action@d0a0e814ec17e92d33be7d24dd922b479f1bcd38 # v1.1.1
@@ -72,8 +71,11 @@ jobs:
           args: "format"
 
       - name: Type Check (PyRight)
-        uses: jakebailey/pyright-action@v2
+        run: |
+          source .venv/bin/activate
+          pyright
 
       - name: Run Tests
         run: |
+          source .venv/bin/activate
           pytest packages
