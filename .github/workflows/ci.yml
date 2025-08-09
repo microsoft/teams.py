@@ -69,9 +69,7 @@ jobs:
           args: "format"
 
       - name: Type Check (PyRight)
-        run: |
-          source .venv/bin/activate  # Execute script in current shell to use virtual environment
-          pyright
+        run: uv run pyright
 
       - name: Run Tests
         run: |
