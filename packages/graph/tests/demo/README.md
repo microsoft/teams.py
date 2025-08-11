@@ -11,7 +11,7 @@ Teams AI SDK for Python using the new direct token approach.
 - Email listing with Mail.Read scope
 - Proper error handling and user feedback
 - Interactive command interface
-- Demonstrates Phase 1 DirectTokenCredential implementation
+- Consolidated authentication helper function
 
 ## Commands
 
@@ -68,7 +68,7 @@ token_params = GetUserTokenParams(
 token_response = await ctx.api.users.token.get(token_params)
 
 # Create Graph client with direct token
-graph = get_graph_client(token_response, connection_name=ctx.connection_name)
+graph = await get_graph_client(token_response.token, connection_name=ctx.connection_name)
 
 # Make Graph API calls
 me = await graph.me.get()

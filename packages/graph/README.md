@@ -25,7 +25,8 @@ This package provides seamless access to Microsoft Graph APIs from Teams bots an
 ```python
 from microsoft.teams.graph import get_graph_client
 from microsoft.teams.app import App, ActivityContext
-from microsoft.teams.api import MessageActivity, GetUserTokenParams
+from microsoft.teams.api import MessageActivity
+from microsoft.teams.api.clients.user.params import GetUserTokenParams
 
 app = App()
 
