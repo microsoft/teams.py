@@ -65,7 +65,6 @@ class DirectTokenCredential(TokenCredential):
             if not token_string:
                 raise ClientAuthenticationError("Token string is empty or None")
 
-            # Create access token
             access_token = AccessToken(token=token_string, expires_on=int(expires_on.timestamp()))
 
             # Cache for reuse
@@ -124,3 +123,8 @@ class DirectTokenCredential(TokenCredential):
         # Add 5-minute buffer before expiration
         now = int(datetime.datetime.now(datetime.timezone.utc).timestamp())
         return token.expires_on > (now + 300)  # 5 minutes buffer
+
+
+__all__ = [
+    "DirectTokenCredential",
+]
