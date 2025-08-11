@@ -10,7 +10,7 @@ readme = "README.md"
 license = { text = "MIT" }
 authors = [{ name = "Microsoft", email = "teams@microsoft.com" }]
 keywords = ["microsoft", "teams", "ai", "bot", "agents"]
-requires-python = ">=3.8"
+requires-python = ">=3.12"
 dependencies = [
     "azure-identity",
     "azure-core",

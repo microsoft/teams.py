@@ -61,10 +61,8 @@ def get_graph_client(
         raise ValueError("Token string cannot be empty or whitespace")
 
     try:
-        # Create direct token credential
         credential = DirectTokenCredential(token, connection_name)
 
-        # Create Graph service client
         client = GraphServiceClient(credentials=credential)
 
         return client
@@ -73,11 +71,9 @@ def get_graph_client(
         if isinstance(e, ClientAuthenticationError):
             raise  # Re-raise authentication errors as-is
 
-        # Wrap other exceptions with context
         raise ClientAuthenticationError(f"Failed to create Microsoft Graph client: {str(e)}") from e
 
 
-# Export public API
 __all__ = [
     "get_graph_client",
     "DirectTokenCredential",

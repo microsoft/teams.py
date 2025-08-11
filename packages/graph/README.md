@@ -2,6 +2,15 @@
 
 This package provides seamless access to Microsoft Graph APIs from Teams bots and agents built with the Microsoft Teams AI SDK for Python.
 
+## Requirements
+
+- Teams AI SDK for Python
+- Microsoft Graph SDK for Python (msgraph-sdk)
+- Azure Core library (azure-core)
+- Azure Identity library (azure-identity)
+- Cryptography library (cryptography)
+- PyJWT with crypto support (PyJWT[crypto])
+
 ## Features
 
 - **Direct Token Support**: Works with tokens directly (string or TokenResponse) without ActivityContext dependency
@@ -16,8 +25,7 @@ This package provides seamless access to Microsoft Graph APIs from Teams bots an
 ```python
 from microsoft.teams.graph import get_graph_client
 from microsoft.teams.app import App, ActivityContext
-from microsoft.teams.api import MessageActivity
-from microsoft.teams.api.clients.user.params import GetUserTokenParams
+from microsoft.teams.api import MessageActivity, GetUserTokenParams
 
 app = App()
 
@@ -85,12 +93,3 @@ request_config = MessagesRequestBuilder.MessagesRequestBuilderGetRequestConfigur
 )
 messages = await graph.me.messages.get(request_configuration=request_config)
 ```
-
-## Requirements
-
-- Teams AI SDK for Python
-- Microsoft Graph SDK for Python (msgraph-sdk)
-- Azure Core library (azure-core)
-- Azure Identity library (azure-identity)
-- Cryptography library (cryptography)
-- PyJWT with crypto support (PyJWT[crypto])

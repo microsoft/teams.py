@@ -8,7 +8,7 @@ from typing import Any, Optional, Union
 
 from azure.core.credentials import AccessToken, TokenCredential
 from azure.core.exceptions import ClientAuthenticationError
-from microsoft.teams.api.models.token.response import TokenResponse
+from microsoft.teams.api import TokenResponse
 
 
 class DirectTokenCredential(TokenCredential):
