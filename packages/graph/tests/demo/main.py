@@ -9,9 +9,13 @@ import os
 
 from azure.core.exceptions import ClientAuthenticationError
 from microsoft.teams.api import MessageActivity
+from microsoft.teams.api.clients.user.params import GetUserTokenParams
 from microsoft.teams.app import ActivityContext, App, AppOptions, SignInEvent
 from microsoft.teams.app.events.types import ErrorEvent
 from microsoft.teams.graph import get_graph_client
+from msgraph.generated.users.item.messages.messages_request_builder import (  # type: ignore
+    MessagesRequestBuilder,
+)
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -36,8 +40,6 @@ async def get_authenticated_graph_client(ctx: ActivityContext[MessageActivity]):
         return None
 
     # Get user token directly from Teams API
-    from microsoft.teams.api.clients.user.params import GetUserTokenParams
-
     token_params = GetUserTokenParams(
         channel_id=ctx.activity.channel_id,
         user_id=ctx.activity.from_.id,
@@ -121,10 +123,6 @@ async def handle_emails_command(ctx: ActivityContext[MessageActivity]):
             return
 
         # Fetch recent messages (top 5) using proper RequestConfiguration pattern
-        from msgraph.generated.users.item.messages.messages_request_builder import (  # type: ignore
-            MessagesRequestBuilder,
-        )
-
         query_params = MessagesRequestBuilder.MessagesRequestBuilderGetQueryParameters(
             select=["subject", "from", "receivedDateTime"], top=5
         )
@@ -224,7 +222,5 @@ async def handle_error_event(event: ErrorEvent):
 
 if __name__ == "__main__":
     logger.info("Starting Teams Graph Demo Bot...")
-    import os
-
     port = int(os.getenv("PORT", "3979"))  # Default to 3979 if not set
     asyncio.run(app.start(port))
