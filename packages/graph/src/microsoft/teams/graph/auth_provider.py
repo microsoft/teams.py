@@ -23,7 +23,7 @@ class DirectTokenCredential(TokenCredential):
 
         Args:
             token: The access token (string) or TokenResponse object
-            connection_name: OAuth connection name for logging/tracking purposes
+            connection_name: OAuth connection name
         """
         self._token = token
         self._connection_name = connection_name
@@ -105,8 +105,7 @@ class DirectTokenCredential(TokenCredential):
             return datetime.datetime.fromisoformat(expiration)
 
         except (ValueError, AttributeError):
-            # If parsing fails, log and use default expiration
-            # In a real scenario, you might want to log this
+            # If parsing fails, use default expiration
             return datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=1)
 
     def _is_token_valid(self, token: AccessToken) -> bool:
