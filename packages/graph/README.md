@@ -16,9 +16,6 @@ This package provides seamless access to Microsoft Graph APIs from Teams bots an
 - **Direct Token Support**: Works with tokens directly using the flexible Token pattern from the Teams SDK
 - **Flexible Input**: Accepts strings, callables, async functions, and other token types
 - **Automatic Token Management**: Handles expiration validation with intelligent caching
-- **Type Safe**: Full typing support with intellisense
-- **High Performance**: Intelligent caching and minimal overhead
-- **Pythonic**: Follows Python and Teams SDK conventions
 
 ## Quick Start
 

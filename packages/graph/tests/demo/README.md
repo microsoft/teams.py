@@ -75,7 +75,3 @@ me = await graph.me.get()
 ```
 
 This approach provides maximum flexibility and can be used in any scenario where tokens are available, not just within ActivityContext.
-
-```
-
-```
