@@ -5,7 +5,6 @@ Licensed under the MIT License.
 
 import datetime
 
-import pytest
 from azure.core.credentials import AccessToken
 from microsoft.teams.api.models.token.response import TokenResponse
 from microsoft.teams.graph import get_graph_client
@@ -61,27 +60,23 @@ class TestDirectTokenCredential:
         assert token1.expires_on == token2.expires_on
 
     def test_handles_empty_token(self) -> None:
-        """Test proper error when token is empty."""
-        # Test with None
-        with pytest.raises(ValueError, match="Token cannot be None or empty"):
-            get_graph_client(None)  # type: ignore
+        """Test behavior when token is empty - client creation succeeds, error on token usage."""
+        # Test with empty string - client creation should succeed
+        client = get_graph_client("")
+        assert client is not None
 
-        # Test with empty string (caught by first validation)
-        with pytest.raises(ValueError, match="Token cannot be None or empty"):
-            get_graph_client("")
-
-        # Test with whitespace string (caught by string-specific validation)
-        with pytest.raises(ValueError, match="Token string cannot be empty or whitespace"):
-            get_graph_client("   ")
+        # Test with whitespace string - client creation should succeed
+        client = get_graph_client("   ")
+        assert client is not None
 
     def test_handles_token_response_with_empty_token(self) -> None:
-        """Test proper error when TokenResponse has empty token."""
+        """Test behavior when TokenResponse has empty token - client creation succeeds, error on token usage."""
         # Arrange
         token_response = TokenResponse(connection_name="graph", token="", expiration="2024-12-31T23:59:59Z")
 
-        # Act & Assert
-        with pytest.raises(ValueError, match="TokenResponse must contain a valid token"):
-            get_graph_client(token_response)
+        # Act - client creation should succeed
+        client = get_graph_client(token_response)
+        assert client is not None
 
     def test_token_expiration_parsing(self) -> None:
         """Test various expiration date formats are parsed correctly."""
@@ -190,19 +185,15 @@ class TestGraphClientFactory:
         assert client1 is not client2
 
     def test_validates_token_input(self) -> None:
-        """Test that invalid tokens are rejected."""
-        # Test None token
-        with pytest.raises(ValueError, match="Token cannot be None or empty"):
-            get_graph_client(None)  # type: ignore
+        """Test that the function works with different token inputs."""
+        # Test empty string - client creation should succeed
+        client = get_graph_client("")
+        assert client is not None
 
-        # Test empty string (caught by first validation)
-        with pytest.raises(ValueError, match="Token cannot be None or empty"):
-            get_graph_client("")
-
-        # Test TokenResponse with empty token
+        # Test TokenResponse with empty token - client creation should succeed
         empty_token_response = TokenResponse(connection_name="graph", token="")
-        with pytest.raises(ValueError, match="TokenResponse must contain a valid token"):
-            get_graph_client(empty_token_response)
+        client = get_graph_client(empty_token_response)
+        assert client is not None
 
     def test_handles_credential_creation_errors(self) -> None:
         """Test error handling during credential creation."""

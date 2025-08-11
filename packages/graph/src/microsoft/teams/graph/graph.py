@@ -29,7 +29,6 @@ def get_graph_client(
 
     Raises:
         ClientAuthenticationError: If the token is invalid or authentication fails
-        ValueError: If the token is None or empty
 
     Example:
         ```python
@@ -51,15 +50,6 @@ def get_graph_client(
         messages = await graph.me.messages.get()
         ```
     """
-    if not token:
-        raise ValueError("Token cannot be None or empty")
-
-    if isinstance(token, TokenResponse) and not token.token:
-        raise ValueError("TokenResponse must contain a valid token")
-
-    if isinstance(token, str) and not token.strip():
-        raise ValueError("Token string cannot be empty or whitespace")
-
     try:
         credential = DirectTokenCredential(token, connection_name)
 
