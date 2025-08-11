@@ -57,7 +57,7 @@ async def get_graph_client(
         raise ValueError("Token resolved to None or empty")
 
     try:
-        credential = DirectTokenCredential(resolved_token)
+        credential = DirectTokenCredential(resolved_token, connection_name=connection_name)
 
         client = GraphServiceClient(credentials=credential)
 
