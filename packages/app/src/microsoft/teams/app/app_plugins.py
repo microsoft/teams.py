@@ -9,7 +9,6 @@ from typing import Any, List, Optional, cast, get_type_hints
 from dependency_injector import providers
 from microsoft.teams.api.activities import Activity
 from microsoft.teams.common.events.event_emitter import EventEmitter
-from microsoft.teams.common.logging.console import ConsoleLogger
 
 from .app_events import EventManager
 from .container import Container
@@ -91,9 +90,7 @@ class PluginManager:
                     self._inject_events(meta, plugin, field_name)
 
                 elif isinstance(meta, DependencyMetadata):
-                    self.logger.info(
-                        f"Initializing the dependency {meta.name} for {plugin.__class__.__name__}.{field_name}"
-                    )
+                    self.logger.info(f"Initializing the dependency {field_name} for {plugin.__class__.__name__}")
                     self.inject_dependencies(meta, plugin, origin, field_name)
 
     def _inject_events(self, meta: EventMetadata, plugin: PluginBase, field_name: str) -> None:
@@ -137,21 +134,18 @@ class PluginManager:
         """Injects dependencies into the plugin based on metadata info."""
         dependency = None
 
-        self.logger.info(f"Injecting the dependency {meta.name} into {plugin.__class__.__name__}")
-
         if type_name:
-            dependency = getattr(self.container, type_name, None)
+            dependency = getattr(self.container, type_name.__name__, None)
         if not dependency:
             dependency = getattr(self.container, field_name, None)
         if not dependency:
             if not meta.optional:
                 raise ValueError(
                     f"dependency of {type_name} of property {field_name} not found "
-                    + "but plugin {plugin.__class__.__name__} depends on it"
+                    + f"but plugin {plugin.__class__.__name__} depends on it"
                 )
-        if field_name == "logger":
-            self.logger.info("Injecting the logger dependency")
-            dependency = cast(ConsoleLogger, dependency)
-            dependency = dependency.get_child(plugin.__class__.__name__)
+        if dependency and field_name == "logger":
+            logger_dependency = cast(Logger, dependency())
+            dependency = logger_dependency.getChild(plugin.__class__.__name__)
         setattr(plugin, field_name, dependency)
-        self.logger.info(f"Succesfully injected the dependency {meta.name} into {plugin.__class__.__name__}")
+        self.logger.info(f"Succesfully injected the dependency {field_name} into {plugin.__class__.__name__}")
