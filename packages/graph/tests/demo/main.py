@@ -21,6 +21,41 @@ app_options = AppOptions(default_connection_name=os.getenv("CONNECTION_NAME", "g
 app = App(app_options)
 
 
+async def get_authenticated_graph_client(ctx: ActivityContext[MessageActivity]):
+    """
+    Helper function to handle authentication and create Graph client.
+
+    Returns:
+        Graph client if successful, None if authentication failed.
+        Also handles sending appropriate messages to the user.
+    """
+    # Check if user is signed in
+    if not ctx.is_signed_in:
+        await ctx.send("🔐 Please sign in first to access Microsoft Graph.")
+        await ctx.sign_in()
+        return None
+
+    # Get user token directly from Teams API
+    from microsoft.teams.api.clients.user.params import GetUserTokenParams
+
+    token_params = GetUserTokenParams(
+        channel_id=ctx.activity.channel_id,
+        user_id=ctx.activity.from_.id,
+        connection_name=ctx.connection_name,
+    )
+
+    try:
+        token_response = await ctx.api.users.token.get(token_params)
+    except Exception as e:
+        ctx.logger.error(f"Failed to get user token: {e}")
+        await ctx.send("🔐 Failed to get authentication token. Please try signing in again.")
+        await ctx.sign_in()
+        return None
+
+    # Create Graph client with direct token using new Token pattern
+    return await get_graph_client(token_response.token, connection_name=ctx.connection_name)
+
+
 @app.on_message_pattern("signin")
 async def handle_signin_command(ctx: ActivityContext[MessageActivity]):
     """Handle sign-in command."""
@@ -45,31 +80,10 @@ async def handle_signout_command(ctx: ActivityContext[MessageActivity]):
 async def handle_profile_command(ctx: ActivityContext[MessageActivity]):
     """Handle profile command using Graph API with direct token usage."""
     try:
-        # Check if user is signed in
-        if not ctx.is_signed_in:
-            await ctx.send("🔐 Please sign in first to view your profile.")
-            await ctx.sign_in()
+        # Get authenticated Graph client
+        graph = await get_authenticated_graph_client(ctx)
+        if not graph:
             return
-
-        # Get user token directly from Teams API
-        from microsoft.teams.api.clients.user.params import GetUserTokenParams
-
-        token_params = GetUserTokenParams(
-            channel_id=ctx.activity.channel_id,
-            user_id=ctx.activity.from_.id,
-            connection_name=ctx.connection_name,
-        )
-
-        try:
-            token_response = await ctx.api.users.token.get(token_params)
-        except Exception as e:
-            ctx.logger.error(f"Failed to get user token: {e}")
-            await ctx.send("🔐 Failed to get authentication token. Please try signing in again.")
-            await ctx.sign_in()
-            return
-
-        # Create Graph client with direct token using new Token pattern
-        graph = await get_graph_client(token_response.token, connection_name=ctx.connection_name)
 
         # Fetch user profile
         me = await graph.me.get()
@@ -101,31 +115,10 @@ async def handle_profile_command(ctx: ActivityContext[MessageActivity]):
 async def handle_emails_command(ctx: ActivityContext[MessageActivity]):
     """Handle emails command using Graph API with direct token usage."""
     try:
-        # Check if user is signed in
-        if not ctx.is_signed_in:
-            await ctx.send("🔐 Please sign in first to view your emails.")
-            await ctx.sign_in()
+        # Get authenticated Graph client
+        graph = await get_authenticated_graph_client(ctx)
+        if not graph:
             return
-
-        # Get user token directly from Teams API
-        from microsoft.teams.api.clients.user.params import GetUserTokenParams
-
-        token_params = GetUserTokenParams(
-            channel_id=ctx.activity.channel_id,
-            user_id=ctx.activity.from_.id,
-            connection_name=ctx.connection_name,
-        )
-
-        try:
-            token_response = await ctx.api.users.token.get(token_params)
-        except Exception as e:
-            ctx.logger.error(f"Failed to get user token: {e}")
-            await ctx.send("🔐 Failed to get authentication token. Please try signing in again.")
-            await ctx.sign_in()
-            return
-
-        # Create Graph client with direct token using new Token pattern
-        graph = await get_graph_client(token_response.token, connection_name=ctx.connection_name)
 
         # Fetch recent messages (top 5) using proper RequestConfiguration pattern
         from msgraph.generated.users.item.messages.messages_request_builder import (  # type: ignore
