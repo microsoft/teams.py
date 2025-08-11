@@ -11,7 +11,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from microsoft.teams.api import (
     ConfigResponse,
-    ConversationReference,
     InvokeResponse,
     MessageActivity,
     MessageActivityInput,
@@ -28,42 +27,33 @@ class TestHttpPlugin:
         return MagicMock()
 
     @pytest.fixture
-    def mock_activity_handler(self):
-        """Create a mock activity handler."""
-
-        async def handler(activity):
-            return {"status": "processed", "type": activity.get("type")}
-
-        return handler
-
-    @pytest.fixture
-    def plugin_with_validator(self, mock_logger, mock_activity_handler):
+    def plugin_with_validator(self, mock_logger):
         """Create HttpPlugin with token validator."""
-        return HttpPlugin("test-app-id", mock_logger, activity_handler=mock_activity_handler)
+        return HttpPlugin("test-app-id", mock_logger)
 
     @pytest.fixture
-    def plugin_without_validator(self, mock_logger, mock_activity_handler):
+    def plugin_without_validator(self, mock_logger):
         """Create HttpPlugin without token validator."""
-        return HttpPlugin(None, mock_logger, activity_handler=mock_activity_handler)
+        return HttpPlugin(None, mock_logger)
 
-    def test_init_with_app_id(self, mock_logger, mock_activity_handler):
+    def test_init_with_app_id(self, mock_logger):
         """Test HttpPlugin initialization with app ID."""
-        plugin = HttpPlugin("test-app-id", mock_logger, activity_handler=mock_activity_handler)
+        plugin = HttpPlugin("test-app-id", mock_logger)
 
         assert plugin.logger == mock_logger
         assert plugin.app is not None
         assert plugin.pending == {}
 
-    def test_init_without_app_id(self, mock_logger, mock_activity_handler):
+    def test_init_without_app_id(self, mock_logger):
         """Test HttpPlugin initialization without app ID."""
-        plugin = HttpPlugin(None, mock_logger, activity_handler=mock_activity_handler)
+        plugin = HttpPlugin(None, mock_logger)
 
         assert plugin.logger == mock_logger
         assert plugin.app is not None
 
-    def test_init_with_default_logger(self, mock_activity_handler):
+    def test_init_with_default_logger(self):
         """Test HttpPlugin initialization with default logger."""
-        plugin = HttpPlugin("test-app-id", None, activity_handler=mock_activity_handler)
+        plugin = HttpPlugin("test-app-id", None)
 
         assert plugin.logger is not None
 
@@ -95,7 +85,6 @@ class TestHttpPlugin:
         response_data = InvokeResponse(body=cast(ConfigResponse, {"status": "success"}), status=200)
         await plugin_with_validator.on_activity_response(
             PluginActivityResponseEvent(
-                conversation_ref=cast(ConversationReference, {"id": "test-conversation-id"}),
                 sender=plugin_with_validator,
                 activity=mock_activity,
                 response=response_data,
@@ -117,7 +106,6 @@ class TestHttpPlugin:
         # Should not raise exception
         await plugin_with_validator.on_activity_response(
             PluginActivityResponseEvent(
-                conversation_ref=cast(ConversationReference, {"id": "test-conversation-id"}),
                 sender=plugin_with_validator,
                 activity=mock_activity,
                 response=response_data,
@@ -139,7 +127,6 @@ class TestHttpPlugin:
         # Should not raise exception
         await plugin_with_validator.on_activity_response(
             PluginActivityResponseEvent(
-                conversation_ref=cast(ConversationReference, {"id": "test-conversation-id"}),
                 sender=plugin_with_validator,
                 activity=mock_activity,
                 response=response_data,

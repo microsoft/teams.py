@@ -26,6 +26,7 @@ from .account import Account, AccountRole, ConversationAccount
 from .action import Action
 from .activity import Activity as ActivityBase
 from .activity import ActivityInput as ActivityInputBase
+from .activity_params import ActivityParams
 from .adaptive_card import *  # noqa: F403
 from .app_based_link_query import AppBasedLinkQuery
 from .attachment import *  # noqa: F403
@@ -72,6 +73,7 @@ from .token_exchange import *  # noqa: F403
 __all__: list[str] = [
     "Account",
     "AccountRole",
+    "ActivityParams",
     "Action",
     "ActivityBase",
     "ActivityInputBase",

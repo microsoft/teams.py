@@ -5,8 +5,7 @@ Licensed under the MIT License.
 
 from abc import abstractmethod
 
-from microsoft.teams.api.clients.conversation import ActivityParams
-from microsoft.teams.api.models import ConversationReference, SentActivity
+from microsoft.teams.api.models import ActivityParams, ConversationReference, SentActivity
 
 from .plugin_base import PluginBase
 from .streamer import StreamerProtocol

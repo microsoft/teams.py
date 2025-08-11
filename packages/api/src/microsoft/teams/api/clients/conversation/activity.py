@@ -3,48 +3,12 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from typing import List, Optional, Union
+from typing import List, Optional
 
 from microsoft.teams.common.http import Client
-from pydantic import Field
-from typing_extensions import Annotated
 
-from ...activities.command import CommandResultActivityInput, CommandSendActivityInput
-from ...activities.conversation import ConversationUpdateActivityInput, EndOfConversationActivityInput
-from ...activities.handoff import HandoffActivityInput
-from ...activities.message import (
-    MessageActivityInput,
-    MessageDeleteActivityInput,
-    MessageReactionActivityInput,
-    MessageUpdateActivityInput,
-)
-from ...activities.trace import TraceActivityInput
-from ...activities.typing import TypingActivityInput
-from ...models import Account, SentActivity
+from ...models import Account, ActivityParams, SentActivity
 from ..base_client import BaseClient
-
-# Union of all activity input types (each defined next to their respective activities)
-ActivityParams = Annotated[
-    Union[
-        # Simple activities
-        ConversationUpdateActivityInput,
-        EndOfConversationActivityInput,
-        HandoffActivityInput,
-        TraceActivityInput,
-        TypingActivityInput,
-        # Message activities
-        MessageActivityInput,
-        MessageDeleteActivityInput,
-        MessageReactionActivityInput,
-        MessageUpdateActivityInput,
-        # Command activities
-        CommandSendActivityInput,
-        CommandResultActivityInput,
-        # Event activities
-        # Install/Update activities
-    ],
-    Field(discriminator="type"),
-]
 
 
 class ConversationActivityClient(BaseClient):
@@ -79,7 +43,7 @@ class ConversationActivityClient(BaseClient):
             json=activity.model_dump(by_alias=True, exclude_none=True),
         )
 
-        return SentActivity.model_validate_json(response.json())
+        return SentActivity(**response.json())
 
     async def update(self, conversation_id: str, activity_id: str, activity: ActivityParams) -> SentActivity:
         """
@@ -97,7 +61,7 @@ class ConversationActivityClient(BaseClient):
             f"{self.service_url}/v3/conversations/{conversation_id}/activities/{activity_id}",
             json=activity.model_dump(by_alias=True),
         )
-        return SentActivity.model_validate_json(response.json())
+        return SentActivity(**response.json())
 
     async def reply(self, conversation_id: str, activity_id: str, activity: ActivityParams) -> SentActivity:
         """
@@ -117,7 +81,7 @@ class ConversationActivityClient(BaseClient):
             f"{self.service_url}/v3/conversations/{conversation_id}/activities/{activity_id}",
             json=activity_json,
         )
-        return SentActivity.model_validate_json(response.json())
+        return SentActivity(**response.json())
 
     async def delete(self, conversation_id: str, activity_id: str) -> None:
         """
