@@ -31,7 +31,7 @@ Teams AI SDK for Python using the new direct token approach.
 4. Create a `.env` file with required environment variables:
    ```
    CONNECTION_NAME=graph
-   PORT=3979
+   # PORT=3979  # Optional: specify custom port (defaults to 3979)
    ```
 
 ## Running
