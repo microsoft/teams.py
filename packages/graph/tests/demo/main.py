@@ -17,7 +17,6 @@ from msgraph.generated.users.item.messages.messages_request_builder import (  # 
     MessagesRequestBuilder,
 )
 
-# Set up logging
 logger = logging.getLogger(__name__)
 
 # Create app with OAuth connection
@@ -82,7 +81,6 @@ async def handle_signout_command(ctx: ActivityContext[MessageActivity]):
 async def handle_profile_command(ctx: ActivityContext[MessageActivity]):
     """Handle profile command using Graph API with direct token usage."""
     try:
-        # Get authenticated Graph client
         graph = await get_authenticated_graph_client(ctx)
         if not graph:
             return
@@ -117,7 +115,6 @@ async def handle_profile_command(ctx: ActivityContext[MessageActivity]):
 async def handle_emails_command(ctx: ActivityContext[MessageActivity]):
     """Handle emails command using Graph API with direct token usage."""
     try:
-        # Get authenticated Graph client
         graph = await get_authenticated_graph_client(ctx)
         if not graph:
             return
