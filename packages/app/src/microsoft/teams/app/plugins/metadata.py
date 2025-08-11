@@ -18,7 +18,7 @@ class PluginOptions:
     description: Optional[str] = None
 
 
-def plugin(metadata: Optional[PluginOptions] = None):
+def Plugin(metadata: Optional[PluginOptions] = None):
     """Turns any class into a plugin using the decorator pattern."""
 
     def decorator(cls: Any) -> Any:

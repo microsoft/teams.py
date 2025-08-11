@@ -3,7 +3,7 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from .metadata import DependencyMetadata, EventMetadata, LoggerDependencyOptions, PluginOptions, get_metadata, plugin
+from .metadata import DependencyMetadata, EventMetadata, LoggerDependencyOptions, Plugin, PluginOptions, get_metadata
 from .plugin_activity_event import PluginActivityEvent
 from .plugin_activity_response_event import PluginActivityResponseEvent
 from .plugin_activity_sent_event import PluginActivitySentEvent
@@ -28,5 +28,5 @@ __all__ = [
     "DependencyMetadata",
     "EventMetadata",
     "LoggerDependencyOptions",
-    "plugin",
+    "Plugin",
 ]

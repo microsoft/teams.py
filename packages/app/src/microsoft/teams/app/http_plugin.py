@@ -30,12 +30,12 @@ from .plugins import (
     Sender,
     StreamerProtocol,
 )
-from .plugins.metadata import PluginOptions, plugin
+from .plugins.metadata import Plugin, PluginOptions
 
 version = importlib.metadata.version("microsoft-teams-app")
 
 
-@plugin(PluginOptions(name="http", version=version, description="the default plugin for sending/receiving activities"))
+@Plugin(PluginOptions(name="http", version=version, description="the default plugin for sending/receiving activities"))
 class HttpPlugin(Sender):
     """
     Basic HTTP plugin that provides a FastAPI server for Teams activities.

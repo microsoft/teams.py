@@ -3,12 +3,12 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from microsoft.teams.app.plugins import PluginBase, PluginOptions, get_metadata, plugin
+from microsoft.teams.app.plugins import Plugin, PluginBase, PluginOptions, get_metadata
 
 
 class TestPluginDecorator:
     def test_plugin_with_metadata(self):
-        @plugin(PluginOptions(name="test", version="0.2.0", description="testing123"))
+        @Plugin(PluginOptions(name="test", version="0.2.0", description="testing123"))
         class Test(PluginBase):
             pass
 
@@ -23,7 +23,7 @@ class TestPluginDecorator:
     def test_plugin_with_default_metadata(self):
         """Test plugin decorator with default metadata"""
 
-        @plugin()
+        @Plugin()
         class Test(PluginBase):
             pass
 
