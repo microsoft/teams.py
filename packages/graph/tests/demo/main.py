@@ -21,37 +21,7 @@ app_options = AppOptions(default_connection_name=os.getenv("CONNECTION_NAME", "g
 app = App(app_options)
 
 
-@app.on_message
-async def handle_message(ctx: ActivityContext[MessageActivity]):
-    """Handle message activities and demonstrate Graph integration."""
-    message_text = ctx.activity.text.strip().lower() if ctx.activity.text else ""
-
-    ctx.logger.info(f"Message received: {message_text}")
-
-    # Handle different commands
-    if message_text == "signin":
-        await handle_signin_command(ctx)
-    elif message_text == "signout":
-        await handle_signout_command(ctx)
-    elif message_text == "profile":
-        await handle_profile_command(ctx)
-    elif message_text == "emails":
-        await handle_emails_command(ctx)
-    elif message_text == "help":
-        await handle_help_command(ctx)
-    else:
-        # Default response with help
-        await ctx.send(
-            "👋 **Hello! I'm a Teams Graph demo bot.**\n\n"
-            "**Available commands:**\n\n"
-            "• **signin** - Sign in to your Microsoft account\n\n"
-            "• **signout** - Sign out\n\n"
-            "• **profile** - Show your profile info\n\n"
-            "• **emails** - List your recent emails\n\n"
-            "• **help** - Show this help message"
-        )
-
-
+@app.on_message_pattern("signin")
 async def handle_signin_command(ctx: ActivityContext[MessageActivity]):
     """Handle sign-in command."""
     if ctx.is_signed_in:
@@ -61,6 +31,7 @@ async def handle_signin_command(ctx: ActivityContext[MessageActivity]):
         await ctx.sign_in()
 
 
+@app.on_message_pattern("signout")
 async def handle_signout_command(ctx: ActivityContext[MessageActivity]):
     """Handle sign-out command."""
     if not ctx.is_signed_in:
@@ -70,6 +41,7 @@ async def handle_signout_command(ctx: ActivityContext[MessageActivity]):
         await ctx.send("👋 You have been signed out successfully!")
 
 
+@app.on_message_pattern("profile")
 async def handle_profile_command(ctx: ActivityContext[MessageActivity]):
     """Handle profile command using Graph API with direct token usage."""
     try:
@@ -125,6 +97,7 @@ async def handle_profile_command(ctx: ActivityContext[MessageActivity]):
         await ctx.send(f"❌ Failed to get your profile: {str(e)}")
 
 
+@app.on_message_pattern("emails")
 async def handle_emails_command(ctx: ActivityContext[MessageActivity]):
     """Handle emails command using Graph API with direct token usage."""
     try:
@@ -197,6 +170,7 @@ async def handle_emails_command(ctx: ActivityContext[MessageActivity]):
         await ctx.send(f"❌ Failed to get your emails: {str(e)}")
 
 
+@app.on_message_pattern("help")
 async def handle_help_command(ctx: ActivityContext[MessageActivity]):
     """Handle help command."""
     help_text = (
@@ -218,6 +192,21 @@ async def handle_help_command(ctx: ActivityContext[MessageActivity]):
         "**Note:** This bot requires appropriate permissions to access your Microsoft Graph data."
     )
     await ctx.send(help_text)
+
+
+@app.on_message
+async def handle_default_message(ctx: ActivityContext[MessageActivity]):
+    """Handle default message when no pattern matches."""
+    # Default response with help
+    await ctx.send(
+        "👋 **Hello! I'm a Teams Graph demo bot.**\n\n"
+        "**Available commands:**\n\n"
+        "• **signin** - Sign in to your Microsoft account\n\n"
+        "• **signout** - Sign out\n\n"
+        "• **profile** - Show your profile info\n\n"
+        "• **emails** - List your recent emails\n\n"
+        "• **help** - Show this help message"
+    )
 
 
 @app.event("sign_in")
