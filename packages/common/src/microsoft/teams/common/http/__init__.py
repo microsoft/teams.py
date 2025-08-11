@@ -4,7 +4,7 @@ Licensed under the MIT License.
 """
 
 from .client import Client, ClientOptions
-from .client_token import Token, TokenFactory
+from .client_token import Token, TokenFactory, resolve_token
 from .interceptor import Interceptor, InterceptorRequestContext, InterceptorResponseContext
 
 __all__ = [
@@ -15,4 +15,5 @@ __all__ = [
     "InterceptorResponseContext",
     "Token",
     "TokenFactory",
+    "resolve_token",
 ]

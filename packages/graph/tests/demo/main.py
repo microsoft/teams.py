@@ -96,8 +96,8 @@ async def handle_profile_command(ctx: ActivityContext[MessageActivity]):
             await ctx.sign_in()
             return
 
-        # Create Graph client with direct token
-        graph = get_graph_client(token_response, connection_name=ctx.connection_name)
+        # Create Graph client with direct token using new Token pattern
+        graph = await get_graph_client(token_response.token, connection_name=ctx.connection_name)
 
         # Fetch user profile
         me = await graph.me.get()
@@ -151,8 +151,8 @@ async def handle_emails_command(ctx: ActivityContext[MessageActivity]):
             await ctx.sign_in()
             return
 
-        # Create Graph client with direct token
-        graph = get_graph_client(token_response, connection_name=ctx.connection_name)
+        # Create Graph client with direct token using new Token pattern
+        graph = await get_graph_client(token_response.token, connection_name=ctx.connection_name)
 
         # Fetch recent messages (top 5) using proper RequestConfiguration pattern
         from msgraph.generated.users.item.messages.messages_request_builder import (  # type: ignore

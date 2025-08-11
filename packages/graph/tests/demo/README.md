@@ -52,9 +52,9 @@ python packages/graph/tests/demo/main.py
 
 The demo uses the `microsoft.teams.graph` package which provides:
 
-- **`get_graph_client()`** - Main factory function accepting `Union[str, TokenResponse]`
-- **`DirectTokenCredential`** - Azure TokenCredential implementation for direct token usage
-- **Direct Token Approach** - No ActivityContext dependency, explicit token retrieval
+- **`get_graph_client()`** - Main factory function accepting the flexible Token pattern
+- **`DirectTokenCredential`** - Azure TokenCredential implementation for string tokens
+- **Token Pattern Approach** - Uses Teams SDK Token pattern for flexible token handling
 
 ### Key Implementation Details
 
@@ -78,3 +78,4 @@ This approach provides maximum flexibility and can be used in any scenario where
 
 ```
 
+```

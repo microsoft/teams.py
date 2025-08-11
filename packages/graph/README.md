@@ -13,8 +13,8 @@ This package provides seamless access to Microsoft Graph APIs from Teams bots an
 
 ## Features
 
-- **Direct Token Support**: Works with tokens directly (string or TokenResponse) without ActivityContext dependency
-- **Flexible Input**: Accepts both raw token strings and TokenResponse objects
+- **Direct Token Support**: Works with tokens directly using the flexible Token pattern from the Teams SDK
+- **Flexible Input**: Accepts strings, callables, async functions, and other token types
 - **Automatic Token Management**: Handles expiration validation with intelligent caching
 - **Type Safe**: Full typing support with intellisense
 - **High Performance**: Intelligent caching and minimal overhead
@@ -44,36 +44,44 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
     token_response = await ctx.api.users.token.get(token_params)
 
     # Create Graph client with direct token
-    graph = get_graph_client(token_response, connection_name="graph")
+    graph = await get_graph_client(token_response.token, connection_name="graph")
 
     # Make Graph API calls
     me = await graph.me.get()
     await ctx.send(f"Hello {me.display_name}!")
 ```
 
-## Direct Token Usage
+## Token Usage
 
-The package accepts tokens in two ways:
-
-### Using TokenResponse (Recommended)
-
-```python
-# TokenResponse includes expiration information
-token_response = await ctx.api.users.token.get(token_params)
-graph = get_graph_client(token_response, connection_name="graph")
-```
+The package uses the flexible Token pattern from the Teams SDK, accepting various token types:
 
 ### Using String Tokens
 
 ```python
 # Raw token string (expiration defaults to 1 hour)
 token_string = "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIs..."
-graph = get_graph_client(token_string)
+graph = await get_graph_client(token_string)
+```
+
+### Using Token Factories
+
+```python
+# Callable that returns a token
+def get_token():
+    return get_access_token_from_somewhere()
+
+graph = await get_graph_client(get_token)
+
+# Async callable for dynamic token retrieval
+async def get_token_async():
+    return await fetch_token_from_api()
+
+graph = await get_graph_client(get_token_async)
 ```
 
 ## Authentication
 
-The package uses direct token management. Ensure your app is configured with the appropriate OAuth connection (typically named "graph") in your Azure Bot registration. The package does not handle token refresh - use fresh tokens from the Teams API.
+The package uses direct token management with the Teams SDK Token pattern. Ensure your app is configured with the appropriate OAuth connection (typically named "graph") in your Azure Bot registration. The package does not handle token refresh - use fresh tokens from the Teams API or your token source.
 
 ## API Usage Examples
 
