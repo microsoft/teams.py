@@ -12,8 +12,8 @@ from microsoft.teams.graph.auth_provider import DirectTokenCredential
 from msgraph.graph_service_client import GraphServiceClient
 
 
-class TestDirectTokenCredentialIntegration:
-    """Integration tests for DirectTokenCredential functionality."""
+class TestDirectTokenCredential:
+    """Unit tests for DirectTokenCredential functionality."""
 
     def test_get_token_with_string_token(self) -> None:
         """Test that we can get a valid access token from string token."""
@@ -63,8 +63,8 @@ class TestDirectTokenCredentialIntegration:
         assert token.token == "   "
 
 
-class TestGraphClientFactoryIntegration:
-    """Integration tests for the graph client factory functions."""
+class TestGraphClientFactory:
+    """Unit tests for the graph client factory functions."""
 
     @pytest.mark.asyncio
     async def test_get_graph_client_with_string_token(self) -> None:
