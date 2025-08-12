@@ -21,7 +21,7 @@ class EventManager:
     async def on_error(self, event: ErrorEvent, plugins: List[PluginBase]) -> None:
         for plugin in plugins:
             if hasattr(plugin, "on_error_event") and callable(plugin.on_error):
-                await plugin.on_error(PluginErrorEvent(error=event.error, activity=event.activity))
+                await plugin.on_error(PluginErrorEvent(error=event.error, sender=plugin, activity=event.activity))
 
         self.event_emitter.emit("error", event)
 

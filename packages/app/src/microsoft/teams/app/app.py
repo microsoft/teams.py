@@ -96,7 +96,7 @@ class App(ActivityHandlerMixin):
         http_plugin = None
         for i, plugin in enumerate(plugins):
             meta = get_metadata(plugin)
-            if meta.name == "HttpPlugin":
+            if meta.name == "http":
                 http_plugin = plugin
                 plugins.pop(i)
                 break
@@ -114,6 +114,7 @@ class App(ActivityHandlerMixin):
         self._port: Optional[int] = None
         self._running = False
 
+        # initialize all event, activity, and plugin processors
         self.activity_processor = ActivityProcessor(
             self._router,
             self.log,

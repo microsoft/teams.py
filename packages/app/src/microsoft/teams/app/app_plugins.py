@@ -83,18 +83,15 @@ class PluginManager:
             metadata = getattr(annotated_type, "__metadata__", ())
 
             for meta in metadata:
+                self.logger.info(f"Initializing the dependency {field_name} for {plugin.__class__.__name__}")
                 if isinstance(meta, EventMetadata):
-                    self.logger.info(
-                        f"Initializing the event dependencies for {plugin.__class__.__name__}.{field_name}"
-                    )
-                    self._inject_events(meta, plugin, field_name)
+                    self._inject_event(meta, plugin, field_name)
 
                 elif isinstance(meta, DependencyMetadata):
-                    self.logger.info(f"Initializing the dependency {field_name} for {plugin.__class__.__name__}")
-                    self.inject_dependencies(meta, plugin, origin, field_name)
+                    self._inject_dependency(meta, plugin, origin, field_name)
 
-    def _inject_events(self, meta: EventMetadata, plugin: PluginBase, field_name: str) -> None:
-        """Injects event handlers into the plugin based on metadata info."""
+    def _inject_event(self, meta: EventMetadata, plugin: PluginBase, field_name: str) -> None:
+        """Injects event handler into the plugin based on metadata info."""
         if meta.name == "error":
             self.logger.info("Injecting the error event")
 
@@ -105,7 +102,7 @@ class PluginManager:
                 )
 
             setattr(plugin, field_name, error_handler)
-        if meta.name == "activity":
+        elif meta.name == "activity":
             self.logger.info("Injecting the activity event")
 
             async def activity_handler(event: PluginActivityEvent) -> None:
@@ -128,10 +125,8 @@ class PluginManager:
 
             setattr(plugin, field_name, custom_handler)
 
-    def inject_dependencies(
-        self, meta: DependencyMetadata, plugin: PluginBase, type_name: Any, field_name: str
-    ) -> None:
-        """Injects dependencies into the plugin based on metadata info."""
+    def _inject_dependency(self, meta: DependencyMetadata, plugin: PluginBase, type_name: Any, field_name: str) -> None:
+        """Injects dependency into the plugin based on metadata info."""
         dependency = None
 
         if type_name:
