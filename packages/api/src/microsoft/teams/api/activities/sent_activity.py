@@ -5,8 +5,8 @@ Licensed under the MIT License.
 
 from typing import Optional
 
-from ..models import ActivityParams
-from .custom_base_model import CustomBaseModel
+from ..models import CustomBaseModel
+from . import ActivityParams
 
 
 class SentActivity(CustomBaseModel):

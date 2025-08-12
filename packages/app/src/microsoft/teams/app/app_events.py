@@ -5,7 +5,7 @@ Licensed under the MIT License.
 
 from typing import List
 
-from microsoft.teams.api.models import SentActivity
+from microsoft.teams.api.activities import SentActivity
 from microsoft.teams.common.events.event_emitter import EventEmitter
 
 from .app_process import ActivityProcessor

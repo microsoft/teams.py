@@ -7,7 +7,8 @@ from typing import List, Optional
 
 from microsoft.teams.common.http import Client
 
-from ...models import Account, ActivityParams, SentActivity
+from ...activities import ActivityParams, SentActivity
+from ...models import Account
 from ..base_client import BaseClient
 
 

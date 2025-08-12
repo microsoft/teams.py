@@ -26,7 +26,6 @@ from .account import Account, AccountRole, ConversationAccount
 from .action import Action
 from .activity import Activity as ActivityBase
 from .activity import ActivityInput as ActivityInputBase
-from .activity_params import ActivityParams
 from .adaptive_card import *  # noqa: F403
 from .app_based_link_query import AppBasedLinkQuery
 from .attachment import *  # noqa: F403
@@ -59,7 +58,6 @@ from .meetings import *  # noqa: F403
 from .message import *  # noqa: F403
 from .messaging_extension import *  # noqa: F403
 from .o365 import *  # noqa: F403
-from .sent_activity import SentActivity
 from .sign_in import *  # noqa: F403
 from .suggested_actions import SuggestedActions
 from .tab import *  # noqa: F403
@@ -73,7 +71,6 @@ from .token_exchange import *  # noqa: F403
 __all__: list[str] = [
     "Account",
     "AccountRole",
-    "ActivityParams",
     "Action",
     "ActivityBase",
     "ActivityInputBase",
@@ -89,7 +86,6 @@ __all__: list[str] = [
     "InnerHttpError",
     "InputHint",
     "InvokeResponse",
-    "SentActivity",
     "SuggestedActions",
     "TeamDetails",
     "TextFormat",

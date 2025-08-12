@@ -5,9 +5,7 @@ Licensed under the MIT License.
 
 from typing import Optional, Protocol, Union
 
-from microsoft.teams.api.activities import TypingActivity
-from microsoft.teams.api.activities.message import MessageActivity
-from microsoft.teams.api.models.sent_activity import SentActivity
+from microsoft.teams.api.activities import MessageActivity, SentActivity, TypingActivity
 
 
 class StreamerProtocol(Protocol):

@@ -5,7 +5,7 @@ Licensed under the MIT License.
 
 from typing import TYPE_CHECKING, NamedTuple
 
-from microsoft.teams.api.models import SentActivity
+from microsoft.teams.api.activities import SentActivity
 
 if TYPE_CHECKING:
     from .sender import Sender

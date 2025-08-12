@@ -3,7 +3,7 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from microsoft.teams.api.models import ActivityParams, SentActivity
+from microsoft.teams.api.activities import ActivityParams, SentActivity
 from microsoft.teams.api.models.conversation import ConversationReference
 
 from .plugin_activity_event import PluginActivityEvent
