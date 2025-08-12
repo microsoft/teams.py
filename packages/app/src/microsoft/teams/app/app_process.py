@@ -50,19 +50,19 @@ class ActivityProcessor:
             handlers: List of activity handlers to execute
 
         Returns:
-            Final response from handlers, if any
+            Response from handlers, if any
         """
-        if len(handlers) == 0:
+        if not handlers:
             return None
 
-        # Track the final response
+        # Track response from handlers
         response = None
 
         # Create the middleware chain
         async def create_next(index: int) -> Callable[[], Any]:
             async def next_handler():
                 nonlocal response
-                if index < len(handlers):
+                if index < len(handlers) and response is None:
                     # Set up next handler for current context
                     if index + 1 < len(handlers):
                         ctx.set_next(await create_next(index + 1))
@@ -76,7 +76,7 @@ class ActivityProcessor:
                     # Execute current handler and capture return value
                     result = await handlers[index](ctx)
 
-                    # Update the response iff response hasn't already been received
+                    # If handler returned a response, stop the chain
                     if result is not None:
                         response = result
 

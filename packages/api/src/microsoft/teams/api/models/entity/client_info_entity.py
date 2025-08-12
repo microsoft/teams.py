@@ -14,14 +14,14 @@ class ClientInfoEntity(CustomBaseModel):
     type: Literal["clientInfo"] = "clientInfo"
     "Type identifier for client info"
 
-    locale: Optional[str] = None
+    locale: str
     "Client locale (ex en-US)"
 
-    country: Optional[str] = None
+    country: Optional[str]
     "Client country code (ex US)"
 
-    platform: Optional[str] = None
+    platform: Optional[str]
     "Client platform (ex Web)"
 
-    timezone: Optional[str] = None
+    timezone: Optional[str]
     "Client timezone (ex America/New_York)"

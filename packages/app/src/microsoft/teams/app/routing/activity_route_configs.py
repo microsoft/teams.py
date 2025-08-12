@@ -21,7 +21,6 @@ from microsoft.teams.api import (
     FileConsentInvokeActivity,
     HandoffActionInvokeActivity,
     HandoffActivity,
-    InstalledActivity,
     InvokeActivity,
     MeetingEndEventActivity,
     MeetingParticipantJoinEventActivity,
@@ -54,7 +53,6 @@ from microsoft.teams.api import (
     TaskSubmitInvokeActivity,
     TraceActivity,
     TypingActivity,
-    UninstalledActivity,
 )
 
 RouteSelector = Callable[[ActivityBase], bool]
@@ -516,20 +514,6 @@ ACTIVITY_ROUTES: Dict[str, ActivityConfig] = {
         method_name="on_installation_update",
         input_model="InstallUpdateActivity",
         selector=lambda activity: activity.type == "installationUpdate",
-        output_model=None,
-    ),
-    "install.add": ActivityConfig(
-        name="install.add",
-        method_name="on_install_add",
-        input_model=InstalledActivity,
-        selector=lambda activity: isinstance(activity, InstalledActivity),
-        output_model=None,
-    ),
-    "install.remove": ActivityConfig(
-        name="install.remove",
-        method_name="on_install_remove",
-        input_model=UninstalledActivity,
-        selector=lambda activity: isinstance(activity, UninstalledActivity),
         output_model=None,
     ),
     # Other Core Activities

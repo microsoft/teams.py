@@ -24,7 +24,7 @@ ConversationEventType = Literal[
 class ConversationChannelData(ChannelData, CustomBaseModel):
     """Extended ChannelData with event type."""
 
-    event_type: Optional[ConversationEventType] = None
+    event_type: Optional[ConversationEventType]  # pyright: ignore [reportGeneralTypeIssues, reportIncompatibleVariableOverride]
     """The type of event that occurred."""
 
 

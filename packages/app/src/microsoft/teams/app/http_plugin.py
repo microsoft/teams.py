@@ -289,7 +289,7 @@ class HttpPlugin(Sender):
             if isinstance(result, dict):
                 resp_dict = cast(Dict[str, Any], result)
             elif isinstance(result, BaseModel):
-                resp_dict = result.model_dump(exclude_none=True)
+                resp_dict = result.model_dump()
 
             # if resp_dict has status set it
             if resp_dict and "status" in resp_dict:

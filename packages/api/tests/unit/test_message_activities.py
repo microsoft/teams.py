@@ -26,6 +26,7 @@ from microsoft.teams.api.models import (
     Importance,
     MentionEntity,
     MessageReaction,
+    MessageReactionType,
     MessageUser,
     StreamInfoEntity,
 )
@@ -463,7 +464,7 @@ class TestMessageReactionActivity:
         """Create a message reaction for testing"""
         user = MessageUser(id="user-123", display_name="Test User")
         return MessageReaction(
-            type=reaction_type,
+            type=MessageReactionType(reaction_type),
             user=user,
             created_date_time="2023-01-01T12:00:00Z",
         )
@@ -527,12 +528,12 @@ class TestMessageReactionActivity:
 
         # Create two similar reactions (same type and user)
         reaction1 = MessageReaction(
-            type="like",
+            type=MessageReactionType("like"),
             user=user,
             created_date_time="2023-01-01T12:00:00Z",
         )
         reaction2 = MessageReaction(
-            type="like",
+            type=MessageReactionType("like"),
             user=user,
             created_date_time="2023-01-01T13:00:00Z",
         )
@@ -552,8 +553,8 @@ class TestMessageReactionActivity:
         user1 = MessageUser(id="user-1", display_name="User 1")
         user2 = MessageUser(id="user-2", display_name="User 2")
 
-        reaction1 = MessageReaction(type="like", user=user1)
-        reaction2 = MessageReaction(type="like", user=user2)
+        reaction1 = MessageReaction(type=MessageReactionType("like"), user=user1)
+        reaction2 = MessageReaction(type=MessageReactionType("like"), user=user2)
 
         activity.add_reaction(reaction1)
         activity.remove_reaction(reaction2)
@@ -569,8 +570,8 @@ class TestMessageReactionActivity:
         activity = self.create_message_reaction_activity("reaction-505")
         user = MessageUser(id="user-123", display_name="Test User")
 
-        reaction1 = MessageReaction(type="like", user=user)
-        reaction2 = MessageReaction(type="heart", user=user)
+        reaction1 = MessageReaction(type=MessageReactionType("like"), user=user)
+        reaction2 = MessageReaction(type=MessageReactionType("heart"), user=user)
 
         activity.add_reaction(reaction1)
         activity.remove_reaction(reaction2)
@@ -588,15 +589,15 @@ class TestMessageReactionActivity:
         user1 = MessageUser(id="user-1", display_name="User 1")
         user2 = MessageUser(id="user-2", display_name="User 2")
 
-        like1 = MessageReaction(type="like", user=user1)
-        like2 = MessageReaction(type="like", user=user2)
-        heart1 = MessageReaction(type="heart", user=user1)
+        like1 = MessageReaction(type=MessageReactionType("like"), user=user1)
+        like2 = MessageReaction(type=MessageReactionType("like"), user=user2)
+        heart1 = MessageReaction(type=MessageReactionType("heart"), user=user1)
 
         # Add multiple reactions
         activity.add_reaction(like1).add_reaction(like2).add_reaction(heart1)
 
         # Remove one that matches
-        like1_remove = MessageReaction(type="like", user=user1)
+        like1_remove = MessageReaction(type=MessageReactionType("like"), user=user1)
         activity.remove_reaction(like1_remove)
 
         # Should have removed like1, but kept like2 and heart1
@@ -613,12 +614,12 @@ class TestMessageReactionActivity:
         activity = self.create_message_reaction_activity("reaction-707")
 
         # Test with reaction that has no user
-        reaction_no_user = MessageReaction(type="like")
+        reaction_no_user = MessageReaction(type=MessageReactionType("like"))
         activity.add_reaction(reaction_no_user)
 
         # Try to remove similar reaction (should not match due to user comparison)
         reaction_with_user = MessageReaction(
-            type="like",
+            type=MessageReactionType("like"),
             user=MessageUser(id="user-123", display_name="User"),
         )
         activity.remove_reaction(reaction_with_user)
