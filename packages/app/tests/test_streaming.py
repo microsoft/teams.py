@@ -101,12 +101,6 @@ class TestHttpStream:
         assert sent_activity.text == "Thinking..."
         assert http_stream._id == "mock-id"
 
-        second_call_args = mock_api_client.conversations.activities().create.call_args_list[1]
-        sent_activity = second_call_args[0][0]
-        # Should have sent a TypingActivityInput (not Message)
-        assert isinstance(sent_activity, TypingActivityInput)
-        assert sent_activity.text == ""
-
     @pytest.mark.asyncio
     async def test_multiple_emits(self, http_stream, mock_api_client):
         http_stream.emit("Hello")

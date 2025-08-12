@@ -30,6 +30,9 @@ STREAM_MESSAGES = [
 async def handle_message(ctx: ActivityContext[MessageActivity]):
     """Stream messages to the user on any message activity."""
 
+    ctx.stream.update("Stream starting...")
+    await asyncio.sleep(1)
+
     # Stream messages with delays using ctx.stream.emit
     for message in STREAM_MESSAGES:
         # Add some randomness to timing

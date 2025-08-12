@@ -43,8 +43,17 @@ class TypingActivityInput(_TypingBase, ActivityInputBase):
         if self.channel_data is None:
             self.channel_data = ChannelData()
 
-        self.channel_data.stream_id = self.id
-        self.channel_data.stream_type = "streaming"
-        self.channel_data.stream_sequence = sequence
+        if self.channel_data.stream_id is None:
+            self.channel_data.stream_id = self.id
+        if self.channel_data.stream_sequence is None:
+            self.channel_data.stream_sequence = sequence
+        if self.channel_data.stream_type is None:
+            self.channel_data.stream_type = "streaming"
 
-        return self.add_entity(StreamInfoEntity(stream_id=self.id, stream_type="streaming", stream_sequence=sequence))
+        return self.add_entity(
+            StreamInfoEntity(
+                stream_id=self.id,
+                stream_type=self.channel_data.stream_type,
+                stream_sequence=self.channel_data.stream_sequence,
+            )
+        )

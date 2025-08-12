@@ -385,14 +385,16 @@ class App(ActivityHandlerMixin):
 
         # Check if user is signed in
         is_signed_in = False
+        user_token: Optional[TokenProtocol] = None
         try:
-            await api_client.users.token.get(
+            user_token_res = await api_client.users.token.get(
                 GetUserTokenParams(
                     connection_name=self.options.default_connection_name or "default",
                     user_id=activity.from_.id,
                     channel_id=activity.channel_id,
                 )
             )
+            user_token = JsonWebToken(user_token_res.token)
             is_signed_in = True
         except Exception:
             # User token not available
@@ -409,6 +411,7 @@ class App(ActivityHandlerMixin):
             self.logger,
             self.storage,
             api_client,
+            user_token,
             conversation_ref,
             stream,
             is_signed_in,

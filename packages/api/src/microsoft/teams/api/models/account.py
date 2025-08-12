@@ -50,7 +50,7 @@ class ConversationAccount(CustomBaseModel):
     """
     The tenant ID for the conversation.
     """
-    conversation_type: Optional[str]
+    conversation_type: Optional[str] = None
     """
     The type of conversation (personal, groupChat, etc.).
     """

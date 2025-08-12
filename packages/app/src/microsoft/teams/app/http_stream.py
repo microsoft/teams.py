@@ -117,27 +117,33 @@ class HttpStream(StreamerProtocol):
         self.emit(TypingActivityInput().with_text(text).with_channel_data(ChannelData(stream_type="informative")))
 
     async def close(self) -> Optional[Resource]:
+        # wait for lock to be free
         if self._result is not None:
             self._logger.debug("stream already closed with result")
             return self._result
 
-        if self._index == 1 and not self._queue:
+        if self._index == 1 and not self._queue and not self._lock.locked():
             self._logger.debug("stream has no content to send, returning None")
             return None
 
         # Wait until _id is set and queue is empty
         if not self._id:
+            self._logger.debug("waiting for ID to be set")
             await self._id_set_event.wait()
 
         while self._queue:
+            self._logger.debug("waiting for queue to be empty...")
             await self._queue_empty_event.wait()
+
+        if self._text == "" and self._attachments == []:
+            self._text = "Stream completed without content"
 
         # Build final message
         assert self._id is not None, "ID should be set by this point"
         activity = MessageActivityInput(text=self._text).with_id(self._id).with_channel_data(self._channel_data)
         activity.add_attachments(*self._attachments).add_entities(*self._entities).add_stream_final()
 
-        res = await retry(lambda: self._send_activity(activity), options=RetryOptions(logger=self._logger))
+        res = await retry(lambda: self._send(activity), options=RetryOptions(logger=self._logger))
 
         # Emit close event
         self._events.emit("close", res)
@@ -198,18 +204,9 @@ class HttpStream(StreamerProtocol):
                 await self._send_activity(typing_update)
 
             # Send the combined text chunk
-            to_send = TypingActivityInput(text=self._text)
-            if self._id:
-                to_send = to_send.with_id(self._id)
-            to_send = to_send.add_stream_update(self._index)
-            res = await retry(lambda: self._send_activity(to_send), options=RetryOptions(logger=self._logger))
-
-            self._events.emit("chunk", res)
-            self._index += 1
-            if self._id is None:
-                self._id = res.id
-                # Signal that ID has been set
-                self._id_set_event.set()
+            if self._text:
+                to_send = TypingActivityInput(text=self._text)
+                await self._send_activity(to_send)
 
             # Signal if queue is now empty
             if not self._queue:
@@ -219,7 +216,26 @@ class HttpStream(StreamerProtocol):
             if self._queue and not self._timeout:
                 self._flush_task = asyncio.create_task(self._delayed_flush())
 
-    async def _send_activity(self, to_send: Union[TypingActivityInput, MessageActivityInput]) -> Resource:
+    async def _send_activity(self, to_send: TypingActivityInput):
+        """
+        Send an activity to the Teams conversation with the ID.
+
+        Args:
+            activity: The activity to send.
+        """
+        if self._id:
+            to_send = to_send.with_id(self._id)
+        to_send = to_send.add_stream_update(self._index)
+
+        res = await retry(lambda: self._send(to_send), options=RetryOptions(logger=self._logger))
+        self._events.emit("chunk", res)
+        self._index += 1
+        if self._id is None:
+            self._id = res.id
+            # Signal that ID has been set
+            self._id_set_event.set()
+
+    async def _send(self, to_send: Union[TypingActivityInput, MessageActivityInput]) -> Resource:
         """
         Send or update an activity to the Teams conversation.
 

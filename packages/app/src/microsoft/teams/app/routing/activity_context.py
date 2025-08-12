@@ -16,6 +16,7 @@ from microsoft.teams.api import (
     CardAction,
     CardActionType,
     ConversationReference,
+    CreateConversationParams,
     GetBotSignInResourceParams,
     GetUserTokenParams,
     MessageActivityInput,
@@ -24,6 +25,7 @@ from microsoft.teams.api import (
     TokenExchangeResource,
     TokenExchangeState,
     TokenPostResource,
+    TokenProtocol,
 )
 from microsoft.teams.api.models.attachment.card_attachment import OAuthCardAttachment, card_attachment
 from microsoft.teams.api.models.oauth import OAuthCard
@@ -62,6 +64,7 @@ class ActivityContext(Generic[T]):
         logger: Logger,
         storage: Storage[str, Any],
         api: ApiClient,
+        user_token: Optional[TokenProtocol],
         conversation_ref: ConversationReference,
         stream: StreamerProtocol,
         is_signed_in: bool,
@@ -74,14 +77,23 @@ class ActivityContext(Generic[T]):
         self.conversation_ref = conversation_ref
         self.storage = storage
         self.api = api
+        self.user_token = user_token
         self.connection_name = connection_name
         self.is_signed_in = is_signed_in
         self.stream = stream
 
         self._next_handler: Optional[Callable[[], Awaitable[None]]] = None
 
-    async def send(self, message: str | ActivityParams | AdaptiveCard) -> Resource:
-        """Send a message to the conversation."""
+    async def send(
+        self, message: str | ActivityParams | AdaptiveCard, conversation_id: Optional[str] = None
+    ) -> Resource:
+        """
+        Send a message to the conversation.
+
+        Args:
+            message: The message to send, can be a string, ActivityParams, or AdaptiveCard
+            conversation_id: Optional conversation ID to override the current conversation reference
+        """
         if isinstance(message, str):
             activity = MessageActivityInput(text=message)
         elif isinstance(message, AdaptiveCard):
@@ -89,7 +101,9 @@ class ActivityContext(Generic[T]):
         else:
             activity = message
 
-        res = await self.api.conversations.activities(self.conversation_ref.conversation.id).create(activity)
+        res = await self.api.conversations.activities(conversation_id or self.conversation_ref.conversation.id).create(
+            activity
+        )
         return res
 
     async def reply(self, input: str | ActivityParams) -> Resource:
@@ -167,17 +181,20 @@ class ActivityContext(Generic[T]):
         )
 
         # Check if this is a group conversation
-        # if self.activity.conversation.is_group:
-        #     _conv_create_res = await self.api.conversations.create(
-        #         CreateConversationParams(
-        #             tenant_id=self.activity.conversation.tenant_id,
-        #             is_group=False,
-        #             bot=self.activity.recipient,
-        #             members=[self.activity.from_],
-        #         )
-        #     )
-        #     await self.send(MessageActivityInput(text=oauth_card_text))
-        #     # TODO: should we send it to the 1:1 chat?
+        # if it's a group conversation, then we create a 1:1 conversation with the user
+        # and send the OAuth card there since group oauth currently isn't released.
+        conversation_id = self.conversation_ref.conversation.id
+        if self.activity.conversation.is_group:
+            one_on_one_conversation = await self.api.conversations.create(
+                CreateConversationParams(
+                    tenant_id=self.activity.conversation.tenant_id,
+                    is_group=False,
+                    bot=self.activity.recipient,
+                    members=[self.activity.from_],
+                )
+            )
+            conversation_id = one_on_one_conversation.id
+            await self.send(MessageActivityInput(text=oauth_card_text))
 
         # Encode state
         state = base64.b64encode(json.dumps(token_exchange_state.model_dump()).encode()).decode()
@@ -204,7 +221,7 @@ class ActivityContext(Generic[T]):
             )
         )
 
-        await self.send(payload)
+        await self.send(payload, conversation_id)
 
         return None
 
