@@ -76,7 +76,7 @@ class ActivityContext(Generic[T]):
         self.api = api
         self.connection_name = connection_name
         self.is_signed_in = is_signed_in
-        self.stream = stream or sender.create_stream(conversation_ref)
+        self.stream = stream
 
         self._next_handler: Optional[Callable[[], Awaitable[None]]] = None
 

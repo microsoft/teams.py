@@ -4,6 +4,8 @@ Licensed under the MIT License.
 """
 
 import asyncio
+import random
+from enum import Enum
 from logging import Logger
 from typing import Awaitable, Callable, Optional, TypeVar
 
@@ -12,37 +14,94 @@ from microsoft.teams.common.logging import ConsoleLogger
 T = TypeVar("T")
 
 
+class JitterType(Enum):
+    """Types of jitter to apply to retry delays."""
+
+    NONE = "none"
+    FULL = "full"  # Random delay between 0 and computed delay
+    EQUAL = "equal"  # Random delay between computed_delay/2 and computed_delay
+    DECORRELATED = "decorrelated"  # Uses previous delay as base for random calculation
+
+
 class RetryOptions:
     def __init__(
         self,
         max_attempts: int = 5,
         delay: float = 0.5,  # in seconds
+        max_delay: float = 30.0,  # maximum delay cap
+        jitter_type: JitterType = JitterType.FULL,
         logger: Optional[Logger] = None,
+        previous_delay: Optional[float] = None,  # Internal use for decorrelated jitter
     ):
         self.max_attempts = max_attempts
         self.delay = delay
-        self.logger = logger or ConsoleLogger().create_logger("@teams/http-stream")
+        self.max_delay = max_delay
+        self.jitter_type = jitter_type
+        self.logger = logger.getChild("@teams/retry") if logger else ConsoleLogger().create_logger("@teams/retry")
+        self.previous_delay = previous_delay
 
 
-async def retry(factory: Callable[[], "Awaitable[T]"], options: Optional[RetryOptions] = None) -> T:
+def _apply_jitter(delay: float, jitter_type: JitterType, previous_delay: Optional[float] = None) -> float:
+    """Apply jitter to the delay to prevent thundering herd problems."""
+    if jitter_type == JitterType.NONE:
+        return delay
+    elif jitter_type == JitterType.FULL:
+        # Random delay between 0 and the computed delay
+        return random.uniform(0, delay)
+    elif jitter_type == JitterType.EQUAL:
+        # Random delay between half the computed delay and the full computed delay
+        return random.uniform(delay / 2, delay)
+    elif jitter_type == JitterType.DECORRELATED:
+        # Decorrelated jitter: random delay between base delay and 3 * previous delay
+        base_delay = delay / 4  # Start with a smaller base
+        if previous_delay is None:
+            previous_delay = base_delay
+        return random.uniform(base_delay, min(delay, 3 * previous_delay))
+    else:
+        return delay
+
+
+async def retry(factory: Callable[[], Awaitable[T]], options: Optional[RetryOptions] = None) -> T:
     options = options or RetryOptions()
     max_attempts = options.max_attempts
-    delay = options.delay
+    base_delay = options.delay
+    max_delay = options.max_delay
+    jitter_type = options.jitter_type
     logger = options.logger
+    previous_delay = options.previous_delay
 
     try:
         return await factory()
+    except (asyncio.CancelledError, KeyboardInterrupt):
+        # Don't retry cancellation or keyboard interrupts
+        logger.debug("Operation cancelled or interrupted, not retrying")
+        raise
     except Exception as err:
         if max_attempts > 1:
-            logger.debug(f"Delaying {delay:.2f}s before retry...")
-            await asyncio.sleep(delay)
+            # Calculate exponential backoff delay
+            exponential_delay = base_delay * (2 ** (options.max_attempts - max_attempts))
+
+            # Cap the delay at max_delay
+            capped_delay = min(exponential_delay, max_delay)
+
+            # Apply jitter
+            jittered_delay = _apply_jitter(capped_delay, jitter_type, previous_delay)
+
+            logger.debug(
+                f"Delaying {jittered_delay:.2f}s before retry (attempt {options.max_attempts - max_attempts + 1})..."
+            )
+            await asyncio.sleep(jittered_delay)
             logger.debug("Retrying...")
+
             return await retry(
                 factory,
                 RetryOptions(
                     max_attempts=max_attempts - 1,
-                    delay=delay * 2,  # exponential backoff
+                    delay=base_delay,
+                    max_delay=max_delay,
+                    jitter_type=jitter_type,
                     logger=logger,
+                    previous_delay=jittered_delay,  # Pass current delay for decorrelated jitter
                 ),
             )
         logger.error("Final attempt failed.", exc_info=err)

@@ -40,8 +40,7 @@ class StreamerProtocol(Protocol):
     @property
     def events(self) -> EventEmitter[IStreamerEvents]:
         """
-        Provides access to event listener registration for stream events,
-        but does not allow emitting them directly.
+        Provides access to event listener registration for stream events.
         """
         ...
 

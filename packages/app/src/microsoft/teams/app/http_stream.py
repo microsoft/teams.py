@@ -44,6 +44,16 @@ class HttpStream(StreamerProtocol):
         )
         self._events = EventEmitter[IStreamerEvents]()
 
+        self._result: Optional[Resource] = None
+        self._lock = asyncio.Lock()
+        self._timeout: Optional[asyncio.Task[None]] = None
+        self._id_set_event = asyncio.Event()
+        self._queue_empty_event = asyncio.Event()
+
+        self._reset_state()
+
+    def _reset_state(self) -> None:
+        """Reset the stream state to initial values."""
         self._index = 1
         self._id: Optional[str] = None
         self._text: str = ""
@@ -51,12 +61,6 @@ class HttpStream(StreamerProtocol):
         self._channel_data: ChannelData = ChannelData()
         self._entities: List[Entity] = []
         self._queue: deque[Union[MessageActivityInput, TypingActivityInput, str]] = deque()
-
-        self._result: Optional[Resource] = None
-        self._lock = asyncio.Lock()
-        self._timeout: Optional[asyncio.Task[None]] = None
-        self._id_set_event = asyncio.Event()
-        self._queue_empty_event = asyncio.Event()
 
     @property
     def closed(self) -> bool:
@@ -118,26 +122,18 @@ class HttpStream(StreamerProtocol):
             return self._result
 
         if self._index == 1 and not self._queue:
-            self._logger.debug("no content")
+            self._logger.debug("stream has no content to send, returning None")
             return None
 
         # Wait until _id is set and queue is empty
-        while not self._id or self._queue:
-            # Create tasks for the events we're waiting for
-            tasks: List[asyncio.Task[bool]] = []
-            if not self._id:
-                tasks.append(asyncio.create_task(self._id_set_event.wait()))
-            if self._queue:
-                tasks.append(asyncio.create_task(self._queue_empty_event.wait()))
+        if not self._id:
+            await self._id_set_event.wait()
 
-            if tasks:
-                # Wait for at least one event to be set
-                await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
-                # Cancel any remaining tasks
-                for task in tasks:
-                    task.cancel()
+        while self._queue:
+            await self._queue_empty_event.wait()
 
         # Build final message
+        assert self._id is not None, "ID should be set by this point"
         activity = MessageActivityInput(text=self._text).with_id(self._id).with_channel_data(self._channel_data)
         activity.add_attachments(*self._attachments).add_entities(*self._entities).add_stream_final()
 
@@ -147,12 +143,7 @@ class HttpStream(StreamerProtocol):
         self._events.emit("close", res)
 
         # Reset state
-        self._index = 1
-        self._id = None
-        self._text = ""
-        self._attachments = []
-        self._entities = []
-        self._channel_data = ChannelData()
+        self._reset_state()
         self._result = res
         self._logger.debug("stream closed with result: %s", res)
 
@@ -225,7 +216,7 @@ class HttpStream(StreamerProtocol):
                 self._queue_empty_event.set()
 
             # If more queued, schedule another flush
-            if self._queue:
+            if self._queue and not self._timeout:
                 self._flush_task = asyncio.create_task(self._delayed_flush())
 
     async def _send_activity(self, to_send: Union[TypingActivityInput, MessageActivityInput]) -> Resource:
