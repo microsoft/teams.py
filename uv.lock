@@ -6,6 +6,7 @@ requires-python = ">=3.12"
 members = [
     "dialogs",
     "echo",
+    "graph",
     "message-extensions",
     "microsoft-teams",
     "microsoft-teams-api",
@@ -537,6 +538,23 @@ wheels = [
 ]
 
 [[package]]
+name = "graph"
+version = "0.1.0"
+source = { virtual = "tests/graph" }
+dependencies = [
+    { name = "dotenv" },
+    { name = "microsoft-teams-app" },
+    { name = "microsoft-teams-graph" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "dotenv", specifier = ">=0.9.9" },
+    { name = "microsoft-teams-app", editable = "packages/app" },
+    { name = "microsoft-teams-graph", editable = "packages/graph" },
+]
+
+[[package]]
 name = "h11"
 version = "0.16.0"
 source = { registry = "https://pypi.org/simple" }
@@ -720,6 +738,21 @@ wheels = [
 ]
 
 [[package]]
+name = "message-extensions"
+version = "0.1.0"
+source = { virtual = "tests/message-extensions" }
+dependencies = [
+    { name = "dotenv" },
+    { name = "microsoft-teams-app" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "dotenv", specifier = ">=0.9.9" },
+    { name = "microsoft-teams-app", editable = "packages/app" },
+]
+
+[[package]]
 name = "microsoft-kiota-abstractions"
 version = "1.9.5"
 source = { registry = "https://pypi.org/simple" }
@@ -810,21 +843,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/bd/6a/cfb6a8eb9b13f7959eaeae22b7b7d36b0d1fcbeba7b2ac9fe924aaa1cfb9/microsoft_kiota_serialization_text-1.9.5.tar.gz", hash = "sha256:1295e9f9541ad2927c3ac1c0f13d2cb40d260fa4896a3e77efd98ec177bf354f", size = 7306, upload-time = "2025-07-18T12:20:55.727Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/b4/92/339cd37e4497f7beadab6ff030f8d49ea5333eccef7750827175c45b42a7/microsoft_kiota_serialization_text-1.9.5-py3-none-any.whl", hash = "sha256:a0177fd6bb21c467f0c48f6dfcfcac8580672aeeac800dd1bbb688ac5cbd9804", size = 8839, upload-time = "2025-07-18T12:20:54.494Z" },
-]
-
-[[package]]
-name = "message-extensions"
-version = "0.1.0"
-source = { virtual = "tests/message-extensions" }
-dependencies = [
-    { name = "dotenv" },
-    { name = "microsoft-teams-app" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "dotenv", specifier = ">=0.9.9" },
-    { name = "microsoft-teams-app", editable = "packages/app" },
 ]
 
 [[package]]
