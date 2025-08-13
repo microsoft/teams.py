@@ -133,8 +133,9 @@ graph = await get_graph_client(get_fresh_token)
 The package uses TokenProtocol-based token management for structured metadata and exact expiration handling. Teams tokens are pre-authorized through the OAuth connection configured in your Azure Bot registration.
 
 **Key Benefits:**
+
 - **Exact Expiration Times**: Uses `datetime.datetime` objects instead of guessing with timestamps
-- **Structured Metadata**: Access to token type, scope, and other metadata  
+- **Structured Metadata**: Access to token type, scope, and other metadata
 - **Fresh Token Pattern**: Callable approach ensures fresh tokens on each request
 - **Type Safety**: Full Protocol compliance with proper type checking
 - **Pre-authorized Tokens**: No complex scope validation needed - Teams handles OAuth permissions

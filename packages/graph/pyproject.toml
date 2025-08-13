@@ -32,3 +32,8 @@ dev = [
     "pytest>=8.4.0",
     "pytest-asyncio>=1.0.0",
 ]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+python_paths = ["src"]

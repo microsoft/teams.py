@@ -35,7 +35,7 @@ class DirectTokenCredential(TokenCredential):
         Retrieve an access token for Microsoft Graph.
 
         Args:
-            *scopes: Token scopes (required for interface compatibility, not validated)
+            *scopes: Token scopes (required for interface compatibility)
             **kwargs: Additional keyword arguments (unused)
 
         Returns:
