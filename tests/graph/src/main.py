@@ -59,22 +59,20 @@ async def get_authenticated_graph_client(ctx: ActivityContext[MessageActivity]):
         connection_name=ctx.connection_name,
     )
 
-    def get_fresh_token():
-        """Callable that returns fresh token data implementing TokenProtocol."""
-        try:
-            # In a real scenario, you might want to cache this or refresh as needed
-            import asyncio
+    # Get user token once before creating the client
+    try:
+        token_response = await ctx.api.users.token.get(token_params)
 
-            loop = asyncio.get_event_loop()
-            token_response = loop.run_until_complete(ctx.api.users.token.get(token_params))
-
-            # Create TokenData with the actual token
-            # Note: Teams API doesn't provide exact expiration, so we estimate
-            # In production, you'd want to use actual expiration from the token response
+        def get_fresh_token():
+            """Callable that returns fresh token data implementing TokenProtocol."""
+            # Return the token we already retrieved
             return TokenData(token_response.token, expires_in_seconds=3600)
-        except Exception as e:
-            ctx.logger.error(f"Failed to get token in callable: {e}")
-            raise
+
+    except Exception as e:
+        ctx.logger.error(f"Failed to get initial token: {e}")
+        await ctx.send("🔐 Failed to get authentication token. Please try signing in again.")
+        await ctx.sign_in()
+        return None
 
     try:
         # Create Graph client using the TokenProtocol callable

@@ -9,9 +9,6 @@ Teams AI SDK for Python using the new TokenProtocol approach.
 - TokenProtocol-based token management with exact expiration times
 - Profile information retrieval with Microsoft Graph
 - Email listing with Mail.Read scope
-- Proper error handling and user feedback
-- Interactive command interface
-- Structured token metadata with type safety
 - Simple authentication with pre-authorized Teams tokens
 
 ## Commands
@@ -37,16 +34,41 @@ Teams AI SDK for Python using the new TokenProtocol approach.
 
 ## Running
 
-From the test directory:
+### Option 1: Using the PowerShell Script (Recommended)
 
-```bash
-cd tests/graph/src
-python main.py
+From the `tests/graph/` directory:
+
+```powershell
+.\run_demo.ps1
 ```
 
-Or from the repository root:
+### Option 2: Manual PYTHONPATH Setup
+
+From the `tests/graph/` directory:
+
+```powershell
+# PowerShell
+$env:PYTHONPATH="..\..\packages\graph\src;..\..\packages\api\src;..\..\packages\app\src;..\..\packages\common\src"
+python src\main.py
+```
 
 ```bash
+# Bash (Linux/macOS)
+PYTHONPATH="../../packages/graph/src:../../packages/api/src:../../packages/app/src:../../packages/common/src" python src/main.py
+```
+
+### Option 3: Install Packages in Development Mode
+
+From the repository root:
+
+```bash
+# Install the graph package in development mode
+pip install -e packages/graph
+pip install -e packages/api
+pip install -e packages/app
+pip install -e packages/common
+
+# Then run the demo
 python tests/graph/src/main.py
 ```
 
@@ -97,11 +119,3 @@ graph = await get_graph_client(get_fresh_token, connection_name=ctx.connection_n
 # Make Graph API calls
 me = await graph.me.get()
 ```
-
-This approach provides:
-
-- **Exact expiration handling** with `datetime.datetime` objects
-- **Fresh token retrieval** on each Graph API request
-- **Type safety** with Protocol compliance
-- **Structured metadata** including token type and scope
-- **Simple integration** with pre-authorized Teams tokens - no complex scope validation needed
