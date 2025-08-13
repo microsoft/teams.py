@@ -48,7 +48,7 @@ class CitationUsageInfo(CustomBaseModel):
     name: str
     "Name of the usage info"
 
-    position: Optional[int]
+    position: Optional[int] = None
     "Position of the usage info"
 
 
