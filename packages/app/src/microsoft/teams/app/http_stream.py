@@ -145,7 +145,7 @@ class HttpStream(StreamerProtocol):
         # Clear the queue empty event since we just added an item
         self._queue_empty_event.clear()
 
-        self._timeout = Timeout(0.2, self._flush)
+        self._timeout = Timeout(0.5, self._flush)
 
     def update(self, text: str) -> None:
         """
@@ -251,7 +251,7 @@ class HttpStream(StreamerProtocol):
 
             # If more queued, schedule another flush
             if self._queue and not self._timeout:
-                self._timeout = Timeout(0.2, self._flush)
+                self._timeout = Timeout(0.5, self._flush)
 
     async def _send_activity(self, to_send: TypingActivityInput):
         """
