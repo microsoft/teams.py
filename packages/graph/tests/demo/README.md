@@ -83,11 +83,12 @@ token_params = GetUserTokenParams(
     connection_name=ctx.connection_name,
 )
 
+# Get user token once before creating the client to avoid event loop conflicts
+token_response = await ctx.api.users.token.get(token_params)
+
 def get_fresh_token():
     """Callable that returns fresh token data implementing TokenProtocol."""
-    token_response = asyncio.get_event_loop().run_until_complete(
-        ctx.api.users.token.get(token_params)
-    )
+    # Return the token we already retrieved to avoid async/sync conflicts
     return TokenData(token_response.token, expires_in_seconds=3600)
 
 # Create Graph client with TokenProtocol callable
