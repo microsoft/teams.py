@@ -4,10 +4,12 @@ Licensed under the MIT License.
 """
 
 import datetime
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 
 from azure.core.credentials import AccessToken, TokenCredential
 from azure.core.exceptions import ClientAuthenticationError
+
+from .protocols import TokenProtocol
 
 
 class DirectTokenCredential(TokenCredential):
@@ -16,15 +18,15 @@ class DirectTokenCredential(TokenCredential):
 
     """
 
-    def __init__(self, token: str, connection_name: Optional[str] = None) -> None:
+    def __init__(self, token_callable: Callable[[], TokenProtocol], connection_name: Optional[str] = None) -> None:
         """
         Initialize the direct token credential.
 
         Args:
-            token: The access token string
+            token_callable: A callable that returns token data with expiration info
             connection_name: OAuth connection name
         """
-        self._token = token
+        self._token_callable = token_callable
         self._connection_name = connection_name
         self._cached_access_token: Optional[AccessToken] = None
 
@@ -51,14 +53,28 @@ class DirectTokenCredential(TokenCredential):
             if self._cached_access_token and self._is_token_valid(self._cached_access_token):
                 return self._cached_access_token
 
-            # Handle string tokens - assume 1-hour validity as fallback
-            token_string = self._token
-            expires_on = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=1)
+            # Get fresh token data from the callable
+            try:
+                token_data = self._token_callable()
+            except Exception as e:
+                raise ClientAuthenticationError(f"Failed to retrieve token from callable: {str(e)}") from e
 
-            if not token_string:
-                raise ClientAuthenticationError("Token string is empty or None")
+            # Validate token data
+            if not hasattr(token_data, "access_token"):
+                raise ClientAuthenticationError("Token callable must return an object with 'access_token' attribute")
 
-            access_token = AccessToken(token=token_string, expires_on=int(expires_on.timestamp()))
+            if not token_data.access_token:
+                raise ClientAuthenticationError("Token data is missing access_token")
+
+            # Use provided expiration time or default to 1 hour
+            if token_data.expires_at:
+                expires_on = int(token_data.expires_at.timestamp())
+            else:
+                # Fallback if no expiration provided
+                fallback_expiry = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=1)
+                expires_on = int(fallback_expiry.timestamp())
+
+            access_token = AccessToken(token=token_data.access_token, expires_on=expires_on)
 
             # Cache for reuse
             self._cached_access_token = access_token
@@ -83,11 +99,12 @@ class DirectTokenCredential(TokenCredential):
         if not token or not token.token:
             return False
 
-        # Add 5-minute buffer before expiration
+        # Use exact expiration time - no buffer
         now = int(datetime.datetime.now(datetime.timezone.utc).timestamp())
-        return token.expires_on > (now + 300)  # 5 minutes buffer
+        return token.expires_on > now
 
 
 __all__ = [
     "DirectTokenCredential",
+    "TokenProtocol",
 ]

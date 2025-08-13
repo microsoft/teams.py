@@ -3,25 +3,25 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from typing import Optional
+from typing import Callable, Optional
 
 from azure.core.exceptions import ClientAuthenticationError
-from microsoft.teams.common.http.client_token import Token, resolve_token
 from msgraph.graph_service_client import GraphServiceClient
 
 from .auth_provider import DirectTokenCredential
+from .protocols import TokenProtocol
 
 
 async def get_graph_client(
-    token: Token,
+    token_callable: Callable[[], TokenProtocol],
     *,
     connection_name: Optional[str] = None,
 ) -> GraphServiceClient:
     """
-    Get a configured Microsoft Graph client using a token.
+    Get a configured Microsoft Graph client using a TokenProtocol callable.
 
     Args:
-        token: The access token (string, callable, or other Token type)
+        token_callable: A callable that returns token data implementing TokenProtocol
         connection_name: OAuth connection name for logging/tracking purposes (optional)
 
     Returns:
@@ -29,18 +29,17 @@ async def get_graph_client(
 
     Raises:
         ClientAuthenticationError: If the token is invalid or authentication fails
-        ValueError: If the token resolves to None or empty
 
     Example:
         ```python
-        # Using string token directly
-        token_string = "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIs..."
-        graph = await get_graph_client(token_string)
-
-
-        # Using token factory
         def get_token():
-            return get_access_token_from_somewhere()
+            class TokenData:
+                access_token = "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIs..."
+                expires_at = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=1)
+                token_type = "Bearer"
+                scope = "https://graph.microsoft.com/.default"
+
+            return TokenData()
 
 
         graph = await get_graph_client(get_token)
@@ -50,23 +49,14 @@ async def get_graph_client(
         messages = await graph.me.messages.get()
         ```
     """
-    # Resolve the token to a string
-    resolved_token = await resolve_token(token)
-
-    if not resolved_token:
-        raise ValueError("Token resolved to None or empty")
-
     try:
-        credential = DirectTokenCredential(resolved_token, connection_name=connection_name)
-
+        credential = DirectTokenCredential(token_callable, connection_name=connection_name)
         client = GraphServiceClient(credentials=credential)
-
         return client
 
     except Exception as e:
         if isinstance(e, ClientAuthenticationError):
             raise  # Re-raise authentication errors as-is
-
         raise ClientAuthenticationError(f"Failed to create Microsoft Graph client: {str(e)}") from e
 
 

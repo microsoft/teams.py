@@ -1022,6 +1022,12 @@ dependencies = [
     { name = "pyjwt", extra = ["crypto"] },
 ]
 
+[package.dev-dependencies]
+dev = [
+    { name = "pytest" },
+    { name = "pytest-asyncio" },
+]
+
 [package.metadata]
 requires-dist = [
     { name = "azure-core" },
@@ -1029,6 +1035,12 @@ requires-dist = [
     { name = "cryptography" },
     { name = "msgraph-sdk" },
     { name = "pyjwt", extras = ["crypto"] },
+]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "pytest", specifier = ">=8.4.0" },
+    { name = "pytest-asyncio", specifier = ">=1.0.0" },
 ]
 
 [[package]]

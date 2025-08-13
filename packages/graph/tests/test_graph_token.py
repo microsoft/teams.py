@@ -12,14 +12,28 @@ from microsoft.teams.graph.auth_provider import DirectTokenCredential
 from msgraph.graph_service_client import GraphServiceClient
 
 
+class _TokenData:
+    """Helper class that implements TokenProtocol for testing."""
+
+    def __init__(self, access_token: str, expires_in_hours: int = 1):
+        self.access_token = access_token
+        expiry = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=expires_in_hours)
+        self.expires_at: datetime.datetime | None = expiry
+        self.token_type: str | None = "Bearer"
+        self.scope: str | None = "https://graph.microsoft.com/.default"
+
+
 class TestDirectTokenCredential:
     """Test DirectTokenCredential functionality."""
 
-    def test_get_token_with_string_token(self) -> None:
-        """Test that we can get a valid access token from string token."""
+    def test_get_token_with_callable(self) -> None:
+        """Test that we can get a valid access token from callable that returns TokenProtocol."""
+
         # Arrange
-        token_string = "test_access_token_123"
-        credential = DirectTokenCredential(token_string, "graph")
+        def get_token():
+            return _TokenData("test_access_token_123")
+
+        credential = DirectTokenCredential(get_token, "graph")
 
         # Act
         token = credential.get_token("https://graph.microsoft.com/.default")
@@ -36,9 +50,12 @@ class TestDirectTokenCredential:
 
     def test_token_caching_works(self) -> None:
         """Test that tokens are cached and reused."""
+
         # Arrange
-        token_string = "cached_token_789"
-        credential = DirectTokenCredential(token_string)
+        def get_token():
+            return _TokenData("cached_token_789")
+
+        credential = DirectTokenCredential(get_token)
 
         # Act - Get token twice
         token1 = credential.get_token("https://graph.microsoft.com/.default")
@@ -49,20 +66,28 @@ class TestDirectTokenCredential:
         assert token1.expires_on == token2.expires_on
 
     def test_handles_empty_token_in_credential(self) -> None:
-        """Test behavior when DirectTokenCredential gets empty token."""
+        """Test behavior when DirectTokenCredential gets callable that returns empty token."""
+        from azure.core.exceptions import ClientAuthenticationError
+
         # Test with empty string - should raise error when getting token
-        credential = DirectTokenCredential("")
+        def get_empty_token():
+            return _TokenData("")
+
+        credential = DirectTokenCredential(get_empty_token)
         try:
             credential.get_token()
             raise AssertionError("Expected ClientAuthenticationError for empty token")
-        except Exception:
+        except ClientAuthenticationError:
             pass  # Expected
 
-    def test_token_validation_with_buffer(self) -> None:
-        """Test token validation includes expiration buffer."""
-        # Create a token string
-        token_string = "expiring_token"
-        credential = DirectTokenCredential(token_string)
+    def test_token_validation_without_buffer(self) -> None:
+        """Test token validation uses exact expiration time (no buffer)."""
+
+        # Create a token callable
+        def get_token():
+            return _TokenData("expiring_token")
+
+        credential = DirectTokenCredential(get_token)
 
         # Get token - should work normally
         token = credential.get_token()
@@ -78,13 +103,15 @@ class TestGraphClientFactory:
     """Test get_graph_client factory function."""
 
     @pytest.mark.asyncio
-    async def test_get_graph_client_with_string_token(self) -> None:
-        """Test that get_graph_client creates a real GraphServiceClient with string token."""
+    async def test_get_graph_client_with_callable(self) -> None:
+        """Test that get_graph_client creates a real GraphServiceClient with TokenProtocol callable."""
+
         # Arrange
-        token_string = "test_string_token_789"
+        def get_token():
+            return _TokenData("test_token_callable_789")
 
         # Act
-        client = await get_graph_client(token_string)
+        client = await get_graph_client(get_token)
 
         # Assert
         assert isinstance(client, GraphServiceClient)
@@ -92,11 +119,13 @@ class TestGraphClientFactory:
     @pytest.mark.asyncio
     async def test_get_graph_client_with_connection_name(self) -> None:
         """Test that connection_name parameter is handled correctly."""
+
         # Arrange
-        token_string = "test_token"
+        def get_token():
+            return _TokenData("test_token")
 
         # Act
-        client = await get_graph_client(token_string, connection_name="custom_connection")
+        client = await get_graph_client(get_token, connection_name="custom_connection")
 
         # Assert
         assert isinstance(client, GraphServiceClient)
@@ -104,31 +133,28 @@ class TestGraphClientFactory:
     @pytest.mark.asyncio
     async def test_get_graph_client_creates_new_instances(self) -> None:
         """Test that get_graph_client creates new instances each time."""
+
         # Arrange
-        token_string = "test_token"
+        def get_token():
+            return _TokenData("test_token")
 
         # Act
-        client1 = await get_graph_client(token_string)
-        client2 = await get_graph_client(token_string)
+        client1 = await get_graph_client(get_token)
+        client2 = await get_graph_client(get_token)
 
         # Assert - Different instances (no caching at client level)
         assert isinstance(client1, GraphServiceClient)
         assert isinstance(client2, GraphServiceClient)
         assert client1 is not client2
 
-    @pytest.mark.asyncio
-    async def test_validates_token_input(self) -> None:
-        """Test that the function works with different token inputs."""
-        # Test with normal token string - client creation should succeed
-        client = await get_graph_client("valid_token")
-        assert isinstance(client, GraphServiceClient)
-
     def test_handles_credential_creation_errors(self) -> None:
         """Test error handling during credential creation."""
-        # Test with a valid token that should not raise an error
-        token_string = "valid_token"
+
+        # Test with a valid token callable that should not raise an error
+        def get_token():
+            return _TokenData("valid_token")
 
         # This should work fine
-        credential = DirectTokenCredential(token_string)
+        credential = DirectTokenCredential(get_token)
         token = credential.get_token()
         assert token.token == "valid_token"

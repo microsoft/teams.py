@@ -13,9 +13,10 @@ This package provides seamless access to Microsoft Graph APIs from Teams bots an
 
 ## Features
 
-- **Direct Token Support**: Works with tokens directly using the flexible Token pattern from the Teams SDK
-- **Flexible Input**: Accepts strings, callables, async functions, and other token types
-- **Automatic Token Management**: Handles expiration validation with intelligent caching
+- **TokenProtocol Support**: Uses structured token metadata with exact expiration times
+- **Callable-Based Pattern**: Accepts only callable functions that return TokenProtocol-compliant objects
+- **Type Safety**: Full Protocol implementation with proper type checking
+- **Clean API**: Single, consistent interface with no backward compatibility complexity
 
 ## Quick Start
 
@@ -24,8 +25,21 @@ from microsoft.teams.graph import get_graph_client
 from microsoft.teams.app import App, ActivityContext
 from microsoft.teams.api import MessageActivity
 from microsoft.teams.api.clients.user.params import GetUserTokenParams
+import datetime
+from typing import Optional
 
 app = App()
+
+class TokenData:
+    """Token data class that implements TokenProtocol."""
+    
+    def __init__(self, access_token: str, expires_in_seconds: int = 3600):
+        self.access_token = access_token
+        self.expires_at: Optional[datetime.datetime] = datetime.datetime.now(
+            datetime.timezone.utc
+        ) + datetime.timedelta(seconds=expires_in_seconds)
+        self.token_type: Optional[str] = "Bearer"
+        self.scope: Optional[str] = "https://graph.microsoft.com/.default"
 
 @app.on_message
 async def handle_message(ctx: ActivityContext[MessageActivity]):
@@ -39,47 +53,91 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
         user_id=ctx.activity.from_.id,
         connection_name=ctx.connection_name,
     )
-    token_response = await ctx.api.users.token.get(token_params)
 
-    # Create Graph client with direct token
-    graph = await get_graph_client(token_response.token, connection_name="graph")
+    def get_fresh_token():
+        """Callable that returns fresh token implementing TokenProtocol."""
+        token_response = asyncio.get_event_loop().run_until_complete(
+            ctx.api.users.token.get(token_params)
+        )
+        return TokenData(token_response.token, expires_in_seconds=3600)
+
+    # Create Graph client with TokenProtocol callable
+    graph = await get_graph_client(get_fresh_token, connection_name="graph")
 
     # Make Graph API calls
     me = await graph.me.get()
     await ctx.send(f"Hello {me.display_name}!")
 ```
 
-## Token Usage
+## TokenProtocol Usage
 
-The package uses the flexible Token pattern from the Teams SDK, accepting various token types:
+The package uses the TokenProtocol interface for structured token metadata. You must provide a callable that returns an object implementing the TokenProtocol.
 
-### Using String Tokens
+### TokenProtocol Interface
 
 ```python
-# Raw token string (expiration defaults to 1 hour)
-token_string = "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIs..."
-graph = await get_graph_client(token_string)
+from typing import Protocol, Optional
+import datetime
+
+class TokenProtocol(Protocol):
+    """Protocol for structured token metadata."""
+    access_token: str
+    expires_at: Optional[datetime.datetime]
+    token_type: Optional[str]
+    scope: Optional[str]
 ```
 
-### Using Token Factories
+### Creating Token Data
 
 ```python
-# Callable that returns a token
+import datetime
+from typing import Optional
+
+class MyTokenData:
+    """Custom implementation of TokenProtocol."""
+    
+    def __init__(self, access_token: str, expires_in_seconds: int = 3600):
+        self.access_token = access_token
+        # Use exact datetime objects for precise expiration handling
+        self.expires_at: Optional[datetime.datetime] = datetime.datetime.now(
+            datetime.timezone.utc
+        ) + datetime.timedelta(seconds=expires_in_seconds)
+        self.token_type: Optional[str] = "Bearer"
+        self.scope: Optional[str] = "https://graph.microsoft.com/.default"
+
+# Create a callable that returns TokenProtocol-compliant data
 def get_token():
-    return get_access_token_from_somewhere()
+    # Get your access token from wherever (Teams API, cache, etc.)
+    raw_token = get_access_token_from_somewhere()
+    return MyTokenData(raw_token, expires_in_seconds=3600)
 
+# Use the callable with get_graph_client
 graph = await get_graph_client(get_token)
+```
 
-# Async callable for dynamic token retrieval
-async def get_token_async():
-    return await fetch_token_from_api()
+### Dynamic Token Retrieval
 
-graph = await get_graph_client(get_token_async)
+```python
+def get_fresh_token():
+    """Callable that fetches a fresh token on each invocation."""
+    # This will be called each time the Graph client needs a token
+    fresh_token = fetch_latest_token_from_api()
+    return MyTokenData(fresh_token, expires_in_seconds=3600)
+
+graph = await get_graph_client(get_fresh_token)
 ```
 
 ## Authentication
 
-The package uses direct token management with the Teams SDK Token pattern. Ensure your app is configured with the appropriate OAuth connection (typically named "graph") in your Azure Bot registration. The package does not handle token refresh - use fresh tokens from the Teams API or your token source.
+The package uses TokenProtocol-based token management for structured metadata and exact expiration handling. Ensure your app is configured with the appropriate OAuth connection (typically named "graph") in your Azure Bot registration. 
+
+**Key Benefits:**
+- **Exact Expiration Times**: Uses `datetime.datetime` objects instead of guessing with timestamps
+- **Structured Metadata**: Access to token type, scope, and other metadata
+- **Fresh Token Pattern**: Callable approach ensures fresh tokens on each request
+- **Type Safety**: Full Protocol compliance with proper type checking
+
+The package does not handle token refresh - provide fresh tokens through your callable function.
 
 ## API Usage Examples
 
