@@ -12,6 +12,7 @@ Teams AI SDK for Python using the new TokenProtocol approach.
 - Proper error handling and user feedback
 - Interactive command interface
 - Structured token metadata with type safety
+- Simple authentication with pre-authorized Teams tokens
 
 ## Commands
 
@@ -56,6 +57,7 @@ The demo uses the `microsoft.teams.graph` package which provides:
 - **`get_graph_client()`** - Main factory function accepting TokenProtocol callable functions
 - **`DirectTokenCredential`** - Azure TokenCredential implementation for TokenProtocol objects
 - **TokenProtocol Approach** - Uses structured token metadata with exact expiration times
+- **Pre-authorized Authentication** - Works seamlessly with Teams OAuth tokens without complex validation
 
 ### Key Implementation Details
 
@@ -65,7 +67,7 @@ from typing import Optional
 
 class TokenData:
     """Token data class that implements TokenProtocol."""
-    
+
     def __init__(self, access_token: str, expires_in_seconds: int = 3600):
         self.access_token = access_token
         # Calculate exact expiration time
@@ -97,7 +99,9 @@ me = await graph.me.get()
 ```
 
 This approach provides:
+
 - **Exact expiration handling** with `datetime.datetime` objects
 - **Fresh token retrieval** on each Graph API request
 - **Type safety** with Protocol compliance
 - **Structured metadata** including token type and scope
+- **Simple integration** with pre-authorized Teams tokens - no complex scope validation needed

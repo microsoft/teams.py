@@ -30,17 +30,13 @@ class DirectTokenCredential(TokenCredential):
         self._connection_name = connection_name
         self._cached_access_token: Optional[AccessToken] = None
 
-    def get_token(
-        self, *scopes: str, claims: Optional[str] = None, tenant_id: Optional[str] = None, **kwargs: Any
-    ) -> AccessToken:
+    def get_token(self, *scopes: str, **kwargs: Any) -> AccessToken:
         """
         Retrieve an access token for Microsoft Graph.
 
         Args:
-            *scopes: The scopes for which the token is being requested (ignored - token is pre-authorized)
-            claims: Additional claims to include in the token request (ignored)
-            tenant_id: The tenant ID (ignored - determined by token)
-            **kwargs: Additional keyword arguments
+            *scopes: Token scopes (required for interface compatibility, not validated)
+            **kwargs: Additional keyword arguments (unused)
 
         Returns:
             AccessToken: The access token for Microsoft Graph

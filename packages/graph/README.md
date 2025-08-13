@@ -16,7 +16,8 @@ This package provides seamless access to Microsoft Graph APIs from Teams bots an
 - **TokenProtocol Support**: Uses structured token metadata with exact expiration times
 - **Callable-Based Pattern**: Accepts only callable functions that return TokenProtocol-compliant objects
 - **Type Safety**: Full Protocol implementation with proper type checking
-- **Clean API**: Single, consistent interface with no backward compatibility complexity
+- **Clean API**: Single, consistent interface for pre-authorized Teams tokens
+- **Simple Authentication**: No complex scope validation - works with pre-authorized Teams OAuth tokens
 
 ## Quick Start
 
@@ -32,7 +33,7 @@ app = App()
 
 class TokenData:
     """Token data class that implements TokenProtocol."""
-    
+
     def __init__(self, access_token: str, expires_in_seconds: int = 3600):
         self.access_token = access_token
         self.expires_at: Optional[datetime.datetime] = datetime.datetime.now(
@@ -95,7 +96,7 @@ from typing import Optional
 
 class MyTokenData:
     """Custom implementation of TokenProtocol."""
-    
+
     def __init__(self, access_token: str, expires_in_seconds: int = 3600):
         self.access_token = access_token
         # Use exact datetime objects for precise expiration handling
@@ -129,13 +130,14 @@ graph = await get_graph_client(get_fresh_token)
 
 ## Authentication
 
-The package uses TokenProtocol-based token management for structured metadata and exact expiration handling. Ensure your app is configured with the appropriate OAuth connection (typically named "graph") in your Azure Bot registration. 
+The package uses TokenProtocol-based token management for structured metadata and exact expiration handling. Teams tokens are pre-authorized through the OAuth connection configured in your Azure Bot registration.
 
 **Key Benefits:**
 - **Exact Expiration Times**: Uses `datetime.datetime` objects instead of guessing with timestamps
-- **Structured Metadata**: Access to token type, scope, and other metadata
+- **Structured Metadata**: Access to token type, scope, and other metadata  
 - **Fresh Token Pattern**: Callable approach ensures fresh tokens on each request
 - **Type Safety**: Full Protocol compliance with proper type checking
+- **Pre-authorized Tokens**: No complex scope validation needed - Teams handles OAuth permissions
 
 The package does not handle token refresh - provide fresh tokens through your callable function.
 

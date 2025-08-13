@@ -9,7 +9,7 @@ description = "The Graph package for a Microsoft Teams agent"
 readme = "README.md"
 license = { text = "MIT" }
 authors = [{ name = "Microsoft", email = "teams@microsoft.com" }]
-keywords = ["microsoft", "teams", "ai", "bot", "agents"]
+keywords = ["microsoft", "teams", "ai", "bot", "agents", "graph"]
 requires-python = ">=3.12"
 dependencies = [
     "azure-identity",
