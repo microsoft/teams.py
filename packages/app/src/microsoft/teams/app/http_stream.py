@@ -6,7 +6,7 @@ Licensed under the MIT License.
 import asyncio
 from collections import deque
 from logging import Logger
-from typing import List, Optional, Union
+from typing import Awaitable, Callable, List, Optional, Union
 
 from microsoft.teams.api import ConversationReference, Resource
 from microsoft.teams.api.activities.message.message import MessageActivityInput
@@ -20,6 +20,48 @@ from microsoft.teams.common.events.event_emitter import EventEmitter
 from microsoft.teams.common.logging import ConsoleLogger
 
 from .plugins.streamer import IStreamerEvents, StreamerProtocol
+
+TimerCallback = Union[Callable[[], None], Callable[[], Awaitable[None]]]
+
+
+class Timeout:
+    def __init__(self, delay: float, callback: TimerCallback) -> None:
+        """
+        Schedule a callback after a delay.
+
+        Args:
+            delay: Delay in seconds before callback is executed.
+            callback: Function to run after delay.
+        """
+        self._delay: float = delay
+        self._callback: TimerCallback = callback
+        self._handle: Optional[asyncio.TimerHandle] = None
+        self._cancelled: bool = False
+
+        loop = asyncio.get_event_loop()
+        self._handle = loop.call_later(delay, self._run)
+
+    def _run(self) -> None:
+        if self._cancelled:
+            return
+
+        if asyncio.iscoroutinefunction(self._callback):
+            asyncio.create_task(self._callback())  # Fire-and-forget
+        else:
+            self._callback()
+
+    def cancel(self) -> None:
+        """
+        Cancel the timeout before it triggers.
+        """
+        if self._handle is not None:
+            self._handle.cancel()
+        self._cancelled = True
+
+    @property
+    def cancelled(self) -> bool:
+        """Check if the timeout was cancelled."""
+        return self._cancelled
 
 
 class HttpStream(StreamerProtocol):
@@ -46,7 +88,7 @@ class HttpStream(StreamerProtocol):
 
         self._result: Optional[Resource] = None
         self._lock = asyncio.Lock()
-        self._timeout: Optional[asyncio.Task[None]] = None
+        self._timeout: Optional[Timeout] = None
         self._id_set_event = asyncio.Event()
         self._queue_empty_event = asyncio.Event()
 
@@ -93,9 +135,7 @@ class HttpStream(StreamerProtocol):
             activity: The activity to emit.
         """
         if self._timeout is not None:
-            # Only cancel if flush hasn't started (lock not acquired)
-            if not self._lock.locked():
-                self._timeout.cancel()
+            self._timeout.cancel()
             self._timeout = None
 
         if isinstance(activity, str):
@@ -105,7 +145,7 @@ class HttpStream(StreamerProtocol):
         # Clear the queue empty event since we just added an item
         self._queue_empty_event.clear()
 
-        self._timeout = asyncio.create_task(self._delayed_flush())
+        self._timeout = Timeout(0.2, self._flush)
 
     def update(self, text: str) -> None:
         """
@@ -155,13 +195,6 @@ class HttpStream(StreamerProtocol):
 
         return res
 
-    async def _delayed_flush(self):
-        """
-        Wait for a short period before flushing the activity queue.
-        """
-        await asyncio.sleep(0.2)
-        await self._flush()
-
     async def _flush(self) -> None:
         """
         Flush the current activity queue.
@@ -170,6 +203,10 @@ class HttpStream(StreamerProtocol):
         async with self._lock:
             if not self._queue:
                 return
+
+            if self._timeout is not None:
+                self._timeout.cancel()
+                self._timeout = None
 
             i = 0
             informative_updates: List[TypingActivityInput] = []
@@ -214,7 +251,7 @@ class HttpStream(StreamerProtocol):
 
             # If more queued, schedule another flush
             if self._queue and not self._timeout:
-                self._flush_task = asyncio.create_task(self._delayed_flush())
+                self._timeout = Timeout(0.2, self._flush)
 
     async def _send_activity(self, to_send: TypingActivityInput):
         """

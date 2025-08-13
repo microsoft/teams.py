@@ -62,7 +62,7 @@ class TestHttpStream:
         http_stream.emit("Hello, world!")
 
         # Wait for the flush task to complete
-        await asyncio.wait_for(http_stream._delayed_flush(), timeout=1.0)
+        await asyncio.wait_for(http_stream._flush(), timeout=1.0)
 
         assert http_stream.count == 0
         assert http_stream.sequence == 2
@@ -73,7 +73,7 @@ class TestHttpStream:
 
         http_stream.emit(activity)
         # Wait for the flush task to complete
-        await asyncio.wait_for(http_stream._delayed_flush(), timeout=0.3)
+        await asyncio.wait_for(http_stream._flush(), timeout=0.3)
 
         assert http_stream.count == 0
         assert http_stream.sequence == 2
@@ -89,7 +89,7 @@ class TestHttpStream:
     async def test_update_status(self, http_stream, mock_api_client):
         http_stream.update("Thinking...")
         # Wait for the flush task to complete
-        await asyncio.wait_for(http_stream._delayed_flush(), timeout=0.3)
+        await asyncio.wait_for(http_stream._flush(), timeout=0.3)
 
         assert http_stream.count == 0
         assert http_stream.sequence == 2
@@ -107,7 +107,7 @@ class TestHttpStream:
         http_stream.emit(" ")
         http_stream.emit("world!")
         # Wait for the flush task to complete
-        await asyncio.wait_for(http_stream._delayed_flush(), timeout=0.3)
+        await asyncio.wait_for(http_stream._flush(), timeout=0.3)
 
         assert http_stream.count == 0
         assert http_stream.sequence == 2
@@ -120,7 +120,7 @@ class TestHttpStream:
     async def test_close_stream(self, http_stream):
         http_stream.emit("Final message")
         # Wait for the flush task to complete
-        await asyncio.wait_for(http_stream._delayed_flush(), timeout=0.3)
+        await asyncio.wait_for(http_stream._flush(), timeout=0.3)
 
         result = await http_stream.close()
 
@@ -160,7 +160,7 @@ class TestHttpStream:
             http_stream.emit(f"Message {i}")
 
         # Wait for the flush task to complete
-        await asyncio.wait_for(http_stream._delayed_flush(), timeout=0.3)
+        await asyncio.wait_for(http_stream._flush(), timeout=0.3)
 
         # Should have processed 10 messages and left 5 in the queue
         assert http_stream.count == 5
@@ -172,7 +172,7 @@ class TestHttpStream:
         assert http_stream._id == "mock-id"
 
         # Check that the remaining messages are also flushed
-        await asyncio.wait_for(http_stream._delayed_flush(), timeout=0.3)
+        await asyncio.wait_for(http_stream._flush(), timeout=0.3)
         assert http_stream.count == 0
         assert http_stream.sequence == 3
         # Confirm that combined string contains the last 5 messages
@@ -232,7 +232,7 @@ class TestStreamingIntegration:
         # Simulate streaming workflow
         stream.emit("Hello")
         stream.emit(" world!")
-        await asyncio.wait_for(stream._delayed_flush(), timeout=0.3)
+        await asyncio.wait_for(stream._flush(), timeout=0.3)
 
         assert mock_activities.create.call_count == 1
         expected_text = "Hello world!"
@@ -244,7 +244,7 @@ class TestStreamingIntegration:
         assert stream._id == "mock-id"
 
         stream.emit("Bye!")
-        await asyncio.wait_for(stream._delayed_flush(), timeout=0.3)
+        await asyncio.wait_for(stream._flush(), timeout=0.3)
 
         assert mock_activities.create.call_count == 2
         expected_text = "Hello world!Bye!"
