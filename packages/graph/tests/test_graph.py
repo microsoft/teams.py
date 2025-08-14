@@ -7,6 +7,7 @@ import datetime
 
 import pytest
 from azure.core.credentials import AccessToken
+from azure.core.exceptions import ClientAuthenticationError
 from microsoft.teams.graph import get_graph_client
 from microsoft.teams.graph.auth_provider import DirectTokenCredential
 from msgraph.graph_service_client import GraphServiceClient
@@ -67,7 +68,6 @@ class TestDirectTokenCredential:
 
     def test_handles_empty_token_in_credential(self) -> None:
         """Test behavior when token callable returns empty data - should raise appropriate errors."""
-        from azure.core.exceptions import ClientAuthenticationError
 
         # Test with empty token - should raise error when getting token
         def get_empty_token():
