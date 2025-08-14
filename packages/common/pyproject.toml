@@ -7,7 +7,7 @@ repository = "https://github.com/microsoft/teams.py"
 keywords = ["microsoft", "teams", "ai", "bot", "agents"] 
 license = "MIT"
 authors = [
-    { name = "Microsoft", email = "teams@microsoft.com" }
+    { name = "Microsoft", email = "TeamsAISDKFeedback@microsoft.com" }
 ]
 requires-python = ">=3.12"
 dependencies = [
