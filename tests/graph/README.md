@@ -26,7 +26,7 @@ Teams AI SDK for Python using the new TokenProtocol approach.
 3. Configure appropriate Microsoft Graph permissions:
    - `User.Read` (for profile access)
    - `Mail.Read` (for email access)
-4. Create a `.env` file with required environment variables (copy from `.env.example`):
+4. Create a `.env` file with required environment variables (copy from `sample.env`):
    ```
    CONNECTION_NAME=graph
    # PORT=3979  # Optional: specify custom port (defaults to 3979)
