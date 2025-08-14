@@ -62,6 +62,10 @@ class DirectTokenCredential(TokenCredential):
             if not token_data.access_token:
                 raise ClientAuthenticationError("Token data is missing access_token")
 
+            # Check for whitespace-only tokens
+            if not token_data.access_token.strip():
+                raise ClientAuthenticationError("Token data contains only whitespace")
+
             # Use provided expiration time or default to 1 hour
             if token_data.expires_at:
                 expires_on = int(token_data.expires_at.timestamp())

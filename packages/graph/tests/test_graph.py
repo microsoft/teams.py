@@ -77,13 +77,13 @@ class TestDirectTokenCredential:
         with pytest.raises(ClientAuthenticationError, match="Token data is missing access_token"):
             credential.get_token("https://graph.microsoft.com/.default")
 
-        # Test with whitespace string - should work (whitespace is considered valid)
+        # Test with whitespace string - should also raise error (whitespace tokens are invalid)
         def get_whitespace_token():
             return _TokenData("   ")
 
         credential = DirectTokenCredential(get_whitespace_token)
-        token = credential.get_token("https://graph.microsoft.com/.default")
-        assert token.token == "   "
+        with pytest.raises(ClientAuthenticationError, match="Token data contains only whitespace"):
+            credential.get_token("https://graph.microsoft.com/.default")
 
 
 class TestGraphClientFactory:
