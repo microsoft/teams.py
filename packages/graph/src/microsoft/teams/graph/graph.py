@@ -58,8 +58,3 @@ async def get_graph_client(
         if isinstance(e, ClientAuthenticationError):
             raise  # Re-raise authentication errors as-is
         raise ClientAuthenticationError(f"Failed to create Microsoft Graph client: {str(e)}") from e
-
-
-__all__ = [
-    "get_graph_client",
-]
