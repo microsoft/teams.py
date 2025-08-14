@@ -7,9 +7,10 @@ import asyncio
 import re
 
 from microsoft.teams.api import MessageActivity
-from microsoft.teams.app import ActivityContext, App
+from microsoft.teams.app import ActivityContext, App, AppOptions
+from microsoft.teams.devtools import DevToolsPlugin
 
-app = App()
+app = App(AppOptions(plugins=[DevToolsPlugin()]))
 
 
 @app.on_message_pattern(re.compile(r"hello|hi|greetings"))

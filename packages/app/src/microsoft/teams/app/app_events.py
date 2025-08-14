@@ -31,7 +31,7 @@ class EventManager:
 
     async def on_activity_sent(self, sender: Sender, event: ActivitySentEvent, plugins: List[PluginBase]) -> None:
         for plugin in plugins:
-            if hasattr(plugin, "on_activity_sent_event") and callable(plugin.on_activity_sent):
+            if callable(plugin.on_activity_sent):
                 activity = SentActivity(id=event.activity.id, activity_params=event.activity.activity_params)
                 await plugin.on_activity_sent(PluginActivitySentEvent(sender=sender, activity=activity))
         self.event_emitter.emit("activity_sent", {"event": event, "sender": sender})
@@ -40,7 +40,7 @@ class EventManager:
         self, sender: Sender, event: ActivityResponseEvent, plugins: List[PluginBase]
     ) -> None:
         for plugin in plugins:
-            if hasattr(plugin, "on_activity_response_event") and callable(plugin.on_activity_response):
+            if callable(plugin.on_activity_response):
                 await plugin.on_activity_response(
                     PluginActivityResponseEvent(activity=event.activity, sender=sender, response=event.response)
                 )

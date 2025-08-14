@@ -4,7 +4,7 @@ Licensed under the MIT License.
 """
 
 from logging import Logger
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union, cast
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union
 
 from microsoft.teams.api import (
     ActivityBase,
@@ -16,7 +16,6 @@ from microsoft.teams.api import (
     JsonWebToken,
     SentActivity,
     TokenProtocol,
-    is_invoke_response,
 )
 from microsoft.teams.cards.adaptive_card import AdaptiveCard
 from microsoft.teams.common import Client, ClientOptions, LocalStorage, Storage
@@ -152,20 +151,13 @@ class ActivityProcessor:
         # If no registered handlers, fall back to legacy activity_handler
         if handlers:
             middleware_result = await self.execute_middleware_chain(activityCtx, handlers)
-            if middleware_result is None:
-                pass
-            elif not is_invoke_response(middleware_result):
-                response = InvokeResponse[Any](status=200, body=middleware_result)
-            else:
-                response = cast(InvokeResponse[Any], middleware_result)
-
             if not self.event_manager:
                 raise ValueError("EventManager was not initialized properly")
 
-            if response:
-                await self.event_manager.on_activity_response(
-                    sender, ActivityResponseEvent(activity=event.activity, response=response), plugins=plugins
-                )
+            response = InvokeResponse[Any](status=200, body=middleware_result)
+            await self.event_manager.on_activity_response(
+                sender, ActivityResponseEvent(activity=event.activity, response=response), plugins=plugins
+            )
 
         self.logger.debug("Completed processing activity")
 

@@ -14,6 +14,7 @@ import uvicorn
 from fastapi import FastAPI, Request, Response
 from fastapi.staticfiles import StaticFiles
 from microsoft.teams.api import Activity, ActivityParams, ApiClient, ConversationReference, SentActivity, TokenProtocol
+from microsoft.teams.app.plugins.plugin_activity_event import PluginActivityEvent
 from microsoft.teams.common.http.client import Client, ClientOptions
 from microsoft.teams.common.logging import ConsoleLogger
 from pydantic import BaseModel
@@ -277,10 +278,14 @@ class HttpPlugin(Sender):
 
         return result
 
+    async def on_activity(self, event: PluginActivityEvent):
+        """Handle incoming Teams activities."""
+        self.logger.info(f"Received within on_activity: {event.activity}")
+
     def _setup_routes(self) -> None:
         """Setup FastAPI routes."""
 
-        async def on_activity(request: Request, response: Response) -> Any:
+        async def on_activity_request(request: Request, response: Response) -> Any:
             """Handle incoming Teams activity."""
             # Process the activity (token validation handled by middleware)
             result = await self._handle_activity_request(request)
@@ -306,7 +311,7 @@ class HttpPlugin(Sender):
                 return body
             return cast(Any, result)
 
-        self.app.post("/api/messages")(on_activity)
+        self.app.post("/api/messages")(on_activity_request)
 
         async def health_check() -> Dict[str, Any]:
             """Basic health check endpoint."""
