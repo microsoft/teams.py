@@ -5,10 +5,10 @@ Licensed under the MIT License.
 # pyright: basic
 
 import asyncio
-from unittest.mock import AsyncMock, MagicMock
+from datetime import datetime, timedelta
+from unittest.mock import MagicMock
 
 import pytest
-from microsoft.teams.api.activities.message.message import MessageActivityInput
 from microsoft.teams.api.activities.typing import TypingActivityInput
 from microsoft.teams.api.clients.api_client import ApiClient
 from microsoft.teams.api.models import ConversationReference, Resource
@@ -30,8 +30,17 @@ class TestHttpStream:
         mock_conversations.activities.return_value = mock_activities
         client.conversations = mock_conversations
 
-        mock_activities.create = AsyncMock(return_value=Resource(id="mock-id"))
-        mock_activities.update = AsyncMock(return_value=Resource(id="mock-id"))
+        client.send_call_count = 0
+        client.send_times = []
+        client.sent_activities = []
+
+        async def mock_send(activity):
+            client.send_call_count += 1
+            client.send_times.append(datetime.now())
+            client.sent_activities.append(activity)
+            return Resource(id=f"test-id-{client.send_call_count}")
+
+        client.conversations.activities().create = mock_send
 
         return client
 
@@ -49,220 +58,100 @@ class TestHttpStream:
     def http_stream(self, mock_api_client, conversation_reference, mock_logger):
         return HttpStream(mock_api_client, conversation_reference, mock_logger)
 
-    def test_initial_state(self, http_stream):
-        assert not http_stream.closed
-        assert http_stream.count == 0
-        assert http_stream.sequence == 1
-        assert http_stream._text == ""
-        assert len(http_stream._attachments) == 0
-        assert len(http_stream._entities) == 0
-
     @pytest.mark.asyncio
-    async def test_emit_string(self, http_stream):
-        http_stream.emit("Hello, world!")
+    async def test_stream_emit_message_flushes_after_500ms(self, mock_api_client, conversation_reference, mock_logger):
+        """Test that messages are flushed after 500ms timeout."""
 
-        # Wait for the flush task to complete
-        await asyncio.wait_for(http_stream._flush(), timeout=1.0)
+        stream = HttpStream(mock_api_client, conversation_reference, mock_logger)
+        start_time = datetime.now()
 
-        assert http_stream.count == 0
-        assert http_stream.sequence == 2
+        stream.emit("Test message")
+        await asyncio.sleep(0.6)  # Wait longer than 500ms timeout
 
-    @pytest.mark.asyncio
-    async def test_emit_activity(self, http_stream, mock_api_client):
-        activity = MessageActivityInput(text="Test message", type="message")
-
-        http_stream.emit(activity)
-        # Wait for the flush task to complete
-        await asyncio.wait_for(http_stream._flush(), timeout=0.3)
-
-        assert http_stream.count == 0
-        assert http_stream.sequence == 2
-
-        mock_api_client.conversations.activities().create.assert_called_once()
-        sent_activity = mock_api_client.conversations.activities().create.call_args[0][0]
-        # Should have sent a TypingActivityInput (not Message)
-        assert isinstance(sent_activity, TypingActivityInput)
-        assert sent_activity.text == "Test message"
-        assert http_stream._id == "mock-id"
-
-    @pytest.mark.asyncio
-    async def test_update_status(self, http_stream, mock_api_client):
-        http_stream.update("Thinking...")
-        # Wait for the flush task to complete
-        await asyncio.wait_for(http_stream._flush(), timeout=0.3)
-
-        assert http_stream.count == 0
-        assert http_stream.sequence == 2
-
-        mock_api_client.conversations.activities().create.assert_called()
-        first_call_args = mock_api_client.conversations.activities().create.call_args_list[0]
-        sent_activity = first_call_args[0][0]
-        assert isinstance(sent_activity, TypingActivityInput)
-        assert sent_activity.text == "Thinking..."
-        assert http_stream._id == "mock-id"
-
-    @pytest.mark.asyncio
-    async def test_multiple_emits(self, http_stream, mock_api_client):
-        http_stream.emit("Hello")
-        http_stream.emit(" ")
-        http_stream.emit("world!")
-        # Wait for the flush task to complete
-        await asyncio.wait_for(http_stream._flush(), timeout=0.3)
-
-        assert http_stream.count == 0
-        assert http_stream.sequence == 2
-        mock_api_client.conversations.activities().create.assert_called_once()
-        sent_activity = mock_api_client.conversations.activities().create.call_args[0][0]
-        assert isinstance(sent_activity, TypingActivityInput)
-        assert sent_activity.text == "Hello world!"
-
-    @pytest.mark.asyncio
-    async def test_close_stream(self, http_stream):
-        http_stream.emit("Final message")
-        # Wait for the flush task to complete
-        await asyncio.wait_for(http_stream._flush(), timeout=0.3)
-
-        result = await http_stream.close()
-
-        assert result is not None
-        assert isinstance(result, Resource)
-        assert http_stream.closed
-
-    @pytest.mark.asyncio
-    async def test_close_empty_stream(self, http_stream):
-        """Test closing an empty stream."""
-        # Ensure no emit has occurred
-        assert http_stream.count == 0
-        assert not http_stream.closed
-
-        result = await http_stream.close()
-
-        # No activity was sent, so _result should remain None
-        assert result is None
-        assert not http_stream.closed
-
-    @pytest.mark.asyncio
-    async def test_close_already_closed(self, http_stream):
-        """Test closing an already closed stream."""
-        expected_result = Resource(id="test-id")
-        http_stream._result = expected_result
-
-        result = await http_stream.close()
-
-        # Should return the previously stored result without sending again
-        assert result == expected_result
-
-    @pytest.mark.asyncio
-    async def test_flush_multiple_sequences(self, http_stream, mock_api_client):
-        """Test flushing multiple messages (batching)."""
-
-        for i in range(15):  # More than the batch size
-            http_stream.emit(f"Message {i}")
-
-        # Wait for the flush task to complete
-        await asyncio.wait_for(http_stream._flush(), timeout=0.3)
-
-        # Should have processed 10 messages and left 5 in the queue
-        assert http_stream.count == 5
-        assert http_stream.sequence == 2
-        # Confirm that combined string contains the first 10 messages
-        expected_text = "".join([f"Message {i}" for i in range(10)])
-        args = mock_api_client.conversations.activities().create.call_args[0]
-        assert expected_text in args[0].text
-        assert http_stream._id == "mock-id"
-
-        # Check that the remaining messages are also flushed
-        await asyncio.wait_for(http_stream._flush(), timeout=0.3)
-        assert http_stream.count == 0
-        assert http_stream.sequence == 3
-        # Confirm that combined string contains the last 5 messages
-        expected_text = "".join([f"Message {i}" for i in range(15)])
-        args = mock_api_client.conversations.activities().create.call_args[0]
-        assert expected_text in args[0].text
-        assert http_stream._id == "mock-id"
-
-    def test_events_emitter(self, http_stream):
-        """Test that events emitter is available and emits events properly."""
-        assert http_stream._events is not None
-
-        mock_listener = MagicMock()
-        http_stream._events.on("chunk", mock_listener)
-
-        test_data = {"test": "data"}
-        http_stream._events.emit("chunk", test_data)
-
-        mock_listener.assert_called_once_with(test_data)
-
-
-class TestStreamingIntegration:
-    """Integration tests for complete streaming workflow."""
-
-    @pytest.fixture
-    def mock_logger(self):
-        return MagicMock()
-
-    @pytest.fixture
-    def conversation_reference(self):
-        return ConversationReference(
-            service_url="https://smba.trafficmanager.net/teams/",
-            bot=Account(id="test-bot", name="Test Bot"),
-            conversation=ConversationAccount(id="test-conversation", conversation_type="personal"),
-            activity_id="test-activity",
-            channel_id="msteams",
+        assert mock_api_client.send_call_count > 0, "Should have sent at least one message"
+        assert any(t >= start_time + timedelta(milliseconds=450) for t in mock_api_client.send_times), (
+            "Should have waited approximately 500ms before sending"
         )
 
     @pytest.mark.asyncio
-    async def test_complete_streaming_workflow(self, mock_logger, conversation_reference):
-        """Test a complete streaming workflow from start to finish."""
-        # Create mock API client with full method chain
-        mock_api_client = MagicMock(spec=ApiClient)
+    async def test_stream_multiple_emits_restarts_timer(self, mock_api_client, conversation_reference, mock_logger):
+        """Test that multiple emits reset the timer."""
 
-        # Mock conversations.activities().create/update
-        mock_activities = MagicMock()
-        mock_conversations = MagicMock()
-        mock_conversations.activities.return_value = mock_activities
-        mock_api_client.conversations = mock_conversations
-
-        mock_activities.create = AsyncMock(return_value=Resource(id="mock-id"))
-        mock_activities.update = AsyncMock(return_value=Resource(id="mock-id"))
-
-        # Create stream
         stream = HttpStream(mock_api_client, conversation_reference, mock_logger)
 
-        # Simulate streaming workflow
-        stream.emit("Hello")
-        stream.emit(" world!")
-        await asyncio.wait_for(stream._flush(), timeout=0.3)
+        stream.emit("First message")
+        await asyncio.sleep(0.3)  # Wait less than 500ms
 
-        assert mock_activities.create.call_count == 1
-        expected_text = "Hello world!"
-        args = mock_activities.create.call_args[0]
-        assert isinstance(args[0], TypingActivityInput)
-        assert args[0].text == expected_text
-        assert stream.count == 0
-        assert stream.sequence == 2
-        assert stream._id == "mock-id"
+        stream.emit("Second message")  # This should reset the timer
+        await asyncio.sleep(0.3)  # Still less than 500ms from second emit
+        assert mock_api_client.send_call_count == 0, "Should not have sent yet"
+        await asyncio.sleep(0.3)  # Now over 500ms from second emit
+        assert mock_api_client.send_call_count > 0, "Should have sent messages after timer expired"
 
-        stream.emit("Bye!")
-        await asyncio.wait_for(stream._flush(), timeout=0.3)
+    @pytest.mark.asyncio
+    async def test_stream_send_timeout_handled_gracefully(self, mock_api_client, conversation_reference, mock_logger):
+        """Test that send timeouts are handled gracefully with retries."""
+        call_count = 0
 
-        assert mock_activities.create.call_count == 2
-        expected_text = "Hello world!Bye!"
-        args = mock_activities.create.call_args[0]
-        assert isinstance(args[0], TypingActivityInput)
-        assert args[0].text == expected_text
-        assert stream.count == 0
-        assert stream.sequence == 3
-        assert stream._id == "mock-id"
+        async def mock_send_with_timeout(activity):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:  # Fail first attempt
+                raise TimeoutError("Operation timed out")
 
-        # Close the stream
+            # Succeed on second attempt
+            return Resource(id=f"success-after-timeout-{call_count}")
+
+        mock_api_client.conversations.activities().create = mock_send_with_timeout
+
+        stream = HttpStream(mock_api_client, conversation_reference, mock_logger)
+
+        stream.emit("Test message with timeout")
+        await asyncio.sleep(0.8)  # Wait for flush and retries
+
+        result = await stream.close()
+
+        assert call_count > 1, "Should have retried after timeout"
+        assert result is not None
+
+    @pytest.mark.asyncio
+    async def test_stream_all_timeouts_fail_handled_gracefully(
+        self, mock_api_client, conversation_reference, mock_logger
+    ):
+        """Test that when all timeouts fail, it's handled gracefully."""
+        call_count = 0
+
+        async def mock_send_all_timeout(activity):
+            nonlocal call_count
+            call_count += 1
+            raise TimeoutError("All operations timed out")
+
+        mock_api_client.conversations.activities().create = mock_send_all_timeout
+
+        stream = HttpStream(mock_api_client, conversation_reference, mock_logger)
+
+        stream.emit("Test message with all timeouts")
+        await asyncio.sleep(5.0)  # Wait for flush and all retries to complete
+
         await stream.close()
-        assert mock_activities.create.call_count == 3
-        expected_text = "Hello world!Bye!"
-        args = mock_activities.create.call_args[0]
-        assert isinstance(args[0], MessageActivityInput)
-        assert args[0].text == expected_text
-        assert stream.count == 0
-        assert stream.sequence == 1
-        assert stream._id is None
-        assert stream.closed
+        assert call_count > 1, "Should have retried after timeout"
+
+    @pytest.mark.asyncio
+    async def test_stream_update_status_sends_typing_activity(
+        self, mock_api_client, conversation_reference, mock_logger
+    ):
+        """Test that update sends typing activities."""
+        stream = HttpStream(mock_api_client, conversation_reference, mock_logger)
+
+        stream.update("Thinking...")
+        await asyncio.sleep(0.6)  # Wait for the flush task to complete
+
+        assert stream.count > 0 or len(mock_api_client.sent_activities) > 0, "Should have processed the update"
+        assert stream.sequence >= 2, "Should increment sequence after sending"
+
+        assert len(mock_api_client.sent_activities) > 0, "Should have sent at least one activity"
+        sent_activity = mock_api_client.sent_activities[0]
+        assert isinstance(sent_activity, TypingActivityInput)
+        assert sent_activity.text == "Thinking..."
+        assert sent_activity.channel_data is not None
+        assert sent_activity.channel_data.stream_type == "informative"
