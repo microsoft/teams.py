@@ -166,16 +166,14 @@ class DevToolsPlugin(Sender):
         socket_id = str(uuid4())
         self.sockets[socket_id] = websocket
 
-        # TODO: Fix app id + display name
-
         try:
             await websocket.send_json(
                 {
                     "id": str(uuid4()),
                     "type": "metadata",
                     "body": {
-                        "id": "app-id",
-                        "name": "app_display_name",
+                        "id": self.id.__str__(),
+                        "name": self.name.__str__(),
                         "pages": self.pages,
                     },
                     "sent_at": datetime.now().isoformat(),
@@ -195,7 +193,7 @@ class DevToolsPlugin(Sender):
 
     async def on_activity(self, event: PluginActivityEvent):
         """Handle incoming activities."""
-        self.logger.info(f"Activity received: {event.activity}")
+        self.logger.info("Activity received in on_activity")
 
         activity = DevToolsActivityReceivedEvent(
             id=str(uuid4()),
@@ -211,14 +209,10 @@ class DevToolsPlugin(Sender):
         """Handle sent activities."""
         self.logger.info(f"Activity sent: {event.activity}")
 
-        if not event.activity.activity_params or not event.activity.activity_params.conversation:
-            self.logger.error("ActivityParams and its associated conversation is required for sent activities")
-            return
-
         activity = DevToolsActivitySentEvent(
             id=str(uuid4()),
             type="activity.sent",
-            chat=event.activity.activity_params.conversation,
+            chat=event.conversation_ref.conversation,
             body=event.activity,
             sent_at=datetime.now(),
         )
@@ -232,7 +226,8 @@ class DevToolsPlugin(Sender):
             del self.pending[event.activity.id]
 
     async def send(self, activity: ActivityParams, ref: ConversationReference) -> SentActivity:
-        return await self.http_plugin.send(activity, ref)
+        plugin = self.http_plugin()
+        return await plugin.send(activity, ref)
 
     async def emit_activity_to_sockets(self, event: DevToolsActivityEvent):
         for socket_id, websocket in self.sockets.items():

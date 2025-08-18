@@ -9,8 +9,7 @@ from uuid import uuid4
 import jwt
 from fastapi import HTTPException, Request, Response
 from fastapi.responses import JSONResponse
-from microsoft.teams.api import Activity, ActivityInputBase, JsonWebToken
-from microsoft.teams.api.models.account import Account, ConversationAccount
+from microsoft.teams.api import Account, Activity, ConversationAccount, JsonWebToken, MessageActivity
 
 from ....context import RouteContext
 
@@ -19,7 +18,6 @@ async def create(context: RouteContext):
     async def create_activity_endpoint(request: Request, response: Response):
         is_client = request.headers.get("x-teams-devtools") == "true"
         body = await request.json()
-
         channel_data = body.get("channelData", {})
         id = channel_data.get("streamId", str(uuid4()))
 
@@ -32,9 +30,7 @@ async def create(context: RouteContext):
                 jwt.encode({"serviceurl": f"http://localhost:{context.port}"}, "secret", algorithm="HS256")
             )
 
-            # TODO: Fix recipient
-
-            activity = ActivityInputBase(
+            activity = MessageActivity(
                 **body,
                 id=body.get("id", str(uuid4())),
                 channel_id="msteams",

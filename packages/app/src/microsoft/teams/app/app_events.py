@@ -5,7 +5,6 @@ Licensed under the MIT License.
 
 from typing import List
 
-from microsoft.teams.api.activities import SentActivity
 from microsoft.teams.common.events.event_emitter import EventEmitter
 
 from .app_process import ActivityProcessor
@@ -32,8 +31,11 @@ class EventManager:
     async def on_activity_sent(self, sender: Sender, event: ActivitySentEvent, plugins: List[PluginBase]) -> None:
         for plugin in plugins:
             if callable(plugin.on_activity_sent):
-                activity = SentActivity(id=event.activity.id, activity_params=event.activity.activity_params)
-                await plugin.on_activity_sent(PluginActivitySentEvent(sender=sender, activity=activity))
+                await plugin.on_activity_sent(
+                    PluginActivitySentEvent(
+                        sender=event.sender, activity=event.activity, conversation_ref=event.conversation_ref
+                    )
+                )
         self.event_emitter.emit("activity_sent", {"event": event, "sender": sender})
 
     async def on_activity_response(
@@ -42,6 +44,11 @@ class EventManager:
         for plugin in plugins:
             if callable(plugin.on_activity_response):
                 await plugin.on_activity_response(
-                    PluginActivityResponseEvent(activity=event.activity, sender=sender, response=event.response)
+                    PluginActivityResponseEvent(
+                        activity=event.activity,
+                        sender=sender,
+                        response=event.response,
+                        conversation_ref=event.conversation_ref,
+                    )
                 )
         self.event_emitter.emit("activity_response", {"event": event, "sender": sender})

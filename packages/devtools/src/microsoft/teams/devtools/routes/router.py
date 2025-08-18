@@ -11,10 +11,7 @@ from .v3 import v3_router
 
 def get_router(context: RouteContext):
     router = APIRouter()
-
     updated_context = RouteContext(port=context.port, log=context.log.getChild("v3"), process=context.process)
     res = v3_router(updated_context)
-
     router.include_router(res, prefix="/v3")
-
     return router

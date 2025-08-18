@@ -7,9 +7,7 @@ from dataclasses import dataclass
 from logging import Logger
 from typing import Any, Awaitable, Callable
 
-from microsoft.teams.api.activities import Activity
-from microsoft.teams.api.auth.token import TokenProtocol
-from microsoft.teams.api.models import InvokeResponse
+from microsoft.teams.api import Activity, InvokeResponse, TokenProtocol
 
 
 @dataclass

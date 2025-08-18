@@ -54,7 +54,9 @@ class ActivityProcessor:
         # a circular dependency
         self.event_manager: Optional["EventManager"] = None
 
-    async def build_context(self, activity: ActivityBase, token: TokenProtocol) -> ActivityContext[ActivityBase]:
+    async def build_context(
+        self, activity: ActivityBase, token: TokenProtocol, sender: Sender
+    ) -> ActivityContext[ActivityBase]:
         """Build the context object for activity processing.
 
         Args:
@@ -103,12 +105,13 @@ class ActivityProcessor:
             conversation_ref,
             is_signed_in,
             self.default_connection_name,
+            sender,
         )
 
     async def process_activity(
         self, plugins: List[PluginBase], sender: Sender, event: ActivityEvent
     ) -> Optional[InvokeResponse[Any]]:
-        activityCtx = await self.build_context(event.activity, event.token)
+        activityCtx = await self.build_context(event.activity, event.token, sender)
 
         self.logger.debug(f"Received activity: {activityCtx.activity}")
 
@@ -117,7 +120,14 @@ class ActivityProcessor:
 
         def create_route(plugin: PluginBase) -> ActivityHandler:
             async def route(ctx: ActivityContext[ActivityBase]) -> Optional[Any]:
-                await plugin.on_activity(PluginActivityEvent(sender=sender, activity=event.activity, token=event.token))
+                await plugin.on_activity(
+                    PluginActivityEvent(
+                        sender=sender,
+                        activity=event.activity,
+                        token=event.token,
+                        conversation_ref=activityCtx.conversation_ref,
+                    )
+                )
                 await ctx.next()
 
             return route
@@ -130,17 +140,19 @@ class ActivityProcessor:
         send = activityCtx.send
 
         async def updated_send(
-            message: str | ActivityParams | AdaptiveCard, conversation_id: Optional[str] = None
+            message: str | ActivityParams | AdaptiveCard, conversation_ref: Optional[ConversationReference] = None
         ) -> SentActivity:
-            res = await send(message)
+            res = await send(message, conversation_ref)
 
             if not self.event_manager:
                 raise ValueError("EventManager was not initialized properly")
 
             self.logger.info("Calling on_activity_sent for plugins")
 
+            ref = conversation_ref or activityCtx.conversation_ref
+
             await self.event_manager.on_activity_sent(
-                sender, ActivitySentEvent(sender=sender, activity=res), plugins=plugins
+                sender, ActivitySentEvent(sender=sender, activity=res, conversation_ref=ref), plugins=plugins
             )
             return res
 
@@ -156,7 +168,11 @@ class ActivityProcessor:
 
             response = InvokeResponse[Any](status=200, body=middleware_result)
             await self.event_manager.on_activity_response(
-                sender, ActivityResponseEvent(activity=event.activity, response=response), plugins=plugins
+                sender,
+                ActivityResponseEvent(
+                    activity=event.activity, response=response, conversation_ref=activityCtx.conversation_ref
+                ),
+                plugins=plugins,
             )
 
         self.logger.debug("Completed processing activity")

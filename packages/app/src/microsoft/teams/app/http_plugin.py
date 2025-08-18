@@ -195,7 +195,8 @@ class HttpPlugin(Sender):
             self.logger.error(f"Plugin error: {error}")
 
     async def send(self, activity: ActivityParams, ref: ConversationReference) -> SentActivity:
-        api = ApiClient(service_url=ref.service_url, options=self.client.clone(ClientOptions(token=self.bot_token)))
+        client = cast(Client, self.client()) if callable(self.client) else self.client
+        api = ApiClient(service_url=ref.service_url, options=client.clone(ClientOptions(token=self.bot_token)))
 
         activity.from_ = ref.bot
         activity.conversation = ref.conversation
@@ -217,7 +218,7 @@ class HttpPlugin(Sender):
             activity_id: The activity ID for response coordination
         """
         try:
-            if callable(self.on_activity_event):
+            if callable(self.on_activity):
                 event = ActivityEvent(activity=activity, sender=self, token=token)
                 self.on_activity_event(event)
             else:

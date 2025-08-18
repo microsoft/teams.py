@@ -11,10 +11,7 @@ from .conversations import conversations_router
 
 def get_router(ctx: RouteContext):
     router = APIRouter()
-
     updated_context = RouteContext(port=ctx.port, log=ctx.log.getChild("conversations"), process=ctx.process)
     res = conversations_router(updated_context)
-
     router.include_router(res, prefix="/conversations")
-
     return router
