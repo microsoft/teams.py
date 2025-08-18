@@ -1,13 +1,15 @@
 [project]
-name = "echo"
+name = "graph"
 version = "0.1.0"
-description = "Echo app"
+description = "demo app to test Azure Graph integration"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "dotenv>=0.9.9",
     "microsoft-teams-app",
+    "microsoft-teams-graph",
 ]
 
 [tool.uv.sources]
 microsoft-teams-app = { workspace = true }
+microsoft-teams-graph = { workspace = true }

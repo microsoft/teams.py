@@ -10,6 +10,7 @@ dependencies = [
     "microsoft-teams-cards", 
     "microsoft-teams-common",
     "microsoft-teams-devtools",
+    "microsoft-teams-graph",
     "pytest-asyncio>=1.0.0",
     "python-dotenv>=1.0.0",
 ]
@@ -20,6 +21,7 @@ dependencies = [
 "microsoft-teams-common" = { workspace = true }
 "microsoft-teams-cards" = { workspace = true }
 "microsoft-teams-devtools" = { workspace = true }
+"microsoft-teams-graph" = { workspace = true }
 
 [tool.uv.workspace]
 members = ["packages/*", "tests/*"]
