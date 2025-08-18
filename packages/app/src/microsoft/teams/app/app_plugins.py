@@ -45,7 +45,7 @@ class PluginManager:
         """Initializes and adds all the plugins for the app."""
 
         for plugin in plugins:
-            metadata = get_metadata(plugin)
+            metadata = get_metadata(type(plugin))
             name = metadata.name
             class_name = plugin.__class__.__name__
 
@@ -69,7 +69,7 @@ class PluginManager:
     def get_plugin(self, name: str) -> Optional[PluginBase]:
         """Gets the plugin by name."""
         for plugin in self.plugins:
-            metadata = get_metadata(plugin)
+            metadata = get_metadata(type(plugin))
             if metadata.name == name:
                 return plugin
 
@@ -83,7 +83,7 @@ class PluginManager:
             metadata = getattr(annotated_type, "__metadata__", ())
 
             for meta in metadata:
-                self.logger.info(f"Initializing the dependency {field_name} for {plugin.__class__.__name__}")
+                self.logger.debug(f"Initializing the dependency {field_name} for {plugin.__class__.__name__}")
                 if isinstance(meta, EventMetadata):
                     self._inject_event(meta, plugin, field_name)
 
@@ -93,7 +93,7 @@ class PluginManager:
     def _inject_event(self, meta: EventMetadata, plugin: PluginBase, field_name: str) -> None:
         """Injects event handler into the plugin based on metadata info."""
         if meta.name == "error":
-            self.logger.info("Injecting the error event")
+            self.logger.debug("Injecting the error event")
 
             async def error_handler(event: PluginErrorEvent) -> None:
                 activity = cast(Activity, event.activity)
@@ -103,7 +103,7 @@ class PluginManager:
 
             setattr(plugin, field_name, error_handler)
         elif meta.name == "activity":
-            self.logger.info("Injecting the activity event")
+            self.logger.debug("Injecting the activity event")
 
             async def activity_handler(event: PluginActivityEvent) -> None:
                 sender = cast(Sender, plugin)
@@ -113,7 +113,7 @@ class PluginManager:
 
             setattr(plugin, field_name, activity_handler)
         elif meta.name == "custom":
-            self.logger.info("Injecting the custom event")
+            self.logger.debug("Injecting the custom event")
 
             async def custom_handler(name: str, event: Any) -> None:
                 if is_registered_event(name):

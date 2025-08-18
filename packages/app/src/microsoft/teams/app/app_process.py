@@ -55,7 +55,9 @@ class ActivityProcessor:
         # a circular dependency
         self.event_manager: Optional["EventManager"] = None
 
-    async def build_context(self, activity: ActivityBase, token: TokenProtocol) -> ActivityContext[ActivityBase]:
+    async def _build_context(
+        self, activity: ActivityBase, token: TokenProtocol, plugins: List[PluginBase], sender: Sender
+    ) -> ActivityContext[ActivityBase]:
         """Build the context object for activity processing.
 
         Args:
@@ -94,7 +96,7 @@ class ActivityProcessor:
             # User token not available
             pass
 
-        return ActivityContext(
+        activityCtx = ActivityContext(
             activity,
             self.id or "",
             self.logger,
@@ -106,10 +108,31 @@ class ActivityProcessor:
             self.default_connection_name,
         )
 
+        send = activityCtx.send
+
+        async def updated_send(
+            message: str | ActivityParams | AdaptiveCard, conversation_id: Optional[str] = None
+        ) -> SentActivity:
+            res = await send(message)
+
+            if not self.event_manager:
+                raise ValueError("EventManager was not initialized properly")
+
+            self.logger.debug("Calling on_activity_sent for plugins")
+
+            await self.event_manager.on_activity_sent(
+                sender, ActivitySentEvent(sender=sender, activity=res), plugins=plugins
+            )
+            return res
+
+        activityCtx.send = updated_send
+
+        return activityCtx
+
     async def process_activity(
         self, plugins: List[PluginBase], sender: Sender, event: ActivityEvent
     ) -> Optional[InvokeResponse[Any]]:
-        activityCtx = await self.build_context(event.activity, event.token)
+        activityCtx = await self._build_context(event.activity, event.token, plugins, sender)
 
         self.logger.debug(f"Received activity: {activityCtx.activity}")
 
@@ -123,29 +146,12 @@ class ActivityProcessor:
 
             return route
 
-        for plugin in reversed(plugins):
-            if hasattr(plugin, "on_activity_event") and callable(plugin.on_activity):
-                self.logger.info(f"Adding the on_activity_event handler for plugin {plugin.__class__.__name__}")
-                handlers.insert(0, create_route(plugin))
-
-        send = activityCtx.send
-
-        async def updated_send(
-            message: str | ActivityParams | AdaptiveCard, conversation_id: Optional[str] = None
-        ) -> SentActivity:
-            res = await send(message)
-
-            if not self.event_manager:
-                raise ValueError("EventManager was not initialized properly")
-
-            self.logger.info("Calling on_activity_sent for plugins")
-
-            await self.event_manager.on_activity_sent(
-                sender, ActivitySentEvent(sender=sender, activity=res), plugins=plugins
-            )
-            return res
-
-        activityCtx.send = updated_send
+        plugin_routes = [
+            create_route(plugin)
+            for plugin in plugins
+            if hasattr(plugin, "on_activity_event") and callable(plugin.on_activity)
+        ]
+        handlers = plugin_routes + handlers
 
         response: Optional[InvokeResponse[Any]] = None
 

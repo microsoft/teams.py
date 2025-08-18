@@ -4,7 +4,9 @@ Licensed under the MIT License.
 """
 
 from dataclasses import dataclass
-from typing import Any, Literal, Optional, Union
+from typing import Any, Literal, Optional, Type, Union
+
+from ..plugins.plugin_base import PluginBase
 
 PLUGIN_METADATA_KEY = "teams:plugin"
 
@@ -36,7 +38,7 @@ def Plugin(metadata: Optional[PluginOptions] = None):
     return decorator
 
 
-def get_metadata(cls: Any) -> PluginOptions:
+def get_metadata(cls: Type[PluginBase]) -> PluginOptions:
     """Get plugin metadata from a class."""
     metadata = getattr(cls, PLUGIN_METADATA_KEY, None)
     if not metadata:

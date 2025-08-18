@@ -77,13 +77,13 @@ class App(ActivityHandlerMixin):
         self.credentials = self._init_credentials()
 
         self.container = Container()
-        self.container.set_provider("id", providers.Singleton(self.id))
-        self.container.set_provider("name", providers.Singleton(self.name))
-        self.container.set_provider("credentials", providers.Singleton(lambda: self.credentials))
-        self.container.set_provider("bot_token", providers.Factory(lambda: self.tokens.bot))
-        self.container.set_provider("graph_token", providers.Factory(lambda: self.tokens.graph))
-        self.container.set_provider("logger", providers.Singleton(lambda: self.log))
-        self.container.set_provider("storage", providers.Singleton(lambda: self.storage))
+        self.container.set_provider("id", providers.Object(self.id))
+        self.container.set_provider("name", providers.Object(self.name))
+        self.container.set_provider("credentials", providers.Object(self.credentials))
+        self.container.set_provider("bot_token", providers.Callable(lambda: self.tokens.bot))
+        self.container.set_provider("graph_token", providers.Callable(lambda: self.tokens.graph))
+        self.container.set_provider("logger", providers.Object(self.log))
+        self.container.set_provider("storage", providers.Object(self.storage))
         self.container.set_provider(self.http_client.__class__.__name__, providers.Factory(lambda: self.http_client))
 
         self.api = ApiClient(
@@ -95,7 +95,7 @@ class App(ActivityHandlerMixin):
 
         http_plugin = None
         for i, plugin in enumerate(plugins):
-            meta = get_metadata(plugin)
+            meta = get_metadata(type(plugin))
             if meta.name == "http":
                 http_plugin = plugin
                 plugins.pop(i)
