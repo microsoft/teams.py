@@ -63,7 +63,7 @@ class DependencyMetadata:
     "The name used to resolve the dependency."
 
     optional: Optional[bool] = False
-    "If optional, the app will now throw if the dependency is not found."
+    "If optional, the app will not throw if the dependency is not found."
 
 
 @dataclass

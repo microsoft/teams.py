@@ -143,4 +143,4 @@ class PluginManager:
             logger_dependency = cast(Logger, dependency())
             dependency = logger_dependency.getChild(plugin.__class__.__name__)
         setattr(plugin, field_name, dependency)
-        self.logger.info(f"Succesfully injected the dependency {field_name} into {plugin.__class__.__name__}")
+        self.logger.info(f"Successfully injected the dependency {field_name} into {plugin.__class__.__name__}")
