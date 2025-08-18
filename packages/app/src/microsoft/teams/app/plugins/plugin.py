@@ -3,7 +3,7 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from typing import Callable
+from typing import Any, Callable, TypeVar
 
 from microsoft.teams.api.clients.conversation import ActivityParams
 from microsoft.teams.api.models import Resource
@@ -27,8 +27,10 @@ OnActivityPluginEvent = Callable[[ActivityEvent], None]
 Emitted when the plugin receives an activity
 """
 
+TExtraContext = TypeVar("TExtraContext", bound=dict[str, Any] | None)
 
-class Plugin:
+
+class Plugin[TExtraContext]:
     """The base plugin for Teams app plugins."""
 
     async def on_init(self) -> None:
@@ -47,7 +49,7 @@ class Plugin:
         """Called by the App when an error occurs."""
         ...
 
-    async def on_activity(self, event: PluginActivityEvent) -> None:
+    async def on_activity(self, event: PluginActivityEvent) -> TExtraContext:
         """Called by the App when an activity is received."""
         ...
 

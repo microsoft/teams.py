@@ -7,7 +7,7 @@ import base64
 import json
 from dataclasses import dataclass
 from logging import Logger
-from typing import Any, Awaitable, Callable, Generic, Optional, TypeVar
+from typing import Any, Awaitable, Callable, Generic, Optional, Type, TypeVar
 
 from microsoft.teams.api import (
     ActivityBase,
@@ -31,6 +31,8 @@ from microsoft.teams.api.models.attachment.card_attachment import OAuthCardAttac
 from microsoft.teams.api.models.oauth import OAuthCard
 from microsoft.teams.cards import AdaptiveCard
 from microsoft.teams.common import Storage
+
+from ..plugins import Plugin
 
 T = TypeVar("T", bound=ActivityBase, contravariant=True)
 
@@ -65,6 +67,7 @@ class ActivityContext(Generic[T]):
         conversation_ref: ConversationReference,
         is_signed_in: bool,
         connection_name: str,
+        context_by_plugin: dict[Type[Plugin[Any]], Any],
     ):
         self.activity = activity
         self.app_id = app_id
@@ -75,6 +78,7 @@ class ActivityContext(Generic[T]):
         self.user_token = user_token
         self.connection_name = connection_name
         self.is_signed_in = is_signed_in
+        self._context_by_plugin = context_by_plugin
 
         self._next_handler: Optional[Callable[[], Awaitable[None]]] = None
 
@@ -235,3 +239,9 @@ class ActivityContext(Generic[T]):
             self.logger.debug(f"User {self.activity.from_.id} signed out successfully.")
         except Exception as e:
             self.logger.error(f"Failed to sign out user: {e}")
+
+    def get_plugin_context[R](self, cls: Type[Plugin[R]]) -> R:
+        context = self._context_by_plugin.get(cls)
+        if context is None:
+            raise ValueError(f"No context found for plugin class {cls}")
+        return context
