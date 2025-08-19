@@ -3,8 +3,6 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from typing import Optional
-
 from ..models import CustomBaseModel
 from . import ActivityParams
 
@@ -15,4 +13,4 @@ class SentActivity(CustomBaseModel):
     id: str
     """Id of the activity."""
 
-    activity_params: Optional[ActivityParams] = None
+    activity_params: ActivityParams
