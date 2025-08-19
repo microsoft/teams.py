@@ -49,7 +49,7 @@ async def get_authenticated_graph_client(ctx: ActivityContext[MessageActivity]):
         token_response = await ctx.api.users.token.get(token_params)
 
         # Create Graph client using the token string directly (simplest approach)
-        return await get_graph_client(token_response.token, connection_name=ctx.connection_name)
+        return get_graph_client(token_response.token, connection_name=ctx.connection_name)
 
     except Exception as e:
         ctx.logger.error(f"Failed to get token or create Graph client: {e}")

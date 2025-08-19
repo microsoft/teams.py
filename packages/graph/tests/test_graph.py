@@ -159,22 +159,20 @@ class TestDirectTokenCredential:
 class TestGraphClientFactory:
     """Unit tests for the graph client factory functions."""
 
-    @pytest.mark.asyncio
-    async def test_get_graph_client_with_string_token(self) -> None:
+    def test_get_graph_client_with_string_token(self) -> None:
         """Test that get_graph_client creates a real GraphServiceClient with string token."""
 
         # Arrange
         token = "test_string_token_123"
 
         # Act
-        client = await get_graph_client(token)
+        client = get_graph_client(token)
 
         # Assert
         assert isinstance(client, GraphServiceClient)
         assert client is not None
 
-    @pytest.mark.asyncio
-    async def test_get_graph_client_with_callable(self) -> None:
+    def test_get_graph_client_with_callable(self) -> None:
         """Test that get_graph_client creates a real GraphServiceClient with callable token."""
 
         # Arrange
@@ -182,14 +180,13 @@ class TestGraphClientFactory:
             return "test_token_callable_789"
 
         # Act
-        client = await get_graph_client(get_token)
+        client = get_graph_client(get_token)
 
         # Assert
         assert isinstance(client, GraphServiceClient)
         assert client is not None
 
-    @pytest.mark.asyncio
-    async def test_get_graph_client_with_async_callable(self) -> None:
+    def test_get_graph_client_with_async_callable(self) -> None:
         """Test that get_graph_client works with async callable token."""
 
         # Arrange
@@ -197,47 +194,44 @@ class TestGraphClientFactory:
             return "test_async_token_456"
 
         # Act
-        client = await get_graph_client(get_token_async)
+        client = get_graph_client(get_token_async)
 
         # Assert
         assert isinstance(client, GraphServiceClient)
         assert client is not None
 
-    @pytest.mark.asyncio
-    async def test_get_graph_client_with_connection_name(self) -> None:
+    def test_get_graph_client_with_connection_name(self) -> None:
         """Test that connection_name parameter is handled correctly."""
 
         # Arrange
         token = "test_token_with_connection"
 
         # Act
-        client = await get_graph_client(token, connection_name="custom_connection")
+        client = get_graph_client(token, connection_name="custom_connection")
 
         # Assert
         assert isinstance(client, GraphServiceClient)
 
-    @pytest.mark.asyncio
-    async def test_get_graph_client_creates_new_instances(self) -> None:
+    def test_get_graph_client_creates_new_instances(self) -> None:
         """Test that get_graph_client creates new instances each time."""
 
         # Arrange
         token = "test_token_instances"
 
         # Act
-        client1 = await get_graph_client(token)
-        client2 = await get_graph_client(token)
+        client1 = get_graph_client(token)
+        client2 = get_graph_client(token)
 
         # Assert - Different instances (no caching at client level)
         assert isinstance(client1, GraphServiceClient)
         assert isinstance(client2, GraphServiceClient)
         assert client1 is not client2
 
-    @pytest.mark.asyncio
-    async def test_get_graph_client_with_none_token(self) -> None:
+    def test_get_graph_client_with_none_token(self) -> None:
         """Test that None token creates client but fails when credential is used."""
 
         # Act - client creation should succeed
-        client = await get_graph_client(None)
+        client = get_graph_client(None)
         assert client is not None
 
         # But using the credential should fail
@@ -247,8 +241,7 @@ class TestGraphClientFactory:
         with pytest.raises(ClientAuthenticationError):
             credential.get_token("https://graph.microsoft.com/.default")
 
-    @pytest.mark.asyncio
-    async def test_get_graph_client_with_failing_callable(self) -> None:
+    def test_get_graph_client_with_failing_callable(self) -> None:
         """Test error handling when token callable fails."""
 
         # Arrange
@@ -256,7 +249,7 @@ class TestGraphClientFactory:
             raise RuntimeError("Simulated token failure")
 
         # Act - client creation should succeed
-        client = await get_graph_client(failing_token)
+        client = get_graph_client(failing_token)
         assert client is not None
 
         # But using the credential should fail

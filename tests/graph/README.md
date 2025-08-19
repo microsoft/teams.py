@@ -1,7 +1,7 @@
 # Teams Graph Integration Demo
 
 This demo application showcases how to use Microsoft Graph APIs within a Teams bot built with the
-Teams AI SDK for Python using the new Token approach.
+Teams AI SDK for Python using Tokens
 
 ## Features
 
@@ -9,7 +9,6 @@ Teams AI SDK for Python using the new Token approach.
 - Token-based authentication using the unified Token type
 - Profile information retrieval with Microsoft Graph
 - Email listing with Mail.Read scope
-- Simple authentication with pre-authorized Teams tokens
 
 ## Commands
 
@@ -98,7 +97,7 @@ token_params = GetUserTokenParams(
 token_response = await ctx.api.users.token.get(token_params)
 
 # Create Graph client with string token (simplest approach)
-graph = await get_graph_client(token_response.token, connection_name=ctx.connection_name)
+graph = get_graph_client(token_response.token, connection_name=ctx.connection_name)
 
 # Make Graph API calls
 me = await graph.me.get()

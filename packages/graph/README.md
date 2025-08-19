@@ -7,9 +7,6 @@ This package provides seamless access to Microsoft Graph APIs from Teams bots an
 - Teams AI SDK for Python
 - Microsoft Graph SDK for Python (msgraph-sdk)
 - Azure Core library (azure-core)
-- Azure Identity library (azure-identity)
-- Cryptography library (cryptography)
-- PyJWT with crypto support (PyJWT[crypto])
 - Microsoft Teams Common library (microsoft-teams-common)
 
 ## Features
@@ -45,7 +42,7 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
     token_response = await ctx.api.users.token.get(token_params)
 
     # Create Graph client with string token (simplest approach)
-    graph = await get_graph_client(token_response.token, connection_name="graph")
+    graph = get_graph_client(token_response.token, connection_name="graph")
 
     # Make Graph API calls
     me = await graph.me.get()
@@ -60,7 +57,7 @@ The package uses the Token type from microsoft-teams-common for flexible token h
 
 ```python
 # Direct string token
-graph = await get_graph_client("eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIs...")
+graph = get_graph_client("eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIs...")
 ```
 
 ### Callable Token (Dynamic)
@@ -72,7 +69,7 @@ def get_token():
     return get_access_token_from_somewhere()
 
 # Use the callable with get_graph_client
-graph = await get_graph_client(get_token)
+graph = get_graph_client(get_token)
 ```
 
 ### Async Callable Token
@@ -84,7 +81,7 @@ async def get_token_async():
     token_response = await some_api_call()
     return token_response.access_token
 
-graph = await get_graph_client(get_token_async)
+graph = get_graph_client(get_token_async)
 ```
 
 ### Dynamic Token Retrieval
@@ -96,7 +93,7 @@ def get_fresh_token():
     fresh_token = fetch_latest_token_from_api()
     return fresh_token
 
-graph = await get_graph_client(get_fresh_token)
+graph = get_graph_client(get_fresh_token)
 ```
 
 ## Authentication

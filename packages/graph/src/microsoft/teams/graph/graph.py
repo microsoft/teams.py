@@ -12,7 +12,7 @@ from msgraph.graph_service_client import GraphServiceClient
 from .auth_provider import DirectTokenCredential
 
 
-async def get_graph_client(
+def get_graph_client(
     token: Token,
     *,
     connection_name: Optional[str] = None,
@@ -33,7 +33,7 @@ async def get_graph_client(
     Example:
         ```python
         # Using a string token
-        graph = await get_graph_client("eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIs...")
+        graph = get_graph_client("eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIs...")
 
 
         # Using a callable that returns a string
@@ -41,7 +41,7 @@ async def get_graph_client(
             return "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIs..."
 
 
-        graph = await get_graph_client(get_token)
+        graph = get_graph_client(get_token)
 
         # Make Graph API calls
         me = await graph.me.get()

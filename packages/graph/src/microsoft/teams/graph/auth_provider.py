@@ -4,6 +4,7 @@ Licensed under the MIT License.
 """
 
 import asyncio
+import concurrent.futures
 import datetime
 from typing import Any, Optional
 
@@ -15,7 +16,6 @@ from microsoft.teams.common.http.client_token import Token, resolve_token
 class DirectTokenCredential(TokenCredential):
     """
     Azure Core TokenCredential implementation using direct tokens.
-    Supports various token types through the common Token type.
     """
 
     def __init__(self, token: Token, connection_name: Optional[str] = None) -> None:
@@ -45,19 +45,13 @@ class DirectTokenCredential(TokenCredential):
         """
         try:
             # Resolve the token using the common utility
-            # Since get_token must be synchronous but resolve_token is async,
-            # we need to handle the event loop carefully
             try:
                 asyncio.get_running_loop()
-                # We're in an async context, but we can't use asyncio.run
-                # Instead, we'll create a new thread to run the async code
-                import concurrent.futures
 
                 with concurrent.futures.ThreadPoolExecutor() as executor:
                     future = executor.submit(asyncio.run, resolve_token(self._token))
                     token_str = future.result(timeout=30.0)
             except RuntimeError:
-                # No event loop running, we can create one
                 token_str = asyncio.run(resolve_token(self._token))
 
             if not token_str:
