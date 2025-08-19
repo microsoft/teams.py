@@ -24,9 +24,9 @@ from .plugins import (
 )
 
 
-class PluginManager:
+class PluginProcessor:
     """
-    Manages plugins for the Teams app.
+    Processes plugins as apart of the Teams app.
 
     This class is responsible for initializing plugins, injecting dependencies, and handling events.
     It uses dependency injection to provide plugins with the necessary dependencies and event handlers.

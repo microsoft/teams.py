@@ -26,7 +26,7 @@ from microsoft.teams.common import Client, ClientOptions, ConsoleLogger, EventEm
 
 from .app_events import EventManager
 from .app_oauth import OauthHandlers
-from .app_plugins import PluginManager
+from .app_plugins import PluginProcessor
 from .app_process import ActivityProcessor
 from .app_tokens import AppTokens
 from .container import Container
@@ -126,8 +126,8 @@ class App(ActivityHandlerMixin):
         )
         self.event_manager = EventManager(self._events, self.activity_processor)
         self.activity_processor.event_manager = self.event_manager
-        self._plugin_manager = PluginManager(self.container, self.event_manager, self.log, self._events)
-        self.plugins = self._plugin_manager.initialize_plugins(plugins)
+        self._plugin_processor = PluginProcessor(self.container, self.event_manager, self.log, self._events)
+        self.plugins = self._plugin_processor.initialize_plugins(plugins)
 
         # default event handlers
         oauth_handlers = OauthHandlers(
@@ -201,7 +201,7 @@ class App(ActivityHandlerMixin):
 
             for plugin in self.plugins:
                 # Inject the dependencies
-                self._plugin_manager.inject(plugin)
+                self._plugin_processor.inject(plugin)
                 if hasattr(plugin, "on_init") and callable(plugin.on_init):
                     await plugin.on_init()
 

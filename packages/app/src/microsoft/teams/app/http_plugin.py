@@ -30,12 +30,12 @@ from .plugins import (
     Sender,
     StreamerProtocol,
 )
-from .plugins.metadata import Plugin, PluginOptions
+from .plugins.metadata import Plugin
 
 version = importlib.metadata.version("microsoft-teams-app")
 
 
-@Plugin(PluginOptions(name="http", version=version, description="the default plugin for sending/receiving activities"))
+@Plugin(name="http", version=version, description="the default plugin for sending/receiving activities")
 class HttpPlugin(Sender):
     """
     Basic HTTP plugin that provides a FastAPI server for Teams activities.
@@ -176,12 +176,7 @@ class HttpPlugin(Sender):
             activity_id: The ID of the activity that failed (if applicable)
             plugin: The plugin that caused the error (if applicable)
         """
-        activity_id: Optional[str] = None
-        if event.activity:
-            if isinstance(event.activity, dict):
-                activity_id = event.activity.get("id")
-            else:
-                activity_id = event.activity.id
+        activity_id = event.activity.id if event.activity else None
         error = event.error
         if activity_id:
             future = self.pending.get(activity_id)

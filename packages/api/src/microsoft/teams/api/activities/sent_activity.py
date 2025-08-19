@@ -14,3 +14,4 @@ class SentActivity(CustomBaseModel):
     """Id of the activity."""
 
     activity_params: ActivityParams
+    """Additional parameters for the activity."""
