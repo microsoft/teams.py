@@ -164,15 +164,19 @@ class TestHttpPlugin:
         assert future.result() == "already done"
 
     @pytest.mark.asyncio
-    async def test_on_error_with_activity_id(self, plugin_with_validator):
+    async def test_on_error_with_activity_id(self, plugin_with_validator, mock_account):
         """Test error handling with activity ID."""
         # Create a pending future
         future = asyncio.get_event_loop().create_future()
         plugin_with_validator.pending["test-id"] = future
+        mock_activity = cast(
+            MessageActivity,
+            MessageActivityInput(type="message", text="Mock activity text", from_=mock_account, id="test-id"),
+        )
 
         error = ValueError("Test error")
         await plugin_with_validator.on_error(
-            PluginErrorEvent(sender=plugin_with_validator, activity={"id": "test-id"}, error=error)
+            PluginErrorEvent(sender=plugin_with_validator, activity=mock_activity, error=error)
         )
 
         assert future.done()
@@ -184,9 +188,7 @@ class TestHttpPlugin:
         """Test error handling with no pending future."""
         error = ValueError("Test error")
         # Should not raise exception
-        await plugin_with_validator.on_error(
-            PluginErrorEvent(sender=plugin_with_validator, activity={"id": "non-existent-test-id"}, error=error)
-        )
+        await plugin_with_validator.on_error(PluginErrorEvent(sender=plugin_with_validator, error=error))
 
     @pytest.mark.asyncio
     async def test_on_start_success(self, plugin_with_validator):

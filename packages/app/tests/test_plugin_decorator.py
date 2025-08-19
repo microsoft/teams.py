@@ -8,7 +8,7 @@ from microsoft.teams.app.plugins import Plugin, PluginBase, PluginOptions, get_m
 
 class TestPluginDecorator:
     def test_plugin_with_metadata(self):
-        @Plugin(PluginOptions(name="test", version="0.2.0", description="testing123"))
+        @Plugin(name="test", version="0.2.0", description="testing123")
         class Test(PluginBase):
             pass
 

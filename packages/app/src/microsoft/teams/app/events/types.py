@@ -30,7 +30,7 @@ class ActivityEvent:
     token: TokenProtocol
 
     def __repr__(self) -> str:
-        return f"ActivityEvent(activity={self.activity}, token={self.token}), sender={self.sender}"
+        return f"ActivityEvent(activity={self.activity}, token={self.token}, sender={self.sender})"
 
 
 @dataclass

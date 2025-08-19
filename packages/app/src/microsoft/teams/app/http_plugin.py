@@ -14,7 +14,6 @@ import uvicorn
 from fastapi import FastAPI, Request, Response
 from fastapi.staticfiles import StaticFiles
 from microsoft.teams.api import Activity, ActivityParams, ApiClient, ConversationReference, SentActivity, TokenProtocol
-from microsoft.teams.app.plugins.plugin_activity_event import PluginActivityEvent
 from microsoft.teams.common.http.client import Client, ClientOptions
 from microsoft.teams.common.logging import ConsoleLogger
 from pydantic import BaseModel
@@ -25,18 +24,19 @@ from .plugins import (
     DependencyMetadata,
     EventMetadata,
     LoggerDependencyOptions,
+    PluginActivityEvent,
     PluginActivityResponseEvent,
     PluginErrorEvent,
     PluginStartEvent,
     Sender,
     StreamerProtocol,
 )
-from .plugins.metadata import Plugin, PluginOptions
+from .plugins.metadata import Plugin
 
 version = importlib.metadata.version("microsoft-teams-app")
 
 
-@Plugin(PluginOptions(name="http", version=version, description="the default plugin for sending/receiving activities"))
+@Plugin(name="http", version=version, description="the default plugin for sending/receiving activities")
 class HttpPlugin(Sender):
     """
     Basic HTTP plugin that provides a FastAPI server for Teams activities.
@@ -177,12 +177,7 @@ class HttpPlugin(Sender):
             activity_id: The ID of the activity that failed (if applicable)
             plugin: The plugin that caused the error (if applicable)
         """
-        activity_id: Optional[str] = None
-        if event.activity:
-            if isinstance(event.activity, dict):
-                activity_id = event.activity.get("id")
-            else:
-                activity_id = event.activity.id
+        activity_id = event.activity.id if event.activity else None
         error = event.error
         if activity_id:
             future = self.pending.get(activity_id)
@@ -202,11 +197,9 @@ class HttpPlugin(Sender):
         activity.conversation = ref.conversation
 
         if activity.id:
-            res = await api.conversations.activities(ref.conversation.id).update(activity.id, activity)
-            return SentActivity(**{**activity.model_dump(), **res.model_dump()})
+            return await api.conversations.activities(ref.conversation.id).update(activity.id, activity)
 
-        res = await api.conversations.activities(ref.conversation.id).create(activity)
-        return SentActivity(**{**activity.model_dump(), **res.model_dump()})
+        return await api.conversations.activities(ref.conversation.id).create(activity)
 
     async def _process_activity(self, activity: Activity, activity_id: str, token: TokenProtocol) -> None:
         """

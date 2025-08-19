@@ -29,7 +29,6 @@ from microsoft.teams.app import (
     PluginActivityResponseEvent,
     PluginActivitySentEvent,
     PluginErrorEvent,
-    PluginOptions,
     PluginStartEvent,
     Sender,
 )
@@ -42,11 +41,9 @@ version = importlib.metadata.version("microsoft-teams-devtools")
 
 
 @Plugin(
-    PluginOptions(
-        name="devtools",
-        version=version,
-        description="set of tools to make development of Teams apps faster and simpler",
-    )
+    name="devtools",
+    version=version,
+    description="set of tools to make development of Teams apps faster and simpler",
 )
 class DevToolsPlugin(Sender):
     logger: Annotated[Logger, LoggerDependencyOptions()]

@@ -3,7 +3,7 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from typing import TYPE_CHECKING, Any, Dict, NamedTuple, Optional
+from typing import TYPE_CHECKING, NamedTuple, Optional
 
 from microsoft.teams.api import Activity
 
@@ -20,5 +20,5 @@ class PluginErrorEvent(NamedTuple):
     sender: Optional["PluginBase"] = None
     """The sender"""
 
-    activity: Optional[Activity] | Dict[str, Any] = None
+    activity: Optional[Activity] = None
     """The activity"""

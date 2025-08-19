@@ -4,7 +4,9 @@ Licensed under the MIT License.
 """
 
 from dataclasses import dataclass
-from typing import Any, Literal, Optional, Union
+from typing import Any, Literal, Optional, Type, Union
+
+from ..plugins.plugin_base import PluginBase
 
 PLUGIN_METADATA_KEY = "teams:plugin"
 
@@ -18,25 +20,21 @@ class PluginOptions:
     description: Optional[str] = None
 
 
-def Plugin(metadata: Optional[PluginOptions] = None):
+def Plugin(name: Optional[str] = None, version: Optional[str] = None, description: Optional[str] = None) -> Any:
     """Turns any class into a plugin using the decorator pattern."""
 
-    def decorator(cls: Any) -> Any:
-        if not metadata:
-            updated_metadata = PluginOptions(name=cls.__name__, version="0.0.0", description="")
-            setattr(cls, PLUGIN_METADATA_KEY, updated_metadata)
-        else:
-            name = metadata.name or cls.__name__
-            version = metadata.version or "0.0.0"
-            description = metadata.description or ""
-            updated_metadata = PluginOptions(name=name, version=version, description=description)
-            setattr(cls, PLUGIN_METADATA_KEY, updated_metadata)
+    def decorator(cls: Type[Any]) -> Any:
+        plugin_name = name or cls.__name__
+        plugin_version = version or "0.0.0"
+        plugin_description = description or ""
+        updated_metadata = PluginOptions(name=plugin_name, version=plugin_version, description=plugin_description)
+        setattr(cls, PLUGIN_METADATA_KEY, updated_metadata)
         return cls
 
     return decorator
 
 
-def get_metadata(cls: Any) -> PluginOptions:
+def get_metadata(cls: Type[PluginBase]) -> PluginOptions:
     """Get plugin metadata from a class."""
     metadata = getattr(cls, PLUGIN_METADATA_KEY, None)
     if not metadata:

@@ -54,8 +54,8 @@ class ActivityProcessor:
         # a circular dependency
         self.event_manager: Optional["EventManager"] = None
 
-    async def build_context(
-        self, activity: ActivityBase, token: TokenProtocol, sender: Sender
+    async def _build_context(
+        self, activity: ActivityBase, token: TokenProtocol, plugins: List[PluginBase], sender: Sender
     ) -> ActivityContext[ActivityBase]:
         """Build the context object for activity processing.
 
@@ -95,7 +95,7 @@ class ActivityProcessor:
             # User token not available
             pass
 
-        return ActivityContext(
+        activityCtx = ActivityContext(
             activity,
             self.id or "",
             self.logger,
@@ -107,35 +107,6 @@ class ActivityProcessor:
             self.default_connection_name,
             sender,
         )
-
-    async def process_activity(
-        self, plugins: List[PluginBase], sender: Sender, event: ActivityEvent
-    ) -> Optional[InvokeResponse[Any]]:
-        activityCtx = await self.build_context(event.activity, event.token, sender)
-
-        self.logger.debug(f"Received activity: {activityCtx.activity}")
-
-        # Get registered handlers for this activity type
-        handlers = self.router.select_handlers(activityCtx.activity)
-
-        def create_route(plugin: PluginBase) -> ActivityHandler:
-            async def route(ctx: ActivityContext[ActivityBase]) -> Optional[Any]:
-                await plugin.on_activity(
-                    PluginActivityEvent(
-                        sender=sender,
-                        activity=event.activity,
-                        token=event.token,
-                        conversation_ref=activityCtx.conversation_ref,
-                    )
-                )
-                await ctx.next()
-
-            return route
-
-        for plugin in reversed(plugins):
-            if hasattr(plugin, "on_activity_event") and callable(plugin.on_activity):
-                self.logger.info(f"Adding the on_activity_event handler for plugin {plugin.__class__.__name__}")
-                handlers.insert(0, create_route(plugin))
 
         send = activityCtx.send
 
@@ -157,6 +128,39 @@ class ActivityProcessor:
             return res
 
         activityCtx.send = updated_send
+
+        return activityCtx
+
+    async def process_activity(
+        self, plugins: List[PluginBase], sender: Sender, event: ActivityEvent
+    ) -> Optional[InvokeResponse[Any]]:
+        activityCtx = await self._build_context(event.activity, event.token, plugins, sender)
+
+        self.logger.debug(f"Received activity: {activityCtx.activity}")
+
+        # Get registered handlers for this activity type
+        handlers = self.router.select_handlers(activityCtx.activity)
+
+        def create_route(plugin: PluginBase) -> ActivityHandler:
+            async def route(ctx: ActivityContext[ActivityBase]) -> Optional[Any]:
+                await plugin.on_activity(
+                    PluginActivityEvent(
+                        sender=sender,
+                        activity=event.activity,
+                        token=event.token,
+                        conversation_ref=activityCtx.conversation_ref,
+                    )
+                )
+                await ctx.next()
+
+            return route
+
+        plugin_routes = [
+            create_route(plugin)
+            for plugin in plugins
+            if hasattr(plugin, "on_activity_event") and callable(plugin.on_activity)
+        ]
+        handlers = plugin_routes + handlers
 
         response: Optional[InvokeResponse[Any]] = None
 
