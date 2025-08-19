@@ -200,11 +200,9 @@ class HttpPlugin(Sender):
         activity.conversation = ref.conversation
 
         if activity.id:
-            res = await api.conversations.activities(ref.conversation.id).update(activity.id, activity)
-            return SentActivity(**{**activity.model_dump(), **res.model_dump()})
+            return await api.conversations.activities(ref.conversation.id).update(activity.id, activity)
 
-        res = await api.conversations.activities(ref.conversation.id).create(activity)
-        return SentActivity(**{**activity.model_dump(), **res.model_dump()})
+        return await api.conversations.activities(ref.conversation.id).create(activity)
 
     async def _process_activity(self, activity: Activity, activity_id: str, token: TokenProtocol) -> None:
         """
