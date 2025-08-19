@@ -1,5 +1,5 @@
 version = 1
-revision = 2
+revision = 3
 requires-python = ">=3.12"
 
 [manifest]
@@ -847,7 +847,7 @@ wheels = [
 
 [[package]]
 name = "microsoft-teams"
-version = "0.1.0"
+version = "0.0.1a1"
 source = { editable = "." }
 dependencies = [
     { name = "microsoft-teams-api" },
@@ -890,7 +890,7 @@ dev = [
 
 [[package]]
 name = "microsoft-teams-api"
-version = "0.1.0"
+version = "0.0.1a1"
 source = { editable = "packages/api" }
 dependencies = [
     { name = "microsoft-teams-cards" },
@@ -923,7 +923,7 @@ dev = [
 
 [[package]]
 name = "microsoft-teams-app"
-version = "0.1.0"
+version = "0.0.1a1"
 source = { editable = "packages/app" }
 dependencies = [
     { name = "cryptography" },
@@ -962,7 +962,7 @@ test = [
 
 [[package]]
 name = "microsoft-teams-cards"
-version = "0.1.0"
+version = "0.0.1a1"
 source = { editable = "packages/cards" }
 dependencies = [
     { name = "coverage" },
@@ -981,7 +981,7 @@ requires-dist = [
 
 [[package]]
 name = "microsoft-teams-common"
-version = "0.0.0"
+version = "0.0.1a1"
 source = { editable = "packages/common" }
 dependencies = [
     { name = "coverage" },
@@ -1012,7 +1012,7 @@ dev = [
 
 [[package]]
 name = "microsoft-teams-graph"
-version = "1.0.0"
+version = "0.0.1a1"
 source = { editable = "packages/graph" }
 dependencies = [
     { name = "azure-core" },
