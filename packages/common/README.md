@@ -1,2 +1,4 @@
-Common modules used to provide utility functionality to the other packages while
-minimizing external dependencies.
+# Microsoft Teams Common Utilities
+
+Shared utilities including HTTP client, logging, storage, and event handling.
+Provides common functionality used across other Teams SDK packages.
