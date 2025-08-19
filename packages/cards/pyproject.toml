@@ -1,6 +1,6 @@
 [project]
 name = "microsoft-teams-cards"
-version = "0.1.0"
+version = "0.0.1-alpha.1"
 description = "Cards package for Microsoft Teams"
 readme = "README.md"
 repository = "https://github.com/microsoft/teams.py"
@@ -14,7 +14,7 @@ dependencies = [
     "coverage>=7.8.0",
     "pytest>=8.3.5",
     "ruff>=0.11.5",
-    "microsoft-teams-api",
+    "microsoft-teams-api>=0.0.1-alpha.1",
 ]
 
 [project.urls]
