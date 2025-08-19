@@ -36,6 +36,20 @@ class TestDirectTokenCredential:
         time_diff = abs((actual_expiry - expected_expiry).total_seconds())
         assert time_diff < 60  # Should be within 1 minute
 
+    def test_get_token_with_string_and_connection_name(self) -> None:
+        """Test that we can get a valid access token from a string token with connection name."""
+
+        # Arrange
+        token_str = "test_access_token_with_connection"
+        credential = DirectTokenCredential(token_str, "graph")
+
+        # Act
+        token = credential.get_token("https://graph.microsoft.com/.default")
+
+        # Assert
+        assert isinstance(token, AccessToken)
+        assert token.token == "test_access_token_with_connection"
+
     def test_get_token_with_callable(self) -> None:
         """Test that we can get a valid access token from a callable that returns a string."""
 
@@ -51,6 +65,22 @@ class TestDirectTokenCredential:
         # Assert
         assert isinstance(token, AccessToken)
         assert token.token == "test_callable_token_456"
+
+    def test_get_token_with_callable_and_connection_name(self) -> None:
+        """Test that we can get a valid access token from a callable with connection name."""
+
+        # Arrange
+        def get_token():
+            return "test_callable_token_with_connection"
+
+        credential = DirectTokenCredential(get_token, "graph")
+
+        # Act
+        token = credential.get_token("https://graph.microsoft.com/.default")
+
+        # Assert
+        assert isinstance(token, AccessToken)
+        assert token.token == "test_callable_token_with_connection"
 
     @pytest.mark.asyncio
     async def test_get_token_with_async_callable(self) -> None:
