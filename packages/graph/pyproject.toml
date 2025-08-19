@@ -16,7 +16,8 @@ dependencies = [
     "azure-core",
     "msgraph-sdk",
     "cryptography",
-    "PyJWT[crypto]"
+    "PyJWT[crypto]",
+    "microsoft-teams-common"
 ]
 
 [project.urls]

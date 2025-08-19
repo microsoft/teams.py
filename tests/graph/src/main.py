@@ -4,10 +4,8 @@ Licensed under the MIT License.
 """
 
 import asyncio
-import datetime
 import logging
 import os
-from typing import Optional
 
 from azure.core.exceptions import ClientAuthenticationError
 from microsoft.teams.api import MessageActivity
@@ -26,22 +24,9 @@ app_options = AppOptions(default_connection_name=os.getenv("CONNECTION_NAME", "g
 app = App(app_options)
 
 
-class TokenData:
-    """Token data class that implements TokenProtocol for dynamic token management."""
-
-    def __init__(self, access_token: str, expires_in_seconds: int = 3600):
-        self.access_token = access_token
-        # Calculate exact expiration time
-        self.expires_at: Optional[datetime.datetime] = datetime.datetime.now(
-            datetime.timezone.utc
-        ) + datetime.timedelta(seconds=expires_in_seconds)
-        self.token_type: Optional[str] = "Bearer"
-        self.scope: Optional[str] = "https://graph.microsoft.com/.default"
-
-
 async def get_authenticated_graph_client(ctx: ActivityContext[MessageActivity]):
     """
-    Helper function to handle authentication and create Graph client using TokenProtocol pattern.
+    Helper function to handle authentication and create Graph client using Token pattern.
 
     Returns:
         Graph client if successful, None if authentication failed.
@@ -63,23 +48,11 @@ async def get_authenticated_graph_client(ctx: ActivityContext[MessageActivity]):
     try:
         token_response = await ctx.api.users.token.get(token_params)
 
-        def get_fresh_token():
-            """Callable that returns fresh token data implementing TokenProtocol."""
-            # Return the token we already retrieved
-            return TokenData(token_response.token, expires_in_seconds=3600)
+        # Create Graph client using the token string directly (simplest approach)
+        return await get_graph_client(token_response.token, connection_name=ctx.connection_name)
 
     except Exception as e:
-        ctx.logger.error(f"Failed to get initial token: {e}")
-        await ctx.send("🔐 Failed to get authentication token. Please try signing in again.")
-        await ctx.sign_in()
-        return None
-
-    try:
-        # Create Graph client using the TokenProtocol callable
-        return await get_graph_client(get_fresh_token, connection_name=ctx.connection_name)
-
-    except Exception as e:
-        ctx.logger.error(f"Failed to create Graph client: {e}")
+        ctx.logger.error(f"Failed to get token or create Graph client: {e}")
         await ctx.send("🔐 Failed to create authenticated client. Please try signing in again.")
         await ctx.sign_in()
         return None
