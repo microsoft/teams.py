@@ -190,7 +190,7 @@ async def handle_default_message(ctx: ActivityContext[MessageActivity]):
     """Handle default message when no pattern matches."""
     # Default response with help
     await ctx.send(
-        "👋 **Hello! I'm a Teams Graph demo bot with TokenProtocol support.**\n\n"
+        "👋 **Hello! I'm a Teams Graph demo bot.**\n\n"
         "**Available commands:**\n\n"
         "• **signin** - Sign in to your Microsoft account\n\n"
         "• **signout** - Sign out\n\n"
