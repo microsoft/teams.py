@@ -3,10 +3,10 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from microsoft.teams.api.models import CustomBaseModel
+from typing import NamedTuple
 
 
-class PluginStartEvent(CustomBaseModel):
+class PluginStartEvent(NamedTuple):
     """Event emitted when the plugin is started."""
 
     port: int
