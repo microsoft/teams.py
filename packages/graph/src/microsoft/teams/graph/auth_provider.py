@@ -18,6 +18,9 @@ class DirectTokenCredential(TokenCredential):
     Azure Core TokenCredential implementation using direct tokens.
     """
 
+    # Timeout for token resolution operations (in seconds)
+    _TOKEN_RESOLUTION_TIMEOUT = 5.0
+
     def __init__(self, token: Token, connection_name: Optional[str] = None) -> None:
         """
         Initialize the direct token credential.
@@ -50,7 +53,7 @@ class DirectTokenCredential(TokenCredential):
 
                 with concurrent.futures.ThreadPoolExecutor() as executor:
                     future = executor.submit(asyncio.run, resolve_token(self._token))
-                    token_str = future.result(timeout=30.0)
+                    token_str = future.result(timeout=self._TOKEN_RESOLUTION_TIMEOUT)
             except RuntimeError:
                 token_str = asyncio.run(resolve_token(self._token))
 
