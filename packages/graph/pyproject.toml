@@ -12,11 +12,8 @@ authors = [{ name = "Microsoft", email = "TeamsAISDKFeedback@microsoft.com" }]
 keywords = ["microsoft", "teams", "ai", "bot", "agents", "graph"]
 requires-python = ">=3.12"
 dependencies = [
-    "azure-identity",
     "azure-core",
     "msgraph-sdk",
-    "cryptography",
-    "PyJWT[crypto]",
     "microsoft-teams-common"
 ]
 
