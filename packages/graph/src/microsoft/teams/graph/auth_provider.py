@@ -20,9 +20,6 @@ class AuthProvider(TokenCredential):
 
     """
 
-    # Timeout for token resolution operations (in seconds)
-    _TOKEN_RESOLUTION_TIMEOUT = 5.0
-
     def __init__(self, token: Token) -> None:
         """
         Initialize the AuthProvider.
@@ -53,7 +50,7 @@ class AuthProvider(TokenCredential):
 
                 with concurrent.futures.ThreadPoolExecutor() as executor:
                     future = executor.submit(asyncio.run, resolve_token(self._token))
-                    token_str = future.result(timeout=self._TOKEN_RESOLUTION_TIMEOUT)
+                    token_str = future.result()
             except RuntimeError:
                 token_str = asyncio.run(resolve_token(self._token))
 

@@ -266,18 +266,16 @@ class TestGraphClientFactory:
         assert client1 is not client2
 
     def test_get_graph_client_with_none_token(self) -> None:
-        """Test that None token creates client but fails when credential is used."""
+        """Test that None token raises appropriate error immediately."""
+        from azure.core.exceptions import ClientAuthenticationError
 
-        # Act - client creation should succeed
-        client = get_graph_client(None)
-        assert client is not None
+        # Act & Assert - should raise ClientAuthenticationError immediately
+        with pytest.raises(ClientAuthenticationError) as exc_info:
+            get_graph_client(None)
 
-        # But using the credential should fail
-        from microsoft.teams.graph.auth_provider import AuthProvider
-
-        credential = AuthProvider(None)
-        with pytest.raises(ClientAuthenticationError):
-            credential.get_token("https://graph.microsoft.com/.default")
+        # Verify the error message is clear and helpful
+        assert "Token cannot be None" in str(exc_info.value)
+        assert "Please provide a valid token" in str(exc_info.value)
 
     def test_get_graph_client_with_failing_callable(self) -> None:
         """Test error handling when token callable fails."""
