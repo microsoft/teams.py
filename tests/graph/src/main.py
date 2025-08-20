@@ -9,7 +9,6 @@ import os
 
 from azure.core.exceptions import ClientAuthenticationError
 from microsoft.teams.api import MessageActivity
-from microsoft.teams.api.clients.user.params import GetUserTokenParams
 from microsoft.teams.app import ActivityContext, App, AppOptions, SignInEvent
 from microsoft.teams.app.events.types import ErrorEvent
 from microsoft.teams.graph import get_graph_client
@@ -37,22 +36,12 @@ async def get_authenticated_graph_client(ctx: ActivityContext[MessageActivity]):
         await ctx.sign_in()
         return None
 
-    # Get user token directly from Teams API
-    token_params = GetUserTokenParams(
-        channel_id=ctx.activity.channel_id,
-        user_id=ctx.activity.from_.id,
-        connection_name=ctx.connection_name,
-    )
-
-    # Get user token once before creating the client
     try:
-        token_response = await ctx.api.users.token.get(token_params)
-
-        # Create Graph client using the token string directly (simplest approach)
-        return get_graph_client(token_response.token, connection_name=ctx.connection_name)
+        # Create Graph client using the user token
+        return get_graph_client(ctx.user_token, connection_name=ctx.connection_name)
 
     except Exception as e:
-        ctx.logger.error(f"Failed to get token or create Graph client: {e}")
+        ctx.logger.error(f"Failed to create Graph client: {e}")
         await ctx.send("🔐 Failed to create authenticated client. Please try signing in again.")
         await ctx.sign_in()
         return None

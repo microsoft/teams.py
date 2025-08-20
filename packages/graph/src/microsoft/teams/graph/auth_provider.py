@@ -68,6 +68,8 @@ class AuthProvider(TokenCredential):
             # Try to extract expiration from JWT, fallback to 1 hour default
             try:
                 # Decode JWT without verification to extract expiration
+                # Note: Since we're already decoding, we could extract additional info
+                # like token_type from 'typ' claim or calculate refresh_on if needed
                 payload = jwt.decode(token_str, algorithms=["RS256"], options={"verify_signature": False})
                 expires_on = payload.get("exp")
                 if not expires_on:
