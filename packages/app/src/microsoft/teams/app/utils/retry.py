@@ -5,22 +5,15 @@ Licensed under the MIT License.
 
 import asyncio
 import random
-from enum import Enum
 from logging import Logger
-from typing import Awaitable, Callable, Optional, TypeVar
+from typing import Awaitable, Callable, Literal, Optional, TypeVar
 
 from microsoft.teams.common.logging import ConsoleLogger
 
 T = TypeVar("T")
 
-
-class JitterType(Enum):
-    """Types of jitter to apply to retry delays."""
-
-    NONE = "none"
-    FULL = "full"  # Random delay between 0 and computed delay
-    EQUAL = "equal"  # Random delay between computed_delay/2 and computed_delay
-    DECORRELATED = "decorrelated"  # Uses previous delay as base for random calculation
+# Type alias for jitter types using string literals
+JitterType = Literal["none", "full", "equal", "decorrelated"]
 
 
 class RetryOptions:
@@ -29,29 +22,29 @@ class RetryOptions:
         max_attempts: int = 5,
         delay: float = 0.5,  # in seconds
         max_delay: float = 30.0,  # maximum delay cap
-        jitter_type: JitterType = JitterType.FULL,
+        jitter_type: JitterType = "full",
         logger: Optional[Logger] = None,
         previous_delay: Optional[float] = None,  # Internal use for decorrelated jitter
     ):
         self.max_attempts = max_attempts
         self.delay = delay
         self.max_delay = max_delay
-        self.jitter_type = jitter_type
+        self.jitter_type: JitterType = jitter_type
         self.logger = logger.getChild("@teams/retry") if logger else ConsoleLogger().create_logger("@teams/retry")
         self.previous_delay = previous_delay
 
 
 def _apply_jitter(delay: float, jitter_type: JitterType, previous_delay: Optional[float] = None) -> float:
     """Apply jitter to the delay to prevent thundering herd problems."""
-    if jitter_type == JitterType.NONE:
+    if jitter_type == "none":
         return delay
-    elif jitter_type == JitterType.FULL:
+    elif jitter_type == "full":
         # Random delay between 0 and the computed delay
         return random.uniform(0, delay)
-    elif jitter_type == JitterType.EQUAL:
+    elif jitter_type == "equal":
         # Random delay between half the computed delay and the full computed delay
         return random.uniform(delay / 2, delay)
-    elif jitter_type == JitterType.DECORRELATED:
+    elif jitter_type == "decorrelated":
         # Decorrelated jitter: random delay between base delay and 3 * previous delay
         base_delay = delay / 4  # Start with a smaller base
         if previous_delay is None:
@@ -66,7 +59,7 @@ async def retry(factory: Callable[[], Awaitable[T]], options: Optional[RetryOpti
     max_attempts = options.max_attempts
     base_delay = options.delay
     max_delay = options.max_delay
-    jitter_type = options.jitter_type
+    jitter_type: JitterType = options.jitter_type
     logger = options.logger
     previous_delay = options.previous_delay
 

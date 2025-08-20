@@ -43,10 +43,8 @@ class TypingActivityInput(_TypingBase, ActivityInputBase):
         if self.channel_data is None:
             self.channel_data = ChannelData()
 
-        if self.channel_data.stream_id is None:
-            self.channel_data.stream_id = self.id
-        if self.channel_data.stream_sequence is None:
-            self.channel_data.stream_sequence = sequence
+        self.channel_data.stream_id = self.id
+        self.channel_data.stream_sequence = sequence
         if self.channel_data.stream_type is None:
             self.channel_data.stream_type = "streaming"
 

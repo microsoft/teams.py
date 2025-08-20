@@ -6,67 +6,39 @@ Licensed under the MIT License.
 import asyncio
 from collections import deque
 from logging import Logger
-from typing import Awaitable, Callable, List, Optional, Union
+from typing import List, Optional, Union
 
-from microsoft.teams.api import ConversationReference, Resource
-from microsoft.teams.api.activities.message.message import MessageActivityInput
-from microsoft.teams.api.activities.typing import TypingActivityInput
-from microsoft.teams.api.clients.api_client import ApiClient
-from microsoft.teams.api.models.attachment import Attachment
-from microsoft.teams.api.models.channel_data import ChannelData
-from microsoft.teams.api.models.entity import Entity
-from microsoft.teams.app.utils.retry import RetryOptions, retry
-from microsoft.teams.common.events.event_emitter import EventEmitter
-from microsoft.teams.common.logging import ConsoleLogger
+from microsoft.teams.api import (
+    ApiClient,
+    Attachment,
+    ChannelData,
+    ConversationReference,
+    Entity,
+    MessageActivityInput,
+    Resource,
+    TypingActivityInput,
+)
+from microsoft.teams.common import ConsoleLogger, EventEmitter
 
 from .plugins.streamer import IStreamerEvents, StreamerProtocol
-
-TimerCallback = Union[Callable[[], None], Callable[[], Awaitable[None]]]
-
-
-class Timeout:
-    def __init__(self, delay: float, callback: TimerCallback) -> None:
-        """
-        Schedule a callback after a delay.
-
-        Args:
-            delay: Delay in seconds before callback is executed.
-            callback: Function to run after delay.
-        """
-        self._delay: float = delay
-        self._callback: TimerCallback = callback
-        self._handle: Optional[asyncio.TimerHandle] = None
-        self._cancelled: bool = False
-
-        loop = asyncio.get_event_loop()
-        self._handle = loop.call_later(delay, self._run)
-
-    def _run(self) -> None:
-        if self._cancelled:
-            return
-
-        if asyncio.iscoroutinefunction(self._callback):
-            asyncio.create_task(self._callback())  # Fire-and-forget
-        else:
-            self._callback()
-
-    def cancel(self) -> None:
-        """
-        Cancel the timeout before it triggers.
-        """
-        if self._handle is not None:
-            self._handle.cancel()
-        self._cancelled = True
-
-    @property
-    def cancelled(self) -> bool:
-        """Check if the timeout was cancelled."""
-        return self._cancelled
+from .utils import RetryOptions, Timeout, retry
 
 
 class HttpStream(StreamerProtocol):
     """
     HTTP-based streaming implementation for Microsoft Teams activities.
+
+    Flow:
+    1. emit() adds activities to a queue and cancels any pending flush timeout
+    2. emit() schedules _flush() to run after 0.5 seconds via Timeout
+    3. If another emit() happens before flush executes, the timeout is cancelled and rescheduled
+    4. _flush() starts by cancelling any pending timeout, then processes up to 10 queued activities under a lock
+    5. _flush() combines text from MessageActivity and sends it as a Typing activity with streamType='streaming'
+    6. _flush() schedules another flush if more items remain in queue
+    7. close() waits for queue to empty, then sends final message with stream_type='stream_final'
+
+    The timeout cancellation ensures only one flush operation is scheduled at a time.
+    The delays between flushes is to ensure we dont hit API rate limits with Microsoft Teams.
     """
 
     def __init__(self, client: ApiClient, ref: ConversationReference, logger: Optional[Logger] = None):
