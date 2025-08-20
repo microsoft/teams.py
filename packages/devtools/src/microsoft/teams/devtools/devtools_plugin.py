@@ -113,7 +113,7 @@ class DevToolsPlugin(Sender):
         self.logger.warning(" ⚠️ Devtools is not secure and should not be used production environments ⚠️'")
 
     async def on_start(self, event: PluginStartEvent) -> None:
-        self._port = event.port
+        self._port = event.port + 1
 
         try:
             router = APIRouter()

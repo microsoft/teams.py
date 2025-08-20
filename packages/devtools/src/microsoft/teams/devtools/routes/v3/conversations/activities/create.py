@@ -34,8 +34,8 @@ async def create(context: RouteContext):
                 **body,
                 id=body.get("id", str(uuid4())),
                 channel_id="msteams",
-                from_=Account(id="devtools", name="devtools", role="user"),
-                recipient=Account(id="devtools-bot", name="devtools", role="bot"),
+                from_=Account(id="devtools", name="devtools", role="bot"),
+                recipient=Account(id="", name="", role="user"),
                 conversation=ConversationAccount(
                     id=request.path_params["conversationId"],
                     conversation_type="personal",
