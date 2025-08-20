@@ -3,32 +3,34 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
+import asyncio
+import concurrent.futures
 import datetime
-from typing import Any, Callable, Optional
+import logging
+from typing import Any
 
+import jwt
 from azure.core.credentials import AccessToken, TokenCredential
 from azure.core.exceptions import ClientAuthenticationError
+from microsoft.teams.common.http.client_token import Token, resolve_token
 
-from .protocols import TokenProtocol
+logger = logging.getLogger(__name__)
 
 
-class DirectTokenCredential(TokenCredential):
+class AuthProvider(TokenCredential):
     """
-    Azure Core TokenCredential implementation using direct tokens.
+    Provides authentication for Microsoft Graph using Teams tokens.
 
     """
 
-    def __init__(self, token_callable: Callable[[], TokenProtocol], connection_name: Optional[str] = None) -> None:
+    def __init__(self, token: Token) -> None:
         """
-        Initialize the direct token credential.
+        Initialize the AuthProvider.
 
         Args:
-            token_callable: A callable that returns token data with expiration info
-            connection_name: OAuth connection name
+            token: Token data (string, StringLike, callable, or None)
         """
-        self._token_callable = token_callable
-        self._connection_name = connection_name
-        self._cached_access_token: Optional[AccessToken] = None
+        self._token = token
 
     def get_token(self, *scopes: str, **kwargs: Any) -> AccessToken:
         """
@@ -36,75 +38,55 @@ class DirectTokenCredential(TokenCredential):
 
         Args:
             *scopes: Token scopes (required for interface compatibility)
-            **kwargs: Additional keyword arguments (unused)
+            **kwargs: Additional keyword arguments
 
         Returns:
             AccessToken: The access token for Microsoft Graph
 
         Raises:
-            ClientAuthenticationError: If the token is invalid or expired
+            ClientAuthenticationError: If the token is invalid or authentication fails
         """
         try:
-            # Check if we have a valid cached access token
-            if self._cached_access_token and self._is_token_valid(self._cached_access_token):
-                return self._cached_access_token
-
-            # Get fresh token data from the callable
+            # Resolve the token using the common utility
             try:
-                token_data = self._token_callable()
-            except Exception as e:
-                raise ClientAuthenticationError(f"Failed to retrieve token from callable: {str(e)}") from e
+                asyncio.get_running_loop()
 
-            # Validate token data
-            if not hasattr(token_data, "access_token"):
-                raise ClientAuthenticationError("Token callable must return an object with 'access_token' attribute")
+                with concurrent.futures.ThreadPoolExecutor() as executor:
+                    future = executor.submit(asyncio.run, resolve_token(self._token))
+                    token_str = future.result()
+            except RuntimeError:
+                token_str = asyncio.run(resolve_token(self._token))
 
-            if not token_data.access_token:
-                raise ClientAuthenticationError("Token data is missing access_token")
+            if not token_str:
+                raise ClientAuthenticationError("Token resolved to None or empty string")
 
-            # Check for whitespace-only tokens
-            if not token_data.access_token.strip():
-                raise ClientAuthenticationError("Token data contains only whitespace")
+            if not token_str.strip():
+                raise ClientAuthenticationError("Token contains only whitespace")
 
-            # Use provided expiration time or default to 1 hour
-            if token_data.expires_at:
-                expires_on = int(token_data.expires_at.timestamp())
-            else:
-                # Fallback if no expiration provided
-                fallback_expiry = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=1)
-                expires_on = int(fallback_expiry.timestamp())
+            # Try to extract expiration from JWT, fallback to 1 hour default
+            try:
+                # Decode JWT without verification to extract expiration
+                payload = jwt.decode(token_str, algorithms=["RS256"], options={"verify_signature": False})
+                expires_on = payload.get("exp")
+                if not expires_on:
+                    # Fallback to 1 hour from now if no exp claim
+                    logger.debug("JWT token missing 'exp' claim, using 1-hour default expiration")
+                    now = datetime.datetime.now(datetime.timezone.utc)
+                    expires_on = int((now + datetime.timedelta(hours=1)).timestamp())
+            except Exception:
+                # Fallback to 1 hour from now if JWT decoding fails (e.g., not a JWT)
+                logger.debug("Token is not a valid JWT, using 1-hour default expiration")
+                now = datetime.datetime.now(datetime.timezone.utc)
+                expires_on = int((now + datetime.timedelta(hours=1)).timestamp())
 
-            access_token = AccessToken(token=token_data.access_token, expires_on=expires_on)
-
-            # Cache for reuse
-            self._cached_access_token = access_token
-
-            return access_token
+            return AccessToken(token=token_str, expires_on=expires_on)
 
         except Exception as e:
             if isinstance(e, ClientAuthenticationError):
                 raise
-            raise ClientAuthenticationError(f"Failed to create access token: {str(e)}") from e
-
-    def _is_token_valid(self, token: AccessToken) -> bool:
-        """
-        Check if a cached access token is still valid.
-
-        Args:
-            token: The access token to check
-
-        Returns:
-            bool: True if the token is valid and not expired
-        """
-        if not token or not token.token:
-            return False
-
-        # Use exact expiration time - no buffer
-        now = int(datetime.datetime.now(datetime.timezone.utc).timestamp())
-        return token.expires_on > now
+            raise ClientAuthenticationError(f"Failed to resolve token: {str(e)}") from e
 
 
 __all__ = [
-    "DirectTokenCredential",
-    "TokenProtocol",
+    "AuthProvider",
 ]

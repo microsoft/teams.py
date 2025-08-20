@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 2
 requires-python = ">=3.12"
 
 [manifest]
@@ -542,14 +542,12 @@ name = "graph"
 version = "0.1.0"
 source = { virtual = "tests/graph" }
 dependencies = [
-    { name = "dotenv" },
     { name = "microsoft-teams-app" },
     { name = "microsoft-teams-graph" },
 ]
 
 [package.metadata]
 requires-dist = [
-    { name = "dotenv", specifier = ">=0.9.9" },
     { name = "microsoft-teams-app", editable = "packages/app" },
     { name = "microsoft-teams-graph", editable = "packages/graph" },
 ]
@@ -1016,8 +1014,7 @@ version = "0.0.1a1"
 source = { editable = "packages/graph" }
 dependencies = [
     { name = "azure-core" },
-    { name = "azure-identity" },
-    { name = "cryptography" },
+    { name = "microsoft-teams-common" },
     { name = "msgraph-sdk" },
     { name = "pyjwt", extra = ["crypto"] },
 ]
@@ -1030,11 +1027,10 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "azure-core" },
-    { name = "azure-identity" },
-    { name = "cryptography" },
-    { name = "msgraph-sdk" },
-    { name = "pyjwt", extras = ["crypto"] },
+    { name = "azure-core", specifier = ">=1.31.0" },
+    { name = "microsoft-teams-common", editable = "packages/common" },
+    { name = "msgraph-sdk", specifier = ">=1.30.0,<2.0.0" },
+    { name = "pyjwt", extras = ["crypto"], specifier = ">=2.10.0" },
 ]
 
 [package.metadata.requires-dev]
