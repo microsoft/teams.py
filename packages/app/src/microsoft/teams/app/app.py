@@ -21,7 +21,7 @@ from microsoft.teams.api import (
 from microsoft.teams.api.activities.message.message import MessageActivityInput
 from microsoft.teams.api.clients.conversation.activity import ActivityParams
 from microsoft.teams.api.models.account import Account, ConversationAccount
-from microsoft.teams.cards.adaptive_card import AdaptiveCard
+from microsoft.teams.cards import AdaptiveCard
 from microsoft.teams.common import Client, ClientOptions, ConsoleLogger, EventEmitter, LocalStorage
 
 from .app_events import EventManager

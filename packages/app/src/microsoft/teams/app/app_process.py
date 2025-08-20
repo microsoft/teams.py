@@ -18,7 +18,7 @@ from microsoft.teams.api import (
     TokenProtocol,
     is_invoke_response,
 )
-from microsoft.teams.cards.adaptive_card import AdaptiveCard
+from microsoft.teams.cards import AdaptiveCard
 from microsoft.teams.common import Client, ClientOptions, LocalStorage, Storage
 
 if TYPE_CHECKING:
