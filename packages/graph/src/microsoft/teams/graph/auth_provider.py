@@ -8,14 +8,18 @@ import concurrent.futures
 import datetime
 from typing import Any, Optional
 
+import jwt
 from azure.core.credentials import AccessToken, TokenCredential
 from azure.core.exceptions import ClientAuthenticationError
 from microsoft.teams.common.http.client_token import Token, resolve_token
 
 
-class DirectTokenCredential(TokenCredential):
+class AuthProvider(TokenCredential):
     """
-    Azure Core TokenCredential implementation using direct tokens.
+    Provides authentication for Microsoft Graph using Teams tokens.
+
+    Accepts tokens directly (as strings, callables, or awaitables) and provides
+    them to Azure SDK clients without requiring OAuth flows.
     """
 
     # Timeout for token resolution operations (in seconds)
@@ -63,8 +67,19 @@ class DirectTokenCredential(TokenCredential):
             if not token_str.strip():
                 raise ClientAuthenticationError("Token contains only whitespace")
 
-            # Default expiration to 1 hour from now
-            expires_on = int((datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=1)).timestamp())
+            # Try to extract expiration from JWT, fallback to 1 hour default
+            try:
+                # Decode JWT without verification to extract expiration
+                payload = jwt.decode(token_str, algorithms=["RS256"], options={"verify_signature": False})
+                expires_on = payload.get("exp")
+                if not expires_on:
+                    # Fallback to 1 hour from now if no exp claim
+                    now = datetime.datetime.now(datetime.timezone.utc)
+                    expires_on = int((now + datetime.timedelta(hours=1)).timestamp())
+            except Exception:
+                # Fallback to 1 hour from now if JWT decoding fails (e.g., not a JWT)
+                now = datetime.datetime.now(datetime.timezone.utc)
+                expires_on = int((now + datetime.timedelta(hours=1)).timestamp())
 
             return AccessToken(token=token_str, expires_on=expires_on)
 
@@ -75,5 +90,5 @@ class DirectTokenCredential(TokenCredential):
 
 
 __all__ = [
-    "DirectTokenCredential",
+    "AuthProvider",
 ]

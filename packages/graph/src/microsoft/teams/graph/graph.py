@@ -9,7 +9,7 @@ from azure.core.exceptions import ClientAuthenticationError
 from microsoft.teams.common.http.client_token import Token
 from msgraph.graph_service_client import GraphServiceClient
 
-from .auth_provider import DirectTokenCredential
+from .auth_provider import AuthProvider
 
 
 def get_graph_client(
@@ -49,7 +49,7 @@ def get_graph_client(
         ```
     """
     try:
-        credential = DirectTokenCredential(token, connection_name=connection_name)
+        credential = AuthProvider(token, connection_name=connection_name)
         client = GraphServiceClient(credentials=credential)
         return client
 

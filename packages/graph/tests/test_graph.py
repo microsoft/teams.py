@@ -9,19 +9,19 @@ import pytest
 from azure.core.credentials import AccessToken
 from azure.core.exceptions import ClientAuthenticationError
 from microsoft.teams.graph import get_graph_client
-from microsoft.teams.graph.auth_provider import DirectTokenCredential
+from microsoft.teams.graph.auth_provider import AuthProvider
 from msgraph.graph_service_client import GraphServiceClient
 
 
-class TestDirectTokenCredential:
-    """Unit tests for DirectTokenCredential functionality."""
+class TestAuthProvider:
+    """Unit tests for AuthProvider functionality."""
 
     def test_get_token_with_string(self) -> None:
         """Test that we can get a valid access token from a string token."""
 
         # Arrange
         token_str = "test_access_token_123"
-        credential = DirectTokenCredential(token_str)
+        credential = AuthProvider(token_str)
 
         # Act
         token = credential.get_token("https://graph.microsoft.com/.default")
@@ -41,7 +41,7 @@ class TestDirectTokenCredential:
 
         # Arrange
         token_str = "test_access_token_with_connection"
-        credential = DirectTokenCredential(token_str, "graph")
+        credential = AuthProvider(token_str, "graph")
 
         # Act
         token = credential.get_token("https://graph.microsoft.com/.default")
@@ -57,7 +57,7 @@ class TestDirectTokenCredential:
         def get_token():
             return "test_callable_token_456"
 
-        credential = DirectTokenCredential(get_token)
+        credential = AuthProvider(get_token)
 
         # Act
         token = credential.get_token("https://graph.microsoft.com/.default")
@@ -73,7 +73,7 @@ class TestDirectTokenCredential:
         def get_token():
             return "test_callable_token_with_connection"
 
-        credential = DirectTokenCredential(get_token, "graph")
+        credential = AuthProvider(get_token, "graph")
 
         # Act
         token = credential.get_token("https://graph.microsoft.com/.default")
@@ -81,6 +81,44 @@ class TestDirectTokenCredential:
         # Assert
         assert isinstance(token, AccessToken)
         assert token.token == "test_callable_token_with_connection"
+
+    def test_get_token_with_jwt_extracts_expiration(self) -> None:
+        """Test that JWT tokens have their expiration extracted correctly."""
+        import time
+
+        import jwt
+
+        # Arrange - Create a valid JWT token with specific expiration
+        exp_time = int(time.time()) + 3600  # 1 hour from now
+        payload = {"exp": exp_time, "aud": "test"}
+        jwt_token = jwt.encode(payload, "secret", algorithm="HS256")
+
+        credential = AuthProvider(jwt_token)
+
+        # Act
+        token = credential.get_token("https://graph.microsoft.com/.default")
+
+        # Assert
+        assert isinstance(token, AccessToken)
+        assert token.expires_on == exp_time  # Should use JWT expiration, not default
+
+    def test_get_token_with_non_jwt_uses_default_expiration(self) -> None:
+        """Test that non-JWT tokens use default 1-hour expiration."""
+        import time
+
+        # Arrange
+        token_str = "not_a_jwt_token_123"
+        credential = AuthProvider(token_str)
+
+        # Act
+        token = credential.get_token("https://graph.microsoft.com/.default")
+
+        # Assert
+        assert isinstance(token, AccessToken)
+        assert token.token == "not_a_jwt_token_123"
+        # Should use default expiration (approximately 1 hour from now)
+        now = int(time.time())
+        assert abs(token.expires_on - (now + 3600)) < 60  # Within 1 minute tolerance
 
     @pytest.mark.asyncio
     async def test_get_token_with_async_callable(self) -> None:
@@ -90,7 +128,7 @@ class TestDirectTokenCredential:
         async def get_token_async():
             return "test_async_token_789"
 
-        credential = DirectTokenCredential(get_token_async)
+        credential = AuthProvider(get_token_async)
 
         # Act
         token = credential.get_token("https://graph.microsoft.com/.default")
@@ -103,7 +141,7 @@ class TestDirectTokenCredential:
         """Test that None token raises appropriate error."""
 
         # Arrange
-        credential = DirectTokenCredential(None)
+        credential = AuthProvider(None)
 
         # Act & Assert
         with pytest.raises(ClientAuthenticationError, match="Token resolved to None or empty string"):
@@ -113,7 +151,7 @@ class TestDirectTokenCredential:
         """Test that empty string token raises appropriate error."""
 
         # Arrange
-        credential = DirectTokenCredential("")
+        credential = AuthProvider("")
 
         # Act & Assert
         with pytest.raises(ClientAuthenticationError, match="Token resolved to None or empty string"):
@@ -123,7 +161,7 @@ class TestDirectTokenCredential:
         """Test that whitespace-only token raises appropriate error."""
 
         # Arrange
-        credential = DirectTokenCredential("   \t\n  ")
+        credential = AuthProvider("   \t\n  ")
 
         # Act & Assert
         with pytest.raises(ClientAuthenticationError, match="Token contains only whitespace"):
@@ -136,7 +174,7 @@ class TestDirectTokenCredential:
         def get_token():
             return None
 
-        credential = DirectTokenCredential(get_token)
+        credential = AuthProvider(get_token)
 
         # Act & Assert
         with pytest.raises(ClientAuthenticationError, match="Token resolved to None or empty string"):
@@ -149,7 +187,7 @@ class TestDirectTokenCredential:
         def failing_callable():
             raise ValueError("Simulated token retrieval failure")
 
-        credential = DirectTokenCredential(failing_callable)
+        credential = AuthProvider(failing_callable)
 
         # Act & Assert
         with pytest.raises(ClientAuthenticationError, match="Failed to resolve token"):
@@ -235,9 +273,9 @@ class TestGraphClientFactory:
         assert client is not None
 
         # But using the credential should fail
-        from microsoft.teams.graph.auth_provider import DirectTokenCredential
+        from microsoft.teams.graph.auth_provider import AuthProvider
 
-        credential = DirectTokenCredential(None)
+        credential = AuthProvider(None)
         with pytest.raises(ClientAuthenticationError):
             credential.get_token("https://graph.microsoft.com/.default")
 
@@ -253,8 +291,8 @@ class TestGraphClientFactory:
         assert client is not None
 
         # But using the credential should fail
-        from microsoft.teams.graph.auth_provider import DirectTokenCredential
+        from microsoft.teams.graph.auth_provider import AuthProvider
 
-        credential = DirectTokenCredential(failing_token)
+        credential = AuthProvider(failing_token)
         with pytest.raises(ClientAuthenticationError):
             credential.get_token("https://graph.microsoft.com/.default")
