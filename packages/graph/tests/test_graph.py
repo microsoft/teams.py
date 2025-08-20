@@ -4,7 +4,9 @@ Licensed under the MIT License.
 """
 
 import datetime
+import time
 
+import jwt
 import pytest
 from azure.core.credentials import AccessToken
 from azure.core.exceptions import ClientAuthenticationError
@@ -84,9 +86,6 @@ class TestAuthProvider:
 
     def test_get_token_with_jwt_extracts_expiration(self) -> None:
         """Test that JWT tokens have their expiration extracted correctly."""
-        import time
-
-        import jwt
 
         # Arrange - Create a valid JWT token with specific expiration
         exp_time = int(time.time()) + 3600  # 1 hour from now
@@ -104,7 +103,6 @@ class TestAuthProvider:
 
     def test_get_token_with_non_jwt_uses_default_expiration(self) -> None:
         """Test that non-JWT tokens use default 1-hour expiration."""
-        import time
 
         # Arrange
         token_str = "not_a_jwt_token_123"
@@ -267,7 +265,6 @@ class TestGraphClientFactory:
 
     def test_get_graph_client_with_none_token(self) -> None:
         """Test that None token raises appropriate error immediately."""
-        from azure.core.exceptions import ClientAuthenticationError
 
         # Act & Assert - should raise ClientAuthenticationError immediately
         with pytest.raises(ClientAuthenticationError) as exc_info:
@@ -289,7 +286,6 @@ class TestGraphClientFactory:
         assert client is not None
 
         # But using the credential should fail
-        from microsoft.teams.graph.auth_provider import AuthProvider
 
         credential = AuthProvider(failing_token)
         with pytest.raises(ClientAuthenticationError):
