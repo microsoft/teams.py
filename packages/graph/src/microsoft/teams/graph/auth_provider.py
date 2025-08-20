@@ -18,8 +18,6 @@ class AuthProvider(TokenCredential):
     """
     Provides authentication for Microsoft Graph using Teams tokens.
 
-    Accepts tokens directly (as strings, callables, or awaitables) and provides
-    them to Azure SDK clients without requiring OAuth flows.
     """
 
     # Timeout for token resolution operations (in seconds)
