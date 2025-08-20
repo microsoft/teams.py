@@ -42,6 +42,26 @@ async def main() -> None:
         print(f"[GENERATED onMessage] Message received: {ctx.activity.text}")
         print(f"[GENERATED onMessage] From: {ctx.activity.from_}")
 
+        # Test the new graph clients
+        if ctx.user_graph:
+            try:
+                me = await ctx.user_graph.me.get()
+                display_name = me.display_name if me and me.display_name else "Unknown"
+                print(f"[GRAPH] User graph client available - User: {display_name}")
+            except Exception as e:
+                print(f"[GRAPH] Error using user graph: {e}")
+        else:
+            print(f"[GRAPH] User graph client not available (signed in: {ctx.is_signed_in})")
+
+        if ctx.app_graph:
+            try:
+                # Try a simple app-only operation - this might require specific permissions
+                print("[GRAPH] App graph client available")
+            except Exception as e:
+                print(f"[GRAPH] Error using app graph: {e}")
+        else:
+            print("[GRAPH] App graph client not available")
+
         await ctx.next()
 
     @app.event("activity")
