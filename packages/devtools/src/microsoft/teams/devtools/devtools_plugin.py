@@ -110,7 +110,7 @@ class DevToolsPlugin(Sender):
         self._on_stopped_callback = callback
 
     async def on_init(self) -> None:
-        self.logger.warning(" ⚠️ Devtools is not secure and should not be used production environments ⚠️'")
+        self.logger.warning("⚠️ Devtools is not secure and should not be used in production environments ⚠️")
 
     async def on_start(self, event: PluginStartEvent) -> None:
         self._port = event.port + 1
@@ -217,8 +217,8 @@ class DevToolsPlugin(Sender):
         await self.emit_activity_to_sockets(activity)
 
     async def on_activity_response(self, event: PluginActivityResponseEvent):
-        promise = self.pending[event.activity.id]
-        if promise:
+        promise = self.pending.get(event.activity.id, None)
+        if promise is not None:
             promise.set_result(event.response)
             del self.pending[event.activity.id]
 
