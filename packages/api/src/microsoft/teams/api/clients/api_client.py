@@ -27,6 +27,7 @@ class ApiClient(BaseClient):
             options: Either an HTTP client instance or client options. If None, a default client is created.
         """
         super().__init__(options)
+        self.service_url = service_url
 
         # Initialize all client types
         self.bots = BotClient(self._http)

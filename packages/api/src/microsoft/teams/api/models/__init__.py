@@ -58,7 +58,6 @@ from .meetings import *  # noqa: F403
 from .message import *  # noqa: F403
 from .messaging_extension import *  # noqa: F403
 from .o365 import *  # noqa: F403
-from .resource import Resource
 from .sign_in import *  # noqa: F403
 from .suggested_actions import SuggestedActions
 from .tab import *  # noqa: F403
@@ -87,7 +86,6 @@ __all__: list[str] = [
     "InnerHttpError",
     "InputHint",
     "InvokeResponse",
-    "Resource",
     "SuggestedActions",
     "TeamDetails",
     "TextFormat",

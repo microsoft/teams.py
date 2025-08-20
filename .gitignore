@@ -2,6 +2,7 @@
 __pycache__/
 *.py[cod]
 *$py.class
+*.egg-info/
 
 # Environments
 .env
@@ -19,9 +20,13 @@ dmypy.json
 
 # other
 .DS_STORE
+*.bak
+*~
+*.tmp
 
 ref/
 py.typed
 CLAUDE.md
 
-.env
+.env.claude/
+.claude/

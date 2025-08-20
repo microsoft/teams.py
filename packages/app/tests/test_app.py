@@ -11,12 +11,11 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from microsoft.teams.api import TokenProtocol
 from microsoft.teams.api.activities import InvokeActivity
-from microsoft.teams.api.activities.message import MessageActivity, MessageActivityInput
+from microsoft.teams.api.activities.message import MessageActivity
 from microsoft.teams.api.activities.typing import TypingActivity
 from microsoft.teams.api.models import Account, ConversationAccount
 from microsoft.teams.app.app import App
-from microsoft.teams.app.events import ActivityEvent, ErrorEvent
-from microsoft.teams.app.http_plugin import HttpActivityEvent
+from microsoft.teams.app.events import ActivityEvent
 from microsoft.teams.app.options import AppOptions
 from microsoft.teams.app.routing.activity_context import ActivityContext
 
@@ -104,6 +103,7 @@ class TestApp:
             storage=mock_storage,
             client_id="test-client-id",
             client_secret="test-secret",
+            plugins=[],
         )
         app = App(options)
         app.on_activity(mock_activity_handler)
@@ -150,33 +150,6 @@ class TestApp:
             await app_with_options.stop()
             assert not app_with_options.is_running
 
-    @pytest.mark.asyncio
-    async def test_activity_processing(self, app_with_activity_handler):
-        """Test that activities are processed correctly."""
-        from_account = Account(id="bot-123", name="Test Bot", role="bot")
-        recipient = Account(id="user-456", name="Test User", role="user")
-        conversation = ConversationAccount(id="conv-789", conversation_type="personal")
-
-        activity = MessageActivityInput(
-            type="message",
-            id="test-activity-id",
-            text="Hello, world!",
-            from_=from_account,
-            recipient=recipient,
-            conversation=conversation,
-            channel_id="msteams",
-        )
-
-        # Mock the HTTP plugin response method
-        app_with_activity_handler.http.on_activity_response = AsyncMock()
-
-        http_event = HttpActivityEvent(activity_payload=activity.model_dump(by_alias=True), token=FakeToken())
-        result = await app_with_activity_handler.handle_activity(http_event)
-
-        # Verify the activity was processed successfully
-        assert result["status"] == "processed"
-        assert result["activityId"] == "test-activity-id"
-
     # Event Testing - Focus on functional behavior
 
     @pytest.mark.asyncio
@@ -194,7 +167,7 @@ class TestApp:
         recipient = Account(id="user-456", name="Test User", role="user")
         conversation = ConversationAccount(id="conv-789", conversation_type="personal")
 
-        activity = MessageActivityInput(
+        activity = MessageActivity(
             type="message",
             id="test-activity-id",
             text="Hello, world!",
@@ -204,8 +177,10 @@ class TestApp:
             channel_id="msteams",
         )
 
-        await app_with_activity_handler.handle_activity(
-            HttpActivityEvent(activity_payload=activity.model_dump(by_alias=True), token=FakeToken())
+        plugin = app_with_activity_handler.http
+
+        await app_with_activity_handler.event_manager.on_activity(
+            ActivityEvent(activity=activity, sender=plugin, token=FakeToken()), plugins=[plugin]
         )
 
         # Wait for the async event handler to complete
@@ -220,53 +195,6 @@ class TestApp:
         # Check text only if it's a MessageActivity
         if hasattr(activity_events[0].activity, "text"):
             assert activity_events[0].activity.text == activity.text
-
-    @pytest.mark.asyncio
-    async def test_error_event_emission(self, app_with_options: App) -> None:
-        """Test that error events are emitted correctly."""
-        error_events = []
-        error_received = asyncio.Event()
-
-        @app_with_options.event
-        async def handle_error(event: ErrorEvent) -> None:
-            error_events.append(event)
-            error_received.set()
-
-        # Simulate an error during activity handling
-        async def failing_handler(_activity):
-            raise ValueError("Test error")
-
-        app_with_options.on_activity(failing_handler)
-
-        from_account = Account(id="bot-123", name="Test Bot", role="bot")
-        recipient = Account(id="user-456", name="Test User", role="user")
-        conversation = ConversationAccount(id="conv-789", conversation_type="personal")
-
-        activity = MessageActivityInput(
-            type="message",
-            id="test-activity-id",
-            text="Hello, world!",
-            from_=from_account,
-            recipient=recipient,
-            conversation=conversation,
-            channel_id="msteams",
-        )
-
-        with pytest.raises(ValueError):
-            await app_with_options.handle_activity(
-                HttpActivityEvent(activity_payload=activity.model_dump(by_alias=True), token=FakeToken())
-            )
-
-        # Wait for the async error event handler to complete
-        await asyncio.wait_for(error_received.wait(), timeout=1.0)
-
-        # Verify error event was emitted
-        assert len(error_events) == 1
-        assert isinstance(error_events[0], ErrorEvent)
-        assert isinstance(error_events[0].error, ValueError)
-        assert str(error_events[0].error) == "Test error"
-        assert error_events[0].context and error_events[0].context["method"] == "handle_activity"
-        assert error_events[0].context and error_events[0].context["activity_id"] == "test-activity-id"
 
     @pytest.mark.asyncio
     async def test_multiple_event_handlers(self, app_with_options: App) -> None:
@@ -306,8 +234,9 @@ class TestApp:
             channel_id="msteams",
         )
 
-        await app_with_options.handle_activity(
-            HttpActivityEvent(activity_payload=activity.model_dump(by_alias=True), token=FakeToken())
+        await app_with_options.event_manager.on_activity(
+            ActivityEvent(activity=activity, sender=app_with_options.http, token=FakeToken()),
+            plugins=[app_with_options.http],
         )
 
         # Wait for both async event handlers to complete
@@ -447,21 +376,14 @@ class TestApp:
         # Mock the HTTP plugin response method
         app_with_options.http.on_activity_response = AsyncMock()
 
-        result = await app_with_options.handle_activity(
-            HttpActivityEvent(activity_payload=activity.model_dump(by_alias=True), token=FakeToken())
+        await app_with_options.event_manager.on_activity(
+            ActivityEvent(activity=activity, sender=app_with_options.http, token=FakeToken()),
+            plugins=[app_with_options.http],
         )
 
         # Verify handler was called and executed
         assert handler_data["called"] is True
         assert handler_data["activity_text"] == "Hello from generated handler!"
-        # Verify the handler's response is included in the result
-        assert "response" in result
-        assert result == {
-            "activityId": "test-activity-id",
-            "message": "Successfully handled message activity",
-            "response": None,
-            "status": "processed",
-        }
 
     def test_runtime_type_validation(self, app_with_options: App) -> None:
         """Test that runtime type validation catches incorrect type annotations."""

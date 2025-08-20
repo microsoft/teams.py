@@ -11,7 +11,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from microsoft.teams.api import (
     ConfigResponse,
-    ConversationReference,
     InvokeResponse,
     MessageActivity,
     MessageActivityInput,
@@ -28,47 +27,33 @@ class TestHttpPlugin:
         return MagicMock()
 
     @pytest.fixture
-    def mock_activity_handler(self):
-        """Create a mock activity handler."""
-
-        async def handler(activity):
-            return {"status": "processed", "type": activity.get("type")}
-
-        return handler
-
-    @pytest.fixture
-    def mock_http_client(self):
-        """Create a mock HTTP client."""
-        return MagicMock()
-
-    @pytest.fixture
-    def plugin_with_validator(self, mock_logger, mock_http_client, mock_activity_handler):
+    def plugin_with_validator(self, mock_logger):
         """Create HttpPlugin with token validator."""
-        return HttpPlugin("test-app-id", mock_http_client, logger=mock_logger, activity_handler=mock_activity_handler)
+        return HttpPlugin("test-app-id", mock_logger)
 
     @pytest.fixture
-    def plugin_without_validator(self, mock_logger, mock_http_client, mock_activity_handler):
+    def plugin_without_validator(self, mock_logger):
         """Create HttpPlugin without token validator."""
-        return HttpPlugin(None, mock_http_client, logger=mock_logger, activity_handler=mock_activity_handler)
+        return HttpPlugin(None, mock_logger)
 
-    def test_init_with_app_id(self, mock_logger, mock_http_client, mock_activity_handler):
+    def test_init_with_app_id(self, mock_logger):
         """Test HttpPlugin initialization with app ID."""
-        plugin = HttpPlugin("test-app-id", mock_http_client, logger=mock_logger, activity_handler=mock_activity_handler)
+        plugin = HttpPlugin("test-app-id", mock_logger)
 
         assert plugin.logger == mock_logger
         assert plugin.app is not None
         assert plugin.pending == {}
 
-    def test_init_without_app_id(self, mock_logger, mock_http_client, mock_activity_handler):
+    def test_init_without_app_id(self, mock_logger):
         """Test HttpPlugin initialization without app ID."""
-        plugin = HttpPlugin(None, mock_http_client, logger=mock_logger, activity_handler=mock_activity_handler)
+        plugin = HttpPlugin(None, mock_logger)
 
         assert plugin.logger == mock_logger
         assert plugin.app is not None
 
-    def test_init_with_default_logger(self, mock_http_client, mock_activity_handler):
+    def test_init_with_default_logger(self):
         """Test HttpPlugin initialization with default logger."""
-        plugin = HttpPlugin("test-app-id", mock_http_client, activity_handler=mock_activity_handler)
+        plugin = HttpPlugin("test-app-id", None)
 
         assert plugin.logger is not None
 
@@ -100,7 +85,6 @@ class TestHttpPlugin:
         response_data = InvokeResponse(body=cast(ConfigResponse, {"status": "success"}), status=200)
         await plugin_with_validator.on_activity_response(
             PluginActivityResponseEvent(
-                conversation_ref=cast(ConversationReference, {"id": "test-conversation-id"}),
                 sender=plugin_with_validator,
                 activity=mock_activity,
                 response=response_data,
@@ -122,7 +106,6 @@ class TestHttpPlugin:
         # Should not raise exception
         await plugin_with_validator.on_activity_response(
             PluginActivityResponseEvent(
-                conversation_ref=cast(ConversationReference, {"id": "test-conversation-id"}),
                 sender=plugin_with_validator,
                 activity=mock_activity,
                 response=response_data,
@@ -144,7 +127,6 @@ class TestHttpPlugin:
         # Should not raise exception
         await plugin_with_validator.on_activity_response(
             PluginActivityResponseEvent(
-                conversation_ref=cast(ConversationReference, {"id": "test-conversation-id"}),
                 sender=plugin_with_validator,
                 activity=mock_activity,
                 response=response_data,
@@ -155,15 +137,19 @@ class TestHttpPlugin:
         assert future.result() == "already done"
 
     @pytest.mark.asyncio
-    async def test_on_error_with_activity_id(self, plugin_with_validator):
+    async def test_on_error_with_activity_id(self, plugin_with_validator, mock_account):
         """Test error handling with activity ID."""
         # Create a pending future
         future = asyncio.get_event_loop().create_future()
         plugin_with_validator.pending["test-id"] = future
+        mock_activity = cast(
+            MessageActivity,
+            MessageActivityInput(type="message", text="Mock activity text", from_=mock_account, id="test-id"),
+        )
 
         error = ValueError("Test error")
         await plugin_with_validator.on_error(
-            PluginErrorEvent(sender=plugin_with_validator, activity={"id": "test-id"}, error=error)
+            PluginErrorEvent(sender=plugin_with_validator, activity=mock_activity, error=error)
         )
 
         assert future.done()
@@ -175,9 +161,7 @@ class TestHttpPlugin:
         """Test error handling with no pending future."""
         error = ValueError("Test error")
         # Should not raise exception
-        await plugin_with_validator.on_error(
-            PluginErrorEvent(sender=plugin_with_validator, activity={"id": "non-existent-test-id"}, error=error)
-        )
+        await plugin_with_validator.on_error(PluginErrorEvent(sender=plugin_with_validator, error=error))
 
     @pytest.mark.asyncio
     async def test_on_start_success(self, plugin_with_validator):

@@ -5,9 +5,9 @@ Licensed under the MIT License.
 
 from typing import Literal, Optional, Protocol, Union
 
+from microsoft.teams.api.activities import SentActivity
 from microsoft.teams.api.activities.message import MessageActivityInput
 from microsoft.teams.api.activities.typing import TypingActivityInput
-from microsoft.teams.api.models.resource import Resource
 from microsoft.teams.common.events.event_emitter import EventEmitter
 
 # Define the event names that streamers should support
@@ -59,7 +59,7 @@ class StreamerProtocol(Protocol):
         """
         ...
 
-    async def close(self) -> Optional[Resource]:
+    async def close(self) -> Optional[SentActivity]:
         """
         Close the stream.
         """

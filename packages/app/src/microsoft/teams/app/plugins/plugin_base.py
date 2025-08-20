@@ -3,13 +3,9 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from typing import Callable
-
-from microsoft.teams.api.clients.conversation import ActivityParams
-from microsoft.teams.api.models import Resource
+from microsoft.teams.api.activities import ActivityParams, SentActivity
 from microsoft.teams.api.models.conversation import ConversationReference
 
-from ..events import ActivityEvent, ErrorEvent
 from .plugin_activity_event import PluginActivityEvent
 from .plugin_activity_response_event import PluginActivityResponseEvent
 from .plugin_activity_sent_event import PluginActivitySentEvent
@@ -17,18 +13,8 @@ from .plugin_error_event import PluginErrorEvent
 from .plugin_start_event import PluginStartEvent
 from .streamer import StreamerProtocol
 
-OnErrorPluginEvent = Callable[[ErrorEvent], None]
-"""
-Emitted when the plugin encounters an error
-"""
 
-OnActivityPluginEvent = Callable[[ActivityEvent], None]
-"""
-Emitted when the plugin receives an activity
-"""
-
-
-class Plugin:
+class PluginBase:
     """The base plugin for Teams app plugins."""
 
     async def on_init(self) -> None:
@@ -59,7 +45,7 @@ class Plugin:
         """Called by the App when an activity response is sent."""
         ...
 
-    async def send(self, activity: ActivityParams, ref: ConversationReference) -> Resource:
+    async def send(self, activity: ActivityParams, ref: ConversationReference) -> SentActivity:
         """Called by the App to send an activity"""
         ...
 
