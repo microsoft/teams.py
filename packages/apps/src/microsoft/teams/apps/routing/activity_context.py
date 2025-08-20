@@ -31,6 +31,8 @@ from microsoft.teams.api.models.attachment.card_attachment import OAuthCardAttac
 from microsoft.teams.api.models.oauth import OAuthCard
 from microsoft.teams.cards import AdaptiveCard
 from microsoft.teams.common import Storage
+from microsoft.teams.graph import get_graph_client
+from msgraph.graph_service_client import GraphServiceClient
 
 from ..plugins import Sender
 
@@ -68,6 +70,7 @@ class ActivityContext(Generic[T]):
         is_signed_in: bool,
         connection_name: str,
         sender: Sender,
+        app_token: Optional[TokenProtocol] = None,
     ):
         self.activity = activity
         self.app_id = app_id
@@ -79,8 +82,73 @@ class ActivityContext(Generic[T]):
         self.connection_name = connection_name
         self.is_signed_in = is_signed_in
         self._plugin = sender
+        self._app_token = app_token
 
         self._next_handler: Optional[Callable[[], Awaitable[None]]] = None
+
+        # Initialize graph clients as None - they'll be created lazily
+        self._user_graph: Optional[GraphServiceClient] = None
+        self._app_graph: Optional[GraphServiceClient] = None
+
+    @property
+    def user_graph(self) -> Optional[GraphServiceClient]:
+        """
+        Get a Microsoft Graph client configured with the user's token.
+
+        Returns None if the user is not signed in or doesn't have a valid token.
+
+        Example:
+            ```python
+            @app.on_message
+            async def handle_message(ctx: ActivityContext[MessageActivity]):
+                if ctx.user_graph:
+                    me = await ctx.user_graph.me.get()
+                    await ctx.send(f"Hello {me.display_name}!")
+                else:
+                    await ctx.sign_in()
+            ```
+        """
+        if not self.is_signed_in or not self.user_token:
+            return None
+
+        if self._user_graph is None:
+            try:
+                self._user_graph = get_graph_client(self.user_token)
+            except Exception as e:
+                self.logger.error(f"Failed to create user graph client: {e}")
+                return None
+
+        return self._user_graph
+
+    @property
+    def app_graph(self) -> Optional[GraphServiceClient]:
+        """
+        Get a Microsoft Graph client configured with the app's token.
+
+        This client can be used for app-only operations that don't require user context.
+
+        Example:
+            ```python
+            @app.on_message
+            async def handle_message(ctx: ActivityContext[MessageActivity]):
+                if ctx.app_graph:
+                    # App-only operations
+                    app_info = await ctx.app_graph.applications.by_application_id("app-id").get()
+                    await ctx.send(f"App: {app_info.display_name}")
+            ```
+        """
+        if not self._app_token:
+            self.logger.debug("No app token available for app graph client")
+            return None
+
+        if self._app_graph is None:
+            try:
+                self._app_graph = get_graph_client(self._app_token)
+            except Exception as e:
+                self.logger.error(f"Failed to create app graph client: {e}")
+                return None
+
+        return self._app_graph
 
     async def send(
         self, message: str | ActivityParams | AdaptiveCard, conversation_ref: Optional[ConversationReference] = None

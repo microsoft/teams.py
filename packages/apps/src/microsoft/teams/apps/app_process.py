@@ -107,6 +107,7 @@ class ActivityProcessor:
             is_signed_in,
             self.default_connection_name,
             sender,
+            self.tokens.graph,  # Pass the app graph token
         )
 
         send = activityCtx.send

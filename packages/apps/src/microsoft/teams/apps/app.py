@@ -324,7 +324,7 @@ class App(ActivityHandlerMixin):
     async def _refresh_graph_token(self, force: bool = False) -> None:
         """Refresh the Graph API token."""
         if not self.credentials:
-            self.log.warning("No credentials provided, skipping bot token refresh")
+            self.log.warning("No credentials provided, skipping graph token refresh")
             return
 
         if not force and self._tokens.graph and not self._tokens.graph.is_expired():
@@ -334,12 +334,15 @@ class App(ActivityHandlerMixin):
             self.log.debug("Refreshing graph token")
 
         try:
-            # TODO: Implement graph token refresh when graph client is available
-            # token_response = await self.api.bots.token.get_graph(self.credentials)
-            # self._tokens.graph = TokenProtocol(token_response.access_token)
-            self.log.debug("Graph token refresh not yet implemented")
+            # Get graph token using the API client
+            token_response = await self.api.bots.token.get_graph(self.credentials)
+            self._tokens.graph = JsonWebToken(token_response.access_token)
 
-            # When implemented, emit token event:
+            self.log.debug("Graph token refreshed successfully")
+
+            # Emit token acquired event
+            self._events.emit("token", {"type": "graph", "token": self._tokens.graph})
+
         except Exception as error:
             self.log.error(f"Failed to refresh graph token: {error}")
 
