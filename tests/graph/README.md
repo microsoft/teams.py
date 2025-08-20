@@ -1,15 +1,14 @@
 # Teams Graph Integration Demo
 
 This demo application showcases how to use Microsoft Graph APIs within a Teams bot built with the
-Teams AI SDK for Python using the new TokenProtocol approach.
+Teams AI SDK for Python using Tokens
 
 ## Features
 
 - User authentication via Teams OAuth
-- TokenProtocol-based token management with exact expiration times
+- Token-based authentication using the unified Token type
 - Profile information retrieval with Microsoft Graph
 - Email listing with Mail.Read scope
-- Simple authentication with pre-authorized Teams tokens
 
 ## Commands
 
@@ -76,28 +75,16 @@ python tests/graph/src/main.py
 
 The demo uses the `microsoft.teams.graph` package which provides:
 
-- **`get_graph_client()`** - Main factory function accepting TokenProtocol callable functions
-- **`DirectTokenCredential`** - Azure TokenCredential implementation for TokenProtocol objects
-- **TokenProtocol Approach** - Uses structured token metadata with exact expiration times
+- **`get_graph_client()`** - Main factory function accepting Token values (strings, callables, etc.)
+- **`DirectTokenCredential`** - Azure TokenCredential implementation using the unified Token type
+- **Token Approach** - Uses the common Token type for flexible token handling
 - **Pre-authorized Authentication** - Works seamlessly with Teams OAuth tokens without complex validation
 
 ### Key Implementation Details
 
 ```python
-import datetime
-from typing import Optional
-
-class TokenData:
-    """Token data class that implements TokenProtocol."""
-
-    def __init__(self, access_token: str, expires_in_seconds: int = 3600):
-        self.access_token = access_token
-        # Calculate exact expiration time
-        self.expires_at: Optional[datetime.datetime] = datetime.datetime.now(
-            datetime.timezone.utc
-        ) + datetime.timedelta(seconds=expires_in_seconds)
-        self.token_type: Optional[str] = "Bearer"
-        self.scope: Optional[str] = "https://graph.microsoft.com/.default"
+from microsoft.teams.api.clients.user.params import GetUserTokenParams
+from microsoft.teams.graph import get_graph_client
 
 # Get token directly from Teams API
 token_params = GetUserTokenParams(
@@ -106,16 +93,11 @@ token_params = GetUserTokenParams(
     connection_name=ctx.connection_name,
 )
 
-# Get user token once before creating the client to avoid event loop conflicts
+# Get user token and create Graph client directly
 token_response = await ctx.api.users.token.get(token_params)
 
-def get_fresh_token():
-    """Callable that returns fresh token data implementing TokenProtocol."""
-    # Return the token we already retrieved to avoid async/sync conflicts
-    return TokenData(token_response.token, expires_in_seconds=3600)
-
-# Create Graph client with TokenProtocol callable
-graph = await get_graph_client(get_fresh_token, connection_name=ctx.connection_name)
+# Create Graph client with string token (simplest approach)
+graph = get_graph_client(token_response.token, connection_name=ctx.connection_name)
 
 # Make Graph API calls
 me = await graph.me.get()
