@@ -6,28 +6,31 @@ Licensed under the MIT License.
 import asyncio
 import importlib.metadata
 import os
-from dataclasses import dataclass
 from logging import Logger
-from typing import Any, Callable, Dict, List, Optional, TypeVar, Union, cast, overload
+from typing import Any, Callable, List, Optional, TypeVar, Union, cast, overload
 
+from dependency_injector import providers
 from dotenv import find_dotenv, load_dotenv
 from microsoft.teams.api import (
-    ActivityBase,
-    ActivityTypeAdapter,
     ApiClient,
     ClientCredentials,
     ConversationReference,
     Credentials,
-    GetUserTokenParams,
     JsonWebToken,
-    TokenProtocol,
 )
+from microsoft.teams.api.activities.message.message import MessageActivityInput
+from microsoft.teams.api.clients.conversation.activity import ActivityParams
+from microsoft.teams.api.models.account import Account, ConversationAccount
+from microsoft.teams.cards.adaptive_card import AdaptiveCard
 from microsoft.teams.common import Client, ClientOptions, ConsoleLogger, EventEmitter, LocalStorage
 
+from .app_events import EventManager
 from .app_oauth import OauthHandlers
+from .app_plugins import PluginProcessor
 from .app_process import ActivityProcessor
+from .app_tokens import AppTokens
+from .container import Container
 from .events import (
-    ActivityEvent,
     ErrorEvent,
     EventType,
     StartEvent,
@@ -35,10 +38,10 @@ from .events import (
     get_event_type_from_signature,
     is_registered_event,
 )
-from .http_plugin import HttpActivityEvent, HttpPlugin
+from .http_plugin import HttpPlugin
 from .options import AppOptions
-from .plugins import Plugin, PluginActivityResponseEvent, PluginStartEvent
-from .routing import ActivityContext, ActivityHandlerMixin, ActivityRouter
+from .plugins import PluginBase, PluginStartEvent, get_metadata
+from .routing import ActivityHandlerMixin, ActivityRouter
 
 version = importlib.metadata.version("microsoft-teams-app")
 
@@ -46,14 +49,6 @@ F = TypeVar("F", bound=Callable[..., Any])
 load_dotenv(find_dotenv(usecwd=True))
 
 USER_AGENT = f"teams.py[app]/{version}"
-
-
-@dataclass
-class AppTokens:
-    """Application tokens for API access."""
-
-    bot: Optional[TokenProtocol] = None
-    graph: Optional[TokenProtocol] = None
 
 
 class App(ActivityHandlerMixin):
@@ -77,21 +72,31 @@ class App(ActivityHandlerMixin):
 
         self._events = EventEmitter[EventType]()
         self._router = ActivityRouter()
-        self._activity_processor = ActivityProcessor(self._router, self.log)
 
         self._tokens = AppTokens()
         self.credentials = self._init_credentials()
+
+        self.container = Container()
+        self.container.set_provider("id", providers.Object(self.id))
+        self.container.set_provider("name", providers.Object(self.name))
+        self.container.set_provider("credentials", providers.Object(self.credentials))
+        self.container.set_provider("bot_token", providers.Callable(lambda: self.tokens.bot))
+        self.container.set_provider("graph_token", providers.Callable(lambda: self.tokens.graph))
+        self.container.set_provider("logger", providers.Object(self.log))
+        self.container.set_provider("storage", providers.Object(self.storage))
+        self.container.set_provider(self.http_client.__class__.__name__, providers.Factory(lambda: self.http_client))
 
         self.api = ApiClient(
             "https://smba.trafficmanager.net/teams",
             self.http_client.clone(ClientOptions(token=lambda: self.tokens.bot)),
         )
 
-        plugins: List[Plugin] = list(self.options.plugins or [])
+        plugins: List[PluginBase] = list(self.options.plugins or [])
 
         http_plugin = None
         for i, plugin in enumerate(plugins):
-            if isinstance(plugin, HttpPlugin):
+            meta = get_metadata(type(plugin))
+            if meta.name == "http":
                 http_plugin = plugin
                 plugins.pop(i)
                 break
@@ -101,18 +106,28 @@ class App(ActivityHandlerMixin):
             if self.credentials and hasattr(self.credentials, "client_id"):
                 app_id = self.credentials.client_id
 
-            http_plugin = HttpPlugin(app_id, self.log, self.options.enable_token_validation, self.handle_activity)
+            http_plugin = HttpPlugin(app_id, self.log, self.options.enable_token_validation)
 
-        plugins.append(http_plugin)
-
-        self.plugins = plugins
-        self.http = http_plugin
-
-        # TODO: When plugin architecture is done, remove this manual wiring
-        self.http.activity_handler = self.handle_activity
+        plugins.insert(0, http_plugin)
+        self.http = cast(HttpPlugin, http_plugin)
 
         self._port: Optional[int] = None
         self._running = False
+
+        # initialize all event, activity, and plugin processors
+        self.activity_processor = ActivityProcessor(
+            self._router,
+            self.log,
+            self.id,
+            self.storage,
+            self.options.default_connection_name,
+            self.http_client,
+            self.tokens,
+        )
+        self.event_manager = EventManager(self._events, self.activity_processor)
+        self.activity_processor.event_manager = self.event_manager
+        self._plugin_processor = PluginProcessor(self.container, self.event_manager, self.log, self._events)
+        self.plugins = self._plugin_processor.initialize_plugins(plugins)
 
         # default event handlers
         oauth_handlers = OauthHandlers(
@@ -184,9 +199,16 @@ class App(ActivityHandlerMixin):
             await self._refresh_tokens(force=True)
             self._running = True
 
+            for plugin in self.plugins:
+                # Inject the dependencies
+                self._plugin_processor.inject(plugin)
+                if hasattr(plugin, "on_init") and callable(plugin.on_init):
+                    await plugin.on_init()
+
             # Start all plugins except HTTP plugin first
             for plugin in self.plugins:
-                if plugin is not self.http:
+                is_callable = hasattr(plugin, "on_start") and callable(plugin.on_start)
+                if plugin is not self.http and is_callable:
                     event = PluginStartEvent(port=self._port)
                     await plugin.on_start(event)
 
@@ -216,7 +238,8 @@ class App(ActivityHandlerMixin):
             async def on_http_stopped() -> None:
                 # Stop all other plugins after HTTP is stopped
                 for plugin in reversed(self.plugins):
-                    if plugin is not self.http:
+                    is_callable = hasattr(plugin, "on_stop") and callable(plugin.on_stop)
+                    if plugin is not self.http and is_callable:
                         await plugin.on_stop()
 
                 self._running = False
@@ -230,6 +253,28 @@ class App(ActivityHandlerMixin):
             self.log.error(f"Failed to stop app: {error}")
             self._events.emit("error", ErrorEvent(error, context={"method": "stop"}))
             raise
+
+    async def send(self, conversation_id: str, activity: str | ActivityParams | AdaptiveCard):
+        """Send an activity proactively."""
+
+        if self.id is None or self.name is None:
+            raise ValueError("app not started")
+
+        conversation_ref = ConversationReference(
+            channel_id="msteams",
+            service_url=self.api.service_url,
+            bot=Account(id=self.id, name=self.name, role="bot"),
+            conversation=ConversationAccount(id=conversation_id, conversation_type="personal"),
+        )
+
+        if isinstance(activity, str):
+            activity = MessageActivityInput(text=activity)
+        elif isinstance(activity, AdaptiveCard):
+            activity = MessageActivityInput().add_card(activity)
+        else:
+            activity = activity
+
+        return await self.http.send(activity, conversation_ref)
 
     def _init_credentials(self) -> Optional[Credentials]:
         """Initialize authentication credentials from options and environment."""
@@ -299,107 +344,6 @@ class App(ActivityHandlerMixin):
 
             self._events.emit("error", ErrorEvent(error, context={"method": "_refresh_graph_token"}))
             raise
-
-    async def handle_activity(self, input_activity: HttpActivityEvent) -> Dict[str, Any]:
-        """
-        Handle incoming activities using registered handlers and middleware chain.
-
-        Args:
-            activity: The Teams activity data
-
-        Returns:
-            Response data to send back
-        """
-        self.log.debug(f"Received activity: {input_activity}")
-
-        activity = ActivityTypeAdapter.validate_python(input_activity.activity_payload)
-        self.log.debug(f"Validated activity: {activity}")
-        activity_type = activity.type
-        activity_id = activity.id or ""
-
-        self.log.info(f"Processing activity {activity_id} of type {activity_type}")
-
-        try:
-            self._events.emit("activity", ActivityEvent(activity))
-            ctx = await self.build_context(activity, input_activity.token)
-            response = await self._activity_processor.process_activity(ctx)
-            await self.http.on_activity_response(
-                PluginActivityResponseEvent(
-                    conversation_ref=ctx.conversation_ref,
-                    sender=self.http,
-                    activity=activity,
-                    response=response,
-                ),
-            )
-
-            return {
-                "status": "processed",
-                "message": f"Successfully handled {activity_type} activity",
-                "activityId": activity_id,
-                "response": response,
-            }
-        except Exception as error:
-            self.log.error(f"Failed to process activity {activity_id}: {error}")
-
-            self._events.emit(
-                "error",
-                ErrorEvent(
-                    error,
-                    context={"method": "handle_activity", "activity_id": activity_id, "activity_type": activity_type},
-                ),
-            )
-            raise
-
-    async def build_context(self, activity: ActivityBase, token: TokenProtocol) -> ActivityContext[ActivityBase]:
-        """Build the context object for activity processing.
-
-        Args:
-            activity: The validated Activity object
-
-        Returns:
-            Context object for middleware chain execution
-        """
-
-        service_url = activity.service_url or token.service_url
-        conversation_ref = ConversationReference(
-            service_url=service_url,
-            activity_id=activity.id,
-            bot=activity.recipient,
-            channel_id=activity.channel_id,
-            conversation=activity.conversation,
-            locale=activity.locale,
-            user=activity.from_,
-        )
-        api_client = ApiClient(service_url, self.http_client.clone(ClientOptions(token=self.tokens.bot)))
-
-        # Check if user is signed in
-        is_signed_in = False
-        user_token: Optional[TokenProtocol] = None
-        try:
-            user_token_res = await api_client.users.token.get(
-                GetUserTokenParams(
-                    connection_name=self.options.default_connection_name or "default",
-                    user_id=activity.from_.id,
-                    channel_id=activity.channel_id,
-                )
-            )
-            user_token = JsonWebToken(user_token_res.token)
-            is_signed_in = True
-        except Exception:
-            # User token not available
-            pass
-
-        return ActivityContext(
-            activity,
-            self.id or "",
-            self.logger,
-            self.storage,
-            api_client,
-            user_token,
-            conversation_ref,
-            is_signed_in,
-            self.options.default_connection_name,
-        )
 
     @overload
     def event(self, func_or_event_type: F) -> F:

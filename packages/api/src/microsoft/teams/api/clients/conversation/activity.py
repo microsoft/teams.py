@@ -3,48 +3,13 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from typing import List, Optional, Union
+from typing import List, Optional
 
 from microsoft.teams.common.http import Client
-from pydantic import Field
-from typing_extensions import Annotated
 
-from ...activities.command import CommandResultActivityInput, CommandSendActivityInput
-from ...activities.conversation import ConversationUpdateActivityInput, EndOfConversationActivityInput
-from ...activities.handoff import HandoffActivityInput
-from ...activities.message import (
-    MessageActivityInput,
-    MessageDeleteActivityInput,
-    MessageReactionActivityInput,
-    MessageUpdateActivityInput,
-)
-from ...activities.trace import TraceActivityInput
-from ...activities.typing import TypingActivityInput
-from ...models import Account, Resource
+from ...activities import ActivityParams, SentActivity
+from ...models import Account
 from ..base_client import BaseClient
-
-# Union of all activity input types (each defined next to their respective activities)
-ActivityParams = Annotated[
-    Union[
-        # Simple activities
-        ConversationUpdateActivityInput,
-        EndOfConversationActivityInput,
-        HandoffActivityInput,
-        TraceActivityInput,
-        TypingActivityInput,
-        # Message activities
-        MessageActivityInput,
-        MessageDeleteActivityInput,
-        MessageReactionActivityInput,
-        MessageUpdateActivityInput,
-        # Command activities
-        CommandSendActivityInput,
-        CommandResultActivityInput,
-        # Event activities
-        # Install/Update activities
-    ],
-    Field(discriminator="type"),
-]
 
 
 class ConversationActivityClient(BaseClient):
@@ -63,7 +28,7 @@ class ConversationActivityClient(BaseClient):
         super().__init__(http_client)
         self.service_url = service_url
 
-    async def create(self, conversation_id: str, activity: ActivityParams) -> Resource:
+    async def create(self, conversation_id: str, activity: ActivityParams) -> SentActivity:
         """
         Create a new activity in a conversation.
 
@@ -78,9 +43,11 @@ class ConversationActivityClient(BaseClient):
             f"{self.service_url}/v3/conversations/{conversation_id}/activities",
             json=activity.model_dump(by_alias=True, exclude_none=True),
         )
-        return Resource(**response.json())
 
-    async def update(self, conversation_id: str, activity_id: str, activity: ActivityParams) -> Resource:
+        id = response.json()["id"]
+        return SentActivity(id=id, activity_params=activity)
+
+    async def update(self, conversation_id: str, activity_id: str, activity: ActivityParams) -> SentActivity:
         """
         Update an existing activity in a conversation.
 
@@ -96,9 +63,10 @@ class ConversationActivityClient(BaseClient):
             f"{self.service_url}/v3/conversations/{conversation_id}/activities/{activity_id}",
             json=activity.model_dump(by_alias=True),
         )
-        return Resource(**response.json())
+        id = response.json()["id"]
+        return SentActivity(id=id, activity_params=activity)
 
-    async def reply(self, conversation_id: str, activity_id: str, activity: ActivityParams) -> Resource:
+    async def reply(self, conversation_id: str, activity_id: str, activity: ActivityParams) -> SentActivity:
         """
         Reply to an activity in a conversation.
 
@@ -116,7 +84,8 @@ class ConversationActivityClient(BaseClient):
             f"{self.service_url}/v3/conversations/{conversation_id}/activities/{activity_id}",
             json=activity_json,
         )
-        return Resource(**response.json())
+        id = response.json()["id"]
+        return SentActivity(id=id, activity_params=activity)
 
     async def delete(self, conversation_id: str, activity_id: str) -> None:
         """
