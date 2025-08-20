@@ -24,7 +24,6 @@ from .plugins import (
     DependencyMetadata,
     EventMetadata,
     LoggerDependencyOptions,
-    PluginActivityEvent,
     PluginActivityResponseEvent,
     PluginErrorEvent,
     PluginStartEvent,
@@ -273,10 +272,6 @@ class HttpPlugin(Sender):
             del self.pending[activity_id]
 
         return result
-
-    async def on_activity(self, event: PluginActivityEvent):
-        """Handle incoming Teams activities."""
-        self.logger.info(f"Received within on_activity: {event.activity}")
 
     def _setup_routes(self) -> None:
         """Setup FastAPI routes."""

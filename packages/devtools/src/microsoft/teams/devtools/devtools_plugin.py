@@ -190,7 +190,7 @@ class DevToolsPlugin(Sender):
 
     async def on_activity(self, event: PluginActivityEvent):
         """Handle incoming activities."""
-        self.logger.info("Activity received in on_activity")
+        self.logger.debug("Activity received in on_activity")
 
         activity = DevToolsActivityReceivedEvent(
             id=str(uuid4()),
@@ -204,7 +204,7 @@ class DevToolsPlugin(Sender):
 
     async def on_activity_sent(self, event: PluginActivitySentEvent):
         """Handle sent activities."""
-        self.logger.info(f"Activity sent: {event.activity}")
+        self.logger.debug(f"Activity sent: {event.activity}")
 
         activity = DevToolsActivitySentEvent(
             id=str(uuid4()),
