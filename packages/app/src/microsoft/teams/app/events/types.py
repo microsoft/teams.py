@@ -92,7 +92,7 @@ class StopEvent:
 @dataclass
 class SignInEvent:
     activity_ctx: Union[
-        "ActivityContext[SignInVerifyStateInvokeActivity]",
-        "ActivityContext[SignInTokenExchangeInvokeActivity]",
+        ActivityContext[SignInVerifyStateInvokeActivity],
+        ActivityContext[SignInTokenExchangeInvokeActivity],
     ]
     token_response: TokenResponse

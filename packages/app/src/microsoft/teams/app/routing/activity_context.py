@@ -29,7 +29,6 @@ from microsoft.teams.api import (
 )
 from microsoft.teams.api.models.attachment.card_attachment import OAuthCardAttachment, card_attachment
 from microsoft.teams.api.models.oauth import OAuthCard
-from microsoft.teams.app.plugins.sender import Sender
 from microsoft.teams.app.plugins.streamer import StreamerProtocol
 from microsoft.teams.cards import AdaptiveCard
 from microsoft.teams.common import Storage
@@ -58,7 +57,6 @@ class ActivityContext(Generic[T]):
 
     def __init__(
         self,
-        sender: Sender,
         activity: T,
         app_id: str,
         logger: Logger,
@@ -70,7 +68,6 @@ class ActivityContext(Generic[T]):
         is_signed_in: bool,
         connection_name: str,
     ):
-        self.sender = sender
         self.activity = activity
         self.app_id = app_id
         self.logger = logger

@@ -14,6 +14,7 @@ import uvicorn
 from fastapi import FastAPI, Request, Response
 from fastapi.staticfiles import StaticFiles
 from microsoft.teams.api import Activity, ActivityParams, ApiClient, ConversationReference, SentActivity, TokenProtocol
+from microsoft.teams.app.http_stream import HttpStream
 from microsoft.teams.common.http.client import Client, ClientOptions
 from microsoft.teams.common.logging import ConsoleLogger
 from pydantic import BaseModel
@@ -54,15 +55,11 @@ class HttpPlugin(Sender):
     def __init__(
         self,
         app_id: Optional[str],
-        http_client: Client,
-        bot_token: Optional[TokenProtocol] = None,
         logger: Optional[Logger] = None,
         enable_token_validation: bool = True,
     ):
         super().__init__()
         self.logger = logger or ConsoleLogger().create_logger("@teams/http-plugin")
-        self.http_client = http_client
-        self.bot_token = bot_token
         self._server: Optional[uvicorn.Server] = None
         self._port: Optional[int] = None
         self._on_ready_callback: Optional[Callable[[], Awaitable[None]]] = None
@@ -311,25 +308,10 @@ class HttpPlugin(Sender):
 
         self.app.get("/")(health_check)
 
-    async def send(self, activity: ActivityParams, ref: ConversationReference) -> Resource:
-        """Send an activity to Teams."""
-
-        api = ApiClient(ref.service_url, self.http_client.clone(ClientOptions(token=self.bot_token)))
-
-        activity.from_ = ref.bot
-        activity.conversation = ref.conversation
-
-        if activity.id:
-            res = await api.conversations.activities(ref.conversation.id).update(activity.id, activity)
-            return res
-
-        res = await api.conversations.activities(ref.conversation.id).create(activity)
-        return res
-
     def create_stream(self, ref: ConversationReference) -> StreamerProtocol:
         """Create a new streaming instance."""
 
-        api = ApiClient(ref.service_url, self.http_client.clone(ClientOptions(token=self.bot_token)))
+        api = ApiClient(ref.service_url, self.client.clone(ClientOptions(token=self.bot_token)))
 
         return HttpStream(api, ref, self.logger)
 

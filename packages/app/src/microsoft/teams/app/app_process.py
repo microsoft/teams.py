@@ -96,6 +96,7 @@ class ActivityProcessor:
             # User token not available
             pass
 
+        stream = sender.create_stream(conversation_ref)
         activityCtx = ActivityContext(
             activity,
             self.id or "",
@@ -104,6 +105,7 @@ class ActivityProcessor:
             api_client,
             user_token,
             conversation_ref,
+            stream,
             is_signed_in,
             self.default_connection_name,
         )
@@ -126,6 +128,21 @@ class ActivityProcessor:
             return res
 
         activityCtx.send = updated_send
+
+        async def handle_chunk(chunk_activity: SentActivity):
+            if self.event_manager:
+                await self.event_manager.on_activity_sent(
+                    sender, ActivitySentEvent(sender=sender, activity=chunk_activity), plugins=plugins
+                )
+
+        async def handle_close(close_activity: SentActivity):
+            if self.event_manager:
+                await self.event_manager.on_activity_sent(
+                    sender, ActivitySentEvent(sender=sender, activity=close_activity), plugins=plugins
+                )
+
+        activityCtx.stream.events.on("chunk", handle_chunk)
+        activityCtx.stream.events.once("close", handle_close)
 
         return activityCtx
 
@@ -158,6 +175,7 @@ class ActivityProcessor:
         # If no registered handlers, fall back to legacy activity_handler
         if handlers:
             middleware_result = await self.execute_middleware_chain(activityCtx, handlers)
+            await activityCtx.stream.close()
             if middleware_result is None:
                 pass
             elif not is_invoke_response(middleware_result):

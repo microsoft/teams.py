@@ -15,7 +15,7 @@ from microsoft.teams.api import (
     ConversationReference,
     Entity,
     MessageActivityInput,
-    Resource,
+    SentActivity,
     TypingActivityInput,
 )
 from microsoft.teams.common import ConsoleLogger, EventEmitter
@@ -58,7 +58,7 @@ class HttpStream(StreamerProtocol):
         )
         self._events = EventEmitter[IStreamerEvents]()
 
-        self._result: Optional[Resource] = None
+        self._result: Optional[SentActivity] = None
         self._lock = asyncio.Lock()
         self._timeout: Optional[Timeout] = None
         self._id_set_event = asyncio.Event()
@@ -94,8 +94,7 @@ class HttpStream(StreamerProtocol):
     @property
     def events(self) -> EventEmitter[IStreamerEvents]:
         """
-        Provides access to event listener registration for stream events,
-        but does not allow emitting them directly.
+        Provides access to event listener registration for stream events.
         """
         return self._events
 
@@ -128,7 +127,7 @@ class HttpStream(StreamerProtocol):
         """
         self.emit(TypingActivityInput().with_text(text).with_channel_data(ChannelData(stream_type="informative")))
 
-    async def close(self) -> Optional[Resource]:
+    async def close(self) -> Optional[SentActivity]:
         # wait for lock to be free
         if self._result is not None:
             self._logger.debug("stream already closed with result")
@@ -244,7 +243,7 @@ class HttpStream(StreamerProtocol):
             # Signal that ID has been set
             self._id_set_event.set()
 
-    async def _send(self, to_send: Union[TypingActivityInput, MessageActivityInput]) -> Resource:
+    async def _send(self, to_send: Union[TypingActivityInput, MessageActivityInput]) -> SentActivity:
         """
         Send or update an activity to the Teams conversation.
 
