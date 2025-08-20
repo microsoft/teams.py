@@ -17,10 +17,5 @@
       "root": "packages/api/src",
       "reportIncompatibleVariableOverride":"none",
       "reportIncompatibleMethodOverride":"none"
-   },
-   {
-      "root": "packages/cards/src",
-      "reportIncompatibleVariableOverride":"none",
-      "reportIncompatibleMethodOverride":"none"
    }]
 }
