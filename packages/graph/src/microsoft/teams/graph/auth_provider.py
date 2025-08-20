@@ -6,7 +6,7 @@ Licensed under the MIT License.
 import asyncio
 import concurrent.futures
 import datetime
-from typing import Any, Optional
+from typing import Any
 
 import jwt
 from azure.core.credentials import AccessToken, TokenCredential
@@ -23,16 +23,14 @@ class AuthProvider(TokenCredential):
     # Timeout for token resolution operations (in seconds)
     _TOKEN_RESOLUTION_TIMEOUT = 5.0
 
-    def __init__(self, token: Token, connection_name: Optional[str] = None) -> None:
+    def __init__(self, token: Token) -> None:
         """
-        Initialize the direct token credential.
+        Initialize the AuthProvider.
 
         Args:
             token: Token data (string, StringLike, callable, or None)
-            connection_name: OAuth connection name for logging/tracking purposes
         """
         self._token = token
-        self._connection_name = connection_name
 
     def get_token(self, *scopes: str, **kwargs: Any) -> AccessToken:
         """
@@ -40,7 +38,7 @@ class AuthProvider(TokenCredential):
 
         Args:
             *scopes: Token scopes (required for interface compatibility)
-            **kwargs: Additional keyword arguments (unused)
+            **kwargs: Additional keyword arguments
 
         Returns:
             AccessToken: The access token for Microsoft Graph
@@ -68,8 +66,6 @@ class AuthProvider(TokenCredential):
             # Try to extract expiration from JWT, fallback to 1 hour default
             try:
                 # Decode JWT without verification to extract expiration
-                # Note: Since we're already decoding, we could extract additional info
-                # like token_type from 'typ' claim or calculate refresh_on if needed
                 payload = jwt.decode(token_str, algorithms=["RS256"], options={"verify_signature": False})
                 expires_on = payload.get("exp")
                 if not expires_on:

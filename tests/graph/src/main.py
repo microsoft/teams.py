@@ -38,7 +38,7 @@ async def get_authenticated_graph_client(ctx: ActivityContext[MessageActivity]):
 
     try:
         # Create Graph client using the user token
-        return get_graph_client(ctx.user_token, connection_name=ctx.connection_name)
+        return get_graph_client(ctx.user_token)
 
     except Exception as e:
         ctx.logger.error(f"Failed to create Graph client: {e}")

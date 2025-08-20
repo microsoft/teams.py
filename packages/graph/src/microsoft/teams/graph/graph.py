@@ -3,8 +3,6 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from typing import Optional
-
 from azure.core.exceptions import ClientAuthenticationError
 from microsoft.teams.common.http.client_token import Token
 from msgraph.graph_service_client import GraphServiceClient
@@ -12,17 +10,12 @@ from msgraph.graph_service_client import GraphServiceClient
 from .auth_provider import AuthProvider
 
 
-def get_graph_client(
-    token: Token,
-    *,
-    connection_name: Optional[str] = None,
-) -> GraphServiceClient:
+def get_graph_client(token: Token) -> GraphServiceClient:
     """
     Get a configured Microsoft Graph client using a Token.
 
     Args:
         token: Token data (string, StringLike, callable, or None)
-        connection_name: OAuth connection name for logging/tracking purposes (optional)
 
     Returns:
         GraphServiceClient: A configured client ready for Microsoft Graph API calls
@@ -49,7 +42,7 @@ def get_graph_client(
         ```
     """
     try:
-        credential = AuthProvider(token, connection_name=connection_name)
+        credential = AuthProvider(token)
         client = GraphServiceClient(credentials=credential)
         return client
 

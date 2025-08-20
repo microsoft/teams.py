@@ -36,19 +36,19 @@ class TestAuthProvider:
         time_diff = abs((actual_expiry - expected_expiry).total_seconds())
         assert time_diff < 60  # Should be within 1 minute
 
-    def test_get_token_with_string_and_connection_name(self) -> None:
-        """Test that we can get a valid access token from a string token with connection name."""
+    def test_get_token_with_string_basic(self) -> None:
+        """Test that we can get a valid access token from a string token."""
 
         # Arrange
-        token_str = "test_access_token_with_connection"
-        credential = AuthProvider(token_str, "graph")
+        token_str = "test_access_token_basic"
+        credential = AuthProvider(token_str)
 
         # Act
         token = credential.get_token("https://graph.microsoft.com/.default")
 
         # Assert
         assert isinstance(token, AccessToken)
-        assert token.token == "test_access_token_with_connection"
+        assert token.token == "test_access_token_basic"
 
     def test_get_token_with_callable(self) -> None:
         """Test that we can get a valid access token from a callable that returns a string."""
@@ -66,21 +66,21 @@ class TestAuthProvider:
         assert isinstance(token, AccessToken)
         assert token.token == "test_callable_token_456"
 
-    def test_get_token_with_callable_and_connection_name(self) -> None:
-        """Test that we can get a valid access token from a callable with connection name."""
+    def test_get_token_with_callable_basic(self) -> None:
+        """Test that we can get a valid access token from a callable."""
 
         # Arrange
         def get_token():
-            return "test_callable_token_with_connection"
+            return "test_callable_token_basic"
 
-        credential = AuthProvider(get_token, "graph")
+        credential = AuthProvider(get_token)
 
         # Act
         token = credential.get_token("https://graph.microsoft.com/.default")
 
         # Assert
         assert isinstance(token, AccessToken)
-        assert token.token == "test_callable_token_with_connection"
+        assert token.token == "test_callable_token_basic"
 
     def test_get_token_with_jwt_extracts_expiration(self) -> None:
         """Test that JWT tokens have their expiration extracted correctly."""
@@ -238,14 +238,14 @@ class TestGraphClientFactory:
         assert isinstance(client, GraphServiceClient)
         assert client is not None
 
-    def test_get_graph_client_with_connection_name(self) -> None:
-        """Test that connection_name parameter is handled correctly."""
+    def test_get_graph_client_basic(self) -> None:
+        """Test that get_graph_client works with basic parameters."""
 
         # Arrange
-        token = "test_token_with_connection"
+        token = "test_token_basic"
 
         # Act
-        client = get_graph_client(token, connection_name="custom_connection")
+        client = get_graph_client(token)
 
         # Assert
         assert isinstance(client, GraphServiceClient)

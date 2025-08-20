@@ -31,18 +31,12 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
         await ctx.sign_in()
         return
 
-    # Get user token directly from Teams API
-    token_params = GetUserTokenParams(
-        channel_id=ctx.activity.channel_id,
-        user_id=ctx.activity.from_.id,
-        connection_name=ctx.connection_name,
-    )
+    # Use the user token that's already available in the context
+    graph = get_graph_client(ctx.user_token)
 
-    # Get user token once before creating the client
-    token_response = await ctx.api.users.token.get(token_params)
-
-    # Create Graph client with string token (simplest approach)
-    graph = get_graph_client(token_response.token, connection_name="graph")
+    # Make Graph API calls
+    me = await graph.me.get()
+    await ctx.send(f"Hello {me.display_name}!")
 
     # Make Graph API calls
     me = await graph.me.get()
