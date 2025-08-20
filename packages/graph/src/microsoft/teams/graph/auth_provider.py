@@ -6,12 +6,15 @@ Licensed under the MIT License.
 import asyncio
 import concurrent.futures
 import datetime
+import logging
 from typing import Any
 
 import jwt
 from azure.core.credentials import AccessToken, TokenCredential
 from azure.core.exceptions import ClientAuthenticationError
 from microsoft.teams.common.http.client_token import Token, resolve_token
+
+logger = logging.getLogger(__name__)
 
 
 class AuthProvider(TokenCredential):
@@ -67,10 +70,12 @@ class AuthProvider(TokenCredential):
                 expires_on = payload.get("exp")
                 if not expires_on:
                     # Fallback to 1 hour from now if no exp claim
+                    logger.debug("JWT token missing 'exp' claim, using 1-hour default expiration")
                     now = datetime.datetime.now(datetime.timezone.utc)
                     expires_on = int((now + datetime.timedelta(hours=1)).timestamp())
             except Exception:
                 # Fallback to 1 hour from now if JWT decoding fails (e.g., not a JWT)
+                logger.debug("Token is not a valid JWT, using 1-hour default expiration")
                 now = datetime.datetime.now(datetime.timezone.utc)
                 expires_on = int((now + datetime.timedelta(hours=1)).timestamp())
 
