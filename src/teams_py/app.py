@@ -2,6 +2,7 @@
 Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
+# pyright: reportUnusedFunction=false
 
 import asyncio
 import os
@@ -65,7 +66,7 @@ async def main() -> None:
         await ctx.next()
 
     @app.event("activity")
-    async def handle_activity_event(event):
+    async def handle_activity_event(event: ActivityEvent) -> None:
         """Handle all activities using the new generated handler system."""
         activity = event.activity
         print(f"[GENERATED event('activity')] Activity event: {activity.type} (ID: {activity.id})")
@@ -82,10 +83,15 @@ async def main() -> None:
         await ctx.next()
 
     @app.on_message_ext_submit
-    async def handle_message_ext_submit(ctx: ActivityContext[MessageExtensionSubmitActionInvokeActivity]):
+    async def handle_message_ext_submit(
+        ctx: ActivityContext[MessageExtensionSubmitActionInvokeActivity],
+    ):
         """Handle message extension submit activities."""
-        print(f"[GENERATED] Message extension submit received: {ctx.activity.text}")
-        return {"status": "success"}
+        print("[GENERATED] Message extension submit received")
+        # Return a proper messaging extension response
+        from microsoft.teams.api.models import MessagingExtensionActionResponse
+
+        return MessagingExtensionActionResponse(compose_extension=None)
 
     @app.on_message_delete
     async def handle_message_delete(ctx: ActivityContext[MessageDeleteActivity]):
@@ -99,10 +105,10 @@ async def main() -> None:
         return None  # Typing activities typically don't need responses
 
     @app.on_event
-    async def handle_event_activity(ctx: ActivityContext[EventActivity]):
+    async def handle_event_activity(ctx: ActivityContext[EventActivity]) -> None:
         """Handle event activities (meetings, etc.)."""
         print(f"[GENERATED] Event received: {ctx.activity.name}")
-        return {"status": "processed"}
+        # Event handlers should return None, not a dict
 
     @app.event
     async def handle_activity_event_without_explicit_annotation(event: ActivityEvent):
@@ -111,7 +117,11 @@ async def main() -> None:
 
     @app.event
     async def handle_error(event: ErrorEvent):
-        print(f"[EVENT] Error in {event.context.get('method', 'unknown')}: {event.error}")
+        """Handle error events."""
+        context_info = "unknown"
+        if event.context is not None:
+            context_info = event.context.get("method", "unknown")
+        print(f"[EVENT] Error in {context_info}: {event.error}")
 
     @app.event
     async def handle_start(event: StartEvent):
