@@ -85,8 +85,3 @@ class AuthProvider(TokenCredential):
             if isinstance(e, ClientAuthenticationError):
                 raise
             raise ClientAuthenticationError(f"Failed to resolve token: {str(e)}") from e
-
-
-__all__ = [
-    "AuthProvider",
-]
