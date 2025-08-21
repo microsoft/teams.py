@@ -41,7 +41,7 @@ from microsoft.teams.api.models import (
     MessagingExtensionSuggestedAction,
     TaskModuleContinueResponse,
 )
-from microsoft.teams.app import ActivityContext, App
+from microsoft.teams.apps import ActivityContext, App
 from typing_extensions import Any, Dict
 
 from .cards import (

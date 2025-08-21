@@ -5,10 +5,10 @@ description = "demo app to test Azure Graph integration"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "microsoft-teams-app>=0.1.0",
+    "microsoft-teams-apps>=0.1.0",
     "microsoft-teams-graph>=0.1.0",
 ]
 
 [tool.uv.sources]
-microsoft-teams-app = { workspace = true }
+microsoft-teams-apps = { workspace = true }
 microsoft-teams-graph = { workspace = true }

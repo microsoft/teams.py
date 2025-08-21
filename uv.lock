@@ -9,7 +9,7 @@ members = [
     "graph",
     "message-extensions",
     "microsoft-teams-api",
-    "microsoft-teams-app",
+    "microsoft-teams-apps",
     "microsoft-teams-cards",
     "microsoft-teams-common",
     "microsoft-teams-devtools",
@@ -448,13 +448,13 @@ version = "0.1.0"
 source = { virtual = "tests/dialogs" }
 dependencies = [
     { name = "dotenv" },
-    { name = "microsoft-teams-app" },
+    { name = "microsoft-teams-apps" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "dotenv", specifier = ">=0.9.9" },
-    { name = "microsoft-teams-app", editable = "packages/app" },
+    { name = "microsoft-teams-apps", editable = "packages/apps" },
 ]
 
 [[package]]
@@ -483,13 +483,13 @@ version = "0.1.0"
 source = { virtual = "tests/echo" }
 dependencies = [
     { name = "dotenv" },
-    { name = "microsoft-teams-app" },
+    { name = "microsoft-teams-apps" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "dotenv", specifier = ">=0.9.9" },
-    { name = "microsoft-teams-app", editable = "packages/app" },
+    { name = "microsoft-teams-apps", editable = "packages/apps" },
 ]
 
 [[package]]
@@ -580,13 +580,13 @@ name = "graph"
 version = "0.1.0"
 source = { virtual = "tests/graph" }
 dependencies = [
-    { name = "microsoft-teams-app" },
+    { name = "microsoft-teams-apps" },
     { name = "microsoft-teams-graph" },
 ]
 
 [package.metadata]
 requires-dist = [
-    { name = "microsoft-teams-app", editable = "packages/app" },
+    { name = "microsoft-teams-apps", editable = "packages/apps" },
     { name = "microsoft-teams-graph", editable = "packages/graph" },
 ]
 
@@ -801,13 +801,13 @@ version = "0.1.0"
 source = { virtual = "tests/message-extensions" }
 dependencies = [
     { name = "dotenv" },
-    { name = "microsoft-teams-app" },
+    { name = "microsoft-teams-apps" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "dotenv", specifier = ">=0.9.9" },
-    { name = "microsoft-teams-app", editable = "packages/app" },
+    { name = "microsoft-teams-apps", editable = "packages/apps" },
 ]
 
 [[package]]
@@ -937,9 +937,9 @@ dev = [
 ]
 
 [[package]]
-name = "microsoft-teams-app"
+name = "microsoft-teams-apps"
 version = "0.0.1a1"
-source = { editable = "packages/app" }
+source = { editable = "packages/apps" }
 dependencies = [
     { name = "cryptography" },
     { name = "dependency-injector" },
@@ -1032,7 +1032,7 @@ source = { editable = "packages/devtools" }
 dependencies = [
     { name = "fastapi" },
     { name = "microsoft-teams-api" },
-    { name = "microsoft-teams-app" },
+    { name = "microsoft-teams-apps" },
     { name = "pydantic" },
     { name = "uvicorn", extra = ["standard"] },
 ]
@@ -1041,7 +1041,7 @@ dependencies = [
 requires-dist = [
     { name = "fastapi", specifier = ">=0.115.13" },
     { name = "microsoft-teams-api", editable = "packages/api" },
-    { name = "microsoft-teams-app", editable = "packages/app" },
+    { name = "microsoft-teams-apps", editable = "packages/apps" },
     { name = "pydantic", specifier = ">=2.0.0" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.34.3" },
 ]
@@ -1213,13 +1213,13 @@ version = "0.1.0"
 source = { virtual = "tests/oauth" }
 dependencies = [
     { name = "dotenv" },
-    { name = "microsoft-teams-app" },
+    { name = "microsoft-teams-apps" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "dotenv", specifier = ">=0.9.9" },
-    { name = "microsoft-teams-app", editable = "packages/app" },
+    { name = "microsoft-teams-apps", editable = "packages/apps" },
 ]
 
 [[package]]

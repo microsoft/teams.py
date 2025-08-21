@@ -1,5 +1,5 @@
 [project]
-name = "microsoft-teams-app"
+name = "microsoft-teams-apps"
 version = "0.0.1-alpha.1"
 description = "The app package for a Microsoft Teams agent"
 authors = [{ name = "Microsoft", email = "TeamsAISDKFeedback@microsoft.com" }]

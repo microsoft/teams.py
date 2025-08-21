@@ -12,7 +12,7 @@ dependencies = [
     "uvicorn[standard]>=0.34.3",
     "fastapi>=0.115.13",
     "microsoft-teams-api>=0.0.1-alpha.1",
-    "microsoft-teams-app>=0.0.1-alpha.1",
+    "microsoft-teams-apps>=0.0.1-alpha.1",
     "pydantic>=2.0.0",
 ]
 

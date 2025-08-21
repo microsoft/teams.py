@@ -44,7 +44,7 @@ from .options import AppOptions
 from .plugins import PluginBase, PluginStartEvent, get_metadata
 from .routing import ActivityHandlerMixin, ActivityRouter
 
-version = importlib.metadata.version("microsoft-teams-app")
+version = importlib.metadata.version("microsoft-teams-apps")
 
 F = TypeVar("F", bound=Callable[..., Any])
 load_dotenv(find_dotenv(usecwd=True))

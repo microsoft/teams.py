@@ -1,5 +1,5 @@
 [tool.uv.sources]
-"microsoft-teams-app" = { workspace = true }
+"microsoft-teams-apps" = { workspace = true }
 "microsoft-teams-api" = { workspace = true }
 "microsoft-teams-common" = { workspace = true }
 "microsoft-teams-cards" = { workspace = true }
