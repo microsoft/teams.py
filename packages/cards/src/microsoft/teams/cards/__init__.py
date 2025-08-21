@@ -604,7 +604,7 @@ class AdaptiveCard(CardElement):
     rtl: Optional[bool] = None
     """ Controls if the content of the card is to be rendered left-to-right or right-to-left. """
 
-    adaptive_card_schema: Optional[str] = Field(None, alias="schema")
+    ac_schema: Optional[str] = Field(None, alias="schema")
     """ A URL to the Adaptive Card schema the card is authored against. """
 
     version: Optional[Version] = None
@@ -684,8 +684,8 @@ class AdaptiveCard(CardElement):
         self.rtl = value
         return self
 
-    def withadaptive_card_schema(self, value: str) -> Self:
-        self.adaptive_card_schema = value
+    def withac_schema(self, value: str) -> Self:
+        self.ac_schema = value
         return self
 
     def with_version(self, value: Version) -> Self:
