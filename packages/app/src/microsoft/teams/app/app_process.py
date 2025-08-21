@@ -4,7 +4,7 @@ Licensed under the MIT License.
 """
 
 from logging import Logger
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union, cast
 
 from microsoft.teams.api import (
     ActivityBase,
@@ -16,6 +16,7 @@ from microsoft.teams.api import (
     JsonWebToken,
     SentActivity,
     TokenProtocol,
+    is_invoke_response,
 )
 from microsoft.teams.cards.adaptive_card import AdaptiveCard
 from microsoft.teams.common import Client, ClientOptions, LocalStorage, Storage
@@ -170,7 +171,11 @@ class ActivityProcessor:
             if not self.event_manager:
                 raise ValueError("EventManager was not initialized properly")
 
-            response = InvokeResponse[Any](status=200, body=middleware_result)
+            if not middleware_result or not is_invoke_response(middleware_result):
+                response = InvokeResponse[Any](status=200, body=middleware_result)
+            else:
+                response = cast(InvokeResponse[Any], middleware_result)
+
             await self.event_manager.on_activity_response(
                 sender,
                 ActivityResponseEvent(

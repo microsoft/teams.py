@@ -189,18 +189,17 @@ class HttpPlugin(Sender):
             self.logger.error(f"Plugin error: {error}")
 
     async def send(self, activity: ActivityParams, ref: ConversationReference) -> SentActivity:
-        client = cast(Client, self.client()) if callable(self.client) else self.client
-        api = ApiClient(service_url=ref.service_url, options=client.clone(ClientOptions(token=self.bot_token)))
+        api = ApiClient(service_url=ref.service_url, options=self.client.clone(ClientOptions(token=self.bot_token)))
 
         activity.from_ = ref.bot
         activity.conversation = ref.conversation
 
         if activity.id:
             res = await api.conversations.activities(ref.conversation.id).update(activity.id, activity)
-            return SentActivity(**{**activity.model_dump(), **res.model_dump()})
+            return SentActivity.merge(activity, res)
 
         res = await api.conversations.activities(ref.conversation.id).create(activity)
-        return SentActivity(**{**activity.model_dump(), **res.model_dump()})
+        return SentActivity.merge(activity, res)
 
     async def _process_activity(self, activity: Activity, activity_id: str, token: TokenProtocol) -> None:
         """

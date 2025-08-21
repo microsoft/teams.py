@@ -139,8 +139,11 @@ class PluginProcessor:
                     f"dependency of {type_name} of property {field_name} not found "
                     + f"but plugin {plugin.__class__.__name__} depends on it"
                 )
-        if dependency and field_name == "logger":
-            logger_dependency = cast(Logger, dependency())
-            dependency = logger_dependency.getChild(plugin.__class__.__name__)
-        setattr(plugin, field_name, dependency)
-        self.logger.info(f"Successfully injected the dependency {field_name} into {plugin.__class__.__name__}")
+        else:
+            # Calling the provider to get the actual instance
+            dependency = dependency()
+            if field_name == "logger":
+                logger_dependency = cast(Logger, dependency)
+                dependency = logger_dependency.getChild(plugin.__class__.__name__)
+            setattr(plugin, field_name, dependency)
+            self.logger.info(f"Successfully injected the dependency {field_name} into {plugin.__class__.__name__}")

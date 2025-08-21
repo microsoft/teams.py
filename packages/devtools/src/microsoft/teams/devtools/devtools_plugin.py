@@ -223,8 +223,7 @@ class DevToolsPlugin(Sender):
             del self.pending[event.activity.id]
 
     async def send(self, activity: ActivityParams, ref: ConversationReference) -> SentActivity:
-        plugin = self.http_plugin()
-        return await plugin.send(activity, ref)
+        return await self.http_plugin.send(activity, ref)
 
     async def emit_activity_to_sockets(self, event: DevToolsActivityEvent):
         for socket_id, websocket in self.sockets.items():

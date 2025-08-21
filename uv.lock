@@ -1067,11 +1067,21 @@ name = "microsoft-teams-devtools"
 version = "0.0.1a1"
 source = { editable = "packages/devtools" }
 dependencies = [
+    { name = "fastapi" },
+    { name = "microsoft-teams-api" },
+    { name = "microsoft-teams-app" },
+    { name = "pydantic" },
     { name = "uvicorn", extra = ["standard"] },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "uvicorn", extras = ["standard"], specifier = ">=0.34.3" }]
+requires-dist = [
+    { name = "fastapi", specifier = ">=0.115.13" },
+    { name = "microsoft-teams-api", editable = "packages/api" },
+    { name = "microsoft-teams-app", editable = "packages/app" },
+    { name = "pydantic", specifier = ">=2.0.0" },
+    { name = "uvicorn", extras = ["standard"], specifier = ">=0.34.3" },
+]
 
 [[package]]
 name = "microsoft-teams-graph"
