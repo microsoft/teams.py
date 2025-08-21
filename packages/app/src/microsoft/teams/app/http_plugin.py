@@ -195,9 +195,11 @@ class HttpPlugin(Sender):
         activity.conversation = ref.conversation
 
         if activity.id:
-            return await api.conversations.activities(ref.conversation.id).update(activity.id, activity)
+            res = await api.conversations.activities(ref.conversation.id).update(activity.id, activity)
+            return SentActivity.merge(activity, res)
 
-        return await api.conversations.activities(ref.conversation.id).create(activity)
+        res = await api.conversations.activities(ref.conversation.id).create(activity)
+        return SentActivity.merge(activity, res)
 
     async def _process_activity(self, activity: Activity, activity_id: str, token: TokenProtocol) -> None:
         """
@@ -209,7 +211,7 @@ class HttpPlugin(Sender):
             activity_id: The activity ID for response coordination
         """
         try:
-            if callable(self.on_activity_event):
+            if callable(self.on_activity):
                 event = ActivityEvent(activity=activity, sender=self, token=token)
                 self.on_activity_event(event)
             else:
@@ -273,7 +275,7 @@ class HttpPlugin(Sender):
     def _setup_routes(self) -> None:
         """Setup FastAPI routes."""
 
-        async def on_activity(request: Request, response: Response) -> Any:
+        async def on_activity_request(request: Request, response: Response) -> Any:
             """Handle incoming Teams activity."""
             # Process the activity (token validation handled by middleware)
             result = await self._handle_activity_request(request)
@@ -299,7 +301,7 @@ class HttpPlugin(Sender):
                 return body
             return cast(Any, result)
 
-        self.app.post("/api/messages")(on_activity)
+        self.app.post("/api/messages")(on_activity_request)
 
         async def health_check() -> Dict[str, Any]:
             """Basic health check endpoint."""

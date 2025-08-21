@@ -6,6 +6,7 @@ Licensed under the MIT License.
 from typing import TYPE_CHECKING, NamedTuple
 
 from microsoft.teams.api.activities import SentActivity
+from microsoft.teams.api.models import ConversationReference
 
 if TYPE_CHECKING:
     from .sender import Sender
@@ -19,3 +20,6 @@ class PluginActivitySentEvent(NamedTuple):
 
     activity: SentActivity
     """The sent activity"""
+
+    conversation_ref: ConversationReference
+    """The conversation reference for the activity"""

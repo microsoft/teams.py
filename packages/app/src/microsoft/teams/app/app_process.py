@@ -106,22 +106,25 @@ class ActivityProcessor:
             conversation_ref,
             is_signed_in,
             self.default_connection_name,
+            sender,
         )
 
         send = activityCtx.send
 
         async def updated_send(
-            message: str | ActivityParams | AdaptiveCard, conversation_id: Optional[str] = None
+            message: str | ActivityParams | AdaptiveCard, conversation_ref: Optional[ConversationReference] = None
         ) -> SentActivity:
-            res = await send(message)
+            res = await send(message, conversation_ref)
 
             if not self.event_manager:
                 raise ValueError("EventManager was not initialized properly")
 
             self.logger.debug("Calling on_activity_sent for plugins")
 
+            ref = conversation_ref or activityCtx.conversation_ref
+
             await self.event_manager.on_activity_sent(
-                sender, ActivitySentEvent(sender=sender, activity=res), plugins=plugins
+                sender, ActivitySentEvent(sender=sender, activity=res, conversation_ref=ref), plugins=plugins
             )
             return res
 
@@ -141,7 +144,14 @@ class ActivityProcessor:
 
         def create_route(plugin: PluginBase) -> ActivityHandler:
             async def route(ctx: ActivityContext[ActivityBase]) -> Optional[Any]:
-                await plugin.on_activity(PluginActivityEvent(sender=sender, activity=event.activity, token=event.token))
+                await plugin.on_activity(
+                    PluginActivityEvent(
+                        sender=sender,
+                        activity=event.activity,
+                        token=event.token,
+                        conversation_ref=activityCtx.conversation_ref,
+                    )
+                )
                 await ctx.next()
 
             return route
@@ -158,20 +168,21 @@ class ActivityProcessor:
         # If no registered handlers, fall back to legacy activity_handler
         if handlers:
             middleware_result = await self.execute_middleware_chain(activityCtx, handlers)
-            if middleware_result is None:
-                pass
-            elif not is_invoke_response(middleware_result):
+            if not self.event_manager:
+                raise ValueError("EventManager was not initialized properly")
+
+            if not middleware_result or not is_invoke_response(middleware_result):
                 response = InvokeResponse[Any](status=200, body=middleware_result)
             else:
                 response = cast(InvokeResponse[Any], middleware_result)
 
-            if not self.event_manager:
-                raise ValueError("EventManager was not initialized properly")
-
-            if response:
-                await self.event_manager.on_activity_response(
-                    sender, ActivityResponseEvent(activity=event.activity, response=response), plugins=plugins
-                )
+            await self.event_manager.on_activity_response(
+                sender,
+                ActivityResponseEvent(
+                    activity=event.activity, response=response, conversation_ref=activityCtx.conversation_ref
+                ),
+                plugins=plugins,
+            )
 
         self.logger.debug("Completed processing activity")
 
