@@ -8,6 +8,7 @@ from typing import Annotated, Union
 from pydantic import Field, TypeAdapter
 
 from . import event, install_update, invoke, message
+from .activity_params import ActivityParams
 from .command import CommandActivity, CommandResultActivity, CommandResultValue, CommandSendActivity, CommandSendValue
 from .conversation import (
     ConversationActivity,
@@ -26,6 +27,7 @@ from .invoke import *  # noqa: F403
 from .invoke import InvokeActivity
 from .message import *  # noqa: F403
 from .message import MessageActivities
+from .sent_activity import SentActivity
 from .trace import TraceActivity
 from .typing import TypingActivity
 
@@ -69,6 +71,8 @@ __all__: list[str] = [
     "ConversationEventType",
     "InvokeActivity",
     "TraceActivity",
+    "ActivityParams",
+    "SentActivity",
 ]
 __all__.extend(event.__all__)
 __all__.extend(install_update.__all__)

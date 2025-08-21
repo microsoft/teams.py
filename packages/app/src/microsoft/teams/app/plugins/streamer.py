@@ -5,9 +5,7 @@ Licensed under the MIT License.
 
 from typing import Optional, Protocol, Union
 
-from microsoft.teams.api.activities import TypingActivity
-from microsoft.teams.api.activities.message import MessageActivity
-from microsoft.teams.api.models.resource import Resource
+from microsoft.teams.api.activities import MessageActivity, SentActivity, TypingActivity
 
 
 class StreamerProtocol(Protocol):
@@ -48,7 +46,7 @@ class StreamerProtocol(Protocol):
         """
         ...
 
-    async def close(self) -> Optional[Resource]:
+    async def close(self) -> Optional[SentActivity]:
         """
         Close the stream.
         """

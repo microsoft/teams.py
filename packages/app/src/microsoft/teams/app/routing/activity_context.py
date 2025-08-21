@@ -7,7 +7,7 @@ import base64
 import json
 from dataclasses import dataclass
 from logging import Logger
-from typing import Any, Awaitable, Callable, Generic, Optional, TypeVar
+from typing import Any, Awaitable, Callable, Generic, Optional, TypeVar, cast
 
 from microsoft.teams.api import (
     ActivityBase,
@@ -20,7 +20,7 @@ from microsoft.teams.api import (
     GetBotSignInResourceParams,
     GetUserTokenParams,
     MessageActivityInput,
-    Resource,
+    SentActivity,
     SignOutUserParams,
     TokenExchangeResource,
     TokenExchangeState,
@@ -29,12 +29,13 @@ from microsoft.teams.api import (
 )
 from microsoft.teams.api.models.attachment.card_attachment import OAuthCardAttachment, card_attachment
 from microsoft.teams.api.models.oauth import OAuthCard
+from microsoft.teams.app.plugins.sender import Sender
 from microsoft.teams.cards import AdaptiveCard
 from microsoft.teams.common import Storage
 
 T = TypeVar("T", bound=ActivityBase, contravariant=True)
 
-SendCallable = Callable[[str | ActivityParams | AdaptiveCard], Awaitable[Resource]]
+SendCallable = Callable[[str | ActivityParams | AdaptiveCard], Awaitable[SentActivity]]
 
 
 @dataclass
@@ -65,6 +66,7 @@ class ActivityContext(Generic[T]):
         conversation_ref: ConversationReference,
         is_signed_in: bool,
         connection_name: str,
+        sender: Sender,
     ):
         self.activity = activity
         self.app_id = app_id
@@ -75,12 +77,13 @@ class ActivityContext(Generic[T]):
         self.user_token = user_token
         self.connection_name = connection_name
         self.is_signed_in = is_signed_in
+        self._plugin = sender
 
         self._next_handler: Optional[Callable[[], Awaitable[None]]] = None
 
     async def send(
-        self, message: str | ActivityParams | AdaptiveCard, conversation_id: Optional[str] = None
-    ) -> Resource:
+        self, message: str | ActivityParams | AdaptiveCard, conversation_ref: Optional[ConversationReference] = None
+    ) -> SentActivity:
         """
         Send a message to the conversation.
 
@@ -95,18 +98,18 @@ class ActivityContext(Generic[T]):
         else:
             activity = message
 
-        res = await self.api.conversations.activities(conversation_id or self.conversation_ref.conversation.id).create(
-            activity
-        )
+        ref = conversation_ref or self.conversation_ref
+        res = await self._plugin.send(activity, ref)
         return res
 
-    async def reply(self, input: str | ActivityParams) -> Resource:
+    async def reply(self, input: str | ActivityParams) -> SentActivity:
         """Send a reply to the activity."""
         activity = MessageActivityInput(text=input) if isinstance(input, str) else input
         if isinstance(activity, MessageActivityInput):
-            block_quote = self._build_block_quote_for_activity(activity)
+            block_quote = self._build_block_quote_for_activity()
             if block_quote:
                 activity.text = f"{block_quote}\n\n{activity.text}" if activity.text else block_quote
+        activity.reply_to_id = self.activity.id
         return await self.send(activity)
 
     async def next(self) -> None:
@@ -118,15 +121,16 @@ class ActivityContext(Generic[T]):
         """Set the next handler in the middleware chain."""
         self._next_handler = handler
 
-    def _build_block_quote_for_activity(self, activity: ActivityParams) -> Optional[str]:
-        if isinstance(activity, MessageActivityInput) and activity.text:
+    def _build_block_quote_for_activity(self) -> Optional[str]:
+        if self.activity.type == "message" and hasattr(self.activity, "text"):
+            activity = cast(MessageActivityInput, self.activity)
             max_length = 120
-            text = activity.text
+            text = activity.text or ""
             truncated_text = f"{text[:max_length]}..." if len(text) > max_length else text
 
-            activity_id = self.activity.id
-            from_id = self.activity.from_.id
-            from_name = self.activity.from_.name
+            activity_id = activity.id
+            from_id = activity.from_.id if activity.from_ else ""
+            from_name = activity.from_.name if activity.from_ else ""
 
             return (
                 f'<blockquote itemscope="" itemtype="http://schema.skype.com/Reply" itemid="{activity_id}">'
@@ -215,7 +219,8 @@ class ActivityContext(Generic[T]):
             )
         )
 
-        await self.send(payload, conversation_id)
+        self.conversation_ref.conversation.id = conversation_id
+        await self.send(payload, self.conversation_ref)
 
         return None
 
