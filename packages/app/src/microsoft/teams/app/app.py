@@ -12,16 +12,17 @@ from typing import Any, Callable, List, Optional, TypeVar, Union, cast, overload
 from dependency_injector import providers
 from dotenv import find_dotenv, load_dotenv
 from microsoft.teams.api import (
+    Account,
+    ActivityParams,
     ApiClient,
     ClientCredentials,
+    ConversationAccount,
     ConversationReference,
     Credentials,
     JsonWebToken,
+    MessageActivityInput,
 )
-from microsoft.teams.api.activities.message.message import MessageActivityInput
-from microsoft.teams.api.clients.conversation.activity import ActivityParams
-from microsoft.teams.api.models.account import Account, ConversationAccount
-from microsoft.teams.cards.adaptive_card import AdaptiveCard
+from microsoft.teams.cards import AdaptiveCard
 from microsoft.teams.common import Client, ClientOptions, ConsoleLogger, EventEmitter, LocalStorage
 
 from .app_events import EventManager

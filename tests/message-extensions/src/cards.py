@@ -13,8 +13,8 @@ IMAGE_URL = "https://github.com/microsoft/teams-agent-accelerator-samples/raw/ma
 
 def create_card(data: Dict[str, str]) -> AdaptiveCard:
     """Create an adaptive card from form data."""
-    return AdaptiveCard(
-        **{
+    return AdaptiveCard.model_validate(
+        {
             "type": "AdaptiveCard",
             "version": "1.4",
             "body": [
@@ -89,15 +89,15 @@ def create_message_details_card(message_payload: Message) -> AdaptiveCard:
     else:
         actions = []
 
-    return AdaptiveCard(**{"type": "AdaptiveCard", "version": "1.4", "body": body, "actions": actions})
+    return AdaptiveCard.model_validate({"type": "AdaptiveCard", "version": "1.4", "body": body, "actions": actions})
 
 
 def create_conversation_members_card(members: List[Account]) -> AdaptiveCard:
     """Create a card showing conversation members."""
     members_list = ", ".join(member.name for member in members if member.name)
 
-    return AdaptiveCard(
-        **{
+    return AdaptiveCard.model_validate(
+        {
             "type": "AdaptiveCard",
             "version": "1.4",
             "body": [
@@ -131,8 +131,8 @@ async def create_dummy_cards(search_query: str) -> List[Dict[str, Any]]:
     cards: List[Dict[str, Any]] = []
     for item in dummy_items:
         card_data: Dict[str, Any] = {
-            "card": AdaptiveCard(
-                **{
+            "card": AdaptiveCard.model_validate(
+                {
                     "type": "AdaptiveCard",
                     "version": "1.4",
                     "body": [
@@ -166,8 +166,8 @@ def create_link_unfurl_card(url: str) -> Dict[str, Any]:
         "images": [{"url": IMAGE_URL}],
     }
 
-    card = AdaptiveCard(
-        **{
+    card = AdaptiveCard.model_validate(
+        {
             "type": "AdaptiveCard",
             "version": "1.4",
             "body": [
