@@ -49,7 +49,7 @@ class PluginProcessor:
             name = metadata.name
             class_name = plugin.__class__.__name__
 
-            self.logger.info(f"Initializing the plugin {class_name}")
+            self.logger.debug(f"Initializing the plugin {class_name}")
 
             if not name:
                 raise ValueError(f"Plugin {class_name} missing name in metadata")
@@ -146,4 +146,4 @@ class PluginProcessor:
                 logger_dependency = cast(Logger, dependency)
                 dependency = logger_dependency.getChild(plugin.__class__.__name__)
             setattr(plugin, field_name, dependency)
-            self.logger.info(f"Successfully injected the dependency {field_name} into {plugin.__class__.__name__}")
+            self.logger.debug(f"Successfully injected the dependency {field_name} into {plugin.__class__.__name__}")

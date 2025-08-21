@@ -119,7 +119,7 @@ class ActivityProcessor:
             if not self.event_manager:
                 raise ValueError("EventManager was not initialized properly")
 
-            self.logger.info("Calling on_activity_sent for plugins")
+            self.logger.debug("Calling on_activity_sent for plugins")
 
             ref = conversation_ref or activityCtx.conversation_ref
 
