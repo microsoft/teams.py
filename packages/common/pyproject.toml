@@ -33,3 +33,7 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/microsoft"]
+exclude = ["tests"]
+
+[tool.hatch.build.targets.sdist]
+exclude = ["tests"]

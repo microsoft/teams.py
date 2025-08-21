@@ -11,8 +11,8 @@ license = "MIT"
 
 dependencies = [
     "fastapi>=0.115.13",
-    "microsoft-teams-api>=0.0.1-alpha.1",
-    "microsoft-teams-common>=0.0.1-alpha.1",
+    "microsoft-teams-api",
+    "microsoft-teams-common",
     "uvicorn>=0.34.3",
     "cryptography>=3.4.0",
     "pyjwt[crypto]>=2.10.0",

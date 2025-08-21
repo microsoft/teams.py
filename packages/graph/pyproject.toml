@@ -10,7 +10,7 @@ requires-python = ">=3.12"
 dependencies = [
     "azure-core>=1.31.0",
     "msgraph-sdk>=1.30.0,<2.0.0",
-    "microsoft-teams-common>=0.0.1-alpha.1",
+    "microsoft-teams-common",
     "pyjwt[crypto]>=2.10.0",
 ]
 
@@ -31,6 +31,10 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/microsoft"]
+exclude = ["tests"]
+
+[tool.hatch.build.targets.sdist]
+exclude = ["tests"]
 
 [tool.uv.sources]
 microsoft-teams-common = { workspace = true }

@@ -12,8 +12,8 @@ authors = [
 requires-python = ">=3.12"
 dependencies = [
     "pydantic>=2.0.0",
-    "microsoft-teams-common>=0.0.1-alpha.1",
-    "microsoft-teams-cards>=0.0.1-alpha.1",
+    "microsoft-teams-common",
+    "microsoft-teams-cards",
     "pyjwt[crypto]>=2.10.0",
 ]
 
@@ -37,3 +37,7 @@ dev = [
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/microsoft"]
+exclude = ["tests"]
+
+[tool.hatch.build.targets.sdist]
+exclude = ["tests"]
