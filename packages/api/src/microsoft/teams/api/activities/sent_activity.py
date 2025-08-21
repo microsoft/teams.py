@@ -15,3 +15,8 @@ class SentActivity(CustomBaseModel):
 
     activity_params: ActivityParams
     """Additional parameters for the activity."""
+
+    @classmethod
+    def merge(cls, activity_params: ActivityParams, curr_activity: "SentActivity") -> "SentActivity":
+        merged_data = {**activity_params.model_dump(), **curr_activity.model_dump()}
+        return cls(**merged_data)

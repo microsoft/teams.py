@@ -8,6 +8,7 @@ from typing import Any, Dict, Optional, Union
 
 from microsoft.teams.api import (
     Activity,
+    ConversationReference,
     InvokeResponse,
     SentActivity,
     SignInTokenExchangeInvokeActivity,
@@ -55,9 +56,13 @@ class ActivitySentEvent:
 
     sender: Sender
     activity: SentActivity
+    conversation_ref: ConversationReference
 
     def __repr__(self) -> str:
-        return f"ActivitySentEvent(sender={self.sender}, activity={self.activity})"
+        return (
+            f"ActivitySentEvent(sender={self.sender}, activity={self.activity}, "
+            + f"conversation_ref={self.conversation_ref})"
+        )
 
 
 @dataclass
@@ -66,9 +71,13 @@ class ActivityResponseEvent:
 
     activity: Activity
     response: InvokeResponse[Any]
+    conversation_ref: ConversationReference
 
     def __repr__(self) -> str:
-        return f"ActivityResponseEvent(activity={self.activity}, response={self.response})"
+        return (
+            f"ActivityResponseEvent(activity={self.activity}, response={self.response}, "
+            + f"conversation_ref={self.conversation_ref})"
+        )
 
 
 @dataclass

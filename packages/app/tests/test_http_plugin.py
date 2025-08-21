@@ -10,7 +10,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from microsoft.teams.api import (
+    Account,
     ConfigResponse,
+    ConversationAccount,
+    ConversationReference,
     InvokeResponse,
     MessageActivity,
     MessageActivityInput,
@@ -82,12 +85,20 @@ class TestHttpPlugin:
             MessageActivityInput(type="message", text="Mock activity text", from_=mock_account, id="test-id"),
         )
 
+        mock_reference = ConversationReference(
+            bot=Account(id="1", name="test-bot", role="bot"),
+            conversation=ConversationAccount(id="conv-789", conversation_type="personal"),
+            channel_id="msteams",
+            service_url="https://test.service.url",
+        )
+
         response_data = InvokeResponse(body=cast(ConfigResponse, {"status": "success"}), status=200)
         await plugin_with_validator.on_activity_response(
             PluginActivityResponseEvent(
                 sender=plugin_with_validator,
                 activity=mock_activity,
                 response=response_data,
+                conversation_ref=mock_reference,
             )
         )
 
@@ -103,12 +114,20 @@ class TestHttpPlugin:
             MessageActivityInput(type="message", text="Mock activity text", from_=mock_account, id="random-id"),
         )
         response_data = InvokeResponse(body=cast(ConfigResponse, {"status": "success"}), status=200)
+        mock_reference = ConversationReference(
+            bot=Account(id="1", name="test-bot", role="bot"),
+            conversation=ConversationAccount(id="conv-789", conversation_type="personal"),
+            channel_id="msteams",
+            service_url="https://test.service.url",
+        )
+
         # Should not raise exception
         await plugin_with_validator.on_activity_response(
             PluginActivityResponseEvent(
                 sender=plugin_with_validator,
                 activity=mock_activity,
                 response=response_data,
+                conversation_ref=mock_reference,
             )
         )
 
@@ -124,12 +143,20 @@ class TestHttpPlugin:
             MessageActivityInput(type="message", text="Mock activity text", from_=mock_account, id="test-id"),
         )
         response_data = InvokeResponse(body=cast(ConfigResponse, {"status": "success"}), status=200)
+        mock_reference = ConversationReference(
+            bot=Account(id="1", name="test-bot", role="bot"),
+            conversation=ConversationAccount(id="conv-789", conversation_type="personal"),
+            channel_id="msteams",
+            service_url="https://test.service.url",
+        )
+
         # Should not raise exception
         await plugin_with_validator.on_activity_response(
             PluginActivityResponseEvent(
                 sender=plugin_with_validator,
                 activity=mock_activity,
                 response=response_data,
+                conversation_ref=mock_reference,
             )
         )
 

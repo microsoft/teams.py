@@ -5,7 +5,7 @@ Licensed under the MIT License.
 
 from typing import TYPE_CHECKING, NamedTuple, Optional
 
-from microsoft.teams.api import Activity, TokenProtocol
+from microsoft.teams.api import Activity, ConversationReference, TokenProtocol
 
 if TYPE_CHECKING:
     from .sender import Sender
@@ -19,6 +19,9 @@ class PluginActivityEvent(NamedTuple):
 
     activity: Activity
     """Inbound request activity payload"""
+
+    conversation_ref: ConversationReference
+    """The conversation reference for the activity"""
 
     sender: Optional["Sender"] = None
     """The sender"""
