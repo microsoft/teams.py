@@ -1,5 +1,5 @@
-[!CAUTION]
-This project is in active development and not ready for production use. It has not been publicly announced yet.
+> [!CAUTION]
+> This project is in active development and not ready for production use. It has not been publicly announced yet.
 
 # Microsoft Teams Cards
 
