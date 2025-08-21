@@ -1,3 +1,6 @@
+[!CAUTION]
+This project is in active development and not ready for production use. It has not been publicly announced yet.
+
 ## Getting Started
 
 ### Prerequisites
