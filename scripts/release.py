@@ -11,11 +11,6 @@ import tomllib
 from pathlib import Path
 from typing import Dict, List
 
-"""
-Release script for Microsoft Teams Python SDK.
-Handles version bumping across all packages and optionally creates release branches.
-"""
-
 
 def get_packages_dir() -> Path:
     """Get the packages directory relative to the script location."""
@@ -35,13 +30,17 @@ def find_packages() -> List[Path]:
     return sorted(packages)
 
 
-def bump_package_version(package_path: Path, bump_type: str) -> str:
+def bump_package_version(package_path: Path, bump_type: str, verbose: bool = False) -> str:
     """Bump the version of a package and return the new version."""
     print(f"Bumping {package_path.name} version ({bump_type})...")
 
     try:
         result = subprocess.run(
-            ["uv", "version", "--bump", bump_type], cwd=package_path, capture_output=True, text=True, check=True
+            ["uv", "version", "--bump", bump_type],
+            cwd=package_path,
+            capture_output=not verbose,
+            text=True,
+            check=True,
         )
         print(f"  ✓ {package_path.name}: {result.stdout.strip()}")
         return get_package_version(package_path)
@@ -63,63 +62,26 @@ def get_package_version(package_path: Path) -> str:
         sys.exit(1)
 
 
-def create_release_branch(version: str) -> str:
+def create_release_branch(version: str, verbose: bool = False) -> str:
     """Create a new release branch."""
     branch_name = f"release_{version}"
 
     try:
         # Create and switch to new branch
-        subprocess.run(["git", "checkout", "-b", branch_name], check=True)
+        subprocess.run(["git", "checkout", "-b", branch_name], check=True, capture_output=not verbose)
         print(f"Created and switched to branch: {branch_name}")
 
         # Add all changes
-        subprocess.run(["git", "add", "."], check=True)
+        subprocess.run(["git", "add", "."], check=True, capture_output=not verbose)
 
         # Commit changes
-        subprocess.run(["git", "commit", "-m", f"Release version {version}"], check=True)
+        subprocess.run(["git", "commit", "-m", f"Release version {version}"], check=True, capture_output=not verbose)
         print(f"Committed changes for release {version}")
 
         return branch_name
     except subprocess.CalledProcessError as e:
         print(f"Error creating release branch: {e}")
         sys.exit(1)
-
-
-def create_pull_request(branch_name: str, version: str) -> None:
-    """Create a pull request for the release."""
-    try:
-        # Push the branch
-        subprocess.run(["git", "push", "-u", "origin", branch_name], check=True, capture_output=True)
-        print(f"Pushed branch {branch_name} to origin")
-
-        # Create PR using gh CLI
-        pr_title = f"Release version {version}"
-        pr_body = f"""## Release {version}
-
-This PR contains version bumps for all packages to {version}.
-
-### Changes
-- Bumped all package versions to {version}
-
-### Checklist
-- [ ] All tests pass
-- [ ] Documentation updated if needed
-- [ ] Ready for release
-
-🤖 Generated with release script"""
-
-        subprocess.run(
-            ["gh", "pr", "create", "--title", pr_title, "--body", pr_body, "--base", "main"],
-            check=True,
-            capture_output=True,
-        )
-
-        print(f"✓ Created pull request: {pr_title}")
-
-    except subprocess.CalledProcessError as e:
-        print(f"Error creating pull request: {e}")
-        print("You can manually push the branch and create a PR:")
-        print(f"  git push -u origin {branch_name}")
 
 
 def main() -> None:
@@ -146,6 +108,12 @@ Version bump types:
         choices=["major", "minor", "patch", "stable", "alpha", "beta", "rc", "post", "dev"],
         help="Type of version bump to perform",
     )
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        help="Show detailed output from commands",
+    )
 
     args = parser.parse_args()
 
@@ -163,7 +131,7 @@ Version bump types:
     # Bump versions for all packages
     versions: Dict[str, str] = {}
     for package in packages:
-        new_version = bump_package_version(package, args.bump_type)
+        new_version = bump_package_version(package, args.bump_type, args.verbose)
         versions[package.name] = new_version
 
     # All packages should have the same version
@@ -177,15 +145,13 @@ Version bump types:
     release_version = next(iter(unique_versions))
     print(f"\nAll packages bumped to version: {release_version}")
 
-    # Ask user about creating branch and PR
-    response = input("\nWould you like to create a release branch and PR? (y/N): ").strip().lower()
+    # Ask user about creating branch
+    response = input("\nWould you like to create a release branch (y/N): ").strip().lower()
 
     if response in ("y", "yes"):
-        branch_name = create_release_branch(release_version)
-        create_pull_request(branch_name, release_version)
+        branch_name = create_release_branch(release_version, args.verbose)
         print(f"\n✓ Release {release_version} is ready!")
         print(f"  Branch: {branch_name}")
-        print("  Pull request created")
     else:
         print(f"\nVersion bump complete. Release version: {release_version}")
         print("You can manually commit and create a branch/PR when ready.")
