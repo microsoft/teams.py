@@ -32,7 +32,7 @@ from .plugins import (
 )
 from .plugins.metadata import Plugin
 
-version = importlib.metadata.version("microsoft-teams-app")
+version = importlib.metadata.version("microsoft-teams-apps")
 
 
 @Plugin(name="http", version=version, description="the default plugin for sending/receiving activities")

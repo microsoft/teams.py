@@ -16,3 +16,6 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/microsoft"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src"]

@@ -1,22 +1,5 @@
-[project]
-name = "microsoft-teams"
-version = "0.0.1-alpha.1"
-description = "A suite of packages used to build on the Teams Platform"
-readme = "README.md"
-requires-python = ">=3.12"
-dependencies = [
-    "microsoft-teams-app",
-    "microsoft-teams-api",
-    "microsoft-teams-cards", 
-    "microsoft-teams-common",
-    "microsoft-teams-devtools",
-    "microsoft-teams-graph",
-    "pytest-asyncio>=1.0.0",
-    "python-dotenv>=1.0.0",
-]
-
 [tool.uv.sources]
-"microsoft-teams-app" = { workspace = true }
+"microsoft-teams-apps" = { workspace = true }
 "microsoft-teams-api" = { workspace = true }
 "microsoft-teams-common" = { workspace = true }
 "microsoft-teams-cards" = { workspace = true }

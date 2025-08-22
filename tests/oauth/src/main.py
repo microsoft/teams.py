@@ -6,8 +6,8 @@ Licensed under the MIT License.
 import asyncio
 
 from microsoft.teams.api import MessageActivity
-from microsoft.teams.app import ActivityContext, App, SignInEvent
-from microsoft.teams.app.events.types import ErrorEvent
+from microsoft.teams.apps import ActivityContext, App, SignInEvent
+from microsoft.teams.apps.events.types import ErrorEvent
 
 app = App()
 

@@ -22,9 +22,9 @@ from microsoft.teams.api.models import (
     SignInStateVerifyQuery,
     TokenResponse,
 )
-from microsoft.teams.app.app_oauth import OauthHandlers
-from microsoft.teams.app.events import ErrorEvent, SignInEvent
-from microsoft.teams.app.routing import ActivityContext
+from microsoft.teams.apps.app_oauth import OauthHandlers
+from microsoft.teams.apps.events import ErrorEvent, SignInEvent
+from microsoft.teams.apps.routing import ActivityContext
 from microsoft.teams.common import EventEmitter
 
 # pyright: basic
