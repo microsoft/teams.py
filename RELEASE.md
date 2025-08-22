@@ -27,13 +27,14 @@ If you are about to publish a brand new package, you will need to set it up on p
 ## Appendix
 
 # Bump types
-Version bump types:
-  major    - Increment major version (1.0.0 -> 2.0.0)
-  minor    - Increment minor version (1.0.0 -> 1.1.0)
-  patch    - Increment patch version (1.0.0 -> 1.0.1)
-  stable   - Remove pre-release suffix (1.0.0a1 -> 1.0.0)
-  alpha    - Add/increment alpha pre-release (1.0.0 -> 1.0.0a1)
-  beta     - Add/increment beta pre-release (1.0.0 -> 1.0.0b1)
-  rc       - Add/increment release candidate (1.0.0 -> 1.0.0rc1)
-  post     - Add/increment post-release (1.0.0 -> 1.0.0.post1)
-  dev      - Add/increment dev release (1.0.0 -> 1.0.0.dev1)
+| Bump Type | Description                                   | Example Change            |
+|-----------|-----------------------------------------------|--------------------------|
+| major     | Increment major version                       | `1.0.0` → `2.0.0`        |
+| minor     | Increment minor version                       | `1.0.0` → `1.1.0`        |
+| patch     | Increment patch version                       | `1.0.0` → `1.0.1`        |
+| stable    | Remove pre-release suffix                     | `1.0.0a1` → `1.0.0`      |
+| alpha     | Add/increment alpha pre-release               | `1.0.0` → `1.0.0a1`      |
+| beta      | Add/increment beta pre-release                | `1.0.0` → `1.0.0b1`      |
+| rc        | Add/increment release candidate               | `1.0.0` → `1.0.0rc1`     |
+| post      | Add/increment post-release                    | `1.0.0` → `1.0.0.post1`  |
+| dev       | Add/increment dev release                     | `1.0.0` → `1.0.0.dev1`   |
