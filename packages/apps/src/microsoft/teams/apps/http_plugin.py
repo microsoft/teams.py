@@ -16,7 +16,7 @@ from fastapi.staticfiles import StaticFiles
 from microsoft.teams.api import Activity, ActivityParams, ApiClient, ConversationReference, SentActivity, TokenProtocol
 from microsoft.teams.common.http.client import Client, ClientOptions
 from microsoft.teams.common.logging import ConsoleLogger
-from pydantic import BaseModel
+from pydantic import BaseModel, TypeAdapter
 
 from .auth import create_jwt_validation_middleware
 from .events import ActivityEvent, ErrorEvent
@@ -194,7 +194,7 @@ class HttpPlugin(Sender):
         activity.from_ = ref.bot
         activity.conversation = ref.conversation
 
-        if activity.id:
+        if hasattr(activity, "id") and activity.id:
             res = await api.conversations.activities(ref.conversation.id).update(activity.id, activity)
             return SentActivity.merge(activity, res)
 
@@ -213,7 +213,10 @@ class HttpPlugin(Sender):
         try:
             if callable(self.on_activity):
                 event = ActivityEvent(activity=activity, sender=self, token=token)
-                self.on_activity_event(event)
+                if asyncio.iscoroutinefunction(self.on_activity_event):
+                    await self.on_activity_event(event)
+                else:
+                    self.on_activity_event(event)
             else:
                 await self.on_error(
                     PluginErrorEvent(sender=self, error=Exception("No activity handler registered"), activity=activity)
@@ -249,12 +252,15 @@ class HttpPlugin(Sender):
         response_future = asyncio.get_event_loop().create_future()
         self.pending[activity_id] = response_future
 
+        type_adapter: TypeAdapter[Activity] = TypeAdapter(Activity)
+        activity = type_adapter.validate_python(body)
+
         # Fire activity processing via callback
         if callable(self.on_activity_event):
             try:
                 # Call the activity handler asynchronously
                 self.logger.debug(f"Processing activity {activity_id} via handler...")
-                asyncio.create_task(self._process_activity(body, activity_id, token))
+                asyncio.create_task(self._process_activity(activity, activity_id, token))
             except Exception as error:
                 self.logger.error(f"Failed to start activity processing: {error}")
                 response_future.set_exception(error)
