@@ -7,7 +7,7 @@
 5. This will automatically kick off a release workflow that needs to be aproved.
 6. Once approved, the release will be published to PyPI.
 
-## Publishing a brand new package
+# Publishing a brand new package
 
 If you are about to publish a brand new package, you will need to set it up on pypi before you publish it.
 > [!NOTE]
