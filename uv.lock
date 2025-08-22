@@ -909,7 +909,7 @@ wheels = [
 
 [[package]]
 name = "microsoft-teams-api"
-version = "0.0.1a3"
+version = "0.0.1a2"
 source = { editable = "packages/api" }
 dependencies = [
     { name = "microsoft-teams-cards" },
