@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    import microsoft.teams.app.routing.activity_route_configs as activity_config
+    import microsoft.teams.apps.routing.activity_route_configs as activity_config
 
 # Import the activity config directly without going through the package hierarchy
 activity_config_path = (
@@ -28,7 +28,7 @@ if not TYPE_CHECKING:
         sys.path.insert(0, src_path)
 
     spec = importlib.util.spec_from_file_location(
-        "microsoft.teams.app.routing.activity_route_configs", activity_config_path
+        "microsoft.teams.apps.routing.activity_route_configs", activity_config_path
     )
     assert spec is not None, f"Could not find activity_route_configs.py at {activity_config_path}"
     activity_config = importlib.util.module_from_spec(spec)

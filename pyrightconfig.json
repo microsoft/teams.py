@@ -9,7 +9,7 @@
       "packages/api/src",
       "packages/common/src",
       "packages/cards/src",
-      "packages/app/src",
+      "packages/apps/src",
       "packages/graph/src",
       "packages/devtools/src"
    ],

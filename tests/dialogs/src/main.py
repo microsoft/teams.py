@@ -22,8 +22,8 @@ from microsoft.teams.api import (
     UrlTaskModuleTaskInfo,
     card_attachment,
 )
-from microsoft.teams.app import ActivityContext, App, AppOptions
-from microsoft.teams.app.events.types import ErrorEvent
+from microsoft.teams.apps import ActivityContext, App, AppOptions
+from microsoft.teams.apps.events.types import ErrorEvent
 from microsoft.teams.cards import AdaptiveCard
 from microsoft.teams.common.logging import ConsoleLogger
 
