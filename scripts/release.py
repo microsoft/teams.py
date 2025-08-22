@@ -7,9 +7,10 @@ Licensed under the MIT License.
 import argparse
 import subprocess
 import sys
-import tomllib
 from pathlib import Path
 from typing import Dict, List
+
+import tomllib
 
 
 def get_packages_dir() -> Path:
@@ -28,6 +29,35 @@ def find_packages() -> List[Path]:
             packages.append(item)
 
     return sorted(packages)
+
+
+def dry_run_version_bump(package_path: Path, bump_type: str) -> str:
+    """Run a dry-run version bump to see what the new version would be."""
+    try:
+        result = subprocess.run(
+            ["uv", "version", "--bump", bump_type, "--dry-run"],
+            cwd=package_path,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        # Extract the version from the output
+        # Handle multiple formats:
+        # Format 1: "Would bump version from X.Y.Z to A.B.C"
+        # Format 2: "package-name X.Y.Z => A.B.C"
+        # Format 3: Just "A.B.C"
+        output = result.stdout.strip()
+
+        if " to " in output:
+            return output.split(" to ")[-1]
+        elif " => " in output:
+            return output.split(" => ")[-1]
+        else:
+            # Fallback: extract version from the end of the output
+            return output.split()[-1]
+    except subprocess.CalledProcessError as e:
+        print(f"  ✗ Failed to dry-run bump {package_path.name}: {e.stderr}")
+        sys.exit(1)
 
 
 def bump_package_version(package_path: Path, bump_type: str, verbose: bool = False) -> str:
@@ -128,18 +158,40 @@ Version bump types:
         print(f"  - {pkg.name}")
     print()
 
-    # Bump versions for all packages
+    # First, do a dry-run to check all packages would have the same version
+    print("Running dry-run to check version consistency...")
+    dry_run_versions: Dict[str, str] = {}
+    for package in packages:
+        new_version = dry_run_version_bump(package, args.bump_type)
+        dry_run_versions[package.name] = new_version
+        print(f"  {package.name}: {get_package_version(package)} -> {new_version}")
+
+    # Check if all packages would have the same version
+    unique_dry_run_versions = set(dry_run_versions.values())
+    if len(unique_dry_run_versions) != 1:
+        print("\n❌ ERROR: Packages would have different versions after bump:")
+        for pkg, ver in dry_run_versions.items():
+            print(f"  {pkg}: {ver}")
+        print("\nAll packages must have the same version. Please fix version inconsistencies first.")
+        sys.exit(1)
+
+    target_version = next(iter(unique_dry_run_versions))
+    print(f"\n✓ All packages will be bumped to: {target_version}")
+    print("\nProceeding with actual version bump...")
+
+    # Now do the actual version bump
     versions: Dict[str, str] = {}
     for package in packages:
         new_version = bump_package_version(package, args.bump_type, args.verbose)
         versions[package.name] = new_version
 
-    # All packages should have the same version
+    # Verify all packages have the same version (should always pass now)
     unique_versions = set(versions.values())
     if len(unique_versions) != 1:
-        print("Warning: Packages have different versions after bump:")
+        print("❌ CRITICAL ERROR: Packages have different versions after bump (this should not happen):")
         for pkg, ver in versions.items():
             print(f"  {pkg}: {ver}")
+        sys.exit(1)
 
     # Use the first version as the release version
     release_version = next(iter(unique_versions))
