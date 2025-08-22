@@ -24,9 +24,9 @@ If you are about to publish a brand new package, you will need to set it up on p
 4. Make sure you remove the private classifier if it's present.
 5. Go through the above steps.
 
-## Appendix
+# Appendix
 
-# Bump types
+## Bump types
 | Bump Type | Description                                   | Example Change            |
 |-----------|-----------------------------------------------|--------------------------|
 | major     | Increment major version                       | `1.0.0` → `2.0.0`        |
