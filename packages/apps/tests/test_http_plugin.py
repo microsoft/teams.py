@@ -18,7 +18,7 @@ from microsoft.teams.api import (
     MessageActivity,
     MessageActivityInput,
 )
-from microsoft.teams.app import HttpPlugin, PluginActivityResponseEvent, PluginErrorEvent, PluginStartEvent
+from microsoft.teams.apps import HttpPlugin, PluginActivityResponseEvent, PluginErrorEvent, PluginStartEvent
 
 
 class TestHttpPlugin:

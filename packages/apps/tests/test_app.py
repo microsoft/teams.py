@@ -14,10 +14,10 @@ from microsoft.teams.api.activities import InvokeActivity
 from microsoft.teams.api.activities.message import MessageActivity
 from microsoft.teams.api.activities.typing import TypingActivity
 from microsoft.teams.api.models import Account, ConversationAccount
-from microsoft.teams.app.app import App
-from microsoft.teams.app.events import ActivityEvent
-from microsoft.teams.app.options import AppOptions
-from microsoft.teams.app.routing.activity_context import ActivityContext
+from microsoft.teams.apps.app import App
+from microsoft.teams.apps.events import ActivityEvent
+from microsoft.teams.apps.options import AppOptions
+from microsoft.teams.apps.routing.activity_context import ActivityContext
 
 
 class FakeToken(TokenProtocol):

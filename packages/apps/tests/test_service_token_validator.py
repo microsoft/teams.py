@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, patch
 import jwt
 import pytest
 from microsoft.teams.api import JsonWebToken
-from microsoft.teams.app.auth.service_token_validator import ServiceTokenValidator
+from microsoft.teams.apps.auth.service_token_validator import ServiceTokenValidator
 
 # pyright: basic
 

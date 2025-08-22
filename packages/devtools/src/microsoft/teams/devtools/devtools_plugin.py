@@ -17,7 +17,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.routing import APIRouter
 from fastapi.staticfiles import StaticFiles
 from microsoft.teams.api import Activity, ActivityParams, ConversationReference, SentActivity, TokenProtocol
-from microsoft.teams.app import (
+from microsoft.teams.apps import (
     ActivityEvent,
     DependencyMetadata,
     ErrorEvent,

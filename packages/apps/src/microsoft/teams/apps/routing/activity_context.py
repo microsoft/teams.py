@@ -29,9 +29,10 @@ from microsoft.teams.api import (
 )
 from microsoft.teams.api.models.attachment.card_attachment import OAuthCardAttachment, card_attachment
 from microsoft.teams.api.models.oauth import OAuthCard
-from microsoft.teams.app.plugins.sender import Sender
 from microsoft.teams.cards import AdaptiveCard
 from microsoft.teams.common import Storage
+
+from ..plugins import Sender
 
 T = TypeVar("T", bound=ActivityBase, contravariant=True)
 
