@@ -1,6 +1,6 @@
 [project]
 name = "microsoft-teams-devtools"
-version = "0.0.1-alpha.1"
+version = "0.0.1a2"
 description = "Local tool to streamline testing and development"
 authors = [{ name = "Microsoft", email = "TeamsAISDKFeedback@microsoft.com" }]
 readme = "README.md"
@@ -15,6 +15,10 @@ dependencies = [
     "microsoft-teams-apps",
     "pydantic>=2.0.0",
 ]
+
+[tool.uv.sources]
+"microsoft-teams-api" = { workspace = true }
+"microsoft-teams-apps" = { workspace = true }
 
 [project.urls]
 Homepage = "https://github.com/microsoft/teams.py/tree/main/packages/devtools/src/microsoft/teams/devtools"
