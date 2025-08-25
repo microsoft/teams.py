@@ -1,19 +1,24 @@
 {
    "include":[
-      "packages/**/src/**/*.py"
+      "packages/**/src/**/*.py",
+      "tests/**/src/**/*.py"
    ],
-   "venv":".venv",
-   "venvPath":".",
-   "extraPaths":[
+   "venv": ".venv",
+   "venvPath": ".",
+   "extraPaths": [
       "packages/api/src",
       "packages/common/src",
       "packages/cards/src",
-      "packages/app/src"
+      "packages/apps/src",
+      "packages/graph/src",
+      "packages/devtools/src"
    ],
-   "typeCheckingMode":"strict",
-   "executionEnvironments": [{
-      "root": "packages/api/src",
-      "reportIncompatibleVariableOverride":"none",
-      "reportIncompatibleMethodOverride":"none"
-   }]
+   "typeCheckingMode": "strict",
+   "executionEnvironments": [
+      {
+         "root": "packages/api/src",
+         "reportIncompatibleVariableOverride": "none",
+         "reportIncompatibleMethodOverride": "none"
+      }
+   ]
 }

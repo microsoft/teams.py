@@ -9,8 +9,7 @@ import os
 
 from azure.core.exceptions import ClientAuthenticationError
 from microsoft.teams.api import MessageActivity
-from microsoft.teams.app import ActivityContext, App, AppOptions, SignInEvent
-from microsoft.teams.app.events.types import ErrorEvent
+from microsoft.teams.apps import ActivityContext, App, AppOptions, ErrorEvent, SignInEvent
 from microsoft.teams.graph import get_graph_client
 from msgraph.generated.users.item.messages.messages_request_builder import (  # type: ignore
     MessagesRequestBuilder,

@@ -22,8 +22,8 @@ from microsoft.teams.api import (
     UrlTaskModuleTaskInfo,
     card_attachment,
 )
-from microsoft.teams.app import ActivityContext, App, AppOptions
-from microsoft.teams.app.events.types import ErrorEvent
+from microsoft.teams.apps import ActivityContext, App, AppOptions
+from microsoft.teams.apps.events.types import ErrorEvent
 from microsoft.teams.cards import AdaptiveCard
 from microsoft.teams.common.logging import ConsoleLogger
 
@@ -44,8 +44,8 @@ async def handle_message(ctx: ActivityContext[MessageActivity]) -> None:
     """Handle message activities and show dialog launcher card."""
 
     # Create the launcher adaptive card using JSON structure
-    card = AdaptiveCard(
-        **{
+    card = AdaptiveCard.model_validate(
+        {
             "type": "AdaptiveCard",
             "version": "1.4",
             "body": [
@@ -93,8 +93,8 @@ async def handle_dialog_open(ctx: ActivityContext[TaskFetchInvokeActivity]):
     dialog_type = data.get("opendialogtype") if data else None
 
     if dialog_type == "simple_form":
-        dialog_card = AdaptiveCard(
-            **{
+        dialog_card = AdaptiveCard.model_validate(
+            {
                 "type": "AdaptiveCard",
                 "version": "1.4",
                 "body": [
@@ -139,8 +139,8 @@ async def handle_dialog_open(ctx: ActivityContext[TaskFetchInvokeActivity]):
         )
 
     elif dialog_type == "multi_step_form":
-        dialog_card = AdaptiveCard(
-            **{
+        dialog_card = AdaptiveCard.model_validate(
+            {
                 "type": "AdaptiveCard",
                 "version": "1.4",
                 "body": [
@@ -199,8 +199,8 @@ async def handle_dialog_submit(ctx: ActivityContext[TaskSubmitInvokeActivity]):
 
     elif dialog_type == "webpage_dialog_step_1":
         name = data.get("name") if data else None
-        next_step_card = AdaptiveCard(
-            **{
+        next_step_card = AdaptiveCard.model_validate(
+            {
                 "type": "AdaptiveCard",
                 "version": "1.4",
                 "body": [
