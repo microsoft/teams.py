@@ -49,7 +49,7 @@ class DevToolsPlugin(Sender):
     logger: Annotated[Logger, LoggerDependencyOptions()]
     id: Annotated[Optional[TokenProtocol], DependencyMetadata(optional=True)]
     name: Annotated[Optional[TokenProtocol], DependencyMetadata(optional=True)]
-    http_plugin: Annotated[HttpPlugin, DependencyMetadata()]
+    http: Annotated[HttpPlugin, DependencyMetadata()]
 
     on_error_event: Annotated[Callable[[ErrorEvent], None], EventMetadata(name="error")]
     on_activity_event: Annotated[Callable[[ActivityEvent], None], EventMetadata(name="activity")]
@@ -122,9 +122,7 @@ class DevToolsPlugin(Sender):
                 response_future = asyncio.get_event_loop().create_future()
                 self.pending[activity.id] = response_future
                 try:
-                    result = self.on_activity_event(
-                        ActivityEvent(token=token, activity=activity, sender=self.http_plugin)
-                    )
+                    result = self.on_activity_event(ActivityEvent(token=token, activity=activity, sender=self.http))
                     # If the handler is a coroutine, schedule it
                     if asyncio.iscoroutine(result):
                         asyncio.create_task(result)
@@ -223,7 +221,7 @@ class DevToolsPlugin(Sender):
             del self.pending[event.activity.id]
 
     async def send(self, activity: ActivityParams, ref: ConversationReference) -> SentActivity:
-        return await self.http_plugin.send(activity, ref)
+        return await self.http.send(activity, ref)
 
     async def emit_activity_to_sockets(self, event: DevToolsActivityEvent):
         for socket_id, websocket in self.sockets.items():
