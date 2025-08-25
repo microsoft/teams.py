@@ -47,13 +47,13 @@ From the `tests/graph/` directory:
 
 ```powershell
 # PowerShell
-$env:PYTHONPATH="..\..\packages\graph\src;..\..\packages\api\src;..\..\packages\app\src;..\..\packages\common\src"
+$env:PYTHONPATH="..\..\packages\graph\src;..\..\packages\api\src;..\..\packages\apps\src;..\..\packages\common\src"
 python src\main.py
 ```
 
 ```bash
 # Bash (Linux/macOS)
-PYTHONPATH="../../packages/graph/src:../../packages/api/src:../../packages/app/src:../../packages/common/src" python src/main.py
+PYTHONPATH="../../packages/graph/src:../../packages/api/src:../../packages/apps/src:../../packages/common/src" python src/main.py
 ```
 
 ### Option 3: Install Packages in Development Mode
