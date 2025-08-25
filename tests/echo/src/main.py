@@ -7,6 +7,7 @@ import asyncio
 import re
 
 from microsoft.teams.api import MessageActivity
+from microsoft.teams.api.activities.typing import TypingActivityInput
 from microsoft.teams.apps import ActivityContext, App, AppOptions
 from microsoft.teams.devtools import DevToolsPlugin
 
@@ -24,6 +25,7 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
     """Handle message activities using the new generated handler system."""
     print(f"[GENERATED onMessage] Message received: {ctx.activity.text}")
     print(f"[GENERATED onMessage] From: {ctx.activity.from_}")
+    await ctx.reply(TypingActivityInput())
 
     if "reply" in ctx.activity.text.lower():
         await ctx.reply("Hello! How can I assist you today?")
