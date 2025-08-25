@@ -13,7 +13,15 @@ from typing import Annotated, Any, AsyncGenerator, Awaitable, Callable, Dict, Op
 import uvicorn
 from fastapi import FastAPI, Request, Response
 from fastapi.staticfiles import StaticFiles
-from microsoft.teams.api import Activity, ActivityParams, ApiClient, ConversationReference, SentActivity, TokenProtocol
+from microsoft.teams.api import (
+    Activity,
+    ActivityParams,
+    ActivityTypeAdapter,
+    ApiClient,
+    ConversationReference,
+    SentActivity,
+    TokenProtocol,
+)
 from microsoft.teams.common.http.client import Client, ClientOptions
 from microsoft.teams.common.logging import ConsoleLogger
 from pydantic import BaseModel
@@ -194,7 +202,7 @@ class HttpPlugin(Sender):
         activity.from_ = ref.bot
         activity.conversation = ref.conversation
 
-        if activity.id:
+        if hasattr(activity, "id") and activity.id:
             res = await api.conversations.activities(ref.conversation.id).update(activity.id, activity)
             return SentActivity.merge(activity, res)
 
@@ -211,13 +219,11 @@ class HttpPlugin(Sender):
             activity_id: The activity ID for response coordination
         """
         try:
-            if callable(self.on_activity):
-                event = ActivityEvent(activity=activity, sender=self, token=token)
-                self.on_activity_event(event)
+            event = ActivityEvent(activity=activity, sender=self, token=token)
+            if asyncio.iscoroutinefunction(self.on_activity_event):
+                await self.on_activity_event(event)
             else:
-                await self.on_error(
-                    PluginErrorEvent(sender=self, error=Exception("No activity handler registered"), activity=activity)
-                )
+                self.on_activity_event(event)
         except Exception as error:
             # Complete with error
             await self.on_error(PluginErrorEvent(sender=self, error=error, activity=activity))
@@ -249,19 +255,16 @@ class HttpPlugin(Sender):
         response_future = asyncio.get_event_loop().create_future()
         self.pending[activity_id] = response_future
 
+        activity = ActivityTypeAdapter.validate_python(body)
+
         # Fire activity processing via callback
-        if callable(self.on_activity_event):
-            try:
-                # Call the activity handler asynchronously
-                self.logger.debug(f"Processing activity {activity_id} via handler...")
-                asyncio.create_task(self._process_activity(body, activity_id, token))
-            except Exception as error:
-                self.logger.error(f"Failed to start activity processing: {error}")
-                response_future.set_exception(error)
-        else:
-            # No handler - just complete with placeholder
-            self.logger.debug("No activity handler - returning placeholder response")
-            response_future.set_result({"status": "received"})
+        try:
+            # Call the activity handler asynchronously
+            self.logger.debug(f"Processing activity {activity_id} via handler...")
+            asyncio.create_task(self._process_activity(activity, activity_id, token))
+        except Exception as error:
+            self.logger.error(f"Failed to start activity processing: {error}")
+            response_future.set_exception(error)
 
         # Wait for the activity processing to complete
         result = await response_future
