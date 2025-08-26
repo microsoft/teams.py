@@ -42,7 +42,7 @@ class ActivityProcessor:
         default_connection_name: str,
         http_client: Client,
         token: AppTokens,
-        graph_token_refresher: Optional[Callable[[], Awaitable[Optional[TokenProtocol]]]] = None,
+        graph_token_refresher: Optional[Callable[[Optional[str]], Awaitable[Optional[str]]]] = None,
     ) -> None:
         self.router = router
         self.logger = logger
@@ -57,11 +57,14 @@ class ActivityProcessor:
         # a circular dependency
         self.event_manager: Optional["EventManager"] = None
 
-    async def _get_or_refresh_graph_token(self) -> Optional[TokenProtocol]:
+    async def _get_or_refresh_graph_token(self, tenant_id: Optional[str] = None) -> Optional[TokenProtocol]:
         """Get the current graph token or refresh it if needed."""
         if self._graph_token_refresher:
             try:
-                return await self._graph_token_refresher()
+                token_string = await self._graph_token_refresher(tenant_id)
+                if token_string:
+                    return JsonWebToken(token_string)
+                return None
             except Exception as e:
                 self.logger.error(f"Failed to refresh graph token: {e}")
                 return self.tokens.graph
@@ -113,7 +116,8 @@ class ActivityProcessor:
             pass
 
         # Get or refresh the graph token before passing it to the context
-        graph_token = await self._get_or_refresh_graph_token()
+        # Use None for tenant_id to get default tenant token
+        graph_token = await self._get_or_refresh_graph_token(None)
 
         activityCtx = ActivityContext(
             activity,

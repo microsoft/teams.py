@@ -483,3 +483,70 @@ class TestApp:
         # Verify non-matching activity doesn't match
         non_matching_handlers = app_with_options.router.select_handlers(non_matching_activity)
         assert len(non_matching_handlers) == 0
+
+    @pytest.mark.asyncio
+    async def test_tenant_token_caching(self, app_with_options: App) -> None:
+        """Test tenant-specific token caching functionality."""
+        # Mock the API client to return a token
+        mock_token_response = MagicMock()
+        mock_token_response.access_token = "test-tenant-token-123"
+
+        with patch.object(app_with_options.api.bots.token, "get_graph", new_callable=AsyncMock) as mock_get_graph:
+            mock_get_graph.return_value = mock_token_response
+
+            # Test getting token for a specific tenant
+            tenant_id = "test-tenant-123"
+            token1 = await app_with_options.get_or_refresh_tenant_token(tenant_id)
+
+            # Should call API to get token
+            assert mock_get_graph.call_count == 1
+            assert token1 == "test-tenant-token-123"
+
+            # Test getting the same token again (should be cached)
+            token2 = await app_with_options.get_or_refresh_tenant_token(tenant_id)
+
+            # Should not call API again due to caching
+            assert mock_get_graph.call_count == 1
+            assert token2 == "test-tenant-token-123"
+            assert token1 == token2
+
+            # Test getting token for a different tenant
+            different_tenant_id = "different-tenant-456"
+            token3 = await app_with_options.get_or_refresh_tenant_token(different_tenant_id)
+
+            # Should call API again for different tenant
+            assert mock_get_graph.call_count == 2
+            assert token3 == "test-tenant-token-123"  # Same response, but different cache entry
+
+            # Verify cache contains both tenants
+            assert tenant_id in app_with_options._tenant_tokens
+            assert different_tenant_id in app_with_options._tenant_tokens
+            assert len(app_with_options._tenant_tokens) == 2
+
+    @pytest.mark.asyncio
+    async def test_tenant_token_with_no_credentials(self, app_with_options: App) -> None:
+        """Test tenant token behavior when no credentials are available."""
+        # Temporarily remove credentials
+        original_credentials = app_with_options.credentials
+        app_with_options.credentials = None
+
+        try:
+            # Should return None when no credentials
+            token = await app_with_options.get_or_refresh_tenant_token("test-tenant")
+            assert token is None
+        finally:
+            # Restore credentials
+            app_with_options.credentials = original_credentials
+
+    @pytest.mark.asyncio
+    async def test_tenant_token_api_error_handling(self, app_with_options: App) -> None:
+        """Test tenant token behavior when API call fails."""
+        with patch.object(app_with_options.api.bots.token, "get_graph", new_callable=AsyncMock) as mock_get_graph:
+            mock_get_graph.side_effect = Exception("API Error")
+
+            # Should return None when API call fails
+            token = await app_with_options.get_or_refresh_tenant_token("test-tenant")
+            assert token is None
+
+            # Should have attempted to call API
+            assert mock_get_graph.call_count == 1

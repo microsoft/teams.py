@@ -80,7 +80,7 @@ class ActivityContext(Generic[T]):
         is_signed_in: bool,
         connection_name: str,
         sender: Sender,
-        app_token: Optional[TokenProtocol] = None,
+        app_token: Optional[TokenProtocol],
     ):
         self.activity = activity
         self.app_id = app_id
