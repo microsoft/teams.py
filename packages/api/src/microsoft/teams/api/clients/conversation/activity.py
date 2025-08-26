@@ -44,6 +44,10 @@ class ConversationActivityClient(BaseClient):
             json=activity.model_dump(by_alias=True, exclude_none=True),
         )
 
+        if activity.type == "typing":
+            # NOTE: Service returns empty response
+            return SentActivity(id="DO_NOT_USE_PLACEHOLDER_TYPING_ID", activity_params=activity)
+
         id = response.json()["id"]
         return SentActivity(id=id, activity_params=activity)
 

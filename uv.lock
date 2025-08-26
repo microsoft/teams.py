@@ -909,7 +909,7 @@ wheels = [
 
 [[package]]
 name = "microsoft-teams-api"
-version = "0.0.1a2"
+version = "0.0.1a3"
 source = { editable = "packages/api" }
 dependencies = [
     { name = "microsoft-teams-cards" },
@@ -942,7 +942,7 @@ dev = [
 
 [[package]]
 name = "microsoft-teams-apps"
-version = "0.0.1a2"
+version = "0.0.1a3"
 source = { editable = "packages/apps" }
 dependencies = [
     { name = "cryptography" },
@@ -981,7 +981,7 @@ test = [
 
 [[package]]
 name = "microsoft-teams-cards"
-version = "0.0.1a2"
+version = "0.0.1a3"
 source = { editable = "packages/cards" }
 dependencies = [
     { name = "coverage" },
@@ -1000,7 +1000,7 @@ requires-dist = [
 
 [[package]]
 name = "microsoft-teams-common"
-version = "0.0.1a2"
+version = "0.0.1a3"
 source = { editable = "packages/common" }
 dependencies = [
     { name = "coverage" },
@@ -1031,7 +1031,7 @@ dev = [
 
 [[package]]
 name = "microsoft-teams-devtools"
-version = "0.0.1a2"
+version = "0.0.1a3"
 source = { editable = "packages/devtools" }
 dependencies = [
     { name = "fastapi" },
@@ -1052,7 +1052,7 @@ requires-dist = [
 
 [[package]]
 name = "microsoft-teams-graph"
-version = "0.0.1a2"
+version = "0.0.1a3"
 source = { editable = "packages/graph" }
 dependencies = [
     { name = "azure-core" },
