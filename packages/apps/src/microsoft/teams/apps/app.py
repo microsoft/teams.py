@@ -7,7 +7,7 @@ import asyncio
 import importlib.metadata
 import os
 from logging import Logger
-from typing import Any, Callable, List, Optional, TypeVar, Union, cast, overload
+from typing import Any, Awaitable, Callable, List, Optional, TypeVar, Union, cast, overload
 
 from dependency_injector import providers
 from dotenv import find_dotenv, load_dotenv
@@ -206,13 +206,6 @@ class App(ActivityHandlerMixin):
                 if hasattr(plugin, "on_init") and callable(plugin.on_init):
                     await plugin.on_init()
 
-            # Start all plugins except HTTP plugin first
-            for plugin in self.plugins:
-                is_callable = hasattr(plugin, "on_start") and callable(plugin.on_start)
-                if plugin is not self.http and is_callable:
-                    event = PluginStartEvent(port=self._port)
-                    await plugin.on_start(event)
-
             # Set callback and start HTTP plugin
             async def on_http_ready() -> None:
                 self.log.info("Teams app started successfully")
@@ -220,8 +213,14 @@ class App(ActivityHandlerMixin):
                 self._events.emit("start", StartEvent(port=self._port))
 
             self.http.on_ready_callback = on_http_ready
-            event = PluginStartEvent(port=self._port)
-            await self.http.on_start(event)
+
+            tasks: List[Awaitable[Any]] = []
+            for plugin in self.plugins:
+                is_callable = hasattr(plugin, "on_start") and callable(plugin.on_start)
+                if is_callable:
+                    event = PluginStartEvent(port=self._port)
+                    tasks.append(plugin.on_start(event))
+            await asyncio.gather(*tasks)
 
         except Exception as error:
             self._running = False
