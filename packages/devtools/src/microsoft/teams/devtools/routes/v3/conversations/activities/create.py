@@ -33,6 +33,7 @@ async def create(context: RouteContext):
             activity = MessageActivity(
                 **body,
                 id=body.get("id", str(uuid4())),
+                service_url=f"http://localhost:{context.port}",
                 channel_id="msteams",
                 from_=Account(id="devtools", name="devtools", role="bot"),
                 recipient=Account(id="", name="", role="user"),

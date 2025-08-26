@@ -13,9 +13,9 @@ from typing import Annotated, Any, AsyncGenerator, Awaitable, Callable, Dict, Li
 from uuid import uuid4
 
 import uvicorn
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
+from fastapi.responses import FileResponse
 from fastapi.routing import APIRouter
-from fastapi.staticfiles import StaticFiles
 from microsoft.teams.api import Activity, ActivityParams, ConversationReference, SentActivity, TokenProtocol
 from microsoft.teams.apps import (
     ActivityEvent,
@@ -49,7 +49,7 @@ class DevToolsPlugin(Sender):
     logger: Annotated[Logger, LoggerDependencyOptions()]
     id: Annotated[Optional[TokenProtocol], DependencyMetadata(optional=True)]
     name: Annotated[Optional[TokenProtocol], DependencyMetadata(optional=True)]
-    http_plugin: Annotated[HttpPlugin, DependencyMetadata()]
+    http: Annotated[HttpPlugin, DependencyMetadata()]
 
     on_error_event: Annotated[Callable[[ErrorEvent], None], EventMetadata(name="error")]
     on_activity_event: Annotated[Callable[[ActivityEvent], None], EventMetadata(name="activity")]
@@ -87,7 +87,18 @@ class DevToolsPlugin(Sender):
             await self.on_socket_connection(websocket)
 
         dist = os.path.join(os.path.dirname(__file__), "web")
-        self.app.mount("/devtools", StaticFiles(directory=dist, html=True), name="web")
+
+        # Define catch-all route BEFORE mounting static files
+        @self.app.get("/devtools/{path:path}")
+        async def custom_path(request: Request, path: str):  # type: ignore
+            file_path = os.path.join(dist, path)
+            if os.path.isfile(file_path):
+                return FileResponse(file_path)
+            return FileResponse(os.path.join(dist, "index.html"))
+
+        @self.app.get("/devtools")
+        async def root():  # type: ignore
+            return FileResponse(os.path.join(dist, "index.html"))
 
     @property
     def on_ready_callback(self) -> Optional[Callable[[], Awaitable[None]]]:
@@ -122,9 +133,7 @@ class DevToolsPlugin(Sender):
                 response_future = asyncio.get_event_loop().create_future()
                 self.pending[activity.id] = response_future
                 try:
-                    result = self.on_activity_event(
-                        ActivityEvent(token=token, activity=activity, sender=self.http_plugin)
-                    )
+                    result = self.on_activity_event(ActivityEvent(token=token, activity=activity, sender=self.http))
                     # If the handler is a coroutine, schedule it
                     if asyncio.iscoroutine(result):
                         asyncio.create_task(result)
@@ -223,15 +232,12 @@ class DevToolsPlugin(Sender):
             del self.pending[event.activity.id]
 
     async def send(self, activity: ActivityParams, ref: ConversationReference) -> SentActivity:
-        return await self.http_plugin.send(activity, ref)
+        return await self.http.send(activity, ref)
 
     async def emit_activity_to_sockets(self, event: DevToolsActivityEvent):
+        data = event.model_dump(mode="json", exclude_none=True)
         for socket_id, websocket in self.sockets.items():
             try:
-                data = event.model_dump()
-                # Convert datetime to ISO format for JSON serialization
-                if isinstance(data.get("sentAt"), datetime):
-                    data["sentAt"] = data["sentAt"].isoformat()
                 await websocket.send_json(data)
             except WebSocketDisconnect:
                 self.logger.info(f"WebSocket {socket_id} disconnected")
