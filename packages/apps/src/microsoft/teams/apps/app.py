@@ -215,10 +215,10 @@ class App(ActivityHandlerMixin):
             self.http.on_ready_callback = on_http_ready
 
             tasks: List[Awaitable[Any]] = []
+            event = PluginStartEvent(port=self._port)
             for plugin in self.plugins:
                 is_callable = hasattr(plugin, "on_start") and callable(plugin.on_start)
                 if is_callable:
-                    event = PluginStartEvent(port=self._port)
                     tasks.append(plugin.on_start(event))
             await asyncio.gather(*tasks)
 
