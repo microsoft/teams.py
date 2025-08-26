@@ -86,7 +86,6 @@ class DevToolsPlugin(Sender):
             self.logger.info(f"WebSocket connection initiated with scope type: {websocket.scope['type']}")
             await self.on_socket_connection(websocket)
 
-        # Setup static files serving like Express
         dist = os.path.join(os.path.dirname(__file__), "web")
 
         # Define catch-all route BEFORE mounting static files
