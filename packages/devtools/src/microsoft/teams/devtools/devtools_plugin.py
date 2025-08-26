@@ -235,7 +235,7 @@ class DevToolsPlugin(Sender):
         return await self.http.send(activity, ref)
 
     async def emit_activity_to_sockets(self, event: DevToolsActivityEvent):
-        data = event.model_dump(mode="json")
+        data = event.model_dump(mode="json", exclude_none=True)
         for socket_id, websocket in self.sockets.items():
             try:
                 await websocket.send_json(data)
