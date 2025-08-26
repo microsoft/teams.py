@@ -4,7 +4,7 @@ Licensed under the MIT License.
 """
 
 from logging import Logger
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union, cast
+from typing import TYPE_CHECKING, Any, Awaitable, Callable, Dict, List, Optional, Union, cast
 
 from microsoft.teams.api import (
     ActivityBase,
@@ -42,6 +42,7 @@ class ActivityProcessor:
         default_connection_name: str,
         http_client: Client,
         token: AppTokens,
+        graph_token_refresher: Optional[Callable[[], Awaitable[Optional[TokenProtocol]]]] = None,
     ) -> None:
         self.router = router
         self.logger = logger
@@ -50,10 +51,21 @@ class ActivityProcessor:
         self.default_connection_name = default_connection_name
         self.http_client = http_client
         self.tokens = token
+        self._graph_token_refresher = graph_token_refresher
 
         # This will be set after the EventManager is initialized due to
         # a circular dependency
         self.event_manager: Optional["EventManager"] = None
+
+    async def _get_or_refresh_graph_token(self) -> Optional[TokenProtocol]:
+        """Get the current graph token or refresh it if needed."""
+        if self._graph_token_refresher:
+            try:
+                return await self._graph_token_refresher()
+            except Exception as e:
+                self.logger.error(f"Failed to refresh graph token: {e}")
+                return self.tokens.graph
+        return self.tokens.graph
 
     async def _build_context(
         self,
@@ -81,9 +93,7 @@ class ActivityProcessor:
             locale=activity.locale,
             user=activity.from_,
         )
-        api_client = ApiClient(
-            service_url, self.http_client.clone(ClientOptions(token=self.tokens.bot))
-        )
+        api_client = ApiClient(service_url, self.http_client.clone(ClientOptions(token=self.tokens.bot)))
 
         # Check if user is signed in
         is_signed_in = False
@@ -102,6 +112,9 @@ class ActivityProcessor:
             # User token not available
             pass
 
+        # Get or refresh the graph token before passing it to the context
+        graph_token = await self._get_or_refresh_graph_token()
+
         activityCtx = ActivityContext(
             activity,
             self.id or "",
@@ -113,7 +126,7 @@ class ActivityProcessor:
             is_signed_in,
             self.default_connection_name,
             sender,
-            app_token=self.tokens.graph,  # Pass the app graph token as keyword argument
+            app_token=graph_token,  # Pass the refreshed app graph token
         )
 
         send = activityCtx.send
@@ -145,9 +158,7 @@ class ActivityProcessor:
     async def process_activity(
         self, plugins: List[PluginBase], sender: Sender, event: ActivityEvent
     ) -> Optional[InvokeResponse[Any]]:
-        activityCtx = await self._build_context(
-            event.activity, event.token, plugins, sender
-        )
+        activityCtx = await self._build_context(event.activity, event.token, plugins, sender)
 
         self.logger.debug(f"Received activity: {activityCtx.activity}")
 
@@ -179,9 +190,7 @@ class ActivityProcessor:
 
         # If no registered handlers, fall back to legacy activity_handler
         if handlers:
-            middleware_result = await self.execute_middleware_chain(
-                activityCtx, handlers
-            )
+            middleware_result = await self.execute_middleware_chain(activityCtx, handlers)
             if not self.event_manager:
                 raise ValueError("EventManager was not initialized properly")
 

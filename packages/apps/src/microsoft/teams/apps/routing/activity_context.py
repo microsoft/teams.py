@@ -111,10 +111,13 @@ class ActivityContext(Generic[T]):
             ```python
             @app.on_message
             async def handle_message(ctx: ActivityContext[MessageActivity]):
-                if ctx.user_graph:
-                    me = await ctx.user_graph.me.get()
-                    await ctx.send(f"Hello {me.display_name}!")
+                if ctx.is_signed_in:
+                    # User is signed in, now we can safely access user_graph
+                    if ctx.user_graph:
+                        me = await ctx.user_graph.me.get()
+                        await ctx.send(f"Hello {me.display_name}!")
                 else:
+                    # User needs to sign in first
                     await ctx.sign_in()
             ```
         """
@@ -189,11 +192,7 @@ class ActivityContext(Generic[T]):
         if isinstance(activity, MessageActivityInput):
             block_quote = self._build_block_quote_for_activity()
             if block_quote:
-                activity.text = (
-                    f"{block_quote}\n\n{activity.text}"
-                    if activity.text
-                    else block_quote
-                )
+                activity.text = f"{block_quote}\n\n{activity.text}" if activity.text else block_quote
         activity.reply_to_id = self.activity.id
         return await self.send(activity)
 
@@ -211,9 +210,7 @@ class ActivityContext(Generic[T]):
             activity = cast(MessageActivityInput, self.activity)
             max_length = 120
             text = activity.text or ""
-            truncated_text = (
-                f"{text[:max_length]}..." if len(text) > max_length else text
-            )
+            truncated_text = f"{text[:max_length]}..." if len(text) > max_length else text
 
             activity_id = activity.id
             from_id = activity.from_.id if activity.from_ else ""
@@ -285,17 +282,13 @@ class ActivityContext(Generic[T]):
             await self.send(MessageActivityInput(text=oauth_card_text))
 
         # Encode state
-        state = base64.b64encode(
-            json.dumps(token_exchange_state.model_dump()).encode()
-        ).decode()
+        state = base64.b64encode(json.dumps(token_exchange_state.model_dump()).encode()).decode()
 
         # Get sign-in resource
         resource_params = GetBotSignInResourceParams(state=state)
         resource = await self.api.bots.sign_in.get_resource(resource_params)
 
-        payload = MessageActivityInput(
-            recipient=self.activity.from_, input_hint="acceptingInput"
-        ).add_attachments(
+        payload = MessageActivityInput(recipient=self.activity.from_, input_hint="acceptingInput").add_attachments(
             card_attachment(
                 attachment=OAuthCardAttachment(
                     content=OAuthCard(

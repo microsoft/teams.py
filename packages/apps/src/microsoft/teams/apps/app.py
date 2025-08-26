@@ -21,6 +21,7 @@ from microsoft.teams.api import (
     Credentials,
     JsonWebToken,
     MessageActivityInput,
+    TokenProtocol,
 )
 from microsoft.teams.cards import AdaptiveCard
 from microsoft.teams.common import Client, ClientOptions, ConsoleLogger, EventEmitter, LocalStorage
@@ -124,6 +125,7 @@ class App(ActivityHandlerMixin):
             self.options.default_connection_name,
             self.http_client,
             self.tokens,
+            self._get_or_refresh_graph_token,  # Pass the token refresher callback
         )
         self.event_manager = EventManager(self._events, self.activity_processor)
         self.activity_processor.event_manager = self.event_manager
@@ -348,6 +350,15 @@ class App(ActivityHandlerMixin):
 
             self._events.emit("error", ErrorEvent(error, context={"method": "_refresh_graph_token"}))
             raise
+
+    async def _get_or_refresh_graph_token(self) -> Optional[TokenProtocol]:
+        """Get the current graph token, refreshing if necessary."""
+        try:
+            await self._refresh_graph_token()
+            return self._tokens.graph
+        except Exception as e:
+            self.log.error(f"Failed to get or refresh graph token: {e}")
+            return self._tokens.graph  # Return current token even if refresh failed
 
     @overload
     def event(self, func_or_event_type: F) -> F:

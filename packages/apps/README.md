@@ -20,19 +20,24 @@ Handles routing, middleware, events, and provides OAuth integration for Teams ap
 The framework provides seamless Microsoft Graph integration through two client types:
 
 ### User Graph Client (`ctx.user_graph`)
+
 Authenticated with the signed-in user's token for user-specific operations:
 
 ```python
 @app.on_message
 async def handle_message(ctx: ActivityContext[MessageActivity]):
-    if ctx.user_graph:
-        me = await ctx.user_graph.me.get()
-        await ctx.send(f"Hello {me.display_name}!")
+    if ctx.is_signed_in:
+        # User is signed in, now we can safely access user_graph
+        if ctx.user_graph:
+            me = await ctx.user_graph.me.get()
+            await ctx.send(f"Hello {me.display_name}!")
     else:
+        # User needs to sign in first
         await ctx.sign_in()
 ```
 
 ### App Graph Client (`ctx.app_graph`)
+
 Authenticated with the application's token for app-only operations:
 
 ```python
