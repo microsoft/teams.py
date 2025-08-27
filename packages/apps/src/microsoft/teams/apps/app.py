@@ -76,7 +76,7 @@ class App(ActivityHandlerMixin):
         self._router = ActivityRouter()
 
         self._tokens = AppTokens()
-        self._tenant_tokens: Dict[str, str] = {}  # Cache for tenant-specific tokens
+        self._tenant_tokens_cache: Dict[str, TokenProtocol] = {}
         self.credentials = self._init_credentials()
 
         self.container = Container()
@@ -126,7 +126,7 @@ class App(ActivityHandlerMixin):
             self.options.default_connection_name,
             self.http_client,
             self.tokens,
-            self.get_or_refresh_tenant_token,  # Pass the tenant-aware token refresher callback
+            self.get_or_refresh_tenant_token,
         )
         self.event_manager = EventManager(self._events, self.activity_processor)
         self.activity_processor.event_manager = self.event_manager
@@ -362,47 +362,38 @@ class App(ActivityHandlerMixin):
 
     async def get_or_refresh_tenant_token(self, tenant_id: Optional[str] = None) -> Optional[str]:
         """Get or refresh a tenant-specific graph token, mirroring TypeScript getOrRefreshTenantToken."""
-        if not tenant_id:
-            # Use default tenant from credentials if no specific tenant provided
-            if self.credentials and hasattr(self.credentials, "tenant_id"):
-                tenant_id = self.credentials.tenant_id
-            else:
-                return None
 
         if not tenant_id:
             return None
 
         # Check if we have a cached token for this tenant
-        app_token = self._tenant_tokens.get(tenant_id)
+        app_token = self._tenant_tokens_cache.get(tenant_id)
 
-        if self.credentials and tenant_id not in self._tenant_tokens:
+        if self.credentials and tenant_id not in self._tenant_tokens_cache:
             try:
                 # Create credentials for specific tenant
                 tenant_credentials = self.credentials
-                if hasattr(self.credentials, "tenant_id"):
-                    # Create a copy with specific tenant_id if credentials support it
-                    if hasattr(self.credentials, "client_id") and hasattr(self.credentials, "client_secret"):
-                        from microsoft.teams.api import ClientCredentials
-
-                        tenant_credentials = ClientCredentials(
-                            client_id=self.credentials.client_id,
-                            client_secret=self.credentials.client_secret,
-                            tenant_id=tenant_id,
-                        )
+                if isinstance(self.credentials, ClientCredentials):
+                    # Create a copy with specific tenant_id for ClientCredentials
+                    tenant_credentials = ClientCredentials(
+                        client_id=self.credentials.client_id,
+                        client_secret=self.credentials.client_secret,
+                        tenant_id=tenant_id,
+                    )
 
                 # Refresh token for specific tenant
                 graph_response = await self.api.bots.token.get_graph(tenant_credentials)
 
                 self.log.debug(f"refreshing tenant token for {tenant_id}")
 
-                app_token = graph_response.access_token
-                self._tenant_tokens[tenant_id] = app_token
+                app_token = JsonWebToken(graph_response.access_token)
+                self._tenant_tokens_cache[tenant_id] = app_token
 
             except Exception as e:
                 self.log.error(f"Failed to refresh tenant token for {tenant_id}: {e}")
                 return None
 
-        return app_token
+        return str(app_token) if app_token else None
 
     @overload
     def event(self, func_or_event_type: F) -> F:
