@@ -1,7 +1,6 @@
 # Teams Graph Integration Demo
 
-This demo application showcases how to use Microsoft Graph APIs within a Teams bot built with the
-Teams AI SDK for Python using the Token pattern for optimal token management.
+This demo application showcases how to use Microsoft Graph APIs within a Teams bot.
 
 ## Features
 
@@ -9,14 +8,12 @@ Teams AI SDK for Python using the Token pattern for optimal token management.
 - **Token Implementation**: Uses callable-based tokens for exact expiration handling
 - **Profile Information**: Retrieve and display user profile data
 - **Email Access**: List recent emails with Mail.Read scope
-- **Teams Membership**: View user's joined Teams with descriptions
 - **Automatic Token Refresh**: Intelligent token lifecycle management
 
 ## Commands
 
 - `signin` - Authenticate with Microsoft Graph
 - `profile` - Display user profile information (requires User.Read)
-- `teams` - Show user's joined Teams (requires Team.ReadBasic.All)
 - `emails` - Show recent emails (requires Mail.Read permission)
 - `signout` - Sign out of Microsoft Graph
 - `help` - Show available commands and implementation details
@@ -28,7 +25,6 @@ Teams AI SDK for Python using the Token pattern for optimal token management.
 3. Configure appropriate Microsoft Graph permissions:
    - `User.Read` (for profile access)
    - `Mail.Read` (for email access)
-   - `Team.ReadBasic.All` (for Teams membership)
 4. Create a `.env` file with required environment variables (copy from `sample.env`):
    ```
    CONNECTION_NAME=graph
@@ -82,14 +78,6 @@ The demo uses the `microsoft.teams.graph` package which provides:
 - **Token Integration**: Uses callable tokens for exact expiration handling
 - **Automatic Token Resolution**: Seamless integration with Teams OAuth tokens
 - **Graph Client Factory**: `get_graph_client()` function for creating authenticated clients
-- **Error Handling**: Comprehensive error handling for authentication failures
-
-### Key Implementation Features
-
-- **Callable Token Pattern**: Uses function-based tokens that are evaluated on each Graph API call
-- **Exact Expiration Times**: Eliminates token expiration guesswork through precise timing
-- **Lazy Authentication**: Tokens are resolved only when needed for API calls
-- **Teams Integration**: Seamless integration with Teams authentication flow
 
 ## Example Usage
 
@@ -124,8 +112,6 @@ This approach provides better reliability and eliminates common token expiration
 
 - **`get_graph_client()`** - Main factory function accepting Token values (strings, callables, etc.)
 - **`DirectTokenCredential`** - Azure TokenCredential implementation using the unified Token type
-- **Token Approach** - Uses the common Token type for flexible token handling
-- **Pre-authorized Authentication** - Works seamlessly with Teams OAuth tokens without complex validation
 
 ### Key Implementation Details
 

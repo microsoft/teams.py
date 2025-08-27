@@ -18,6 +18,7 @@ Provides HTTP abstraction, authentication, and typed models for Teams Bot Framew
 ## Authentication Types
 
 ### ClientCredentials
+
 For application authentication using client ID and secret:
 
 ```python
@@ -30,7 +31,8 @@ credentials = ClientCredentials(
 )
 ```
 
-### TokenCredentials  
+### TokenCredentials
+
 For external authentication providers:
 
 ```python
@@ -65,6 +67,7 @@ jwt_string = str(token)
 ## API Clients
 
 ### Bot Token Client
+
 Manages bot authentication tokens:
 
 ```python
@@ -76,6 +79,7 @@ graph_token = await api.bots.token.get_graph(credentials)
 ```
 
 ### User Token Client
+
 Handles user authentication and token exchange:
 
 ```python

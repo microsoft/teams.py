@@ -11,8 +11,6 @@ Provides utilities for creating and handling interactive card components.
 - **Adaptive Card Builder**: Fluent API for creating Adaptive Cards
 - **Action Handlers**: Type-safe action handling for card interactions
 - **Card Templates**: Pre-built card templates for common scenarios
-- **Validation**: Card schema validation and error handling
-- **Teams Integration**: Seamless integration with Teams Bot Framework
 
 ## Card Creation
 

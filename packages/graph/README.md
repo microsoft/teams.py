@@ -1,14 +1,12 @@
 # Microsoft Teams Graph Integration
 
-This package provides seamless access to Microsoft Graph APIs from Teams bots and agents built with the Microsoft Teams AI SDK for Python. Features Token-based authentication for optimal token lifecycle management.
+This package provides seamless access to Microsoft Graph APIs from Teams bots and agents built with the Microsoft Teams AI SDK for Python.
 
 ## Key Features
 
 - **Token Integration**: Unified token handling using the Token type from microsoft-teams-common
 - **Flexible Token Sources**: Supports strings, StringLike objects, callables, async callables, or None
 - **Automatic Token Resolution**: Leverages common resolve_token utility for consistent handling
-- **Teams OAuth Integration**: Seamless integration with Teams authentication flows
-- **Error Handling**: Comprehensive authentication error handling and recovery
 
 ## Requirements
 
@@ -36,11 +34,11 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
 
     # Create Graph client using user's token
     graph = get_graph_client(ctx.user_token)
-    
+
     # Get user profile
     me = await graph.me.get()
     await ctx.send(f"Hello {me.display_name}!")
-    
+
     # Get user's Teams
     teams = await graph.me.joined_teams.get()
     if teams and teams.value:
@@ -58,12 +56,13 @@ def create_token_callable(ctx: ActivityContext) -> Token:
     def get_fresh_token():
         # This is called on each Graph API request
         return ctx.user_token  # Always returns current valid token
-    
+
     return get_fresh_token
 
 # Use with Graph client
 graph = get_graph_client(create_token_callable(ctx))
 ```
+
         await ctx.sign_in()
         return
 
@@ -77,7 +76,8 @@ graph = get_graph_client(create_token_callable(ctx))
     # Make Graph API calls
     me = await graph.me.get()
     await ctx.send(f"Hello {me.display_name}!")
-```
+
+````
 
 ## Token Type Usage
 
@@ -88,7 +88,7 @@ The package uses the Token type from microsoft-teams-common for flexible token h
 ```python
 # Direct string token
 graph = get_graph_client("eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIs...")
-```
+````
 
 ### Callable Token (Dynamic)
 

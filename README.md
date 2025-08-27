@@ -27,12 +27,15 @@ A comprehensive SDK for building Microsoft Teams applications, bots, and AI agen
 ## Quick Examples
 
 ### Graph Integration Demo
+
 Located in `tests/graph/` - showcases Microsoft Graph API usage with user authentication, profile access, Teams membership, and email integration.
 
-### OAuth Flow Demo  
+### OAuth Flow Demo
+
 Located in `tests/oauth/` - demonstrates user authentication and token management.
 
 ### Message Extensions Demo
+
 Located in `tests/message-extensions/` - shows how to build Teams message extensions.
 
 ## Getting Started
