@@ -1,10 +1,10 @@
 # Microsoft Teams Graph Integration
 
-This package provides seamless access to Microsoft Graph APIs from Teams bots and agents built with the Microsoft Teams AI SDK for Python. Features TokenProtocol-based authentication for optimal token lifecycle management.
+This package provides seamless access to Microsoft Graph APIs from Teams bots and agents built with the Microsoft Teams AI SDK for Python. Features Token-based authentication for optimal token lifecycle management.
 
 ## Key Features
 
-- **TokenProtocol Integration**: Unified token handling with automatic expiration management
+- **Token Integration**: Unified token handling using the Token type from microsoft-teams-common
 - **Flexible Token Sources**: Supports strings, StringLike objects, callables, async callables, or None
 - **Automatic Token Resolution**: Leverages common resolve_token utility for consistent handling
 - **Teams OAuth Integration**: Seamless integration with Teams authentication flows
@@ -48,12 +48,12 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
         await ctx.send(f"You're in {len(team_names)} teams: {', '.join(team_names)}")
 ```
 
-### TokenProtocol Integration
+### Token Integration
 
 ```python
-from microsoft.teams.api import TokenProtocol
+from microsoft.teams.common.http.client_token import Token
 
-def create_token_callable(ctx: ActivityContext) -> TokenProtocol:
+def create_token_callable(ctx: ActivityContext) -> Token:
     """Create a callable token that refreshes automatically."""
     def get_fresh_token():
         # This is called on each Graph API request

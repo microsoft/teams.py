@@ -1,12 +1,12 @@
 # Teams Graph Integration Demo
 
 This demo application showcases how to use Microsoft Graph APIs within a Teams bot built with the
-Teams AI SDK for Python using the TokenProtocol pattern for optimal token management.
+Teams AI SDK for Python using the Token pattern for optimal token management.
 
 ## Features
 
 - **User Authentication**: Teams OAuth integration with automatic token management
-- **TokenProtocol Implementation**: Uses callable-based tokens for exact expiration handling
+- **Token Implementation**: Uses callable-based tokens for exact expiration handling
 - **Profile Information**: Retrieve and display user profile data
 - **Email Access**: List recent emails with Mail.Read scope
 - **Teams Membership**: View user's joined Teams with descriptions
@@ -79,7 +79,7 @@ python tests/graph/src/main.py
 
 The demo uses the `microsoft.teams.graph` package which provides:
 
-- **TokenProtocol Integration**: Uses callable tokens for exact expiration handling
+- **Token Integration**: Uses callable tokens for exact expiration handling
 - **Automatic Token Resolution**: Seamless integration with Teams OAuth tokens
 - **Graph Client Factory**: `get_graph_client()` function for creating authenticated clients
 - **Error Handling**: Comprehensive error handling for authentication failures
