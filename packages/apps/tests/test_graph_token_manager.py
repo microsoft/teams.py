@@ -94,6 +94,8 @@ class TestGraphTokenManager:
         )
 
         mock_logger = MagicMock()
+        mock_child_logger = MagicMock()
+        mock_logger.getChild.return_value = mock_child_logger
 
         manager = GraphTokenManager(
             api_client=mock_api_client,
@@ -107,7 +109,9 @@ class TestGraphTokenManager:
         assert isinstance(token, JsonWebToken)
         # Verify the API was called
         mock_api_client.bots.token.get_graph.assert_called_once()
-        mock_logger.debug.assert_called_once()
+        # Verify child logger was created and debug was called
+        mock_logger.getChild.assert_called_once_with("GraphTokenManager")
+        mock_child_logger.debug.assert_called_once()
 
         # Test that subsequent calls use cache by calling again
         token2 = await manager.get_token("test-tenant")
@@ -156,6 +160,8 @@ class TestGraphTokenManager:
         )
 
         mock_logger = MagicMock()
+        mock_child_logger = MagicMock()
+        mock_logger.getChild.return_value = mock_child_logger
 
         manager = GraphTokenManager(
             api_client=mock_api_client,
@@ -166,8 +172,9 @@ class TestGraphTokenManager:
         token = await manager.get_token("test-tenant")
 
         assert token is None
-        # Verify error was logged
-        mock_logger.error.assert_called_once()
+        # Verify child logger was created and error was logged
+        mock_logger.getChild.assert_called_once_with("GraphTokenManager")
+        mock_child_logger.error.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_get_token_no_logger_on_error(self):

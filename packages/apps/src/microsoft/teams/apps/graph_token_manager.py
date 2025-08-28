@@ -3,10 +3,10 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from logging import Logger
+import logging
 from typing import TYPE_CHECKING, Dict, Optional
 
-from microsoft.teams.api import JsonWebToken, TokenProtocol
+from microsoft.teams.api import ClientCredentials, JsonWebToken, TokenProtocol
 
 if TYPE_CHECKING:
     from microsoft.teams.api import ApiClient, Credentials
@@ -19,11 +19,17 @@ class GraphTokenManager:
         self,
         api_client: "ApiClient",
         credentials: Optional["Credentials"],
-        logger: Optional[Logger] = None,
+        logger: Optional[logging.Logger] = None,
     ):
         self._api_client = api_client
         self._credentials = credentials
-        self._logger = logger
+
+        # Create logger: default if none provided, child if one is provided
+        if logger is None:
+            self._logger = logging.getLogger(__name__ + ".GraphTokenManager")
+        else:
+            self._logger = logger.getChild("GraphTokenManager")
+
         self._token_cache: Dict[str, TokenProtocol] = {}
 
     async def get_token(self, tenant_id: Optional[str] = None) -> Optional[TokenProtocol]:
@@ -38,8 +44,6 @@ class GraphTokenManager:
 
         # Refresh token
         try:
-            from microsoft.teams.api import ClientCredentials
-
             tenant_credentials = self._credentials
             if isinstance(self._credentials, ClientCredentials):
                 tenant_credentials = ClientCredentials(
@@ -52,12 +56,10 @@ class GraphTokenManager:
             token = JsonWebToken(response.access_token)
             self._token_cache[tenant_id] = token
 
-            if self._logger:
-                self._logger.debug(f"Refreshed graph token for tenant {tenant_id}")
+            self._logger.debug(f"Refreshed graph token for tenant {tenant_id}")
 
             return token
 
         except Exception as e:
-            if self._logger:
-                self._logger.error(f"Failed to refresh graph token for {tenant_id}: {e}")
+            self._logger.error(f"Failed to refresh graph token for {tenant_id}: {e}")
             return None

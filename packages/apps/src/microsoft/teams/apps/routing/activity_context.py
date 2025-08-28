@@ -124,19 +124,6 @@ class ActivityContext(Generic[T]):
 
         Returns None if the user is not signed in or doesn't have a valid token.
 
-        Example:
-            ```python
-            @app.on_message
-            async def handle_message(ctx: ActivityContext[MessageActivity]):
-                if ctx.is_signed_in:
-                    # User is signed in, now we can safely access user_graph
-                    if ctx.user_graph:
-                        me = await ctx.user_graph.me.get()
-                        await ctx.send(f"Hello {me.display_name}!")
-                else:
-                    # User needs to sign in first
-                    await ctx.sign_in()
-            ```
         """
         if not self.is_signed_in or not self.user_token:
             return None
@@ -157,15 +144,6 @@ class ActivityContext(Generic[T]):
 
         This client can be used for app-only operations that don't require user context.
 
-        Example:
-            ```python
-            @app.on_message
-            async def handle_message(ctx: ActivityContext[MessageActivity]):
-                if ctx.app_graph:
-                    # App-only operations
-                    app_info = await ctx.app_graph.applications.by_application_id("app-id").get()
-                    await ctx.send(f"App: {app_info.display_name}")
-            ```
         """
         if not self._app_token:
             self.logger.debug("No app token available for app graph client")
