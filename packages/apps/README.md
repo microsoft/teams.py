@@ -12,8 +12,6 @@ Handles routing, middleware, events, and provides OAuth integration for Teams ap
 - **Middleware Support**: Extensible middleware chain for request processing
 - **OAuth Integration**: Built-in OAuth flow handling for user authentication
 - **Microsoft Graph Integration**: Direct access to Graph APIs through `user_graph` and `app_graph` properties
-- **Plugin System**: Extensible plugin architecture for adding functionality
-- **Event Handling**: Comprehensive event system for application lifecycle management
 
 ## Graph Clients
 
@@ -123,6 +121,4 @@ manager = GraphTokenManager.create_with_callback(
 ### Security Best Practices
 
 - **Always specify `allowed_tenant_id` for production static tokens**
-- **Use callback-based providers for multi-tenant applications**  
-- **Validate token scope matches intended operations**
-- **Monitor token usage in logs for security auditing**
+- **Use callback-based providers for multi-tenant applications**

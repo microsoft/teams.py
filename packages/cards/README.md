@@ -37,7 +37,7 @@ async def handle_card_action(ctx: ActivityContext[InvokeActivity]):
 
 ## Card Types
 
-- **Message Cards**: Rich content for bot messages
+- **Message Cards**: Rich content for agent messages
 - **Task Modules**: Modal dialogs and forms
 - **Tab Cards**: Content for Teams tabs
 - **Connector Cards**: Webhook-based cards
