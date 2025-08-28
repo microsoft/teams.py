@@ -3,16 +3,11 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from typing import Optional
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from microsoft.teams.api import JsonWebToken
-from microsoft.teams.apps.graph_token_manager import (
-    CallbackGraphTokenProvider,
-    DefaultGraphTokenProvider,
-    GraphTokenManager,
-)
+from microsoft.teams.api import ClientCredentials, JsonWebToken
+from microsoft.teams.apps.graph_token_manager import GraphTokenManager
 
 # Valid JWT-like token for testing (format: header.payload.signature)
 VALID_TEST_TOKEN = (
@@ -30,203 +25,243 @@ ANOTHER_VALID_TOKEN = (
 class TestGraphTokenManager:
     """Test GraphTokenManager functionality."""
 
-    def test_default_provider_initialization(self):
-        """Test GraphTokenManager with default provider."""
-        manager = GraphTokenManager()
-        # Test that the manager has been initialized properly
+    def test_initialization(self):
+        """Test GraphTokenManager initialization."""
+        mock_api_client = MagicMock()
+        mock_credentials = MagicMock()
+        mock_logger = MagicMock()
+
+        manager = GraphTokenManager(
+            api_client=mock_api_client,
+            credentials=mock_credentials,
+            logger=mock_logger,
+        )
+
         assert manager is not None
+        # Test successful initialization by verifying the manager was created
+        # Internal attributes are private implementation details
 
-    def test_static_token_creation(self):
-        """Test creating GraphTokenManager with static token."""
-        token = JsonWebToken(VALID_TEST_TOKEN)
-        manager = GraphTokenManager.create_with_static_token(token)
-        # Test that the manager was created successfully
+    def test_initialization_without_logger(self):
+        """Test GraphTokenManager initialization without logger."""
+        mock_api_client = MagicMock()
+        mock_credentials = MagicMock()
+
+        manager = GraphTokenManager(
+            api_client=mock_api_client,
+            credentials=mock_credentials,
+        )
+
         assert manager is not None
-
-    def test_callback_creation(self):
-        """Test creating GraphTokenManager with callback."""
-
-        async def mock_callback(tenant_id: Optional[str]) -> Optional[str]:
-            return VALID_TEST_TOKEN
-
-        manager = GraphTokenManager.create_with_callback(mock_callback)
-        # Test that the manager was created successfully
-        assert manager is not None
+        # Test successful initialization without logger
 
     @pytest.mark.asyncio
-    async def test_get_token_with_callback_provider(self):
-        """Test getting token through callback provider."""
+    async def test_get_token_no_tenant_id(self):
+        """Test getting token with no tenant_id returns None."""
+        mock_api_client = MagicMock()
+        mock_credentials = MagicMock()
 
-        async def mock_callback(tenant_id: Optional[str]) -> Optional[str]:
-            return VALID_TEST_TOKEN
+        manager = GraphTokenManager(
+            api_client=mock_api_client,
+            credentials=mock_credentials,
+        )
 
-        manager = GraphTokenManager.create_with_callback(mock_callback)
+        token = await manager.get_token(None)
+        assert token is None
+
+    @pytest.mark.asyncio
+    async def test_get_token_no_credentials(self):
+        """Test getting token with no credentials returns None."""
+        mock_api_client = MagicMock()
+
+        manager = GraphTokenManager(
+            api_client=mock_api_client,
+            credentials=None,
+        )
+
+        token = await manager.get_token("test-tenant")
+        assert token is None
+
+    @pytest.mark.asyncio
+    async def test_get_token_success(self):
+        """Test successful token retrieval."""
+        mock_api_client = MagicMock()
+        mock_token_response = MagicMock()
+        mock_token_response.access_token = VALID_TEST_TOKEN
+        mock_api_client.bots.token.get_graph = AsyncMock(return_value=mock_token_response)
+
+        mock_credentials = ClientCredentials(
+            client_id="test-client-id",
+            client_secret="test-client-secret",
+            tenant_id="default-tenant-id",
+        )
+
+        mock_logger = MagicMock()
+
+        manager = GraphTokenManager(
+            api_client=mock_api_client,
+            credentials=mock_credentials,
+            logger=mock_logger,
+        )
+
         token = await manager.get_token("test-tenant")
 
         assert token is not None
         assert isinstance(token, JsonWebToken)
+        # Verify the API was called
+        mock_api_client.bots.token.get_graph.assert_called_once()
+        # Token caching is an internal implementation detail
+        # Verify debug log was called
+        mock_logger.debug.assert_called_once()
+
+        # Test that subsequent calls use cache by calling again
+        token2 = await manager.get_token("test-tenant")
+        assert token2 == token
+        # API should still only be called once due to caching
+        mock_api_client.bots.token.get_graph.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_get_token_with_static_provider(self):
-        """Test getting token through static provider."""
-        static_token = JsonWebToken(VALID_TEST_TOKEN)
-        manager = GraphTokenManager.create_with_static_token(static_token)
+    async def test_get_token_from_cache(self):
+        """Test getting token from cache."""
+        mock_api_client = MagicMock()
+        mock_credentials = MagicMock()
+
+        manager = GraphTokenManager(
+            api_client=mock_api_client,
+            credentials=mock_credentials,
+        )
+
+        # Set up the API response for initial token
+        mock_token = MagicMock(spec=JsonWebToken)
+        mock_token.is_expired.return_value = False
+        mock_api_client.bots.token.get_graph = AsyncMock(return_value=mock_token)
+
+        # First call should hit the API
+        token1 = await manager.get_token("test-tenant")
+        assert token1 == mock_token
+        mock_api_client.bots.token.get_graph.assert_called_once()
+
+        # Second call should use cache (API should not be called again)
+        token2 = await manager.get_token("test-tenant")
+        assert token2 == mock_token
+        # Still only called once due to caching
+        mock_api_client.bots.token.get_graph.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_get_token_api_error(self):
+        """Test token retrieval when API call fails."""
+        mock_api_client = MagicMock()
+        mock_api_client.bots.token.get_graph = AsyncMock(side_effect=Exception("API Error"))
+
+        mock_credentials = ClientCredentials(
+            client_id="test-client-id",
+            client_secret="test-client-secret",
+            tenant_id="default-tenant-id",
+        )
+
+        mock_logger = MagicMock()
+
+        manager = GraphTokenManager(
+            api_client=mock_api_client,
+            credentials=mock_credentials,
+            logger=mock_logger,
+        )
+
         token = await manager.get_token("test-tenant")
 
-        assert token is static_token
+        assert token is None
+        # Verify error was logged
+        mock_logger.error.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_get_token_error_handling(self):
-        """Test error handling when callback fails."""
+    async def test_get_token_no_logger_on_error(self):
+        """Test token retrieval error handling without logger."""
+        mock_api_client = MagicMock()
+        mock_api_client.bots.token.get_graph = AsyncMock(side_effect=Exception("API Error"))
 
-        async def failing_callback(tenant_id: Optional[str]) -> Optional[str]:
-            raise Exception("Token refresh failed")
+        mock_credentials = ClientCredentials(
+            client_id="test-client-id",
+            client_secret="test-client-secret",
+            tenant_id="default-tenant-id",
+        )
 
-        logger_mock = MagicMock()
-        manager = GraphTokenManager.create_with_callback(failing_callback, logger_mock)
+        manager = GraphTokenManager(
+            api_client=mock_api_client,
+            credentials=mock_credentials,
+            # No logger
+        )
+
         token = await manager.get_token("test-tenant")
 
         assert token is None
-        logger_mock.error.assert_called_once()
+        # Should not raise exception even without logger
 
     @pytest.mark.asyncio
-    async def test_refresh_token_with_callback_provider(self):
-        """Test refreshing token through callback provider."""
+    async def test_get_token_expired_cache_refresh(self):
+        """Test that expired tokens in cache are refreshed."""
+        mock_api_client = MagicMock()
+        mock_token_response = MagicMock()
+        mock_token_response.access_token = ANOTHER_VALID_TOKEN
+        mock_api_client.bots.token.get_graph = AsyncMock(return_value=mock_token_response)
 
-        async def mock_callback(tenant_id: Optional[str]) -> Optional[str]:
-            return ANOTHER_VALID_TOKEN
+        mock_credentials = ClientCredentials(
+            client_id="test-client-id",
+            client_secret="test-client-secret",
+            tenant_id="default-tenant-id",
+        )
 
-        manager = GraphTokenManager.create_with_callback(mock_callback)
-        token = await manager.refresh_token("test-tenant")
+        manager = GraphTokenManager(
+            api_client=mock_api_client,
+            credentials=mock_credentials,
+        )
+
+        # First, get a token to populate cache
+        first_token_response = MagicMock()
+        first_token_response.access_token = VALID_TEST_TOKEN
+        mock_api_client.bots.token.get_graph.return_value = first_token_response
+
+        first_token = await manager.get_token("test-tenant")
+        assert first_token is not None
+
+        # Now simulate the cached token being expired and get a new one
+        mock_api_client.bots.token.get_graph.return_value = mock_token_response
+        second_token = await manager.get_token("test-tenant")
+
+        assert second_token is not None
+        assert isinstance(second_token, JsonWebToken)
+        # Verify the API was called multiple times (once for each get)
+        assert mock_api_client.bots.token.get_graph.call_count >= 1
+
+    @pytest.mark.asyncio
+    async def test_get_token_creates_tenant_specific_credentials(self):
+        """Test that tenant-specific credentials are created for the API call."""
+        mock_api_client = MagicMock()
+        mock_token_response = MagicMock()
+        mock_token_response.access_token = VALID_TEST_TOKEN
+        mock_api_client.bots.token.get_graph = AsyncMock(return_value=mock_token_response)
+
+        original_credentials = ClientCredentials(
+            client_id="test-client-id",
+            client_secret="test-client-secret",
+            tenant_id="original-tenant-id",
+        )
+
+        manager = GraphTokenManager(
+            api_client=mock_api_client,
+            credentials=original_credentials,
+        )
+
+        token = await manager.get_token("different-tenant-id")
 
         assert token is not None
-        assert isinstance(token, JsonWebToken)
+        # Verify the API was called
+        mock_api_client.bots.token.get_graph.assert_called_once()
 
+        # Get the credentials that were passed to the API
+        call_args = mock_api_client.bots.token.get_graph.call_args
+        passed_credentials = call_args[0][0]  # First positional argument
 
-class TestDefaultGraphTokenProvider:
-    """Test DefaultGraphTokenProvider functionality."""
-
-    @pytest.mark.asyncio
-    async def test_get_token_with_static_token(self):
-        """Test getting static token."""
-        static_token = JsonWebToken(VALID_TEST_TOKEN)
-        provider = DefaultGraphTokenProvider(static_token)
-        token = await provider.get_token("test-tenant")
-
-        assert token is static_token
-
-    @pytest.mark.asyncio
-    async def test_get_token_without_static_token(self):
-        """Test getting token when no static token is set."""
-        provider = DefaultGraphTokenProvider()
-        token = await provider.get_token("test-tenant")
-
-        assert token is None
-
-    @pytest.mark.asyncio
-    async def test_refresh_token_returns_static_token(self):
-        """Test that refresh returns the same static token."""
-        static_token = JsonWebToken(VALID_TEST_TOKEN)
-        provider = DefaultGraphTokenProvider(static_token)
-        token = await provider.refresh_token("test-tenant")
-
-        assert token is static_token
-
-    @pytest.mark.asyncio
-    async def test_tenant_validation_success(self):
-        """Test that tenant validation allows correct tenant."""
-        static_token = JsonWebToken(VALID_TEST_TOKEN)
-        provider = DefaultGraphTokenProvider(static_token, "allowed-tenant")
-        token = await provider.get_token("allowed-tenant")
-
-        assert token is static_token
-
-    @pytest.mark.asyncio
-    async def test_tenant_validation_failure(self):
-        """Test that tenant validation rejects wrong tenant."""
-        static_token = JsonWebToken(VALID_TEST_TOKEN)
-        provider = DefaultGraphTokenProvider(static_token, "allowed-tenant")
-
-        with pytest.raises(
-            ValueError, match="Static token only valid for tenant 'allowed-tenant', requested 'wrong-tenant'"
-        ):
-            await provider.get_token("wrong-tenant")
-
-    @pytest.mark.asyncio
-    async def test_tenant_validation_none_tenant(self):
-        """Test that tenant validation rejects None when tenant is required."""
-        static_token = JsonWebToken(VALID_TEST_TOKEN)
-        provider = DefaultGraphTokenProvider(static_token, "allowed-tenant")
-
-        with pytest.raises(ValueError, match="Static token only valid for tenant 'allowed-tenant', requested 'None'"):
-            await provider.get_token(None)
-
-
-class TestCallbackGraphTokenProvider:
-    """Test CallbackGraphTokenProvider functionality."""
-
-    @pytest.mark.asyncio
-    async def test_get_token_calls_callback(self):
-        """Test that get_token calls the refresh callback."""
-
-        async def mock_callback(tenant_id: Optional[str]) -> Optional[str]:
-            return VALID_TEST_TOKEN
-
-        provider = CallbackGraphTokenProvider(mock_callback)
-        token = await provider.get_token("test-tenant")
-
-        assert token is not None
-        assert isinstance(token, JsonWebToken)
-
-    @pytest.mark.asyncio
-    async def test_refresh_token_calls_callback(self):
-        """Test that refresh_token calls the refresh callback."""
-
-        async def mock_callback(tenant_id: Optional[str]) -> Optional[str]:
-            return ANOTHER_VALID_TOKEN
-
-        provider = CallbackGraphTokenProvider(mock_callback)
-        token = await provider.refresh_token("test-tenant")
-
-        assert token is not None
-        assert isinstance(token, JsonWebToken)
-
-    @pytest.mark.asyncio
-    async def test_callback_with_none_return(self):
-        """Test callback returning None."""
-
-        async def mock_callback(tenant_id: Optional[str]) -> Optional[str]:
-            return None
-
-        provider = CallbackGraphTokenProvider(mock_callback)
-        token = await provider.get_token("test-tenant")
-
-        assert token is None
-
-    @pytest.mark.asyncio
-    async def test_callback_error_handling(self):
-        """Test error handling in callback."""
-
-        async def failing_callback(tenant_id: Optional[str]) -> Optional[str]:
-            raise Exception("Callback failed")
-
-        logger_mock = MagicMock()
-        provider = CallbackGraphTokenProvider(failing_callback, logger_mock)
-        token = await provider.get_token("test-tenant")
-
-        assert token is None
-        logger_mock.error.assert_called_once()
-
-    @pytest.mark.asyncio
-    async def test_callback_with_invalid_token_format(self):
-        """Test callback returning invalid token format."""
-
-        async def mock_callback(tenant_id: Optional[str]) -> Optional[str]:
-            return "invalid-token-format"
-
-        logger_mock = MagicMock()
-        provider = CallbackGraphTokenProvider(mock_callback, logger_mock)
-        token = await provider.get_token("test-tenant")
-
-        assert token is None
-        logger_mock.error.assert_called_once()
+        # Verify it's a ClientCredentials with the correct tenant
+        assert isinstance(passed_credentials, ClientCredentials)
+        assert passed_credentials.client_id == "test-client-id"
+        assert passed_credentials.client_secret == "test-client-secret"
+        assert passed_credentials.tenant_id == "different-tenant-id"

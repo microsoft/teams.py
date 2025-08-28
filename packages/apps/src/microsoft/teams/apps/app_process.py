@@ -29,6 +29,7 @@ from .graph_token_manager import GraphTokenManager
 from .plugins import PluginActivityEvent, PluginBase, Sender
 from .routing.activity_context import ActivityContext
 from .routing.router import ActivityHandler, ActivityRouter
+from .utils import extract_tenant_id
 
 
 class ActivityProcessor:
@@ -114,8 +115,10 @@ class ActivityProcessor:
             pass
 
         # Get or refresh the graph token before passing it to the context
-        # Use None for tenant_id to get default tenant token
-        graph_token = await self._get_or_refresh_graph_token(None)
+        # Extract tenant_id from the activity to get tenant-specific token
+        tenant_id = extract_tenant_id(activity)
+
+        graph_token = await self._get_or_refresh_graph_token(tenant_id)
 
         activityCtx = ActivityContext(
             activity,
