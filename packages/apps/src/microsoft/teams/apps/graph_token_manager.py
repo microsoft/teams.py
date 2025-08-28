@@ -4,12 +4,9 @@ Licensed under the MIT License.
 """
 
 import logging
-from typing import TYPE_CHECKING, Dict, Optional
+from typing import Dict, Optional
 
-from microsoft.teams.api import ClientCredentials, JsonWebToken, TokenProtocol
-
-if TYPE_CHECKING:
-    from microsoft.teams.api import ApiClient, Credentials
+from microsoft.teams.api import ApiClient, ClientCredentials, Credentials, JsonWebToken, TokenProtocol
 
 
 class GraphTokenManager:
@@ -24,7 +21,6 @@ class GraphTokenManager:
         self._api_client = api_client
         self._credentials = credentials
 
-        # Create logger: default if none provided, child if one is provided
         if logger is None:
             self._logger = logging.getLogger(__name__ + ".GraphTokenManager")
         else:
