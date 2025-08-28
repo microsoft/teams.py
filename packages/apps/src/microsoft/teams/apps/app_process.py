@@ -43,7 +43,7 @@ class ActivityProcessor:
         default_connection_name: str,
         http_client: Client,
         token: AppTokens,
-        graph_token_manager: Optional[GraphTokenManager] = None,
+        graph_token_manager: Optional[GraphTokenManager],
     ) -> None:
         self.router = router
         self.logger = logger
@@ -128,7 +128,7 @@ class ActivityProcessor:
             is_signed_in,
             self.default_connection_name,
             sender,
-            app_token=graph_token,  # Pass the refreshed app graph token
+            app_token=graph_token,
         )
 
         send = activityCtx.send

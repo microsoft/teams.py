@@ -27,15 +27,20 @@ class GraphTokenProvider(ABC):
 class DefaultGraphTokenProvider(GraphTokenProvider):
     """Default Graph token provider that uses static tokens."""
 
-    def __init__(self, default_token: Optional[TokenProtocol] = None):
+    def __init__(self, default_token: Optional[TokenProtocol] = None, allowed_tenant_id: Optional[str] = None):
         self._default_token = default_token
+        self._allowed_tenant_id = allowed_tenant_id
 
     async def get_token(self, tenant_id: Optional[str] = None) -> Optional[TokenProtocol]:
-        """Get the default token (ignores tenant_id)."""
+        """Get the default token. Validates tenant_id if configured."""
+        if self._allowed_tenant_id is not None and tenant_id != self._allowed_tenant_id:
+            raise ValueError(f"Static token only valid for tenant '{self._allowed_tenant_id}', requested '{tenant_id}'")
         return self._default_token
 
     async def refresh_token(self, tenant_id: Optional[str] = None) -> Optional[TokenProtocol]:
-        """Return the default token (no refresh capability)."""
+        """Return the default token (no refresh capability). Validates tenant_id if configured."""
+        if self._allowed_tenant_id is not None and tenant_id != self._allowed_tenant_id:
+            raise ValueError(f"Static token only valid for tenant '{self._allowed_tenant_id}', requested '{tenant_id}'")
         return self._default_token
 
 
@@ -112,8 +117,17 @@ class GraphTokenManager:
 
     @classmethod
     def create_with_static_token(
-        cls, token: Optional[TokenProtocol] = None, logger: Optional[Logger] = None
+        cls,
+        token: Optional[TokenProtocol] = None,
+        logger: Optional[Logger] = None,
+        allowed_tenant_id: Optional[str] = None,
     ) -> "GraphTokenManager":
-        """Create a GraphTokenManager with a static token provider."""
-        provider = DefaultGraphTokenProvider(token)
+        """Create a GraphTokenManager with a static token provider.
+
+        Args:
+            token: The static token to use
+            logger: Optional logger
+            allowed_tenant_id: If provided, restricts token usage to this tenant only
+        """
+        provider = DefaultGraphTokenProvider(token, allowed_tenant_id)
         return cls(provider, logger)

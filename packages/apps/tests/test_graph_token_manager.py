@@ -35,8 +35,6 @@ class TestGraphTokenManager:
         manager = GraphTokenManager()
         # Test that the manager has been initialized properly
         assert manager is not None
-        # We can't test the private _provider directly due to protection,
-        # but we can test the public interface
 
     def test_static_token_creation(self):
         """Test creating GraphTokenManager with static token."""
@@ -133,6 +131,35 @@ class TestDefaultGraphTokenProvider:
         token = await provider.refresh_token("test-tenant")
 
         assert token is static_token
+
+    @pytest.mark.asyncio
+    async def test_tenant_validation_success(self):
+        """Test that tenant validation allows correct tenant."""
+        static_token = JsonWebToken(VALID_TEST_TOKEN)
+        provider = DefaultGraphTokenProvider(static_token, "allowed-tenant")
+        token = await provider.get_token("allowed-tenant")
+
+        assert token is static_token
+
+    @pytest.mark.asyncio
+    async def test_tenant_validation_failure(self):
+        """Test that tenant validation rejects wrong tenant."""
+        static_token = JsonWebToken(VALID_TEST_TOKEN)
+        provider = DefaultGraphTokenProvider(static_token, "allowed-tenant")
+
+        with pytest.raises(
+            ValueError, match="Static token only valid for tenant 'allowed-tenant', requested 'wrong-tenant'"
+        ):
+            await provider.get_token("wrong-tenant")
+
+    @pytest.mark.asyncio
+    async def test_tenant_validation_none_tenant(self):
+        """Test that tenant validation rejects None when tenant is required."""
+        static_token = JsonWebToken(VALID_TEST_TOKEN)
+        provider = DefaultGraphTokenProvider(static_token, "allowed-tenant")
+
+        with pytest.raises(ValueError, match="Static token only valid for tenant 'allowed-tenant', requested 'None'"):
+            await provider.get_token(None)
 
 
 class TestCallbackGraphTokenProvider:

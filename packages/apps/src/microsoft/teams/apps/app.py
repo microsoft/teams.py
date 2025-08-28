@@ -363,7 +363,7 @@ class App(ActivityHandlerMixin):
             return self._tokens.graph  # Return current token even if refresh failed
 
     async def get_or_refresh_tenant_token(self, tenant_id: Optional[str] = None) -> Optional[str]:
-        """Get or refresh a tenant-specific graph token, mirroring TypeScript getOrRefreshTenantToken."""
+        """Get or refresh a tenant-specific graph token"""
 
         if not tenant_id:
             return None
