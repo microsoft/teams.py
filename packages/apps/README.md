@@ -73,3 +73,56 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
         # Graph not available - provide alternative functionality
         await ctx.send("Graph functionality not available")
 ```
+
+## Advanced Token Management
+
+For advanced scenarios, you can configure custom token management with enhanced security features:
+
+### Multi-Tenant Security
+
+When working with static tokens in multi-tenant applications, you can restrict tokens to specific tenants to prevent cross-tenant data leakage:
+
+```python
+from microsoft.teams.apps.graph_token_manager import GraphTokenManager
+from microsoft.teams.api import JsonWebToken
+
+# Secure: Restrict static token to specific tenant
+safe_token = JsonWebToken("your-token-here")
+manager = GraphTokenManager.create_with_static_token(
+    token=safe_token,
+    allowed_tenant_id="tenant-123"  # Security: Only works for this tenant
+)
+
+# This will work
+token = await manager.get_token("tenant-123")
+
+# This will raise ValueError - prevents accidental cross-tenant access
+token = await manager.get_token("tenant-456")  # ❌ Security error
+```
+
+### Dynamic Token Refresh
+
+For applications requiring dynamic token management across multiple tenants:
+
+```python
+async def refresh_tenant_token(tenant_id: Optional[str]) -> Optional[str]:
+    """Custom token refresh logic for different tenants."""
+    if tenant_id == "tenant-a":
+        return await get_tenant_a_token()
+    elif tenant_id == "tenant-b":
+        return await get_tenant_b_token()
+    return None
+
+# Dynamic token management with automatic refresh
+manager = GraphTokenManager.create_with_callback(
+    refresh_callback=refresh_tenant_token,
+    logger=app.logger
+)
+```
+
+### Security Best Practices
+
+- **Always specify `allowed_tenant_id` for production static tokens**
+- **Use callback-based providers for multi-tenant applications**  
+- **Validate token scope matches intended operations**
+- **Monitor token usage in logs for security auditing**
