@@ -37,21 +37,6 @@ from microsoft.teams.common import Storage
 
 from ..plugins import Sender
 
-
-# Lazy imports for optional graph dependencies
-def _get_graph_client(token: TokenProtocol):
-    """Lazy import and call get_graph_client when needed."""
-    try:
-        from microsoft.teams.graph import get_graph_client
-
-        return get_graph_client(token)
-    except ImportError as exc:
-        raise ImportError(
-            "Graph functionality not available. Install with 'pip install microsoft-teams-apps[graph]'"
-        ) from exc
-
-
-# Type-only import for proper type hints
 if TYPE_CHECKING:
     from msgraph.graph_service_client import GraphServiceClient
 else:
@@ -60,6 +45,20 @@ else:
 T = TypeVar("T", bound=ActivityBase, contravariant=True)
 
 SendCallable = Callable[[str | ActivityParams | AdaptiveCard], Awaitable[SentActivity]]
+
+
+def _get_graph_client(token: TokenProtocol):
+    """Lazy import and call get_graph_client when needed."""
+    try:
+        from microsoft.teams.graph import get_graph_client
+
+        return get_graph_client(token)
+    except ImportError as exc:
+        raise ImportError(
+            "Graph functionality not available. "
+            "Install with 'uv add microsoft-teams-apps[graph]' (recommended) "
+            "or 'pip install microsoft-teams-apps[graph]'"
+        ) from exc
 
 
 @dataclass
