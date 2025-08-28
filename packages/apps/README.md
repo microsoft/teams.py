@@ -50,3 +50,26 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
 ```
 
 Both clients are lazily initialized and automatically handle authentication through the framework's token management system.
+
+## Optional Graph Dependencies
+
+Microsoft Graph functionality is optional and requires additional dependencies. To enable Graph integration:
+
+```bash
+# Install with Graph support
+pip install microsoft-teams-apps[graph]
+```
+
+If Graph dependencies are not installed, the `user_graph` and `app_graph` properties will return `None`, allowing your application to gracefully handle the absence of Graph functionality.
+
+```python
+@app.on_message
+async def handle_message(ctx: ActivityContext[MessageActivity]):
+    if ctx.app_graph:
+        # Graph is available - use it
+        app_info = await ctx.app_graph.applications.by_application_id("app-id").get()
+        await ctx.send(f"App: {app_info.display_name}")
+    else:
+        # Graph not available - provide alternative functionality
+        await ctx.send("Graph functionality not available")
+```

@@ -8,7 +8,7 @@ A comprehensive SDK for building Microsoft Teams applications, bots, and AI agen
 ## Key Features
 
 - **Teams Bot Framework**: Complete bot development framework with activity routing
-- **Microsoft Graph Integration**: Built-in Graph API clients with automatic token management
+- **Microsoft Graph Integration**: Optional Graph API clients with automatic token management
 - **OAuth & Authentication**: Seamless user authentication and token lifecycle management
 - **Plugin Architecture**: Extensible system for adding custom functionality
 
