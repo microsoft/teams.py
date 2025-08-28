@@ -44,7 +44,7 @@ class ActivityProcessor:
         default_connection_name: str,
         http_client: Client,
         token: AppTokens,
-        graph_token_manager: Optional[GraphTokenManager],
+        graph_token_manager: GraphTokenManager,
     ) -> None:
         self.router = router
         self.logger = logger
@@ -61,13 +61,11 @@ class ActivityProcessor:
 
     async def _get_or_refresh_graph_token(self, tenant_id: Optional[str] = None) -> Optional[TokenProtocol]:
         """Get the current graph token or refresh it if needed."""
-        if self._graph_token_manager:
-            try:
-                return await self._graph_token_manager.get_token(tenant_id)
-            except Exception as e:
-                self.logger.error(f"Failed to get graph token via manager: {e}")
-                return self.tokens.graph
-        return self.tokens.graph
+        try:
+            return await self._graph_token_manager.get_token(tenant_id)
+        except Exception as e:
+            self.logger.error(f"Failed to get graph token via manager: {e}")
+            return self.tokens.graph
 
     async def _build_context(
         self,
