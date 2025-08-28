@@ -1,8 +1,11 @@
+> [!CAUTION]
+> This project is in active development and not ready for production use. It has not been publicly announced yet.
+
 ## Getting Started
 
 ### Prerequisites
 
-Note: Ensure uv version is >= 0.4.27
+Note: Ensure uv version is >= 0.8.11
 Install [uv](https://docs.astral.sh/uv/getting-started/installation/)
 
 ### Installing

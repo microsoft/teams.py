@@ -4,16 +4,12 @@ Licensed under the MIT License.
 """
 
 import asyncio
-import datetime
 import logging
 import os
-from typing import Optional
 
 from azure.core.exceptions import ClientAuthenticationError
 from microsoft.teams.api import MessageActivity
-from microsoft.teams.api.clients.user.params import GetUserTokenParams
-from microsoft.teams.app import ActivityContext, App, AppOptions, SignInEvent
-from microsoft.teams.app.events.types import ErrorEvent
+from microsoft.teams.apps import ActivityContext, App, AppOptions, ErrorEvent, SignInEvent
 from microsoft.teams.graph import get_graph_client
 from msgraph.generated.users.item.messages.messages_request_builder import (  # type: ignore
     MessagesRequestBuilder,
@@ -26,22 +22,9 @@ app_options = AppOptions(default_connection_name=os.getenv("CONNECTION_NAME", "g
 app = App(app_options)
 
 
-class TokenData:
-    """Token data class that implements TokenProtocol for dynamic token management."""
-
-    def __init__(self, access_token: str, expires_in_seconds: int = 3600):
-        self.access_token = access_token
-        # Calculate exact expiration time
-        self.expires_at: Optional[datetime.datetime] = datetime.datetime.now(
-            datetime.timezone.utc
-        ) + datetime.timedelta(seconds=expires_in_seconds)
-        self.token_type: Optional[str] = "Bearer"
-        self.scope: Optional[str] = "https://graph.microsoft.com/.default"
-
-
 async def get_authenticated_graph_client(ctx: ActivityContext[MessageActivity]):
     """
-    Helper function to handle authentication and create Graph client using TokenProtocol pattern.
+    Helper function to handle authentication and create Graph client using Token pattern.
 
     Returns:
         Graph client if successful, None if authentication failed.
@@ -52,31 +35,9 @@ async def get_authenticated_graph_client(ctx: ActivityContext[MessageActivity]):
         await ctx.sign_in()
         return None
 
-    # Get user token directly from Teams API
-    token_params = GetUserTokenParams(
-        channel_id=ctx.activity.channel_id,
-        user_id=ctx.activity.from_.id,
-        connection_name=ctx.connection_name,
-    )
-
-    # Get user token once before creating the client
     try:
-        token_response = await ctx.api.users.token.get(token_params)
-
-        def get_fresh_token():
-            """Callable that returns fresh token data implementing TokenProtocol."""
-            # Return the token we already retrieved
-            return TokenData(token_response.token, expires_in_seconds=3600)
-
-    except Exception as e:
-        ctx.logger.error(f"Failed to get initial token: {e}")
-        await ctx.send("🔐 Failed to get authentication token. Please try signing in again.")
-        await ctx.sign_in()
-        return None
-
-    try:
-        # Create Graph client using the TokenProtocol callable
-        return await get_graph_client(get_fresh_token, connection_name=ctx.connection_name)
+        # Create Graph client using the user token
+        return get_graph_client(ctx.user_token)
 
     except Exception as e:
         ctx.logger.error(f"Failed to create Graph client: {e}")
@@ -217,7 +178,7 @@ async def handle_default_message(ctx: ActivityContext[MessageActivity]):
     """Handle default message when no pattern matches."""
     # Default response with help
     await ctx.send(
-        "👋 **Hello! I'm a Teams Graph demo bot with TokenProtocol support.**\n\n"
+        "👋 **Hello! I'm a Teams Graph demo bot.**\n\n"
         "**Available commands:**\n\n"
         "• **signin** - Sign in to your Microsoft account\n\n"
         "• **signout** - Sign out\n\n"
