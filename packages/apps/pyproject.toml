@@ -22,7 +22,6 @@ dependencies = [
 [project.optional-dependencies]
 graph = [
     "microsoft-teams-graph",
-    "msgraph-sdk>=1.30.0,<2.0.0",
 ]
 
 [dependency-groups]

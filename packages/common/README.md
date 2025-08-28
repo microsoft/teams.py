@@ -8,23 +8,18 @@ Provides common functionality used across other Teams SDK packages.
 
 ## Features
 
-- **HTTP Client**: Robust async HTTP client with interceptors and middleware
-- **Token Resolution**: Unified Token type supporting strings, callables, and async functions
+- **HTTP Client**: Async HTTP client with interceptor support
 - **Event System**: Type-safe event emitter for application lifecycle management
-- **Storage Abstraction**: Local and distributed storage interfaces
-- **Logging Framework**: Structured logging with Teams-specific formatters
-- **Utility Functions**: Common helpers for Teams development
 
 ## HTTP Client
 
 ```python
 from microsoft.teams.common import Client, ClientOptions
 
-# Create HTTP client with options
+# Create HTTP client
 client = Client(ClientOptions(
     base_url="https://api.example.com",
-    headers={"User-Agent": "Teams-Bot/1.0"},
-    timeout=30.0
+    headers={"User-Agent": "Teams-Bot/1.0"}
 ))
 
 # Make requests
@@ -32,41 +27,25 @@ response = await client.get("/users/me")
 data = await client.post("/messages", json={"text": "Hello"})
 ```
 
-## Token System
-
-```python
-from microsoft.teams.common.http.client_token import Token, resolve_token
-
-# String token
-token: Token = "bearer-token-string"
-
-# Callable token (synchronous)
-def get_token() -> str:
-    return fetch_current_token()
-
-# Async callable token
-async def get_async_token() -> str:
-    return await fetch_token_async()
-
-# Resolve any token type to string
-token_string = await resolve_token(token)
-```
-
 ## Event System
 
 ```python
 from microsoft.teams.common import EventEmitter
 
-# Type-safe event emitter
+# Create type-safe event emitter
 emitter = EventEmitter[str]()
 
 # Register handler
-@emitter.on("message")
-async def handle_message(data: str):
+def handle_message(data: str):
     print(f"Received: {data}")
 
+subscription_id = emitter.on("message", handle_message)
+
 # Emit event
-await emitter.emit("message", "Hello World")
+emitter.emit("message", "Hello World")
+
+# Remove handler
+emitter.off(subscription_id)
 ```
 
 ## Storage
@@ -75,12 +54,16 @@ await emitter.emit("message", "Hello World")
 from microsoft.teams.common import LocalStorage, ListLocalStorage
 
 # Key-value storage
-storage = LocalStorage()
-await storage.write("key", {"data": "value"})
-data = await storage.read("key")
+storage = LocalStorage[str]()
+storage.set("key", {"data": "value"})
+data = storage.get("key")
+
+# Async operations
+await storage.async_set("key", {"data": "value"})
+data = await storage.async_get("key")
 
 # List storage
-list_storage = ListLocalStorage()
-await list_storage.append("items", "new-item")
-items = await list_storage.read("items")
+list_storage = ListLocalStorage[str]()
+list_storage.push("items", "new-item")
+items = list_storage.get_all("items")
 ```
