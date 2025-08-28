@@ -1,3 +1,6 @@
+> [!CAUTION]
+> This project is in active development and not ready for production use. It has not been publicly announced yet.
+
 # Teams Graph Integration Demo
 
 This demo application showcases how to use Microsoft Graph APIs within a Teams bot.

@@ -40,6 +40,7 @@ from .events import (
     get_event_type_from_signature,
     is_registered_event,
 )
+from .graph_token_manager import GraphTokenManager
 from .http_plugin import HttpPlugin
 from .options import AppOptions
 from .plugins import PluginBase, PluginStartEvent, get_metadata
@@ -118,6 +119,7 @@ class App(ActivityHandlerMixin):
         self._running = False
 
         # initialize all event, activity, and plugin processors
+        graph_token_manager = GraphTokenManager.create_with_callback(self.get_or_refresh_tenant_token, self.log)
         self.activity_processor = ActivityProcessor(
             self._router,
             self.log,
@@ -126,7 +128,7 @@ class App(ActivityHandlerMixin):
             self.options.default_connection_name,
             self.http_client,
             self.tokens,
-            self.get_or_refresh_tenant_token,
+            graph_token_manager,
         )
         self.event_manager = EventManager(self._events, self.activity_processor)
         self.activity_processor.event_manager = self.event_manager

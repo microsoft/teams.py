@@ -4,7 +4,7 @@ Licensed under the MIT License.
 """
 
 from logging import Logger
-from typing import TYPE_CHECKING, Any, Awaitable, Callable, Dict, List, Optional, Union, cast
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union, cast
 
 from microsoft.teams.api import (
     ActivityBase,
@@ -25,6 +25,7 @@ if TYPE_CHECKING:
     from .app_events import EventManager
 from .app_tokens import AppTokens
 from .events import ActivityEvent, ActivityResponseEvent, ActivitySentEvent
+from .graph_token_manager import GraphTokenManager
 from .plugins import PluginActivityEvent, PluginBase, Sender
 from .routing.activity_context import ActivityContext
 from .routing.router import ActivityHandler, ActivityRouter
@@ -42,7 +43,7 @@ class ActivityProcessor:
         default_connection_name: str,
         http_client: Client,
         token: AppTokens,
-        graph_token_refresher: Optional[Callable[[Optional[str]], Awaitable[Optional[str]]]] = None,
+        graph_token_manager: Optional[GraphTokenManager] = None,
     ) -> None:
         self.router = router
         self.logger = logger
@@ -51,7 +52,7 @@ class ActivityProcessor:
         self.default_connection_name = default_connection_name
         self.http_client = http_client
         self.tokens = token
-        self._graph_token_refresher = graph_token_refresher
+        self._graph_token_manager = graph_token_manager
 
         # This will be set after the EventManager is initialized due to
         # a circular dependency
@@ -59,14 +60,11 @@ class ActivityProcessor:
 
     async def _get_or_refresh_graph_token(self, tenant_id: Optional[str] = None) -> Optional[TokenProtocol]:
         """Get the current graph token or refresh it if needed."""
-        if self._graph_token_refresher:
+        if self._graph_token_manager:
             try:
-                token_string = await self._graph_token_refresher(tenant_id)
-                if token_string:
-                    return JsonWebToken(token_string)
-                return None
+                return await self._graph_token_manager.get_token(tenant_id)
             except Exception as e:
-                self.logger.error(f"Failed to refresh graph token: {e}")
+                self.logger.error(f"Failed to get graph token via manager: {e}")
                 return self.tokens.graph
         return self.tokens.graph
 
