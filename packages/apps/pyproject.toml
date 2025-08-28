@@ -19,6 +19,12 @@ dependencies = [
     "dependency-injector>=4.48.1",
 ]
 
+[project.optional-dependencies]
+graph = [
+    "microsoft-teams-graph",
+    "msgraph-sdk>=1.30.0,<2.0.0",
+]
+
 [dependency-groups]
 test = [
     "pytest>=8.0.0",

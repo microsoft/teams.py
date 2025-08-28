@@ -7,7 +7,7 @@ import base64
 import json
 from dataclasses import dataclass
 from logging import Logger
-from typing import Any, Awaitable, Callable, Generic, Optional, TypeVar, cast
+from typing import TYPE_CHECKING, Any, Awaitable, Callable, Generic, Optional, TypeVar, cast
 
 from microsoft.teams.api import (
     ActivityBase,
@@ -34,10 +34,28 @@ from microsoft.teams.api.models.attachment.card_attachment import (
 from microsoft.teams.api.models.oauth import OAuthCard
 from microsoft.teams.cards import AdaptiveCard
 from microsoft.teams.common import Storage
-from microsoft.teams.graph import get_graph_client
-from msgraph.graph_service_client import GraphServiceClient
 
 from ..plugins import Sender
+
+
+# Lazy imports for optional graph dependencies
+def _get_graph_client(token: TokenProtocol):
+    """Lazy import and call get_graph_client when needed."""
+    try:
+        from microsoft.teams.graph import get_graph_client
+
+        return get_graph_client(token)
+    except ImportError as exc:
+        raise ImportError(
+            "Graph functionality not available. Install with 'pip install microsoft-teams-apps[graph]'"
+        ) from exc
+
+
+# Type-only import for proper type hints
+if TYPE_CHECKING:
+    from msgraph.graph_service_client import GraphServiceClient
+else:
+    GraphServiceClient = object
 
 T = TypeVar("T", bound=ActivityBase, contravariant=True)
 
@@ -126,7 +144,7 @@ class ActivityContext(Generic[T]):
 
         if self._user_graph is None:
             try:
-                self._user_graph = get_graph_client(self.user_token)
+                self._user_graph = _get_graph_client(self.user_token)
             except Exception as e:
                 self.logger.error(f"Failed to create user graph client: {e}")
                 return None
@@ -156,7 +174,7 @@ class ActivityContext(Generic[T]):
 
         if self._app_graph is None:
             try:
-                self._app_graph = get_graph_client(self._app_token)
+                self._app_graph = _get_graph_client(self._app_token)
             except Exception as e:
                 self.logger.error(f"Failed to create app graph client: {e}")
                 return None
