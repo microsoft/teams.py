@@ -8,8 +8,10 @@ Provides common functionality used across other Teams SDK packages.
 
 ## Features
 
-- **HTTP Client**: Async HTTP client with interceptor support
+- **HTTP Client**: Async HTTP client with token support and interceptors
 - **Event System**: Type-safe event emitter for application lifecycle management
+- **Storage**: Local storage implementations for key-value and list data
+- **Logging**: Console logging with formatting and filtering
 
 ## HTTP Client
 
@@ -64,6 +66,15 @@ data = await storage.async_get("key")
 
 # List storage
 list_storage = ListLocalStorage[str]()
-list_storage.push("items", "new-item")
-items = list_storage.get_all("items")
+list_storage.append("new-item")
+items = list_storage.items()
+```
+
+## Logging
+
+```python
+from microsoft.teams.common import ConsoleLogger
+
+# Create console logger
+logger = ConsoleLogger()
 ```

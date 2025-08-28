@@ -16,7 +16,7 @@ A comprehensive SDK for building Microsoft Teams applications, bots, and AI agen
 
 - **`packages/apps/`** - High-level Teams application framework
 - **`packages/api/`** - Core API clients and models for Teams Bot Framework
-- **`packages/graph/`** - Microsoft Graph API integration with TokenProtocol
+- **`packages/graph/`** - Microsoft Graph API integration
 - **`packages/common/`** - Shared utilities (HTTP, logging, storage, events)
 - **`packages/cards/`** - Adaptive Cards functionality
 - **`packages/devtools/`** - Development and debugging tools

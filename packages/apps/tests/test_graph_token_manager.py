@@ -39,7 +39,6 @@ class TestGraphTokenManager:
 
         assert manager is not None
         # Test successful initialization by verifying the manager was created
-        # Internal attributes are private implementation details
 
     def test_initialization_without_logger(self):
         """Test GraphTokenManager initialization without logger."""
@@ -52,7 +51,6 @@ class TestGraphTokenManager:
         )
 
         assert manager is not None
-        # Test successful initialization without logger
 
     @pytest.mark.asyncio
     async def test_get_token_no_tenant_id(self):
@@ -109,8 +107,6 @@ class TestGraphTokenManager:
         assert isinstance(token, JsonWebToken)
         # Verify the API was called
         mock_api_client.bots.token.get_graph.assert_called_once()
-        # Token caching is an internal implementation detail
-        # Verify debug log was called
         mock_logger.debug.assert_called_once()
 
         # Test that subsequent calls use cache by calling again
@@ -131,18 +127,19 @@ class TestGraphTokenManager:
         )
 
         # Set up the API response for initial token
-        mock_token = MagicMock(spec=JsonWebToken)
-        mock_token.is_expired.return_value = False
-        mock_api_client.bots.token.get_graph = AsyncMock(return_value=mock_token)
+        mock_token_response = MagicMock()
+        mock_token_response.access_token = VALID_TEST_TOKEN
+        mock_api_client.bots.token.get_graph = AsyncMock(return_value=mock_token_response)
 
         # First call should hit the API
         token1 = await manager.get_token("test-tenant")
-        assert token1 == mock_token
+        assert token1 is not None
+        assert isinstance(token1, JsonWebToken)
         mock_api_client.bots.token.get_graph.assert_called_once()
 
         # Second call should use cache (API should not be called again)
         token2 = await manager.get_token("test-tenant")
-        assert token2 == mock_token
+        assert token2 == token1  # Should be the same cached token
         # Still only called once due to caching
         mock_api_client.bots.token.get_graph.assert_called_once()
 
