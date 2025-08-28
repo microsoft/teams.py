@@ -118,7 +118,7 @@ class App(ActivityHandlerMixin):
         self._running = False
 
         # initialize all event, activity, and plugin processors
-        graph_token_manager = GraphTokenManager(
+        self.graph_token_manager = GraphTokenManager(
             api_client=self.api,
             credentials=self.credentials,
             logger=self.log,
@@ -131,7 +131,7 @@ class App(ActivityHandlerMixin):
             self.options.default_connection_name,
             self.http_client,
             self.tokens,
-            graph_token_manager,
+            self.graph_token_manager,
         )
         self.event_manager = EventManager(self._events, self.activity_processor)
         self.activity_processor.event_manager = self.event_manager
@@ -341,14 +341,18 @@ class App(ActivityHandlerMixin):
             self.log.debug("Refreshing graph token")
 
         try:
-            # Get graph token using the API client
-            token_response = await self.api.bots.token.get_graph(self.credentials)
-            self._tokens.graph = JsonWebToken(token_response.access_token)
+            # Use GraphTokenManager for tenant-aware token management
+            tenant_id = self.credentials.tenant_id if self.credentials else None
+            token = await self.graph_token_manager.get_token(tenant_id)
 
-            self.log.debug("Graph token refreshed successfully")
+            if token:
+                self._tokens.graph = token
+                self.log.debug("Graph token refreshed successfully")
 
-            # Emit token acquired event
-            self._events.emit("token", {"type": "graph", "token": self._tokens.graph})
+                # Emit token acquired event
+                self._events.emit("token", {"type": "graph", "token": self._tokens.graph})
+            else:
+                self.log.warning("Failed to get graph token from GraphTokenManager")
 
         except Exception as error:
             self.log.error(f"Failed to refresh graph token: {error}")

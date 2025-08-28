@@ -40,7 +40,11 @@ from ..plugins import Sender
 if TYPE_CHECKING:
     from msgraph.graph_service_client import GraphServiceClient
 else:
-    GraphServiceClient = object
+    try:
+        from msgraph.graph_service_client import GraphServiceClient
+    except ImportError:
+        # Fallback for when msgraph is not available
+        GraphServiceClient = object  # type: ignore
 
 T = TypeVar("T", bound=ActivityBase, contravariant=True)
 
