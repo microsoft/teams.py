@@ -3,60 +3,69 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
+from types import SimpleNamespace
+from typing import Any
 from unittest.mock import MagicMock, patch
 
-import pytest
-
-from microsoft.teams.api import JsonWebToken
-from microsoft.teams.apps.routing.activity_context import _get_graph_client
+from microsoft.teams.apps.routing.activity_context import ActivityContext
 
 
 class TestOptionalGraphDependencies:
     """Test that graph functionality is properly optional."""
 
-    def test_get_graph_client_without_graph_available(self):
-        """Test _get_graph_client when graph dependencies are not available."""
-        mock_token = JsonWebToken(
-            "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c"
+    def _create_activity_context(self) -> ActivityContext[Any]:
+        """Create a minimal ActivityContext for testing."""
+        # Create mock objects for all required parameters
+        mock_activity = MagicMock()
+        mock_logger = MagicMock()
+        mock_storage = MagicMock()
+        mock_api = MagicMock()
+        mock_conversation_ref = MagicMock()
+        mock_sender = MagicMock()
+        mock_app_token = MagicMock()  # Provide an app token for graph access
+
+        return ActivityContext(
+            activity=mock_activity,
+            app_id="test-app-id",
+            logger=mock_logger,
+            storage=mock_storage,
+            api=mock_api,
+            user_token=None,
+            conversation_ref=mock_conversation_ref,
+            is_signed_in=False,
+            connection_name="test-connection",
+            sender=mock_sender,
+            app_token=mock_app_token,  # This is needed for app_graph to work
         )
 
+    def test_app_graph_property_without_graph_available(self) -> None:
+        """Test app_graph property when graph dependencies are not available."""
+
         # Mock import error for graph module
-        def mock_import(name, *args, **kwargs):
+        def mock_import(name: str, *args: Any, **kwargs: Any) -> Any:
             if name == "microsoft.teams.graph":
                 raise ImportError("No module named 'microsoft.teams.graph'")
             return __import__(name, *args, **kwargs)
 
         with patch("builtins.__import__", side_effect=mock_import):
-            with pytest.raises(ImportError) as exc_info:
-                _get_graph_client(mock_token)
+            activity_context = self._create_activity_context()
+            # app_graph should return None when graph dependencies are not available
+            result = activity_context.app_graph
+            assert result is None
 
-            assert "Graph functionality not available" in str(exc_info.value)
-            assert "pip install microsoft-teams-apps[graph]" in str(exc_info.value)
+    def test_app_graph_property_with_graph_available(self) -> None:
+        """Test app_graph property when graph dependencies are available."""
 
-    def test_get_graph_client_with_graph_available(self):
-        """Test _get_graph_client when graph dependencies are available."""
-        mock_token = JsonWebToken(
-            "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c"
-        )
+        # Mock successful graph module import
+        def mock_import(name: str, *args: Any, **kwargs: Any) -> Any:
+            if name == "microsoft.teams.graph":
+                # Create a mock module with get_graph_client
+                mock_module = SimpleNamespace()
+                mock_module.get_graph_client = lambda x: "MockGraphClient"  # type: ignore
+                return mock_module
+            return __import__(name, *args, **kwargs)
 
-        # Mock successful graph module import and get_graph_client function
-        mock_graph_client = MagicMock()
-        
-        # We need to patch the import itself since get_graph_client is imported inside _get_graph_client
-        with patch("builtins.__import__") as mock_import:
-            # Create a mock module that has get_graph_client
-            mock_graph_module = MagicMock()
-            mock_graph_module.get_graph_client.return_value = mock_graph_client
-            
-            # Set up the import mock to return our mock module for microsoft.teams.graph
-            def import_side_effect(name, *args, **kwargs):
-                if name == "microsoft.teams.graph":
-                    return mock_graph_module
-                return __import__(name, *args, **kwargs)
-            
-            mock_import.side_effect = import_side_effect
-
-            result = _get_graph_client(mock_token)
-
-            assert result is mock_graph_client
-            mock_graph_module.get_graph_client.assert_called_once_with(mock_token)
+        with patch("builtins.__import__", side_effect=mock_import):
+            activity_context = self._create_activity_context()
+            result = activity_context.app_graph
+            assert result == "MockGraphClient"
