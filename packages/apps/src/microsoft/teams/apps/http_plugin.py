@@ -22,6 +22,7 @@ from microsoft.teams.api import (
     SentActivity,
     TokenProtocol,
 )
+from microsoft.teams.apps.http_stream import HttpStream
 from microsoft.teams.common.http.client import Client, ClientOptions
 from microsoft.teams.common.logging import ConsoleLogger
 from pydantic import BaseModel

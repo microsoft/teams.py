@@ -96,7 +96,6 @@ class ActivityProcessor:
             # User token not available
             pass
 
-        stream = sender.create_stream(conversation_ref)
         activityCtx = ActivityContext(
             activity,
             self.id or "",
@@ -105,13 +104,13 @@ class ActivityProcessor:
             api_client,
             user_token,
             conversation_ref,
-            stream,
             is_signed_in,
             self.default_connection_name,
             sender,
         )
 
         send = activityCtx.send
+        ref = conversation_ref or activityCtx.conversation_ref
 
         async def updated_send(
             message: str | ActivityParams | AdaptiveCard, conversation_ref: Optional[ConversationReference] = None
@@ -123,8 +122,6 @@ class ActivityProcessor:
 
             self.logger.debug("Calling on_activity_sent for plugins")
 
-            ref = conversation_ref or activityCtx.conversation_ref
-
             await self.event_manager.on_activity_sent(
                 sender, ActivitySentEvent(sender=sender, activity=res, conversation_ref=ref), plugins=plugins
             )
@@ -135,13 +132,17 @@ class ActivityProcessor:
         async def handle_chunk(chunk_activity: SentActivity):
             if self.event_manager:
                 await self.event_manager.on_activity_sent(
-                    sender, ActivitySentEvent(sender=sender, activity=chunk_activity), plugins=plugins
+                    sender,
+                    ActivitySentEvent(sender=sender, activity=chunk_activity, conversation_ref=ref),
+                    plugins=plugins,
                 )
 
         async def handle_close(close_activity: SentActivity):
             if self.event_manager:
                 await self.event_manager.on_activity_sent(
-                    sender, ActivitySentEvent(sender=sender, activity=close_activity), plugins=plugins
+                    sender,
+                    ActivitySentEvent(sender=sender, activity=close_activity, conversation_ref=ref),
+                    plugins=plugins,
                 )
 
         activityCtx.stream.events.on("chunk", handle_chunk)
