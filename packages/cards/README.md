@@ -3,41 +3,37 @@
 
 # Microsoft Teams Cards
 
-Adaptive Cards functionality for Microsoft Teams applications.
-Provides utilities for creating and handling interactive card components.
+Adaptive Cards models and specialized action types for Microsoft Teams applications.
+Provides Pydantic-based models for creating Adaptive Cards and Teams-specific actions.
 
 ## Features
 
-- **Adaptive Card Builder**: Fluent API for creating Adaptive Cards
-- **Action Handlers**: Type-safe action handling for card interactions
-- **Card Templates**: Pre-built card templates for common scenarios
+- **Adaptive Card Models**: Pydantic models for Adaptive Card schema
+- **Teams Actions**: Specialized action types for Teams interactions
 
-## Card Creation
-
-```python
-from microsoft.teams.cards import AdaptiveCard, TextBlock, ActionSubmit
-
-# Create an adaptive card
-card = AdaptiveCard() \
-    .add_item(TextBlock("Hello from Teams!")) \
-    .add_action(ActionSubmit("Click Me", {"action": "hello"}))
-
-# Send in message
-await ctx.send_card(card)
-```
-
-## Action Handling
+## Basic Usage
 
 ```python
-@app.on_invoke("hello")
-async def handle_card_action(ctx: ActivityContext[InvokeActivity]):
-    # Handle card action
-    await ctx.send("Card action received!")
+from microsoft.teams.cards import AdaptiveCard, TextBlock, SubmitAction
+
+# Create adaptive card components
+card = AdaptiveCard(
+    body=[
+        TextBlock(text="Hello from Teams!")
+    ],
+    actions=[
+        SubmitAction(title="Click Me", data={"action": "hello"})
+    ]
+)
 ```
 
-## Card Types
+## Teams-Specific Actions
 
-- **Message Cards**: Rich content for agent messages
-- **Task Modules**: Modal dialogs and forms
-- **Tab Cards**: Content for Teams tabs
-- **Connector Cards**: Webhook-based cards
+```python
+from microsoft.teams.cards import InvokeAction, MessageBackAction, SignInAction
+
+# Create Teams-specific actions
+invoke_action = InvokeAction({"action": "getData"})
+message_action = MessageBackAction("Send Message", {"text": "Hello"})
+signin_action = SignInAction()
+```

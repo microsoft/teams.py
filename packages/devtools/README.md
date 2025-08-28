@@ -12,18 +12,6 @@ Developer tools for locally testing and debugging Teams applications. Streamline
 - **Graph API Testing**: Test Microsoft Graph integrations offline
 - **OAuth Simulation**: Mock OAuth flows for development
 
-## Usage
-
-```python
-from microsoft.teams.devtools import LocalTestRunner
-
-# Create local test environment
-runner = LocalTestRunner(app)
-
-# Start local testing server
-await runner.start()
-```
-
 ## Development Workflow
 
 1. **Local Development**: Build and test without Teams deployment
