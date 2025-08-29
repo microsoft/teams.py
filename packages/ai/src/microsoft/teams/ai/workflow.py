@@ -10,6 +10,7 @@ from pydantic import BaseModel
 
 from .chat_model import ChatModel
 from .function import Function
+from .memory import Memory
 from .message import Message, ModelMessage, UserMessage
 
 T = TypeVar("T", bound=BaseModel)
@@ -30,10 +31,10 @@ class AgentWorkflow:
         self.functions[function.name] = function
         return self
 
-    async def send(self, input: str | Message) -> WorkflowResult:
+    async def send(self, input: str | Message, *, memory: Memory | None = None) -> WorkflowResult:
         if isinstance(input, str):
             input = UserMessage(content=input)
 
-        response = await self.model.send(input, functions=self.functions if self.functions else None)
+        response = await self.model.send(input, memory=memory, functions=self.functions if self.functions else None)
 
         return WorkflowResult(response=response, workflow=self)

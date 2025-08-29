@@ -8,6 +8,7 @@ from typing import Protocol
 from pydantic import BaseModel
 
 from .function import Function
+from .memory import Memory
 from .message import Message, ModelMessage
 
 
@@ -17,6 +18,6 @@ class ChatModel(Protocol):
         input: Message,
         *,
         system: Message | None = None,
-        messages: list[Message] | None = None,
+        memory: Memory | None = None,
         functions: dict[str, Function[BaseModel]] | None = None,
     ) -> ModelMessage: ...

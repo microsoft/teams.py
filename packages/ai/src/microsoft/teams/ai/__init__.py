@@ -5,6 +5,7 @@ Licensed under the MIT License.
 
 from .chat_model import ChatModel
 from .function import Function, FunctionCall
+from .memory import ListMemory, Memory
 from .message import FunctionMessage, Message, ModelMessage, SystemMessage, UserMessage
 from .workflow import AgentWorkflow, WorkflowResult
 
@@ -18,5 +19,7 @@ __all__ = [
     "FunctionMessage",
     "Function",
     "FunctionCall",
+    "Memory",
+    "ListMemory",
     "ChatModel",
 ]
