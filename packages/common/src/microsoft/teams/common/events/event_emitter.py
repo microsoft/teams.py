@@ -105,10 +105,12 @@ class EventEmitter(EventEmitterProtocol[EventTypeT]):
         """
 
         if asyncio.iscoroutinefunction(handler):
-            async def once_wrapper(value: Any) -> None:
+
+            async def once_wrapper(value: Any) -> None:  # pyright: ignore[reportRedeclaration]
                 self.off(subscription_id)
                 await handler(value)
         else:
+
             def once_wrapper(value: Any) -> None:
                 self.off(subscription_id)
                 handler(value)
