@@ -112,11 +112,11 @@ class ActivityContext(Generic[T]):
         self._next_handler: Optional[Callable[[], Awaitable[None]]] = None
 
         # Initialize graph clients as None - they'll be created lazily
-        self._user_graph: Optional[GraphServiceClient] = None
-        self._app_graph: Optional[GraphServiceClient] = None
+        self._user_graph: Optional["GraphServiceClient"] = None
+        self._app_graph: Optional["GraphServiceClient"] = None
 
     @property
-    def user_graph(self) -> Optional[GraphServiceClient]:
+    def user_graph(self) -> Optional["GraphServiceClient"]:
         """
         Get a Microsoft Graph client configured with the user's token.
 
@@ -136,7 +136,7 @@ class ActivityContext(Generic[T]):
         return self._user_graph
 
     @property
-    def app_graph(self) -> Optional[GraphServiceClient]:
+    def app_graph(self) -> Optional["GraphServiceClient"]:
         """
         Get a Microsoft Graph client configured with the app's token.
 
