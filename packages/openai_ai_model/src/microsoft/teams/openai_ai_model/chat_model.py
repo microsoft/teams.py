@@ -3,6 +3,7 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
+import inspect
 import json
 from typing import Union
 
@@ -10,6 +11,8 @@ from microsoft.teams.ai import (
     Function,
     FunctionCall,
     FunctionMessage,
+    ListMemory,
+    Memory,
     Message,
     ModelMessage,
     SystemMessage,
@@ -58,11 +61,38 @@ class OpenAIChatModel:
         input: Message,
         *,
         system: Message | None = None,
-        messages: list[Message] | None = None,
+        memory: Memory | None = None,
         functions: dict[str, Function[BaseModel]] | None = None,
     ) -> ModelMessage:
+        # Use default memory if none provided
+        if memory is None:
+            memory = ListMemory()
+
+        # Execute any pending function calls first
+        function_results = await self._execute_functions(input, functions)
+
+        # Get conversation history from memory (make a copy to avoid modifying memory's internal state)
+        messages = list(await memory.get_all())
+        print(messages, function_results)
+
+        # Push current input to memory
+        await memory.push(input)
+
+        # Push function results to memory and add to messages
+        if function_results:
+            # Add the original ModelMessage with function_calls to messages first
+            messages.append(input)
+            for result in function_results:
+                await memory.push(result)
+                messages.append(result)
+            # Don't add input again at the end - Order matters here!
+            input_to_send = None
+        else:
+            input_to_send = input
+
         # Convert messages to OpenAI format
-        openai_messages = self._convert_messages(input, system, messages)
+        openai_messages = self._convert_messages(input_to_send, system, messages)
+        print(openai_messages)
 
         # Convert functions to OpenAI tools format if provided
         tools = self._convert_functions(functions) if functions else NOT_GIVEN
@@ -71,10 +101,51 @@ class OpenAIChatModel:
         response = await self._client.chat.completions.create(model=self.model, messages=openai_messages, tools=tools)
 
         # Convert response back to ModelMessage format
-        return self._convert_response(response)
+        model_response = self._convert_response(response)
+
+        # If response has function calls, recursively execute them
+        if model_response.function_calls:
+            return await self.send(model_response, system=system, memory=memory, functions=functions)
+
+        # Push response to memory (only if not recursing)
+        await memory.push(model_response)
+
+        return model_response
+
+    async def _execute_functions(
+        self, input: Message, functions: dict[str, Function[BaseModel]] | None
+    ) -> list[FunctionMessage]:
+        """Execute any pending function calls in the input message."""
+        function_results: list[FunctionMessage] = []
+
+        if isinstance(input, ModelMessage) and input.function_calls:
+            # Execute any pending function calls
+            for call in input.function_calls:
+                if functions and call.name in functions:
+                    function = functions[call.name]
+                    try:
+                        # Parse arguments into Pydantic model
+                        parsed_args = function.parameter_schema(**call.arguments)
+
+                        # Handle both sync and async function handlers
+                        result = function.handler(parsed_args)
+                        if inspect.isawaitable(result):
+                            fn_res = await result
+                        else:
+                            fn_res = result
+
+                        # Create function result message
+                        function_results.append(FunctionMessage(content=fn_res, function_id=call.id))
+                    except Exception as e:
+                        # Handle function execution errors
+                        function_results.append(
+                            FunctionMessage(content=f"Function execution failed: {str(e)}", function_id=call.id)
+                        )
+
+        return function_results
 
     def _convert_messages(
-        self, input: Message, system: Message | None, messages: list[Message] | None
+        self, input: Message | None, system: Message | None, messages: list[Message] | None
     ) -> list[ChatCompletionMessageParam]:
         openai_messages: list[ChatCompletionMessageParam] = []
 
@@ -87,8 +158,9 @@ class OpenAIChatModel:
             for msg in messages:
                 openai_messages.append(self._message_to_openai(msg))
 
-        # Add the input message
-        openai_messages.append(self._message_to_openai(input))
+        # Add the input message (if provided)
+        if input:
+            openai_messages.append(self._message_to_openai(input))
 
         return openai_messages
 

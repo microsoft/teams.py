@@ -7,7 +7,7 @@ import asyncio
 from os import getenv
 
 from dotenv import find_dotenv, load_dotenv
-from microsoft.teams.ai import AgentWorkflow, UserMessage
+from microsoft.teams.ai import AgentWorkflow, ListMemory, UserMessage
 from microsoft.teams.ai.function import Function
 from microsoft.teams.api import MessageActivity
 from microsoft.teams.apps import ActivityContext, App, AppOptions
@@ -62,7 +62,8 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
             handler=get_weather_handler,
         )
     )
-    workflow_result = await workflow.send(input=UserMessage(content=ctx.activity.text, role="user"))
+    memory = ListMemory()
+    workflow_result = await workflow.send(input=UserMessage(content=ctx.activity.text, role="user"), memory=memory)
     result = workflow_result.response
     if result.content:
         await ctx.reply(result.content)
