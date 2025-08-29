@@ -7,7 +7,7 @@ import asyncio
 from random import random
 
 from microsoft.teams.api import MessageActivity
-from microsoft.teams.app import ActivityContext, App
+from microsoft.teams.apps import ActivityContext, App
 
 app = App()
 

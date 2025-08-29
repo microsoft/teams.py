@@ -104,9 +104,14 @@ class EventEmitter(EventEmitterProtocol[EventTypeT]):
             Subscription ID for removing the handler later
         """
 
-        def once_wrapper(value: Any) -> None:
-            self.off(subscription_id)
-            handler(value)
+        if asyncio.iscoroutinefunction(handler):
+            async def once_wrapper(value: Any) -> None:
+                self.off(subscription_id)
+                await handler(value)
+        else:
+            def once_wrapper(value: Any) -> None:
+                self.off(subscription_id)
+                handler(value)
 
         subscription_id = self._get_next_id()
 

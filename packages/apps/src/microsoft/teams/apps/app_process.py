@@ -187,6 +187,8 @@ class ActivityProcessor:
         if handlers:
             middleware_result = await self.execute_middleware_chain(activityCtx, handlers)
 
+            await activityCtx.stream.close()
+
             if not self.event_manager:
                 raise ValueError("EventManager was not initialized properly")
 
