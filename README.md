@@ -1,40 +1,9 @@
 > [!CAUTION]
 > This project is in active development and not ready for production use. It has not been publicly announced yet.
 
-# Microsoft Teams AI SDK for Python
+# Microsoft Teams AI Library for Python
 
 A comprehensive SDK for building Microsoft Teams applications, bots, and AI agents using Python. This SDK provides a high-level framework with built-in Microsoft Graph integration, OAuth handling, and extensible plugin architecture.
-
-## Key Features
-
-- **Teams Bot Framework**: Complete bot development framework with activity routing
-- **Microsoft Graph Integration**: Optional Graph API clients with automatic token management
-- **OAuth & Authentication**: Seamless user authentication and token lifecycle management
-- **Plugin Architecture**: Extensible system for adding custom functionality
-
-## Package Structure
-
-- **`packages/apps/`** - High-level Teams application framework
-- **`packages/api/`** - Core API clients and models for Teams Bot Framework
-- **`packages/graph/`** - Microsoft Graph API integration
-- **`packages/common/`** - Shared utilities (HTTP, logging, storage, events)
-- **`packages/cards/`** - Adaptive Cards functionality
-- **`packages/devtools/`** - Development and debugging tools
-- **`tests/`** - Demo applications showcasing various features
-
-## Quick Examples
-
-### Graph Integration Demo
-
-Located in `tests/graph/` - showcases Microsoft Graph API usage with user authentication, profile access, Teams membership, and email integration.
-
-### OAuth Flow Demo
-
-Located in `tests/oauth/` - demonstrates user authentication and token management.
-
-### Message Extensions Demo
-
-Located in `tests/message-extensions/` - shows how to build Teams message extensions.
 
 ## Getting Started
 

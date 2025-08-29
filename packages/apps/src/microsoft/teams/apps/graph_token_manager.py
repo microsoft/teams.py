@@ -21,7 +21,7 @@ class GraphTokenManager:
         self._api_client = api_client
         self._credentials = credentials
 
-        if logger is None:
+        if not logger:
             self._logger = logging.getLogger(__name__ + ".GraphTokenManager")
         else:
             self._logger = logger.getChild("GraphTokenManager")

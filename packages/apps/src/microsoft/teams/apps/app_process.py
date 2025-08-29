@@ -112,8 +112,6 @@ class ActivityProcessor:
             # User token not available
             pass
 
-        # Get or refresh the graph token before passing it to the context
-        # Extract tenant_id from the activity to get tenant-specific token
         tenant_id = extract_tenant_id(activity)
 
         graph_token = await self._get_or_refresh_graph_token(tenant_id)

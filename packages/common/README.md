@@ -76,5 +76,5 @@ items = list_storage.items()
 from microsoft.teams.common import ConsoleLogger
 
 # Create console logger
-logger = ConsoleLogger()
+logger = ConsoleLogger().create_logger("my-app")
 ```

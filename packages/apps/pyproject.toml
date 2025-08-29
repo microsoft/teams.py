@@ -44,3 +44,4 @@ generate-activity-handlers = "scripts.generate_handlers:generate_activity_handle
 [tool.uv.sources]
 microsoft-teams-common = { workspace = true }
 microsoft-teams-api = { workspace = true }
+microsoft-teams-graph = { workspace = true }

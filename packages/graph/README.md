@@ -10,7 +10,7 @@ This package provides seamless access to Microsoft Graph APIs from Teams bots an
 
 ## Requirements
 
-- Teams AI SDK for Python
+- Teams AI Library for Python
 - Microsoft Graph SDK for Python (msgraph-sdk)
 - Azure Core library (azure-core)
 - Microsoft Teams Common library (microsoft-teams-common)

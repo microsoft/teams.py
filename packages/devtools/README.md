@@ -9,12 +9,3 @@ Developer tools for locally testing and debugging Teams applications. Streamline
 
 - **Local Testing**: Test Teams apps locally without deployment
 - **Bot Emulator**: Simulate Teams conversations and interactions
-- **Graph API Testing**: Test Microsoft Graph integrations offline
-- **OAuth Simulation**: Mock OAuth flows for development
-
-## Development Workflow
-
-1. **Local Development**: Build and test without Teams deployment
-2. **Graph Testing**: Validate Graph API integrations with mock tokens
-3. **OAuth Flow Testing**: Test authentication flows locally
-4. **Debug Mode**: Enhanced logging and error reporting

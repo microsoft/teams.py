@@ -7,7 +7,7 @@ import base64
 import json
 from dataclasses import dataclass
 from logging import Logger
-from typing import Any, Awaitable, Callable, Generic, Optional, TypeVar, cast
+from typing import TYPE_CHECKING, Any, Awaitable, Callable, Generic, Optional, TypeVar, cast
 
 from microsoft.teams.api import (
     ActivityBase,
@@ -34,7 +34,9 @@ from microsoft.teams.api.models.attachment.card_attachment import (
 from microsoft.teams.api.models.oauth import OAuthCard
 from microsoft.teams.cards import AdaptiveCard
 from microsoft.teams.common import Storage
-from msgraph.graph_service_client import GraphServiceClient
+
+if TYPE_CHECKING:
+    from msgraph.graph_service_client import GraphServiceClient
 
 from ..plugins import Sender
 
