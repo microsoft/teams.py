@@ -8,7 +8,7 @@ import random
 from logging import Logger
 from typing import Awaitable, Callable, Literal, Optional, TypeVar
 
-from microsoft.teams.common.logging import ConsoleLogger
+from microsoft.teams.common import ConsoleLogger
 
 T = TypeVar("T")
 

@@ -9,11 +9,15 @@ from datetime import datetime, timedelta
 from unittest.mock import MagicMock
 
 import pytest
-from microsoft.teams.api.activities.typing import TypingActivityInput
-from microsoft.teams.api.clients.api_client import ApiClient
-from microsoft.teams.api.models import ConversationReference, Resource
-from microsoft.teams.api.models.account import Account, ConversationAccount
-from microsoft.teams.app.http_stream import HttpStream
+from microsoft.teams.api import (
+    Account,
+    ApiClient,
+    ConversationAccount,
+    ConversationReference,
+    SentActivity,
+    TypingActivityInput,
+)
+from microsoft.teams.apps import HttpStream
 
 
 class TestHttpStream:
@@ -38,7 +42,7 @@ class TestHttpStream:
             client.send_call_count += 1
             client.send_times.append(datetime.now())
             client.sent_activities.append(activity)
-            return Resource(id=f"test-id-{client.send_call_count}")
+            return SentActivity(id=f"test-id-{client.send_call_count}", activity_params=activity)
 
         client.conversations.activities().create = mock_send
 
@@ -100,7 +104,7 @@ class TestHttpStream:
                 raise TimeoutError("Operation timed out")
 
             # Succeed on second attempt
-            return Resource(id=f"success-after-timeout-{call_count}")
+            return SentActivity(id=f"success-after-timeout-{call_count}", activity_params=activity)
 
         mock_api_client.conversations.activities().create = mock_send_with_timeout
 

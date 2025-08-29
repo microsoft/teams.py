@@ -278,9 +278,9 @@ class TestHttpPlugin:
         # Without app_id, no middleware but app still exists
         assert plugin_without_validator.app is not None
 
-    def test_logger_property(self, mock_logger, mock_http_client):
+    def test_logger_property(self, mock_logger):
         """Test logger property assignment."""
-        plugin = HttpPlugin("test-app-id", mock_http_client, logger=mock_logger)
+        plugin = HttpPlugin("test-app-id", mock_logger)
         assert plugin.logger == mock_logger
 
     def test_app_property(self, plugin_with_validator):
