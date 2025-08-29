@@ -19,6 +19,11 @@ dependencies = [
     "dependency-injector>=4.48.1",
 ]
 
+[project.optional-dependencies]
+graph = [
+    "microsoft-teams-graph",
+]
+
 [dependency-groups]
 test = [
     "pytest>=8.0.0",
@@ -39,3 +44,4 @@ generate-activity-handlers = "scripts.generate_handlers:generate_activity_handle
 [tool.uv.sources]
 microsoft-teams-common = { workspace = true }
 microsoft-teams-api = { workspace = true }
+microsoft-teams-graph = { workspace = true }

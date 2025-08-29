@@ -7,7 +7,7 @@ import base64
 import json
 from dataclasses import dataclass
 from logging import Logger
-from typing import Any, Awaitable, Callable, Generic, Optional, TypeVar, cast
+from typing import TYPE_CHECKING, Any, Awaitable, Callable, Generic, Optional, TypeVar, cast
 
 from microsoft.teams.api import (
     ActivityBase,
@@ -27,16 +27,36 @@ from microsoft.teams.api import (
     TokenPostResource,
     TokenProtocol,
 )
-from microsoft.teams.api.models.attachment.card_attachment import OAuthCardAttachment, card_attachment
+from microsoft.teams.api.models.attachment.card_attachment import (
+    OAuthCardAttachment,
+    card_attachment,
+)
 from microsoft.teams.api.models.oauth import OAuthCard
 from microsoft.teams.cards import AdaptiveCard
 from microsoft.teams.common import Storage
+
+if TYPE_CHECKING:
+    from msgraph.graph_service_client import GraphServiceClient
 
 from ..plugins import Sender
 
 T = TypeVar("T", bound=ActivityBase, contravariant=True)
 
 SendCallable = Callable[[str | ActivityParams | AdaptiveCard], Awaitable[SentActivity]]
+
+
+def _get_graph_client(token: TokenProtocol):
+    """Lazy import and call get_graph_client when needed."""
+    try:
+        from microsoft.teams.graph import get_graph_client
+
+        return get_graph_client(token)
+    except ImportError as exc:
+        raise ImportError(
+            "Graph functionality not available. "
+            "Install with 'uv add microsoft-teams-apps[graph]' (recommended) "
+            "or 'pip install microsoft-teams-apps[graph]'"
+        ) from exc
 
 
 @dataclass
@@ -46,7 +66,14 @@ class SignInOptions:
     oauth_card_text: str = "Please Sign In..."
     sign_in_button_text: str = "Sign In"
     override_sign_in_activity: Optional[
-        Callable[[Optional[TokenExchangeResource], Optional[TokenPostResource], Optional[str]], ActivityParams]
+        Callable[
+            [
+                Optional[TokenExchangeResource],
+                Optional[TokenPostResource],
+                Optional[str],
+            ],
+            ActivityParams,
+        ]
     ] = None
 
 
@@ -68,6 +95,7 @@ class ActivityContext(Generic[T]):
         is_signed_in: bool,
         connection_name: str,
         sender: Sender,
+        app_token: Optional[TokenProtocol],
     ):
         self.activity = activity
         self.app_id = app_id
@@ -79,11 +107,59 @@ class ActivityContext(Generic[T]):
         self.connection_name = connection_name
         self.is_signed_in = is_signed_in
         self._plugin = sender
+        self._app_token = app_token
 
         self._next_handler: Optional[Callable[[], Awaitable[None]]] = None
 
+        # Initialize graph clients as None - they'll be created lazily
+        self._user_graph: Optional["GraphServiceClient"] = None
+        self._app_graph: Optional["GraphServiceClient"] = None
+
+    @property
+    def user_graph(self) -> Optional["GraphServiceClient"]:
+        """
+        Get a Microsoft Graph client configured with the user's token.
+
+        Returns None if the user is not signed in or doesn't have a valid token.
+
+        """
+        if not self.is_signed_in or not self.user_token:
+            return None
+
+        if self._user_graph is None:
+            try:
+                self._user_graph = _get_graph_client(self.user_token)
+            except Exception as e:
+                self.logger.error(f"Failed to create user graph client: {e}")
+                return None
+
+        return self._user_graph
+
+    @property
+    def app_graph(self) -> Optional["GraphServiceClient"]:
+        """
+        Get a Microsoft Graph client configured with the app's token.
+
+        This client can be used for app-only operations that don't require user context.
+
+        """
+        if not self._app_token:
+            self.logger.debug("No app token available for app graph client")
+            return None
+
+        if self._app_graph is None:
+            try:
+                self._app_graph = _get_graph_client(self._app_token)
+            except Exception as e:
+                self.logger.error(f"Failed to create app graph client: {e}")
+                return None
+
+        return self._app_graph
+
     async def send(
-        self, message: str | ActivityParams | AdaptiveCard, conversation_ref: Optional[ConversationReference] = None
+        self,
+        message: str | ActivityParams | AdaptiveCard,
+        conversation_ref: Optional[ConversationReference] = None,
     ) -> SentActivity:
         """
         Send a message to the conversation.
@@ -141,7 +217,10 @@ class ActivityContext(Generic[T]):
                 f"</blockquote>"
             )
         else:
-            self.logger.debug("Skipping building blockquote for activity type: %s", type(self.activity).__name__)
+            self.logger.debug(
+                "Skipping building blockquote for activity type: %s",
+                type(self.activity).__name__,
+            )
         return None
 
     async def sign_in(self, options: Optional[SignInOptions] = None) -> Optional[str]:
@@ -212,7 +291,9 @@ class ActivityContext(Generic[T]):
                         token_post_resource=resource.token_post_resource,
                         buttons=[
                             CardAction(
-                                type=CardActionType.SIGN_IN, title=sign_in_button_text, value=resource.sign_in_link
+                                type=CardActionType.SIGN_IN,
+                                title=sign_in_button_text,
+                                value=resource.sign_in_link,
                             )
                         ],
                     )
