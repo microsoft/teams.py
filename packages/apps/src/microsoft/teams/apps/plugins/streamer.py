@@ -3,9 +3,15 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from typing import Optional, Protocol, Union
+from typing import Literal, Optional, Protocol, Union
 
-from microsoft.teams.api.activities import MessageActivity, SentActivity, TypingActivity
+from microsoft.teams.api.activities import SentActivity
+from microsoft.teams.api.activities.message import MessageActivityInput
+from microsoft.teams.api.activities.typing import TypingActivityInput
+from microsoft.teams.common.events.event_emitter import EventEmitter
+
+# Define the event names that streamers should support
+IStreamerEvents = Literal["chunk", "close"]
 
 
 class StreamerProtocol(Protocol):
@@ -31,7 +37,14 @@ class StreamerProtocol(Protocol):
         """
         ...
 
-    def emit(self, activity: Union[MessageActivity, TypingActivity, str]) -> None:
+    @property
+    def events(self) -> EventEmitter[IStreamerEvents]:
+        """
+        Provides access to event listener registration for stream events.
+        """
+        ...
+
+    def emit(self, activity: Union[MessageActivityInput, TypingActivityInput, str]) -> None:
         """
         Emit an activity chunk.
         """

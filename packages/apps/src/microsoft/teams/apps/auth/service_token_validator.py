@@ -68,6 +68,7 @@ class ServiceTokenValidator:
                     "verify_exp": True,
                     "verify_iat": True,
                 },
+                leeway=30
             )
 
             # Optional service URL validation

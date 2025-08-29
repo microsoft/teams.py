@@ -49,6 +49,6 @@ class PluginBase:
         """Called by the App to send an activity"""
         ...
 
-    async def create_stream(self, ref: ConversationReference) -> StreamerProtocol:
+    def create_stream(self, ref: ConversationReference) -> StreamerProtocol:
         """Called by the App to create a new activity stream"""
         ...

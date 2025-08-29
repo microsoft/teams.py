@@ -39,16 +39,13 @@ class ConversationActivityClient(BaseClient):
         Returns:
             The created activity
         """
+
         response = await self.http.post(
             f"{self.service_url}/v3/conversations/{conversation_id}/activities",
             json=activity.model_dump(by_alias=True, exclude_none=True),
         )
 
-        if activity.type == "typing":
-            # NOTE: Service returns empty response
-            return SentActivity(id="DO_NOT_USE_PLACEHOLDER_TYPING_ID", activity_params=activity)
-
-        id = response.json()["id"]
+        id = response.json().get("id", "DO_NOT_USE_PLACEHOLDER_TYPING_ID")
         return SentActivity(id=id, activity_params=activity)
 
     async def update(self, conversation_id: str, activity_id: str, activity: ActivityParams) -> SentActivity:
