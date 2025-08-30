@@ -11,7 +11,9 @@
       "packages/cards/src",
       "packages/apps/src",
       "packages/graph/src",
-      "packages/devtools/src"
+      "packages/devtools/src",
+      "packages/ai/src",
+      "packages/openai_ai_model/src"
    ],
    "typeCheckingMode": "strict",
    "executionEnvironments": [
