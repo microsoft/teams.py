@@ -5,10 +5,11 @@ Licensed under the MIT License.
 
 import inspect
 import json
-from logging import Logger
-from typing import Awaitable, Callable, Union
+from dataclasses import dataclass
+from typing import Awaitable, Callable
 
 from microsoft.teams.ai import (
+    AIModel,
     Function,
     FunctionCall,
     FunctionMessage,
@@ -20,8 +21,10 @@ from microsoft.teams.ai import (
     SystemMessage,
     UserMessage,
 )
-from microsoft.teams.common.logging import ConsoleLogger
-from openai import NOT_GIVEN, AsyncAzureOpenAI, AsyncOpenAI
+from microsoft.teams.openai.common import OpenAIBaseModel
+from pydantic import BaseModel
+
+from openai import NOT_GIVEN
 from openai.types.responses import (
     FunctionToolParam,
     Response,
@@ -29,10 +32,10 @@ from openai.types.responses import (
     ResponseInputParam,
     ToolParam,
 )
-from pydantic import BaseModel
 
 
-class OpenAIResponsesChatModel:
+@dataclass
+class OpenAIResponsesAIModel(OpenAIBaseModel, AIModel):
     """
     OpenAI Responses API chat model implementation.
 
@@ -40,32 +43,7 @@ class OpenAIResponsesChatModel:
     making it simpler for complex multi-turn conversations with tools.
     """
 
-    def __init__(
-        self,
-        client_or_key: Union[AsyncOpenAI, str],
-        model: str,
-        *,
-        base_url: str | None = None,
-        # Azure OpenAI options
-        azure_endpoint: str | None = None,
-        api_version: str | None = None,
-        logger: Logger | None = None,
-        stateful: bool = False,
-    ):
-        if isinstance(client_or_key, (AsyncOpenAI, AsyncAzureOpenAI)):
-            self._client = client_or_key
-        else:
-            # client_or_key is the API key
-            if azure_endpoint:
-                self._client = AsyncAzureOpenAI(
-                    api_key=client_or_key, azure_endpoint=azure_endpoint, api_version=api_version
-                )
-            else:
-                self._client = AsyncOpenAI(api_key=client_or_key, base_url=base_url)
-
-        self.model = model
-        self.logger = logger or ConsoleLogger().create_logger("@teams/openai-responses-ai-model")
-        self.stateful = stateful
+    stateful: bool = True
 
     async def generate_text(
         self,

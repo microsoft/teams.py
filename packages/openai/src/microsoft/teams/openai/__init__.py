@@ -3,7 +3,7 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from .ai_model import OpenAIModel
-from .responses_chat_model import OpenAIResponsesChatModel
+from .completions_model import OpenAICompletionsAIModel
+from .responses_chat_model import OpenAIResponsesAIModel
 
-__all__ = ["OpenAIModel", "OpenAIResponsesChatModel"]
+__all__ = ["OpenAICompletionsAIModel", "OpenAIResponsesAIModel"]

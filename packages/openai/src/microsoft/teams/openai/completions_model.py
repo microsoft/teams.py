@@ -20,10 +20,15 @@ from microsoft.teams.ai import (
     SystemMessage,
     UserMessage,
 )
-from microsoft.teams.openai.common import OpenAIBaseModel
+<<<<<<<< HEAD:packages/openai/src/microsoft/teams/openai/ai_model.py
+from microsoft.teams.common.logging import ConsoleLogger
 from pydantic import BaseModel
 
+from openai import NOT_GIVEN, AsyncAzureOpenAI, AsyncOpenAI
+========
+from microsoft.teams.openai_ai_model.common import OpenAIBaseModel
 from openai import NOT_GIVEN
+>>>>>>>> 6d1daf5 (Simplify model):packages/openai/src/microsoft/teams/openai/completions_model.py
 from openai._streaming import AsyncStream
 from openai.types.chat import (
     ChatCompletion,
@@ -212,15 +217,15 @@ class OpenAICompletionsAIModel(OpenAIBaseModel, AIModel):
         # Add conversation history if provided
         if messages:
             for msg in messages:
-                openai_messages.append(self._convert_message_to_openai_format(msg))
+                openai_messages.append(self._message_to_openai(msg))
 
         # Add the input message (if provided)
         if input:
-            openai_messages.append(self._convert_message_to_openai_format(input))
+            openai_messages.append(self._message_to_openai(input))
 
         return openai_messages
 
-    def _convert_message_to_openai_format(self, message: Message) -> ChatCompletionMessageParam:
+    def _message_to_openai(self, message: Message) -> ChatCompletionMessageParam:
         if isinstance(
             message,
             UserMessage,

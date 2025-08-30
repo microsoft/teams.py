@@ -12,7 +12,7 @@ from microsoft.teams.ai import Agent, Function, ListMemory, UserMessage
 from microsoft.teams.api import MessageActivity
 from microsoft.teams.apps import ActivityContext, App, AppOptions
 from microsoft.teams.devtools import DevToolsPlugin
-from microsoft.teams.openai import OpenAIModel, OpenAIResponsesChatModel
+from microsoft.teams.openai import OpenAICompletionsAIModel, OpenAIResponsesAIModel
 from pydantic import BaseModel
 
 load_dotenv(find_dotenv(usecwd=True))
@@ -40,14 +40,14 @@ class GetWeatherParams(BaseModel):
     location: str
 
 
-chat_openai_ai_model = OpenAIModel(
+chat_openai_ai_model = OpenAICompletionsAIModel(
     key=AZURE_OPENAI_API_KEY,
     model=AZURE_OPENAI_MODEL,
     azure_endpoint=AZURE_OPENAI_ENDPOINT,
     api_version=AZURE_OPENAI_API_VERSION,
 )
 
-responses_openai_ai_model = OpenAIResponsesChatModel(
+responses_openai_ai_model = OpenAIResponsesAIModel(
     client_or_key=AZURE_OPENAI_API_KEY,
     model=AZURE_OPENAI_MODEL,
     azure_endpoint=AZURE_OPENAI_ENDPOINT,
