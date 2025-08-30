@@ -6,7 +6,7 @@ Licensed under the MIT License.
 from .ai_model import AIModel
 from .function import Function, FunctionCall
 from .memory import ListMemory, Memory
-from .message import FunctionMessage, Message, ModelMessage, SystemMessage, UserMessage
+from .message import FunctionMessage, Message, ModelMessage, ResponseIdMessage, SystemMessage, UserMessage
 from .workflow import AgentWorkflow, WorkflowResult
 
 __all__ = [
@@ -17,6 +17,7 @@ __all__ = [
     "ModelMessage",
     "SystemMessage",
     "FunctionMessage",
+    "ResponseIdMessage",
     "Function",
     "FunctionCall",
     "Memory",
