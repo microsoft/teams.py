@@ -12,8 +12,8 @@ from .memory import Memory
 from .message import Message, ModelMessage, SystemMessage
 
 
-class ChatModel(Protocol):
-    async def send(
+class AIModel(Protocol):
+    async def generate_text(
         self,
         input: Message,
         *,

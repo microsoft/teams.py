@@ -11,7 +11,7 @@ from microsoft.teams.ai import AgentWorkflow, Function, ListMemory, UserMessage
 from microsoft.teams.api import MessageActivity
 from microsoft.teams.apps import ActivityContext, App, AppOptions
 from microsoft.teams.devtools import DevToolsPlugin
-from microsoft.teams.openai_ai_model import OpenAIChatModel
+from microsoft.teams.openai_ai_model import OpenAIModel
 from pydantic import BaseModel
 
 load_dotenv(find_dotenv(usecwd=True))
@@ -42,7 +42,7 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
     print(f"[GENERATED onMessage] Message received: {ctx.activity.text}")
     print(f"[GENERATED onMessage] From: {ctx.activity.from_}")
 
-    openai_ai_model = OpenAIChatModel(
+    openai_ai_model = OpenAIModel(
         client_or_key=AZURE_OPENAI_API_KEY,
         model=AZURE_OPENAI_MODEL,
         azure_endpoint=AZURE_OPENAI_ENDPOINT,
