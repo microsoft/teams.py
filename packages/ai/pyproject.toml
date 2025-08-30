@@ -1,5 +1,5 @@
 [project]
-name = "ai"
+name = "microsoft-teams-ai"
 version = "0.0.1a2"
 description = "package to handle interacting with ai or llms"
 authors = [{ name = "Microsoft", email = "TeamsAISDKFeedback@microsoft.com" }]
@@ -8,7 +8,9 @@ requires-python = ">=3.12"
 repository = "https://github.com/microsoft/teams.py"
 keywords = ["microsoft", "teams", "ai", "bot", "agents"]
 license = "MIT"
-dependencies = []
+dependencies = [
+    "microsoft-teams-common",
+]
 
 [build-system]
 requires = ["hatchling"]
@@ -19,3 +21,6 @@ packages = ["src/microsoft"]
 
 [tool.hatch.build.targets.sdist]
 include = ["src"]
+
+[tool.uv.sources]
+microsoft-teams-common = { workspace = true }

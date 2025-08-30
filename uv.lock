@@ -4,21 +4,21 @@ requires-python = ">=3.12"
 
 [manifest]
 members = [
-    "ai",
     "ai-test",
     "dialogs",
     "echo",
     "graph",
     "message-extensions",
+    "microsoft-teams-ai",
     "microsoft-teams-api",
     "microsoft-teams-apps",
     "microsoft-teams-cards",
     "microsoft-teams-common",
     "microsoft-teams-devtools",
     "microsoft-teams-graph",
+    "microsoft-teams-openai-ai-model",
     "oauth",
     "stream",
-    "openai-ai-model",
 ]
 
 [manifest.dependency-groups]
@@ -31,27 +31,22 @@ dev = [
 ]
 
 [[package]]
-name = "ai"
-version = "0.0.1a2"
-source = { editable = "packages/ai" }
-
-[[package]]
 name = "ai-test"
 version = "0.1.0"
 source = { virtual = "tests/ai-test" }
 dependencies = [
-    { name = "ai" },
     { name = "dotenv" },
+    { name = "microsoft-teams-ai" },
     { name = "microsoft-teams-apps" },
-    { name = "openai-ai-model" },
+    { name = "microsoft-teams-openai-ai-model" },
 ]
 
 [package.metadata]
 requires-dist = [
-    { name = "ai", editable = "packages/ai" },
     { name = "dotenv", specifier = ">=0.9.9" },
+    { name = "microsoft-teams-ai", editable = "packages/ai" },
     { name = "microsoft-teams-apps", editable = "packages/apps" },
-    { name = "openai-ai-model", editable = "packages/openai_ai_model" },
+    { name = "microsoft-teams-openai-ai-model", editable = "packages/openai_ai_model" },
 ]
 
 [[package]]
@@ -993,6 +988,17 @@ wheels = [
 ]
 
 [[package]]
+name = "microsoft-teams-ai"
+version = "0.0.1a2"
+source = { editable = "packages/ai" }
+dependencies = [
+    { name = "microsoft-teams-common" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "microsoft-teams-common", editable = "packages/common" }]
+
+[[package]]
 name = "microsoft-teams-api"
 version = "0.0.1a2"
 source = { editable = "packages/api" }
@@ -1174,6 +1180,23 @@ dev = [
 ]
 
 [[package]]
+name = "microsoft-teams-openai-ai-model"
+version = "0.0.1a1"
+source = { editable = "packages/openai_ai_model" }
+dependencies = [
+    { name = "microsoft-teams-ai" },
+    { name = "microsoft-teams-common" },
+    { name = "openai" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "microsoft-teams-ai", editable = "packages/ai" },
+    { name = "microsoft-teams-common", editable = "packages/common" },
+    { name = "openai", specifier = ">=1.102.0" },
+]
+
+[[package]]
 name = "msal"
 version = "1.33.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1335,21 +1358,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/07/55/da5598ed5c6bdd9939633854049cddc5cbac0da938dfcfcb3c6b119c16c0/openai-1.102.0.tar.gz", hash = "sha256:2e0153bcd64a6523071e90211cbfca1f2bbc5ceedd0993ba932a5869f93b7fc9", size = 519027, upload-time = "2025-08-26T20:50:29.397Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/bd/0d/c9e7016d82c53c5b5e23e2bad36daebb8921ed44f69c0a985c6529a35106/openai-1.102.0-py3-none-any.whl", hash = "sha256:d751a7e95e222b5325306362ad02a7aa96e1fab3ed05b5888ce1c7ca63451345", size = 812015, upload-time = "2025-08-26T20:50:27.219Z" },
-]
-
-[[package]]
-name = "openai-ai-model"
-version = "0.0.1a1"
-source = { editable = "packages/openai_ai_model" }
-dependencies = [
-    { name = "ai" },
-    { name = "openai" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "ai", editable = "packages/ai" },
-    { name = "openai", specifier = ">=1.102.0" },
 ]
 
 [[package]]
