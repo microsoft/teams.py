@@ -40,14 +40,18 @@ name = "ai-test"
 version = "0.1.0"
 source = { virtual = "tests/ai-test" }
 dependencies = [
+    { name = "ai" },
     { name = "dotenv" },
     { name = "microsoft-teams-apps" },
+    { name = "openai-ai-model" },
 ]
 
 [package.metadata]
 requires-dist = [
+    { name = "ai", editable = "packages/ai" },
     { name = "dotenv", specifier = ">=0.9.9" },
     { name = "microsoft-teams-apps", editable = "packages/apps" },
+    { name = "openai-ai-model", editable = "packages/openai_ai_model" },
 ]
 
 [[package]]
