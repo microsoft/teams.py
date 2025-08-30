@@ -4,6 +4,7 @@ Licensed under the MIT License.
 """
 
 import asyncio
+import re
 from os import getenv
 
 from dotenv import find_dotenv, load_dotenv
@@ -11,7 +12,7 @@ from microsoft.teams.ai import AgentWorkflow, Function, ListMemory, UserMessage
 from microsoft.teams.api import MessageActivity
 from microsoft.teams.apps import ActivityContext, App, AppOptions
 from microsoft.teams.devtools import DevToolsPlugin
-from microsoft.teams.openai_ai_model import OpenAIModel
+from microsoft.teams.openai_ai_model import OpenAIModel, OpenAIResponsesChatModel
 from pydantic import BaseModel
 
 load_dotenv(find_dotenv(usecwd=True))
@@ -31,26 +32,61 @@ AZURE_OPENAI_API_VERSION = get_required_env("AZURE_OPENAI_API_VERSION")
 
 app = App(AppOptions(plugins=[DevToolsPlugin()]))
 
+# Global state for mode switching
+current_mode = "responses"  # "chat" or "responses"
+
 
 class GetWeatherParams(BaseModel):
     location: str
 
 
+@app.on_message_pattern(re.compile(r"^mode\b"))
+async def handle_mode_switch(ctx: ActivityContext[MessageActivity]):
+    """Handle mode switching between chat and responses API."""
+    global current_mode
+
+    text = ctx.activity.text.lower().strip()
+
+    if "chat" in text:
+        current_mode = "chat"
+        await ctx.reply("🔄 Switched to **Chat Completions** mode")
+    elif "responses" in text:
+        current_mode = "responses"
+        await ctx.reply("🔄 Switched to **Responses API** mode")
+    else:
+        await ctx.reply(f"📋 Current mode: **{current_mode}**")
+
+
 @app.on_message
 async def handle_message(ctx: ActivityContext[MessageActivity]):
     """Handle message activities using the new generated handler system."""
+    global current_mode
+
     print(f"[GENERATED onMessage] Message received: {ctx.activity.text}")
     print(f"[GENERATED onMessage] From: {ctx.activity.from_}")
+    print(f"[GENERATED onMessage] Mode: {current_mode}")
 
-    openai_ai_model = OpenAIModel(
-        client_or_key=AZURE_OPENAI_API_KEY,
-        model=AZURE_OPENAI_MODEL,
-        azure_endpoint=AZURE_OPENAI_ENDPOINT,
-        api_version=AZURE_OPENAI_API_VERSION,
-    )
+    # Create AI model based on current mode
+    if current_mode == "responses":
+        openai_ai_model = OpenAIResponsesChatModel(
+            client_or_key=AZURE_OPENAI_API_KEY,
+            model=AZURE_OPENAI_MODEL,
+            azure_endpoint=AZURE_OPENAI_ENDPOINT,
+            api_version=AZURE_OPENAI_API_VERSION,
+            stateful=True,
+        )
+    else:  # chat mode
+        openai_ai_model = OpenAIModel(
+            client_or_key=AZURE_OPENAI_API_KEY,
+            model=AZURE_OPENAI_MODEL,
+            azure_endpoint=AZURE_OPENAI_ENDPOINT,
+            api_version=AZURE_OPENAI_API_VERSION,
+        )
+
     workflow = AgentWorkflow(openai_ai_model)
 
     def get_weather_handler(params: GetWeatherParams) -> str:
+        print("getting weather")
         return f"The weather in {params.location} is sunny"
 
     workflow.with_function(
@@ -66,6 +102,8 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
     result = workflow_result.response
     if result.content:
         await ctx.reply(result.content)
+    else:
+        print("No response!")
 
 
 if __name__ == "__main__":

@@ -35,4 +35,12 @@ class FunctionMessage:
     role: Literal["function"] = "function"
 
 
-Message = Union[UserMessage, ModelMessage, SystemMessage, FunctionMessage]
+@dataclass
+class ResponseIdMessage:
+    """Special message type to store OpenAI Responses API response ID in memory."""
+
+    response_id: str
+    role: Literal["response_id"] = "response_id"
+
+
+Message = Union[UserMessage, ModelMessage, SystemMessage, FunctionMessage, ResponseIdMessage]
