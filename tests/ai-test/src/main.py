@@ -77,14 +77,14 @@ for agent in [chat_agent, responses_agent]:
 
 @app.on_message_pattern(re.compile(r"^mode\b"))
 async def handle_mode_switch(ctx: ActivityContext[MessageActivity]):
-    """Handle mode switching between chat and responses API."""
+    """Handle mode switching between completions and responses API."""
     global current_mode
 
     text = ctx.activity.text.lower().strip()
 
-    if "chat" in text:
-        current_mode = "chat"
-        await ctx.reply("🔄 Switched to **Chat Completions** mode")
+    if "completions" in text:
+        current_mode = "completions"
+        await ctx.reply("🔄 Switched to **Completions Completions** mode")
     elif "responses" in text:
         current_mode = "responses"
         await ctx.reply("🔄 Switched to **Responses API** mode")
