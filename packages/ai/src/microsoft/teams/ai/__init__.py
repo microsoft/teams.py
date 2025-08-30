@@ -3,7 +3,7 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from .chat_model import ChatModel
+from .ai_model import AIModel
 from .function import Function, FunctionCall
 from .memory import ListMemory, Memory
 from .message import FunctionMessage, Message, ModelMessage, SystemMessage, UserMessage
@@ -21,5 +21,5 @@ __all__ = [
     "FunctionCall",
     "Memory",
     "ListMemory",
-    "ChatModel",
+    "AIModel",
 ]

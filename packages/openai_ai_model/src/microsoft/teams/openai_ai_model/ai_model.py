@@ -43,7 +43,7 @@ class _ToolCallData(TypedDict):
     arguments_str: str
 
 
-class OpenAIChatModel:
+class OpenAIModel:
     def __init__(
         self,
         client_or_key: Union[AsyncOpenAI, str],
@@ -68,7 +68,7 @@ class OpenAIChatModel:
         self.model = model
         self.logger = logger or ConsoleLogger().create_logger("@teams/openai-chat-model")
 
-    async def send(
+    async def generate_text(
         self,
         input: Message,
         *,
@@ -128,7 +128,7 @@ class OpenAIChatModel:
             self.logger.debug(
                 f"Response has {len(model_response.function_calls)} function calls, executing recursively"
             )
-            return await self.send(model_response, system=system, memory=memory, functions=functions)
+            return await self.generate_text(model_response, system=system, memory=memory, functions=functions)
 
         # Push response to memory (only if not recursing)
         await memory.push(model_response)
