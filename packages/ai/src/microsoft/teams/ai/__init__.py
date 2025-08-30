@@ -8,7 +8,7 @@ from .ai_model import AIModel
 from .chat_prompt import ChatPrompt, ChatSendResult
 from .function import Function, FunctionCall
 from .memory import ListMemory, Memory
-from .message import FunctionMessage, Message, ModelMessage, SystemMessage, UserMessage
+from .message import FunctionMessage, Message, ModelMessage, ResponseIdMessage, SystemMessage, UserMessage
 
 __all__ = [
     "ChatSendResult",
@@ -19,6 +19,7 @@ __all__ = [
     "ModelMessage",
     "SystemMessage",
     "FunctionMessage",
+    "ResponseIdMessage",
     "Function",
     "FunctionCall",
     "Memory",

@@ -258,7 +258,7 @@ class OpenAIModel:
                 content=message.content or [],
                 tool_call_id=message.function_id,
             )
-        else:
+        elif isinstance(message, ModelMessage):  # ModelMessage
             if message.function_calls:
                 tool_calls = [
                     ChatCompletionMessageFunctionToolCallParam(
@@ -272,6 +272,8 @@ class OpenAIModel:
                 tool_calls = []
 
             return ChatCompletionAssistantMessageParam(role="assistant", content=message.content, tool_calls=tool_calls)
+        else:
+            raise Exception(f"Message {message.role} not supported")
 
     def _convert_functions(self, functions: dict[str, Function[BaseModel]]) -> list[ChatCompletionToolUnionParam]:
         return [
