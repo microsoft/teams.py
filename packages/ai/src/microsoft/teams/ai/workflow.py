@@ -4,7 +4,7 @@ Licensed under the MIT License.
 """
 
 from dataclasses import dataclass
-from typing import Any, TypeVar
+from typing import Any, Awaitable, Callable, TypeVar
 
 from pydantic import BaseModel
 
@@ -31,10 +31,18 @@ class AgentWorkflow:
         self.functions[function.name] = function
         return self
 
-    async def send(self, input: str | Message, *, memory: Memory | None = None) -> WorkflowResult:
+    async def send(
+        self,
+        input: str | Message,
+        *,
+        memory: Memory | None = None,
+        on_chunk: Callable[[str], Awaitable[None]] | None = None,
+    ) -> WorkflowResult:
         if isinstance(input, str):
             input = UserMessage(content=input)
 
-        response = await self.model.send(input, memory=memory, functions=self.functions if self.functions else None)
+        response = await self.model.send(
+            input, memory=memory, functions=self.functions if self.functions else None, on_chunk=on_chunk
+        )
 
         return WorkflowResult(response=response, workflow=self)

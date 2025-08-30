@@ -5,7 +5,8 @@ Licensed under the MIT License.
 
 import inspect
 import json
-from typing import Union
+from logging import Logger
+from typing import Awaitable, Callable, TypedDict, Union
 
 from microsoft.teams.ai import (
     Function,
@@ -18,10 +19,13 @@ from microsoft.teams.ai import (
     SystemMessage,
     UserMessage,
 )
+from microsoft.teams.common.logging import ConsoleLogger
 from openai import NOT_GIVEN, AsyncAzureOpenAI, AsyncOpenAI
+from openai._streaming import AsyncStream
 from openai.types.chat import (
     ChatCompletion,
     ChatCompletionAssistantMessageParam,
+    ChatCompletionChunk,
     ChatCompletionMessageFunctionToolCall,
     ChatCompletionMessageFunctionToolCallParam,
     ChatCompletionMessageParam,
@@ -31,6 +35,12 @@ from openai.types.chat import (
     ChatCompletionUserMessageParam,
 )
 from pydantic import BaseModel
+
+
+class _ToolCallData(TypedDict):
+    id: str
+    name: str
+    arguments_str: str
 
 
 class OpenAIChatModel:
@@ -43,6 +53,7 @@ class OpenAIChatModel:
         # Azure OpenAI options
         azure_endpoint: str | None = None,
         api_version: str | None = None,
+        logger: Logger | None = None,
     ):
         if isinstance(client_or_key, (AsyncOpenAI, AsyncAzureOpenAI)):
             self._client = client_or_key
@@ -55,14 +66,16 @@ class OpenAIChatModel:
             else:
                 self._client = AsyncOpenAI(api_key=client_or_key, base_url=base_url)
         self.model = model
+        self.logger = logger or ConsoleLogger().create_logger("@teams/openai-chat-model")
 
     async def send(
         self,
         input: Message,
         *,
-        system: Message | None = None,
+        system: SystemMessage | None = None,
         memory: Memory | None = None,
         functions: dict[str, Function[BaseModel]] | None = None,
+        on_chunk: Callable[[str], Awaitable[None]] | None = None,
     ) -> ModelMessage:
         # Use default memory if none provided
         if memory is None:
@@ -73,7 +86,7 @@ class OpenAIChatModel:
 
         # Get conversation history from memory (make a copy to avoid modifying memory's internal state)
         messages = list(await memory.get_all())
-        print(messages, function_results)
+        self.logger.debug(f"Retrieved {len(messages)} messages from memory, {len(function_results)} function results")
 
         # Push current input to memory
         await memory.push(input)
@@ -92,23 +105,34 @@ class OpenAIChatModel:
 
         # Convert messages to OpenAI format
         openai_messages = self._convert_messages(input_to_send, system, messages)
-        print(openai_messages)
+        self.logger.debug(f"Converted to {len(openai_messages)} OpenAI messages")
 
         # Convert functions to OpenAI tools format if provided
         tools = self._convert_functions(functions) if functions else NOT_GIVEN
 
-        # Make OpenAI API call
-        response = await self._client.chat.completions.create(model=self.model, messages=openai_messages, tools=tools)
+        self.logger.debug(f"Making Chat Completions API call (streaming: {bool(on_chunk)})")
+
+        # Make OpenAI API call (with streaming if on_chunk provided)
+        response = await self._client.chat.completions.create(
+            model=self.model, messages=openai_messages, tools=tools, stream=bool(on_chunk)
+        )
 
         # Convert response back to ModelMessage format
-        model_response = self._convert_response(response)
+        if isinstance(response, AsyncStream):
+            model_response = await self._handle_streaming_response(response, on_chunk)
+        else:
+            model_response = self._convert_response(response)
 
         # If response has function calls, recursively execute them
         if model_response.function_calls:
+            self.logger.debug(
+                f"Response has {len(model_response.function_calls)} function calls, executing recursively"
+            )
             return await self.send(model_response, system=system, memory=memory, functions=functions)
 
         # Push response to memory (only if not recursing)
         await memory.push(model_response)
+        self.logger.debug("Chat Completions conversation completed, returning response")
 
         return model_response
 
@@ -120,6 +144,7 @@ class OpenAIChatModel:
 
         if isinstance(input, ModelMessage) and input.function_calls:
             # Execute any pending function calls
+            self.logger.debug(f"Executing {len(input.function_calls)} function calls")
             for call in input.function_calls:
                 if functions and call.name in functions:
                     function = functions[call.name]
@@ -144,8 +169,60 @@ class OpenAIChatModel:
 
         return function_results
 
+    async def _handle_streaming_response(
+        self, stream: AsyncStream[ChatCompletionChunk], on_chunk: Callable[[str], Awaitable[None]] | None
+    ) -> ModelMessage:
+        """Handle streaming OpenAI response and accumulate into ModelMessage."""
+        # Initialize accumulation structures
+        content = ""
+        tool_calls_data: list[_ToolCallData] = []  # List of dict to accumulate tool call data
+
+        async for chunk in stream:
+            if not chunk.choices:
+                continue
+
+            delta = chunk.choices[0].delta
+
+            # Handle content streaming
+            if delta.content:
+                content += delta.content
+                if on_chunk:
+                    await on_chunk(delta.content)
+
+            # Handle tool calls streaming
+            if delta.tool_calls:
+                for call_delta in delta.tool_calls:
+                    # Ensure we have enough slots for this index
+                    while len(tool_calls_data) <= call_delta.index:
+                        tool_calls_data.append({"id": "", "name": "", "arguments_str": ""})
+
+                    # Accumulate call data
+                    if call_delta.id:
+                        tool_calls_data[call_delta.index]["id"] += call_delta.id
+
+                    if call_delta.function:
+                        if call_delta.function.name:
+                            tool_calls_data[call_delta.index]["name"] += call_delta.function.name
+
+                        if call_delta.function.arguments:
+                            tool_calls_data[call_delta.index]["arguments_str"] += call_delta.function.arguments
+
+        # Convert accumulated tool calls to FunctionCall objects
+        function_calls: list[FunctionCall] = []
+        for call_data in tool_calls_data:
+            try:
+                arguments: dict[str, str] = json.loads(call_data["arguments_str"]) if call_data["arguments_str"] else {}
+            except json.JSONDecodeError:
+                arguments = {}
+
+            function_calls.append(FunctionCall(id=call_data["id"], name=call_data["name"], arguments=arguments))
+
+        return ModelMessage(
+            content=content if content else None, function_calls=function_calls if function_calls else None
+        )
+
     def _convert_messages(
-        self, input: Message | None, system: Message | None, messages: list[Message] | None
+        self, input: Message | None, system: SystemMessage | None, messages: list[Message] | None
     ) -> list[ChatCompletionMessageParam]:
         openai_messages: list[ChatCompletionMessageParam] = []
 
@@ -179,7 +256,7 @@ class OpenAIChatModel:
                 content=message.content or [],
                 tool_call_id=message.function_id,
             )
-        else:  # ModelMessage
+        else:
             if message.function_calls:
                 tool_calls = [
                     ChatCompletionMessageFunctionToolCallParam(
