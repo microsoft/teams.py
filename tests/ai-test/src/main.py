@@ -7,8 +7,7 @@ import asyncio
 from os import getenv
 
 from dotenv import find_dotenv, load_dotenv
-from microsoft.teams.ai import AgentWorkflow, ListMemory, UserMessage
-from microsoft.teams.ai.function import Function
+from microsoft.teams.ai import AgentWorkflow, Function, ListMemory, UserMessage
 from microsoft.teams.api import MessageActivity
 from microsoft.teams.apps import ActivityContext, App, AppOptions
 from microsoft.teams.devtools import DevToolsPlugin
