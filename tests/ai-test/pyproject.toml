@@ -5,9 +5,13 @@ description = "test the ai interactions"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "ai",
     "dotenv>=0.9.9",
     "microsoft-teams-apps",
+    "openai-ai-model",
 ]
 
 [tool.uv.sources]
 microsoft-teams-apps = { workspace = true }
+ai = { workspace = true }
+openai-ai-model = { workspace = true }
