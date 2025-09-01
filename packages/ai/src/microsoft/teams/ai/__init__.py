@@ -3,15 +3,17 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
+from .agent import Agent
 from .ai_model import AIModel
+from .chat_prompt import ChatPrompt, ChatSendResult
 from .function import Function, FunctionCall
 from .memory import ListMemory, Memory
 from .message import FunctionMessage, Message, ModelMessage, SystemMessage, UserMessage
-from .workflow import AgentWorkflow, WorkflowResult
 
 __all__ = [
-    "WorkflowResult",
-    "AgentWorkflow",
+    "ChatSendResult",
+    "ChatPrompt",
+    "Agent",
     "Message",
     "UserMessage",
     "ModelMessage",

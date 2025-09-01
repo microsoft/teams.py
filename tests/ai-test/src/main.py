@@ -7,7 +7,7 @@ import asyncio
 from os import getenv
 
 from dotenv import find_dotenv, load_dotenv
-from microsoft.teams.ai import AgentWorkflow, Function, ListMemory, UserMessage
+from microsoft.teams.ai import Agent, Function, ListMemory, UserMessage
 from microsoft.teams.api import MessageActivity
 from microsoft.teams.apps import ActivityContext, App, AppOptions
 from microsoft.teams.devtools import DevToolsPlugin
@@ -36,34 +36,38 @@ class GetWeatherParams(BaseModel):
     location: str
 
 
+openai_ai_model = OpenAIModel(
+    client_or_key=AZURE_OPENAI_API_KEY,
+    model=AZURE_OPENAI_MODEL,
+    azure_endpoint=AZURE_OPENAI_ENDPOINT,
+    api_version=AZURE_OPENAI_API_VERSION,
+)
+memory = ListMemory()
+agent = Agent(openai_ai_model, memory=memory)
+
+
+def get_weather_handler(params: GetWeatherParams) -> str:
+    return f"The weather in {params.location} is sunny"
+
+
+agent.with_function(
+    Function(
+        name="get_weather",
+        description="get weather from a particular location",
+        parameter_schema=GetWeatherParams,
+        handler=get_weather_handler,
+    )
+)
+
+
 @app.on_message
 async def handle_message(ctx: ActivityContext[MessageActivity]):
     """Handle message activities using the new generated handler system."""
     print(f"[GENERATED onMessage] Message received: {ctx.activity.text}")
     print(f"[GENERATED onMessage] From: {ctx.activity.from_}")
 
-    openai_ai_model = OpenAIModel(
-        client_or_key=AZURE_OPENAI_API_KEY,
-        model=AZURE_OPENAI_MODEL,
-        azure_endpoint=AZURE_OPENAI_ENDPOINT,
-        api_version=AZURE_OPENAI_API_VERSION,
-    )
-    workflow = AgentWorkflow(openai_ai_model)
-
-    def get_weather_handler(params: GetWeatherParams) -> str:
-        return f"The weather in {params.location} is sunny"
-
-    workflow.with_function(
-        Function(
-            name="get_weather",
-            description="get weather from a particular location",
-            parameter_schema=GetWeatherParams,
-            handler=get_weather_handler,
-        )
-    )
-    memory = ListMemory()
-    workflow_result = await workflow.send(input=UserMessage(content=ctx.activity.text, role="user"), memory=memory)
-    result = workflow_result.response
+    chat_result = await agent.send(input=UserMessage(content=ctx.activity.text, role="user"))
+    result = chat_result.response
     if result.content:
         await ctx.reply(result.content)
 

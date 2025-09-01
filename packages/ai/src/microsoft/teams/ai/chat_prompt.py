@@ -17,17 +17,16 @@ T = TypeVar("T", bound=BaseModel)
 
 
 @dataclass
-class WorkflowResult:
+class ChatSendResult:
     response: ModelMessage
-    workflow: "AgentWorkflow"
 
 
-class AgentWorkflow:
+class ChatPrompt:
     def __init__(self, model: AIModel, *, functions: list[Function[Any]] | None = None):
         self.model = model
         self.functions: dict[str, Function[Any]] = {func.name: func for func in functions} if functions else {}
 
-    def with_function(self, function: Function[T]) -> "AgentWorkflow":
+    def with_function(self, function: Function[T]) -> "ChatPrompt":
         self.functions[function.name] = function
         return self
 
@@ -37,7 +36,7 @@ class AgentWorkflow:
         *,
         memory: Memory | None = None,
         on_chunk: Callable[[str], Awaitable[None]] | None = None,
-    ) -> WorkflowResult:
+    ) -> ChatSendResult:
         if isinstance(input, str):
             input = UserMessage(content=input)
 
@@ -45,4 +44,4 @@ class AgentWorkflow:
             input, memory=memory, functions=self.functions if self.functions else None, on_chunk=on_chunk
         )
 
-        return WorkflowResult(response=response, workflow=self)
+        return ChatSendResult(response=response)
