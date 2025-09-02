@@ -240,7 +240,7 @@ class OpenAICompletionsAIModel(OpenAIBaseModel, AIModel):
                 content=message.content or [],
                 tool_call_id=message.function_id,
             )
-        elif isinstance(message, ModelMessage):  # ModelMessage
+        elif isinstance(message, ModelMessage):  # pyright: ignore [reportUnnecessaryIsInstance]
             if message.function_calls:
                 tool_calls = [
                     ChatCompletionMessageFunctionToolCallParam(
