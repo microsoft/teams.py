@@ -22,16 +22,14 @@ def extract_tenant_id(activity: ActivityBase) -> Optional[str]:
     Returns:
         The tenant ID if found, None otherwise
     """
-    tenant_id = None
+    conversation = getattr(activity, "conversation", None)
+    if conversation:
+        tenant_id = getattr(conversation, "tenant_id", None)
+        if tenant_id:
+            return tenant_id
 
-    # Primary source: conversation.tenant_id
-    if hasattr(activity, "conversation") and activity.conversation:
-        tenant_id = getattr(activity.conversation, "tenant_id", None)
+    tenant = getattr(activity, "tenant", None)
+    if tenant:
+        return getattr(tenant, "id", None)
 
-    # Fallback source: activity.tenant.id (from channel_data)
-    if not tenant_id and hasattr(activity, "tenant"):
-        tenant_info = getattr(activity, "tenant", None)
-        if tenant_info and hasattr(tenant_info, "id"):
-            tenant_id = tenant_info.id
-
-    return tenant_id
+    return None
