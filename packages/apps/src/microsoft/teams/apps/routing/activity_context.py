@@ -116,43 +116,53 @@ class ActivityContext(Generic[T]):
         self._app_graph: Optional["GraphServiceClient"] = None
 
     @property
-    def user_graph(self) -> Optional["GraphServiceClient"]:
+    def user_graph(self) -> "GraphServiceClient":
         """
         Get a Microsoft Graph client configured with the user's token.
 
-        Returns None if the user is not signed in or doesn't have a valid token.
+        Raises:
+            ValueError: If the user is not signed in or doesn't have a valid token.
+            RuntimeError: If the graph client cannot be created.
+            ImportError: If the graph dependencies are not installed.
 
         """
-        if not self.is_signed_in or not self.user_token:
-            return None
+        if not self.is_signed_in:
+            raise ValueError("User must be signed in to access Graph client")
+
+        if not self.user_token:
+            raise ValueError("No user token available for Graph client")
 
         if self._user_graph is None:
             try:
                 self._user_graph = _get_graph_client(self.user_token)
             except Exception as e:
                 self.logger.error(f"Failed to create user graph client: {e}")
-                return None
+                raise RuntimeError(f"Failed to create user graph client: {e}") from e
 
         return self._user_graph
 
     @property
-    def app_graph(self) -> Optional["GraphServiceClient"]:
+    def app_graph(self) -> "GraphServiceClient":
         """
         Get a Microsoft Graph client configured with the app's token.
 
         This client can be used for app-only operations that don't require user context.
 
+        Raises:
+            ValueError: If no app token is available.
+            RuntimeError: If the graph client cannot be created.
+            ImportError: If the graph dependencies are not installed.
+
         """
         if not self._app_token:
-            self.logger.debug("No app token available for app graph client")
-            return None
+            raise ValueError("No app token available for Graph client")
 
         if self._app_graph is None:
             try:
                 self._app_graph = _get_graph_client(self._app_token)
             except Exception as e:
                 self.logger.error(f"Failed to create app graph client: {e}")
-                return None
+                raise RuntimeError(f"Failed to create app graph client: {e}") from e
 
         return self._app_graph
 

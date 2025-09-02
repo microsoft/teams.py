@@ -10,7 +10,7 @@ Handles activity routing, authentication, and provides Microsoft Graph integrati
 
 - **Activity Routing**: Decorator-based routing for different activity types
 - **OAuth Integration**: Built-in OAuth flow handling for user authentication
-- **Microsoft Graph Integration**: Optional Graph client access via `user_graph` and `app_graph`
+- **Microsoft Graph Integration**: Type-safe Graph client access via `user_graph` and `app_graph` properties
 - **Plugin System**: Extensible plugin architecture for adding functionality
 
 ## Basic Usage
@@ -35,10 +35,12 @@ await app.start()
 @app.on_message
 async def handle_message(ctx: ActivityContext[MessageActivity]):
     if ctx.is_signed_in:
-        # Access user's Graph data
-        if ctx.user_graph:
+        try:
+            # Access user's Graph data
             me = await ctx.user_graph.me.get()
             await ctx.send(f"Hello {me.display_name}!")
+        except (ValueError, RuntimeError, ImportError) as e:
+            await ctx.send(f"Graph access failed: {e}")
     else:
         # Prompt user to sign in
         await ctx.sign_in()
@@ -56,4 +58,4 @@ uv add microsoft-teams-apps[graph]
 pip install microsoft-teams-apps[graph]
 ```
 
-If Graph dependencies are not installed, `user_graph` and `app_graph` return `None`.
+If Graph dependencies are not installed, `user_graph` and `app_graph` will raise an `ImportError` when accessed. If the user is not signed in or tokens are unavailable, they will raise `ValueError`.

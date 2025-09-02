@@ -7,6 +7,7 @@ from types import SimpleNamespace
 from typing import Any
 from unittest.mock import MagicMock, patch
 
+import pytest
 from microsoft.teams.apps.routing.activity_context import ActivityContext
 
 
@@ -49,9 +50,9 @@ class TestOptionalGraphDependencies:
 
         with patch("builtins.__import__", side_effect=mock_import):
             activity_context = self._create_activity_context()
-            # app_graph should return None when graph dependencies are not available
-            result = activity_context.app_graph
-            assert result is None
+            # app_graph should raise RuntimeError when graph dependencies are not available
+            with pytest.raises(RuntimeError, match="Failed to create app graph client"):
+                _ = activity_context.app_graph
 
     def test_app_graph_property_with_graph_available(self) -> None:
         """Test app_graph property when graph dependencies are available."""
@@ -69,3 +70,63 @@ class TestOptionalGraphDependencies:
             activity_context = self._create_activity_context()
             result = activity_context.app_graph
             assert result == "MockGraphClient"
+
+    def test_user_graph_property_not_signed_in(self) -> None:
+        """Test user_graph property when user is not signed in."""
+        activity_context = ActivityContext(
+            activity=MagicMock(),
+            app_id="test-app-id",
+            logger=MagicMock(),
+            storage=MagicMock(),
+            api=MagicMock(),
+            user_token=MagicMock(),  # Has token but not signed in
+            conversation_ref=MagicMock(),
+            is_signed_in=False,  # Not signed in
+            connection_name="test-connection",
+            sender=MagicMock(),
+            app_token=None,
+        )
+
+        # user_graph should raise ValueError when user is not signed in
+        with pytest.raises(ValueError, match="User must be signed in to access Graph client"):
+            _ = activity_context.user_graph
+
+    def test_user_graph_property_no_token(self) -> None:
+        """Test user_graph property when user is signed in but has no token."""
+        activity_context = ActivityContext(
+            activity=MagicMock(),
+            app_id="test-app-id",
+            logger=MagicMock(),
+            storage=MagicMock(),
+            api=MagicMock(),
+            user_token=None,  # No token
+            conversation_ref=MagicMock(),
+            is_signed_in=True,  # Signed in but no token
+            connection_name="test-connection",
+            sender=MagicMock(),
+            app_token=None,
+        )
+
+        # user_graph should raise ValueError when no user token is available
+        with pytest.raises(ValueError, match="No user token available for Graph client"):
+            _ = activity_context.user_graph
+
+    def test_app_graph_property_no_token(self) -> None:
+        """Test app_graph property when no app token is available."""
+        activity_context = ActivityContext(
+            activity=MagicMock(),
+            app_id="test-app-id",
+            logger=MagicMock(),
+            storage=MagicMock(),
+            api=MagicMock(),
+            user_token=None,
+            conversation_ref=MagicMock(),
+            is_signed_in=False,
+            connection_name="test-connection",
+            sender=MagicMock(),
+            app_token=None,  # No app token
+        )
+
+        # app_graph should raise ValueError when no app token is available
+        with pytest.raises(ValueError, match="No app token available for Graph client"):
+            _ = activity_context.app_graph
