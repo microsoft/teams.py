@@ -147,7 +147,8 @@ class HttpStream(StreamerProtocol):
             await self._queue_empty_event.wait()
 
         if self._text == "" and self._attachments == []:
-            self._text = "Stream completed without content"
+            self._logger.warning("no text or attachments to send, cannot close stream")
+            return None
 
         # Build final message
         assert self._id is not None, "ID should be set by this point"

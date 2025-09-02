@@ -45,7 +45,8 @@ class ConversationActivityClient(BaseClient):
             json=activity.model_dump(by_alias=True, exclude_none=True),
         )
 
-        id = response.json().get("id", "DO_NOT_USE_PLACEHOLDER_TYPING_ID")
+        # Note : get empty response for non-streaming typing activity, or any streaming activity after the first one
+        id = response.json().get("id", "DO_NOT_USE_PLACEHOLDER_ID")
         return SentActivity(id=id, activity_params=activity)
 
     async def update(self, conversation_id: str, activity_id: str, activity: ActivityParams) -> SentActivity:

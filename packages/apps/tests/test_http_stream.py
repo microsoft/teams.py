@@ -159,3 +159,30 @@ class TestHttpStream:
         assert sent_activity.text == "Thinking..."
         assert sent_activity.channel_data is not None
         assert sent_activity.channel_data.stream_type == "informative"
+
+    @pytest.mark.asyncio
+    async def test_stream_sequence_of_update_and_emit(self, mock_api_client, conversation_reference, mock_logger):
+        """Test a sequence of update() followed by emit(), ensuring correct ordering and flush behavior."""
+
+        stream = HttpStream(mock_api_client, conversation_reference, mock_logger)
+
+        stream.update("Preparing response...")
+        await asyncio.sleep(0.6)
+
+        stream.emit("Final response message")
+        await asyncio.sleep(0.6)
+
+        assert len(mock_api_client.sent_activities) >= 2, "Should have sent typing activity and message"
+
+        typing_activity = mock_api_client.sent_activities[0]
+        message_activity = mock_api_client.sent_activities[1]
+
+        # First should be typing activity from update()
+        assert isinstance(typing_activity, TypingActivityInput)
+        assert typing_activity.text == "Preparing response..."
+
+        # Second should be a normal message from emit()
+        assert message_activity.text == "Final response message"
+
+        # Sequence numbers should have increased
+        assert stream.sequence >= 3, "Sequence should increment for both update and emit"
