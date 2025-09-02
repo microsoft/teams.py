@@ -110,7 +110,6 @@ class ActivityProcessor:
         )
 
         send = activityCtx.send
-        ref = conversation_ref or activityCtx.conversation_ref
 
         async def updated_send(
             message: str | ActivityParams | AdaptiveCard, conversation_ref: Optional[ConversationReference] = None
@@ -121,6 +120,7 @@ class ActivityProcessor:
                 raise ValueError("EventManager was not initialized properly")
 
             self.logger.debug("Calling on_activity_sent for plugins")
+            ref = conversation_ref or activityCtx.conversation_ref
 
             await self.event_manager.on_activity_sent(
                 sender, ActivitySentEvent(sender=sender, activity=res, conversation_ref=ref), plugins=plugins
@@ -133,7 +133,7 @@ class ActivityProcessor:
             if self.event_manager:
                 await self.event_manager.on_activity_sent(
                     sender,
-                    ActivitySentEvent(sender=sender, activity=chunk_activity, conversation_ref=ref),
+                    ActivitySentEvent(sender=sender, activity=chunk_activity, conversation_ref=conversation_ref),
                     plugins=plugins,
                 )
 
@@ -141,7 +141,7 @@ class ActivityProcessor:
             if self.event_manager:
                 await self.event_manager.on_activity_sent(
                     sender,
-                    ActivitySentEvent(sender=sender, activity=close_activity, conversation_ref=ref),
+                    ActivitySentEvent(sender=sender, activity=close_activity, conversation_ref=conversation_ref),
                     plugins=plugins,
                 )
 
