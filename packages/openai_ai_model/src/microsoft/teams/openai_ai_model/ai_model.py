@@ -260,7 +260,9 @@ class OpenAIModel:
             if message.function_calls:
                 tool_calls = [
                     ChatCompletionMessageFunctionToolCallParam(
-                        id=call.id, function={"name": call.name, "arguments": str(call.arguments)}, type="function"
+                        id=call.id,
+                        function={"name": call.name, "arguments": json.dumps(call.arguments)},
+                        type="function",
                     )
                     for call in message.function_calls
                 ]

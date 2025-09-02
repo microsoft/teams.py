@@ -5,12 +5,11 @@ Licensed under the MIT License.
 
 from typing import Any, Awaitable, Callable
 
-from microsoft.teams.ai.chat_prompt import ChatPrompt, ChatSendResult
-from microsoft.teams.ai.message import Message
-
 from .ai_model import AIModel
+from .chat_prompt import ChatPrompt, ChatSendResult
 from .function import Function
 from .memory import Memory
+from .message import Message
 
 
 class Agent(ChatPrompt):
