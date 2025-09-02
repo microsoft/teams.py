@@ -6,7 +6,7 @@ Licensed under the MIT License.
 import inspect
 import json
 from logging import Logger
-from typing import Awaitable, Callable, TypedDict, Union
+from typing import Any, Awaitable, Callable, TypedDict, Union
 
 from microsoft.teams.ai import (
     Function,
@@ -211,7 +211,7 @@ class OpenAIModel:
         function_calls: list[FunctionCall] = []
         for call_data in tool_calls_data:
             try:
-                arguments: dict[str, str] = json.loads(call_data["arguments_str"]) if call_data["arguments_str"] else {}
+                arguments: dict[str, Any] = json.loads(call_data["arguments_str"]) if call_data["arguments_str"] else {}
             except json.JSONDecodeError:
                 arguments = {}
 
