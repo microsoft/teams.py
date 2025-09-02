@@ -56,8 +56,8 @@ responses_openai_ai_model = OpenAIResponsesAIModel(
 )
 chat_memory = ListMemory()
 
-chat_agent = Agent(chat_openai_ai_model)
-responses_agent = Agent(responses_openai_ai_model)
+chat_agent = Agent(chat_openai_ai_model, memory=chat_memory)
+responses_agent = Agent(responses_openai_ai_model, memory=chat_memory)
 
 
 def get_weather_handler(params: GetWeatherParams) -> str:

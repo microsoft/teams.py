@@ -65,3 +65,9 @@ class ListLocalStorage(ListStorage[V]):
 
     async def async_filter(self, predicate: Callable[[V, int], bool]) -> List[V]:
         return self.filter(predicate)
+
+    def clear(self) -> None:
+        self._items.clear()
+
+    async def async_clear(self) -> None:
+        return self.clear()

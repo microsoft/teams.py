@@ -19,6 +19,10 @@ class Memory(Protocol):
         """Get all messages from memory"""
         ...
 
+    async def set_all(self, messages: list[Message]) -> None:
+        """Replace all messages in memory with the provided list"""
+        ...
+
 
 class ListMemory:
     def __init__(self, storage: Optional[ListStorage[Message]] = None):
@@ -29,3 +33,8 @@ class ListMemory:
 
     async def get_all(self) -> list[Message]:
         return await self._storage.async_items()
+
+    async def set_all(self, messages: list[Message]) -> None:
+        await self._storage.async_clear()
+        for message in messages:
+            await self._storage.async_append(message)

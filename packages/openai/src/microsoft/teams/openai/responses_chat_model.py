@@ -17,7 +17,6 @@ from microsoft.teams.ai import (
     Memory,
     Message,
     ModelMessage,
-    ResponseIdMessage,
     SystemMessage,
     UserMessage,
 )
@@ -26,9 +25,11 @@ from pydantic import BaseModel
 
 from openai import NOT_GIVEN
 from openai.types.responses import (
+    EasyInputMessageParam,
     FunctionToolParam,
     Response,
     ResponseFunctionToolCall,
+    ResponseFunctionToolCallParam,
     ResponseInputParam,
     ToolParam,
 )
@@ -80,23 +81,20 @@ class OpenAIResponsesAIModel(OpenAIBaseModel, AIModel):
         messages = list(await memory.get_all())
         self.logger.debug(f"Retrieved {len(messages)} messages from memory")
 
-        # Extract previous response ID from memory
+        # Extract previous response ID from memory - look for ModelMessage with ID
         previous_response_id = None
         for msg in reversed(messages):
-            if isinstance(msg, ResponseIdMessage):
-                previous_response_id = msg.response_id
+            if isinstance(msg, ModelMessage) and msg.id:
+                previous_response_id = msg.id
                 break
         self.logger.debug(f"Found previous response ID: {previous_response_id}")
-
-        # In stateful mode, we only need to handle function results in memory
-        # since OpenAI manages the conversation context
         if function_results:
             for result in function_results:
                 await memory.push(result)
+                messages.append(result)
 
         # Convert to Responses API format - just the current input as string
-        responses_input = self._convert_to_responses_format(input, None, [], function_results)
-
+        responses_input = self._convert_to_responses_format(input, None, messages)
         # Convert functions to tools format
         tools = self._convert_functions_to_tools(functions) if functions else NOT_GIVEN
 
@@ -118,24 +116,24 @@ class OpenAIResponsesAIModel(OpenAIBaseModel, AIModel):
         self.logger.debug(f"Response has content: {hasattr(response, 'content')}")
         self.logger.debug(f"Response attributes: {[attr for attr in dir(response) if not attr.startswith('_')]}")
 
-        # Store new response ID in memory for next call
-        if hasattr(response, "id"):
-            await memory.push(ResponseIdMessage(response_id=response.id))
-
         # Convert response to ModelMessage format
         model_response = self._convert_from_responses_format(response)
+
+        # Store response ID in the ModelMessage for next call
+        if hasattr(response, "id"):
+            model_response.id = response.id
+
+        # In stateful mode, replace memory with just the current response for next call
+        await memory.set_all([model_response])
 
         # If response has function calls, recursively execute them
         if model_response.function_calls:
             self.logger.debug(
                 f"Response has {len(model_response.function_calls)} function calls, executing recursively"
             )
-            return await self.generate_text(model_response, system=system, memory=memory, functions=functions)
-
-        # Handle streaming if callback provided
-        if on_chunk and hasattr(response, "content"):
-            if model_response.content:
-                await on_chunk(model_response.content)
+            return await self.generate_text(
+                model_response, system=system, memory=memory, functions=functions, on_chunk=on_chunk
+            )
 
         self.logger.debug("Stateful Responses API conversation completed")
         self.logger.debug(model_response)
@@ -157,17 +155,16 @@ class OpenAIResponsesAIModel(OpenAIBaseModel, AIModel):
 
         # Push current input to memory
         await memory.push(input)
+        messages.append(input)
 
         # Push function results to memory and add to messages
         if function_results:
-            # Add the original ModelMessage with function_calls to messages first
-            messages.append(input)
             for result in function_results:
                 await memory.push(result)
                 messages.append(result)
 
         # Convert to Responses API format - just the current input as string
-        responses_input = self._convert_to_responses_format(input, None, messages, function_results)
+        responses_input = self._convert_to_responses_format(input, None, messages)
 
         # Convert functions to tools format
         tools = self._convert_functions_to_tools(functions) if functions else NOT_GIVEN
@@ -242,33 +239,63 @@ class OpenAIResponsesAIModel(OpenAIBaseModel, AIModel):
         return function_results
 
     def _convert_to_responses_format(
-        self, input: Message, system: Message | None, messages: list[Message], function_results: list[FunctionMessage]
+        self,
+        input: Message | None,
+        system: Message | None,
+        messages: list[Message],
     ) -> str | ResponseInputParam:
         """Convert messages to Responses API input format."""
+        input_list: ResponseInputParam = []
 
-        # If we have function results, format them as tool outputs for Responses API
-        if function_results:
-            tool_outputs: ResponseInputParam = []
-            for result in function_results:
-                tool_outputs.append(
-                    {"call_id": result.function_id, "output": result.content or "", "type": "function_call_output"}
-                )
-            return tool_outputs
+        # Extract all FunctionMessage from messages for lookup
+        results_by_id = {msg.function_id: msg for msg in messages if isinstance(msg, FunctionMessage)}
 
-        # Skip ResponseIdMessage - it's for internal state only
-        if isinstance(input, ResponseIdMessage):
-            return ""
+        input_messages = list(messages)
+        if input:
+            input_messages.append(input)
 
-        # For Responses API, input is just a simple string - no system message mixing
-        # System messages are handled via the 'instructions' parameter
-        if isinstance(input, UserMessage):
-            return input.content
-        elif isinstance(input, ModelMessage):
-            return input.content or ""
-        elif isinstance(input, FunctionMessage):
-            return input.content or ""
-        else:
-            return ""
+        if system:
+            input_messages.insert(0, system)
+
+        for message in input_messages:
+            if isinstance(message, UserMessage) or isinstance(message, SystemMessage):
+                role = message.role
+                content = message.content or ""
+                input_list.append(EasyInputMessageParam(content=content, role=role, type="message"))
+            elif isinstance(message, ModelMessage):
+                if message.function_calls:
+                    for call in message.function_calls:
+                        # Add the function call
+                        input_list.append(
+                            ResponseFunctionToolCallParam(
+                                type="function_call",
+                                call_id=call.id,
+                                name=call.name,
+                                arguments=json.dumps(call.arguments),
+                            )
+                        )
+
+                        # Add the matching function result
+                        if call.id in results_by_id:
+                            result = results_by_id[call.id]
+                            input_list.append(
+                                {
+                                    "call_id": result.function_id,
+                                    "output": result.content or "",
+                                    "type": "function_call_output",
+                                }
+                            )
+                        else:
+                            self.logger.warning(f"No associated result found for call id ({call.name} - {call.id})")
+                else:
+                    # ModelMessage with content but no function calls
+                    content = message.content or ""
+                    input_list.append(EasyInputMessageParam(content=content, role="assistant", type="message"))
+            elif isinstance(message, FunctionMessage):  # pyright: ignore [reportUnnecessaryIsInstance]
+                # No-op: FunctionMessage is handled as part of ModelMessage function calls
+                pass
+
+        return input_list
 
     def _convert_functions_to_tools(self, functions: dict[str, Function[BaseModel]]) -> list[ToolParam]:
         """Convert functions to Responses API tools format."""
@@ -320,9 +347,3 @@ class OpenAIResponsesAIModel(OpenAIBaseModel, AIModel):
             self.logger.debug(f"Extracted {len(function_calls)} function calls")
 
         return ModelMessage(content=content, function_calls=function_calls)
-
-    async def fork_conversation(self, memory: Memory, response_id: str):
-        """Fork from a specific response ID by adding it to memory."""
-        # Add the fork point response ID to memory to continue from that point
-        await memory.push(ResponseIdMessage(response_id=response_id))
-        self.logger.debug(f"Forked conversation from response ID: {response_id}")

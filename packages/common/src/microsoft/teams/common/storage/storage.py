@@ -96,3 +96,13 @@ class ListStorage(Storage[int, V], ABC):
     async def async_filter(self, predicate: Callable[[V, int], bool]) -> List[V]:
         """Asynchronously filter items using predicate."""
         pass
+
+    @abstractmethod
+    def clear(self) -> None:
+        """Synchronously clear all items from the list."""
+        pass
+
+    @abstractmethod
+    async def async_clear(self) -> None:
+        """Asynchronously clear all items from the list."""
+        pass
