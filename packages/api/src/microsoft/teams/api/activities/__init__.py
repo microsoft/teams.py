@@ -29,7 +29,7 @@ from .message import *  # noqa: F403
 from .message import MessageActivities
 from .sent_activity import SentActivity
 from .trace import TraceActivity
-from .typing import TypingActivity
+from .typing import TypingActivity, TypingActivityInput
 
 Activity = Annotated[
     Union[
@@ -68,6 +68,7 @@ __all__: list[str] = [
     "HandoffActivity",
     "InstallUpdateActivity",
     "TypingActivity",
+    "TypingActivityInput",
     "ConversationEventType",
     "InvokeActivity",
     "TraceActivity",
