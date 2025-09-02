@@ -129,7 +129,7 @@ class HttpStream(StreamerProtocol):
 
     async def close(self) -> Optional[SentActivity]:
         # wait for lock to be free
-        if self._result is not None:
+        if self._result:
             self._logger.debug("stream already closed with result")
             return self._result
 
