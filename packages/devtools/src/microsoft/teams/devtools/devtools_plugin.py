@@ -31,6 +31,7 @@ from microsoft.teams.apps import (
     PluginErrorEvent,
     PluginStartEvent,
     Sender,
+    StreamerProtocol,
 )
 
 from .event import DevToolsActivityEvent, DevToolsActivityReceivedEvent, DevToolsActivitySentEvent
@@ -233,6 +234,9 @@ class DevToolsPlugin(Sender):
 
     async def send(self, activity: ActivityParams, ref: ConversationReference) -> SentActivity:
         return await self.http.send(activity, ref)
+
+    def create_stream(self, ref: ConversationReference) -> StreamerProtocol:
+        return self.http.create_stream(ref)
 
     async def emit_activity_to_sockets(self, event: DevToolsActivityEvent):
         data = event.model_dump(mode="json", exclude_none=True)
