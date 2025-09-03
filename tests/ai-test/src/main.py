@@ -48,7 +48,7 @@ chat_openai_ai_model = OpenAICompletionsAIModel(
 )
 
 responses_openai_ai_model = OpenAIResponsesAIModel(
-    client_or_key=AZURE_OPENAI_API_KEY,
+    key=AZURE_OPENAI_API_KEY,
     model=AZURE_OPENAI_MODEL,
     azure_endpoint=AZURE_OPENAI_ENDPOINT,
     api_version=AZURE_OPENAI_API_VERSION,
