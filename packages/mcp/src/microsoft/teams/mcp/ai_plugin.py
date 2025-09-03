@@ -75,7 +75,7 @@ class McpClientPlugin(BaseAIPlugin):
 
         self._version = version
         self._cache: Dict[str, McpCachedValue] = cache or {}
-        self._logger = logger or ConsoleLogger().create_logger(self.name)
+        self._logger = logger.getChild(self.name) if logger else ConsoleLogger().create_logger(self.name)
         self._refetch_timeout_ms = refetch_timeout_ms
 
         # Track MCP server URLs and their parameters
@@ -170,26 +170,26 @@ class McpClientPlugin(BaseAIPlugin):
                     self._logger.debug(f"Cached {len(result)} tools for {url}")
 
     def _create_function_from_tool(
-        self, url: str, tool: Union[McpToolDetails, Dict[str, Any]], plugin_params: McpClientPluginParams
+        self, url: str, tool: McpToolDetails, plugin_params: McpClientPluginParams
     ) -> Function[BaseModel]:
         """Create a Teams AI function from an MCP tool."""
-        if isinstance(tool, dict):
-            tool_name = tool["name"]
-            tool_description = tool["description"]
-        else:
-            tool_name = tool.name
-            tool_description = tool.description
+        tool_name = tool.name
+        tool_description = tool.description
 
         async def handler(params: BaseModel) -> str:
             """Handle MCP tool call."""
             try:
+                self._logger.debug(f"Making call to {url} tool-name={tool_name}")
                 result = await self._call_mcp_tool(url, tool_name, params.model_dump(), plugin_params)
+                self._logger.debug("Successfully received result for mcp call")
                 return str(result)
             except Exception as e:
                 self._logger.error(f"Error calling tool {tool_name} on {url}: {e}")
                 raise
 
-        return Function(name=tool_name, description=tool_description, parameter_schema=BaseModel, handler=handler)
+        return Function(
+            name=tool_name, description=tool_description, parameter_schema=tool.input_schema, handler=handler
+        )
 
     async def _fetch_tools_from_server(self, url: str, params: McpClientPluginParams) -> List[McpToolDetails]:
         """Fetch tools from a specific MCP server."""
@@ -212,6 +212,7 @@ class McpClientPlugin(BaseAIPlugin):
                         )
                     )
 
+                self._logger.debug(f"Got {len(tools)} tools for {url}")
                 return tools
 
     async def _call_mcp_tool(
