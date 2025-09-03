@@ -142,7 +142,6 @@ class ActivityProcessor:
                 raise ValueError("EventManager was not initialized properly")
 
             self.logger.debug("Calling on_activity_sent for plugins")
-
             ref = conversation_ref or activityCtx.conversation_ref
 
             await self.event_manager.on_activity_sent(
@@ -153,6 +152,25 @@ class ActivityProcessor:
             return res
 
         activityCtx.send = updated_send
+
+        async def handle_chunk(chunk_activity: SentActivity):
+            if self.event_manager:
+                await self.event_manager.on_activity_sent(
+                    sender,
+                    ActivitySentEvent(sender=sender, activity=chunk_activity, conversation_ref=conversation_ref),
+                    plugins=plugins,
+                )
+
+        async def handle_close(close_activity: SentActivity):
+            if self.event_manager:
+                await self.event_manager.on_activity_sent(
+                    sender,
+                    ActivitySentEvent(sender=sender, activity=close_activity, conversation_ref=conversation_ref),
+                    plugins=plugins,
+                )
+
+        activityCtx.stream.on_chunk(handle_chunk)
+        activityCtx.stream.on_close(handle_close)
 
         return activityCtx
 
@@ -192,6 +210,9 @@ class ActivityProcessor:
         # If no registered handlers, fall back to legacy activity_handler
         if handlers:
             middleware_result = await self.execute_middleware_chain(activityCtx, handlers)
+
+            await activityCtx.stream.close()
+
             if not self.event_manager:
                 raise ValueError("EventManager was not initialized properly")
 

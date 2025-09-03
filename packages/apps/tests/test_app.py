@@ -90,10 +90,20 @@ class TestApp:
             client_secret="test-secret",
         )
 
+    def _mock_http_plugin(self, app: App) -> App:
+        """Helper to mock the HTTP plugin's create_stream and close methods."""
+        mock_stream = MagicMock()
+        mock_stream.events = MagicMock()
+        mock_stream.events.on = MagicMock()
+        mock_stream.close = AsyncMock()
+        app.http.create_stream = MagicMock(return_value=mock_stream)
+        return app
+
     @pytest.fixture(scope="function")
     def app_with_options(self, basic_options):
         """Create App with basic options."""
-        return App(basic_options)
+        app = App(basic_options)
+        return self._mock_http_plugin(app)
 
     @pytest.fixture(scope="function")
     def app_with_activity_handler(self, mock_logger, mock_storage, mock_activity_handler):
@@ -107,7 +117,7 @@ class TestApp:
         )
         app = App(options)
         app.on_activity(mock_activity_handler)
-        return app
+        return self._mock_http_plugin(app)
 
     def test_app_starts_successfully(self, basic_options):
         """Test that app can be created and initialized."""

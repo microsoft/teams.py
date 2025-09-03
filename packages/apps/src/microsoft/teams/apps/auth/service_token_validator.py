@@ -10,6 +10,8 @@ from jwt import PyJWKClient
 from microsoft.teams.api import JsonWebToken
 from microsoft.teams.common.logging import ConsoleLogger
 
+JWT_LEEWAY_SECONDS = 300  # Allowable clock skew when validating JWTs
+
 
 class ServiceTokenValidator:
     """
@@ -68,6 +70,7 @@ class ServiceTokenValidator:
                     "verify_exp": True,
                     "verify_iat": True,
                 },
+                leeway=JWT_LEEWAY_SECONDS,
             )
 
             # Optional service URL validation
