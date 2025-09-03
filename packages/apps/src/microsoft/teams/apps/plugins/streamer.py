@@ -3,15 +3,11 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from typing import Literal, Optional, Protocol, Union
+from typing import Awaitable, Callable, Literal, Optional, Protocol, Union
 
-from microsoft.teams.api.activities import SentActivity
-from microsoft.teams.api.activities.message import MessageActivityInput
-from microsoft.teams.api.activities.typing import TypingActivityInput
-from microsoft.teams.common.events.event_emitter import EventEmitter
+from microsoft.teams.api import MessageActivityInput, SentActivity, TypingActivityInput
 
-# Define the event names that streamers should support
-IStreamerEvents = Literal["chunk", "close"]
+StreamerEvent = Literal["chunk", "close"]
 
 
 class StreamerProtocol(Protocol):
@@ -37,10 +33,21 @@ class StreamerProtocol(Protocol):
         """
         ...
 
-    @property
-    def events(self) -> EventEmitter[IStreamerEvents]:
+    def on_chunk(self, handler: Callable[[SentActivity], Awaitable[None]]) -> None:
         """
-        Provides access to event listener registration for stream events.
+        Register a handler for chunk events.
+
+        Args:
+            handler: Async function that will be called for each chunk activity
+        """
+        ...
+
+    def on_close(self, handler: Callable[[SentActivity], Awaitable[None]]) -> None:
+        """
+        Register a handler for close events.
+
+        Args:
+            handler: Async function that will be called when the stream closes
         """
         ...
 

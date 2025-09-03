@@ -6,7 +6,7 @@ Licensed under the MIT License.
 import asyncio
 from collections import deque
 from logging import Logger
-from typing import List, Optional, Union
+from typing import Awaitable, Callable, List, Optional, Union
 
 from microsoft.teams.api import (
     ApiClient,
@@ -20,7 +20,7 @@ from microsoft.teams.api import (
 )
 from microsoft.teams.common import ConsoleLogger, EventEmitter
 
-from .plugins.streamer import IStreamerEvents, StreamerProtocol
+from .plugins.streamer import StreamerEvent, StreamerProtocol
 from .utils import RetryOptions, Timeout, retry
 
 
@@ -56,7 +56,7 @@ class HttpStream(StreamerProtocol):
         self._logger = (
             logger.getChild("@teams/http-stream") if logger else ConsoleLogger().create_logger("@teams/http-stream")
         )
-        self._events = EventEmitter[IStreamerEvents]()
+        self._events = EventEmitter[StreamerEvent]()
 
         self._result: Optional[SentActivity] = None
         self._lock = asyncio.Lock()
@@ -91,12 +91,11 @@ class HttpStream(StreamerProtocol):
         """The sequence number, representing the number of stream activities sent."""
         return self._index
 
-    @property
-    def events(self) -> EventEmitter[IStreamerEvents]:
-        """
-        Provides access to event listener registration for stream events.
-        """
-        return self._events
+    def on_chunk(self, handler: Callable[[SentActivity], Awaitable[None]]):
+        self._events.on("chunk", handler)
+
+    def on_close(self, handler: Callable[[SentActivity], Awaitable[None]]):
+        self._events.once("close", handler)
 
     def emit(self, activity: Union[MessageActivityInput, TypingActivityInput, str]) -> None:
         """
@@ -129,7 +128,7 @@ class HttpStream(StreamerProtocol):
 
     async def close(self) -> Optional[SentActivity]:
         # wait for lock to be free
-        if self._result:
+        if self._result is not None:
             self._logger.debug("stream already closed with result")
             return self._result
 

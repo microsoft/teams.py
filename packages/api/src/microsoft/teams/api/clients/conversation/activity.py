@@ -45,7 +45,9 @@ class ConversationActivityClient(BaseClient):
             json=activity.model_dump(by_alias=True, exclude_none=True),
         )
 
-        # Note : get empty response for non-streaming typing activity, or any streaming activity after the first one
+        # Note: Typing activities (non-streaming) always produce empty responses.
+        # Note: For streaming activities, the first response includes the stream id.
+        # Note: Subsequent responses for streaming activities are empty (both typing and message type).
         id = response.json().get("id", "DO_NOT_USE_PLACEHOLDER_ID")
         return SentActivity(id=id, activity_params=activity)
 

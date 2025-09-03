@@ -145,8 +145,8 @@ class ActivityProcessor:
                     plugins=plugins,
                 )
 
-        activityCtx.stream.events.on("chunk", handle_chunk)
-        activityCtx.stream.events.once("close", handle_close)
+        activityCtx.stream.on_chunk(handle_chunk)
+        activityCtx.stream.on_close(handle_close)
 
         return activityCtx
 
