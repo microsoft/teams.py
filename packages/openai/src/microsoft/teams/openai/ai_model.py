@@ -20,6 +20,8 @@ from microsoft.teams.ai import (
     UserMessage,
 )
 from microsoft.teams.common.logging import ConsoleLogger
+from pydantic import BaseModel
+
 from openai import NOT_GIVEN, AsyncAzureOpenAI, AsyncOpenAI
 from openai._streaming import AsyncStream
 from openai.types.chat import (
@@ -34,7 +36,6 @@ from openai.types.chat import (
     ChatCompletionToolUnionParam,
     ChatCompletionUserMessageParam,
 )
-from pydantic import BaseModel
 
 
 class _ToolCallData(TypedDict):
