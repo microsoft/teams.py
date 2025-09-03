@@ -6,7 +6,7 @@ Licensed under the MIT License.
 import inspect
 import json
 from logging import Logger
-from typing import Any, Awaitable, Callable, TypedDict, Union
+from typing import Any, Awaitable, Callable, TypedDict
 
 from microsoft.teams.ai import (
     Function,
@@ -47,25 +47,26 @@ class _ToolCallData(TypedDict):
 class OpenAIModel:
     def __init__(
         self,
-        client_or_key: Union[AsyncOpenAI, str],
         model: str,
         *,
+        client: AsyncOpenAI | None = None,
+        key: str | None = None,
         base_url: str | None = None,
         # Azure OpenAI options
         azure_endpoint: str | None = None,
         api_version: str | None = None,
         logger: Logger | None = None,
     ):
-        if isinstance(client_or_key, (AsyncOpenAI, AsyncAzureOpenAI)):
-            self._client = client_or_key
+        if client is None and key is None:
+            raise ValueError("Either key or client is required when initializing an OpenAIModel")
+        elif client is not None:
+            self._client = client
         else:
-            # client_or_key is the API key
+            # key is the API key
             if azure_endpoint:
-                self._client = AsyncAzureOpenAI(
-                    api_key=client_or_key, azure_endpoint=azure_endpoint, api_version=api_version
-                )
+                self._client = AsyncAzureOpenAI(api_key=key, azure_endpoint=azure_endpoint, api_version=api_version)
             else:
-                self._client = AsyncOpenAI(api_key=client_or_key, base_url=base_url)
+                self._client = AsyncOpenAI(api_key=key, base_url=base_url)
         self.model = model
         self.logger = logger or ConsoleLogger().create_logger("@teams/openai-chat-model")
 
