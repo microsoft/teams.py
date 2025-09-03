@@ -15,7 +15,7 @@ from microsoft.teams.ai import (
     SystemMessage,
     UserMessage,
 )
-from microsoft.teams.openai_ai_model.completions_model import OpenAICompletionsAIModel
+from microsoft.teams.openai.completions_model import OpenAICompletionsAIModel
 from openai import NOT_GIVEN
 from openai._streaming import AsyncStream
 from openai.types.chat import (

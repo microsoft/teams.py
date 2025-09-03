@@ -16,7 +16,7 @@ from microsoft.teams.ai import (
     SystemMessage,
     UserMessage,
 )
-from microsoft.teams.openai_ai_model.responses_chat_model import OpenAIResponsesAIModel
+from microsoft.teams.openai.responses_chat_model import OpenAIResponsesAIModel
 from openai.types.responses import Response, ResponseFunctionToolCall
 from pydantic import BaseModel
 

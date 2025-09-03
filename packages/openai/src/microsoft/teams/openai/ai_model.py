@@ -20,7 +20,6 @@ from microsoft.teams.ai import (
     SystemMessage,
     UserMessage,
 )
-from microsoft.teams.openai.common import OpenAIBaseModel
 from pydantic import BaseModel
 
 from openai import NOT_GIVEN
@@ -37,6 +36,8 @@ from openai.types.chat import (
     ChatCompletionToolUnionParam,
     ChatCompletionUserMessageParam,
 )
+
+from .common import OpenAIBaseModel
 
 
 class _ToolCallData(TypedDict):
@@ -235,7 +236,7 @@ class OpenAICompletionsAIModel(OpenAIBaseModel, AIModel):
                 content=message.content or [],
                 tool_call_id=message.function_id,
             )
-        elif isinstance(message, ModelMessage):  # ModelMessage
+        elif isinstance(message, ModelMessage):  # pyright: ignore [reportUnnecessaryIsInstance]
             if message.function_calls:
                 tool_calls = [
                     ChatCompletionMessageFunctionToolCallParam(
