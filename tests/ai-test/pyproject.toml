@@ -8,10 +8,10 @@ dependencies = [
     "dotenv>=0.9.9",
     "microsoft-teams-ai",
     "microsoft-teams-apps",
-    "microsoft-teams-openai-ai-model",
+    "microsoft-teams-openai",
 ]
 
 [tool.uv.sources]
 microsoft-teams-apps = { workspace = true }
 microsoft-teams-ai = { workspace = true }
-microsoft-teams-openai-ai-model = { workspace = true }
+microsoft-teams-openai = { workspace = true }

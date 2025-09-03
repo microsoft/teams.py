@@ -6,7 +6,7 @@
 "microsoft-teams-devtools" = { workspace = true }
 "microsoft-teams-graph" = { workspace = true }
 "microsoft-teams-ai" = { workspace = true }
-"microsoft-teams-openai-ai-model" = { workspace = true }
+"microsoft-teams-openai" = { workspace = true }
 
 [tool.uv.workspace]
 members = ["packages/*", "tests/*"]
