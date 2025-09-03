@@ -20,7 +20,6 @@ from microsoft.teams.ai import (
     SystemMessage,
     UserMessage,
 )
-from microsoft.teams.openai.common import OpenAIBaseModel
 from pydantic import BaseModel
 
 from openai import NOT_GIVEN
@@ -33,6 +32,8 @@ from openai.types.responses import (
     ResponseInputParam,
     ToolParam,
 )
+
+from .common import OpenAIBaseModel
 
 
 @dataclass
