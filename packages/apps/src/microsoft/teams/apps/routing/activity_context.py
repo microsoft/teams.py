@@ -79,6 +79,7 @@ class ActivityContext(Generic[T]):
         self.connection_name = connection_name
         self.is_signed_in = is_signed_in
         self._plugin = sender
+        self.stream = self._plugin.create_stream(self.conversation_ref)
 
         self._next_handler: Optional[Callable[[], Awaitable[None]]] = None
 

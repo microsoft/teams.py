@@ -39,16 +39,16 @@ class ConversationActivityClient(BaseClient):
         Returns:
             The created activity
         """
+
         response = await self.http.post(
             f"{self.service_url}/v3/conversations/{conversation_id}/activities",
             json=activity.model_dump(by_alias=True, exclude_none=True),
         )
 
-        if activity.type == "typing":
-            # NOTE: Service returns empty response
-            return SentActivity(id="DO_NOT_USE_PLACEHOLDER_TYPING_ID", activity_params=activity)
-
-        id = response.json()["id"]
+        # Note: Typing activities (non-streaming) always produce empty responses.
+        # Note: For streaming activities, the first response includes the stream id.
+        # Note: Subsequent responses for streaming activities are empty (both typing and message type).
+        id = response.json().get("id", "DO_NOT_USE_PLACEHOLDER_ID")
         return SentActivity(id=id, activity_params=activity)
 
     async def update(self, conversation_id: str, activity_id: str, activity: ActivityParams) -> SentActivity:

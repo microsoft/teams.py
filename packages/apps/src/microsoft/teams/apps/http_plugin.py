@@ -22,6 +22,7 @@ from microsoft.teams.api import (
     SentActivity,
     TokenProtocol,
 )
+from microsoft.teams.apps.http_stream import HttpStream
 from microsoft.teams.common.http.client import Client, ClientOptions
 from microsoft.teams.common.logging import ConsoleLogger
 from pydantic import BaseModel
@@ -312,8 +313,12 @@ class HttpPlugin(Sender):
 
         self.app.get("/")(health_check)
 
-    async def create_stream(self, ref: ConversationReference) -> StreamerProtocol:
-        raise NotImplementedError
+    def create_stream(self, ref: ConversationReference) -> StreamerProtocol:
+        """Create a new streaming instance."""
+
+        api = ApiClient(ref.service_url, self.client.clone(ClientOptions(token=self.bot_token)))
+
+        return HttpStream(api, ref, self.logger)
 
     def mount(self, name: str, dir_path: Path | str, page_path: Optional[str] = None) -> None:
         """
