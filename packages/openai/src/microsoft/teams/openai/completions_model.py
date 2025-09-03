@@ -20,15 +20,10 @@ from microsoft.teams.ai import (
     SystemMessage,
     UserMessage,
 )
-<<<<<<<< HEAD:packages/openai/src/microsoft/teams/openai/ai_model.py
-from microsoft.teams.common.logging import ConsoleLogger
+from microsoft.teams.openai.common import OpenAIBaseModel
 from pydantic import BaseModel
 
-from openai import NOT_GIVEN, AsyncAzureOpenAI, AsyncOpenAI
-========
-from microsoft.teams.openai_ai_model.common import OpenAIBaseModel
 from openai import NOT_GIVEN
->>>>>>>> 6d1daf5 (Simplify model):packages/openai/src/microsoft/teams/openai/completions_model.py
 from openai._streaming import AsyncStream
 from openai.types.chat import (
     ChatCompletion,
