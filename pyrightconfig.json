@@ -13,7 +13,7 @@
       "packages/graph/src",
       "packages/devtools/src",
       "packages/ai/src",
-      "packages/openai_ai_model/src"
+      "packages/openai/src"
    ],
    "typeCheckingMode": "strict",
    "executionEnvironments": [

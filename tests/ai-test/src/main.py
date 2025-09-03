@@ -11,7 +11,7 @@ from microsoft.teams.ai import Agent, Function, ListMemory, UserMessage
 from microsoft.teams.api import MessageActivity
 from microsoft.teams.apps import ActivityContext, App, AppOptions
 from microsoft.teams.devtools import DevToolsPlugin
-from microsoft.teams.openai_ai_model import OpenAIModel
+from microsoft.teams.openai import OpenAIModel
 from pydantic import BaseModel
 
 load_dotenv(find_dotenv(usecwd=True))
