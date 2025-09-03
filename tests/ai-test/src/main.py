@@ -66,7 +66,9 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
     print(f"[GENERATED onMessage] Message received: {ctx.activity.text}")
     print(f"[GENERATED onMessage] From: {ctx.activity.from_}")
 
-    chat_result = await agent.send(input=UserMessage(content=ctx.activity.text, role="user"))
+    chat_result = await agent.send(
+        input=UserMessage(content=ctx.activity.text, role="user"), on_chunk=lambda chunk: ctx.stream.emit(chunk)
+    )
     result = chat_result.response
     if result.content:
         await ctx.reply(result.content)

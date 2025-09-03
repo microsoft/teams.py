@@ -989,7 +989,7 @@ wheels = [
 
 [[package]]
 name = "microsoft-teams-ai"
-version = "0.0.1a2"
+version = "0.0.1a3"
 source = { editable = "packages/ai" }
 dependencies = [
     { name = "microsoft-teams-common" },
@@ -1000,7 +1000,7 @@ requires-dist = [{ name = "microsoft-teams-common", editable = "packages/common"
 
 [[package]]
 name = "microsoft-teams-api"
-version = "0.0.1a2"
+version = "0.0.1a3"
 source = { editable = "packages/api" }
 dependencies = [
     { name = "microsoft-teams-cards" },
@@ -1181,7 +1181,7 @@ dev = [
 
 [[package]]
 name = "microsoft-teams-openai-ai-model"
-version = "0.0.1a1"
+version = "0.0.1a3"
 source = { editable = "packages/openai_ai_model" }
 dependencies = [
     { name = "microsoft-teams-ai" },

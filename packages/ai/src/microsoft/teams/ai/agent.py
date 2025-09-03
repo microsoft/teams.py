@@ -27,6 +27,6 @@ class Agent(ChatPrompt):
         input: str | Message,
         *,
         memory: Memory | None = None,
-        on_chunk: Callable[[str], Awaitable[None]] | None = None,
+        on_chunk: Callable[[str], Awaitable[None]] | Callable[[str], None] | None = None,
     ) -> ChatSendResult:
         return await super().send(input, memory=memory or self.memory, on_chunk=on_chunk)

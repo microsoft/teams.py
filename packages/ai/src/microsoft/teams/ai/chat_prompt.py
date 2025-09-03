@@ -3,6 +3,7 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
+import inspect
 from dataclasses import dataclass
 from typing import Any, Awaitable, Callable, TypeVar
 
@@ -35,13 +36,23 @@ class ChatPrompt:
         input: str | Message,
         *,
         memory: Memory | None = None,
-        on_chunk: Callable[[str], Awaitable[None]] | None = None,
+        on_chunk: Callable[[str], Awaitable[None]] | Callable[[str], None] | None = None,
     ) -> ChatSendResult:
         if isinstance(input, str):
             input = UserMessage(content=input)
 
+        async def on_chunk_fn(chunk: str):
+            if not on_chunk:
+                return
+            res = on_chunk(chunk)
+            if inspect.isawaitable(res):
+                await res
+
         response = await self.model.generate_text(
-            input, memory=memory, functions=self.functions if self.functions else None, on_chunk=on_chunk
+            input,
+            memory=memory,
+            functions=self.functions if self.functions else None,
+            on_chunk=on_chunk_fn if on_chunk else None,
         )
 
         return ChatSendResult(response=response)
