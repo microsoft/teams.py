@@ -235,15 +235,15 @@ class OpenAIModel:
         # Add conversation history if provided
         if messages:
             for msg in messages:
-                openai_messages.append(self._message_to_openai(msg))
+                openai_messages.append(self._convert_message_to_openai_format(msg))
 
         # Add the input message (if provided)
         if input:
-            openai_messages.append(self._message_to_openai(input))
+            openai_messages.append(self._convert_message_to_openai_format(input))
 
         return openai_messages
 
-    def _message_to_openai(self, message: Message) -> ChatCompletionMessageParam:
+    def _convert_message_to_openai_format(self, message: Message) -> ChatCompletionMessageParam:
         if isinstance(
             message,
             UserMessage,
