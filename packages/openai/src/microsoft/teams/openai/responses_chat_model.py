@@ -331,8 +331,8 @@ class OpenAIResponsesAIModel(OpenAIBaseModel, AIModel):
 
         # Handle function calls from response
         if response.output:
+            function_calls = []
             for response_output in response.output:
-                function_calls = []
                 if not isinstance(response_output, ResponseFunctionToolCall):
                     continue
                 function_calls.append(
