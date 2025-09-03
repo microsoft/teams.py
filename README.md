@@ -1,6 +1,10 @@
 > [!CAUTION]
 > This project is in active development and not ready for production use. It has not been publicly announced yet.
 
+# Microsoft Teams AI Library for Python
+
+A comprehensive SDK for building Microsoft Teams applications, bots, and AI agents using Python. This SDK provides a high-level framework with built-in Microsoft Graph integration, OAuth handling, and extensible plugin architecture.
+
 ## Getting Started
 
 ### Prerequisites

@@ -2,32 +2,67 @@
 
 This package provides seamless access to Microsoft Graph APIs from Teams bots and agents built with the Microsoft Teams AI SDK for Python.
 
+## Key Features
+
+- **Token Integration**: Unified token handling using the Token type from microsoft-teams-common
+- **Flexible Token Sources**: Supports strings, StringLike objects, callables, async callables, or None
+- **Automatic Token Resolution**: Leverages common resolve_token utility for consistent handling
+
 ## Requirements
 
-- Teams AI SDK for Python
+- Teams AI Library for Python
 - Microsoft Graph SDK for Python (msgraph-sdk)
 - Azure Core library (azure-core)
 - Microsoft Teams Common library (microsoft-teams-common)
 
-## Features
-
-- **Token Type Support**: Uses the unified Token type from microsoft-teams-common
-- **Flexible Token Handling**: Accepts strings, StringLike objects, callables, async callables, or None
-- **Automatic Token Resolution**: Leverages the common resolve_token utility for consistent token handling
-
 ## Quick Start
+
+### Basic Usage with Teams Bot
 
 ```python
 from microsoft.teams.graph import get_graph_client
 from microsoft.teams.apps import App, ActivityContext
 from microsoft.teams.api import MessageActivity
-from microsoft.teams.api.clients.user.params import GetUserTokenParams
 
 app = App()
 
 @app.on_message
 async def handle_message(ctx: ActivityContext[MessageActivity]):
     if not ctx.is_signed_in:
+        await ctx.sign_in()
+        return
+
+    # Create Graph client using user's token
+    graph = get_graph_client(ctx.user_token)
+
+    # Get user profile
+    me = await graph.me.get()
+    await ctx.send(f"Hello {me.display_name}!")
+
+    # Get user's Teams
+    teams = await graph.me.joined_teams.get()
+    if teams and teams.value:
+        team_names = [team.display_name for team in teams.value]
+        await ctx.send(f"You're in {len(team_names)} teams: {', '.join(team_names)}")
+```
+
+### Token Integration
+
+```python
+from microsoft.teams.common.http.client_token import Token
+
+def create_token_callable(ctx: ActivityContext) -> Token:
+    """Create a callable token that refreshes automatically."""
+    def get_fresh_token():
+        # This is called on each Graph API request
+        return ctx.user_token  # Always returns current valid token
+
+    return get_fresh_token
+
+# Use with Graph client
+graph = get_graph_client(create_token_callable(ctx))
+```
+
         await ctx.sign_in()
         return
 
@@ -41,7 +76,8 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
     # Make Graph API calls
     me = await graph.me.get()
     await ctx.send(f"Hello {me.display_name}!")
-```
+
+````
 
 ## Token Type Usage
 
@@ -52,7 +88,7 @@ The package uses the Token type from microsoft-teams-common for flexible token h
 ```python
 # Direct string token
 graph = get_graph_client("eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIs...")
-```
+````
 
 ### Callable Token (Dynamic)
 

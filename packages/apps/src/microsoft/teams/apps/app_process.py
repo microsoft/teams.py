@@ -25,9 +25,11 @@ if TYPE_CHECKING:
     from .app_events import EventManager
 from .app_tokens import AppTokens
 from .events import ActivityEvent, ActivityResponseEvent, ActivitySentEvent
+from .graph_token_manager import GraphTokenManager
 from .plugins import PluginActivityEvent, PluginBase, Sender
 from .routing.activity_context import ActivityContext
 from .routing.router import ActivityHandler, ActivityRouter
+from .utils import extract_tenant_id
 
 
 class ActivityProcessor:
@@ -42,6 +44,7 @@ class ActivityProcessor:
         default_connection_name: str,
         http_client: Client,
         token: AppTokens,
+        graph_token_manager: GraphTokenManager,
     ) -> None:
         self.router = router
         self.logger = logger
@@ -50,13 +53,26 @@ class ActivityProcessor:
         self.default_connection_name = default_connection_name
         self.http_client = http_client
         self.tokens = token
+        self._graph_token_manager = graph_token_manager
 
         # This will be set after the EventManager is initialized due to
         # a circular dependency
         self.event_manager: Optional["EventManager"] = None
 
+    async def _get_or_refresh_graph_token(self, tenant_id: Optional[str] = None) -> Optional[TokenProtocol]:
+        """Get the current graph token or refresh it if needed."""
+        try:
+            return await self._graph_token_manager.get_token(tenant_id)
+        except Exception as e:
+            self.logger.error(f"Failed to get graph token via manager: {e}")
+            return self.tokens.graph
+
     async def _build_context(
-        self, activity: ActivityBase, token: TokenProtocol, plugins: List[PluginBase], sender: Sender
+        self,
+        activity: ActivityBase,
+        token: TokenProtocol,
+        plugins: List[PluginBase],
+        sender: Sender,
     ) -> ActivityContext[ActivityBase]:
         """Build the context object for activity processing.
 
@@ -96,6 +112,10 @@ class ActivityProcessor:
             # User token not available
             pass
 
+        tenant_id = extract_tenant_id(activity)
+
+        graph_token = await self._get_or_refresh_graph_token(tenant_id)
+
         activityCtx = ActivityContext(
             activity,
             self.id or "",
@@ -107,12 +127,14 @@ class ActivityProcessor:
             is_signed_in,
             self.default_connection_name,
             sender,
+            app_token=graph_token,
         )
 
         send = activityCtx.send
 
         async def updated_send(
-            message: str | ActivityParams | AdaptiveCard, conversation_ref: Optional[ConversationReference] = None
+            message: str | ActivityParams | AdaptiveCard,
+            conversation_ref: Optional[ConversationReference] = None,
         ) -> SentActivity:
             res = await send(message, conversation_ref)
 
@@ -123,7 +145,9 @@ class ActivityProcessor:
             ref = conversation_ref or activityCtx.conversation_ref
 
             await self.event_manager.on_activity_sent(
-                sender, ActivitySentEvent(sender=sender, activity=res, conversation_ref=ref), plugins=plugins
+                sender,
+                ActivitySentEvent(sender=sender, activity=res, conversation_ref=ref),
+                plugins=plugins,
             )
             return res
 
@@ -200,7 +224,9 @@ class ActivityProcessor:
             await self.event_manager.on_activity_response(
                 sender,
                 ActivityResponseEvent(
-                    activity=event.activity, response=response, conversation_ref=activityCtx.conversation_ref
+                    activity=event.activity,
+                    response=response,
+                    conversation_ref=activityCtx.conversation_ref,
                 ),
                 plugins=plugins,
             )

@@ -39,6 +39,7 @@ from .events import (
     get_event_type_from_signature,
     is_registered_event,
 )
+from .graph_token_manager import GraphTokenManager
 from .http_plugin import HttpPlugin
 from .options import AppOptions
 from .plugins import PluginBase, PluginStartEvent, get_metadata
@@ -116,6 +117,11 @@ class App(ActivityHandlerMixin):
         self._running = False
 
         # initialize all event, activity, and plugin processors
+        self.graph_token_manager = GraphTokenManager(
+            api_client=self.api,
+            credentials=self.credentials,
+            logger=self.log,
+        )
         self.activity_processor = ActivityProcessor(
             self._router,
             self.log,
@@ -124,6 +130,7 @@ class App(ActivityHandlerMixin):
             self.options.default_connection_name,
             self.http_client,
             self.tokens,
+            self.graph_token_manager,
         )
         self.event_manager = EventManager(self._events, self.activity_processor)
         self.activity_processor.event_manager = self.event_manager
@@ -323,7 +330,7 @@ class App(ActivityHandlerMixin):
     async def _refresh_graph_token(self, force: bool = False) -> None:
         """Refresh the Graph API token."""
         if not self.credentials:
-            self.log.warning("No credentials provided, skipping bot token refresh")
+            self.log.warning("No credentials provided, skipping graph token refresh")
             return
 
         if not force and self._tokens.graph and not self._tokens.graph.is_expired():
@@ -333,12 +340,19 @@ class App(ActivityHandlerMixin):
             self.log.debug("Refreshing graph token")
 
         try:
-            # TODO: Implement graph token refresh when graph client is available
-            # token_response = await self.api.bots.token.get_graph(self.credentials)
-            # self._tokens.graph = TokenProtocol(token_response.access_token)
-            self.log.debug("Graph token refresh not yet implemented")
+            # Use GraphTokenManager for tenant-aware token management
+            tenant_id = self.credentials.tenant_id if self.credentials else None
+            token = await self.graph_token_manager.get_token(tenant_id)
 
-            # When implemented, emit token event:
+            if token:
+                self._tokens.graph = token
+                self.log.debug("Graph token refreshed successfully")
+
+                # Emit token acquired event
+                self._events.emit("token", {"type": "graph", "token": self._tokens.graph})
+            else:
+                self.log.warning("Failed to get graph token from GraphTokenManager")
+
         except Exception as error:
             self.log.error(f"Failed to refresh graph token: {error}")
 
