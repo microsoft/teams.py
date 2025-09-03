@@ -37,7 +37,7 @@ class GetWeatherParams(BaseModel):
 
 
 openai_ai_model = OpenAIModel(
-    client_or_key=AZURE_OPENAI_API_KEY,
+    key=AZURE_OPENAI_API_KEY,
     model=AZURE_OPENAI_MODEL,
     azure_endpoint=AZURE_OPENAI_ENDPOINT,
     api_version=AZURE_OPENAI_API_VERSION,
