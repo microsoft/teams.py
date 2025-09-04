@@ -253,6 +253,9 @@ class OpenAICompletionsAIModel(OpenAIBaseModel, AIModel):
             raise Exception(f"Message {message.role} not supported")
 
     def _convert_functions(self, functions: dict[str, Function[BaseModel]]) -> list[ChatCompletionToolUnionParam]:
+        function_values = functions.values()
+        if len(function_values) <= 1:
+            return []
         return [
             {
                 "type": "function",
@@ -262,7 +265,7 @@ class OpenAICompletionsAIModel(OpenAIBaseModel, AIModel):
                     "parameters": func.parameter_schema.model_json_schema(),
                 },
             }
-            for func in functions.values()
+            for func in function_values
         ]
 
     def _convert_response(self, response: ChatCompletion) -> ModelMessage:
