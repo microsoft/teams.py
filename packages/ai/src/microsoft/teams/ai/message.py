@@ -19,6 +19,7 @@ class UserMessage:
 class ModelMessage:
     content: str | None
     function_calls: list[FunctionCall] | None
+    id: str | None = None
     role: Literal["model"] = "model"
 
 

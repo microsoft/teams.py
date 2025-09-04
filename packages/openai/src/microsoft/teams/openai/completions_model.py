@@ -5,10 +5,11 @@ Licensed under the MIT License.
 
 import inspect
 import json
-from logging import Logger
-from typing import Any, Awaitable, Callable, TypedDict
+from dataclasses import dataclass
+from typing import Any, Awaitable, Callable, TypedDict, cast
 
 from microsoft.teams.ai import (
+    AIModel,
     Function,
     FunctionCall,
     FunctionMessage,
@@ -19,10 +20,10 @@ from microsoft.teams.ai import (
     SystemMessage,
     UserMessage,
 )
-from microsoft.teams.common.logging import ConsoleLogger
+from microsoft.teams.openai.common import OpenAIBaseModel
 from pydantic import BaseModel
 
-from openai import NOT_GIVEN, AsyncAzureOpenAI, AsyncOpenAI
+from openai import NOT_GIVEN
 from openai._streaming import AsyncStream
 from openai.types.chat import (
     ChatCompletion,
@@ -44,32 +45,8 @@ class _ToolCallData(TypedDict):
     arguments_str: str
 
 
-class OpenAIModel:
-    def __init__(
-        self,
-        model: str,
-        *,
-        client: AsyncOpenAI | None = None,
-        key: str | None = None,
-        base_url: str | None = None,
-        # Azure OpenAI options
-        azure_endpoint: str | None = None,
-        api_version: str | None = None,
-        logger: Logger | None = None,
-    ):
-        if client is None and key is None:
-            raise ValueError("Either key or client is required when initializing an OpenAIModel")
-        elif client is not None:
-            self._client = client
-        else:
-            # key is the API key
-            if azure_endpoint:
-                self._client = AsyncAzureOpenAI(api_key=key, azure_endpoint=azure_endpoint, api_version=api_version)
-            else:
-                self._client = AsyncOpenAI(api_key=key, base_url=base_url)
-        self.model = model
-        self.logger = logger or ConsoleLogger().create_logger("@teams/openai-chat-model")
-
+@dataclass
+class OpenAICompletionsAIModel(OpenAIBaseModel, AIModel):
     async def generate_text(
         self,
         input: Message,
@@ -258,7 +235,7 @@ class OpenAIModel:
                 content=message.content or [],
                 tool_call_id=message.function_id,
             )
-        else:
+        elif isinstance(message, ModelMessage):  # pyright: ignore [reportUnnecessaryIsInstance]
             if message.function_calls:
                 tool_calls = [
                     ChatCompletionMessageFunctionToolCallParam(
@@ -269,11 +246,17 @@ class OpenAIModel:
                     for call in message.function_calls
                 ]
             else:
-                tool_calls = []
-
+                # we need to do this cast because Completions expects tool_calls to be >= 1,
+                # but the type is not Optional
+                tool_calls = cast(list[ChatCompletionMessageFunctionToolCallParam], None)
             return ChatCompletionAssistantMessageParam(role="assistant", content=message.content, tool_calls=tool_calls)
+        else:
+            raise Exception(f"Message {message.role} not supported")
 
     def _convert_functions(self, functions: dict[str, Function[BaseModel]]) -> list[ChatCompletionToolUnionParam]:
+        function_values = functions.values()
+        if len(function_values) == 0:
+            return []
         return [
             {
                 "type": "function",
@@ -283,7 +266,7 @@ class OpenAIModel:
                     "parameters": func.parameter_schema.model_json_schema(),
                 },
             }
-            for func in functions.values()
+            for func in function_values
         ]
 
     def _convert_response(self, response: ChatCompletion) -> ModelMessage:
