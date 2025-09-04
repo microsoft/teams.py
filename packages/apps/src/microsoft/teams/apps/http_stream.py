@@ -254,6 +254,8 @@ class HttpStream(StreamerProtocol):
         to_send.conversation = self._ref.conversation
 
         if to_send.id and not any(e.type == "streaminfo" for e in (to_send.entities or [])):
-            return await self._client.conversations.activities(self._ref.conversation.id).update(to_send.id, to_send)
+            res = await self._client.conversations.activities(self._ref.conversation.id).update(to_send.id, to_send)
         else:
-            return await self._client.conversations.activities(self._ref.conversation.id).create(to_send)
+            res = await self._client.conversations.activities(self._ref.conversation.id).create(to_send)
+
+        return SentActivity.merge(to_send, res)
