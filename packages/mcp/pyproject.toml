@@ -10,6 +10,10 @@ keywords = ["microsoft", "teams", "ai", "bot", "agents"]
 license = "MIT"
 dependencies = [
     "mcp>=1.13.1",
+    "fastmcp>=0.5.0",
+    "microsoft.teams.apps",
+    "microsoft.teams.ai", 
+    "starlette",
 ]
 
 [build-system]
