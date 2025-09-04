@@ -33,14 +33,14 @@ def mock_openai_client() -> AsyncMock:
 
 @pytest.fixture
 def stateful_model(mock_openai_client: AsyncMock) -> OpenAIResponsesAIModel:
-    model_instance = OpenAIResponsesAIModel(client_or_key="fake-key", model="gpt-4", stateful=True)
+    model_instance = OpenAIResponsesAIModel(key="fake-key", model="gpt-4", stateful=True)
     model_instance._client = mock_openai_client
     return model_instance
 
 
 @pytest.fixture
 def stateless_model(mock_openai_client: AsyncMock) -> OpenAIResponsesAIModel:
-    model_instance = OpenAIResponsesAIModel(client_or_key="fake-key", model="gpt-4", stateful=False)
+    model_instance = OpenAIResponsesAIModel(key="fake-key", model="gpt-4", stateful=False)
     model_instance._client = mock_openai_client
     return model_instance
 

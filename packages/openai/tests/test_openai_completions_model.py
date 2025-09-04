@@ -39,7 +39,7 @@ def mock_openai_client() -> AsyncMock:
 
 @pytest.fixture
 def model(mock_openai_client: AsyncMock) -> OpenAICompletionsAIModel:
-    model_instance = OpenAICompletionsAIModel(client_or_key="fake-key", model="gpt-4")
+    model_instance = OpenAICompletionsAIModel(key="fake-key", model="gpt-4")
     model_instance._client = mock_openai_client
     return model_instance
 
