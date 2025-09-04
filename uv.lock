@@ -17,8 +17,8 @@ members = [
     "microsoft-teams-common",
     "microsoft-teams-devtools",
     "microsoft-teams-graph",
-    "microsoft-teams-openai",
     "microsoft-teams-mcp",
+    "microsoft-teams-openai",
     "oauth",
     "stream",
 ]
@@ -938,6 +938,7 @@ dependencies = [
     { name = "dotenv" },
     { name = "microsoft-teams-ai" },
     { name = "microsoft-teams-common" },
+    { name = "microsoft-teams-openai" },
 ]
 
 [package.metadata]
@@ -945,6 +946,7 @@ requires-dist = [
     { name = "dotenv", specifier = ">=0.9.9" },
     { name = "microsoft-teams-ai", editable = "packages/ai" },
     { name = "microsoft-teams-common", editable = "packages/common" },
+    { name = "microsoft-teams-openai", editable = "packages/openai" },
 ]
 
 [[package]]
