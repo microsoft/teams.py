@@ -6,8 +6,9 @@ Licensed under the MIT License.
 import asyncio
 import importlib.metadata
 import os
+from dataclasses import asdict
 from logging import Logger
-from typing import Any, Awaitable, Callable, List, Optional, TypeVar, Union, cast, overload
+from typing import Any, Awaitable, Callable, List, Optional, TypeVar, Union, Unpack, cast, overload
 
 from dependency_injector import providers
 from dotenv import find_dotenv, load_dotenv
@@ -41,7 +42,7 @@ from .events import (
 )
 from .graph_token_manager import GraphTokenManager
 from .http_plugin import HttpPlugin
-from .options import AppOptions
+from .options import AppOptions, AppOptionsDefaults
 from .plugins import PluginBase, PluginStartEvent, get_metadata
 from .routing import ActivityHandlerMixin, ActivityRouter
 
@@ -60,11 +61,12 @@ class App(ActivityHandlerMixin):
     Manages plugins, tokens, and application lifecycle for Microsoft Teams apps.
     """
 
-    def __init__(self, options: Optional[AppOptions] = None):
-        self.options = options or AppOptions()
+    def __init__(self, **options: Unpack[AppOptions]):
+        defaults = asdict(AppOptionsDefaults())
+        self.options = cast(AppOptions, {**defaults, **options})
 
-        self.log = self.options.logger or ConsoleLogger().create_logger("@teams/app")
-        self.storage = self.options.storage or LocalStorage()
+        self.log = self.options.get("logger") or ConsoleLogger().create_logger("@teams/app")
+        self.storage = self.options.get("storage") or LocalStorage()
 
         self.http_client = Client(
             ClientOptions(
@@ -93,7 +95,7 @@ class App(ActivityHandlerMixin):
             self.http_client.clone(ClientOptions(token=lambda: self.tokens.bot)),
         )
 
-        plugins: List[PluginBase] = list(self.options.plugins or [])
+        plugins: List[PluginBase] = list(self.options.get("plugins", []))
 
         http_plugin = None
         for i, plugin in enumerate(plugins):
@@ -108,7 +110,7 @@ class App(ActivityHandlerMixin):
             if self.credentials and hasattr(self.credentials, "client_id"):
                 app_id = self.credentials.client_id
 
-            http_plugin = HttpPlugin(app_id, self.log, self.options.enable_token_validation)
+            http_plugin = HttpPlugin(app_id, self.log, self.options.get("enable_token_validation", True))
 
         plugins.insert(0, http_plugin)
         self.http = cast(HttpPlugin, http_plugin)
@@ -127,7 +129,7 @@ class App(ActivityHandlerMixin):
             self.log,
             self.id,
             self.storage,
-            self.options.default_connection_name,
+            self.options.get("default_connection_name", "graph"),
             self.http_client,
             self.tokens,
             self.graph_token_manager,
@@ -139,7 +141,7 @@ class App(ActivityHandlerMixin):
 
         # default event handlers
         oauth_handlers = OauthHandlers(
-            default_connection_name=self.options.default_connection_name,
+            default_connection_name=self.options.get("default_connection_name", "graph"),
             event_emitter=self._events,
         )
         self.on_signin_token_exchange(oauth_handlers.sign_in_token_exchange)
@@ -285,9 +287,9 @@ class App(ActivityHandlerMixin):
 
     def _init_credentials(self) -> Optional[Credentials]:
         """Initialize authentication credentials from options and environment."""
-        client_id = self.options.client_id or os.getenv("CLIENT_ID")
-        client_secret = self.options.client_secret or os.getenv("CLIENT_SECRET")
-        tenant_id = self.options.tenant_id or os.getenv("TENANT_ID")
+        client_id = self.options.get("client_id") or os.getenv("CLIENT_ID")
+        client_secret = self.options.get("client_secret") or os.getenv("CLIENT_SECRET")
+        tenant_id = self.options.get("tenant_id") or os.getenv("TENANT_ID")
 
         self.log.debug(f"Using CLIENT_ID: {client_id}")
         if not tenant_id:

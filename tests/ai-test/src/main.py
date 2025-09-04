@@ -10,7 +10,7 @@ from os import getenv
 from dotenv import find_dotenv, load_dotenv
 from microsoft.teams.ai import Agent, Function, ListMemory, UserMessage
 from microsoft.teams.api import MessageActivity
-from microsoft.teams.apps import ActivityContext, App, AppOptions
+from microsoft.teams.apps import ActivityContext, App
 from microsoft.teams.devtools import DevToolsPlugin
 from microsoft.teams.openai import OpenAICompletionsAIModel, OpenAIResponsesAIModel
 from pydantic import BaseModel
@@ -30,7 +30,7 @@ AZURE_OPENAI_ENDPOINT = get_required_env("AZURE_OPENAI_ENDPOINT")
 AZURE_OPENAI_MODEL = get_required_env("AZURE_OPENAI_MODEL")
 AZURE_OPENAI_API_VERSION = get_required_env("AZURE_OPENAI_API_VERSION")
 
-app = App(AppOptions(plugins=[DevToolsPlugin()]))
+app = App(plugins=[DevToolsPlugin()])
 
 # Global state for mode switching
 current_mode = "responses"  # "chat" or "responses"

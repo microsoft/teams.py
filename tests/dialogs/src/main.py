@@ -22,7 +22,7 @@ from microsoft.teams.api import (
     UrlTaskModuleTaskInfo,
     card_attachment,
 )
-from microsoft.teams.apps import ActivityContext, App, AppOptions
+from microsoft.teams.apps import ActivityContext, App
 from microsoft.teams.apps.events.types import ErrorEvent
 from microsoft.teams.cards import AdaptiveCard
 from microsoft.teams.common.logging import ConsoleLogger
@@ -33,8 +33,7 @@ logger: Logger = logger_instance.create_logger("@apps/dialogs")
 if not os.getenv("BOT_ENDPOINT"):
     logger.warning("No remote endpoint detected. Using webpages for dialog will not work as expected")
 
-options = AppOptions(client_id=os.getenv("BOT_ID"), client_secret=os.getenv("BOT_PASSWORD"))
-app = App(options)
+app = App(client_id=os.getenv("BOT_ID"), client_secret=os.getenv("BOT_PASSWORD"))
 
 app.page("customform", os.path.join(os.path.dirname(__file__), "views", "customform"), "/tabs/dialog-form")
 
