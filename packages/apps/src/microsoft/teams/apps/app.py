@@ -6,7 +6,6 @@ Licensed under the MIT License.
 import asyncio
 import importlib.metadata
 import os
-from dataclasses import asdict
 from logging import Logger
 from typing import Any, Awaitable, Callable, List, Optional, TypeVar, Union, Unpack, cast, overload
 
@@ -42,7 +41,7 @@ from .events import (
 )
 from .graph_token_manager import GraphTokenManager
 from .http_plugin import HttpPlugin
-from .options import AppOptions, AppOptionsDefaults
+from .options import AppOptions, merge_app_options_with_defaults
 from .plugins import PluginBase, PluginStartEvent, get_metadata
 from .routing import ActivityHandlerMixin, ActivityRouter
 
@@ -62,8 +61,7 @@ class App(ActivityHandlerMixin):
     """
 
     def __init__(self, **options: Unpack[AppOptions]):
-        defaults = asdict(AppOptionsDefaults())
-        self.options = cast(AppOptions, {**defaults, **options})
+        self.options = merge_app_options_with_defaults(**options)
 
         self.log = self.options.get("logger") or ConsoleLogger().create_logger("@teams/app")
         self.storage = self.options.get("storage") or LocalStorage()
