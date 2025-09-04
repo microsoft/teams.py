@@ -255,7 +255,7 @@ class OpenAICompletionsAIModel(OpenAIBaseModel, AIModel):
 
     def _convert_functions(self, functions: dict[str, Function[BaseModel]]) -> list[ChatCompletionToolUnionParam]:
         function_values = functions.values()
-        if len(function_values) <= 1:
+        if len(function_values) == 0:
             return []
         return [
             {
