@@ -15,7 +15,7 @@ from microsoft.teams.apps import ActivityContext, App
 from microsoft.teams.apps.options import AppOptions
 from microsoft.teams.devtools import DevToolsPlugin
 from microsoft.teams.mcp.ai_plugin import McpClientPlugin
-from microsoft.teams.openai_ai_model import OpenAIResponsesAIModel
+from microsoft.teams.openai import OpenAIResponsesAIModel
 
 app = App(AppOptions(plugins=[DevToolsPlugin()]))
 load_dotenv(find_dotenv(usecwd=True))
@@ -34,7 +34,7 @@ AZURE_OPENAI_MODEL = get_required_env("AZURE_OPENAI_MODEL")
 AZURE_OPENAI_API_VERSION = get_required_env("AZURE_OPENAI_API_VERSION")
 
 responses_openai_ai_model = OpenAIResponsesAIModel(
-    client_or_key=AZURE_OPENAI_API_KEY,
+    key=AZURE_OPENAI_API_KEY,
     model=AZURE_OPENAI_MODEL,
     azure_endpoint=AZURE_OPENAI_ENDPOINT,
     api_version=AZURE_OPENAI_API_VERSION,
