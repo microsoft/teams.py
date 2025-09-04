@@ -9,7 +9,7 @@ from .ai_model import AIModel
 from .chat_prompt import ChatPrompt, ChatSendResult
 from .function import Function
 from .memory import ListMemory, Memory
-from .message import Message
+from .message import Message, SystemMessage
 
 
 class Agent(ChatPrompt):
@@ -26,7 +26,8 @@ class Agent(ChatPrompt):
         self,
         input: str | Message,
         *,
+        system_message: SystemMessage | None = None,
         memory: Memory | None = None,
         on_chunk: Callable[[str], Awaitable[None]] | Callable[[str], None] | None = None,
     ) -> ChatSendResult:
-        return await super().send(input, memory=memory or self.memory, on_chunk=on_chunk)
+        return await super().send(input, memory=memory or self.memory, system_message=system_message, on_chunk=on_chunk)
