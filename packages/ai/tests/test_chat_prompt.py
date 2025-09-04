@@ -3,6 +3,7 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
+from inspect import isawaitable
 from typing import Any, Awaitable, Callable
 from unittest.mock import Mock
 
@@ -33,6 +34,9 @@ class MockAIModel:
     def __init__(self, should_call_function: bool = False, streaming_chunks: list[str] | None = None):
         self.should_call_function = should_call_function
         self.streaming_chunks = streaming_chunks or []
+        self.last_system_message: SystemMessage | None = None
+        self.last_input: Message | None = None
+        self.last_functions: dict[str, Function[BaseModel]] | None = None
 
     async def generate_text(
         self,
@@ -43,6 +47,10 @@ class MockAIModel:
         functions: dict[str, Function[BaseModel]] | None = None,
         on_chunk: Callable[[str], Awaitable[None]] | None = None,
     ) -> ModelMessage:
+        # Track what we received for testing
+        self.last_system_message = system
+        self.last_input = input
+        self.last_functions = functions
         # Simulate memory updates (like real AI model implementations)
         if memory is not None:
             await memory.push(input)  # Add input to memory
@@ -66,8 +74,6 @@ class MockAIModel:
                 params = function.parameter_schema(value="test_input")
                 result = function.handler(params)
                 # Handle both sync and async results
-                from inspect import isawaitable
-
                 if isawaitable(result):
                     result = await result
                 # In real implementation, function result would be added to memory
@@ -368,7 +374,7 @@ class TestChatPromptPlugins:
 
     @pytest.mark.asyncio
     async def test_on_before_send_hook(self, mock_model: MockAIModel) -> None:
-        """Test that on_before_send hook can modify input messages"""
+        """Test that on_before_send hook can modify input messages and they're passed to model"""
         plugin = MockPlugin("test_plugin")
         plugin.input_modifications = ["MODIFIED"]
 
@@ -376,6 +382,10 @@ class TestChatPromptPlugins:
         result = await prompt.send("Original message")
 
         assert plugin.before_send_called
+        # Verify the modified message was passed to the model
+        assert mock_model.last_input is not None
+        assert mock_model.last_input.content == "MODIFIED: Original message"
+        # Verify the response reflects the modified input
         assert result.response.content == "GENERATED - MODIFIED: Original message"
 
     @pytest.mark.asyncio
@@ -391,21 +401,24 @@ class TestChatPromptPlugins:
         assert result.response.content == "RESPONSE_MODIFIED: GENERATED - Test message"
 
     @pytest.mark.asyncio
-    async def test_on_build_system_message_hook(self, mock_model: MockAIModel) -> None:
-        """Test that on_build_system_message hook is called"""
+    async def test_on_build_system_message_hook_with_actual_updates(self, mock_model: MockAIModel) -> None:
+        """Test that on_build_system_message hook actually modifies system messages passed to model"""
         plugin = MockPlugin("test_plugin")
-
         prompt = ChatPrompt(mock_model, plugins=[plugin])
 
-        # Test with None system message
+        # Test with None system message - plugin should generate one
         await prompt.send("Test", system_message=None)
         assert plugin.build_system_message_called
+        assert mock_model.last_system_message is not None
+        assert mock_model.last_system_message.content == "Plugin-generated system message"
 
-        # Reset and test with existing system message
+        # Reset and test with existing system message - plugin should modify it
         plugin.build_system_message_called = False
         system_msg = SystemMessage(content="Original system")
         await prompt.send("Test", system_message=system_msg)
         assert plugin.build_system_message_called
+        assert mock_model.last_system_message is not None
+        assert mock_model.last_system_message.content == "Plugin-modified: Original system"
 
     @pytest.mark.asyncio
     async def test_function_call_hooks(self, mock_function_handler: Mock) -> None:
@@ -442,13 +455,20 @@ class TestChatPromptPlugins:
     async def test_on_build_functions_hook(
         self, mock_model: MockAIModel, test_function: Function[MockFunctionParams]
     ) -> None:
-        """Test that on_build_functions hook is called when functions are present"""
+        """Test that on_build_functions hook is called and functions are passed to model"""
         plugin = MockPlugin("test_plugin")
 
         prompt = ChatPrompt(mock_model, functions=[test_function], plugins=[plugin])
         await prompt.send("Test message")
 
         assert plugin.build_functions_called
+        # Verify functions were passed to the model (wrapped versions)
+        assert mock_model.last_functions is not None
+        assert "test_function" in mock_model.last_functions
+        # The function should be wrapped with plugin hooks but still have same name/description
+        wrapped_func = mock_model.last_functions["test_function"]
+        assert wrapped_func.name == test_function.name
+        assert wrapped_func.description == test_function.description
 
     @pytest.mark.asyncio
     async def test_multiple_plugins_execution_order(self, mock_model: MockAIModel) -> None:
@@ -567,3 +587,48 @@ class TestChatPromptPlugins:
 
         result2 = await prompt_with_func.send("Test with function")
         assert result2.response.content == "GENERATED - Test with function"
+
+    @pytest.mark.asyncio
+    async def test_comprehensive_plugin_behavior_verification(self, mock_function_handler: Mock) -> None:
+        """Comprehensive test verifying all plugin methods actually modify data passed to model"""
+        plugin = MockPlugin("comprehensive")
+        plugin.input_modifications = ["INPUT_MOD"]
+        plugin.response_modifications = ["RESP_MOD"]
+        plugin.function_result_modifications = ["FUNC_MOD"]
+
+        mock_model = MockAIModel(should_call_function=True)
+        test_function = Function(
+            name="test_function",
+            description="Test function",
+            parameter_schema=MockFunctionParams,
+            handler=mock_function_handler,
+        )
+
+        prompt = ChatPrompt(mock_model, functions=[test_function], plugins=[plugin])
+
+        system_msg = SystemMessage(content="Original system")
+        result = await prompt.send("Original input", system_message=system_msg)
+
+        # Verify all plugin hooks were called
+        assert plugin.before_send_called
+        assert plugin.after_send_called
+        assert plugin.build_system_message_called
+        assert plugin.build_functions_called
+        assert len(plugin.before_function_called) == 1
+        assert len(plugin.after_function_called) == 1
+
+        # Verify actual modifications reached the model
+        assert mock_model.last_input is not None
+        assert mock_model.last_input.content == "INPUT_MOD: Original input"
+
+        assert mock_model.last_system_message is not None
+        assert mock_model.last_system_message.content == "Plugin-modified: Original system"
+
+        assert mock_model.last_functions is not None
+        assert "test_function" in mock_model.last_functions
+
+        # Verify final response includes all modifications
+        assert result.response.content is not None
+        assert "RESP_MOD:" in result.response.content
+        assert "FUNC_MOD: Function executed successfully" in result.response.content
+        assert "INPUT_MOD: Original input" in result.response.content

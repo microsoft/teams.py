@@ -56,42 +56,9 @@ class ChatPrompt:
         if isinstance(input, str):
             input = UserMessage(content=input)
 
-        # Allow plugins to modify the input before sending
-        current_input = input
-        for plugin in self.plugins:
-            plugin_result = await plugin.on_before_send(current_input)
-            if plugin_result is not None:
-                current_input = plugin_result
-
-        # Allow plugins to modify the system message
-        current_system_message = system_message
-        for plugin in self.plugins:
-            plugin_result = await plugin.on_build_system_message(current_system_message)
-            if plugin_result is not None:
-                current_system_message = plugin_result
-
-        # Wrap functions with plugin hooks
-        wrapped_functions: dict[str, Function[BaseModel]] | None = None
-        if self.functions:
-            wrapped_functions = {}
-            for name, func in self.functions.items():
-                wrapped_functions[name] = Function[BaseModel](
-                    name=func.name,
-                    description=func.description,
-                    parameter_schema=func.parameter_schema,
-                    handler=self._wrap_function_handler(func.handler, name),
-                )
-
-        # Allow plugins to modify the functions before sending to model
-        if wrapped_functions:
-            functions_list = list(wrapped_functions.values())
-            for plugin in self.plugins:
-                plugin_result = await plugin.on_build_functions(functions_list)
-                if plugin_result is not None:
-                    functions_list = plugin_result
-
-            # Convert back to dict for model
-            wrapped_functions = {func.name: func for func in functions_list}
+        current_input = await self._run_before_send_hooks(input)
+        current_system_message = await self._run_build_system_message_hooks(system_message)
+        wrapped_functions = await self._build_wrapped_functions()
 
         async def on_chunk_fn(chunk: str):
             if not on_chunk:
@@ -101,15 +68,14 @@ class ChatPrompt:
                 await res
 
         response = await self.model.generate_text(
-            current_input, memory=memory, functions=wrapped_functions, on_chunk=on_chunk_fn if on_chunk else None
+            current_input,
+            system=current_system_message,
+            memory=memory,
+            functions=wrapped_functions,
+            on_chunk=on_chunk_fn if on_chunk else None,
         )
 
-        # Allow plugins to modify the response after receiving
-        current_response = response
-        for plugin in self.plugins:
-            plugin_result = await plugin.on_after_send(current_response)
-            if plugin_result is not None:
-                current_response = plugin_result
+        current_response = await self._run_after_send_hooks(response)
 
         return ChatSendResult(response=current_response)
 
@@ -138,3 +104,50 @@ class ChatPrompt:
             return current_result
 
         return wrapped_handler
+
+    async def _run_before_send_hooks(self, input: Message) -> Message:
+        current_input = input
+        for plugin in self.plugins:
+            plugin_result = await plugin.on_before_send(current_input)
+            if plugin_result is not None:
+                current_input = plugin_result
+        return current_input
+
+    async def _run_build_system_message_hooks(self, system_message: SystemMessage | None) -> SystemMessage | None:
+        current_system_message = system_message
+        for plugin in self.plugins:
+            plugin_result = await plugin.on_build_system_message(current_system_message)
+            if plugin_result is not None:
+                current_system_message = plugin_result
+        return current_system_message
+
+    async def _build_wrapped_functions(self) -> dict[str, Function[BaseModel]] | None:
+        wrapped_functions: dict[str, Function[BaseModel]] | None = None
+        if self.functions:
+            wrapped_functions = {}
+            for name, func in self.functions.items():
+                wrapped_functions[name] = Function[BaseModel](
+                    name=func.name,
+                    description=func.description,
+                    parameter_schema=func.parameter_schema,
+                    handler=self._wrap_function_handler(func.handler, name),
+                )
+
+        if wrapped_functions:
+            functions_list = list(wrapped_functions.values())
+            for plugin in self.plugins:
+                plugin_result = await plugin.on_build_functions(functions_list)
+                if plugin_result is not None:
+                    functions_list = plugin_result
+
+            wrapped_functions = {func.name: func for func in functions_list}
+
+        return wrapped_functions
+
+    async def _run_after_send_hooks(self, response: ModelMessage) -> ModelMessage:
+        current_response = response
+        for plugin in self.plugins:
+            plugin_result = await plugin.on_after_send(current_response)
+            if plugin_result is not None:
+                current_response = plugin_result
+        return current_response
