@@ -6,7 +6,7 @@ Licensed under the MIT License.
 import inspect
 import json
 from dataclasses import dataclass
-from typing import Any, Awaitable, Callable, TypedDict
+from typing import Any, Awaitable, Callable, TypedDict, cast
 
 from microsoft.teams.ai import (
     AIModel,
@@ -246,8 +246,9 @@ class OpenAICompletionsAIModel(OpenAIBaseModel, AIModel):
                     for call in message.function_calls
                 ]
             else:
-                tool_calls = []
-
+                # we need to do this cast because Completions expects tool_calls to be >= 1,
+                # but the type is not Optional
+                tool_calls = cast(list[ChatCompletionMessageFunctionToolCallParam], None)
             return ChatCompletionAssistantMessageParam(role="assistant", content=message.content, tool_calls=tool_calls)
         else:
             raise Exception(f"Message {message.role} not supported")
