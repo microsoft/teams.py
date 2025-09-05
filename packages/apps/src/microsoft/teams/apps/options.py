@@ -5,7 +5,7 @@ Licensed under the MIT License.
 
 from dataclasses import dataclass, field
 from logging import Logger
-from typing import Any, List, Optional, TypedDict, cast
+from typing import Any, Awaitable, Callable, List, Optional, TypedDict, Union, cast
 
 from microsoft.teams.common.storage import Storage
 from typing_extensions import Unpack
@@ -20,6 +20,7 @@ class AppOptions(TypedDict, total=False):
     client_id: Optional[str]
     client_secret: Optional[str]
     tenant_id: Optional[str]
+    token: Optional[Callable[[Union[str, list[str]], Optional[str]], Union[str, Awaitable[str]]]]
 
     # Infrastructure
     logger: Optional[Logger]
@@ -44,6 +45,7 @@ class InternalAppOptions:
     client_id: Optional[str] = None
     client_secret: Optional[str] = None
     tenant_id: Optional[str] = None
+    token: Optional[Callable[[Union[str, list[str]], Optional[str]], Union[str, Awaitable[str]]]] = None
     logger: Optional[Logger] = None
     storage: Optional[Storage[str, Any]] = None
 

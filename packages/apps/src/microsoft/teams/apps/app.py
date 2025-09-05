@@ -21,6 +21,7 @@ from microsoft.teams.api import (
     Credentials,
     JsonWebToken,
     MessageActivityInput,
+    TokenCredentials,
 )
 from microsoft.teams.cards import AdaptiveCard
 from microsoft.teams.common import Client, ClientOptions, ConsoleLogger, EventEmitter, LocalStorage
@@ -288,6 +289,7 @@ class App(ActivityHandlerMixin):
         client_id = self.options.client_id or os.getenv("CLIENT_ID")
         client_secret = self.options.client_secret or os.getenv("CLIENT_SECRET")
         tenant_id = self.options.tenant_id or os.getenv("TENANT_ID")
+        token = self.options.token
 
         self.log.debug(f"Using CLIENT_ID: {client_id}")
         if not tenant_id:
@@ -297,6 +299,9 @@ class App(ActivityHandlerMixin):
 
         if client_id and client_secret:
             return ClientCredentials(client_id=client_id, client_secret=client_secret, tenant_id=tenant_id)
+
+        if client_id and token:
+            return TokenCredentials(client_id=client_id, tenant_id=tenant_id, token=token)
 
         return None
 
