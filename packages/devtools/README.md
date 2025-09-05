@@ -4,10 +4,10 @@
 # Microsoft Teams DevTools
 
 <p>
-    <a href="https://www.npmjs.com/package/@microsoft/teams.api" target="_blank">
+    <a href="https://pypi.org/project/microsoft-teams-devtools" target="_blank">
         <img src="https://img.shields.io/pypi/v/microsoft-teams-devtools" />
     </a>
-    <a href="https://www.npmjs.com/package/@microsoft/teams.api" target="_blank">
+    <a href="https://pypi.org/project/microsoft-teams-devtools" target="_blank">
         <img src="https://img.shields.io/pypi/dw/microsoft-teams-devtools" />
     </a>
 </p>

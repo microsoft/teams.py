@@ -4,10 +4,10 @@
 # Microsoft Teams Cards
 
 <p>
-    <a href="https://www.npmjs.com/package/@microsoft/teams.api" target="_blank">
+    <a href="https://pypi.org/project/microsoft-teams-cards" target="_blank">
         <img src="https://img.shields.io/pypi/v/microsoft-teams-cards" />
     </a>
-    <a href="https://www.npmjs.com/package/@microsoft/teams.api" target="_blank">
+    <a href="https://pypi.org/project/microsoft-teams-cards" target="_blank">
         <img src="https://img.shields.io/pypi/dw/microsoft-teams-cards" />
     </a>
 </p>

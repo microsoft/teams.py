@@ -1,10 +1,10 @@
 # Microsoft Teams Graph Integration
 
 <p>
-    <a href="https://www.npmjs.com/package/@microsoft/teams.api" target="_blank">
+    <a href="https://pypi.org/project/microsoft-teams-graph" target="_blank">
         <img src="https://img.shields.io/pypi/v/microsoft-teams-graph" />
     </a>
-    <a href="https://www.npmjs.com/package/@microsoft/teams.api" target="_blank">
+    <a href="https://pypi.org/project/microsoft-teams-graph" target="_blank">
         <img src="https://img.shields.io/pypi/dw/microsoft-teams-graph" />
     </a>
 </p>

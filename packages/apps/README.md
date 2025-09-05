@@ -4,10 +4,10 @@
 # Microsoft Teams Apps Framework
 
 <p>
-    <a href="https://www.npmjs.com/package/@microsoft/teams.api" target="_blank">
+    <a href="https://pypi.org/project/microsoft-teams-apps" target="_blank">
         <img src="https://img.shields.io/pypi/v/microsoft-teams-apps" />
     </a>
-    <a href="https://www.npmjs.com/package/@microsoft/teams.api" target="_blank">
+    <a href="https://pypi.org/project/microsoft-teams-apps" target="_blank">
         <img src="https://img.shields.io/pypi/dw/microsoft-teams-apps" />
     </a>
 </p>
