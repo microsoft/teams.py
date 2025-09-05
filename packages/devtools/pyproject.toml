@@ -1,6 +1,6 @@
 [project]
 name = "microsoft-teams-devtools"
-version = "0.0.1a3"
+version = "0.0.1a4"
 description = "Local tool to streamline testing and development"
 authors = [{ name = "Microsoft", email = "TeamsAISDKFeedback@microsoft.com" }]
 readme = "README.md"
