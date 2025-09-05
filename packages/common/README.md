@@ -3,8 +3,21 @@
 
 # Microsoft Teams Common Utilities
 
+<p>
+    <a href="https://www.npmjs.com/package/@microsoft/teams.api" target="_blank">
+        <img src="https://img.shields.io/pypi/v/microsoft-teams-common" />
+    </a>
+    <a href="https://www.npmjs.com/package/@microsoft/teams.api" target="_blank">
+        <img src="https://img.shields.io/pypi/dw/microsoft-teams-common" />
+    </a>
+</p>
+
 Shared utilities including HTTP client, logging, storage, and event handling.
 Provides common functionality used across other Teams SDK packages.
+
+<a href="https://microsoft.github.io/teams-ai" target="_blank">
+    <img src="https://img.shields.io/badge/📖 Getting Started-blue?style=for-the-badge" />
+</a>
 
 ## Features
 

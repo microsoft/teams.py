@@ -47,14 +47,14 @@ A comprehensive SDK for building Microsoft Teams applications, bots, and AI agen
 
 > ℹ️ core packages used to build client/server apps for Teams.
 
-- [`@microsoft/teams.apps`](./packages/apps/README.md)
-- [`@microsoft/teams.ai`](./packages/ai/README.md)
-- [`@microsoft/teams.api`](./packages/api/README.md)
-- [`@microsoft/teams.cards`](./packages/cards/README.md)
-- [`@microsoft/teams.common`](./packages/common/README.md)
-- [`@microsoft/teams.devtools`](./packages/devtools/README.md)
-- [`@microsoft/teams.graph`](./packages/graph/README.md)
-- [`@microsoft/teams.openai`](./packages/openai/README.md)
+- [`microsoft-teams-apps`](./packages/apps/README.md)
+- [`microsoft-teams-ai`](./packages/ai/README.md)
+- [`microsoft-teams-api`](./packages/api/README.md)
+- [`microsoft-teams-cards`](./packages/cards/README.md)
+- [`microsoft-teams-common`](./packages/common/README.md)
+- [`microsoft-teams-devtools`](./packages/devtools/README.md)
+- [`microsoft-teams-graph`](./packages/graph/README.md)
+- [`microsoft-teams-openai`](./packages/openai/README.md)
 
 ### Create a New Package
 

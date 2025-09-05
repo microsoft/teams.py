@@ -3,8 +3,21 @@
 
 # Microsoft Teams Cards
 
+<p>
+    <a href="https://www.npmjs.com/package/@microsoft/teams.api" target="_blank">
+        <img src="https://img.shields.io/pypi/v/microsoft-teams-cards" />
+    </a>
+    <a href="https://www.npmjs.com/package/@microsoft/teams.api" target="_blank">
+        <img src="https://img.shields.io/pypi/dw/microsoft-teams-cards" />
+    </a>
+</p>
+
 Adaptive Cards models and specialized action types for Microsoft Teams applications.
 Provides Pydantic-based models for creating Adaptive Cards and Teams-specific actions.
+
+<a href="https://microsoft.github.io/teams-ai" target="_blank">
+    <img src="https://img.shields.io/badge/📖 Getting Started-blue?style=for-the-badge" />
+</a>
 
 ## Features
 

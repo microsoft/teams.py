@@ -3,8 +3,22 @@
 
 # Microsoft Teams API Client
 
+<p>
+    <a href="https://www.npmjs.com/package/@microsoft/teams.api" target="_blank">
+        <img src="https://img.shields.io/pypi/v/microsoft-teams-api" />
+    </a>
+    <a href="https://www.npmjs.com/package/@microsoft/teams.api" target="_blank">
+        <img src="https://img.shields.io/pypi/dw/microsoft-teams-api" />
+    </a>
+</p>
+
 Core API client library for Microsoft Teams Bot Framework integration.
 Provides HTTP clients, authentication, and typed models for Teams Bot Framework APIs.
+
+<a href="https://microsoft.github.io/teams-ai" target="_blank">
+    <img src="https://img.shields.io/badge/📖 Getting Started-blue?style=for-the-badge" />
+</a>
+
 
 ## Features
 

@@ -1,6 +1,19 @@
 # Microsoft Teams Graph Integration
 
+<p>
+    <a href="https://www.npmjs.com/package/@microsoft/teams.api" target="_blank">
+        <img src="https://img.shields.io/pypi/v/microsoft-teams-graph" />
+    </a>
+    <a href="https://www.npmjs.com/package/@microsoft/teams.api" target="_blank">
+        <img src="https://img.shields.io/pypi/dw/microsoft-teams-graph" />
+    </a>
+</p>
+
 This package provides seamless access to Microsoft Graph APIs from Teams bots and agents built with the Microsoft Teams AI SDK for Python.
+
+<a href="https://microsoft.github.io/teams-ai" target="_blank">
+    <img src="https://img.shields.io/badge/📖 Getting Started-blue?style=for-the-badge" />
+</a>
 
 ## Key Features
 

@@ -1,10 +1,23 @@
 > [!CAUTION]
 > This project is in active development and not ready for production use. It has not been publicly announced yet.
 
-# Microsoft Teams App Framework
+# Microsoft Teams Apps Framework
+
+<p>
+    <a href="https://www.npmjs.com/package/@microsoft/teams.api" target="_blank">
+        <img src="https://img.shields.io/pypi/v/microsoft-teams-apps" />
+    </a>
+    <a href="https://www.npmjs.com/package/@microsoft/teams.api" target="_blank">
+        <img src="https://img.shields.io/pypi/dw/microsoft-teams-apps" />
+    </a>
+</p>
 
 High-level framework for building Microsoft Teams applications.
 Handles activity routing, authentication, and provides Microsoft Graph integration.
+
+<a href="https://microsoft.github.io/teams-ai" target="_blank">
+    <img src="https://img.shields.io/badge/📖 Getting Started-blue?style=for-the-badge" />
+</a>
 
 ## Features
 
