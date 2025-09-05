@@ -19,6 +19,8 @@ from mcp.types import TextContent
 
 from .transport import create_transport
 
+REFETCH_TIMEOUT_MS = 24 * 60 * 60 * 1000  # 1 day
+
 
 class McpToolDetails(BaseModel):
     """Details of an MCP tool."""
@@ -35,11 +37,11 @@ class McpCachedValue:
         self,
         transport: Optional[str] = None,
         available_tools: Optional[List[McpToolDetails]] = None,
-        last_attempted_fetch: Optional[float] = None,
+        last_fetched: Optional[float] = None,
     ):
         self.transport = transport
         self.available_tools = available_tools or []
-        self.last_attempted_fetch = last_attempted_fetch
+        self.last_fetched = last_fetched
 
 
 class McpClientPluginParams:
@@ -69,7 +71,7 @@ class McpClientPlugin(BaseAIPlugin):
         version: str = "0.0.0",
         cache: Optional[Dict[str, McpCachedValue]] = None,
         logger: Optional[logging.Logger] = None,
-        refetch_timeout_ms: int = 24 * 60 * 60 * 1000,  # 1 day
+        refetch_timeout_ms: int = REFETCH_TIMEOUT_MS,  # 1 day
     ):
         super().__init__(name)
 
@@ -77,6 +79,13 @@ class McpClientPlugin(BaseAIPlugin):
         self._cache: Dict[str, McpCachedValue] = cache or {}
         self._logger = logger.getChild(self.name) if logger else ConsoleLogger().create_logger(self.name)
         self._refetch_timeout_ms = refetch_timeout_ms
+
+        # If cache is provided, update last_fetched for entries with tools
+        if cache:
+            current_time = time.time() * 1000
+            for cached_value in cache.values():
+                if cached_value.available_tools and not cached_value.last_fetched:
+                    cached_value.last_fetched = current_time
 
         # Track MCP server URLs and their parameters
         self._mcp_server_params: Dict[str, McpClientPluginParams] = {}
@@ -105,7 +114,7 @@ class McpClientPlugin(BaseAIPlugin):
             self._cache[url] = McpCachedValue(
                 transport=params.transport,
                 available_tools=params.available_tools,
-                last_attempted_fetch=None,
+                last_fetched=time.time() * 1000,  # Set to current time in milliseconds
             )
 
     async def on_build_functions(self, functions: List[Function[BaseModel]]) -> List[Function[BaseModel]]:
@@ -127,7 +136,12 @@ class McpClientPlugin(BaseAIPlugin):
         return all_functions
 
     async def _fetch_tools_if_needed(self) -> None:
-        """Fetch tools from MCP servers if needed."""
+        """
+        Fetch tools from MCP servers if needed.
+
+        We check if there the cached value has met its expiration
+        for being refetched. Or if the tools have never been fetched at all
+        """
         fetch_needed: List[Tuple[str, McpClientPluginParams]] = []
         current_time = time.time() * 1000  # Convert to milliseconds
 
@@ -140,9 +154,8 @@ class McpClientPlugin(BaseAIPlugin):
             should_fetch = (
                 not cached_data
                 or not cached_data.available_tools
-                or not cached_data.last_attempted_fetch
-                or (current_time - cached_data.last_attempted_fetch)
-                > (params.refetch_timeout_ms or self._refetch_timeout_ms)
+                or not cached_data.last_fetched
+                or (current_time - cached_data.last_fetched) > (params.refetch_timeout_ms or self._refetch_timeout_ms)
             )
 
             if should_fetch:
@@ -164,7 +177,7 @@ class McpClientPlugin(BaseAIPlugin):
                     if url not in self._cache:
                         self._cache[url] = McpCachedValue()
                     self._cache[url].available_tools = result
-                    self._cache[url].last_attempted_fetch = current_time
+                    self._cache[url].last_fetched = current_time
                     self._cache[url].transport = params.transport
 
                     self._logger.debug(f"Cached {len(result)} tools for {url}")
