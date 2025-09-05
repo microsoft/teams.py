@@ -3,6 +3,7 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
+from dataclasses import dataclass, field
 from logging import Logger
 from typing import Any, List, Optional, TypedDict, cast
 
@@ -28,6 +29,37 @@ class AppOptions(TypedDict, total=False):
 
     # Oauth
     default_connection_name: Optional[str]
+
+
+@dataclass
+class InternalAppOptions:
+    """Internal dataclass for AppOptions with defaults and non-nullable fields."""
+
+    # Fields with defaults
+    enable_token_validation: bool = True
+    default_connection_name: str = "graph"
+    plugins: List[PluginBase] = field(default_factory=lambda: [])
+
+    # Optional fields
+    client_id: Optional[str] = None
+    client_secret: Optional[str] = None
+    tenant_id: Optional[str] = None
+    logger: Optional[Logger] = None
+    storage: Optional[Storage[str, Any]] = None
+
+    @classmethod
+    def from_typeddict(cls, options: AppOptions) -> "InternalAppOptions":
+        """
+        Create InternalAppOptions from AppOptions TypedDict with defaults applied.
+
+        Args:
+            options: AppOptions TypedDict (potentially with None values)
+
+        Returns:
+            InternalAppOptions with proper defaults and non-nullable required fields
+        """
+        kwargs: dict[str, Any] = {k: v for k, v in options.items() if v is not None}
+        return cls(**kwargs)
 
 
 def merge_app_options_with_defaults(**options: Unpack[AppOptions]) -> AppOptions:
