@@ -7,7 +7,7 @@ import asyncio
 import importlib.metadata
 import os
 from logging import Logger
-from typing import Any, Awaitable, Callable, List, Optional, TypeVar, Union, cast, overload
+from typing import Any, Awaitable, Callable, List, Optional, TypeVar, Union, Unpack, cast, overload
 
 from dependency_injector import providers
 from dotenv import find_dotenv, load_dotenv
@@ -41,7 +41,7 @@ from .events import (
 )
 from .graph_token_manager import GraphTokenManager
 from .http_plugin import HttpPlugin
-from .options import AppOptions
+from .options import AppOptions, InternalAppOptions
 from .plugins import PluginBase, PluginStartEvent, get_metadata
 from .routing import ActivityHandlerMixin, ActivityRouter
 
@@ -60,8 +60,8 @@ class App(ActivityHandlerMixin):
     Manages plugins, tokens, and application lifecycle for Microsoft Teams apps.
     """
 
-    def __init__(self, options: Optional[AppOptions] = None):
-        self.options = options or AppOptions()
+    def __init__(self, **options: Unpack[AppOptions]):
+        self.options = InternalAppOptions.from_typeddict(options)
 
         self.log = self.options.logger or ConsoleLogger().create_logger("@teams/app")
         self.storage = self.options.storage or LocalStorage()
@@ -93,7 +93,7 @@ class App(ActivityHandlerMixin):
             self.http_client.clone(ClientOptions(token=lambda: self.tokens.bot)),
         )
 
-        plugins: List[PluginBase] = list(self.options.plugins or [])
+        plugins: List[PluginBase] = list(self.options.plugins)
 
         http_plugin = None
         for i, plugin in enumerate(plugins):

@@ -102,7 +102,7 @@ class TestApp:
     @pytest.fixture(scope="function")
     def app_with_options(self, basic_options):
         """Create App with basic options."""
-        app = App(basic_options)
+        app = App(**basic_options)
         return self._mock_http_plugin(app)
 
     @pytest.fixture(scope="function")
@@ -115,13 +115,13 @@ class TestApp:
             client_secret="test-secret",
             plugins=[],
         )
-        app = App(options)
+        app = App(**options)
         app.on_activity(mock_activity_handler)
         return self._mock_http_plugin(app)
 
     def test_app_starts_successfully(self, basic_options):
         """Test that app can be created and initialized."""
-        app = App(basic_options)
+        app = App(**basic_options)
 
         # Basic functional test - app should be created and not running
         assert not app.is_running

@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 # Create app with OAuth connection
 app_options = AppOptions(default_connection_name=os.getenv("CONNECTION_NAME", "graph"))
-app = App(app_options)
+app = App(**app_options)
 
 
 async def get_authenticated_graph_client(ctx: ActivityContext[MessageActivity]):

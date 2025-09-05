@@ -5,27 +5,77 @@ Licensed under the MIT License.
 
 from dataclasses import dataclass, field
 from logging import Logger
-from typing import Any, List, Optional
+from typing import Any, List, Optional, TypedDict, cast
 
 from microsoft.teams.common.storage import Storage
+from typing_extensions import Unpack
 
 from .plugins import PluginBase
 
 
-@dataclass
-class AppOptions:
+class AppOptions(TypedDict, total=False):
     """Configuration options for the Teams App."""
 
     # Authentication credentials
+    client_id: Optional[str]
+    client_secret: Optional[str]
+    tenant_id: Optional[str]
+
+    # Infrastructure
+    logger: Optional[Logger]
+    storage: Optional[Storage[str, Any]]
+    plugins: Optional[List[PluginBase]]
+    enable_token_validation: Optional[bool]
+
+    # Oauth
+    default_connection_name: Optional[str]
+
+
+@dataclass
+class InternalAppOptions:
+    """Internal dataclass for AppOptions with defaults and non-nullable fields."""
+
+    # Fields with defaults
+    enable_token_validation: bool = True
+    default_connection_name: str = "graph"
+    plugins: List[PluginBase] = field(default_factory=lambda: [])
+
+    # Optional fields
     client_id: Optional[str] = None
     client_secret: Optional[str] = None
     tenant_id: Optional[str] = None
-
-    # Infrastructure
     logger: Optional[Logger] = None
     storage: Optional[Storage[str, Any]] = None
-    plugins: List[PluginBase] = field(default_factory=list[PluginBase])
-    enable_token_validation: bool = True
 
-    # Oauth
-    default_connection_name: str = "graph"
+    @classmethod
+    def from_typeddict(cls, options: AppOptions) -> "InternalAppOptions":
+        """
+        Create InternalAppOptions from AppOptions TypedDict with defaults applied.
+
+        Args:
+            options: AppOptions TypedDict (potentially with None values)
+
+        Returns:
+            InternalAppOptions with proper defaults and non-nullable required fields
+        """
+        kwargs: dict[str, Any] = {k: v for k, v in options.items() if v is not None}
+        return cls(**kwargs)
+
+
+def merge_app_options_with_defaults(**options: Unpack[AppOptions]) -> AppOptions:
+    """
+    Create AppOptions with default values merged with provided options.
+
+    Args:
+        **options: Configuration options to override defaults
+
+    Returns:
+        AppOptions with defaults applied
+    """
+    defaults: AppOptions = {
+        "enable_token_validation": True,
+        "default_connection_name": "graph",
+        "plugins": [],
+    }
+
+    return cast(AppOptions, {**defaults, **options})
