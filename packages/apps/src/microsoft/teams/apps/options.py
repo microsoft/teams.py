@@ -4,30 +4,30 @@ Licensed under the MIT License.
 """
 
 from logging import Logger
-from typing import Any, List, TypedDict, cast
+from typing import Any, List, Optional, TypedDict, cast
 
 from microsoft.teams.common.storage import Storage
-from typing_extensions import NotRequired, Unpack
+from typing_extensions import Unpack
 
 from .plugins import PluginBase
 
 
-class AppOptions(TypedDict):
+class AppOptions(TypedDict, total=False):
     """Configuration options for the Teams App."""
 
     # Authentication credentials
-    client_id: NotRequired[str]
-    client_secret: NotRequired[str]
-    tenant_id: NotRequired[str]
+    client_id: Optional[str]
+    client_secret: Optional[str]
+    tenant_id: Optional[str]
 
     # Infrastructure
-    logger: NotRequired[Logger]
-    storage: NotRequired[Storage[str, Any]]
-    plugins: NotRequired[List[PluginBase]]
-    enable_token_validation: NotRequired[bool]
+    logger: Optional[Logger]
+    storage: Optional[Storage[str, Any]]
+    plugins: Optional[List[PluginBase]]
+    enable_token_validation: Optional[bool]
 
     # Oauth
-    default_connection_name: NotRequired[str]
+    default_connection_name: Optional[str]
 
 
 def merge_app_options_with_defaults(**options: Unpack[AppOptions]) -> AppOptions:
