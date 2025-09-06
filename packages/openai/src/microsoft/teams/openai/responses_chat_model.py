@@ -85,7 +85,6 @@ class OpenAIResponsesAIModel(OpenAIBaseModel, AIModel):
         """Handle stateful conversation using OpenAI Responses API state management."""
         # Get response IDs from memory - OpenAI manages conversation state
         messages = list(await memory.get_all())
-        self.logger.debug(f"Retrieved {len(messages)} messages from memory")
 
         # Extract previous response ID from memory - look for ModelMessage with ID
         previous_response_id = None
@@ -103,9 +102,6 @@ class OpenAIResponsesAIModel(OpenAIBaseModel, AIModel):
         responses_input = self._convert_to_responses_format(input, None, messages)
         # Convert functions to tools format
         tools = self._convert_functions_to_tools(functions) if functions else NOT_GIVEN
-
-        if tools:
-            self.logger.debug(f"Tools being sent: {tools}")
 
         self.logger.debug(f"Making Responses API call with input type: {type(input).__name__}")
 
@@ -334,8 +330,6 @@ class OpenAIResponsesAIModel(OpenAIBaseModel, AIModel):
         content: str | None = None
         function_calls: list[FunctionCall] | None = None
 
-        self.logger.debug(f"Converting response: {type(response)}")
-
         # Extract content from response - use the proper Response attributes
         content = response.output_text
 
@@ -352,9 +346,5 @@ class OpenAIResponsesAIModel(OpenAIBaseModel, AIModel):
                         arguments=json.loads(response_output.arguments) if response_output.arguments else {},
                     )
                 )
-
-        self.logger.debug(f"Extracted content: {repr(content)}")
-        if function_calls:
-            self.logger.debug(f"Extracted {len(function_calls)} function calls")
 
         return ModelMessage(content=content, function_calls=function_calls)

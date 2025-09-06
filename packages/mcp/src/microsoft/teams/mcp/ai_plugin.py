@@ -105,8 +105,8 @@ class McpClientPlugin(BaseAIPlugin):
         """Get the refetch timeout in milliseconds."""
         return self._refetch_timeout_ms
 
-    def add_mcp_server(self, url: str, params: Optional[McpClientPluginParams] = None) -> None:
-        """Add an MCP server to be used by this plugin."""
+    def use_mcp_server(self, url: str, params: Optional[McpClientPluginParams] = None) -> None:
+        """Add or updates an MCP server to be used by this plugin."""
         self._mcp_server_params[url] = params or McpClientPluginParams()
 
         # Update cache if tools are provided
@@ -194,7 +194,7 @@ class McpClientPlugin(BaseAIPlugin):
             try:
                 self._logger.debug(f"Making call to {url} tool-name={tool_name}")
                 result = await self._call_mcp_tool(url, tool_name, params.model_dump(), plugin_params)
-                self._logger.debug("Successfully received result for mcp call")
+                self._logger.debug(f"Successfully received result for mcp call {result}")
                 return str(result)
             except Exception as e:
                 self._logger.error(f"Error calling tool {tool_name} on {url}: {e}")

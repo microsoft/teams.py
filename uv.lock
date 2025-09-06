@@ -1260,7 +1260,7 @@ dev = [
 
 [[package]]
 name = "microsoft-teams-mcp"
-version = "0.0.1a1"
+version = "0.0.1a4"
 source = { editable = "packages/mcp" }
 dependencies = [
     { name = "mcp" },
