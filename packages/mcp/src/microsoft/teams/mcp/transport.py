@@ -5,7 +5,7 @@ Licensed under the MIT License.
 
 import asyncio
 from contextlib import asynccontextmanager
-from typing import Awaitable, Callable, Dict, Optional, Union
+from typing import Awaitable, Callable, Dict, Mapping, Optional, Union
 
 from mcp.client.sse import sse_client
 from mcp.client.streamable_http import streamablehttp_client
@@ -16,7 +16,7 @@ ValueOrFactory = Union[str, Callable[[], Union[str, Awaitable[str]]]]
 @asynccontextmanager
 async def create_streamable_http_transport(
     url: str,
-    headers: Optional[Dict[str, ValueOrFactory]] = None,
+    headers: Optional[Mapping[str, ValueOrFactory]] = None,
 ):
     """Create a streamable HTTP transport for MCP communication."""
     resolved_headers: Dict[str, str] = {}
@@ -37,7 +37,7 @@ async def create_streamable_http_transport(
 @asynccontextmanager
 async def create_sse_transport(
     url: str,
-    headers: Optional[Dict[str, ValueOrFactory]] = None,
+    headers: Optional[Mapping[str, ValueOrFactory]] = None,
 ):
     """Create an SSE transport for MCP communication."""
     resolved_headers: Dict[str, str] = {}
@@ -58,7 +58,7 @@ async def create_sse_transport(
 def create_transport(
     url: str,
     transport_type: str = "streamable_http",
-    headers: Optional[Dict[str, ValueOrFactory]] = None,
+    headers: Optional[Mapping[str, ValueOrFactory]] = None,
 ):
     """Create the appropriate transport based on transport type."""
     if transport_type == "streamable_http":

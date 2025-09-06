@@ -7,7 +7,7 @@ import asyncio
 import json
 import logging
 import time
-from typing import Any, Awaitable, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from microsoft.teams.ai.function import Function
 from microsoft.teams.ai.plugin import BaseAIPlugin
@@ -17,49 +17,10 @@ from pydantic import BaseModel
 from mcp import ClientSession
 from mcp.types import TextContent
 
+from .models import McpCachedValue, McpClientPluginParams, McpToolDetails
 from .transport import create_transport
 
 REFETCH_TIMEOUT_MS = 24 * 60 * 60 * 1000  # 1 day
-
-
-class McpToolDetails(BaseModel):
-    """Details of an MCP tool."""
-
-    name: str
-    description: str
-    input_schema: Dict[str, Any]
-
-
-class McpCachedValue:
-    """Cached value for MCP server data."""
-
-    def __init__(
-        self,
-        transport: Optional[str] = None,
-        available_tools: Optional[List[McpToolDetails]] = None,
-        last_fetched: Optional[float] = None,
-    ):
-        self.transport = transport
-        self.available_tools = available_tools or []
-        self.last_fetched = last_fetched
-
-
-class McpClientPluginParams:
-    """Parameters for MCP client plugin configuration."""
-
-    def __init__(
-        self,
-        transport: Optional[str] = "streamable_http",
-        available_tools: Optional[List[McpToolDetails]] = None,
-        headers: Optional[Dict[str, Union[str, Callable[[], Union[str, Awaitable[str]]]]]] = None,
-        skip_if_unavailable: Optional[bool] = True,
-        refetch_timeout_ms: Optional[int] = None,
-    ):
-        self.transport = transport
-        self.available_tools = available_tools
-        self.headers = headers
-        self.skip_if_unavailable = skip_if_unavailable
-        self.refetch_timeout_ms = refetch_timeout_ms
 
 
 class McpClientPlugin(BaseAIPlugin):
@@ -256,7 +217,11 @@ class McpClientPlugin(BaseAIPlugin):
                             if isinstance(item, TextContent):
                                 contents.append(item.text)
                             else:
-                                contents.append(json.dumps(item))
+                                try:
+                                    contents.append(json.dumps(item, default=str, ensure_ascii=False))
+                                except (TypeError, ValueError) as e:
+                                    self._logger.warning(f"Failed to serialize content item: {e}")
+                                    contents.append(str(item))
                         return contents
 
                 return None
