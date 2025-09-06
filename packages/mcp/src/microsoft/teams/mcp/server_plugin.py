@@ -61,9 +61,22 @@ class McpServerPlugin(PluginBase):
         """Get the underlying FastMCP server."""
         return self.mcp_server
 
-    def add_function(self, function: Function[P]) -> "McpServerPlugin":
+    def use_tool(self, function: Function[P]) -> "McpServerPlugin":
         """
         Add a Teams AI function as an MCP tool.
+
+        This a convenience wrapper on top of the underlying FastMCP's add_tool.
+        Use it like:
+        ```py
+        mcp_server_plugin.use_tool(my_fn_definition)
+        ```
+
+        If you'd like to use that directly, you can call
+        ```py
+        @mcp_server_plugin.server.tool
+        def my_fn_definition(arg1: int, arg2: str): bool
+            ...
+        ```
 
         Args:
             function: The Teams AI function to register as an MCP tool
@@ -110,27 +123,22 @@ class McpServerPlugin(PluginBase):
             self.logger.error(f"Failed to register function '{function.name}' as MCP tool: {e}")
             raise
 
-    async def on_init(self) -> None:
-        """Initialize the plugin."""
-        self.logger.info("Initializing MCP server plugin")
-
     async def on_start(self, event: PluginStartEvent) -> None:
         """Start the plugin - mount MCP server on HTTP plugin."""
+
         if self._mounted:
             self.logger.warning("MCP server already mounted")
             return
 
         try:
-            # Mount the MCP streamable HTTP app on the existing FastAPI server
-            # mount_route = Mount(self.path, app=self.mcp_server.http_app())
-            # self.http.app.router.routes.append(mount_route)
-            mcp_http_app = self.mcp_server.http_app(path="/mcp", transport="http")
+            # We mount the mcp server as a separate app at self.path
+            mcp_http_app = self.mcp_server.http_app(path=self.path, transport="http")
             self.http.lifespans.append(mcp_http_app.lifespan)
             self.http.app.mount("/", mcp_http_app)
 
             self._mounted = True
 
-            self.logger.info(f"MCP server mounted at http://localhost:{event.port}{self.path}")
+            self.logger.info(f"MCP server mounted at {self.path}")
         except Exception as e:
             self.logger.error(f"Failed to mount MCP server: {e}")
             raise

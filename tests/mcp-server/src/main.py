@@ -21,12 +21,43 @@ async def get_weather_handler(params: GetWeatherParams):
     return f"The weather in {params.location} is sunny"
 
 
-mcp_server_plugin.add_function(
+class CalculateParams(BaseModel):
+    operation: str
+    a: float
+    b: float
+
+
+async def calculate_handler(params: CalculateParams) -> str:
+    match params.operation:
+        case "add":
+            return str(params.a + params.b)
+        case "subtract":
+            return str(params.a - params.b)
+        case "multiply":
+            return str(params.a * params.b)
+        case "divide":
+            return str(params.a / params.b) if params.b != 0 else "Cannot divide by zero"
+        case _:
+            return "Unknown operation"
+
+
+# Direct function call usage
+mcp_server_plugin.use_tool(
     Function(
         name="get_weather",
         description="Get a location's weather",
         parameter_schema=GetWeatherParams,
         handler=get_weather_handler,
+    )
+)
+
+# Second tool registration
+mcp_server_plugin.use_tool(
+    Function(
+        name="calculate",
+        description="Perform basic arithmetic operations",
+        parameter_schema=CalculateParams,
+        handler=calculate_handler,
     )
 )
 
