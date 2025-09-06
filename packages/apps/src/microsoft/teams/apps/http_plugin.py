@@ -5,7 +5,7 @@ Licensed under the MIT License.
 
 import asyncio
 import importlib.metadata
-from contextlib import asynccontextmanager
+from contextlib import AsyncExitStack, asynccontextmanager
 from logging import Logger
 from pathlib import Path
 from typing import Annotated, Any, AsyncGenerator, Awaitable, Callable, Dict, Optional, cast
@@ -26,6 +26,8 @@ from microsoft.teams.apps.http_stream import HttpStream
 from microsoft.teams.common.http.client import Client, ClientOptions
 from microsoft.teams.common.logging import ConsoleLogger
 from pydantic import BaseModel
+from starlette.applications import Starlette
+from starlette.types import Lifespan
 
 from .auth import create_jwt_validation_middleware
 from .events import ActivityEvent, ErrorEvent
@@ -60,6 +62,8 @@ class HttpPlugin(Sender):
     bot_token: Annotated[Optional[Callable[[], TokenProtocol]], DependencyMetadata(optional=True)]
     graph_token: Annotated[Optional[Callable[[], TokenProtocol]], DependencyMetadata(optional=True)]
 
+    lifespans: list[Lifespan[Starlette]] = []
+
     def __init__(
         self,
         app_id: Optional[str],
@@ -78,7 +82,7 @@ class HttpPlugin(Sender):
 
         # Setup FastAPI app with lifespan
         @asynccontextmanager
-        async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
+        async def default_lifespan(_app: Starlette) -> AsyncGenerator[None, None]:
             # Startup
             self.logger.info(f"listening on port {self._port} 🚀")
             if self._on_ready_callback:
@@ -89,7 +93,16 @@ class HttpPlugin(Sender):
             if self._on_stopped_callback:
                 await self._on_stopped_callback()
 
-        self.app = FastAPI(lifespan=lifespan)
+        @asynccontextmanager
+        async def combined_lifespan(app: Any):
+            async with AsyncExitStack() as stack:
+                lifespans = self.lifespans.copy()
+                lifespans.append(default_lifespan)
+                for lifespan in lifespans:
+                    await stack.enter_async_context(lifespan(app))
+                yield
+
+        self.app = FastAPI(lifespan=combined_lifespan)
 
         # Add JWT validation middleware
         if app_id and enable_token_validation:

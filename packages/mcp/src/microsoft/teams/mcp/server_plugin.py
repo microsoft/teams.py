@@ -4,9 +4,9 @@ Licensed under the MIT License.
 """
 
 import importlib.metadata
+import logging
 from inspect import isawaitable
-from logging import Logger
-from typing import Annotated, Any
+from typing import Annotated, Any, TypeVar
 
 from fastmcp import FastMCP
 from fastmcp.tools import FunctionTool
@@ -14,18 +14,19 @@ from microsoft.teams.ai import Function
 from microsoft.teams.apps import (
     DependencyMetadata,
     HttpPlugin,
-    LoggerDependencyOptions,
     Plugin,
     PluginBase,
     PluginStartEvent,
 )
+from microsoft.teams.common.logging import ConsoleLogger
 from pydantic import BaseModel
-from starlette.routing import Mount
 
 try:
     version = importlib.metadata.version("microsoft-teams-mcp")
 except importlib.metadata.PackageNotFoundError:
     version = "0.0.1-alpha.1"
+
+P = TypeVar("P", bound=BaseModel)
 
 
 @Plugin(
@@ -40,14 +41,9 @@ class McpServerPlugin(PluginBase):
     """
 
     # Dependency injection
-    logger: Annotated[Logger, LoggerDependencyOptions()]
     http: Annotated[HttpPlugin, DependencyMetadata()]
 
-    def __init__(
-        self,
-        name: str = "teams-mcp-server",
-        path: str = "/mcp",
-    ):
+    def __init__(self, name: str = "teams-mcp-server", path: str = "/mcp", logger: logging.Logger | None = None):
         """
         Initialize the MCP server plugin.
 
@@ -58,13 +54,14 @@ class McpServerPlugin(PluginBase):
         self.mcp_server = FastMCP(name)
         self.path = path
         self._mounted = False
+        self.logger = logger or ConsoleLogger().create_logger("mcp-server")
 
     @property
     def server(self) -> FastMCP:
         """Get the underlying FastMCP server."""
         return self.mcp_server
 
-    def add_function(self, function: Function[BaseModel]) -> "McpServerPlugin":
+    def add_function(self, function: Function[P]) -> "McpServerPlugin":
         """
         Add a Teams AI function as an MCP tool.
 
@@ -125,8 +122,11 @@ class McpServerPlugin(PluginBase):
 
         try:
             # Mount the MCP streamable HTTP app on the existing FastAPI server
-            mount_route = Mount(self.path, app=self.mcp_server.streamable_http_app())
-            self.http.app.router.routes.append(mount_route)
+            # mount_route = Mount(self.path, app=self.mcp_server.http_app())
+            # self.http.app.router.routes.append(mount_route)
+            mcp_http_app = self.mcp_server.http_app(path="/mcp", transport="http")
+            self.http.lifespans.append(mcp_http_app.lifespan)
+            self.http.app.mount("/", mcp_http_app)
 
             self._mounted = True
 
