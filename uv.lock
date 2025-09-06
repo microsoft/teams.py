@@ -1264,10 +1264,16 @@ version = "0.0.1a4"
 source = { editable = "packages/mcp" }
 dependencies = [
     { name = "mcp" },
+    { name = "microsoft-teams-ai" },
+    { name = "microsoft-teams-common" },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "mcp", specifier = ">=1.13.1" }]
+requires-dist = [
+    { name = "mcp", specifier = ">=1.13.1" },
+    { name = "microsoft-teams-ai", editable = "packages/ai" },
+    { name = "microsoft-teams-common", editable = "packages/common" },
+]
 
 [[package]]
 name = "microsoft-teams-openai"

@@ -10,6 +10,8 @@ keywords = ["microsoft", "teams", "ai", "bot", "agents"]
 license = "MIT"
 dependencies = [
     "mcp>=1.13.1",
+    "microsoft-teams-ai",
+    "microsoft-teams-common",
 ]
 
 [build-system]
@@ -21,3 +23,7 @@ packages = ["src/microsoft"]
 
 [tool.hatch.build.targets.sdist]
 include = ["src"]
+
+[tool.uv.sources]
+microsoft-teams-ai = { workspace = true }
+microsoft-teams-common = { workspace = true }
