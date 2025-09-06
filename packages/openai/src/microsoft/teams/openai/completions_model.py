@@ -38,6 +38,8 @@ from openai.types.chat import (
     ChatCompletionUserMessageParam,
 )
 
+from .function_utils import get_function_schema, parse_function_arguments
+
 
 class _ToolCallData(TypedDict):
     id: str
@@ -128,8 +130,8 @@ class OpenAICompletionsAIModel(OpenAIBaseModel, AIModel):
                 if functions and call.name in functions:
                     function = functions[call.name]
                     try:
-                        # Parse arguments into Pydantic model
-                        parsed_args = function.parameter_schema(**call.arguments)
+                        # Parse arguments using utility function
+                        parsed_args = parse_function_arguments(function, call.arguments)
 
                         # Handle both sync and async function handlers
                         result = function.handler(parsed_args)
@@ -263,7 +265,7 @@ class OpenAICompletionsAIModel(OpenAIBaseModel, AIModel):
                 "function": {
                     "name": func.name,
                     "description": func.description,
-                    "parameters": func.parameter_schema.model_json_schema(),
+                    "parameters": get_function_schema(func),
                 },
             }
             for func in function_values

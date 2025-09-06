@@ -32,3 +32,8 @@ CLAUDE.md
 
 .env.claude/
 .claude/
+
+tests/**/.vscode/
+tests/**/appPackage/
+tests/**/infra/
+tests/**/teamsapp*
