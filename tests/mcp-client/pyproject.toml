@@ -1,5 +1,5 @@
 [project]
-name = "mcp-test"
+name = "mcp-client"
 version = "0.1.0"
 description = "a test to test out mcp  client and server"
 readme = "README.md"

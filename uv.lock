@@ -8,8 +8,8 @@ members = [
     "dialogs",
     "echo",
     "graph",
+    "mcp-client",
     "mcp-server",
-    "mcp-test",
     "message-extensions",
     "microsoft-teams-ai",
     "microsoft-teams-api",
@@ -1089,6 +1089,25 @@ wheels = [
 ]
 
 [[package]]
+name = "mcp-client"
+version = "0.1.0"
+source = { virtual = "tests/mcp-client" }
+dependencies = [
+    { name = "dotenv" },
+    { name = "microsoft-teams-ai" },
+    { name = "microsoft-teams-common" },
+    { name = "microsoft-teams-openai" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "dotenv", specifier = ">=0.9.9" },
+    { name = "microsoft-teams-ai", editable = "packages/ai" },
+    { name = "microsoft-teams-common", editable = "packages/common" },
+    { name = "microsoft-teams-openai", editable = "packages/openai" },
+]
+
+[[package]]
 name = "mcp-server"
 version = "0.1.0"
 source = { virtual = "tests/mcp-server" }
@@ -1103,25 +1122,6 @@ requires-dist = [
     { name = "dotenv", specifier = ">=0.9.9" },
     { name = "microsoft-teams-apps", editable = "packages/apps" },
     { name = "microsoft-teams-mcp", editable = "packages/mcp" },
-]
-
-[[package]]
-name = "mcp-test"
-version = "0.1.0"
-source = { virtual = "tests/mcp" }
-dependencies = [
-    { name = "dotenv" },
-    { name = "microsoft-teams-ai" },
-    { name = "microsoft-teams-common" },
-    { name = "microsoft-teams-openai" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "dotenv", specifier = ">=0.9.9" },
-    { name = "microsoft-teams-ai", editable = "packages/ai" },
-    { name = "microsoft-teams-common", editable = "packages/common" },
-    { name = "microsoft-teams-openai", editable = "packages/openai" },
 ]
 
 [[package]]
@@ -1441,27 +1441,19 @@ dependencies = [
     { name = "fastmcp" },
     { name = "mcp" },
     { name = "microsoft-teams-ai" },
-<<<<<<< HEAD
     { name = "microsoft-teams-common" },
-=======
-    { name = "microsoft-teams-apps" },
     { name = "starlette" },
->>>>>>> a048adb (Create MCP Server)
 ]
 
 [package.metadata]
 requires-dist = [
-<<<<<<< HEAD
     { name = "mcp", specifier = ">=1.13.1" },
     { name = "microsoft-teams-ai", editable = "packages/ai" },
     { name = "microsoft-teams-common", editable = "packages/common" },
-=======
     { name = "fastmcp", specifier = ">=0.5.0" },
     { name = "mcp", specifier = ">=1.13.1" },
     { name = "microsoft-teams-ai", editable = "packages/ai" },
     { name = "microsoft-teams-apps", editable = "packages/apps" },
-    { name = "starlette" },
->>>>>>> a048adb (Create MCP Server)
 ]
 
 [[package]]

@@ -13,8 +13,7 @@ dependencies = [
     "microsoft-teams-common",
     "fastmcp>=0.5.0",
     "microsoft.teams.apps",
-    "microsoft.teams.ai", 
-    "starlette",
+    "microsoft.teams.ai" 
 ]
 
 [tool.microsoft-teams.metadata]
