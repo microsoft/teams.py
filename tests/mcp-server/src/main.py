@@ -6,7 +6,7 @@ Licensed under the MIT License.
 import asyncio
 
 from microsoft.teams.ai import Function
-from microsoft.teams.apps import App, AppOptions
+from microsoft.teams.apps import App
 from microsoft.teams.mcp import McpServerPlugin
 from pydantic import BaseModel
 
@@ -61,7 +61,7 @@ mcp_server_plugin.use_tool(
     )
 )
 
-app = App(AppOptions(plugins=[mcp_server_plugin]))
+app = App(plugins=[mcp_server_plugin])
 
 
 if __name__ == "__main__":
