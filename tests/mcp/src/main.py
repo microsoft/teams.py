@@ -12,12 +12,11 @@ from microsoft.teams.ai.memory import ListMemory
 from microsoft.teams.api import MessageActivity
 from microsoft.teams.api.activities.typing import TypingActivityInput
 from microsoft.teams.apps import ActivityContext, App
-from microsoft.teams.apps.options import AppOptions
 from microsoft.teams.devtools import DevToolsPlugin
 from microsoft.teams.mcp.ai_plugin import McpClientPlugin
 from microsoft.teams.openai import OpenAIResponsesAIModel
 
-app = App(AppOptions(plugins=[DevToolsPlugin()]))
+app = App(plugins=[DevToolsPlugin()])
 load_dotenv(find_dotenv(usecwd=True))
 
 
@@ -42,7 +41,7 @@ responses_openai_ai_model = OpenAIResponsesAIModel(
 )
 chat_memory = ListMemory()
 mcp_plugin = McpClientPlugin()
-mcp_plugin.add_mcp_server("https://learn.microsoft.com/api/mcp")
+mcp_plugin.use_mcp_server("https://learn.microsoft.com/api/mcp")
 
 responses_agent = Agent(responses_openai_ai_model, memory=chat_memory, plugins=[mcp_plugin])
 
