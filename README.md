@@ -5,27 +5,58 @@
 
 A comprehensive SDK for building Microsoft Teams applications, bots, and AI agents using Python. This SDK provides a high-level framework with built-in Microsoft Graph integration, OAuth handling, and extensible plugin architecture.
 
+<a href="https://microsoft.github.io/teams-ai" target="_blank">
+    <img src="https://img.shields.io/badge/📖 Getting Started-blue?style=for-the-badge" />
+</a>
+
+- [Getting Started](#getting-started)
+- [Packages](#packages)
+- [Test Apps](#test-apps)
+- [Links](#links)
+
 ## Getting Started
 
 ### Prerequisites
 
-Note: Ensure uv version is >= 0.8.11
-Install [uv](https://docs.astral.sh/uv/getting-started/installation/)
+- UV version is >= 0.8.11. Install and upgrade from [docs.astral.sh/uv](https://docs.astral.sh/uv/getting-started/installation/).
+- Python version is >= 3.12.  Install or upgrade from [python.org/downloads](https://www.python.org/downloads/).
 
-### Installing
+### Installation
 
-1. `uv sync --all-packages --group dev` - it installs the virtual env and dependencies
-   - If you are using Windows, you may need to manually install [cargo](https://doc.rust-lang.org/cargo/getting-started/installation.html)
-2. Activate virtual env
+#### 1. Install the dependencies.
+```bash
+ uv sync --all-packages --group dev
+```
 
-- Mac: `source .venv/bin/activate`
-- Windows: `.venv\Scripts\Activate`
-
+#### 2. Activate the virtual env
 > **Note:** After the initial setup, you need to activate the virtual environment each time you start a new terminal session
+```bash
+# On Mac
+ `source .venv/bin/activate`
 
-3. Install pre-commit hooks: `pre-commit install`
+# On Windows
+ `.venv\Scripts\Activate`
+```
 
-## Creating a new package
+#### 3. Install the pre-commit hooks
+```bash
+ pre-commit install
+```
+
+## Packages
+
+> ℹ️ core packages used to build client/server apps for Teams.
+
+- [`microsoft-teams-apps`](./packages/apps/README.md)
+- [`microsoft-teams-ai`](./packages/ai/README.md)
+- [`microsoft-teams-api`](./packages/api/README.md)
+- [`microsoft-teams-cards`](./packages/cards/README.md)
+- [`microsoft-teams-common`](./packages/common/README.md)
+- [`microsoft-teams-devtools`](./packages/devtools/README.md)
+- [`microsoft-teams-graph`](./packages/graph/README.md)
+- [`microsoft-teams-openai`](./packages/openai/README.md)
+
+### Create a New Package
 
 We use [cookiecutter](https://cookiecutter.readthedocs.io/en/latest/README.html) to create new packages. To create a new package, run:
 
@@ -35,10 +66,32 @@ cookiecutter templates/package -o packages
 
 Follow the prompts to name the package and the directory. It should create the package folder in the `packages` directory.
 
-## Creating a new test package
+### Create A New Test Package
 
 Similarly, to create a new test package, run:
 
 ```bash
 cookiecutter templates/test -o tests
 ```
+
+## Test Apps
+
+> ℹ️ used to test the SDK or as a visual sample of how certain features can be implemented.
+
+> ⚠️ **WARNING** these apps are changed often and are not intended to be used outside the
+> projects monorepo. To easily setup a new project please use the **templates** available via
+> the [@microsoft/teams.cli](https://www.npmjs.com/package/@microsoft/teams.cli) and follow the
+> [Getting Started](https://microsoft.github.io/teams-ai/python/getting-started) documentation!
+
+- [`@tests/echo`](./tests/echo/README.md)
+- [`@tests/message-extensions`](./tests/message-extensions/README.md)
+- [`@tests/dialogs`](./tests/dialogs/README.md)
+- [`@tests/graph`](./tests/graph/README.md)
+- [`@tests/ai-test`](./tests/ai-test/README.md)
+- [`@tests/stream`](./tests/stream/README.md)
+- [`@tests/oauth`](./tests/oauth/README.md)
+
+## Links
+
+- [Teams Developer Portal: Apps](https://dev.teams.microsoft.com/apps)
+- [Teams Toolkit](https://www.npmjs.com/package/@microsoft/teamsapp-cli)

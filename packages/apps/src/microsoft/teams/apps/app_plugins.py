@@ -63,7 +63,7 @@ class PluginProcessor:
             if class_name != name:
                 self.container.set_provider(class_name, providers.Object(plugin))
 
-        self.logger.info("Successfully initialized all plugins")
+        self.logger.debug("Successfully initialized all plugins")
         return self.plugins
 
     def get_plugin(self, name: str) -> Optional[PluginBase]:
