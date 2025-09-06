@@ -107,8 +107,7 @@ class ActivityProcessor:
             )
             user_token = user_token_res.token
             is_signed_in = True
-        except Exception as e:
-            self.logger.debug(f"No token available {e}")
+        except Exception:
             # User token not available
             pass
 
