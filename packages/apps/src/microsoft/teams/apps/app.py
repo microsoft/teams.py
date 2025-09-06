@@ -297,9 +297,11 @@ class App(ActivityHandlerMixin):
         else:
             self.log.debug(f"Using TENANT_ID: {tenant_id} (assuming single-tenant app)")
 
+        # - If client_id + client_secret : use ClientCredentials (standard client auth)
         if client_id and client_secret:
             return ClientCredentials(client_id=client_id, client_secret=client_secret, tenant_id=tenant_id)
 
+        # - If client_id + token callable : use TokenCredentials (where token is a custom token provider)
         if client_id and token:
             return TokenCredentials(client_id=client_id, tenant_id=tenant_id, token=token)
 

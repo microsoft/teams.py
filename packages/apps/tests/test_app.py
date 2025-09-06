@@ -9,15 +9,16 @@ from typing import Optional
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from microsoft.teams.api import TokenProtocol
-from microsoft.teams.api.activities import InvokeActivity
-from microsoft.teams.api.activities.message import MessageActivity
-from microsoft.teams.api.activities.typing import TypingActivity
-from microsoft.teams.api.models import Account, ConversationAccount
-from microsoft.teams.apps.app import App
-from microsoft.teams.apps.events import ActivityEvent
-from microsoft.teams.apps.options import AppOptions
-from microsoft.teams.apps.routing.activity_context import ActivityContext
+from microsoft.teams.api import (
+    Account,
+    ConversationAccount,
+    InvokeActivity,
+    MessageActivity,
+    TokenCredentials,
+    TokenProtocol,
+    TypingActivity,
+)
+from microsoft.teams.apps import ActivityContext, ActivityEvent, App, AppOptions
 
 
 class FakeToken(TokenProtocol):
@@ -493,3 +494,30 @@ class TestApp:
         # Verify non-matching activity doesn't match
         non_matching_handlers = app_with_options.router.select_handlers(non_matching_activity)
         assert len(non_matching_handlers) == 0
+
+    @pytest.mark.asyncio
+    async def test_app_with_callable_token(self):
+        """Test that app initializes with callable token."""
+        token_called = False
+
+        def get_token(scope, tenant_id=None):
+            nonlocal token_called
+            token_called = True
+            return "test.jwt.token"
+
+        options = AppOptions(client_id="test-client-123", token=get_token)
+
+        app = App(**options)
+
+        assert app.credentials is not None
+        assert type(app.credentials) is TokenCredentials
+        assert app.credentials.client_id == "test-client-123"
+        assert callable(app.credentials.token)
+
+        # result = app.credentials.token("https://api.botframework.com/.default", None)
+        # assert result == "test.jwt.token"
+        # assert token_called
+
+        res = await app.api.bots.token.get(app.credentials)
+        assert token_called is True
+        assert res.access_token == "test.jwt.token"

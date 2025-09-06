@@ -20,6 +20,7 @@ class AppOptions(TypedDict, total=False):
     client_id: Optional[str]
     client_secret: Optional[str]
     tenant_id: Optional[str]
+    # Custom token provider function
     token: Optional[Callable[[Union[str, list[str]], Optional[str]], Union[str, Awaitable[str]]]]
 
     # Infrastructure
