@@ -514,10 +514,6 @@ class TestApp:
         assert app.credentials.client_id == "test-client-123"
         assert callable(app.credentials.token)
 
-        # result = app.credentials.token("https://api.botframework.com/.default", None)
-        # assert result == "test.jwt.token"
-        # assert token_called
-
         res = await app.api.bots.token.get(app.credentials)
         assert token_called is True
         assert res.access_token == "test.jwt.token"
