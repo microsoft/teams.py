@@ -22,9 +22,9 @@ from microsoft.teams.api import (
     SentActivity,
     TokenProtocol,
 )
+from microsoft.teams.api.auth.credentials import Credentials
 from microsoft.teams.apps.http_stream import HttpStream
 from microsoft.teams.common.http.client import Client, ClientOptions
-from microsoft.teams.common.logging import ConsoleLogger
 from pydantic import BaseModel
 
 from .auth import create_jwt_validation_middleware
@@ -39,7 +39,7 @@ from .plugins import (
     Sender,
     StreamerProtocol,
 )
-from .plugins.metadata import Plugin
+from .plugins.metadata import CredentialsDependencyOptions, Plugin
 
 version = importlib.metadata.version("microsoft-teams-apps")
 
@@ -54,6 +54,7 @@ class HttpPlugin(Sender):
 
     on_error_event: Annotated[Callable[[ErrorEvent], None], EventMetadata(name="error")]
     on_activity_event: Annotated[Callable[[ActivityEvent], None], EventMetadata(name="activity")]
+    credentials: Annotated[Credentials, CredentialsDependencyOptions(optional=True)]
 
     client: Annotated[Client, DependencyMetadata()]
 
@@ -62,12 +63,10 @@ class HttpPlugin(Sender):
 
     def __init__(
         self,
-        app_id: Optional[str],
-        logger: Optional[Logger] = None,
         enable_token_validation: bool = True,
     ):
         super().__init__()
-        self.logger = logger or ConsoleLogger().create_logger("@teams/http-plugin")
+        self.enable_token_validation = enable_token_validation
         self._server: Optional[uvicorn.Server] = None
         self._port: Optional[int] = None
         self._on_ready_callback: Optional[Callable[[], Awaitable[None]]] = None
@@ -76,6 +75,7 @@ class HttpPlugin(Sender):
         # Storage for pending HTTP responses by activity ID
         self.pending: Dict[str, asyncio.Future[Any]] = {}
 
+    async def on_init(self) -> None:
         # Setup FastAPI app with lifespan
         @asynccontextmanager
         async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
@@ -92,12 +92,11 @@ class HttpPlugin(Sender):
         self.app = FastAPI(lifespan=lifespan)
 
         # Add JWT validation middleware
-        if app_id and enable_token_validation:
+        if self.credentials.client_id and self.enable_token_validation:
             jwt_middleware = create_jwt_validation_middleware(
-                app_id=app_id, logger=self.logger, paths=["/api/messages"]
+                app_id=self.credentials.client_id, logger=self.logger, paths=["/api/messages"]
             )
             self.app.middleware("http")(jwt_middleware)
-
         # Expose FastAPI routing methods (like TypeScript exposes Express methods)
         self.get = self.app.get
         self.post = self.app.post
@@ -276,36 +275,36 @@ class HttpPlugin(Sender):
 
         return result
 
+    async def on_activity_request(self, request: Request, response: Response) -> Any:
+        """Handle incoming Teams activity."""
+        # Process the activity (token validation handled by middleware)
+        result = await self._handle_activity_request(request)
+        status_code: Optional[int] = None
+        body: Optional[Dict[str, Any]] = None
+        resp_dict: Optional[Dict[str, Any]] = None
+        if isinstance(result, dict):
+            resp_dict = cast(Dict[str, Any], result)
+        elif isinstance(result, BaseModel):
+            resp_dict = result.model_dump(exclude_none=True)
+
+        # if resp_dict has status set it
+        if resp_dict and "status" in resp_dict:
+            status_code = resp_dict.get("status")
+
+        if resp_dict and "body" in resp_dict:
+            body = resp_dict.get("body", None)
+
+        if status_code is not None:
+            response.status_code = status_code
+
+        if body is not None:
+            return body
+        return cast(Any, result)
+
     def _setup_routes(self) -> None:
         """Setup FastAPI routes."""
 
-        async def on_activity_request(request: Request, response: Response) -> Any:
-            """Handle incoming Teams activity."""
-            # Process the activity (token validation handled by middleware)
-            result = await self._handle_activity_request(request)
-            status_code: Optional[int] = None
-            body: Optional[Dict[str, Any]] = None
-            resp_dict: Optional[Dict[str, Any]] = None
-            if isinstance(result, dict):
-                resp_dict = cast(Dict[str, Any], result)
-            elif isinstance(result, BaseModel):
-                resp_dict = result.model_dump(exclude_none=True)
-
-            # if resp_dict has status set it
-            if resp_dict and "status" in resp_dict:
-                status_code = resp_dict.get("status")
-
-            if resp_dict and "body" in resp_dict:
-                body = resp_dict.get("body", None)
-
-            if status_code is not None:
-                response.status_code = status_code
-
-            if body is not None:
-                return body
-            return cast(Any, result)
-
-        self.app.post("/api/messages")(on_activity_request)
+        self.app.post("/api/messages")(self.on_activity_request)
 
         async def health_check() -> Dict[str, Any]:
             """Basic health check endpoint."""

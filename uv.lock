@@ -5,6 +5,7 @@ requires-python = ">=3.12"
 [manifest]
 members = [
     "ai-test",
+    "botbuilder-test",
     "dialogs",
     "echo",
     "graph",
@@ -12,6 +13,7 @@ members = [
     "microsoft-teams-ai",
     "microsoft-teams-api",
     "microsoft-teams-apps",
+    "microsoft-teams-botbuilder",
     "microsoft-teams-cards",
     "microsoft-teams-common",
     "microsoft-teams-devtools",
@@ -207,6 +209,88 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/a7/fe/7ebfec74d49f97fc55cd38240c7a7d08134002b1e14be8c3897c0dd5e49b/binaryornot-0.4.4.tar.gz", hash = "sha256:359501dfc9d40632edc9fac890e19542db1a287bbcfa58175b66658392018061", size = 371054, upload-time = "2017-08-03T15:55:25.08Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/24/7e/f7b6f453e6481d1e233540262ccbfcf89adcd43606f44a028d7f5fae5eb2/binaryornot-0.4.4-py2.py3-none-any.whl", hash = "sha256:b8b71173c917bddcd2c16070412e369c3ed7f0528926f70cac18a6c97fd563e4", size = 9006, upload-time = "2017-08-03T15:55:31.23Z" },
+]
+
+[[package]]
+name = "botbuilder-core"
+version = "4.17.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "botbuilder-schema" },
+    { name = "botframework-connector" },
+    { name = "botframework-streaming" },
+    { name = "jsonpickle" },
+]
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/5e/51/0e4d0ba1fc25d57977e17d7bfd55c7bd06a9d8403d5efb23e6fc512356fa/botbuilder_core-4.17.0-py3-none-any.whl", hash = "sha256:56828b11d9af663a200fba0fae4e0b9ad6f815a679c3e90e9b6425b9cbe16d53", size = 116148, upload-time = "2025-05-29T15:10:00.474Z" },
+]
+
+[[package]]
+name = "botbuilder-integration-aiohttp"
+version = "4.17.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "aiohttp" },
+    { name = "botbuilder-core" },
+    { name = "botbuilder-schema" },
+    { name = "botframework-connector" },
+    { name = "yarl" },
+]
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/92/e2/78d9ed5beeeaf9dcdcfd8b7dd0fe4116c8b3ed55b81eb9b01b28037a2b7c/botbuilder_integration_aiohttp-4.17.0-py3-none-any.whl", hash = "sha256:30cd8de3eeec132463bf1834fbd6cfbc6c4a9a361bf478627b6b2f0e7ee211b6", size = 19030, upload-time = "2025-05-29T15:10:02.884Z" },
+]
+
+[[package]]
+name = "botbuilder-schema"
+version = "4.17.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "msrest" },
+    { name = "urllib3" },
+]
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/51/10/db5e16bf91fe60b78c88bf42b46e87af7f75097303cece71478a5ae46ccf/botbuilder_schema-4.17.0-py2.py3-none-any.whl", hash = "sha256:97219f8361a91bfa1529ba1231100b527adbe7c4c249d6b23fe1bffaf012b31b", size = 38197, upload-time = "2025-05-29T15:10:05.111Z" },
+]
+
+[[package]]
+name = "botbuilder-test"
+version = "0.1.0"
+source = { virtual = "tests/botbuilder-test" }
+dependencies = [
+    { name = "dotenv" },
+    { name = "microsoft-teams-apps" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "dotenv", specifier = ">=0.9.9" },
+    { name = "microsoft-teams-apps", editable = "packages/apps" },
+]
+
+[[package]]
+name = "botframework-connector"
+version = "4.17.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "botbuilder-schema" },
+    { name = "msal" },
+    { name = "msrest" },
+    { name = "pyjwt" },
+]
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/92/df/8daa548a5c73d673e8464cbd156dd8235d6efc35296ad45e89ff9f97c109/botframework_connector-4.17.0-py2.py3-none-any.whl", hash = "sha256:51b8702cc348c63efbdb571f6a4da868d1660efb80ed77d6e04f081720105a87", size = 100886, upload-time = "2025-05-29T15:10:07.271Z" },
+]
+
+[[package]]
+name = "botframework-streaming"
+version = "4.17.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "botbuilder-schema" },
+    { name = "botframework-connector" },
+]
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/7c/d2/c55470c918c403ebd76b3c1b54e312021bf7edacaf61e4b1c3b132216490/botframework_streaming-4.17.0-py3-none-any.whl", hash = "sha256:ed64fd2a9f56a3d32dd252bf378d0ce145a9bbc9c9a9a0e770889c7d140df435", size = 41953, upload-time = "2025-05-29T15:10:08.499Z" },
 ]
 
 [[package]]
@@ -761,6 +845,15 @@ wheels = [
 ]
 
 [[package]]
+name = "isodate"
+version = "0.7.2"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/54/4d/e940025e2ce31a8ce1202635910747e5a87cc3a6a6bb2d00973375014749/isodate-0.7.2.tar.gz", hash = "sha256:4cd1aa0f43ca76f4a6c6c0292a85f40b35ec2e43e315b59f06e6d32171a953e6", size = 29705, upload-time = "2024-10-08T23:04:11.5Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/15/aa/0aca39a37d3c7eb941ba736ede56d689e7be91cab5d9ca846bde3999eba6/isodate-0.7.2-py3-none-any.whl", hash = "sha256:28009937d8031054830160fce6d409ed342816b543597cece116d966c6d99e15", size = 22320, upload-time = "2024-10-08T23:04:09.501Z" },
+]
+
+[[package]]
 name = "jinja2"
 version = "3.1.6"
 source = { registry = "https://pypi.org/simple" }
@@ -818,6 +911,15 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/d8/b3/2bd02071c5a2430d0b70403a34411fc519c2f227da7b03da9ba6a956f931/jiter-0.10.0-cp314-cp314-win32.whl", hash = "sha256:ac509f7eccca54b2a29daeb516fb95b6f0bd0d0d8084efaf8ed5dfc7b9f0b357", size = 210127, upload-time = "2025-05-18T19:04:38.837Z" },
     { url = "https://files.pythonhosted.org/packages/03/0c/5fe86614ea050c3ecd728ab4035534387cd41e7c1855ef6c031f1ca93e3f/jiter-0.10.0-cp314-cp314t-macosx_11_0_arm64.whl", hash = "sha256:5ed975b83a2b8639356151cef5c0d597c68376fc4922b45d0eb384ac058cfa00", size = 318527, upload-time = "2025-05-18T19:04:40.612Z" },
     { url = "https://files.pythonhosted.org/packages/b3/4a/4175a563579e884192ba6e81725fc0448b042024419be8d83aa8a80a3f44/jiter-0.10.0-cp314-cp314t-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:3aa96f2abba33dc77f79b4cf791840230375f9534e5fac927ccceb58c5e604a5", size = 354213, upload-time = "2025-05-18T19:04:41.894Z" },
+]
+
+[[package]]
+name = "jsonpickle"
+version = "1.4.2"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/63/df/8072fb98c12d78dd29b4a52c50af7ab548f84166b8a3d363c1c754c14af0/jsonpickle-1.4.2.tar.gz", hash = "sha256:c9b99b28a9e6a3043ec993552db79f4389da11afcb1d0246d93c79f4b5e64062", size = 104745, upload-time = "2020-11-30T03:21:56.571Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ee/d5/1cc282dc23346a43aab461bf2e8c36593aacd34242bee1a13fa750db0cfe/jsonpickle-1.4.2-py2.py3-none-any.whl", hash = "sha256:2ac5863099864c63d7f0c367af5e512c94f3384977dd367f2eae5f2303f7b92c", size = 36529, upload-time = "2020-11-30T03:21:53.857Z" },
 ]
 
 [[package]]
@@ -1078,6 +1180,17 @@ test = [
 ]
 
 [[package]]
+name = "microsoft-teams-botbuilder"
+version = "0.0.1a4"
+source = { editable = "packages/botbuilder" }
+dependencies = [
+    { name = "botbuilder-integration-aiohttp" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "botbuilder-integration-aiohttp", specifier = ">=4.17.0" }]
+
+[[package]]
 name = "microsoft-teams-cards"
 version = "0.0.1a4"
 source = { editable = "packages/cards" }
@@ -1255,6 +1368,22 @@ wheels = [
 ]
 
 [[package]]
+name = "msrest"
+version = "0.7.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "azure-core" },
+    { name = "certifi" },
+    { name = "isodate" },
+    { name = "requests" },
+    { name = "requests-oauthlib" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/68/77/8397c8fb8fc257d8ea0fa66f8068e073278c65f05acb17dcb22a02bfdc42/msrest-0.7.1.zip", hash = "sha256:6e7661f46f3afd88b75667b7187a92829924446c7ea1d169be8c4bb7eeb788b9", size = 175332, upload-time = "2022-06-13T22:41:25.111Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/15/cf/f2966a2638144491f8696c27320d5219f48a072715075d168b31d3237720/msrest-0.7.1-py3-none-any.whl", hash = "sha256:21120a810e1233e5e6cc7fe40b474eeb4ec6f757a15d7cf86702c369f9567c32", size = 85384, upload-time = "2022-06-13T22:41:22.42Z" },
+]
+
+[[package]]
 name = "multidict"
 version = "6.6.4"
 source = { registry = "https://pypi.org/simple" }
@@ -1339,6 +1468,15 @@ dependencies = [
 requires-dist = [
     { name = "dotenv", specifier = ">=0.9.9" },
     { name = "microsoft-teams-apps", editable = "packages/apps" },
+]
+
+[[package]]
+name = "oauthlib"
+version = "3.3.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/0b/5f/19930f824ffeb0ad4372da4812c50edbd1434f678c90c2733e1188edfc63/oauthlib-3.3.1.tar.gz", hash = "sha256:0f0f8aa759826a193cf66c12ea1af1637f87b9b4622d46e866952bb022e538c9", size = 185918, upload-time = "2025-06-19T22:48:08.269Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/be/9c/92789c596b8df838baa98fa71844d84283302f7604ed565dafe5a6b5041a/oauthlib-3.3.1-py3-none-any.whl", hash = "sha256:88119c938d2b8fb88561af5f6ee0eec8cc8d552b7bb1f712743136eb7523b7a1", size = 160065, upload-time = "2025-06-19T22:48:06.508Z" },
 ]
 
 [[package]]
@@ -1724,6 +1862,19 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/e1/0a/929373653770d8a0d7ea76c37de6e41f11eb07559b103b1c02cafb3f7cf8/requests-2.32.4.tar.gz", hash = "sha256:27d0316682c8a29834d3264820024b62a36942083d52caf2f14c0591336d3422", size = 135258, upload-time = "2025-06-09T16:43:07.34Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/7c/e4/56027c4a6b4ae70ca9de302488c5ca95ad4a39e190093d6c1a8ace08341b/requests-2.32.4-py3-none-any.whl", hash = "sha256:27babd3cda2a6d50b30443204ee89830707d396671944c998b5975b031ac2b2c", size = 64847, upload-time = "2025-06-09T16:43:05.728Z" },
+]
+
+[[package]]
+name = "requests-oauthlib"
+version = "2.0.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "oauthlib" },
+    { name = "requests" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/42/f2/05f29bc3913aea15eb670be136045bf5c5bbf4b99ecb839da9b422bb2c85/requests-oauthlib-2.0.0.tar.gz", hash = "sha256:b3dffaebd884d8cd778494369603a9e7b58d29111bf6b41bdc2dcd87203af4e9", size = 55650, upload-time = "2024-03-22T20:32:29.939Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/3b/5d/63d4ae3b9daea098d5d6f5da83984853c1bbacd5dc826764b249fe119d24/requests_oauthlib-2.0.0-py2.py3-none-any.whl", hash = "sha256:7dd8a5c40426b779b0868c404bdef9768deccf22749cde15852df527e6269b36", size = 24179, upload-time = "2024-03-22T20:32:28.055Z" },
 ]
 
 [[package]]

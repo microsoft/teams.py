@@ -13,7 +13,8 @@
       "packages/graph/src",
       "packages/devtools/src",
       "packages/ai/src",
-      "packages/openai/src"
+      "packages/openai/src",
+      "packages/botbuilder/src"
    ],
    "typeCheckingMode": "strict",
    "executionEnvironments": [
