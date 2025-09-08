@@ -4,7 +4,7 @@ Licensed under the MIT License.
 """
 
 from dataclasses import dataclass
-from typing import Any, Literal, Optional, Type, Union
+from typing import Callable, Literal, Optional, Type, TypeVar, Union
 
 from ..plugins.plugin_base import PluginBase
 
@@ -20,10 +20,15 @@ class PluginOptions:
     description: Optional[str] = None
 
 
-def Plugin(name: Optional[str] = None, version: Optional[str] = None, description: Optional[str] = None) -> Any:
+T = TypeVar("T")
+
+
+def Plugin(
+    name: Optional[str] = None, version: Optional[str] = None, description: Optional[str] = None
+) -> Callable[[Type[T]], Type[T]]:
     """Turns any class into a plugin using the decorator pattern."""
 
-    def decorator(cls: Type[Any]) -> Any:
+    def decorator(cls: Type[T]) -> Type[T]:
         plugin_name = name or cls.__name__
         plugin_version = version or "0.0.0"
         plugin_description = description or ""

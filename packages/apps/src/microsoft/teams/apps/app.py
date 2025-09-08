@@ -105,11 +105,7 @@ class App(ActivityHandlerMixin):
                 break
 
         if not http_plugin:
-            app_id = None
-            if self.credentials and hasattr(self.credentials, "client_id"):
-                app_id = self.credentials.client_id
-
-            http_plugin = HttpPlugin(app_id, self.log, self.options.enable_token_validation)
+            http_plugin = HttpPlugin(self.options.enable_token_validation)
 
         plugins.insert(0, http_plugin)
         self.http = cast(HttpPlugin, http_plugin)
