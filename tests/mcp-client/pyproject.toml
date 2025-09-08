@@ -8,7 +8,8 @@ dependencies = [
     "dotenv>=0.9.9",
     "microsoft-teams-ai",
     "microsoft-teams-common",
-    "microsoft-teams-openai"
+    "microsoft-teams-openai",
+    "microsoft-teams-devtools"
 ]
 
 [tool.uv.sources]

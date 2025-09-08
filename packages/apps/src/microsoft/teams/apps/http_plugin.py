@@ -94,7 +94,7 @@ class HttpPlugin(Sender):
                 await self._on_stopped_callback()
 
         @asynccontextmanager
-        async def combined_lifespan(app: Any):
+        async def combined_lifespan(app: Starlette):
             async with AsyncExitStack() as stack:
                 lifespans = self.lifespans.copy()
                 lifespans.append(default_lifespan)

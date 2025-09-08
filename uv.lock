@@ -1096,6 +1096,7 @@ dependencies = [
     { name = "dotenv" },
     { name = "microsoft-teams-ai" },
     { name = "microsoft-teams-common" },
+    { name = "microsoft-teams-devtools" },
     { name = "microsoft-teams-openai" },
 ]
 
@@ -1104,6 +1105,7 @@ requires-dist = [
     { name = "dotenv", specifier = ">=0.9.9" },
     { name = "microsoft-teams-ai", editable = "packages/ai" },
     { name = "microsoft-teams-common", editable = "packages/common" },
+    { name = "microsoft-teams-devtools", editable = "packages/devtools" },
     { name = "microsoft-teams-openai", editable = "packages/openai" },
 ]
 
@@ -1114,6 +1116,7 @@ source = { virtual = "tests/mcp-server" }
 dependencies = [
     { name = "dotenv" },
     { name = "microsoft-teams-apps" },
+    { name = "microsoft-teams-devtools" },
     { name = "microsoft-teams-mcp" },
 ]
 
@@ -1121,6 +1124,7 @@ dependencies = [
 requires-dist = [
     { name = "dotenv", specifier = ">=0.9.9" },
     { name = "microsoft-teams-apps", editable = "packages/apps" },
+    { name = "microsoft-teams-devtools", editable = "packages/devtools" },
     { name = "microsoft-teams-mcp", editable = "packages/mcp" },
 ]
 
@@ -1441,19 +1445,17 @@ dependencies = [
     { name = "fastmcp" },
     { name = "mcp" },
     { name = "microsoft-teams-ai" },
+    { name = "microsoft-teams-apps" },
     { name = "microsoft-teams-common" },
-    { name = "starlette" },
 ]
 
 [package.metadata]
 requires-dist = [
-    { name = "mcp", specifier = ">=1.13.1" },
-    { name = "microsoft-teams-ai", editable = "packages/ai" },
-    { name = "microsoft-teams-common", editable = "packages/common" },
     { name = "fastmcp", specifier = ">=0.5.0" },
     { name = "mcp", specifier = ">=1.13.1" },
     { name = "microsoft-teams-ai", editable = "packages/ai" },
     { name = "microsoft-teams-apps", editable = "packages/apps" },
+    { name = "microsoft-teams-common", editable = "packages/common" },
 ]
 
 [[package]]

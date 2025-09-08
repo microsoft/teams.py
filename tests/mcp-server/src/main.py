@@ -6,7 +6,10 @@ Licensed under the MIT License.
 import asyncio
 
 from microsoft.teams.ai import Function
+from microsoft.teams.api.activities.message.message import MessageActivity
 from microsoft.teams.apps import App
+from microsoft.teams.apps.routing.activity_context import ActivityContext
+from microsoft.teams.devtools import DevToolsPlugin
 from microsoft.teams.mcp import McpServerPlugin
 from pydantic import BaseModel
 
@@ -61,7 +64,12 @@ mcp_server_plugin.use_tool(
     )
 )
 
-app = App(plugins=[mcp_server_plugin])
+app = App(plugins=[mcp_server_plugin, DevToolsPlugin()])
+
+
+@app.on_message
+async def handle_message(ctx: ActivityContext[MessageActivity]):
+    await ctx.reply(f"You said {ctx.activity.text}")
 
 
 if __name__ == "__main__":
