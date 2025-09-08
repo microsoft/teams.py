@@ -116,7 +116,7 @@ class McpServerPlugin(PluginBase):
             )
             self.mcp_server.add_tool(function_tool)
 
-            self.logger.info(f"Registered Teams AI function '{function.name}' as MCP tool")
+            self.logger.debug(f"Registered Teams AI function '{function.name}' as MCP tool")
 
             return self
         except Exception as e:
