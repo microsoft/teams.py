@@ -28,6 +28,7 @@ dev = [
 [tool.ruff]
 line-length = 120
 fix = true
+extend-exclude = ["[{][{]cookiecutter.pypi_package_name[}][}]"]
 
 [tool.ruff.format]
 docstring-code-format = true
