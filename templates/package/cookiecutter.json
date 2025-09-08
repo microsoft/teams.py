@@ -1,5 +1,9 @@
 {
   "pypi_package_name": "subpackage-name",
   "project_short_description": "project description",
-  "version": "0.0.1-alpha.1"
+  "version": "0.0.1-alpha.1",
+  "core": true,
+  "__prompts__": {
+    "core": "Core package? (I.e. not an external integration?)"
+  }
 }

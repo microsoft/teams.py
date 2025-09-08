@@ -9,6 +9,10 @@ repository = "https://github.com/microsoft/teams.py"
 keywords = ["microsoft", "teams", "ai", "bot", "agents"]
 license = "MIT"
 dependencies = []
+{% if not cookiecutter.core %}
+[tool.microsoft-teams.metadata]
+external = true
+{% endif %}
 
 [build-system]
 requires = ["hatchling"]
