@@ -13,7 +13,6 @@ from microsoft.teams.api import (
     ConversationReference,
     GetUserTokenParams,
     InvokeResponse,
-    JsonWebToken,
     SentActivity,
     TokenProtocol,
     is_invoke_response,
@@ -97,16 +96,16 @@ class ActivityProcessor:
 
         # Check if user is signed in
         is_signed_in = False
-        user_token: Optional[TokenProtocol] = None
+        user_token: Optional[str] = None
         try:
             user_token_res = await api_client.users.token.get(
                 GetUserTokenParams(
-                    connection_name=self.default_connection_name or "default",
+                    connection_name=self.default_connection_name,
                     user_id=activity.from_.id,
                     channel_id=activity.channel_id,
                 )
             )
-            user_token = JsonWebToken(user_token_res.token)
+            user_token = user_token_res.token
             is_signed_in = True
         except Exception:
             # User token not available

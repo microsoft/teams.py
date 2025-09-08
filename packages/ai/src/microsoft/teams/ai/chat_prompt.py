@@ -6,7 +6,7 @@ Licensed under the MIT License.
 import inspect
 from dataclasses import dataclass
 from inspect import isawaitable
-from typing import Any, Awaitable, Callable, TypeVar
+from typing import Any, Awaitable, Callable, Self, TypeVar
 
 from pydantic import BaseModel
 
@@ -36,11 +36,11 @@ class ChatPrompt:
         self.functions: dict[str, Function[Any]] = {func.name: func for func in functions} if functions else {}
         self.plugins: list[AIPluginProtocol] = plugins or []
 
-    def with_function(self, function: Function[T]) -> "ChatPrompt":
+    def with_function(self, function: Function[T]) -> Self:
         self.functions[function.name] = function
         return self
 
-    def with_plugin(self, plugin: AIPluginProtocol) -> "ChatPrompt":
+    def with_plugin(self, plugin: AIPluginProtocol) -> Self:
         """Add a plugin to the chat prompt."""
         self.plugins.append(plugin)
         return self
@@ -122,25 +122,21 @@ class ChatPrompt:
         return current_system_message
 
     async def _build_wrapped_functions(self) -> dict[str, Function[BaseModel]] | None:
+        functions_list = list(self.functions.values()) if self.functions else []
+        for plugin in self.plugins:
+            plugin_result = await plugin.on_build_functions(functions_list)
+            if plugin_result is not None:
+                functions_list = plugin_result
+
         wrapped_functions: dict[str, Function[BaseModel]] | None = None
-        if self.functions:
-            wrapped_functions = {}
-            for name, func in self.functions.items():
-                wrapped_functions[name] = Function[BaseModel](
-                    name=func.name,
-                    description=func.description,
-                    parameter_schema=func.parameter_schema,
-                    handler=self._wrap_function_handler(func.handler, name),
-                )
-
-        if wrapped_functions:
-            functions_list = list(wrapped_functions.values())
-            for plugin in self.plugins:
-                plugin_result = await plugin.on_build_functions(functions_list)
-                if plugin_result is not None:
-                    functions_list = plugin_result
-
-            wrapped_functions = {func.name: func for func in functions_list}
+        wrapped_functions = {}
+        for func in functions_list:
+            wrapped_functions[func.name] = Function[BaseModel](
+                name=func.name,
+                description=func.description,
+                parameter_schema=func.parameter_schema,
+                handler=self._wrap_function_handler(func.handler, func.name),
+            )
 
         return wrapped_functions
 

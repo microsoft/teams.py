@@ -23,6 +23,10 @@ from microsoft.teams.ai import (
 from pydantic import BaseModel
 
 from openai import NOT_GIVEN
+from openai.lib._pydantic import (
+    _ensure_strict_json_schema,  # pyright: ignore [reportPrivateUsage]
+    to_strict_json_schema,
+)
 from openai.types.responses import (
     EasyInputMessageParam,
     FunctionToolParam,
@@ -34,6 +38,7 @@ from openai.types.responses import (
 )
 
 from .common import OpenAIBaseModel
+from .function_utils import get_function_schema, parse_function_arguments
 
 
 @dataclass
@@ -80,7 +85,6 @@ class OpenAIResponsesAIModel(OpenAIBaseModel, AIModel):
         """Handle stateful conversation using OpenAI Responses API state management."""
         # Get response IDs from memory - OpenAI manages conversation state
         messages = list(await memory.get_all())
-        self.logger.debug(f"Retrieved {len(messages)} messages from memory")
 
         # Extract previous response ID from memory - look for ModelMessage with ID
         previous_response_id = None
@@ -98,9 +102,6 @@ class OpenAIResponsesAIModel(OpenAIBaseModel, AIModel):
         responses_input = self._convert_to_responses_format(input, None, messages)
         # Convert functions to tools format
         tools = self._convert_functions_to_tools(functions) if functions else NOT_GIVEN
-
-        if tools:
-            self.logger.debug(f"Tools being sent: {tools}")
 
         self.logger.debug(f"Making Responses API call with input type: {type(input).__name__}")
 
@@ -219,8 +220,8 @@ class OpenAIResponsesAIModel(OpenAIBaseModel, AIModel):
                 if functions and call.name in functions:
                     function = functions[call.name]
                     try:
-                        # Parse arguments into Pydantic model
-                        parsed_args = function.parameter_schema(**call.arguments)
+                        # Parse arguments using utility function
+                        parsed_args = parse_function_arguments(function, call.arguments)
 
                         # Handle both sync and async function handlers
                         result = function.handler(parsed_args)
@@ -303,9 +304,14 @@ class OpenAIResponsesAIModel(OpenAIBaseModel, AIModel):
         tools: list[ToolParam] = []
 
         for func in functions.values():
-            # Get schema and ensure additionalProperties is false for Responses API
-            schema = func.parameter_schema.model_json_schema()
-            schema["additionalProperties"] = False
+            # Get strict schema for Responses API using OpenAI's transformations
+            if isinstance(func.parameter_schema, dict):
+                # For raw JSON schemas, use OpenAI's strict transformation
+                schema = get_function_schema(func)
+                schema = _ensure_strict_json_schema(schema, path=(), root=schema)
+            else:
+                # Use OpenAI's official strict schema transformation for Pydantic models
+                schema = to_strict_json_schema(func.parameter_schema)
 
             tools.append(
                 FunctionToolParam(
@@ -324,8 +330,6 @@ class OpenAIResponsesAIModel(OpenAIBaseModel, AIModel):
         content: str | None = None
         function_calls: list[FunctionCall] | None = None
 
-        self.logger.debug(f"Converting response: {type(response)}")
-
         # Extract content from response - use the proper Response attributes
         content = response.output_text
 
@@ -342,9 +346,5 @@ class OpenAIResponsesAIModel(OpenAIBaseModel, AIModel):
                         arguments=json.loads(response_output.arguments) if response_output.arguments else {},
                     )
                 )
-
-        self.logger.debug(f"Extracted content: {repr(content)}")
-        if function_calls:
-            self.logger.debug(f"Extracted {len(function_calls)} function calls")
 
         return ModelMessage(content=content, function_calls=function_calls)

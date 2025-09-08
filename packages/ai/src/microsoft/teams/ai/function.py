@@ -4,7 +4,7 @@ Licensed under the MIT License.
 """
 
 from dataclasses import dataclass
-from typing import Any, Awaitable, Generic, Protocol, TypeVar, Union
+from typing import Any, Awaitable, Dict, Generic, Protocol, TypeVar, Union
 
 from pydantic import BaseModel
 
@@ -19,7 +19,7 @@ class FunctionHandler(Protocol[Params]):
 class Function(Generic[Params]):
     name: str
     description: str
-    parameter_schema: type[Params]
+    parameter_schema: Union[type[Params], Dict[str, Any]]
     handler: FunctionHandler[Params]
 
 

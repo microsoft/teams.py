@@ -7,6 +7,7 @@
 "microsoft-teams-graph" = { workspace = true }
 "microsoft-teams-ai" = { workspace = true }
 "microsoft-teams-openai" = { workspace = true }
+"microsoft-teams-mcp" = { workspace = true }
 
 [tool.uv.workspace]
 members = ["packages/*", "tests/*"]
@@ -27,6 +28,7 @@ dev = [
 [tool.ruff]
 line-length = 120
 fix = true
+extend-exclude = ["[{][{]cookiecutter.pypi_package_name[}][}]"]
 
 [tool.ruff.format]
 docstring-code-format = true

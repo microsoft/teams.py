@@ -19,6 +19,7 @@ from microsoft.teams.api import (
     CreateConversationParams,
     GetBotSignInResourceParams,
     GetUserTokenParams,
+    JsonWebToken,
     MessageActivityInput,
     SentActivity,
     SignOutUserParams,
@@ -65,6 +66,7 @@ class SignInOptions:
 
     oauth_card_text: str = "Please Sign In..."
     sign_in_button_text: str = "Sign In"
+    connection_name: Optional[str] = None
     override_sign_in_activity: Optional[
         Callable[
             [
@@ -90,7 +92,7 @@ class ActivityContext(Generic[T]):
         logger: Logger,
         storage: Storage[str, Any],
         api: ApiClient,
-        user_token: Optional[TokenProtocol],
+        user_token: Optional[str],
         conversation_ref: ConversationReference,
         is_signed_in: bool,
         connection_name: str,
@@ -135,7 +137,8 @@ class ActivityContext(Generic[T]):
 
         if self._user_graph is None:
             try:
-                self._user_graph = _get_graph_client(self.user_token)
+                user_token = JsonWebToken(self.user_token)
+                self._user_graph = _get_graph_client(user_token)
             except Exception as e:
                 self.logger.error(f"Failed to create user graph client: {e}")
                 raise RuntimeError(f"Failed to create user graph client: {e}") from e
@@ -247,13 +250,13 @@ class ActivityContext(Generic[T]):
         signin_opts = options or DEFAULT_SIGNIN_OPTIONS
         oauth_card_text = signin_opts.oauth_card_text
         sign_in_button_text = signin_opts.sign_in_button_text
-
+        connection_name = signin_opts.connection_name or self.connection_name
         try:
             # Try to get existing token
             token_params = GetUserTokenParams(
                 channel_id=self.activity.channel_id,
                 user_id=self.activity.from_.id,
-                connection_name=self.connection_name,
+                connection_name=connection_name,
             )
             res = await self.api.users.token.get(token_params)
             return res.token
@@ -263,7 +266,7 @@ class ActivityContext(Generic[T]):
 
         # Create token exchange state
         token_exchange_state = TokenExchangeState(
-            connection_name=self.connection_name,
+            connection_name=connection_name,
             conversation=self.conversation_ref,
             relates_to=self.activity.relates_to,
             ms_app_id=self.app_id,
@@ -297,7 +300,7 @@ class ActivityContext(Generic[T]):
                 attachment=OAuthCardAttachment(
                     content=OAuthCard(
                         text=oauth_card_text,
-                        connection_name=self.connection_name,
+                        connection_name=connection_name,
                         token_exchange_resource=resource.token_exchange_resource,
                         token_post_resource=resource.token_post_resource,
                         buttons=[
