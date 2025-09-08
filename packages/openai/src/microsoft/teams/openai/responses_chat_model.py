@@ -107,7 +107,7 @@ class OpenAIResponsesAIModel(OpenAIBaseModel, AIModel):
 
         # Make OpenAI Responses API call
         response = await self._client.responses.create(
-            model=self.model,
+            model=self._model,
             input=responses_input,
             instructions=system.content if system and system.content else None,
             tools=tools,
@@ -175,7 +175,7 @@ class OpenAIResponsesAIModel(OpenAIBaseModel, AIModel):
 
         # Make OpenAI Responses API call (stateless)
         response = await self._client.responses.create(
-            model=self.model,
+            model=self._model,
             input=responses_input,
             instructions=system.content if system and system.content else NOT_GIVEN,
             tools=tools,

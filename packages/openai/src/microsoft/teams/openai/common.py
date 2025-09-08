@@ -28,15 +28,20 @@ class OpenAIBaseModel:
     api_version: str | None = None
     logger: Logger = field(default_factory=lambda: ConsoleLogger().create_logger(name="OpenAI-Model"))
     _client: AsyncOpenAI = field(init=False)
+    _model: str = field(init=False)
 
     def __post_init__(self):
         # Get model from env if not provided
         if self.model is None:
-            self.model = getenv("AZURE_OPENAI_MODEL") or getenv("OPENAI_MODEL")
-            if not self.model:
+            env_model = getenv("AZURE_OPENAI_MODEL") or getenv("OPENAI_MODEL")
+            if not env_model:
                 raise ValueError(
                     "Model is required. Set AZURE_OPENAI_MODEL/OPENAI_MODEL env var or provide model parameter."
                 )
+            else:
+                self._model = env_model
+        else:
+            self._model = self.model
 
         # Get API key from env if not provided (and no client provided)
         if self.client is None and self.key is None:
