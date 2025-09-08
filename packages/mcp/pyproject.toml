@@ -1,5 +1,5 @@
 [project]
-name = "microsoft.teams.mcp"
+name = "microsoft-teams-mcp"
 version = "0.0.1-alpha.4"
 description = "library for handling mcp with teams ai library"
 authors = [{ name = "Microsoft", email = "TeamsAISDKFeedback@microsoft.com" }]
@@ -10,8 +10,10 @@ keywords = ["microsoft", "teams", "ai", "bot", "agents"]
 license = "MIT"
 dependencies = [
     "mcp>=1.13.1",
-    "microsoft-teams-ai",
     "microsoft-teams-common",
+    "fastmcp>=0.5.0",
+    "microsoft-teams-apps",
+    "microsoft-teams-ai" 
 ]
 
 [tool.microsoft-teams.metadata]

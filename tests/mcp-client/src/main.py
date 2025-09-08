@@ -7,10 +7,8 @@ import asyncio
 from os import getenv
 
 from dotenv import find_dotenv, load_dotenv
-from microsoft.teams.ai import Agent
-from microsoft.teams.ai.memory import ListMemory
-from microsoft.teams.api import MessageActivity
-from microsoft.teams.api.activities.typing import TypingActivityInput
+from microsoft.teams.ai import Agent, ListMemory
+from microsoft.teams.api import MessageActivity, TypingActivityInput
 from microsoft.teams.apps import ActivityContext, App
 from microsoft.teams.devtools import DevToolsPlugin
 from microsoft.teams.mcp.ai_plugin import McpClientPlugin

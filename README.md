@@ -56,6 +56,10 @@ A comprehensive SDK for building Microsoft Teams applications, bots, and AI agen
 - [`microsoft-teams-graph`](./packages/graph/README.md)
 - [`microsoft-teams-openai`](./packages/openai/README.md)
 
+> external packages to integrate with external protocols and microsoft-teams-cards
+
+- [`microsoft-teams-mcp`](./packages/mcp/README.md)
+
 ### Create a New Package
 
 We use [cookiecutter](https://cookiecutter.readthedocs.io/en/latest/README.html) to create new packages. To create a new package, run:
