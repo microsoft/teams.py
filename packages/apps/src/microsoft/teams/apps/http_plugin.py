@@ -250,7 +250,7 @@ class HttpPlugin(Sender):
         activity_type = body.get("type", "unknown")
         activity_id = body.get("id", "unknown")
 
-        self.logger.info(f"Received activity: {activity_type} (ID: {activity_id})")
+        self.logger.debug(f"Received activity: {activity_type} (ID: {activity_id})")
 
         # Create Future for async response coordination
         response_future = asyncio.get_event_loop().create_future()

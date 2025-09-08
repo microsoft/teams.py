@@ -191,9 +191,9 @@ class DevToolsPlugin(Sender):
             while True:
                 try:
                     data = await websocket.receive_text()
-                    self.logger.info(f"Received WebSocket message: {data}")
+                    self.logger.debug(f"Received WebSocket message: {data}")
                 except WebSocketDisconnect:
-                    self.logger.info(f"WebSocket {socket_id} disconnected")
+                    self.logger.debug(f"WebSocket {socket_id} disconnected")
                     break
         finally:
             del self.sockets[socket_id]
@@ -244,7 +244,7 @@ class DevToolsPlugin(Sender):
             try:
                 await websocket.send_json(data)
             except WebSocketDisconnect:
-                self.logger.info(f"WebSocket {socket_id} disconnected")
+                self.logger.debug(f"WebSocket {socket_id} disconnected")
                 del self.sockets[socket_id]
 
     def add_page(self, page: Page) -> "DevToolsPlugin":
