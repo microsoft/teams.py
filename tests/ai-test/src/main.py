@@ -6,15 +6,12 @@ Licensed under the MIT License.
 import asyncio
 import re
 
-from dotenv import find_dotenv, load_dotenv
 from microsoft.teams.ai import Agent, Function, ListMemory, UserMessage
 from microsoft.teams.api import MessageActivity
 from microsoft.teams.apps import ActivityContext, App
 from microsoft.teams.devtools import DevToolsPlugin
 from microsoft.teams.openai import OpenAICompletionsAIModel, OpenAIResponsesAIModel
 from pydantic import BaseModel
-
-load_dotenv(find_dotenv(usecwd=True))
 
 app = App(plugins=[DevToolsPlugin()])
 

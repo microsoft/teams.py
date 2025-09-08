@@ -5,7 +5,6 @@ Licensed under the MIT License.
 
 import asyncio
 
-from dotenv import find_dotenv, load_dotenv
 from microsoft.teams.ai import Agent, ListMemory
 from microsoft.teams.api import MessageActivity, TypingActivityInput
 from microsoft.teams.apps import ActivityContext, App
@@ -14,7 +13,6 @@ from microsoft.teams.mcp.ai_plugin import McpClientPlugin
 from microsoft.teams.openai import OpenAIResponsesAIModel
 
 app = App(plugins=[DevToolsPlugin()])
-load_dotenv(find_dotenv(usecwd=True))
 
 responses_openai_ai_model = OpenAIResponsesAIModel(stateful=True)
 chat_memory = ListMemory()

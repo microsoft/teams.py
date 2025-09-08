@@ -8,9 +8,12 @@ from logging import Logger
 from os import getenv
 from typing import Literal
 
+from dotenv import find_dotenv, load_dotenv
 from microsoft.teams.common.logging import ConsoleLogger
 
 from openai import AsyncAzureOpenAI, AsyncOpenAI
+
+load_dotenv(find_dotenv(usecwd=True))
 
 
 @dataclass
