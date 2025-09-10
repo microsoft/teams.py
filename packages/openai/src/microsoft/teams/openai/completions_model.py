@@ -42,13 +42,29 @@ from .function_utils import get_function_schema, parse_function_arguments
 
 
 class _ToolCallData(TypedDict):
-    id: str
-    name: str
-    arguments_str: str
+    """
+    Internal structure for accumulating streaming tool call data.
+
+    Used during streaming responses to build up function calls
+    piece by piece as chunks arrive from the API.
+    """
+
+    id: str  # Function call ID
+    name: str  # Function name
+    arguments_str: str  # Accumulated JSON arguments string
 
 
 @dataclass
 class OpenAICompletionsAIModel(OpenAIBaseModel, AIModel):
+    """
+    OpenAI Chat Completions API implementation of AIModel.
+
+    Uses the standard OpenAI Chat Completions API for text generation,
+    supporting streaming, function calling, and conversation management.
+    This is the traditional stateless approach where conversation history
+    must be explicitly managed.
+    """
+
     async def generate_text(
         self,
         input: Message,
@@ -58,6 +74,24 @@ class OpenAICompletionsAIModel(OpenAIBaseModel, AIModel):
         functions: dict[str, Function[BaseModel]] | None = None,
         on_chunk: Callable[[str], Awaitable[None]] | None = None,
     ) -> ModelMessage:
+        """
+        Generate text using OpenAI Chat Completions API.
+
+        Args:
+            input: Input message to process
+            system: Optional system message for context
+            memory: Memory for conversation history
+            functions: Available functions for the model to call
+            on_chunk: Optional streaming callback for response chunks
+
+        Returns:
+            ModelMessage with generated content and/or function calls
+
+        Note:
+            Handles function calling recursively - if the model returns
+            function calls, they are executed and results fed back for
+            a final text response.
+        """
         # Use default memory if none provided
         if memory is None:
             memory = ListMemory()
