@@ -4,8 +4,8 @@ Licensed under the MIT License.
 """
 
 from .ansi import ANSI
-from .console import ConsoleLogger
+from .console import ConsoleLogger, ConsoleLoggerOptions
 from .filter import ConsoleFilter
 from .formatter import ConsoleFormatter
 
-__all__ = ["ANSI", "ConsoleLogger", "ConsoleFormatter", "ConsoleFilter"]
+__all__ = ["ANSI", "ConsoleLogger", "ConsoleFormatter", "ConsoleFilter", "ConsoleLoggerOptions"]
