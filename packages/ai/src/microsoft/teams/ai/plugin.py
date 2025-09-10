@@ -44,7 +44,7 @@ class AIPluginProtocol(Protocol):
         """Modify the functions array passed to the model."""
         ...
 
-    async def on_build_system_message(self, system_message: SystemMessage | None) -> SystemMessage | None:
+    async def on_build_instructions(self, instructions: SystemMessage | None) -> SystemMessage | None:
         """Modify the system message before sending to model."""
         ...
 
@@ -80,6 +80,6 @@ class BaseAIPlugin:
         """Modify the functions array passed to the model."""
         return functions
 
-    async def on_build_system_message(self, system_message: SystemMessage | None) -> SystemMessage | None:
+    async def on_build_instructions(self, instructions: SystemMessage | None) -> SystemMessage | None:
         """Modify the system message before sending to model."""
-        return system_message
+        return instructions

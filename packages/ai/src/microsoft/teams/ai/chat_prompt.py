@@ -51,13 +51,13 @@ class ChatPrompt:
         *,
         memory: Memory | None = None,
         on_chunk: Callable[[str], Awaitable[None]] | Callable[[str], None] | None = None,
-        system_message: SystemMessage | None = None,
+        instructions: SystemMessage | None = None,
     ) -> ChatSendResult:
         if isinstance(input, str):
             input = UserMessage(content=input)
 
         current_input = await self._run_before_send_hooks(input)
-        current_system_message = await self._run_build_system_message_hooks(system_message)
+        current_system_message = await self._run_build_instructions_hooks(instructions)
         wrapped_functions = await self._build_wrapped_functions()
 
         async def on_chunk_fn(chunk: str):
@@ -113,13 +113,13 @@ class ChatPrompt:
                 current_input = plugin_result
         return current_input
 
-    async def _run_build_system_message_hooks(self, system_message: SystemMessage | None) -> SystemMessage | None:
-        current_system_message = system_message
+    async def _run_build_instructions_hooks(self, instructions: SystemMessage | None) -> SystemMessage | None:
+        current_instructions = instructions
         for plugin in self.plugins:
-            plugin_result = await plugin.on_build_system_message(current_system_message)
+            plugin_result = await plugin.on_build_instructions(current_instructions)
             if plugin_result is not None:
-                current_system_message = plugin_result
-        return current_system_message
+                current_instructions = plugin_result
+        return current_instructions
 
     async def _build_wrapped_functions(self) -> dict[str, Function[BaseModel]] | None:
         functions_list = list(self.functions.values()) if self.functions else []
