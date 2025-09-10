@@ -517,3 +517,29 @@ class TestApp:
         res = await app.api.bots.token.get(app.credentials)
         assert token_called is True
         assert res.access_token == "test.jwt.token"
+
+    def test_middleware_registration(self, app_with_options: App) -> None:
+        """Test that middleware is registered correctly using app.use()."""
+
+        async def logging_middleware(ctx: ActivityContext) -> None:
+            await ctx.next()
+
+        app_with_options.use(logging_middleware)
+
+        from_account = Account(id="bot-123", name="Test Bot", role="bot")
+        recipient = Account(id="user-456", name="Test User", role="user")
+        conversation = ConversationAccount(id="conv-789", conversation_type="personal")
+
+        message_activity = MessageActivity(
+            id="test-activity-id",
+            type="message",
+            text="hello world",
+            from_=from_account,
+            recipient=recipient,
+            conversation=conversation,
+            channel_id="msteams",
+        )
+
+        handlers = app_with_options.router.select_handlers(message_activity)
+        assert len(handlers) == 1
+        assert handlers[0] == logging_middleware
