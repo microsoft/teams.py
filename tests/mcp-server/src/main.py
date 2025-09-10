@@ -10,7 +10,7 @@ from microsoft.teams.api.activities.message.message import MessageActivity
 from microsoft.teams.apps import App
 from microsoft.teams.apps.routing.activity_context import ActivityContext
 from microsoft.teams.devtools import DevToolsPlugin
-from microsoft.teams.mcp import McpServerPlugin
+from microsoft.teams.mcpplugin import McpServerPlugin
 from pydantic import BaseModel
 
 mcp_server_plugin = McpServerPlugin()

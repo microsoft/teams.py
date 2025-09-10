@@ -9,13 +9,12 @@ import logging
 import time
 from typing import Any, Dict, List, Optional, Tuple, Union
 
+from mcp import ClientSession
+from mcp.types import TextContent
 from microsoft.teams.ai.function import Function
 from microsoft.teams.ai.plugin import BaseAIPlugin
 from microsoft.teams.common.logging import ConsoleLogger
 from pydantic import BaseModel
-
-from mcp import ClientSession
-from mcp.types import TextContent
 
 from .models import McpCachedValue, McpClientPluginParams, McpToolDetails
 from .transport import create_transport

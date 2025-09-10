@@ -18,7 +18,7 @@ members = [
     "microsoft-teams-common",
     "microsoft-teams-devtools",
     "microsoft-teams-graph",
-    "microsoft-teams-mcp",
+    "microsoft-teams-mcpplugin",
     "microsoft-teams-openai",
     "oauth",
     "stream",
@@ -1117,7 +1117,7 @@ dependencies = [
     { name = "dotenv" },
     { name = "microsoft-teams-apps" },
     { name = "microsoft-teams-devtools" },
-    { name = "microsoft-teams-mcp" },
+    { name = "microsoft-teams-mcpplugin" },
 ]
 
 [package.metadata]
@@ -1125,7 +1125,7 @@ requires-dist = [
     { name = "dotenv", specifier = ">=0.9.9" },
     { name = "microsoft-teams-apps", editable = "packages/apps" },
     { name = "microsoft-teams-devtools", editable = "packages/devtools" },
-    { name = "microsoft-teams-mcp", editable = "packages/mcp" },
+    { name = "microsoft-teams-mcpplugin", editable = "packages/mcpplugin" },
 ]
 
 [[package]]
@@ -1438,9 +1438,9 @@ dev = [
 ]
 
 [[package]]
-name = "microsoft-teams-mcp"
+name = "microsoft-teams-mcpplugin"
 version = "0.0.1a4"
-source = { editable = "packages/mcp" }
+source = { editable = "packages/mcpplugin" }
 dependencies = [
     { name = "fastmcp" },
     { name = "mcp" },
