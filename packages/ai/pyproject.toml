@@ -1,6 +1,6 @@
 [project]
 name = "microsoft-teams-ai"
-version = "0.0.1a4"
+version = "0.0.1a5"
 description = "package to handle interacting with ai or llms"
 authors = [{ name = "Microsoft", email = "TeamsAISDKFeedback@microsoft.com" }]
 readme = "README.md"
