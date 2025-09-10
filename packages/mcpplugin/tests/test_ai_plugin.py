@@ -12,8 +12,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from mcp.types import CallToolResult, ContentBlock, ListToolsResult, TextContent, Tool
-from microsoft.teams.mcp.ai_plugin import McpClientPlugin
-from microsoft.teams.mcp.models import McpCachedValue, McpClientPluginParams, McpToolDetails
+from microsoft.teams.mcpplugin.ai_plugin import McpClientPlugin
+from microsoft.teams.mcpplugin.models import McpCachedValue, McpClientPluginParams, McpToolDetails
 from pydantic import BaseModel
 
 # pyright: basic
@@ -141,8 +141,8 @@ class TestMcpClientPlugin:
         session = MockClientSession(tools=[sample_tools[0]])  # calculator tool
 
         with (
-            patch("microsoft.teams.mcp.ai_plugin.create_transport") as mock_create_transport,
-            patch("microsoft.teams.mcp.ai_plugin.ClientSession", return_value=session),
+            patch("microsoft.teams.mcpplugin.ai_plugin.create_transport") as mock_create_transport,
+            patch("microsoft.teams.mcpplugin.ai_plugin.ClientSession", return_value=session),
         ):
             mock_create_transport.return_value.__aenter__ = AsyncMock(return_value=(None, None))
             mock_create_transport.return_value.__aexit__ = AsyncMock(return_value=None)
@@ -167,8 +167,8 @@ class TestMcpClientPlugin:
         session = MockClientSession(tools=[sample_tools[1]])  # weather tool
 
         with (
-            patch("microsoft.teams.mcp.ai_plugin.create_transport") as mock_create_transport,
-            patch("microsoft.teams.mcp.ai_plugin.ClientSession", return_value=session),
+            patch("microsoft.teams.mcpplugin.ai_plugin.create_transport") as mock_create_transport,
+            patch("microsoft.teams.mcpplugin.ai_plugin.ClientSession", return_value=session),
         ):
             mock_create_transport.return_value.__aenter__ = AsyncMock(return_value=(None, None))
             mock_create_transport.return_value.__aexit__ = AsyncMock(return_value=None)
@@ -191,8 +191,8 @@ class TestMcpClientPlugin:
         session = MockClientSession(tools=sample_tools[:1])
 
         with (
-            patch("microsoft.teams.mcp.ai_plugin.create_transport") as mock_create_transport,
-            patch("microsoft.teams.mcp.ai_plugin.ClientSession", return_value=session),
+            patch("microsoft.teams.mcpplugin.ai_plugin.create_transport") as mock_create_transport,
+            patch("microsoft.teams.mcpplugin.ai_plugin.ClientSession", return_value=session),
         ):
             mock_create_transport.return_value.__aenter__ = AsyncMock(return_value=(None, None))
             mock_create_transport.return_value.__aexit__ = AsyncMock(return_value=None)
@@ -214,8 +214,8 @@ class TestMcpClientPlugin:
         session = MockClientSession(tools=sample_tools[:1])
 
         with (
-            patch("microsoft.teams.mcp.ai_plugin.create_transport") as mock_create_transport,
-            patch("microsoft.teams.mcp.ai_plugin.ClientSession", return_value=session),
+            patch("microsoft.teams.mcpplugin.ai_plugin.create_transport") as mock_create_transport,
+            patch("microsoft.teams.mcpplugin.ai_plugin.ClientSession", return_value=session),
         ):
             mock_create_transport.return_value.__aenter__ = AsyncMock(return_value=(None, None))
             mock_create_transport.return_value.__aexit__ = AsyncMock(return_value=None)
@@ -242,10 +242,10 @@ class TestMcpClientPlugin:
 
         with (
             patch(
-                "microsoft.teams.mcp.ai_plugin.create_transport",
+                "microsoft.teams.mcpplugin.ai_plugin.create_transport",
                 return_value=transport.create_transport("http://test-server", "streamable_http", headers),
             ),
-            patch("microsoft.teams.mcp.ai_plugin.ClientSession", return_value=session),
+            patch("microsoft.teams.mcpplugin.ai_plugin.ClientSession", return_value=session),
         ):
             plugin = McpClientPlugin()
             params = McpClientPluginParams(headers=headers)
@@ -276,10 +276,10 @@ class TestMcpClientPlugin:
 
         with (
             patch(
-                "microsoft.teams.mcp.ai_plugin.create_transport",
+                "microsoft.teams.mcpplugin.ai_plugin.create_transport",
                 return_value=transport.create_transport("http://test-server", "streamable_http", headers),
             ),
-            patch("microsoft.teams.mcp.ai_plugin.ClientSession", return_value=session),
+            patch("microsoft.teams.mcpplugin.ai_plugin.ClientSession", return_value=session),
         ):
             plugin = McpClientPlugin()
             params = McpClientPluginParams(headers=headers)
@@ -298,8 +298,8 @@ class TestMcpClientPlugin:
         session = MockClientSession(tools=[sample_tools[0]], call_responses={"calculator": "Result: 42"})
 
         with (
-            patch("microsoft.teams.mcp.ai_plugin.create_transport") as mock_create_transport,
-            patch("microsoft.teams.mcp.ai_plugin.ClientSession", return_value=session),
+            patch("microsoft.teams.mcpplugin.ai_plugin.create_transport") as mock_create_transport,
+            patch("microsoft.teams.mcpplugin.ai_plugin.ClientSession", return_value=session),
         ):
             mock_create_transport.return_value.__aenter__ = AsyncMock(return_value=(None, None))
             mock_create_transport.return_value.__aexit__ = AsyncMock(return_value=None)
@@ -330,8 +330,8 @@ class TestMcpClientPlugin:
         )
 
         with (
-            patch("microsoft.teams.mcp.ai_plugin.create_transport") as mock_create_transport,
-            patch("microsoft.teams.mcp.ai_plugin.ClientSession", return_value=session),
+            patch("microsoft.teams.mcpplugin.ai_plugin.create_transport") as mock_create_transport,
+            patch("microsoft.teams.mcpplugin.ai_plugin.ClientSession", return_value=session),
         ):
             mock_create_transport.return_value.__aenter__ = AsyncMock(return_value=(None, None))
             mock_create_transport.return_value.__aexit__ = AsyncMock(return_value=None)
@@ -356,8 +356,8 @@ class TestMcpClientPlugin:
         connection_error = ConnectionError("Server unavailable")
 
         with (
-            patch("microsoft.teams.mcp.ai_plugin.create_transport") as mock_create_transport,
-            patch("microsoft.teams.mcp.ai_plugin.ClientSession", side_effect=connection_error),
+            patch("microsoft.teams.mcpplugin.ai_plugin.create_transport") as mock_create_transport,
+            patch("microsoft.teams.mcpplugin.ai_plugin.ClientSession", side_effect=connection_error),
         ):
             mock_create_transport.return_value.__aenter__ = AsyncMock(side_effect=connection_error)
             mock_create_transport.return_value.__aexit__ = AsyncMock(return_value=None)
@@ -375,8 +375,8 @@ class TestMcpClientPlugin:
         connection_error = ConnectionError("Server unavailable")
 
         with (
-            patch("microsoft.teams.mcp.ai_plugin.create_transport") as mock_create_transport,
-            patch("microsoft.teams.mcp.ai_plugin.ClientSession", side_effect=connection_error),
+            patch("microsoft.teams.mcpplugin.ai_plugin.create_transport") as mock_create_transport,
+            patch("microsoft.teams.mcpplugin.ai_plugin.ClientSession", side_effect=connection_error),
         ):
             mock_create_transport.return_value.__aenter__ = AsyncMock(side_effect=connection_error)
             mock_create_transport.return_value.__aexit__ = AsyncMock(return_value=None)
@@ -395,8 +395,8 @@ class TestMcpClientPlugin:
         session = MockClientSession(tools=[sample_tools[0]], call_responses={"calculator": tool_error})
 
         with (
-            patch("microsoft.teams.mcp.ai_plugin.create_transport") as mock_create_transport,
-            patch("microsoft.teams.mcp.ai_plugin.ClientSession", return_value=session),
+            patch("microsoft.teams.mcpplugin.ai_plugin.create_transport") as mock_create_transport,
+            patch("microsoft.teams.mcpplugin.ai_plugin.ClientSession", return_value=session),
         ):
             mock_create_transport.return_value.__aenter__ = AsyncMock(return_value=(None, None))
             mock_create_transport.return_value.__aexit__ = AsyncMock(return_value=None)
@@ -430,7 +430,7 @@ class TestMcpClientPlugin:
         plugin = McpClientPlugin(cache=initial_cache)
         plugin.use_mcp_server("http://test-server", McpClientPluginParams())
 
-        with patch("microsoft.teams.mcp.ai_plugin.create_transport") as mock_create_transport:
+        with patch("microsoft.teams.mcpplugin.ai_plugin.create_transport") as mock_create_transport:
             functions = await plugin.on_build_functions([])
 
             assert len(functions) == 2
@@ -451,7 +451,7 @@ class TestMcpClientPlugin:
         params = McpClientPluginParams(available_tools=tool_details)
         plugin.use_mcp_server("http://test-server", params)
 
-        with patch("microsoft.teams.mcp.ai_plugin.create_transport") as mock_create_transport:
+        with patch("microsoft.teams.mcpplugin.ai_plugin.create_transport") as mock_create_transport:
             functions = await plugin.on_build_functions([])
 
             assert len(functions) == 2

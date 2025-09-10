@@ -14,7 +14,7 @@
       "packages/devtools/src",
       "packages/ai/src",
       "packages/openai/src",
-      "packages/mcp/src"
+      "packages/mcpplugin/src"
    ],
    "typeCheckingMode": "strict",
    "executionEnvironments": [
