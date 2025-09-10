@@ -9,7 +9,8 @@ dependencies = [
     "microsoft-teams-ai",
     "microsoft-teams-common",
     "microsoft-teams-openai",
-    "microsoft-teams-devtools"
+    "microsoft-teams-devtools",
+    "microsoft-teams-mcpplugin"
 ]
 
 [tool.uv.sources]

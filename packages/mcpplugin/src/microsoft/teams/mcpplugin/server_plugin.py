@@ -22,7 +22,7 @@ from microsoft.teams.common.logging import ConsoleLogger
 from pydantic import BaseModel
 
 try:
-    version = importlib.metadata.version("microsoft-teams-mcp")
+    version = importlib.metadata.version("microsoft-teams-mcpplugin")
 except importlib.metadata.PackageNotFoundError:
     version = "0.0.1-alpha.1"
 
