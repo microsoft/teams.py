@@ -1,0 +1,36 @@
+"""
+Copyright (c) Microsoft Corporation. All rights reserved.
+Licensed under the MIT License.
+"""
+
+from typing import Any, Awaitable, Callable, Optional, TypeVar, Union
+
+from microsoft.teams.api import ActivityBase, InvokeResponse, InvokeResponseBody
+
+from .activity_context import ActivityContext
+
+# Type variables for generic activity and response types
+ActivityT = TypeVar("ActivityT", bound=ActivityBase)
+ResponseT = TypeVar("ResponseT", bound=InvokeResponseBody)
+
+# Basic handler types that support both sync and async handlers
+BasicHandler = Callable[[ActivityContext[ActivityT]], Union[Optional[Any], Awaitable[Optional[Any]]]]
+BasicHandlerDecorator = Callable[[BasicHandler[ActivityT]], BasicHandler[ActivityT]]
+
+# Invoke handler types that support both sync and async handlers
+InvokeHandler = Callable[
+    [ActivityContext[ActivityT]],
+    Union[Union[InvokeResponse[ResponseT], ResponseT], Awaitable[Union[InvokeResponse[ResponseT], ResponseT]]],
+]
+InvokeHandlerDecorator = Callable[[InvokeHandler[ActivityT, ResponseT]], InvokeHandler[ActivityT, ResponseT]]
+
+# Special case for handlers that return None in invoke scenarios
+VoidInvokeHandler = Callable[
+    [ActivityContext[ActivityT]], Union[Union[InvokeResponse[None], None], Awaitable[Union[InvokeResponse[None], None]]]
+]
+VoidInvokeHandlerDecorator = Callable[[VoidInvokeHandler[ActivityT]], VoidInvokeHandler[ActivityT]]
+
+# Union types for overloaded methods
+BasicHandlerUnion = Union[BasicHandlerDecorator[ActivityT], BasicHandler[ActivityT]]
+InvokeHandlerUnion = Union[InvokeHandlerDecorator[ActivityT, ResponseT], InvokeHandler[ActivityT, ResponseT]]
+VoidInvokeHandlerUnion = Union[VoidInvokeHandlerDecorator[ActivityT], VoidInvokeHandler[ActivityT]]

@@ -468,6 +468,16 @@ ACTIVITY_ROUTES: Dict[str, ActivityConfig] = {
         output_model=None,
         is_invoke=True,
     ),
+    "message.submit.feedback": ActivityConfig(
+        name="message.submit.feedback",
+        method_name="on_message_submit_feedback",
+        input_model=MessageSubmitActionInvokeActivity,
+        selector=lambda activity: activity.type == "invoke"
+        and cast(InvokeActivity, activity).name == "message/submitAction"
+        and cast(MessageSubmitActionInvokeActivity, activity).value.action_name == "feedback",
+        output_model=None,
+        is_invoke=True,
+    ),
     "handoff.action": ActivityConfig(
         name="handoff.action",
         method_name="on_handoff_action",

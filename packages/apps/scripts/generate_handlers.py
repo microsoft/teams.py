@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 
 # Import the activity config directly without going through the package hierarchy
 activity_config_path = (
-    Path(__file__).parent.parent / "src" / "microsoft" / "teams" / "app" / "routing" / "activity_route_configs.py"
+    Path(__file__).parent.parent / "src" / "microsoft" / "teams" / "apps" / "routing" / "activity_route_configs.py"
 )
 
 # Load the activity config module directly because we don't want to have a dependency on the package
@@ -43,14 +43,14 @@ def generate_imports() -> str:
     """Generate import statements for the generated file."""
     imports = {
         "from abc import ABC, abstractmethod",
-        "from typing import Callable, Optional, Union, Awaitable, overload",
-        "from .activity_context import ActivityContext",
-        "from .router import ActivityRouter",
-        "from .type_validation import validate_handler_type",
-        "from .activity_route_configs import ACTIVITY_ROUTES",
-        "from microsoft.teams.models import ActivityBase",
         "from logging import Logger",
+        "from typing import Callable, Optional, overload",
         "from microsoft.teams.api import InvokeResponse",
+        "from .activity_context import ActivityContext",
+        "from .activity_route_configs import ACTIVITY_ROUTES",
+        "from .router import ActivityRouter",
+        "from .type_helpers import BasicHandler, BasicHandlerUnion, InvokeHandler, InvokeHandlerUnion, VoidInvokeHandler, VoidInvokeHandlerUnion",  # noqa E501
+        "from .type_validation import validate_handler_type",
     }
 
     # Add imports for each activity class
@@ -82,36 +82,44 @@ def generate_method(config: ActivityConfig, config_key: str) -> str:
     # Use the explicit input_type_name if provided, otherwise fall back to __name__
     input_class_name = config.input_model if isinstance(config.input_model, str) else config.input_model.__name__
 
-    # Determine output type
+    # Determine which generic type to use based on the handler configuration
     if config.output_type_name or config.output_model:
-        # Use explicit output_type_name if provided, otherwise fall back to __name__
+        # Has a specific response type
         output_class_name = config.output_type_name
         if not output_class_name:
             if config.output_model:
                 output_class_name = config.output_model.__name__
             else:
                 raise ValueError(f"Output type for {method_name} must be specified in the config or as a string.")
-        if config.is_invoke:
-            output_class_name = f"Union[InvokeResponse[{output_class_name}], {output_class_name}]"
-        output_type = f"Awaitable[{output_class_name}]"
-    else:
-        if config.is_invoke:
-            output_type = "Awaitable[Union[InvokeResponse[None], None]]"
-        else:
-            output_type = "Awaitable[None]"
 
-    returnTypeStr = f"Callable[[ActivityContext[{input_class_name}]], {output_type}]"
-    returnTypeDecoratorStr = f"Callable[[{returnTypeStr}], {returnTypeStr}]"
+        if config.is_invoke:
+            # InvokeHandler[ActivityType, ResponseType]
+            handler_type = f"InvokeHandler[{input_class_name}, {output_class_name}]"
+            union_type = f"InvokeHandlerUnion[{input_class_name}, {output_class_name}]"
+        else:
+            # This case shouldn't happen with current config, but fallback to basic
+            handler_type = f"BasicHandler[{input_class_name}]"
+            union_type = f"BasicHandlerUnion[{input_class_name}]"
+    else:
+        # No specific response type
+        if config.is_invoke:
+            # VoidInvokeHandler[ActivityType] for invoke handlers that return None
+            handler_type = f"VoidInvokeHandler[{input_class_name}]"
+            union_type = f"VoidInvokeHandlerUnion[{input_class_name}]"
+        else:
+            # BasicHandler[ActivityType] for basic handlers
+            handler_type = f"BasicHandler[{input_class_name}]"
+            union_type = f"BasicHandlerUnion[{input_class_name}]"
 
     return f'''    @overload
-    def {method_name}(self, handler: {returnTypeStr}) -> {returnTypeStr}: ...
+    def {method_name}(self, handler: {handler_type}) -> {handler_type}: ...
         
     @overload
-    def {method_name}(self) -> {returnTypeDecoratorStr}: ...
+    def {method_name}(self) -> Callable[[{handler_type}], {handler_type}]: ...
         
-    def {method_name}(self, handler: Optional[{returnTypeStr}] = None) -> {returnTypeDecoratorStr} | {returnTypeStr}:
+    def {method_name}(self, handler: Optional[{handler_type}] = None) -> {union_type}:
         """Register a {activity_name} activity handler."""
-        def decorator(func: {returnTypeStr}) -> {returnTypeStr}:
+        def decorator(func: {handler_type}) -> {handler_type}:
             validate_handler_type(self.logger, func, {input_class_name}, "{method_name}", "{input_class_name}")
             config = ACTIVITY_ROUTES["{config_key}"]
             self.router.add_handler(config.selector, func)
@@ -182,7 +190,7 @@ def generate_activity_handlers():
     # Write to the message_handler directory in the source code
     # Use Path(__file__) to find this script's location, then navigate to the target
     script_dir = Path(__file__).parent
-    source_dir = script_dir.parent / "src" / "microsoft" / "teams" / "app" / "routing"
+    source_dir = script_dir.parent / "src" / "microsoft" / "teams" / "apps" / "routing"
     output_path = source_dir / "generated_handlers.py"
 
     # Ensure the target directory exists
