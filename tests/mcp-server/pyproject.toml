@@ -7,7 +7,7 @@ requires-python = ">=3.12"
 dependencies = [
     "dotenv>=0.9.9",
     "microsoft-teams-apps",
-    "microsoft-teams-mcp",
+    "microsoft-teams-mcpplugin",
     "microsoft-teams-devtools"
 ]
 

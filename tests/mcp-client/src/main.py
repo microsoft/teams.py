@@ -11,7 +11,7 @@ from microsoft.teams.ai import Agent, ListMemory
 from microsoft.teams.api import MessageActivity, TypingActivityInput
 from microsoft.teams.apps import ActivityContext, App
 from microsoft.teams.devtools import DevToolsPlugin
-from microsoft.teams.mcp.ai_plugin import McpClientPlugin
+from microsoft.teams.mcpplugin import McpClientPlugin
 from microsoft.teams.openai import OpenAIResponsesAIModel
 
 app = App(plugins=[DevToolsPlugin()])

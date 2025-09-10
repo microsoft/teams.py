@@ -58,7 +58,7 @@ A comprehensive SDK for building Microsoft Teams applications, bots, and AI agen
 
 > external packages to integrate with external protocols and microsoft-teams-cards
 
-- [`microsoft-teams-mcp`](./packages/mcp/README.md)
+- [`microsoft-teams-mcpplugin`](./packages/mcp/README.md)
 
 ### Create a New Package
 
