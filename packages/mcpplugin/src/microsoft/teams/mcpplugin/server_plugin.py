@@ -37,7 +37,8 @@ class McpServerPlugin(PluginBase):
     MCP Server Plugin for Teams Apps.
 
     This plugin wraps FastMCP and provides a bridge between Teams AI Functions
-    and MCP tools, exposing them via streamable HTTP transport.
+    and MCP tools, exposing them via streamable HTTP transport. It allows
+    Teams AI functions to be discovered and called by MCP clients.
     """
 
     # Dependency injection
@@ -48,8 +49,9 @@ class McpServerPlugin(PluginBase):
         Initialize the MCP server plugin.
 
         Args:
-            name: The name of the MCP server
-            path: The path to mount the MCP server on (default: /mcp)
+            name: The name of the MCP server for identification
+            path: The HTTP path to mount the MCP server on (default: /mcp)
+            logger: Optional logger instance for debugging
         """
         self.mcp_server = FastMCP(name)
         self.path = path
@@ -58,7 +60,12 @@ class McpServerPlugin(PluginBase):
 
     @property
     def server(self) -> FastMCP:
-        """Get the underlying FastMCP server."""
+        """
+        Get the underlying FastMCP server.
+
+        Returns:
+            FastMCP server instance for direct access to MCP functionality
+        """
         return self.mcp_server
 
     def use_tool(self, function: Function[P]) -> "McpServerPlugin":
@@ -94,6 +101,18 @@ class McpServerPlugin(PluginBase):
 
             # Create wrapper handler that converts kwargs to the expected format
             async def wrapped_handler(**kwargs: Any) -> Any:
+                """
+                Wrapper that adapts Teams AI function calls to MCP format.
+
+                Args:
+                    **kwargs: Function arguments from MCP client
+
+                Returns:
+                    Function execution result
+
+                Raises:
+                    Exception: If function execution fails
+                """
                 try:
                     if isinstance(function.parameter_schema, type):
                         # parameter_schema is a Pydantic model class - instantiate it
@@ -124,7 +143,15 @@ class McpServerPlugin(PluginBase):
             raise
 
     async def on_start(self, event: PluginStartEvent) -> None:
-        """Start the plugin - mount MCP server on HTTP plugin."""
+        """
+        Start the plugin - mount MCP server on HTTP plugin.
+
+        Args:
+            event: Plugin start event containing application context
+
+        Raises:
+            Exception: If mounting fails
+        """
 
         if self._mounted:
             self.logger.warning("MCP server already mounted")
@@ -144,7 +171,11 @@ class McpServerPlugin(PluginBase):
             raise
 
     async def on_stop(self) -> None:
-        """Stop the plugin - clean shutdown of MCP server."""
+        """
+        Stop the plugin - clean shutdown of MCP server.
+
+        Performs graceful shutdown of the MCP server and cleans up resources.
+        """
         if self._mounted:
             self.logger.info("MCP server shutting down")
             self._mounted = False

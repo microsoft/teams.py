@@ -14,18 +14,36 @@ from openai import AsyncAzureOpenAI, AsyncOpenAI
 
 @dataclass
 class OpenAIBaseModel:
-    model: str
-    key: str | None = None
-    client: AsyncOpenAI | None = None
-    mode: Literal["completions", "responses"] = "responses"
-    base_url: str | None = None
+    """
+    Base configuration class for OpenAI model implementations.
+
+    Provides common configuration for both Azure OpenAI and standard OpenAI,
+    including client initialization and authentication setup.
+    """
+
+    model: str  # Model name (e.g., "gpt-4", "gpt-3.5-turbo")
+    key: str | None = None  # API key for authentication
+    client: AsyncOpenAI | None = None  # Pre-configured client instance
+    mode: Literal["completions", "responses"] = "responses"  # API mode to use
+    base_url: str | None = None  # Custom base URL for OpenAI API
     # Azure OpenAI options
-    azure_endpoint: str | None = None
-    api_version: str | None = None
-    logger: Logger = field(default_factory=lambda: ConsoleLogger().create_logger(name="OpenAI-Model"))
-    _client: AsyncOpenAI = field(init=False)
+    azure_endpoint: str | None = None  # Azure OpenAI endpoint URL
+    api_version: str | None = None  # Azure OpenAI API version
+    logger: Logger = field(
+        default_factory=lambda: ConsoleLogger().create_logger(name="OpenAI-Model")
+    )  # Logger instance
+    _client: AsyncOpenAI = field(init=False)  # Internal client instance
 
     def __post_init__(self):
+        """
+        Initialize the OpenAI client after dataclass initialization.
+
+        Creates either an Azure OpenAI client or standard OpenAI client
+        based on the provided configuration parameters.
+
+        Raises:
+            ValueError: If neither key nor client is provided
+        """
         if self.client is None and self.key is None:
             raise ValueError("Either key or client is required when initializing an OpenAIModel")
         elif self.client is not None:

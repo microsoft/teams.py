@@ -48,9 +48,10 @@ class OpenAIResponsesAIModel(OpenAIBaseModel, AIModel):
 
     The Responses API is stateful and manages conversation context automatically,
     making it simpler for complex multi-turn conversations with tools.
+    Supports both stateful (recommended) and stateless modes.
     """
 
-    stateful: bool = True
+    stateful: bool = True  # Use stateful mode (recommended) or stateless mode
 
     async def generate_text(
         self,
@@ -61,6 +62,23 @@ class OpenAIResponsesAIModel(OpenAIBaseModel, AIModel):
         functions: dict[str, Function[BaseModel]] | None = None,
         on_chunk: Callable[[str], Awaitable[None]] | None = None,
     ) -> ModelMessage:
+        """
+        Generate text using OpenAI Responses API.
+
+        Args:
+            input: Input message to process
+            system: Optional system message for context
+            memory: Memory for conversation history (managed differently in stateful mode)
+            functions: Available functions for the model to call
+            on_chunk: Optional streaming callback (limited support in Responses API)
+
+        Returns:
+            ModelMessage with generated content and/or function calls
+
+        Note:
+            In stateful mode, OpenAI manages conversation context automatically.
+            In stateless mode, behaves more like traditional Chat Completions.
+        """
         # Use default memory if none provided
         if memory is None:
             memory = ListMemory()
