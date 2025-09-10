@@ -129,7 +129,7 @@ class OpenAICompletionsAIModel(OpenAIBaseModel, AIModel):
 
         # Make OpenAI API call (with streaming if on_chunk provided)
         response = await self._client.chat.completions.create(
-            model=self.model, messages=openai_messages, tools=tools, stream=bool(on_chunk)
+            model=self._model, messages=openai_messages, tools=tools, stream=bool(on_chunk)
         )
 
         # Convert response back to ModelMessage format
