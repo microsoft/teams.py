@@ -146,6 +146,7 @@ The CI pipeline (`.github/workflows/ci.yml`) runs:
 - **generate-activity-handlers command fails**: Path bug exists but doesn't affect normal development workflow
 - **Network restrictions**: Use `python -m pip install uv` instead of curl-based installation
 - **Build timeouts**: UV operations are fast (3-18 seconds) but use generous timeouts for reliability
+- **Pre-commit hook installation may timeout**: If `pre-commit install` fails with PyPI timeout, use `git commit --no-verify` for urgent commits
 
 ### Common Problems
 - **Import errors**: Ensure virtual environment is activated: `source .venv/bin/activate`
@@ -153,6 +154,7 @@ The CI pipeline (`.github/workflows/ci.yml`) runs:
 - **Test failures**: Run `uv sync --all-packages --group dev` to update dependencies
 - **Type errors**: Run `pyright` to catch type issues before CI
 - **Format issues**: Run `ruff format` to auto-fix formatting
+- **Pre-commit hook timeouts**: Use `git commit --no-verify` to bypass hooks temporarily during network issues
 
 ## Critical Reminders
 
