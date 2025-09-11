@@ -19,13 +19,16 @@ Microsoft Teams AI Library for Python is a comprehensive SDK for building Micros
    uv sync --all-packages --group dev
    ```
 
-2. **Activate virtual environment** (instant):
+2. **Activate virtual environment** (instant) or use `uv run` for commands:
    ```bash
    # On Linux/Mac
    source .venv/bin/activate
    
    # On Windows
    .venv\Scripts\Activate
+   
+   # Alternative: Use uv run (no activation needed)
+   # Example: uv run pytest packages
    ```
 
 3. **Install pre-commit hooks** (<1 second):
@@ -120,13 +123,13 @@ Available test apps for development and validation:
 ## Common Development Tasks
 
 ### Testing Changes
-1. **ALWAYS activate virtual environment first**: `source .venv/bin/activate`
-2. **Run affected tests**: `pytest packages/[package-name]` for specific package
-3. **Validate with test app**: Use `tests/echo` for basic functionality validation
-4. **Check DevTools**: Access http://localhost:3979/devtools when app is running
+1. **Run commands with UV** (recommended): Use `uv run pytest packages/[package-name]` or **activate virtual environment**: `source .venv/bin/activate`
+2. **Run affected tests**: `pytest packages/[package-name]` for specific package (or `uv run pytest packages/[package-name]`)
+3. **Validate with test app**: Use `tests/echo` for basic functionality validation (starts a blocking server process)
+4. **Check DevTools web app**: Access http://localhost:3979/devtools when app is running
 
 ### Debugging and Development
-- **DevTools Interface**: Available at port 3979 when running any test app
+- **DevTools Web App**: Available at port 3979 when running any test app
 - **Logging**: Apps provide structured logging for debugging
 - **Hot reload**: No hot reload - restart apps after changes
 - **Port conflicts**: Default ports are 3978 (main) and 3979 (devtools)
@@ -149,7 +152,7 @@ The CI pipeline (`.github/workflows/ci.yml`) runs:
 - **Pre-commit hook installation may timeout**: If `pre-commit install` fails with PyPI timeout, use `git commit --no-verify` for urgent commits
 
 ### Common Problems
-- **Import errors**: Ensure virtual environment is activated: `source .venv/bin/activate`
+- **Import errors**: Ensure virtual environment is activated (`source .venv/bin/activate`) or use `uv run` commands
 - **UV not found**: Install with pip: `python -m pip install uv`  
 - **Test failures**: Run `uv sync --all-packages --group dev` to update dependencies
 - **Type errors**: Run `pyright` to catch type issues before CI
@@ -160,7 +163,7 @@ The CI pipeline (`.github/workflows/ci.yml`) runs:
 
 - **NEVER CANCEL builds or tests** - Commands complete in 3-18 seconds but network delays may occur
 - **ALWAYS use timeouts of 60+ seconds** for any UV or build commands
-- **ALWAYS activate virtual environment** before running Python commands  
+- **ALWAYS activate virtual environment or use uv run** before running Python commands  
 - **ALWAYS validate with a test app** after making changes to core packages
 - **ALWAYS run pre-commit validation** (`poe check && pyright`) before committing
 - **NEVER skip manual testing** - Automated tests don't cover integration scenarios
