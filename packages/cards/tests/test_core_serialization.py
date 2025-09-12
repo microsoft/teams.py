@@ -147,3 +147,21 @@ def test_alias_serialization():
     assert "schema" in parsed  # ac_schema -> schema
     text_block = parsed["body"][0]
     assert "isVisible" in text_block  # is_visible -> isVisible
+
+
+def test_single_object_fallback_serialization():
+    """Test if single object fallback properties serialize correctly."""
+    # Create an ExecuteAction with a fallback that's another Action
+    execute_action = ExecuteAction(title="Primary Action")
+    fallback_action = SubmitAction(title="Fallback Submit")
+    execute_action.fallback = fallback_action
+
+    json_str = execute_action.model_dump_json(exclude_none=True)
+    parsed = json.loads(json_str)
+
+    # Check that fallback is present and serialized correctly (not as empty object)
+    assert "fallback" in parsed, "Fallback property should be present in serialized JSON"
+    assert parsed["fallback"] != {}, "Fallback should not be an empty object"
+    assert "type" in parsed["fallback"], "Fallback should have a type field"
+    assert parsed["fallback"]["type"] == "Action.Submit"
+    assert parsed["fallback"]["title"] == "Fallback Submit"
