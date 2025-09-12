@@ -53,6 +53,8 @@ From Teams, DevTools, or your test client, use any of the following commands to 
 | Model switching             | `model completions` / `model responses`    | Switch between Chat Completions and Responses API models     |
 | Plugin stats                | `plugin`                                   | Shows AI plugin function call statistics                      |
 | Memory management           | `memory clear`                             | Clears conversation memory                                     |
+| Feedback collection         | `feedback demo`                            | Demonstrates message feedback with like/dislike buttons       |
+| Feedback statistics         | `feedback stats <message_id>`              | Shows feedback summary for a specific message                 |
 | Stateful interactions       | `<any other message>`                      | Shows persistent conversation memory across interactions       |
 
 ## Features Demonstrated
@@ -72,6 +74,7 @@ From Teams, DevTools, or your test client, use any of the following commands to 
 - **Memory management** - Per-conversation memory with manual clearing
 - **Custom plugins** - AI plugin system with lifecycle hooks
 - **Citations** - Position-based citations with proper formatting
+- **Feedback collection** - Message feedback with like/dislike reactions and text feedback
 
 ### Best Practices
 - **AI-generated indicators** - All AI responses marked appropriately
@@ -88,5 +91,6 @@ The sample follows a modular architecture:
   - `memory_management.py` - Stateful conversation handling
   - `citations.py` - Citation demo functionality  
   - `plugins.py` - Custom AI plugin implementation
+  - `feedback_management.py` - Message feedback collection and storage
 
 This structure mirrors the TypeScript AI test implementation for consistency across language implementations.

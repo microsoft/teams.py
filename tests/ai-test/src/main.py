@@ -15,9 +15,15 @@ from handlers import (
     handle_pokemon_search,
     handle_stateful_conversation,
 )
+from handlers.feedback_management import (
+    get_feedback_summary,
+    handle_feedback_submission,
+    initialize_feedback_storage,
+)
 from handlers.memory_management import clear_conversation_memory
 from microsoft.teams.ai import Agent
 from microsoft.teams.api import MessageActivity, MessageActivityInput
+from microsoft.teams.api.activities.invoke.message.submit_action import MessageSubmitActionInvokeActivity
 from microsoft.teams.apps import ActivityContext, App
 from microsoft.teams.devtools import DevToolsPlugin
 from microsoft.teams.openai import OpenAICompletionsAIModel, OpenAIResponsesAIModel
@@ -150,6 +156,43 @@ async def handle_memory_clear(ctx: ActivityContext[MessageActivity]):
     """Handle 'memory clear' command"""
     await clear_conversation_memory(ctx.activity.conversation.id)
     await ctx.reply("🧠 Memory cleared!")
+
+
+# Feedback demonstration
+@app.on_message_pattern(re.compile(r"^feedback\s+demo\b", re.IGNORECASE))
+async def handle_feedback_demo(ctx: ActivityContext[MessageActivity]):
+    """Handle 'feedback demo' command to demonstrate feedback collection"""
+    agent = Agent(current_model)
+    chat_result = await agent.send(
+        input="Tell me a short joke", instructions="You are a comedian. Keep responses brief and funny."
+    )
+
+    if chat_result.response.content:
+        # Create message with feedback enabled and initialize storage
+        message = MessageActivityInput(text=chat_result.response.content).add_ai_generated().add_feedback()
+        sent_message = await ctx.send(message)
+
+        # Initialize feedback storage for this message
+        if sent_message and hasattr(sent_message, "id"):
+            initialize_feedback_storage(sent_message.id)
+            await ctx.reply(f"💡 Feedback enabled! Try reacting or providing feedback. Message ID: {sent_message.id}")
+
+
+@app.on_message_pattern(re.compile(r"^feedback\s+stats\s+(.+)", re.IGNORECASE))
+async def handle_feedback_stats(ctx: ActivityContext[MessageActivity]):
+    """Handle 'feedback stats <message_id>' command"""
+    match = re.match(r"^feedback\s+stats\s+(.+)", ctx.activity.text, re.IGNORECASE)
+    if match:
+        message_id = match.group(1).strip()
+        summary = get_feedback_summary(message_id)
+        await ctx.reply(f"📊 Feedback for message {message_id}: {summary}")
+
+
+# Handle feedback submission events (like TypeScript message.submit.feedback)
+@app.on_message_submit_feedback
+async def handle_message_feedback(ctx: ActivityContext[MessageSubmitActionInvokeActivity]):
+    """Handle feedback submission events"""
+    await handle_feedback_submission(ctx)
 
 
 # Fallback stateful conversation handler (like TypeScript fallback)
