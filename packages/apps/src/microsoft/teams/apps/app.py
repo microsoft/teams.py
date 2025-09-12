@@ -270,7 +270,7 @@ class App(ActivityHandlerMixin):
         """Send an activity proactively."""
 
         if self.id is None or self.name is None:
-            raise ValueError(f"app not started {self.tokens.bot}")
+            raise ValueError("app not started")
 
         conversation_ref = ConversationReference(
             channel_id="msteams",
