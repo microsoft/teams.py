@@ -55,7 +55,7 @@ def parse_function_arguments(func: Function[Any], arguments: Dict[str, Any]) -> 
         # Use a simple approach that works with any dict schema
         class DynamicParams(BaseModel):
             model_config = ConfigDict(extra="allow")
-        
+
         return DynamicParams(**arguments)
     else:
         # For Pydantic model schemas, parse normally

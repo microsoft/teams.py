@@ -132,7 +132,10 @@ class ChatPrompt:
         return ChatSendResult(response=current_response)
 
     def _wrap_function_handler(
-        self, original_handler: Union[FunctionHandler[BaseModel], NoParamsFunctionHandler], function_name: str, parameter_schema: Any
+        self,
+        original_handler: Union[FunctionHandler[BaseModel], NoParamsFunctionHandler],
+        function_name: str,
+        parameter_schema: Any,
     ) -> FunctionHandler[BaseModel]:
         """
         Wrap a function handler with plugin before/after hooks.
@@ -162,7 +165,7 @@ class ChatPrompt:
             else:
                 # Parameters expected - call with params
                 result = cast(Callable[[BaseModel], Union[str, Awaitable[str]]], original_handler)(params)
-            
+
             if isawaitable(result):
                 result = await result
 
