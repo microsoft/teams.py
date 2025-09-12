@@ -90,7 +90,7 @@ class ChatPrompt:
         *,
         memory: Memory | None = None,
         on_chunk: Callable[[str], Awaitable[None]] | Callable[[str], None] | None = None,
-        instructions: SystemMessage | None = None,
+        instructions: str | SystemMessage | None = None,
     ) -> ChatSendResult:
         """
         Send a message to the AI model and get a response.
@@ -107,6 +107,10 @@ class ChatPrompt:
         """
         if isinstance(input, str):
             input = UserMessage(content=input)
+
+        # Convert string instructions to SystemMessage
+        if isinstance(instructions, str):
+            instructions = SystemMessage(content=instructions)
 
         current_input = await self._run_before_send_hooks(input)
         current_system_message = await self._run_build_instructions_hooks(instructions)

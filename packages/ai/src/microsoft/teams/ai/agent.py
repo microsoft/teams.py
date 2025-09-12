@@ -47,7 +47,7 @@ class Agent(ChatPrompt):
         self,
         input: str | Message,
         *,
-        instructions: SystemMessage | None = None,
+        instructions: str | SystemMessage | None = None,
         memory: Memory | None = None,
         on_chunk: Callable[[str], Awaitable[None]] | Callable[[str], None] | None = None,
     ) -> ChatSendResult:

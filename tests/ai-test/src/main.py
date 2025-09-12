@@ -5,87 +5,167 @@ Licensed under the MIT License.
 
 import asyncio
 import re
+from os import getenv
 
-from microsoft.teams.ai import Agent, Function, ListMemory, UserMessage
-from microsoft.teams.api import MessageActivity
+from dotenv import find_dotenv, load_dotenv
+from handlers import (
+    LoggingAIPlugin,
+    handle_citations_demo,
+    handle_multiple_functions,
+    handle_pokemon_search,
+    handle_stateful_conversation,
+)
+from handlers.memory_management import clear_conversation_memory
+from microsoft.teams.ai import Agent
+from microsoft.teams.api import MessageActivity, MessageActivityInput
 from microsoft.teams.apps import ActivityContext, App
 from microsoft.teams.devtools import DevToolsPlugin
 from microsoft.teams.openai import OpenAICompletionsAIModel, OpenAIResponsesAIModel
-from pydantic import BaseModel
+
+load_dotenv(find_dotenv(usecwd=True))
+
+
+def get_required_env(key: str) -> str:
+    value = getenv(key)
+    if not value:
+        raise ValueError(f"Required environment variable {key} is not set")
+    return value
+
+
+AZURE_OPENAI_API_KEY = get_required_env("AZURE_OPENAI_API_KEY")
+AZURE_OPENAI_ENDPOINT = get_required_env("AZURE_OPENAI_ENDPOINT")
+AZURE_OPENAI_MODEL = get_required_env("AZURE_OPENAI_MODEL")
+AZURE_OPENAI_API_VERSION = get_required_env("AZURE_OPENAI_API_VERSION")
+
+# Global plugin instance for tracking
+plugin_instance = LoggingAIPlugin()
 
 app = App(plugins=[DevToolsPlugin()])
 
-# Global state for mode switching
-current_mode = "responses"  # "chat" or "responses"
+# Models for different AI approaches
+completions_model = OpenAICompletionsAIModel(
+    key=AZURE_OPENAI_API_KEY,
+    model=AZURE_OPENAI_MODEL,
+    azure_endpoint=AZURE_OPENAI_ENDPOINT,
+    api_version=AZURE_OPENAI_API_VERSION,
+)
+
+responses_model = OpenAIResponsesAIModel(
+    key=AZURE_OPENAI_API_KEY,
+    model=AZURE_OPENAI_MODEL,
+    azure_endpoint=AZURE_OPENAI_ENDPOINT,
+    api_version=AZURE_OPENAI_API_VERSION,
+    stateful=True,
+)
+
+# Global state
+current_model = completions_model
 
 
-class GetWeatherParams(BaseModel):
-    location: str
-
-
-chat_openai_ai_model = OpenAICompletionsAIModel()
-responses_openai_ai_model = OpenAIResponsesAIModel(stateful=True)
-chat_memory = ListMemory()
-
-chat_agent = Agent(chat_openai_ai_model, memory=chat_memory)
-responses_agent = Agent(responses_openai_ai_model, memory=chat_memory)
-
-
-def get_weather_handler(params: GetWeatherParams) -> str:
-    return f"The weather in {params.location} is sunny"
-
-
-for agent in [chat_agent, responses_agent]:
-    agent.with_function(
-        Function(
-            name="get_weather",
-            description="get weather from a particular location",
-            parameter_schema=GetWeatherParams,
-            handler=get_weather_handler,
-        )
-    )
-
-
-@app.on_message_pattern(re.compile(r"^mode\b"))
-async def handle_mode_switch(ctx: ActivityContext[MessageActivity]):
-    """Handle mode switching between completions and responses API."""
-    global current_mode
-
-    text = ctx.activity.text.lower().strip()
-
-    if "completions" in text:
-        current_mode = "completions"
-        await ctx.reply("🔄 Switched to **Completions Completions** mode")
-    elif "responses" in text:
-        current_mode = "responses"
-        await ctx.reply("🔄 Switched to **Responses API** mode")
-    else:
-        await ctx.reply(f"📋 Current mode: **{current_mode}**")
-
-
-@app.on_message
-async def handle_message(ctx: ActivityContext[MessageActivity]):
-    """Handle message activities using the new generated handler system."""
-    global current_mode
-
-    print(f"[GENERATED onMessage] Message received: {ctx.activity.text}")
-    print(f"[GENERATED onMessage] From: {ctx.activity.from_}")
-    print(f"[GENERATED onMessage] Mode: {current_mode}")
-
-    # Create AI model based on current mode
-    if current_mode == "responses":
-        agent = responses_agent
-    else:  # chat mode
-        agent = chat_agent
-
+# Simple chat handler (like TypeScript "hi" example)
+@app.on_message_pattern(re.compile(r"^hi$", re.IGNORECASE))
+async def handle_simple_chat(ctx: ActivityContext[MessageActivity]):
+    """Handle 'hi' message with simple AI response"""
+    agent = Agent(completions_model)
     chat_result = await agent.send(
-        input=UserMessage(content=ctx.activity.text, role="user"), on_chunk=lambda chunk: ctx.stream.emit(chunk)
+        input=ctx.activity.text, instructions="You are a friendly assistant who talks like a pirate"
     )
-    result = chat_result.response
-    if result.content:
-        await ctx.reply(result.content)
-    else:
-        print("No response!")
+
+    if chat_result.response.content:
+        message = MessageActivityInput(text=chat_result.response.content).add_ai_generated()
+        await ctx.send(message)
+
+
+# Command handlers (like TypeScript command pattern)
+@app.on_message_pattern(re.compile(r"^pokemon\s+(.+)", re.IGNORECASE))
+async def handle_pokemon_command(ctx: ActivityContext[MessageActivity]):
+    """Handle 'pokemon <name>' command"""
+    match = re.match(r"^pokemon\s+(.+)", ctx.activity.text, re.IGNORECASE)
+    if match:
+        pokemon_name = match.group(1).strip()
+        ctx.activity.text = pokemon_name  # Update activity text for handler
+        await handle_pokemon_search(current_model, ctx)
+
+
+@app.on_message_pattern(re.compile(r"^weather\b", re.IGNORECASE))
+async def handle_weather_command(ctx: ActivityContext[MessageActivity]):
+    """Handle 'weather' command with multiple functions"""
+    await handle_multiple_functions(current_model, ctx)
+
+
+# Streaming handler (like TypeScript streaming example)
+@app.on_message_pattern(re.compile(r"^stream\s+(.+)", re.IGNORECASE))
+async def handle_streaming(ctx: ActivityContext[MessageActivity]):
+    """Handle 'stream <query>' command"""
+    match = re.match(r"^stream\s+(.+)", ctx.activity.text, re.IGNORECASE)
+    if match:
+        query = match.group(1).strip()
+
+        agent = Agent(current_model)
+        chat_result = await agent.send(
+            input=query,
+            instructions="You are a friendly assistant who responds in extremely verbose language",
+            on_chunk=lambda chunk: ctx.stream.emit(chunk) if hasattr(ctx, "stream") else None,
+        )
+
+        if hasattr(ctx.activity.conversation, "is_group") and ctx.activity.conversation.is_group:
+            # Group chat - send final response
+            if chat_result.response.content:
+                message = MessageActivityInput(text=chat_result.response.content).add_ai_generated()
+                await ctx.send(message)
+        else:
+            # 1:1 chat - streaming handled above
+            if hasattr(ctx, "stream"):
+                ctx.stream.emit(MessageActivityInput().add_ai_generated())
+
+
+# Utility commands
+@app.on_message_pattern(re.compile(r"^citations?\b", re.IGNORECASE))
+async def handle_citations_command(ctx: ActivityContext[MessageActivity]):
+    """Handle 'citations' command"""
+    await handle_citations_demo(ctx)
+
+
+@app.on_message_pattern(re.compile(r"^model\s*(.*)$", re.IGNORECASE))
+async def handle_model_switch(ctx: ActivityContext[MessageActivity]):
+    """Handle model switching"""
+    global current_model
+
+    match = re.match(r"^model\s*(.*)$", ctx.activity.text, re.IGNORECASE)
+    if match:
+        model_name = match.group(1).strip().lower()
+        if "completion" in model_name:
+            current_model = completions_model
+            await ctx.reply("🔄 Switched to **Chat Completions** model")
+        elif "response" in model_name:
+            current_model = responses_model
+            await ctx.reply("🔄 Switched to **Responses API** model")
+        else:
+            await ctx.reply(
+                f"📋 Current model: **{'completions' if current_model == completions_model else 'responses'}**"
+            )
+
+
+@app.on_message_pattern(re.compile(r"^plugin\b", re.IGNORECASE))
+async def handle_plugin_stats(ctx: ActivityContext[MessageActivity]):
+    """Handle 'plugin stats' command"""
+    await ctx.reply(
+        f"🔌 Plugin function calls so far: {', '.join(plugin_instance.function_calls) if plugin_instance.function_calls else 'None'}"  # noqa E501
+    )
+
+
+@app.on_message_pattern(re.compile(r"^memory\s+clear\b", re.IGNORECASE))
+async def handle_memory_clear(ctx: ActivityContext[MessageActivity]):
+    """Handle 'memory clear' command"""
+    await clear_conversation_memory(ctx.activity.conversation.id)
+    await ctx.reply("🧠 Memory cleared!")
+
+
+# Fallback stateful conversation handler (like TypeScript fallback)
+@app.on_message
+async def handle_fallback(ctx: ActivityContext[MessageActivity]):
+    """Fallback handler for stateful conversation"""
+    await handle_stateful_conversation(current_model, ctx)
 
 
 if __name__ == "__main__":
