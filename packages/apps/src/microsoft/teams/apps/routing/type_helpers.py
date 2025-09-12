@@ -13,11 +13,11 @@ from .activity_context import ActivityContext
 ActivityT = TypeVar("ActivityT", bound=ActivityBase)
 ResponseT = TypeVar("ResponseT", bound=InvokeResponseBody)
 
-# Basic handler types that support both sync and async handlers
+# Basic handler types that
 BasicHandler = Callable[[ActivityContext[ActivityT]], Awaitable[Optional[Any]]]
 BasicHandlerDecorator = Callable[[BasicHandler[ActivityT]], BasicHandler[ActivityT]]
 
-# Invoke handler types that support both sync and async handlers
+# Invoke handler types that
 InvokeHandler = Callable[
     [ActivityContext[ActivityT]],
     Awaitable[Union[InvokeResponse[ResponseT], ResponseT]],
