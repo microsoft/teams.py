@@ -3,15 +3,15 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from typing import Any, Awaitable, Callable, List, Optional, Union
+from typing import Any, Awaitable, Callable, List, Optional
 
 from microsoft.teams.api.models import ActivityBase
 
 from .activity_context import ActivityContext
 from .activity_route_configs import RouteSelector
 
-# Type alias for activity handlers - supports both sync and async handlers
-ActivityHandler = Callable[[ActivityContext[ActivityBase]], Union[Optional[Any], Awaitable[Optional[Any]]]]
+# Type alias for activity handlers
+ActivityHandler = Callable[[ActivityContext[ActivityBase]], Awaitable[Optional[Any]]]
 
 
 class ActivityRouter:

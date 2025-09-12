@@ -3,7 +3,6 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-import inspect
 from logging import Logger
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union, cast
 
@@ -269,11 +268,7 @@ class ActivityProcessor:
                         ctx.set_next(noop)
 
                     # Execute current handler and capture return value
-                    handler_result = handlers[index](ctx)
-                    if inspect.iscoroutine(handler_result):
-                        result = await handler_result
-                    else:
-                        result = handler_result
+                    result = await handlers[index](ctx)
 
                     # Update the response iff response hasn't already been received
                     if result is not None:

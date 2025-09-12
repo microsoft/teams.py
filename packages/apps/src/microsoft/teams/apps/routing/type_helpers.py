@@ -14,20 +14,18 @@ ActivityT = TypeVar("ActivityT", bound=ActivityBase)
 ResponseT = TypeVar("ResponseT", bound=InvokeResponseBody)
 
 # Basic handler types that support both sync and async handlers
-BasicHandler = Callable[[ActivityContext[ActivityT]], Union[Optional[Any], Awaitable[Optional[Any]]]]
+BasicHandler = Callable[[ActivityContext[ActivityT]], Awaitable[Optional[Any]]]
 BasicHandlerDecorator = Callable[[BasicHandler[ActivityT]], BasicHandler[ActivityT]]
 
 # Invoke handler types that support both sync and async handlers
 InvokeHandler = Callable[
     [ActivityContext[ActivityT]],
-    Union[Union[InvokeResponse[ResponseT], ResponseT], Awaitable[Union[InvokeResponse[ResponseT], ResponseT]]],
+    Awaitable[Union[InvokeResponse[ResponseT], ResponseT]],
 ]
 InvokeHandlerDecorator = Callable[[InvokeHandler[ActivityT, ResponseT]], InvokeHandler[ActivityT, ResponseT]]
 
 # Special case for handlers that return None in invoke scenarios
-VoidInvokeHandler = Callable[
-    [ActivityContext[ActivityT]], Union[Union[InvokeResponse[None], None], Awaitable[Union[InvokeResponse[None], None]]]
-]
+VoidInvokeHandler = Callable[[ActivityContext[ActivityT]], Awaitable[Union[InvokeResponse[None], None]]]
 VoidInvokeHandlerDecorator = Callable[[VoidInvokeHandler[ActivityT]], VoidInvokeHandler[ActivityT]]
 
 # Union types for overloaded methods
