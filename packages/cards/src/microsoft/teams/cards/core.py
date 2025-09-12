@@ -8,7 +8,7 @@ Licensed under the MIT License.
 
 from typing import Any, Dict, List, Literal, Optional, Self, Union
 
-from pydantic import AliasGenerator, BaseModel, ConfigDict, Field
+from pydantic import AliasGenerator, BaseModel, ConfigDict, Field, SerializeAsAny
 from pydantic.alias_generators import to_camel
 
 
@@ -313,7 +313,7 @@ class ExecuteAction(Action):
     is_enabled: Optional[bool] = True
     """ Controls the enabled state of the action. A disabled action cannot be clicked. If the action is represented as a button, the button's style will reflect this state. """
 
-    data: Optional[Union[str, SubmitActionData]] = None
+    data: Optional[Union[str, Dict[str, Any], SubmitActionData]] = None
     """ The data to send to the Bot when the action is executed. When expressed as an object, `data` is sent back to the Bot when the action is executed, adorned with the values of the inputs expressed as key/value pairs, where the key is the Id of the input. If `data` is expressed as a string, input values are not sent to the Bot. """
 
     associated_inputs: Optional[AssociatedInputs] = None
@@ -360,7 +360,7 @@ class ExecuteAction(Action):
         self.is_enabled = value
         return self
 
-    def with_data(self, value: Union[str, SubmitActionData]) -> Self:
+    def with_data(self, value: Union[str, Dict[str, Any], SubmitActionData]) -> Self:
         self.data = value
         return self
 
@@ -589,7 +589,7 @@ class AdaptiveCard(CardElement):
     style: Optional[ContainerStyle] = None
     """ The style of the container. Container styles control the colors of the background, border and text inside the container, in such a way that contrast requirements are always met. """
 
-    layouts: Optional[List[ContainerLayout]] = None
+    layouts: Optional[List[SerializeAsAny[ContainerLayout]]] = None
     """ The layouts associated with the container. The container can dynamically switch from one layout to another as the card's width changes. See [Container layouts](topic:container-layouts) for more details. """
 
     min_height: Optional[str] = None
@@ -634,10 +634,10 @@ class AdaptiveCard(CardElement):
     fallback: Optional[Union[CardElement, FallbackElement]] = None
     """ An alternate element to render if the type of this one is unsupported or if the host application doesn't support all the capabilities specified in the requires property. """
 
-    body: Optional[List[CardElement]] = None
+    body: Optional[List[SerializeAsAny[CardElement]]] = None
     """ The body of the card, comprised of a list of elements displayed according to the layouts property. If the layouts property is not specified, a Layout.Stack is used. """
 
-    actions: Optional[List[Action]] = None
+    actions: Optional[List[SerializeAsAny[Action]]] = None
     """ The card level actions, which always appear at the bottom of the card. """
 
     def with_id(self, value: str) -> Self:
@@ -664,7 +664,7 @@ class AdaptiveCard(CardElement):
         self.style = value
         return self
 
-    def with_layouts(self, value: List[ContainerLayout]) -> Self:
+    def with_layouts(self, value: List[SerializeAsAny[ContainerLayout]]) -> Self:
         self.layouts = value
         return self
 
@@ -724,11 +724,11 @@ class AdaptiveCard(CardElement):
         self.fallback = value
         return self
 
-    def with_body(self, value: List[CardElement]) -> Self:
+    def with_body(self, value: List[SerializeAsAny[CardElement]]) -> Self:
         self.body = value
         return self
 
-    def with_actions(self, value: List[Action]) -> Self:
+    def with_actions(self, value: List[SerializeAsAny[Action]]) -> Self:
         self.actions = value
         return self
 
@@ -1579,7 +1579,7 @@ class Container(CardElement):
     rounded_corners: Optional[bool] = None
     """ Controls if the container should have rounded corners. """
 
-    layouts: Optional[List[ContainerLayout]] = None
+    layouts: Optional[List[SerializeAsAny[ContainerLayout]]] = None
     """ The layouts associated with the container. The container can dynamically switch from one layout to another as the card's width changes. See [Container layouts](topic:container-layouts) for more details. """
 
     bleed: Optional[bool] = None
@@ -1606,7 +1606,7 @@ class Container(CardElement):
     fallback: Optional[Union[CardElement, FallbackElement]] = None
     """ An alternate element to render if the type of this one is unsupported or if the host application doesn't support all the capabilities specified in the requires property. """
 
-    items: Optional[List[CardElement]] = None
+    items: Optional[List[SerializeAsAny[CardElement]]] = None
     """ The elements in the container. """
 
     def with_id(self, value: str) -> Self:
@@ -1665,7 +1665,7 @@ class Container(CardElement):
         self.rounded_corners = value
         return self
 
-    def with_layouts(self, value: List[ContainerLayout]) -> Self:
+    def with_layouts(self, value: List[SerializeAsAny[ContainerLayout]]) -> Self:
         self.layouts = value
         return self
 
@@ -1701,7 +1701,7 @@ class Container(CardElement):
         self.fallback = value
         return self
 
-    def with_items(self, value: List[CardElement]) -> Self:
+    def with_items(self, value: List[SerializeAsAny[CardElement]]) -> Self:
         self.items = value
         return self
 
@@ -1748,7 +1748,7 @@ class ActionSet(CardElement):
     fallback: Optional[Union[CardElement, FallbackElement]] = None
     """ An alternate element to render if the type of this one is unsupported or if the host application doesn't support all the capabilities specified in the requires property. """
 
-    actions: Optional[List[Action]] = None
+    actions: Optional[List[SerializeAsAny[Action]]] = None
     """ The actions in the set. """
 
     def with_id(self, value: str) -> Self:
@@ -1799,7 +1799,7 @@ class ActionSet(CardElement):
         self.fallback = value
         return self
 
-    def with_actions(self, value: List[Action]) -> Self:
+    def with_actions(self, value: List[SerializeAsAny[Action]]) -> Self:
         self.actions = value
         return self
 
@@ -1852,7 +1852,7 @@ class Column(CardElement):
     rounded_corners: Optional[bool] = None
     """ Controls if the container should have rounded corners. """
 
-    layouts: Optional[List[ContainerLayout]] = None
+    layouts: Optional[List[SerializeAsAny[ContainerLayout]]] = None
     """ The layouts associated with the container. The container can dynamically switch from one layout to another as the card's width changes. See [Container layouts](topic:container-layouts) for more details. """
 
     bleed: Optional[bool] = None
@@ -1882,7 +1882,7 @@ class Column(CardElement):
     fallback: Optional[Union[CardElement, FallbackElement]] = None
     """ An alternate element to render if the type of this one is unsupported or if the host application doesn't support all the capabilities specified in the requires property. """
 
-    items: Optional[List[CardElement]] = None
+    items: Optional[List[SerializeAsAny[CardElement]]] = None
     """ The elements in the column. """
 
     def with_id(self, value: str) -> Self:
@@ -1941,7 +1941,7 @@ class Column(CardElement):
         self.rounded_corners = value
         return self
 
-    def with_layouts(self, value: List[ContainerLayout]) -> Self:
+    def with_layouts(self, value: List[SerializeAsAny[ContainerLayout]]) -> Self:
         self.layouts = value
         return self
 
@@ -1981,7 +1981,7 @@ class Column(CardElement):
         self.fallback = value
         return self
 
-    def with_items(self, value: List[CardElement]) -> Self:
+    def with_items(self, value: List[SerializeAsAny[CardElement]]) -> Self:
         self.items = value
         return self
 
@@ -2323,7 +2323,7 @@ class RichTextBlock(CardElement):
     fallback: Optional[Union[CardElement, FallbackElement]] = None
     """ An alternate element to render if the type of this one is unsupported or if the host application doesn't support all the capabilities specified in the requires property. """
 
-    inlines: Optional[Union[List[CardElement], List[str]]] = None
+    inlines: Optional[Union[List[SerializeAsAny[CardElement]], List[str]]] = None
     """ The inlines making up the rich text block. """
 
     def with_id(self, value: str) -> Self:
@@ -2374,7 +2374,7 @@ class RichTextBlock(CardElement):
         self.fallback = value
         return self
 
-    def with_inlines(self, value: Union[List[CardElement], List[str]]) -> Self:
+    def with_inlines(self, value: Union[List[SerializeAsAny[CardElement]], List[str]]) -> Self:
         self.inlines = value
         return self
 
@@ -2443,7 +2443,7 @@ class TableCell(CardElement):
     style: Optional[ContainerStyle] = None
     """ The style of the container. Container styles control the colors of the background, border and text inside the container, in such a way that contrast requirements are always met. """
 
-    layouts: Optional[List[ContainerLayout]] = None
+    layouts: Optional[List[SerializeAsAny[ContainerLayout]]] = None
     """ The layouts associated with the container. The container can dynamically switch from one layout to another as the card's width changes. See [Container layouts](topic:container-layouts) for more details. """
 
     bleed: Optional[bool] = None
@@ -2470,7 +2470,7 @@ class TableCell(CardElement):
     fallback: Optional[Union[CardElement, FallbackElement]] = None
     """ An alternate element to render if the type of this one is unsupported or if the host application doesn't support all the capabilities specified in the requires property. """
 
-    items: Optional[List[CardElement]] = None
+    items: Optional[List[SerializeAsAny[CardElement]]] = None
     """ The items (elements) in the cell. """
 
     def with_id(self, value: str) -> Self:
@@ -2517,7 +2517,7 @@ class TableCell(CardElement):
         self.style = value
         return self
 
-    def with_layouts(self, value: List[ContainerLayout]) -> Self:
+    def with_layouts(self, value: List[SerializeAsAny[ContainerLayout]]) -> Self:
         self.layouts = value
         return self
 
@@ -2553,7 +2553,7 @@ class TableCell(CardElement):
         self.fallback = value
         return self
 
-    def with_items(self, value: List[CardElement]) -> Self:
+    def with_items(self, value: List[SerializeAsAny[CardElement]]) -> Self:
         self.items = value
         return self
 
@@ -4937,7 +4937,7 @@ class CarouselPage(CardElement):
     rounded_corners: Optional[bool] = None
     """ Controls if the container should have rounded corners. """
 
-    layouts: Optional[List[ContainerLayout]] = None
+    layouts: Optional[List[SerializeAsAny[ContainerLayout]]] = None
     """ The layouts associated with the container. The container can dynamically switch from one layout to another as the card's width changes. See [Container layouts](topic:container-layouts) for more details. """
 
     min_height: Optional[str] = None
@@ -4961,7 +4961,7 @@ class CarouselPage(CardElement):
     fallback: Optional[Union[CardElement, FallbackElement]] = None
     """ An alternate element to render if the type of this one is unsupported or if the host application doesn't support all the capabilities specified in the requires property. """
 
-    items: Optional[List[CardElement]] = None
+    items: Optional[List[SerializeAsAny[CardElement]]] = None
     """ The elements in the page. """
 
     def with_id(self, value: str) -> Self:
@@ -5008,7 +5008,7 @@ class CarouselPage(CardElement):
         self.rounded_corners = value
         return self
 
-    def with_layouts(self, value: List[ContainerLayout]) -> Self:
+    def with_layouts(self, value: List[SerializeAsAny[ContainerLayout]]) -> Self:
         self.layouts = value
         return self
 
@@ -5040,7 +5040,7 @@ class CarouselPage(CardElement):
         self.fallback = value
         return self
 
-    def with_items(self, value: List[CardElement]) -> Self:
+    def with_items(self, value: List[SerializeAsAny[CardElement]]) -> Self:
         self.items = value
         return self
 
