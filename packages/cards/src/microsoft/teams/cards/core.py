@@ -664,7 +664,7 @@ class AdaptiveCard(CardElement):
         self.style = value
         return self
 
-    def with_layouts(self, value: List[SerializeAsAny[ContainerLayout]]) -> Self:
+    def with_layouts(self, value: List[ContainerLayout]) -> Self:
         self.layouts = value
         return self
 
@@ -724,11 +724,11 @@ class AdaptiveCard(CardElement):
         self.fallback = value
         return self
 
-    def with_body(self, value: List[SerializeAsAny[CardElement]]) -> Self:
+    def with_body(self, value: List[CardElement]) -> Self:
         self.body = value
         return self
 
-    def with_actions(self, value: List[SerializeAsAny[Action]]) -> Self:
+    def with_actions(self, value: List[Action]) -> Self:
         self.actions = value
         return self
 
@@ -1665,7 +1665,7 @@ class Container(CardElement):
         self.rounded_corners = value
         return self
 
-    def with_layouts(self, value: List[SerializeAsAny[ContainerLayout]]) -> Self:
+    def with_layouts(self, value: List[ContainerLayout]) -> Self:
         self.layouts = value
         return self
 
@@ -1701,7 +1701,7 @@ class Container(CardElement):
         self.fallback = value
         return self
 
-    def with_items(self, value: List[SerializeAsAny[CardElement]]) -> Self:
+    def with_items(self, value: List[CardElement]) -> Self:
         self.items = value
         return self
 
@@ -1799,7 +1799,7 @@ class ActionSet(CardElement):
         self.fallback = value
         return self
 
-    def with_actions(self, value: List[SerializeAsAny[Action]]) -> Self:
+    def with_actions(self, value: List[Action]) -> Self:
         self.actions = value
         return self
 
@@ -1941,7 +1941,7 @@ class Column(CardElement):
         self.rounded_corners = value
         return self
 
-    def with_layouts(self, value: List[SerializeAsAny[ContainerLayout]]) -> Self:
+    def with_layouts(self, value: List[ContainerLayout]) -> Self:
         self.layouts = value
         return self
 
@@ -1981,7 +1981,7 @@ class Column(CardElement):
         self.fallback = value
         return self
 
-    def with_items(self, value: List[SerializeAsAny[CardElement]]) -> Self:
+    def with_items(self, value: List[CardElement]) -> Self:
         self.items = value
         return self
 
@@ -2374,7 +2374,7 @@ class RichTextBlock(CardElement):
         self.fallback = value
         return self
 
-    def with_inlines(self, value: Union[List[SerializeAsAny[CardElement]], List[str]]) -> Self:
+    def with_inlines(self, value: Union[List[CardElement], List[str]]) -> Self:
         self.inlines = value
         return self
 
@@ -2517,7 +2517,7 @@ class TableCell(CardElement):
         self.style = value
         return self
 
-    def with_layouts(self, value: List[SerializeAsAny[ContainerLayout]]) -> Self:
+    def with_layouts(self, value: List[ContainerLayout]) -> Self:
         self.layouts = value
         return self
 
@@ -2553,7 +2553,7 @@ class TableCell(CardElement):
         self.fallback = value
         return self
 
-    def with_items(self, value: List[SerializeAsAny[CardElement]]) -> Self:
+    def with_items(self, value: List[CardElement]) -> Self:
         self.items = value
         return self
 
@@ -5008,7 +5008,7 @@ class CarouselPage(CardElement):
         self.rounded_corners = value
         return self
 
-    def with_layouts(self, value: List[SerializeAsAny[ContainerLayout]]) -> Self:
+    def with_layouts(self, value: List[ContainerLayout]) -> Self:
         self.layouts = value
         return self
 
@@ -5040,7 +5040,7 @@ class CarouselPage(CardElement):
         self.fallback = value
         return self
 
-    def with_items(self, value: List[SerializeAsAny[CardElement]]) -> Self:
+    def with_items(self, value: List[CardElement]) -> Self:
         self.items = value
         return self
 
