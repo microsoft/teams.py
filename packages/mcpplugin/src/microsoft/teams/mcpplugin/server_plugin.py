@@ -6,7 +6,7 @@ Licensed under the MIT License.
 import importlib.metadata
 import logging
 from inspect import isawaitable
-from typing import Annotated, Any, TypeVar
+from typing import Annotated, Any, Callable, Dict, TypeVar, cast
 
 from fastmcp import FastMCP
 from fastmcp.tools import FunctionTool
@@ -93,11 +93,13 @@ class McpServerPlugin(PluginBase):
         """
         try:
             # Prepare parameter schema for FastMCP
-            parameter_schema = (
-                function.parameter_schema
-                if isinstance(function.parameter_schema, dict)
-                else function.parameter_schema.model_json_schema()
-            )
+            parameter_schema: Dict[str, Any]
+            if function.parameter_schema is None:
+                parameter_schema = {"type": "object", "properties": {}}
+            elif isinstance(function.parameter_schema, dict):
+                parameter_schema = function.parameter_schema
+            else:
+                parameter_schema = function.parameter_schema.model_json_schema()
 
             # Create wrapper handler that converts kwargs to the expected format
             async def wrapped_handler(**kwargs: Any) -> Any:
@@ -114,13 +116,16 @@ class McpServerPlugin(PluginBase):
                     Exception: If function execution fails
                 """
                 try:
-                    if isinstance(function.parameter_schema, type):
+                    if function.parameter_schema is None:
+                        # No parameters - call handler with no arguments
+                        result = cast(Callable[[], Any], function.handler)()
+                    elif isinstance(function.parameter_schema, type):
                         # parameter_schema is a Pydantic model class - instantiate it
                         params = function.parameter_schema(**kwargs)
-                        result = function.handler(params)
+                        result = cast(Callable[[Any], Any], function.handler)(params)
                     else:
                         # parameter_schema is a dict - pass kwargs directly
-                        result = function.handler(**kwargs)
+                        result = cast(Callable[..., Any], function.handler)(**kwargs)
 
                     # Handle both sync and async handlers
                     if isawaitable(result):

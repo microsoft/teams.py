@@ -6,7 +6,7 @@ Licensed under the MIT License.
 import inspect
 import json
 from dataclasses import dataclass
-from typing import Awaitable, Callable
+from typing import Any, Awaitable, Callable, cast
 
 from microsoft.teams.ai import (
     AIModel,
@@ -242,7 +242,13 @@ class OpenAIResponsesAIModel(OpenAIBaseModel, AIModel):
                         parsed_args = parse_function_arguments(function, call.arguments)
 
                         # Handle both sync and async function handlers
-                        result = function.handler(parsed_args)
+                        if parsed_args is None:
+                            # Function with no parameters
+                            result = cast(Callable[[], Any], function.handler)()
+                        else:
+                            # Function with parameters
+                            result = cast(Callable[[Any], Any], function.handler)(parsed_args)
+
                         if inspect.isawaitable(result):
                             fn_res = await result
                         else:
@@ -323,7 +329,11 @@ class OpenAIResponsesAIModel(OpenAIBaseModel, AIModel):
 
         for func in functions.values():
             # Get strict schema for Responses API using OpenAI's transformations
-            if isinstance(func.parameter_schema, dict):
+            if func.parameter_schema is None:
+                # No parameters - use empty schema
+                schema: dict[str, Any] = {"type": "object", "properties": {}}
+                schema = _ensure_strict_json_schema(schema, path=(), root=schema)
+            elif isinstance(func.parameter_schema, dict):
                 # For raw JSON schemas, use OpenAI's strict transformation
                 schema = get_function_schema(func)
                 schema = _ensure_strict_json_schema(schema, path=(), root=schema)

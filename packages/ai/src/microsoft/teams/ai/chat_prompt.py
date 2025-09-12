@@ -6,12 +6,12 @@ Licensed under the MIT License.
 import inspect
 from dataclasses import dataclass
 from inspect import isawaitable
-from typing import Any, Awaitable, Callable, Self, TypeVar
+from typing import Any, Awaitable, Callable, Self, TypeVar, Union, cast
 
 from pydantic import BaseModel
 
 from .ai_model import AIModel
-from .function import Function, FunctionHandler
+from .function import Function, FunctionHandler, NoParamsFunctionHandler
 from .memory import Memory
 from .message import Message, ModelMessage, SystemMessage, UserMessage
 from .plugin import AIPluginProtocol
@@ -132,7 +132,7 @@ class ChatPrompt:
         return ChatSendResult(response=current_response)
 
     def _wrap_function_handler(
-        self, original_handler: FunctionHandler[BaseModel], function_name: str
+        self, original_handler: Union[FunctionHandler[BaseModel], NoParamsFunctionHandler], function_name: str, parameter_schema: Any
     ) -> FunctionHandler[BaseModel]:
         """
         Wrap a function handler with plugin before/after hooks.
@@ -143,6 +143,7 @@ class ChatPrompt:
         Args:
             original_handler: The original function handler to wrap
             function_name: Name of the function for plugin identification
+            parameter_schema: The parameter schema to determine if function expects parameters
 
         Returns:
             Wrapped handler that includes plugin hook execution
@@ -154,7 +155,14 @@ class ChatPrompt:
                 await plugin.on_before_function_call(function_name, params)
 
             # Call the original function (could be sync or async)
-            result = original_handler(params)
+            # Determine if function expects parameters based on schema
+            if parameter_schema is None:
+                # No parameters expected - call without arguments
+                result = cast(Callable[[], Union[str, Awaitable[str]]], original_handler)()
+            else:
+                # Parameters expected - call with params
+                result = cast(Callable[[BaseModel], Union[str, Awaitable[str]]], original_handler)(params)
+            
             if isawaitable(result):
                 result = await result
 
@@ -223,7 +231,7 @@ class ChatPrompt:
                 name=func.name,
                 description=func.description,
                 parameter_schema=func.parameter_schema,
-                handler=self._wrap_function_handler(func.handler, func.name),
+                handler=self._wrap_function_handler(func.handler, func.name, func.parameter_schema),
             )
 
         return wrapped_functions
