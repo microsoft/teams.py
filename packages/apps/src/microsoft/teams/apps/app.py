@@ -13,6 +13,7 @@ from dependency_injector import providers
 from dotenv import find_dotenv, load_dotenv
 from microsoft.teams.api import (
     Account,
+    ActivityBase,
     ActivityParams,
     ApiClient,
     ClientCredentials,
@@ -23,6 +24,7 @@ from microsoft.teams.api import (
     MessageActivityInput,
     TokenCredentials,
 )
+from microsoft.teams.apps.routing.activity_context import ActivityContext
 from microsoft.teams.cards import AdaptiveCard
 from microsoft.teams.common import Client, ClientOptions, ConsoleLogger, EventEmitter, LocalStorage
 
@@ -283,6 +285,10 @@ class App(ActivityHandlerMixin):
             activity = activity
 
         return await self.http.send(activity, conversation_ref)
+
+    def use(self, middleware: Callable[[ActivityContext[ActivityBase]], Awaitable[None]]) -> None:
+        """Add middleware to run on all activities."""
+        self.router.add_handler(lambda _: True, middleware)
 
     def _init_credentials(self) -> Optional[Credentials]:
         """Initialize authentication credentials from options and environment."""

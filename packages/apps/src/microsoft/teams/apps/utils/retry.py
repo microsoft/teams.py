@@ -25,13 +25,19 @@ class RetryOptions:
         jitter_type: JitterType = "full",
         logger: Optional[Logger] = None,
         previous_delay: Optional[float] = None,  # Internal use for decorrelated jitter
+        attempt_number: int = 1,  # Internal use to track current attempt number
+        _internal_logger: Optional[Logger] = None,  # Internal use to pass existing child logger
     ):
         self.max_attempts = max_attempts
         self.delay = delay
         self.max_delay = max_delay
         self.jitter_type: JitterType = jitter_type
-        self.logger = logger.getChild("@teams/retry") if logger else ConsoleLogger().create_logger("@teams/retry")
+        # Use existing internal logger if provided, otherwise create child logger
+        self.logger = _internal_logger if _internal_logger else (
+            logger.getChild("@teams/retry") if logger else ConsoleLogger().create_logger("@teams/retry")
+        )
         self.previous_delay = previous_delay
+        self.attempt_number = attempt_number
 
 
 def _apply_jitter(delay: float, jitter_type: JitterType, previous_delay: Optional[float] = None) -> float:
@@ -62,6 +68,7 @@ async def retry(factory: Callable[[], Awaitable[T]], options: Optional[RetryOpti
     jitter_type: JitterType = options.jitter_type
     logger = options.logger
     previous_delay = options.previous_delay
+    attempt_number = options.attempt_number
 
     try:
         return await factory()
@@ -71,8 +78,8 @@ async def retry(factory: Callable[[], Awaitable[T]], options: Optional[RetryOpti
         raise
     except Exception as err:
         if max_attempts > 1:
-            # Calculate exponential backoff delay
-            exponential_delay = base_delay * (2 ** (options.max_attempts - max_attempts))
+            # Calculate exponential backoff delay using the attempt number
+            exponential_delay = base_delay * (2 ** (attempt_number - 1))
 
             # Cap the delay at max_delay
             capped_delay = min(exponential_delay, max_delay)
@@ -81,7 +88,7 @@ async def retry(factory: Callable[[], Awaitable[T]], options: Optional[RetryOpti
             jittered_delay = _apply_jitter(capped_delay, jitter_type, previous_delay)
 
             logger.debug(
-                f"Delaying {jittered_delay:.2f}s before retry (attempt {options.max_attempts - max_attempts + 1})..."
+                f"Delaying {jittered_delay:.2f}s before retry (attempt {attempt_number})..."
             )
             await asyncio.sleep(jittered_delay)
             logger.debug("Retrying...")
@@ -93,8 +100,9 @@ async def retry(factory: Callable[[], Awaitable[T]], options: Optional[RetryOpti
                     delay=base_delay,
                     max_delay=max_delay,
                     jitter_type=jitter_type,
-                    logger=logger,
                     previous_delay=jittered_delay,  # Pass current delay for decorrelated jitter
+                    attempt_number=attempt_number + 1,  # Increment attempt number
+                    _internal_logger=logger,  # Pass the existing logger to avoid nested children
                 ),
             )
         logger.error("Final attempt failed.", exc_info=err)

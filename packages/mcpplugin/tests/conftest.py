@@ -10,7 +10,7 @@ from unittest.mock import MagicMock
 
 import pytest
 from mcp.types import CallToolResult, ContentBlock, ListToolsResult, TextContent, Tool
-from microsoft.teams.mcp.models import McpToolDetails
+from microsoft.teams.mcpplugin.models import McpToolDetails
 
 # pyright: basic
 

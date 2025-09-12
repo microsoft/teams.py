@@ -13,7 +13,14 @@ def get_function_schema(func: Function[BaseModel]) -> Dict[str, Any]:
     """
     Get JSON schema from a Function's parameter_schema.
 
-    Handles both dict schemas and Pydantic model classes.
+    Handles both dict schemas and Pydantic model classes, converting
+    them to the format expected by OpenAI function calling.
+
+    Args:
+        func: Function object with parameter schema
+
+    Returns:
+        Dictionary containing JSON schema for the function parameters
     """
     if isinstance(func.parameter_schema, dict):
         # Raw JSON schema - use as-is
@@ -27,7 +34,15 @@ def parse_function_arguments(func: Function[BaseModel], arguments: Dict[str, Any
     """
     Parse function arguments into a BaseModel instance.
 
-    Handles both dict schemas and Pydantic model classes.
+    Handles both dict schemas and Pydantic model classes, creating
+    appropriate BaseModel instances for function execution.
+
+    Args:
+        func: Function object with parameter schema
+        arguments: Raw arguments from AI model function call
+
+    Returns:
+        BaseModel instance with validated and parsed arguments
     """
     if isinstance(func.parameter_schema, dict):
         # For dict schemas, create a simple BaseModel dynamically

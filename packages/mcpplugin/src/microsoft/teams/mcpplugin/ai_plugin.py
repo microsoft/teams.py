@@ -9,13 +9,12 @@ import logging
 import time
 from typing import Any, Dict, List, Optional, Tuple, Union
 
+from mcp import ClientSession
+from mcp.types import TextContent
 from microsoft.teams.ai.function import Function
 from microsoft.teams.ai.plugin import BaseAIPlugin
 from microsoft.teams.common.logging import ConsoleLogger
 from pydantic import BaseModel
-
-from mcp import ClientSession
-from mcp.types import TextContent
 
 from .models import McpCachedValue, McpClientPluginParams, McpToolDetails
 from .transport import create_transport
@@ -24,7 +23,13 @@ REFETCH_TIMEOUT_MS = 24 * 60 * 60 * 1000  # 1 day
 
 
 class McpClientPlugin(BaseAIPlugin):
-    """MCP Client Plugin for Teams AI integration."""
+    """
+    MCP Client Plugin for Teams AI integration.
+
+    Connects to MCP (Model Context Protocol) servers to dynamically fetch
+    and expose their tools as functions in the Teams AI framework.
+    Supports caching, multiple servers, and automatic tool discovery.
+    """
 
     def __init__(
         self,
@@ -34,6 +39,16 @@ class McpClientPlugin(BaseAIPlugin):
         logger: Optional[logging.Logger] = None,
         refetch_timeout_ms: int = REFETCH_TIMEOUT_MS,  # 1 day
     ):
+        """
+        Initialize MCP Client Plugin.
+
+        Args:
+            name: Plugin identifier
+            version: Plugin version
+            cache: Optional cache for storing fetched tools
+            logger: Optional logger instance
+            refetch_timeout_ms: How long to cache tools before refetching (default: 1 day)
+        """
         super().__init__(name)
 
         self._version = version
@@ -53,21 +68,42 @@ class McpClientPlugin(BaseAIPlugin):
 
     @property
     def version(self) -> str:
-        """Get the plugin version."""
+        """
+        Get the plugin version.
+
+        Returns:
+            Plugin version string
+        """
         return self._version
 
     @property
     def cache(self) -> Dict[str, McpCachedValue]:
-        """Get the plugin cache."""
+        """
+        Get the plugin cache.
+
+        Returns:
+            Dictionary mapping server URLs to cached tool data
+        """
         return self._cache
 
     @property
     def refetch_timeout_ms(self) -> int:
-        """Get the refetch timeout in milliseconds."""
+        """
+        Get the refetch timeout in milliseconds.
+
+        Returns:
+            Timeout value for cache expiration
+        """
         return self._refetch_timeout_ms
 
     def use_mcp_server(self, url: str, params: Optional[McpClientPluginParams] = None) -> None:
-        """Add or updates an MCP server to be used by this plugin."""
+        """
+        Add or update an MCP server to be used by this plugin.
+
+        Args:
+            url: MCP server URL to connect to
+            params: Optional configuration parameters for the server
+        """
         self._mcp_server_params[url] = params or McpClientPluginParams()
 
         # Update cache if tools are provided
@@ -79,7 +115,18 @@ class McpClientPlugin(BaseAIPlugin):
             )
 
     async def on_build_functions(self, functions: List[Function[BaseModel]]) -> List[Function[BaseModel]]:
-        """Build functions from MCP tools."""
+        """
+        Build functions from MCP tools.
+
+        Fetches tools from configured MCP servers and converts them to
+        Teams AI functions, adding them to the available function list.
+
+        Args:
+            functions: Existing list of functions
+
+        Returns:
+            Extended list including MCP server functions
+        """
         await self._fetch_tools_if_needed()
 
         # Create functions from cached tools
@@ -100,8 +147,11 @@ class McpClientPlugin(BaseAIPlugin):
         """
         Fetch tools from MCP servers if needed.
 
-        We check if there the cached value has met its expiration
-        for being refetched. Or if the tools have never been fetched at all
+        Checks if cached values have expired or if tools have never been
+        fetched. Performs parallel fetching for efficiency.
+
+        Raises:
+            Exception: If server is unavailable and skip_if_unavailable is False
         """
         fetch_needed: List[Tuple[str, McpClientPluginParams]] = []
         current_time = time.time() * 1000  # Convert to milliseconds
@@ -146,12 +196,33 @@ class McpClientPlugin(BaseAIPlugin):
     def _create_function_from_tool(
         self, url: str, tool: McpToolDetails, plugin_params: McpClientPluginParams
     ) -> Function[BaseModel]:
-        """Create a Teams AI function from an MCP tool."""
+        """
+        Create a Teams AI function from an MCP tool.
+
+        Args:
+            url: MCP server URL
+            tool: Tool details from MCP server
+            plugin_params: Plugin configuration parameters
+
+        Returns:
+            Function object that can be called by AI models
+        """
         tool_name = tool.name
         tool_description = tool.description
 
         async def handler(params: BaseModel) -> str:
-            """Handle MCP tool call."""
+            """
+            Handle MCP tool call.
+
+            Args:
+                params: Validated function parameters
+
+            Returns:
+                Tool execution result as string
+
+            Raises:
+                Exception: If tool execution fails
+            """
             try:
                 self._logger.debug(f"Making call to {url} tool-name={tool_name}")
                 result = await self._call_mcp_tool(url, tool_name, params.model_dump(), plugin_params)
@@ -166,7 +237,19 @@ class McpClientPlugin(BaseAIPlugin):
         )
 
     async def _fetch_tools_from_server(self, url: str, params: McpClientPluginParams) -> List[McpToolDetails]:
-        """Fetch tools from a specific MCP server."""
+        """
+        Fetch tools from a specific MCP server.
+
+        Args:
+            url: MCP server URL
+            params: Server connection parameters
+
+        Returns:
+            List of available tools from the server
+
+        Raises:
+            Exception: If connection or tool listing fails
+        """
         transport_context = create_transport(url, params.transport or "streamable_http", params.headers)
 
         async with transport_context as (read_stream, write_stream):
@@ -192,7 +275,18 @@ class McpClientPlugin(BaseAIPlugin):
     async def _call_mcp_tool(
         self, url: str, tool_name: str, arguments: Dict[str, Any], params: McpClientPluginParams
     ) -> Optional[Union[str, List[str]]]:
-        """Call a specific tool on an MCP server."""
+        """
+        Call a specific tool on an MCP server.
+
+        Args:
+            url: MCP server URL
+            tool_name: Name of the tool to call
+            arguments: Tool arguments
+            params: Server connection parameters
+
+        Returns:
+            Tool execution result as string or list of strings
+        """
         transport_context = create_transport(url, params.transport or "streamable_http", params.headers)
 
         async with transport_context as (read_stream, write_stream):

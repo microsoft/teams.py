@@ -346,11 +346,11 @@ class MockPlugin(BaseAIPlugin):
         self.build_functions_called = True
         return functions
 
-    async def on_build_system_message(self, system_message: SystemMessage | None) -> SystemMessage | None:
+    async def on_build_instructions(self, instructions: SystemMessage | None) -> SystemMessage | None:
         self.build_system_message_called = True
-        if system_message is None:
+        if instructions is None:
             return SystemMessage(content="Plugin-generated system message")
-        return SystemMessage(content=f"Plugin-modified: {system_message.content}")
+        return SystemMessage(content=f"Plugin-modified: {instructions.content}")
 
 
 class TestChatPromptPlugins:
@@ -401,21 +401,21 @@ class TestChatPromptPlugins:
         assert result.response.content == "RESPONSE_MODIFIED: GENERATED - Test message"
 
     @pytest.mark.asyncio
-    async def test_on_build_system_message_hook_with_actual_updates(self, mock_model: MockAIModel) -> None:
+    async def test_on_build_instructions_hook_with_actual_updates(self, mock_model: MockAIModel) -> None:
         """Test that on_build_system_message hook actually modifies system messages passed to model"""
         plugin = MockPlugin("test_plugin")
         prompt = ChatPrompt(mock_model, plugins=[plugin])
 
-        # Test with None system message - plugin should generate one
-        await prompt.send("Test", system_message=None)
+        # Test with None instructions - plugin should generate one
+        await prompt.send("Test", instructions=None)
         assert plugin.build_system_message_called
         assert mock_model.last_system_message is not None
         assert mock_model.last_system_message.content == "Plugin-generated system message"
 
-        # Reset and test with existing system message - plugin should modify it
+        # Reset and test with existing instructions - plugin should modify it
         plugin.build_system_message_called = False
         system_msg = SystemMessage(content="Original system")
-        await prompt.send("Test", system_message=system_msg)
+        await prompt.send("Test", instructions=system_msg)
         assert plugin.build_system_message_called
         assert mock_model.last_system_message is not None
         assert mock_model.last_system_message.content == "Plugin-modified: Original system"
@@ -607,7 +607,7 @@ class TestChatPromptPlugins:
         prompt = ChatPrompt(mock_model, functions=[test_function], plugins=[plugin])
 
         system_msg = SystemMessage(content="Original system")
-        result = await prompt.send("Original input", system_message=system_msg)
+        result = await prompt.send("Original input", instructions=system_msg)
 
         # Verify all plugin hooks were called
         assert plugin.before_send_called
