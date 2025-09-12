@@ -32,10 +32,7 @@ def get_required_env(key: str) -> str:
     return value
 
 
-AZURE_OPENAI_API_KEY = get_required_env("AZURE_OPENAI_API_KEY")
-AZURE_OPENAI_ENDPOINT = get_required_env("AZURE_OPENAI_ENDPOINT")
 AZURE_OPENAI_MODEL = get_required_env("AZURE_OPENAI_MODEL")
-AZURE_OPENAI_API_VERSION = get_required_env("AZURE_OPENAI_API_VERSION")
 
 # Global plugin instance for tracking
 plugin_instance = LoggingAIPlugin()
@@ -44,17 +41,11 @@ app = App(plugins=[DevToolsPlugin()])
 
 # Models for different AI approaches
 completions_model = OpenAICompletionsAIModel(
-    key=AZURE_OPENAI_API_KEY,
     model=AZURE_OPENAI_MODEL,
-    azure_endpoint=AZURE_OPENAI_ENDPOINT,
-    api_version=AZURE_OPENAI_API_VERSION,
 )
 
 responses_model = OpenAIResponsesAIModel(
-    key=AZURE_OPENAI_API_KEY,
     model=AZURE_OPENAI_MODEL,
-    azure_endpoint=AZURE_OPENAI_ENDPOINT,
-    api_version=AZURE_OPENAI_API_VERSION,
     stateful=True,
 )
 
