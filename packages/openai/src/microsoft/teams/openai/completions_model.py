@@ -168,7 +168,13 @@ class OpenAICompletionsAIModel(OpenAIBaseModel, AIModel):
                         parsed_args = parse_function_arguments(function, call.arguments)
 
                         # Handle both sync and async function handlers
-                        result = function.handler(parsed_args)
+                        if parsed_args is None:
+                            # Function with no parameters
+                            result = cast(Callable[[], Any], function.handler)()
+                        else:
+                            # Function with parameters
+                            result = cast(Callable[[Any], Any], function.handler)(parsed_args)
+
                         if inspect.isawaitable(result):
                             fn_res = await result
                         else:

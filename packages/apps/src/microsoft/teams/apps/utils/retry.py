@@ -33,8 +33,10 @@ class RetryOptions:
         self.max_delay = max_delay
         self.jitter_type: JitterType = jitter_type
         # Use existing internal logger if provided, otherwise create child logger
-        self.logger = _internal_logger if _internal_logger else (
-            logger.getChild("@teams/retry") if logger else ConsoleLogger().create_logger("@teams/retry")
+        self.logger = (
+            _internal_logger
+            if _internal_logger
+            else (logger.getChild("@teams/retry") if logger else ConsoleLogger().create_logger("@teams/retry"))
         )
         self.previous_delay = previous_delay
         self.attempt_number = attempt_number
@@ -87,9 +89,7 @@ async def retry(factory: Callable[[], Awaitable[T]], options: Optional[RetryOpti
             # Apply jitter
             jittered_delay = _apply_jitter(capped_delay, jitter_type, previous_delay)
 
-            logger.debug(
-                f"Delaying {jittered_delay:.2f}s before retry (attempt {attempt_number})..."
-            )
+            logger.debug(f"Delaying {jittered_delay:.2f}s before retry (attempt {attempt_number})...")
             await asyncio.sleep(jittered_delay)
             logger.debug("Retrying...")
 
