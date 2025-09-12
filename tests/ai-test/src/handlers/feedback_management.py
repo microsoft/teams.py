@@ -49,12 +49,12 @@ async def handle_feedback_submission(ctx: ActivityContext[MessageSubmitActionInv
         return
 
     # Type-safe access to activity value
-    value_dict = activity.value.model_dump() if hasattr(activity.value, "model_dump") else {}
-    action_value: Dict[str, Any] = value_dict.get("actionValue", {})
-    reaction: str | None = action_value.get("reaction")
-    feedback_str: str | None = action_value.get("feedback")
-    assert feedback_str, "No feedback string found in action_value"
+    invoke_value = activity.value
+    assert invoke_value.action_name == "feedback"
+    feedback_str = invoke_value.action_value.feedback
+    reaction = invoke_value.action_value.reaction
     feedback_json: Dict[str, Any] = json.loads(feedback_str)
+    # { 'feedbackText': 'the ai response was great!' }
 
     if not activity.reply_to_id:
         logger.warning(f"No replyToId found for messageId {activity.id}")

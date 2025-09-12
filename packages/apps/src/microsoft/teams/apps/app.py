@@ -181,7 +181,9 @@ class App(ActivityHandlerMixin):
     @property
     def id(self) -> Optional[str]:
         """The app's ID from tokens."""
-        return getattr(self._tokens.bot, "app_id", None) or getattr(self._tokens.graph, "app_id", None)
+        return (
+            self._tokens.bot.app_id if self._tokens.bot else self._tokens.graph.app_id if self._tokens.graph else None
+        )
 
     @property
     def name(self) -> Optional[str]:
