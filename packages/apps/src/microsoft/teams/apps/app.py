@@ -364,7 +364,7 @@ class App(ActivityHandlerMixin):
                 # Emit token acquired event
                 self._events.emit("token", {"type": "graph", "token": self._tokens.graph})
             else:
-                self.log.warning("Failed to get graph token from GraphTokenManager")
+                self.log.debug("Failed to get graph token from GraphTokenManager")
 
         except Exception as error:
             self.log.error(f"Failed to refresh graph token: {error}")
