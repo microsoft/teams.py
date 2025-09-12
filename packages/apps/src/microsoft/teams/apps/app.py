@@ -181,7 +181,9 @@ class App(ActivityHandlerMixin):
     @property
     def id(self) -> Optional[str]:
         """The app's ID from tokens."""
-        return getattr(self._tokens.bot, "app_id", None) or getattr(self._tokens.graph, "app_id", None)
+        return (
+            self._tokens.bot.app_id if self._tokens.bot else self._tokens.graph.app_id if self._tokens.graph else None
+        )
 
     @property
     def name(self) -> Optional[str]:
@@ -268,7 +270,7 @@ class App(ActivityHandlerMixin):
         """Send an activity proactively."""
 
         if self.id is None or self.name is None:
-            raise ValueError("app not started")
+            raise ValueError(f"app not started {self.tokens.bot}")
 
         conversation_ref = ConversationReference(
             channel_id="msteams",
