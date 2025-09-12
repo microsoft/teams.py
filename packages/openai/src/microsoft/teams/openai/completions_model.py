@@ -177,6 +177,7 @@ class OpenAICompletionsAIModel(OpenAIBaseModel, AIModel):
                         # Create function result message
                         function_results.append(FunctionMessage(content=fn_res, function_id=call.id))
                     except Exception as e:
+                        self.logger.error(e)
                         # Handle function execution errors
                         function_results.append(
                             FunctionMessage(content=f"Function execution failed: {str(e)}", function_id=call.id)

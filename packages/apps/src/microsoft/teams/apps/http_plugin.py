@@ -316,7 +316,7 @@ class HttpPlugin(Sender):
 
             if body is not None:
                 return body
-            return cast(Any, result)
+            return response
 
         self.app.post("/api/messages")(on_activity_request)
 
