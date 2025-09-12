@@ -11,9 +11,8 @@ uv run generate-activity-handlers
 
 from abc import ABC, abstractmethod
 from logging import Logger
-from typing import Awaitable, Callable, Optional, Union, overload
+from typing import Callable, Optional, overload
 
-from microsoft.teams.api import InvokeResponse
 from microsoft.teams.api.activities import (
     Activity,
     AdaptiveCardInvokeActivity,
@@ -70,9 +69,16 @@ from microsoft.teams.api.models.invoke_response import (
     TokenExchangeInvokeResponseType,
 )
 
-from .activity_context import ActivityContext
 from .activity_route_configs import ACTIVITY_ROUTES
 from .router import ActivityRouter
+from .type_helpers import (
+    BasicHandler,
+    BasicHandlerUnion,
+    InvokeHandler,
+    InvokeHandlerUnion,
+    VoidInvokeHandler,
+    VoidInvokeHandlerUnion,
+)
 from .type_validation import validate_handler_type
 
 
@@ -92,32 +98,15 @@ class GeneratedActivityHandlerMixin(ABC):
         pass
 
     @overload
-    def on_message(
-        self, handler: Callable[[ActivityContext[MessageActivity]], Awaitable[None]]
-    ) -> Callable[[ActivityContext[MessageActivity]], Awaitable[None]]: ...
+    def on_message(self, handler: BasicHandler[MessageActivity]) -> BasicHandler[MessageActivity]: ...
 
     @overload
-    def on_message(
-        self,
-    ) -> Callable[
-        [Callable[[ActivityContext[MessageActivity]], Awaitable[None]]],
-        Callable[[ActivityContext[MessageActivity]], Awaitable[None]],
-    ]: ...
+    def on_message(self) -> Callable[[BasicHandler[MessageActivity]], BasicHandler[MessageActivity]]: ...
 
-    def on_message(
-        self, handler: Optional[Callable[[ActivityContext[MessageActivity]], Awaitable[None]]] = None
-    ) -> (
-        Callable[
-            [Callable[[ActivityContext[MessageActivity]], Awaitable[None]]],
-            Callable[[ActivityContext[MessageActivity]], Awaitable[None]],
-        ]
-        | Callable[[ActivityContext[MessageActivity]], Awaitable[None]]
-    ):
+    def on_message(self, handler: Optional[BasicHandler[MessageActivity]] = None) -> BasicHandlerUnion[MessageActivity]:
         """Register a message activity handler."""
 
-        def decorator(
-            func: Callable[[ActivityContext[MessageActivity]], Awaitable[None]],
-        ) -> Callable[[ActivityContext[MessageActivity]], Awaitable[None]]:
+        def decorator(func: BasicHandler[MessageActivity]) -> BasicHandler[MessageActivity]:
             validate_handler_type(self.logger, func, MessageActivity, "on_message", "MessageActivity")
             config = ACTIVITY_ROUTES["message"]
             self.router.add_handler(config.selector, func)
@@ -129,31 +118,20 @@ class GeneratedActivityHandlerMixin(ABC):
 
     @overload
     def on_message_delete(
-        self, handler: Callable[[ActivityContext[MessageDeleteActivity]], Awaitable[None]]
-    ) -> Callable[[ActivityContext[MessageDeleteActivity]], Awaitable[None]]: ...
+        self, handler: BasicHandler[MessageDeleteActivity]
+    ) -> BasicHandler[MessageDeleteActivity]: ...
 
     @overload
     def on_message_delete(
         self,
-    ) -> Callable[
-        [Callable[[ActivityContext[MessageDeleteActivity]], Awaitable[None]]],
-        Callable[[ActivityContext[MessageDeleteActivity]], Awaitable[None]],
-    ]: ...
+    ) -> Callable[[BasicHandler[MessageDeleteActivity]], BasicHandler[MessageDeleteActivity]]: ...
 
     def on_message_delete(
-        self, handler: Optional[Callable[[ActivityContext[MessageDeleteActivity]], Awaitable[None]]] = None
-    ) -> (
-        Callable[
-            [Callable[[ActivityContext[MessageDeleteActivity]], Awaitable[None]]],
-            Callable[[ActivityContext[MessageDeleteActivity]], Awaitable[None]],
-        ]
-        | Callable[[ActivityContext[MessageDeleteActivity]], Awaitable[None]]
-    ):
+        self, handler: Optional[BasicHandler[MessageDeleteActivity]] = None
+    ) -> BasicHandlerUnion[MessageDeleteActivity]:
         """Register a message_delete activity handler."""
 
-        def decorator(
-            func: Callable[[ActivityContext[MessageDeleteActivity]], Awaitable[None]],
-        ) -> Callable[[ActivityContext[MessageDeleteActivity]], Awaitable[None]]:
+        def decorator(func: BasicHandler[MessageDeleteActivity]) -> BasicHandler[MessageDeleteActivity]:
             validate_handler_type(
                 self.logger, func, MessageDeleteActivity, "on_message_delete", "MessageDeleteActivity"
             )
@@ -167,31 +145,20 @@ class GeneratedActivityHandlerMixin(ABC):
 
     @overload
     def on_soft_delete_message(
-        self, handler: Callable[[ActivityContext[MessageDeleteActivity]], Awaitable[None]]
-    ) -> Callable[[ActivityContext[MessageDeleteActivity]], Awaitable[None]]: ...
+        self, handler: BasicHandler[MessageDeleteActivity]
+    ) -> BasicHandler[MessageDeleteActivity]: ...
 
     @overload
     def on_soft_delete_message(
         self,
-    ) -> Callable[
-        [Callable[[ActivityContext[MessageDeleteActivity]], Awaitable[None]]],
-        Callable[[ActivityContext[MessageDeleteActivity]], Awaitable[None]],
-    ]: ...
+    ) -> Callable[[BasicHandler[MessageDeleteActivity]], BasicHandler[MessageDeleteActivity]]: ...
 
     def on_soft_delete_message(
-        self, handler: Optional[Callable[[ActivityContext[MessageDeleteActivity]], Awaitable[None]]] = None
-    ) -> (
-        Callable[
-            [Callable[[ActivityContext[MessageDeleteActivity]], Awaitable[None]]],
-            Callable[[ActivityContext[MessageDeleteActivity]], Awaitable[None]],
-        ]
-        | Callable[[ActivityContext[MessageDeleteActivity]], Awaitable[None]]
-    ):
+        self, handler: Optional[BasicHandler[MessageDeleteActivity]] = None
+    ) -> BasicHandlerUnion[MessageDeleteActivity]:
         """Register a soft_delete_message activity handler."""
 
-        def decorator(
-            func: Callable[[ActivityContext[MessageDeleteActivity]], Awaitable[None]],
-        ) -> Callable[[ActivityContext[MessageDeleteActivity]], Awaitable[None]]:
+        def decorator(func: BasicHandler[MessageDeleteActivity]) -> BasicHandler[MessageDeleteActivity]:
             validate_handler_type(
                 self.logger, func, MessageDeleteActivity, "on_soft_delete_message", "MessageDeleteActivity"
             )
@@ -205,31 +172,20 @@ class GeneratedActivityHandlerMixin(ABC):
 
     @overload
     def on_message_reaction(
-        self, handler: Callable[[ActivityContext[MessageReactionActivity]], Awaitable[None]]
-    ) -> Callable[[ActivityContext[MessageReactionActivity]], Awaitable[None]]: ...
+        self, handler: BasicHandler[MessageReactionActivity]
+    ) -> BasicHandler[MessageReactionActivity]: ...
 
     @overload
     def on_message_reaction(
         self,
-    ) -> Callable[
-        [Callable[[ActivityContext[MessageReactionActivity]], Awaitable[None]]],
-        Callable[[ActivityContext[MessageReactionActivity]], Awaitable[None]],
-    ]: ...
+    ) -> Callable[[BasicHandler[MessageReactionActivity]], BasicHandler[MessageReactionActivity]]: ...
 
     def on_message_reaction(
-        self, handler: Optional[Callable[[ActivityContext[MessageReactionActivity]], Awaitable[None]]] = None
-    ) -> (
-        Callable[
-            [Callable[[ActivityContext[MessageReactionActivity]], Awaitable[None]]],
-            Callable[[ActivityContext[MessageReactionActivity]], Awaitable[None]],
-        ]
-        | Callable[[ActivityContext[MessageReactionActivity]], Awaitable[None]]
-    ):
+        self, handler: Optional[BasicHandler[MessageReactionActivity]] = None
+    ) -> BasicHandlerUnion[MessageReactionActivity]:
         """Register a message_reaction activity handler."""
 
-        def decorator(
-            func: Callable[[ActivityContext[MessageReactionActivity]], Awaitable[None]],
-        ) -> Callable[[ActivityContext[MessageReactionActivity]], Awaitable[None]]:
+        def decorator(func: BasicHandler[MessageReactionActivity]) -> BasicHandler[MessageReactionActivity]:
             validate_handler_type(
                 self.logger, func, MessageReactionActivity, "on_message_reaction", "MessageReactionActivity"
             )
@@ -243,31 +199,20 @@ class GeneratedActivityHandlerMixin(ABC):
 
     @overload
     def on_message_update(
-        self, handler: Callable[[ActivityContext[MessageUpdateActivity]], Awaitable[None]]
-    ) -> Callable[[ActivityContext[MessageUpdateActivity]], Awaitable[None]]: ...
+        self, handler: BasicHandler[MessageUpdateActivity]
+    ) -> BasicHandler[MessageUpdateActivity]: ...
 
     @overload
     def on_message_update(
         self,
-    ) -> Callable[
-        [Callable[[ActivityContext[MessageUpdateActivity]], Awaitable[None]]],
-        Callable[[ActivityContext[MessageUpdateActivity]], Awaitable[None]],
-    ]: ...
+    ) -> Callable[[BasicHandler[MessageUpdateActivity]], BasicHandler[MessageUpdateActivity]]: ...
 
     def on_message_update(
-        self, handler: Optional[Callable[[ActivityContext[MessageUpdateActivity]], Awaitable[None]]] = None
-    ) -> (
-        Callable[
-            [Callable[[ActivityContext[MessageUpdateActivity]], Awaitable[None]]],
-            Callable[[ActivityContext[MessageUpdateActivity]], Awaitable[None]],
-        ]
-        | Callable[[ActivityContext[MessageUpdateActivity]], Awaitable[None]]
-    ):
+        self, handler: Optional[BasicHandler[MessageUpdateActivity]] = None
+    ) -> BasicHandlerUnion[MessageUpdateActivity]:
         """Register a message_update activity handler."""
 
-        def decorator(
-            func: Callable[[ActivityContext[MessageUpdateActivity]], Awaitable[None]],
-        ) -> Callable[[ActivityContext[MessageUpdateActivity]], Awaitable[None]]:
+        def decorator(func: BasicHandler[MessageUpdateActivity]) -> BasicHandler[MessageUpdateActivity]:
             validate_handler_type(
                 self.logger, func, MessageUpdateActivity, "on_message_update", "MessageUpdateActivity"
             )
@@ -281,31 +226,20 @@ class GeneratedActivityHandlerMixin(ABC):
 
     @overload
     def on_undelete_message(
-        self, handler: Callable[[ActivityContext[MessageUpdateActivity]], Awaitable[None]]
-    ) -> Callable[[ActivityContext[MessageUpdateActivity]], Awaitable[None]]: ...
+        self, handler: BasicHandler[MessageUpdateActivity]
+    ) -> BasicHandler[MessageUpdateActivity]: ...
 
     @overload
     def on_undelete_message(
         self,
-    ) -> Callable[
-        [Callable[[ActivityContext[MessageUpdateActivity]], Awaitable[None]]],
-        Callable[[ActivityContext[MessageUpdateActivity]], Awaitable[None]],
-    ]: ...
+    ) -> Callable[[BasicHandler[MessageUpdateActivity]], BasicHandler[MessageUpdateActivity]]: ...
 
     def on_undelete_message(
-        self, handler: Optional[Callable[[ActivityContext[MessageUpdateActivity]], Awaitable[None]]] = None
-    ) -> (
-        Callable[
-            [Callable[[ActivityContext[MessageUpdateActivity]], Awaitable[None]]],
-            Callable[[ActivityContext[MessageUpdateActivity]], Awaitable[None]],
-        ]
-        | Callable[[ActivityContext[MessageUpdateActivity]], Awaitable[None]]
-    ):
+        self, handler: Optional[BasicHandler[MessageUpdateActivity]] = None
+    ) -> BasicHandlerUnion[MessageUpdateActivity]:
         """Register a undelete_message activity handler."""
 
-        def decorator(
-            func: Callable[[ActivityContext[MessageUpdateActivity]], Awaitable[None]],
-        ) -> Callable[[ActivityContext[MessageUpdateActivity]], Awaitable[None]]:
+        def decorator(func: BasicHandler[MessageUpdateActivity]) -> BasicHandler[MessageUpdateActivity]:
             validate_handler_type(
                 self.logger, func, MessageUpdateActivity, "on_undelete_message", "MessageUpdateActivity"
             )
@@ -318,32 +252,19 @@ class GeneratedActivityHandlerMixin(ABC):
         return decorator
 
     @overload
-    def on_edit_message(
-        self, handler: Callable[[ActivityContext[MessageUpdateActivity]], Awaitable[None]]
-    ) -> Callable[[ActivityContext[MessageUpdateActivity]], Awaitable[None]]: ...
+    def on_edit_message(self, handler: BasicHandler[MessageUpdateActivity]) -> BasicHandler[MessageUpdateActivity]: ...
 
     @overload
     def on_edit_message(
         self,
-    ) -> Callable[
-        [Callable[[ActivityContext[MessageUpdateActivity]], Awaitable[None]]],
-        Callable[[ActivityContext[MessageUpdateActivity]], Awaitable[None]],
-    ]: ...
+    ) -> Callable[[BasicHandler[MessageUpdateActivity]], BasicHandler[MessageUpdateActivity]]: ...
 
     def on_edit_message(
-        self, handler: Optional[Callable[[ActivityContext[MessageUpdateActivity]], Awaitable[None]]] = None
-    ) -> (
-        Callable[
-            [Callable[[ActivityContext[MessageUpdateActivity]], Awaitable[None]]],
-            Callable[[ActivityContext[MessageUpdateActivity]], Awaitable[None]],
-        ]
-        | Callable[[ActivityContext[MessageUpdateActivity]], Awaitable[None]]
-    ):
+        self, handler: Optional[BasicHandler[MessageUpdateActivity]] = None
+    ) -> BasicHandlerUnion[MessageUpdateActivity]:
         """Register a edit_message activity handler."""
 
-        def decorator(
-            func: Callable[[ActivityContext[MessageUpdateActivity]], Awaitable[None]],
-        ) -> Callable[[ActivityContext[MessageUpdateActivity]], Awaitable[None]]:
+        def decorator(func: BasicHandler[MessageUpdateActivity]) -> BasicHandler[MessageUpdateActivity]:
             validate_handler_type(self.logger, func, MessageUpdateActivity, "on_edit_message", "MessageUpdateActivity")
             config = ACTIVITY_ROUTES["edit_message"]
             self.router.add_handler(config.selector, func)
@@ -354,32 +275,17 @@ class GeneratedActivityHandlerMixin(ABC):
         return decorator
 
     @overload
-    def on_command(
-        self, handler: Callable[[ActivityContext[CommandSendActivity]], Awaitable[None]]
-    ) -> Callable[[ActivityContext[CommandSendActivity]], Awaitable[None]]: ...
+    def on_command(self, handler: BasicHandler[CommandSendActivity]) -> BasicHandler[CommandSendActivity]: ...
 
     @overload
-    def on_command(
-        self,
-    ) -> Callable[
-        [Callable[[ActivityContext[CommandSendActivity]], Awaitable[None]]],
-        Callable[[ActivityContext[CommandSendActivity]], Awaitable[None]],
-    ]: ...
+    def on_command(self) -> Callable[[BasicHandler[CommandSendActivity]], BasicHandler[CommandSendActivity]]: ...
 
     def on_command(
-        self, handler: Optional[Callable[[ActivityContext[CommandSendActivity]], Awaitable[None]]] = None
-    ) -> (
-        Callable[
-            [Callable[[ActivityContext[CommandSendActivity]], Awaitable[None]]],
-            Callable[[ActivityContext[CommandSendActivity]], Awaitable[None]],
-        ]
-        | Callable[[ActivityContext[CommandSendActivity]], Awaitable[None]]
-    ):
+        self, handler: Optional[BasicHandler[CommandSendActivity]] = None
+    ) -> BasicHandlerUnion[CommandSendActivity]:
         """Register a command activity handler."""
 
-        def decorator(
-            func: Callable[[ActivityContext[CommandSendActivity]], Awaitable[None]],
-        ) -> Callable[[ActivityContext[CommandSendActivity]], Awaitable[None]]:
+        def decorator(func: BasicHandler[CommandSendActivity]) -> BasicHandler[CommandSendActivity]:
             validate_handler_type(self.logger, func, CommandSendActivity, "on_command", "CommandSendActivity")
             config = ACTIVITY_ROUTES["command"]
             self.router.add_handler(config.selector, func)
@@ -391,31 +297,20 @@ class GeneratedActivityHandlerMixin(ABC):
 
     @overload
     def on_command_result(
-        self, handler: Callable[[ActivityContext[CommandResultActivity]], Awaitable[None]]
-    ) -> Callable[[ActivityContext[CommandResultActivity]], Awaitable[None]]: ...
+        self, handler: BasicHandler[CommandResultActivity]
+    ) -> BasicHandler[CommandResultActivity]: ...
 
     @overload
     def on_command_result(
         self,
-    ) -> Callable[
-        [Callable[[ActivityContext[CommandResultActivity]], Awaitable[None]]],
-        Callable[[ActivityContext[CommandResultActivity]], Awaitable[None]],
-    ]: ...
+    ) -> Callable[[BasicHandler[CommandResultActivity]], BasicHandler[CommandResultActivity]]: ...
 
     def on_command_result(
-        self, handler: Optional[Callable[[ActivityContext[CommandResultActivity]], Awaitable[None]]] = None
-    ) -> (
-        Callable[
-            [Callable[[ActivityContext[CommandResultActivity]], Awaitable[None]]],
-            Callable[[ActivityContext[CommandResultActivity]], Awaitable[None]],
-        ]
-        | Callable[[ActivityContext[CommandResultActivity]], Awaitable[None]]
-    ):
+        self, handler: Optional[BasicHandler[CommandResultActivity]] = None
+    ) -> BasicHandlerUnion[CommandResultActivity]:
         """Register a command_result activity handler."""
 
-        def decorator(
-            func: Callable[[ActivityContext[CommandResultActivity]], Awaitable[None]],
-        ) -> Callable[[ActivityContext[CommandResultActivity]], Awaitable[None]]:
+        def decorator(func: BasicHandler[CommandResultActivity]) -> BasicHandler[CommandResultActivity]:
             validate_handler_type(
                 self.logger, func, CommandResultActivity, "on_command_result", "CommandResultActivity"
             )
@@ -429,31 +324,20 @@ class GeneratedActivityHandlerMixin(ABC):
 
     @overload
     def on_conversation_update(
-        self, handler: Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]]
-    ) -> Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]]: ...
+        self, handler: BasicHandler[ConversationUpdateActivity]
+    ) -> BasicHandler[ConversationUpdateActivity]: ...
 
     @overload
     def on_conversation_update(
         self,
-    ) -> Callable[
-        [Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]]],
-        Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]],
-    ]: ...
+    ) -> Callable[[BasicHandler[ConversationUpdateActivity]], BasicHandler[ConversationUpdateActivity]]: ...
 
     def on_conversation_update(
-        self, handler: Optional[Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]]] = None
-    ) -> (
-        Callable[
-            [Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]]],
-            Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]],
-        ]
-        | Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]]
-    ):
+        self, handler: Optional[BasicHandler[ConversationUpdateActivity]] = None
+    ) -> BasicHandlerUnion[ConversationUpdateActivity]:
         """Register a conversation_update activity handler."""
 
-        def decorator(
-            func: Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]],
-        ) -> Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]]:
+        def decorator(func: BasicHandler[ConversationUpdateActivity]) -> BasicHandler[ConversationUpdateActivity]:
             validate_handler_type(
                 self.logger, func, ConversationUpdateActivity, "on_conversation_update", "ConversationUpdateActivity"
             )
@@ -467,31 +351,20 @@ class GeneratedActivityHandlerMixin(ABC):
 
     @overload
     def on_channel_created(
-        self, handler: Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]]
-    ) -> Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]]: ...
+        self, handler: BasicHandler[ConversationUpdateActivity]
+    ) -> BasicHandler[ConversationUpdateActivity]: ...
 
     @overload
     def on_channel_created(
         self,
-    ) -> Callable[
-        [Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]]],
-        Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]],
-    ]: ...
+    ) -> Callable[[BasicHandler[ConversationUpdateActivity]], BasicHandler[ConversationUpdateActivity]]: ...
 
     def on_channel_created(
-        self, handler: Optional[Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]]] = None
-    ) -> (
-        Callable[
-            [Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]]],
-            Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]],
-        ]
-        | Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]]
-    ):
+        self, handler: Optional[BasicHandler[ConversationUpdateActivity]] = None
+    ) -> BasicHandlerUnion[ConversationUpdateActivity]:
         """Register a channel_created activity handler."""
 
-        def decorator(
-            func: Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]],
-        ) -> Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]]:
+        def decorator(func: BasicHandler[ConversationUpdateActivity]) -> BasicHandler[ConversationUpdateActivity]:
             validate_handler_type(
                 self.logger, func, ConversationUpdateActivity, "on_channel_created", "ConversationUpdateActivity"
             )
@@ -505,31 +378,20 @@ class GeneratedActivityHandlerMixin(ABC):
 
     @overload
     def on_channel_deleted(
-        self, handler: Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]]
-    ) -> Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]]: ...
+        self, handler: BasicHandler[ConversationUpdateActivity]
+    ) -> BasicHandler[ConversationUpdateActivity]: ...
 
     @overload
     def on_channel_deleted(
         self,
-    ) -> Callable[
-        [Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]]],
-        Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]],
-    ]: ...
+    ) -> Callable[[BasicHandler[ConversationUpdateActivity]], BasicHandler[ConversationUpdateActivity]]: ...
 
     def on_channel_deleted(
-        self, handler: Optional[Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]]] = None
-    ) -> (
-        Callable[
-            [Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]]],
-            Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]],
-        ]
-        | Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]]
-    ):
+        self, handler: Optional[BasicHandler[ConversationUpdateActivity]] = None
+    ) -> BasicHandlerUnion[ConversationUpdateActivity]:
         """Register a channel_deleted activity handler."""
 
-        def decorator(
-            func: Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]],
-        ) -> Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]]:
+        def decorator(func: BasicHandler[ConversationUpdateActivity]) -> BasicHandler[ConversationUpdateActivity]:
             validate_handler_type(
                 self.logger, func, ConversationUpdateActivity, "on_channel_deleted", "ConversationUpdateActivity"
             )
@@ -543,31 +405,20 @@ class GeneratedActivityHandlerMixin(ABC):
 
     @overload
     def on_channel_renamed(
-        self, handler: Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]]
-    ) -> Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]]: ...
+        self, handler: BasicHandler[ConversationUpdateActivity]
+    ) -> BasicHandler[ConversationUpdateActivity]: ...
 
     @overload
     def on_channel_renamed(
         self,
-    ) -> Callable[
-        [Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]]],
-        Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]],
-    ]: ...
+    ) -> Callable[[BasicHandler[ConversationUpdateActivity]], BasicHandler[ConversationUpdateActivity]]: ...
 
     def on_channel_renamed(
-        self, handler: Optional[Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]]] = None
-    ) -> (
-        Callable[
-            [Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]]],
-            Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]],
-        ]
-        | Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]]
-    ):
+        self, handler: Optional[BasicHandler[ConversationUpdateActivity]] = None
+    ) -> BasicHandlerUnion[ConversationUpdateActivity]:
         """Register a channel_renamed activity handler."""
 
-        def decorator(
-            func: Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]],
-        ) -> Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]]:
+        def decorator(func: BasicHandler[ConversationUpdateActivity]) -> BasicHandler[ConversationUpdateActivity]:
             validate_handler_type(
                 self.logger, func, ConversationUpdateActivity, "on_channel_renamed", "ConversationUpdateActivity"
             )
@@ -581,31 +432,20 @@ class GeneratedActivityHandlerMixin(ABC):
 
     @overload
     def on_channel_restored(
-        self, handler: Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]]
-    ) -> Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]]: ...
+        self, handler: BasicHandler[ConversationUpdateActivity]
+    ) -> BasicHandler[ConversationUpdateActivity]: ...
 
     @overload
     def on_channel_restored(
         self,
-    ) -> Callable[
-        [Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]]],
-        Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]],
-    ]: ...
+    ) -> Callable[[BasicHandler[ConversationUpdateActivity]], BasicHandler[ConversationUpdateActivity]]: ...
 
     def on_channel_restored(
-        self, handler: Optional[Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]]] = None
-    ) -> (
-        Callable[
-            [Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]]],
-            Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]],
-        ]
-        | Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]]
-    ):
+        self, handler: Optional[BasicHandler[ConversationUpdateActivity]] = None
+    ) -> BasicHandlerUnion[ConversationUpdateActivity]:
         """Register a channel_restored activity handler."""
 
-        def decorator(
-            func: Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]],
-        ) -> Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]]:
+        def decorator(func: BasicHandler[ConversationUpdateActivity]) -> BasicHandler[ConversationUpdateActivity]:
             validate_handler_type(
                 self.logger, func, ConversationUpdateActivity, "on_channel_restored", "ConversationUpdateActivity"
             )
@@ -619,31 +459,20 @@ class GeneratedActivityHandlerMixin(ABC):
 
     @overload
     def on_team_archived(
-        self, handler: Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]]
-    ) -> Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]]: ...
+        self, handler: BasicHandler[ConversationUpdateActivity]
+    ) -> BasicHandler[ConversationUpdateActivity]: ...
 
     @overload
     def on_team_archived(
         self,
-    ) -> Callable[
-        [Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]]],
-        Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]],
-    ]: ...
+    ) -> Callable[[BasicHandler[ConversationUpdateActivity]], BasicHandler[ConversationUpdateActivity]]: ...
 
     def on_team_archived(
-        self, handler: Optional[Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]]] = None
-    ) -> (
-        Callable[
-            [Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]]],
-            Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]],
-        ]
-        | Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]]
-    ):
+        self, handler: Optional[BasicHandler[ConversationUpdateActivity]] = None
+    ) -> BasicHandlerUnion[ConversationUpdateActivity]:
         """Register a team_archived activity handler."""
 
-        def decorator(
-            func: Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]],
-        ) -> Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]]:
+        def decorator(func: BasicHandler[ConversationUpdateActivity]) -> BasicHandler[ConversationUpdateActivity]:
             validate_handler_type(
                 self.logger, func, ConversationUpdateActivity, "on_team_archived", "ConversationUpdateActivity"
             )
@@ -657,31 +486,20 @@ class GeneratedActivityHandlerMixin(ABC):
 
     @overload
     def on_team_deleted(
-        self, handler: Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]]
-    ) -> Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]]: ...
+        self, handler: BasicHandler[ConversationUpdateActivity]
+    ) -> BasicHandler[ConversationUpdateActivity]: ...
 
     @overload
     def on_team_deleted(
         self,
-    ) -> Callable[
-        [Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]]],
-        Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]],
-    ]: ...
+    ) -> Callable[[BasicHandler[ConversationUpdateActivity]], BasicHandler[ConversationUpdateActivity]]: ...
 
     def on_team_deleted(
-        self, handler: Optional[Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]]] = None
-    ) -> (
-        Callable[
-            [Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]]],
-            Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]],
-        ]
-        | Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]]
-    ):
+        self, handler: Optional[BasicHandler[ConversationUpdateActivity]] = None
+    ) -> BasicHandlerUnion[ConversationUpdateActivity]:
         """Register a team_deleted activity handler."""
 
-        def decorator(
-            func: Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]],
-        ) -> Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]]:
+        def decorator(func: BasicHandler[ConversationUpdateActivity]) -> BasicHandler[ConversationUpdateActivity]:
             validate_handler_type(
                 self.logger, func, ConversationUpdateActivity, "on_team_deleted", "ConversationUpdateActivity"
             )
@@ -695,31 +513,20 @@ class GeneratedActivityHandlerMixin(ABC):
 
     @overload
     def on_team_hard_deleted(
-        self, handler: Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]]
-    ) -> Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]]: ...
+        self, handler: BasicHandler[ConversationUpdateActivity]
+    ) -> BasicHandler[ConversationUpdateActivity]: ...
 
     @overload
     def on_team_hard_deleted(
         self,
-    ) -> Callable[
-        [Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]]],
-        Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]],
-    ]: ...
+    ) -> Callable[[BasicHandler[ConversationUpdateActivity]], BasicHandler[ConversationUpdateActivity]]: ...
 
     def on_team_hard_deleted(
-        self, handler: Optional[Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]]] = None
-    ) -> (
-        Callable[
-            [Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]]],
-            Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]],
-        ]
-        | Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]]
-    ):
+        self, handler: Optional[BasicHandler[ConversationUpdateActivity]] = None
+    ) -> BasicHandlerUnion[ConversationUpdateActivity]:
         """Register a team_hard_deleted activity handler."""
 
-        def decorator(
-            func: Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]],
-        ) -> Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]]:
+        def decorator(func: BasicHandler[ConversationUpdateActivity]) -> BasicHandler[ConversationUpdateActivity]:
             validate_handler_type(
                 self.logger, func, ConversationUpdateActivity, "on_team_hard_deleted", "ConversationUpdateActivity"
             )
@@ -733,31 +540,20 @@ class GeneratedActivityHandlerMixin(ABC):
 
     @overload
     def on_team_renamed(
-        self, handler: Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]]
-    ) -> Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]]: ...
+        self, handler: BasicHandler[ConversationUpdateActivity]
+    ) -> BasicHandler[ConversationUpdateActivity]: ...
 
     @overload
     def on_team_renamed(
         self,
-    ) -> Callable[
-        [Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]]],
-        Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]],
-    ]: ...
+    ) -> Callable[[BasicHandler[ConversationUpdateActivity]], BasicHandler[ConversationUpdateActivity]]: ...
 
     def on_team_renamed(
-        self, handler: Optional[Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]]] = None
-    ) -> (
-        Callable[
-            [Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]]],
-            Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]],
-        ]
-        | Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]]
-    ):
+        self, handler: Optional[BasicHandler[ConversationUpdateActivity]] = None
+    ) -> BasicHandlerUnion[ConversationUpdateActivity]:
         """Register a team_renamed activity handler."""
 
-        def decorator(
-            func: Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]],
-        ) -> Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]]:
+        def decorator(func: BasicHandler[ConversationUpdateActivity]) -> BasicHandler[ConversationUpdateActivity]:
             validate_handler_type(
                 self.logger, func, ConversationUpdateActivity, "on_team_renamed", "ConversationUpdateActivity"
             )
@@ -771,31 +567,20 @@ class GeneratedActivityHandlerMixin(ABC):
 
     @overload
     def on_team_restored(
-        self, handler: Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]]
-    ) -> Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]]: ...
+        self, handler: BasicHandler[ConversationUpdateActivity]
+    ) -> BasicHandler[ConversationUpdateActivity]: ...
 
     @overload
     def on_team_restored(
         self,
-    ) -> Callable[
-        [Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]]],
-        Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]],
-    ]: ...
+    ) -> Callable[[BasicHandler[ConversationUpdateActivity]], BasicHandler[ConversationUpdateActivity]]: ...
 
     def on_team_restored(
-        self, handler: Optional[Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]]] = None
-    ) -> (
-        Callable[
-            [Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]]],
-            Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]],
-        ]
-        | Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]]
-    ):
+        self, handler: Optional[BasicHandler[ConversationUpdateActivity]] = None
+    ) -> BasicHandlerUnion[ConversationUpdateActivity]:
         """Register a team_restored activity handler."""
 
-        def decorator(
-            func: Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]],
-        ) -> Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]]:
+        def decorator(func: BasicHandler[ConversationUpdateActivity]) -> BasicHandler[ConversationUpdateActivity]:
             validate_handler_type(
                 self.logger, func, ConversationUpdateActivity, "on_team_restored", "ConversationUpdateActivity"
             )
@@ -809,31 +594,20 @@ class GeneratedActivityHandlerMixin(ABC):
 
     @overload
     def on_team_unarchived(
-        self, handler: Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]]
-    ) -> Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]]: ...
+        self, handler: BasicHandler[ConversationUpdateActivity]
+    ) -> BasicHandler[ConversationUpdateActivity]: ...
 
     @overload
     def on_team_unarchived(
         self,
-    ) -> Callable[
-        [Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]]],
-        Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]],
-    ]: ...
+    ) -> Callable[[BasicHandler[ConversationUpdateActivity]], BasicHandler[ConversationUpdateActivity]]: ...
 
     def on_team_unarchived(
-        self, handler: Optional[Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]]] = None
-    ) -> (
-        Callable[
-            [Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]]],
-            Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]],
-        ]
-        | Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]]
-    ):
+        self, handler: Optional[BasicHandler[ConversationUpdateActivity]] = None
+    ) -> BasicHandlerUnion[ConversationUpdateActivity]:
         """Register a team_unarchived activity handler."""
 
-        def decorator(
-            func: Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]],
-        ) -> Callable[[ActivityContext[ConversationUpdateActivity]], Awaitable[None]]:
+        def decorator(func: BasicHandler[ConversationUpdateActivity]) -> BasicHandler[ConversationUpdateActivity]:
             validate_handler_type(
                 self.logger, func, ConversationUpdateActivity, "on_team_unarchived", "ConversationUpdateActivity"
             )
@@ -847,31 +621,20 @@ class GeneratedActivityHandlerMixin(ABC):
 
     @overload
     def on_end_of_conversation(
-        self, handler: Callable[[ActivityContext[EndOfConversationActivity]], Awaitable[None]]
-    ) -> Callable[[ActivityContext[EndOfConversationActivity]], Awaitable[None]]: ...
+        self, handler: BasicHandler[EndOfConversationActivity]
+    ) -> BasicHandler[EndOfConversationActivity]: ...
 
     @overload
     def on_end_of_conversation(
         self,
-    ) -> Callable[
-        [Callable[[ActivityContext[EndOfConversationActivity]], Awaitable[None]]],
-        Callable[[ActivityContext[EndOfConversationActivity]], Awaitable[None]],
-    ]: ...
+    ) -> Callable[[BasicHandler[EndOfConversationActivity]], BasicHandler[EndOfConversationActivity]]: ...
 
     def on_end_of_conversation(
-        self, handler: Optional[Callable[[ActivityContext[EndOfConversationActivity]], Awaitable[None]]] = None
-    ) -> (
-        Callable[
-            [Callable[[ActivityContext[EndOfConversationActivity]], Awaitable[None]]],
-            Callable[[ActivityContext[EndOfConversationActivity]], Awaitable[None]],
-        ]
-        | Callable[[ActivityContext[EndOfConversationActivity]], Awaitable[None]]
-    ):
+        self, handler: Optional[BasicHandler[EndOfConversationActivity]] = None
+    ) -> BasicHandlerUnion[EndOfConversationActivity]:
         """Register a end_of_conversation activity handler."""
 
-        def decorator(
-            func: Callable[[ActivityContext[EndOfConversationActivity]], Awaitable[None]],
-        ) -> Callable[[ActivityContext[EndOfConversationActivity]], Awaitable[None]]:
+        def decorator(func: BasicHandler[EndOfConversationActivity]) -> BasicHandler[EndOfConversationActivity]:
             validate_handler_type(
                 self.logger, func, EndOfConversationActivity, "on_end_of_conversation", "EndOfConversationActivity"
             )
@@ -884,32 +647,15 @@ class GeneratedActivityHandlerMixin(ABC):
         return decorator
 
     @overload
-    def on_event(
-        self, handler: Callable[[ActivityContext[EventActivity]], Awaitable[None]]
-    ) -> Callable[[ActivityContext[EventActivity]], Awaitable[None]]: ...
+    def on_event(self, handler: BasicHandler[EventActivity]) -> BasicHandler[EventActivity]: ...
 
     @overload
-    def on_event(
-        self,
-    ) -> Callable[
-        [Callable[[ActivityContext[EventActivity]], Awaitable[None]]],
-        Callable[[ActivityContext[EventActivity]], Awaitable[None]],
-    ]: ...
+    def on_event(self) -> Callable[[BasicHandler[EventActivity]], BasicHandler[EventActivity]]: ...
 
-    def on_event(
-        self, handler: Optional[Callable[[ActivityContext[EventActivity]], Awaitable[None]]] = None
-    ) -> (
-        Callable[
-            [Callable[[ActivityContext[EventActivity]], Awaitable[None]]],
-            Callable[[ActivityContext[EventActivity]], Awaitable[None]],
-        ]
-        | Callable[[ActivityContext[EventActivity]], Awaitable[None]]
-    ):
+    def on_event(self, handler: Optional[BasicHandler[EventActivity]] = None) -> BasicHandlerUnion[EventActivity]:
         """Register a event activity handler."""
 
-        def decorator(
-            func: Callable[[ActivityContext[EventActivity]], Awaitable[None]],
-        ) -> Callable[[ActivityContext[EventActivity]], Awaitable[None]]:
+        def decorator(func: BasicHandler[EventActivity]) -> BasicHandler[EventActivity]:
             validate_handler_type(self.logger, func, EventActivity, "on_event", "EventActivity")
             config = ACTIVITY_ROUTES["event"]
             self.router.add_handler(config.selector, func)
@@ -921,31 +667,20 @@ class GeneratedActivityHandlerMixin(ABC):
 
     @overload
     def on_read_receipt(
-        self, handler: Callable[[ActivityContext[ReadReceiptEventActivity]], Awaitable[None]]
-    ) -> Callable[[ActivityContext[ReadReceiptEventActivity]], Awaitable[None]]: ...
+        self, handler: BasicHandler[ReadReceiptEventActivity]
+    ) -> BasicHandler[ReadReceiptEventActivity]: ...
 
     @overload
     def on_read_receipt(
         self,
-    ) -> Callable[
-        [Callable[[ActivityContext[ReadReceiptEventActivity]], Awaitable[None]]],
-        Callable[[ActivityContext[ReadReceiptEventActivity]], Awaitable[None]],
-    ]: ...
+    ) -> Callable[[BasicHandler[ReadReceiptEventActivity]], BasicHandler[ReadReceiptEventActivity]]: ...
 
     def on_read_receipt(
-        self, handler: Optional[Callable[[ActivityContext[ReadReceiptEventActivity]], Awaitable[None]]] = None
-    ) -> (
-        Callable[
-            [Callable[[ActivityContext[ReadReceiptEventActivity]], Awaitable[None]]],
-            Callable[[ActivityContext[ReadReceiptEventActivity]], Awaitable[None]],
-        ]
-        | Callable[[ActivityContext[ReadReceiptEventActivity]], Awaitable[None]]
-    ):
+        self, handler: Optional[BasicHandler[ReadReceiptEventActivity]] = None
+    ) -> BasicHandlerUnion[ReadReceiptEventActivity]:
         """Register a read_receipt activity handler."""
 
-        def decorator(
-            func: Callable[[ActivityContext[ReadReceiptEventActivity]], Awaitable[None]],
-        ) -> Callable[[ActivityContext[ReadReceiptEventActivity]], Awaitable[None]]:
+        def decorator(func: BasicHandler[ReadReceiptEventActivity]) -> BasicHandler[ReadReceiptEventActivity]:
             validate_handler_type(
                 self.logger, func, ReadReceiptEventActivity, "on_read_receipt", "ReadReceiptEventActivity"
             )
@@ -959,31 +694,20 @@ class GeneratedActivityHandlerMixin(ABC):
 
     @overload
     def on_meeting_start(
-        self, handler: Callable[[ActivityContext[MeetingStartEventActivity]], Awaitable[None]]
-    ) -> Callable[[ActivityContext[MeetingStartEventActivity]], Awaitable[None]]: ...
+        self, handler: BasicHandler[MeetingStartEventActivity]
+    ) -> BasicHandler[MeetingStartEventActivity]: ...
 
     @overload
     def on_meeting_start(
         self,
-    ) -> Callable[
-        [Callable[[ActivityContext[MeetingStartEventActivity]], Awaitable[None]]],
-        Callable[[ActivityContext[MeetingStartEventActivity]], Awaitable[None]],
-    ]: ...
+    ) -> Callable[[BasicHandler[MeetingStartEventActivity]], BasicHandler[MeetingStartEventActivity]]: ...
 
     def on_meeting_start(
-        self, handler: Optional[Callable[[ActivityContext[MeetingStartEventActivity]], Awaitable[None]]] = None
-    ) -> (
-        Callable[
-            [Callable[[ActivityContext[MeetingStartEventActivity]], Awaitable[None]]],
-            Callable[[ActivityContext[MeetingStartEventActivity]], Awaitable[None]],
-        ]
-        | Callable[[ActivityContext[MeetingStartEventActivity]], Awaitable[None]]
-    ):
+        self, handler: Optional[BasicHandler[MeetingStartEventActivity]] = None
+    ) -> BasicHandlerUnion[MeetingStartEventActivity]:
         """Register a meeting_start activity handler."""
 
-        def decorator(
-            func: Callable[[ActivityContext[MeetingStartEventActivity]], Awaitable[None]],
-        ) -> Callable[[ActivityContext[MeetingStartEventActivity]], Awaitable[None]]:
+        def decorator(func: BasicHandler[MeetingStartEventActivity]) -> BasicHandler[MeetingStartEventActivity]:
             validate_handler_type(
                 self.logger, func, MeetingStartEventActivity, "on_meeting_start", "MeetingStartEventActivity"
             )
@@ -997,31 +721,20 @@ class GeneratedActivityHandlerMixin(ABC):
 
     @overload
     def on_meeting_end(
-        self, handler: Callable[[ActivityContext[MeetingEndEventActivity]], Awaitable[None]]
-    ) -> Callable[[ActivityContext[MeetingEndEventActivity]], Awaitable[None]]: ...
+        self, handler: BasicHandler[MeetingEndEventActivity]
+    ) -> BasicHandler[MeetingEndEventActivity]: ...
 
     @overload
     def on_meeting_end(
         self,
-    ) -> Callable[
-        [Callable[[ActivityContext[MeetingEndEventActivity]], Awaitable[None]]],
-        Callable[[ActivityContext[MeetingEndEventActivity]], Awaitable[None]],
-    ]: ...
+    ) -> Callable[[BasicHandler[MeetingEndEventActivity]], BasicHandler[MeetingEndEventActivity]]: ...
 
     def on_meeting_end(
-        self, handler: Optional[Callable[[ActivityContext[MeetingEndEventActivity]], Awaitable[None]]] = None
-    ) -> (
-        Callable[
-            [Callable[[ActivityContext[MeetingEndEventActivity]], Awaitable[None]]],
-            Callable[[ActivityContext[MeetingEndEventActivity]], Awaitable[None]],
-        ]
-        | Callable[[ActivityContext[MeetingEndEventActivity]], Awaitable[None]]
-    ):
+        self, handler: Optional[BasicHandler[MeetingEndEventActivity]] = None
+    ) -> BasicHandlerUnion[MeetingEndEventActivity]:
         """Register a meeting_end activity handler."""
 
-        def decorator(
-            func: Callable[[ActivityContext[MeetingEndEventActivity]], Awaitable[None]],
-        ) -> Callable[[ActivityContext[MeetingEndEventActivity]], Awaitable[None]]:
+        def decorator(func: BasicHandler[MeetingEndEventActivity]) -> BasicHandler[MeetingEndEventActivity]:
             validate_handler_type(
                 self.logger, func, MeetingEndEventActivity, "on_meeting_end", "MeetingEndEventActivity"
             )
@@ -1035,32 +748,24 @@ class GeneratedActivityHandlerMixin(ABC):
 
     @overload
     def on_meeting_participant_join(
-        self, handler: Callable[[ActivityContext[MeetingParticipantJoinEventActivity]], Awaitable[None]]
-    ) -> Callable[[ActivityContext[MeetingParticipantJoinEventActivity]], Awaitable[None]]: ...
+        self, handler: BasicHandler[MeetingParticipantJoinEventActivity]
+    ) -> BasicHandler[MeetingParticipantJoinEventActivity]: ...
 
     @overload
     def on_meeting_participant_join(
         self,
     ) -> Callable[
-        [Callable[[ActivityContext[MeetingParticipantJoinEventActivity]], Awaitable[None]]],
-        Callable[[ActivityContext[MeetingParticipantJoinEventActivity]], Awaitable[None]],
+        [BasicHandler[MeetingParticipantJoinEventActivity]], BasicHandler[MeetingParticipantJoinEventActivity]
     ]: ...
 
     def on_meeting_participant_join(
-        self,
-        handler: Optional[Callable[[ActivityContext[MeetingParticipantJoinEventActivity]], Awaitable[None]]] = None,
-    ) -> (
-        Callable[
-            [Callable[[ActivityContext[MeetingParticipantJoinEventActivity]], Awaitable[None]]],
-            Callable[[ActivityContext[MeetingParticipantJoinEventActivity]], Awaitable[None]],
-        ]
-        | Callable[[ActivityContext[MeetingParticipantJoinEventActivity]], Awaitable[None]]
-    ):
+        self, handler: Optional[BasicHandler[MeetingParticipantJoinEventActivity]] = None
+    ) -> BasicHandlerUnion[MeetingParticipantJoinEventActivity]:
         """Register a meeting_participant_join activity handler."""
 
         def decorator(
-            func: Callable[[ActivityContext[MeetingParticipantJoinEventActivity]], Awaitable[None]],
-        ) -> Callable[[ActivityContext[MeetingParticipantJoinEventActivity]], Awaitable[None]]:
+            func: BasicHandler[MeetingParticipantJoinEventActivity],
+        ) -> BasicHandler[MeetingParticipantJoinEventActivity]:
             validate_handler_type(
                 self.logger,
                 func,
@@ -1078,32 +783,24 @@ class GeneratedActivityHandlerMixin(ABC):
 
     @overload
     def on_meeting_participant_leave(
-        self, handler: Callable[[ActivityContext[MeetingParticipantLeaveEventActivity]], Awaitable[None]]
-    ) -> Callable[[ActivityContext[MeetingParticipantLeaveEventActivity]], Awaitable[None]]: ...
+        self, handler: BasicHandler[MeetingParticipantLeaveEventActivity]
+    ) -> BasicHandler[MeetingParticipantLeaveEventActivity]: ...
 
     @overload
     def on_meeting_participant_leave(
         self,
     ) -> Callable[
-        [Callable[[ActivityContext[MeetingParticipantLeaveEventActivity]], Awaitable[None]]],
-        Callable[[ActivityContext[MeetingParticipantLeaveEventActivity]], Awaitable[None]],
+        [BasicHandler[MeetingParticipantLeaveEventActivity]], BasicHandler[MeetingParticipantLeaveEventActivity]
     ]: ...
 
     def on_meeting_participant_leave(
-        self,
-        handler: Optional[Callable[[ActivityContext[MeetingParticipantLeaveEventActivity]], Awaitable[None]]] = None,
-    ) -> (
-        Callable[
-            [Callable[[ActivityContext[MeetingParticipantLeaveEventActivity]], Awaitable[None]]],
-            Callable[[ActivityContext[MeetingParticipantLeaveEventActivity]], Awaitable[None]],
-        ]
-        | Callable[[ActivityContext[MeetingParticipantLeaveEventActivity]], Awaitable[None]]
-    ):
+        self, handler: Optional[BasicHandler[MeetingParticipantLeaveEventActivity]] = None
+    ) -> BasicHandlerUnion[MeetingParticipantLeaveEventActivity]:
         """Register a meeting_participant_leave activity handler."""
 
         def decorator(
-            func: Callable[[ActivityContext[MeetingParticipantLeaveEventActivity]], Awaitable[None]],
-        ) -> Callable[[ActivityContext[MeetingParticipantLeaveEventActivity]], Awaitable[None]]:
+            func: BasicHandler[MeetingParticipantLeaveEventActivity],
+        ) -> BasicHandler[MeetingParticipantLeaveEventActivity]:
             validate_handler_type(
                 self.logger,
                 func,
@@ -1121,69 +818,25 @@ class GeneratedActivityHandlerMixin(ABC):
 
     @overload
     def on_config_open(
-        self,
-        handler: Callable[
-            [ActivityContext[ConfigFetchInvokeActivity]],
-            Awaitable[Union[InvokeResponse[ConfigInvokeResponse], ConfigInvokeResponse]],
-        ],
-    ) -> Callable[
-        [ActivityContext[ConfigFetchInvokeActivity]],
-        Awaitable[Union[InvokeResponse[ConfigInvokeResponse], ConfigInvokeResponse]],
-    ]: ...
+        self, handler: InvokeHandler[ConfigFetchInvokeActivity, ConfigInvokeResponse]
+    ) -> InvokeHandler[ConfigFetchInvokeActivity, ConfigInvokeResponse]: ...
 
     @overload
     def on_config_open(
         self,
     ) -> Callable[
-        [
-            Callable[
-                [ActivityContext[ConfigFetchInvokeActivity]],
-                Awaitable[Union[InvokeResponse[ConfigInvokeResponse], ConfigInvokeResponse]],
-            ]
-        ],
-        Callable[
-            [ActivityContext[ConfigFetchInvokeActivity]],
-            Awaitable[Union[InvokeResponse[ConfigInvokeResponse], ConfigInvokeResponse]],
-        ],
+        [InvokeHandler[ConfigFetchInvokeActivity, ConfigInvokeResponse]],
+        InvokeHandler[ConfigFetchInvokeActivity, ConfigInvokeResponse],
     ]: ...
 
     def on_config_open(
-        self,
-        handler: Optional[
-            Callable[
-                [ActivityContext[ConfigFetchInvokeActivity]],
-                Awaitable[Union[InvokeResponse[ConfigInvokeResponse], ConfigInvokeResponse]],
-            ]
-        ] = None,
-    ) -> (
-        Callable[
-            [
-                Callable[
-                    [ActivityContext[ConfigFetchInvokeActivity]],
-                    Awaitable[Union[InvokeResponse[ConfigInvokeResponse], ConfigInvokeResponse]],
-                ]
-            ],
-            Callable[
-                [ActivityContext[ConfigFetchInvokeActivity]],
-                Awaitable[Union[InvokeResponse[ConfigInvokeResponse], ConfigInvokeResponse]],
-            ],
-        ]
-        | Callable[
-            [ActivityContext[ConfigFetchInvokeActivity]],
-            Awaitable[Union[InvokeResponse[ConfigInvokeResponse], ConfigInvokeResponse]],
-        ]
-    ):
+        self, handler: Optional[InvokeHandler[ConfigFetchInvokeActivity, ConfigInvokeResponse]] = None
+    ) -> InvokeHandlerUnion[ConfigFetchInvokeActivity, ConfigInvokeResponse]:
         """Register a config.open activity handler."""
 
         def decorator(
-            func: Callable[
-                [ActivityContext[ConfigFetchInvokeActivity]],
-                Awaitable[Union[InvokeResponse[ConfigInvokeResponse], ConfigInvokeResponse]],
-            ],
-        ) -> Callable[
-            [ActivityContext[ConfigFetchInvokeActivity]],
-            Awaitable[Union[InvokeResponse[ConfigInvokeResponse], ConfigInvokeResponse]],
-        ]:
+            func: InvokeHandler[ConfigFetchInvokeActivity, ConfigInvokeResponse],
+        ) -> InvokeHandler[ConfigFetchInvokeActivity, ConfigInvokeResponse]:
             validate_handler_type(
                 self.logger, func, ConfigFetchInvokeActivity, "on_config_open", "ConfigFetchInvokeActivity"
             )
@@ -1197,69 +850,25 @@ class GeneratedActivityHandlerMixin(ABC):
 
     @overload
     def on_config_submit(
-        self,
-        handler: Callable[
-            [ActivityContext[ConfigSubmitInvokeActivity]],
-            Awaitable[Union[InvokeResponse[ConfigInvokeResponse], ConfigInvokeResponse]],
-        ],
-    ) -> Callable[
-        [ActivityContext[ConfigSubmitInvokeActivity]],
-        Awaitable[Union[InvokeResponse[ConfigInvokeResponse], ConfigInvokeResponse]],
-    ]: ...
+        self, handler: InvokeHandler[ConfigSubmitInvokeActivity, ConfigInvokeResponse]
+    ) -> InvokeHandler[ConfigSubmitInvokeActivity, ConfigInvokeResponse]: ...
 
     @overload
     def on_config_submit(
         self,
     ) -> Callable[
-        [
-            Callable[
-                [ActivityContext[ConfigSubmitInvokeActivity]],
-                Awaitable[Union[InvokeResponse[ConfigInvokeResponse], ConfigInvokeResponse]],
-            ]
-        ],
-        Callable[
-            [ActivityContext[ConfigSubmitInvokeActivity]],
-            Awaitable[Union[InvokeResponse[ConfigInvokeResponse], ConfigInvokeResponse]],
-        ],
+        [InvokeHandler[ConfigSubmitInvokeActivity, ConfigInvokeResponse]],
+        InvokeHandler[ConfigSubmitInvokeActivity, ConfigInvokeResponse],
     ]: ...
 
     def on_config_submit(
-        self,
-        handler: Optional[
-            Callable[
-                [ActivityContext[ConfigSubmitInvokeActivity]],
-                Awaitable[Union[InvokeResponse[ConfigInvokeResponse], ConfigInvokeResponse]],
-            ]
-        ] = None,
-    ) -> (
-        Callable[
-            [
-                Callable[
-                    [ActivityContext[ConfigSubmitInvokeActivity]],
-                    Awaitable[Union[InvokeResponse[ConfigInvokeResponse], ConfigInvokeResponse]],
-                ]
-            ],
-            Callable[
-                [ActivityContext[ConfigSubmitInvokeActivity]],
-                Awaitable[Union[InvokeResponse[ConfigInvokeResponse], ConfigInvokeResponse]],
-            ],
-        ]
-        | Callable[
-            [ActivityContext[ConfigSubmitInvokeActivity]],
-            Awaitable[Union[InvokeResponse[ConfigInvokeResponse], ConfigInvokeResponse]],
-        ]
-    ):
+        self, handler: Optional[InvokeHandler[ConfigSubmitInvokeActivity, ConfigInvokeResponse]] = None
+    ) -> InvokeHandlerUnion[ConfigSubmitInvokeActivity, ConfigInvokeResponse]:
         """Register a config.submit activity handler."""
 
         def decorator(
-            func: Callable[
-                [ActivityContext[ConfigSubmitInvokeActivity]],
-                Awaitable[Union[InvokeResponse[ConfigInvokeResponse], ConfigInvokeResponse]],
-            ],
-        ) -> Callable[
-            [ActivityContext[ConfigSubmitInvokeActivity]],
-            Awaitable[Union[InvokeResponse[ConfigInvokeResponse], ConfigInvokeResponse]],
-        ]:
+            func: InvokeHandler[ConfigSubmitInvokeActivity, ConfigInvokeResponse],
+        ) -> InvokeHandler[ConfigSubmitInvokeActivity, ConfigInvokeResponse]:
             validate_handler_type(
                 self.logger, func, ConfigSubmitInvokeActivity, "on_config_submit", "ConfigSubmitInvokeActivity"
             )
@@ -1273,35 +882,22 @@ class GeneratedActivityHandlerMixin(ABC):
 
     @overload
     def on_file_consent(
-        self,
-        handler: Callable[[ActivityContext[FileConsentInvokeActivity]], Awaitable[Union[InvokeResponse[None], None]]],
-    ) -> Callable[[ActivityContext[FileConsentInvokeActivity]], Awaitable[Union[InvokeResponse[None], None]]]: ...
+        self, handler: VoidInvokeHandler[FileConsentInvokeActivity]
+    ) -> VoidInvokeHandler[FileConsentInvokeActivity]: ...
 
     @overload
     def on_file_consent(
         self,
-    ) -> Callable[
-        [Callable[[ActivityContext[FileConsentInvokeActivity]], Awaitable[Union[InvokeResponse[None], None]]]],
-        Callable[[ActivityContext[FileConsentInvokeActivity]], Awaitable[Union[InvokeResponse[None], None]]],
-    ]: ...
+    ) -> Callable[[VoidInvokeHandler[FileConsentInvokeActivity]], VoidInvokeHandler[FileConsentInvokeActivity]]: ...
 
     def on_file_consent(
-        self,
-        handler: Optional[
-            Callable[[ActivityContext[FileConsentInvokeActivity]], Awaitable[Union[InvokeResponse[None], None]]]
-        ] = None,
-    ) -> (
-        Callable[
-            [Callable[[ActivityContext[FileConsentInvokeActivity]], Awaitable[Union[InvokeResponse[None], None]]]],
-            Callable[[ActivityContext[FileConsentInvokeActivity]], Awaitable[Union[InvokeResponse[None], None]]],
-        ]
-        | Callable[[ActivityContext[FileConsentInvokeActivity]], Awaitable[Union[InvokeResponse[None], None]]]
-    ):
+        self, handler: Optional[VoidInvokeHandler[FileConsentInvokeActivity]] = None
+    ) -> VoidInvokeHandlerUnion[FileConsentInvokeActivity]:
         """Register a file.consent activity handler."""
 
         def decorator(
-            func: Callable[[ActivityContext[FileConsentInvokeActivity]], Awaitable[Union[InvokeResponse[None], None]]],
-        ) -> Callable[[ActivityContext[FileConsentInvokeActivity]], Awaitable[Union[InvokeResponse[None], None]]]:
+            func: VoidInvokeHandler[FileConsentInvokeActivity],
+        ) -> VoidInvokeHandler[FileConsentInvokeActivity]:
             validate_handler_type(
                 self.logger, func, FileConsentInvokeActivity, "on_file_consent", "FileConsentInvokeActivity"
             )
@@ -1315,37 +911,22 @@ class GeneratedActivityHandlerMixin(ABC):
 
     @overload
     def on_message_execute(
-        self,
-        handler: Callable[[ActivityContext[ExecuteActionInvokeActivity]], Awaitable[Union[InvokeResponse[None], None]]],
-    ) -> Callable[[ActivityContext[ExecuteActionInvokeActivity]], Awaitable[Union[InvokeResponse[None], None]]]: ...
+        self, handler: VoidInvokeHandler[ExecuteActionInvokeActivity]
+    ) -> VoidInvokeHandler[ExecuteActionInvokeActivity]: ...
 
     @overload
     def on_message_execute(
         self,
-    ) -> Callable[
-        [Callable[[ActivityContext[ExecuteActionInvokeActivity]], Awaitable[Union[InvokeResponse[None], None]]]],
-        Callable[[ActivityContext[ExecuteActionInvokeActivity]], Awaitable[Union[InvokeResponse[None], None]]],
-    ]: ...
+    ) -> Callable[[VoidInvokeHandler[ExecuteActionInvokeActivity]], VoidInvokeHandler[ExecuteActionInvokeActivity]]: ...
 
     def on_message_execute(
-        self,
-        handler: Optional[
-            Callable[[ActivityContext[ExecuteActionInvokeActivity]], Awaitable[Union[InvokeResponse[None], None]]]
-        ] = None,
-    ) -> (
-        Callable[
-            [Callable[[ActivityContext[ExecuteActionInvokeActivity]], Awaitable[Union[InvokeResponse[None], None]]]],
-            Callable[[ActivityContext[ExecuteActionInvokeActivity]], Awaitable[Union[InvokeResponse[None], None]]],
-        ]
-        | Callable[[ActivityContext[ExecuteActionInvokeActivity]], Awaitable[Union[InvokeResponse[None], None]]]
-    ):
+        self, handler: Optional[VoidInvokeHandler[ExecuteActionInvokeActivity]] = None
+    ) -> VoidInvokeHandlerUnion[ExecuteActionInvokeActivity]:
         """Register a message.execute activity handler."""
 
         def decorator(
-            func: Callable[
-                [ActivityContext[ExecuteActionInvokeActivity]], Awaitable[Union[InvokeResponse[None], None]]
-            ],
-        ) -> Callable[[ActivityContext[ExecuteActionInvokeActivity]], Awaitable[Union[InvokeResponse[None], None]]]:
+            func: VoidInvokeHandler[ExecuteActionInvokeActivity],
+        ) -> VoidInvokeHandler[ExecuteActionInvokeActivity]:
             validate_handler_type(
                 self.logger, func, ExecuteActionInvokeActivity, "on_message_execute", "ExecuteActionInvokeActivity"
             )
@@ -1359,71 +940,28 @@ class GeneratedActivityHandlerMixin(ABC):
 
     @overload
     def on_message_ext_query_link(
-        self,
-        handler: Callable[
-            [ActivityContext[MessageExtensionQueryLinkInvokeActivity]],
-            Awaitable[Union[InvokeResponse[MessagingExtensionInvokeResponse], MessagingExtensionInvokeResponse]],
-        ],
-    ) -> Callable[
-        [ActivityContext[MessageExtensionQueryLinkInvokeActivity]],
-        Awaitable[Union[InvokeResponse[MessagingExtensionInvokeResponse], MessagingExtensionInvokeResponse]],
-    ]: ...
+        self, handler: InvokeHandler[MessageExtensionQueryLinkInvokeActivity, MessagingExtensionInvokeResponse]
+    ) -> InvokeHandler[MessageExtensionQueryLinkInvokeActivity, MessagingExtensionInvokeResponse]: ...
 
     @overload
     def on_message_ext_query_link(
         self,
     ) -> Callable[
-        [
-            Callable[
-                [ActivityContext[MessageExtensionQueryLinkInvokeActivity]],
-                Awaitable[Union[InvokeResponse[MessagingExtensionInvokeResponse], MessagingExtensionInvokeResponse]],
-            ]
-        ],
-        Callable[
-            [ActivityContext[MessageExtensionQueryLinkInvokeActivity]],
-            Awaitable[Union[InvokeResponse[MessagingExtensionInvokeResponse], MessagingExtensionInvokeResponse]],
-        ],
+        [InvokeHandler[MessageExtensionQueryLinkInvokeActivity, MessagingExtensionInvokeResponse]],
+        InvokeHandler[MessageExtensionQueryLinkInvokeActivity, MessagingExtensionInvokeResponse],
     ]: ...
 
     def on_message_ext_query_link(
         self,
         handler: Optional[
-            Callable[
-                [ActivityContext[MessageExtensionQueryLinkInvokeActivity]],
-                Awaitable[Union[InvokeResponse[MessagingExtensionInvokeResponse], MessagingExtensionInvokeResponse]],
-            ]
+            InvokeHandler[MessageExtensionQueryLinkInvokeActivity, MessagingExtensionInvokeResponse]
         ] = None,
-    ) -> (
-        Callable[
-            [
-                Callable[
-                    [ActivityContext[MessageExtensionQueryLinkInvokeActivity]],
-                    Awaitable[
-                        Union[InvokeResponse[MessagingExtensionInvokeResponse], MessagingExtensionInvokeResponse]
-                    ],
-                ]
-            ],
-            Callable[
-                [ActivityContext[MessageExtensionQueryLinkInvokeActivity]],
-                Awaitable[Union[InvokeResponse[MessagingExtensionInvokeResponse], MessagingExtensionInvokeResponse]],
-            ],
-        ]
-        | Callable[
-            [ActivityContext[MessageExtensionQueryLinkInvokeActivity]],
-            Awaitable[Union[InvokeResponse[MessagingExtensionInvokeResponse], MessagingExtensionInvokeResponse]],
-        ]
-    ):
+    ) -> InvokeHandlerUnion[MessageExtensionQueryLinkInvokeActivity, MessagingExtensionInvokeResponse]:
         """Register a message.ext.query-link activity handler."""
 
         def decorator(
-            func: Callable[
-                [ActivityContext[MessageExtensionQueryLinkInvokeActivity]],
-                Awaitable[Union[InvokeResponse[MessagingExtensionInvokeResponse], MessagingExtensionInvokeResponse]],
-            ],
-        ) -> Callable[
-            [ActivityContext[MessageExtensionQueryLinkInvokeActivity]],
-            Awaitable[Union[InvokeResponse[MessagingExtensionInvokeResponse], MessagingExtensionInvokeResponse]],
-        ]:
+            func: InvokeHandler[MessageExtensionQueryLinkInvokeActivity, MessagingExtensionInvokeResponse],
+        ) -> InvokeHandler[MessageExtensionQueryLinkInvokeActivity, MessagingExtensionInvokeResponse]:
             validate_handler_type(
                 self.logger,
                 func,
@@ -1441,71 +979,28 @@ class GeneratedActivityHandlerMixin(ABC):
 
     @overload
     def on_message_ext_anon_query_link(
-        self,
-        handler: Callable[
-            [ActivityContext[MessageExtensionAnonQueryLinkInvokeActivity]],
-            Awaitable[Union[InvokeResponse[MessagingExtensionInvokeResponse], MessagingExtensionInvokeResponse]],
-        ],
-    ) -> Callable[
-        [ActivityContext[MessageExtensionAnonQueryLinkInvokeActivity]],
-        Awaitable[Union[InvokeResponse[MessagingExtensionInvokeResponse], MessagingExtensionInvokeResponse]],
-    ]: ...
+        self, handler: InvokeHandler[MessageExtensionAnonQueryLinkInvokeActivity, MessagingExtensionInvokeResponse]
+    ) -> InvokeHandler[MessageExtensionAnonQueryLinkInvokeActivity, MessagingExtensionInvokeResponse]: ...
 
     @overload
     def on_message_ext_anon_query_link(
         self,
     ) -> Callable[
-        [
-            Callable[
-                [ActivityContext[MessageExtensionAnonQueryLinkInvokeActivity]],
-                Awaitable[Union[InvokeResponse[MessagingExtensionInvokeResponse], MessagingExtensionInvokeResponse]],
-            ]
-        ],
-        Callable[
-            [ActivityContext[MessageExtensionAnonQueryLinkInvokeActivity]],
-            Awaitable[Union[InvokeResponse[MessagingExtensionInvokeResponse], MessagingExtensionInvokeResponse]],
-        ],
+        [InvokeHandler[MessageExtensionAnonQueryLinkInvokeActivity, MessagingExtensionInvokeResponse]],
+        InvokeHandler[MessageExtensionAnonQueryLinkInvokeActivity, MessagingExtensionInvokeResponse],
     ]: ...
 
     def on_message_ext_anon_query_link(
         self,
         handler: Optional[
-            Callable[
-                [ActivityContext[MessageExtensionAnonQueryLinkInvokeActivity]],
-                Awaitable[Union[InvokeResponse[MessagingExtensionInvokeResponse], MessagingExtensionInvokeResponse]],
-            ]
+            InvokeHandler[MessageExtensionAnonQueryLinkInvokeActivity, MessagingExtensionInvokeResponse]
         ] = None,
-    ) -> (
-        Callable[
-            [
-                Callable[
-                    [ActivityContext[MessageExtensionAnonQueryLinkInvokeActivity]],
-                    Awaitable[
-                        Union[InvokeResponse[MessagingExtensionInvokeResponse], MessagingExtensionInvokeResponse]
-                    ],
-                ]
-            ],
-            Callable[
-                [ActivityContext[MessageExtensionAnonQueryLinkInvokeActivity]],
-                Awaitable[Union[InvokeResponse[MessagingExtensionInvokeResponse], MessagingExtensionInvokeResponse]],
-            ],
-        ]
-        | Callable[
-            [ActivityContext[MessageExtensionAnonQueryLinkInvokeActivity]],
-            Awaitable[Union[InvokeResponse[MessagingExtensionInvokeResponse], MessagingExtensionInvokeResponse]],
-        ]
-    ):
+    ) -> InvokeHandlerUnion[MessageExtensionAnonQueryLinkInvokeActivity, MessagingExtensionInvokeResponse]:
         """Register a message.ext.anon-query-link activity handler."""
 
         def decorator(
-            func: Callable[
-                [ActivityContext[MessageExtensionAnonQueryLinkInvokeActivity]],
-                Awaitable[Union[InvokeResponse[MessagingExtensionInvokeResponse], MessagingExtensionInvokeResponse]],
-            ],
-        ) -> Callable[
-            [ActivityContext[MessageExtensionAnonQueryLinkInvokeActivity]],
-            Awaitable[Union[InvokeResponse[MessagingExtensionInvokeResponse], MessagingExtensionInvokeResponse]],
-        ]:
+            func: InvokeHandler[MessageExtensionAnonQueryLinkInvokeActivity, MessagingExtensionInvokeResponse],
+        ) -> InvokeHandler[MessageExtensionAnonQueryLinkInvokeActivity, MessagingExtensionInvokeResponse]:
             validate_handler_type(
                 self.logger,
                 func,
@@ -1523,71 +1018,26 @@ class GeneratedActivityHandlerMixin(ABC):
 
     @overload
     def on_message_ext_query(
-        self,
-        handler: Callable[
-            [ActivityContext[MessageExtensionQueryInvokeActivity]],
-            Awaitable[Union[InvokeResponse[MessagingExtensionInvokeResponse], MessagingExtensionInvokeResponse]],
-        ],
-    ) -> Callable[
-        [ActivityContext[MessageExtensionQueryInvokeActivity]],
-        Awaitable[Union[InvokeResponse[MessagingExtensionInvokeResponse], MessagingExtensionInvokeResponse]],
-    ]: ...
+        self, handler: InvokeHandler[MessageExtensionQueryInvokeActivity, MessagingExtensionInvokeResponse]
+    ) -> InvokeHandler[MessageExtensionQueryInvokeActivity, MessagingExtensionInvokeResponse]: ...
 
     @overload
     def on_message_ext_query(
         self,
     ) -> Callable[
-        [
-            Callable[
-                [ActivityContext[MessageExtensionQueryInvokeActivity]],
-                Awaitable[Union[InvokeResponse[MessagingExtensionInvokeResponse], MessagingExtensionInvokeResponse]],
-            ]
-        ],
-        Callable[
-            [ActivityContext[MessageExtensionQueryInvokeActivity]],
-            Awaitable[Union[InvokeResponse[MessagingExtensionInvokeResponse], MessagingExtensionInvokeResponse]],
-        ],
+        [InvokeHandler[MessageExtensionQueryInvokeActivity, MessagingExtensionInvokeResponse]],
+        InvokeHandler[MessageExtensionQueryInvokeActivity, MessagingExtensionInvokeResponse],
     ]: ...
 
     def on_message_ext_query(
         self,
-        handler: Optional[
-            Callable[
-                [ActivityContext[MessageExtensionQueryInvokeActivity]],
-                Awaitable[Union[InvokeResponse[MessagingExtensionInvokeResponse], MessagingExtensionInvokeResponse]],
-            ]
-        ] = None,
-    ) -> (
-        Callable[
-            [
-                Callable[
-                    [ActivityContext[MessageExtensionQueryInvokeActivity]],
-                    Awaitable[
-                        Union[InvokeResponse[MessagingExtensionInvokeResponse], MessagingExtensionInvokeResponse]
-                    ],
-                ]
-            ],
-            Callable[
-                [ActivityContext[MessageExtensionQueryInvokeActivity]],
-                Awaitable[Union[InvokeResponse[MessagingExtensionInvokeResponse], MessagingExtensionInvokeResponse]],
-            ],
-        ]
-        | Callable[
-            [ActivityContext[MessageExtensionQueryInvokeActivity]],
-            Awaitable[Union[InvokeResponse[MessagingExtensionInvokeResponse], MessagingExtensionInvokeResponse]],
-        ]
-    ):
+        handler: Optional[InvokeHandler[MessageExtensionQueryInvokeActivity, MessagingExtensionInvokeResponse]] = None,
+    ) -> InvokeHandlerUnion[MessageExtensionQueryInvokeActivity, MessagingExtensionInvokeResponse]:
         """Register a message.ext.query activity handler."""
 
         def decorator(
-            func: Callable[
-                [ActivityContext[MessageExtensionQueryInvokeActivity]],
-                Awaitable[Union[InvokeResponse[MessagingExtensionInvokeResponse], MessagingExtensionInvokeResponse]],
-            ],
-        ) -> Callable[
-            [ActivityContext[MessageExtensionQueryInvokeActivity]],
-            Awaitable[Union[InvokeResponse[MessagingExtensionInvokeResponse], MessagingExtensionInvokeResponse]],
-        ]:
+            func: InvokeHandler[MessageExtensionQueryInvokeActivity, MessagingExtensionInvokeResponse],
+        ) -> InvokeHandler[MessageExtensionQueryInvokeActivity, MessagingExtensionInvokeResponse]:
             validate_handler_type(
                 self.logger,
                 func,
@@ -1605,71 +1055,28 @@ class GeneratedActivityHandlerMixin(ABC):
 
     @overload
     def on_message_ext_select_item(
-        self,
-        handler: Callable[
-            [ActivityContext[MessageExtensionSelectItemInvokeActivity]],
-            Awaitable[Union[InvokeResponse[MessagingExtensionInvokeResponse], MessagingExtensionInvokeResponse]],
-        ],
-    ) -> Callable[
-        [ActivityContext[MessageExtensionSelectItemInvokeActivity]],
-        Awaitable[Union[InvokeResponse[MessagingExtensionInvokeResponse], MessagingExtensionInvokeResponse]],
-    ]: ...
+        self, handler: InvokeHandler[MessageExtensionSelectItemInvokeActivity, MessagingExtensionInvokeResponse]
+    ) -> InvokeHandler[MessageExtensionSelectItemInvokeActivity, MessagingExtensionInvokeResponse]: ...
 
     @overload
     def on_message_ext_select_item(
         self,
     ) -> Callable[
-        [
-            Callable[
-                [ActivityContext[MessageExtensionSelectItemInvokeActivity]],
-                Awaitable[Union[InvokeResponse[MessagingExtensionInvokeResponse], MessagingExtensionInvokeResponse]],
-            ]
-        ],
-        Callable[
-            [ActivityContext[MessageExtensionSelectItemInvokeActivity]],
-            Awaitable[Union[InvokeResponse[MessagingExtensionInvokeResponse], MessagingExtensionInvokeResponse]],
-        ],
+        [InvokeHandler[MessageExtensionSelectItemInvokeActivity, MessagingExtensionInvokeResponse]],
+        InvokeHandler[MessageExtensionSelectItemInvokeActivity, MessagingExtensionInvokeResponse],
     ]: ...
 
     def on_message_ext_select_item(
         self,
         handler: Optional[
-            Callable[
-                [ActivityContext[MessageExtensionSelectItemInvokeActivity]],
-                Awaitable[Union[InvokeResponse[MessagingExtensionInvokeResponse], MessagingExtensionInvokeResponse]],
-            ]
+            InvokeHandler[MessageExtensionSelectItemInvokeActivity, MessagingExtensionInvokeResponse]
         ] = None,
-    ) -> (
-        Callable[
-            [
-                Callable[
-                    [ActivityContext[MessageExtensionSelectItemInvokeActivity]],
-                    Awaitable[
-                        Union[InvokeResponse[MessagingExtensionInvokeResponse], MessagingExtensionInvokeResponse]
-                    ],
-                ]
-            ],
-            Callable[
-                [ActivityContext[MessageExtensionSelectItemInvokeActivity]],
-                Awaitable[Union[InvokeResponse[MessagingExtensionInvokeResponse], MessagingExtensionInvokeResponse]],
-            ],
-        ]
-        | Callable[
-            [ActivityContext[MessageExtensionSelectItemInvokeActivity]],
-            Awaitable[Union[InvokeResponse[MessagingExtensionInvokeResponse], MessagingExtensionInvokeResponse]],
-        ]
-    ):
+    ) -> InvokeHandlerUnion[MessageExtensionSelectItemInvokeActivity, MessagingExtensionInvokeResponse]:
         """Register a message.ext.select-item activity handler."""
 
         def decorator(
-            func: Callable[
-                [ActivityContext[MessageExtensionSelectItemInvokeActivity]],
-                Awaitable[Union[InvokeResponse[MessagingExtensionInvokeResponse], MessagingExtensionInvokeResponse]],
-            ],
-        ) -> Callable[
-            [ActivityContext[MessageExtensionSelectItemInvokeActivity]],
-            Awaitable[Union[InvokeResponse[MessagingExtensionInvokeResponse], MessagingExtensionInvokeResponse]],
-        ]:
+            func: InvokeHandler[MessageExtensionSelectItemInvokeActivity, MessagingExtensionInvokeResponse],
+        ) -> InvokeHandler[MessageExtensionSelectItemInvokeActivity, MessagingExtensionInvokeResponse]:
             validate_handler_type(
                 self.logger,
                 func,
@@ -1687,100 +1094,28 @@ class GeneratedActivityHandlerMixin(ABC):
 
     @overload
     def on_message_ext_submit(
-        self,
-        handler: Callable[
-            [ActivityContext[MessageExtensionSubmitActionInvokeActivity]],
-            Awaitable[
-                Union[InvokeResponse[MessagingExtensionActionInvokeResponse], MessagingExtensionActionInvokeResponse]
-            ],
-        ],
-    ) -> Callable[
-        [ActivityContext[MessageExtensionSubmitActionInvokeActivity]],
-        Awaitable[
-            Union[InvokeResponse[MessagingExtensionActionInvokeResponse], MessagingExtensionActionInvokeResponse]
-        ],
-    ]: ...
+        self, handler: InvokeHandler[MessageExtensionSubmitActionInvokeActivity, MessagingExtensionActionInvokeResponse]
+    ) -> InvokeHandler[MessageExtensionSubmitActionInvokeActivity, MessagingExtensionActionInvokeResponse]: ...
 
     @overload
     def on_message_ext_submit(
         self,
     ) -> Callable[
-        [
-            Callable[
-                [ActivityContext[MessageExtensionSubmitActionInvokeActivity]],
-                Awaitable[
-                    Union[
-                        InvokeResponse[MessagingExtensionActionInvokeResponse], MessagingExtensionActionInvokeResponse
-                    ]
-                ],
-            ]
-        ],
-        Callable[
-            [ActivityContext[MessageExtensionSubmitActionInvokeActivity]],
-            Awaitable[
-                Union[InvokeResponse[MessagingExtensionActionInvokeResponse], MessagingExtensionActionInvokeResponse]
-            ],
-        ],
+        [InvokeHandler[MessageExtensionSubmitActionInvokeActivity, MessagingExtensionActionInvokeResponse]],
+        InvokeHandler[MessageExtensionSubmitActionInvokeActivity, MessagingExtensionActionInvokeResponse],
     ]: ...
 
     def on_message_ext_submit(
         self,
         handler: Optional[
-            Callable[
-                [ActivityContext[MessageExtensionSubmitActionInvokeActivity]],
-                Awaitable[
-                    Union[
-                        InvokeResponse[MessagingExtensionActionInvokeResponse], MessagingExtensionActionInvokeResponse
-                    ]
-                ],
-            ]
+            InvokeHandler[MessageExtensionSubmitActionInvokeActivity, MessagingExtensionActionInvokeResponse]
         ] = None,
-    ) -> (
-        Callable[
-            [
-                Callable[
-                    [ActivityContext[MessageExtensionSubmitActionInvokeActivity]],
-                    Awaitable[
-                        Union[
-                            InvokeResponse[MessagingExtensionActionInvokeResponse],
-                            MessagingExtensionActionInvokeResponse,
-                        ]
-                    ],
-                ]
-            ],
-            Callable[
-                [ActivityContext[MessageExtensionSubmitActionInvokeActivity]],
-                Awaitable[
-                    Union[
-                        InvokeResponse[MessagingExtensionActionInvokeResponse], MessagingExtensionActionInvokeResponse
-                    ]
-                ],
-            ],
-        ]
-        | Callable[
-            [ActivityContext[MessageExtensionSubmitActionInvokeActivity]],
-            Awaitable[
-                Union[InvokeResponse[MessagingExtensionActionInvokeResponse], MessagingExtensionActionInvokeResponse]
-            ],
-        ]
-    ):
+    ) -> InvokeHandlerUnion[MessageExtensionSubmitActionInvokeActivity, MessagingExtensionActionInvokeResponse]:
         """Register a message.ext.submit activity handler."""
 
         def decorator(
-            func: Callable[
-                [ActivityContext[MessageExtensionSubmitActionInvokeActivity]],
-                Awaitable[
-                    Union[
-                        InvokeResponse[MessagingExtensionActionInvokeResponse], MessagingExtensionActionInvokeResponse
-                    ]
-                ],
-            ],
-        ) -> Callable[
-            [ActivityContext[MessageExtensionSubmitActionInvokeActivity]],
-            Awaitable[
-                Union[InvokeResponse[MessagingExtensionActionInvokeResponse], MessagingExtensionActionInvokeResponse]
-            ],
-        ]:
+            func: InvokeHandler[MessageExtensionSubmitActionInvokeActivity, MessagingExtensionActionInvokeResponse],
+        ) -> InvokeHandler[MessageExtensionSubmitActionInvokeActivity, MessagingExtensionActionInvokeResponse]:
             validate_handler_type(
                 self.logger,
                 func,
@@ -1798,100 +1133,28 @@ class GeneratedActivityHandlerMixin(ABC):
 
     @overload
     def on_message_ext_open(
-        self,
-        handler: Callable[
-            [ActivityContext[MessageExtensionFetchTaskInvokeActivity]],
-            Awaitable[
-                Union[InvokeResponse[MessagingExtensionActionInvokeResponse], MessagingExtensionActionInvokeResponse]
-            ],
-        ],
-    ) -> Callable[
-        [ActivityContext[MessageExtensionFetchTaskInvokeActivity]],
-        Awaitable[
-            Union[InvokeResponse[MessagingExtensionActionInvokeResponse], MessagingExtensionActionInvokeResponse]
-        ],
-    ]: ...
+        self, handler: InvokeHandler[MessageExtensionFetchTaskInvokeActivity, MessagingExtensionActionInvokeResponse]
+    ) -> InvokeHandler[MessageExtensionFetchTaskInvokeActivity, MessagingExtensionActionInvokeResponse]: ...
 
     @overload
     def on_message_ext_open(
         self,
     ) -> Callable[
-        [
-            Callable[
-                [ActivityContext[MessageExtensionFetchTaskInvokeActivity]],
-                Awaitable[
-                    Union[
-                        InvokeResponse[MessagingExtensionActionInvokeResponse], MessagingExtensionActionInvokeResponse
-                    ]
-                ],
-            ]
-        ],
-        Callable[
-            [ActivityContext[MessageExtensionFetchTaskInvokeActivity]],
-            Awaitable[
-                Union[InvokeResponse[MessagingExtensionActionInvokeResponse], MessagingExtensionActionInvokeResponse]
-            ],
-        ],
+        [InvokeHandler[MessageExtensionFetchTaskInvokeActivity, MessagingExtensionActionInvokeResponse]],
+        InvokeHandler[MessageExtensionFetchTaskInvokeActivity, MessagingExtensionActionInvokeResponse],
     ]: ...
 
     def on_message_ext_open(
         self,
         handler: Optional[
-            Callable[
-                [ActivityContext[MessageExtensionFetchTaskInvokeActivity]],
-                Awaitable[
-                    Union[
-                        InvokeResponse[MessagingExtensionActionInvokeResponse], MessagingExtensionActionInvokeResponse
-                    ]
-                ],
-            ]
+            InvokeHandler[MessageExtensionFetchTaskInvokeActivity, MessagingExtensionActionInvokeResponse]
         ] = None,
-    ) -> (
-        Callable[
-            [
-                Callable[
-                    [ActivityContext[MessageExtensionFetchTaskInvokeActivity]],
-                    Awaitable[
-                        Union[
-                            InvokeResponse[MessagingExtensionActionInvokeResponse],
-                            MessagingExtensionActionInvokeResponse,
-                        ]
-                    ],
-                ]
-            ],
-            Callable[
-                [ActivityContext[MessageExtensionFetchTaskInvokeActivity]],
-                Awaitable[
-                    Union[
-                        InvokeResponse[MessagingExtensionActionInvokeResponse], MessagingExtensionActionInvokeResponse
-                    ]
-                ],
-            ],
-        ]
-        | Callable[
-            [ActivityContext[MessageExtensionFetchTaskInvokeActivity]],
-            Awaitable[
-                Union[InvokeResponse[MessagingExtensionActionInvokeResponse], MessagingExtensionActionInvokeResponse]
-            ],
-        ]
-    ):
+    ) -> InvokeHandlerUnion[MessageExtensionFetchTaskInvokeActivity, MessagingExtensionActionInvokeResponse]:
         """Register a message.ext.open activity handler."""
 
         def decorator(
-            func: Callable[
-                [ActivityContext[MessageExtensionFetchTaskInvokeActivity]],
-                Awaitable[
-                    Union[
-                        InvokeResponse[MessagingExtensionActionInvokeResponse], MessagingExtensionActionInvokeResponse
-                    ]
-                ],
-            ],
-        ) -> Callable[
-            [ActivityContext[MessageExtensionFetchTaskInvokeActivity]],
-            Awaitable[
-                Union[InvokeResponse[MessagingExtensionActionInvokeResponse], MessagingExtensionActionInvokeResponse]
-            ],
-        ]:
+            func: InvokeHandler[MessageExtensionFetchTaskInvokeActivity, MessagingExtensionActionInvokeResponse],
+        ) -> InvokeHandler[MessageExtensionFetchTaskInvokeActivity, MessagingExtensionActionInvokeResponse]:
             validate_handler_type(
                 self.logger,
                 func,
@@ -1909,71 +1172,28 @@ class GeneratedActivityHandlerMixin(ABC):
 
     @overload
     def on_message_ext_query_settings_url(
-        self,
-        handler: Callable[
-            [ActivityContext[MessageExtensionQuerySettingUrlInvokeActivity]],
-            Awaitable[Union[InvokeResponse[MessagingExtensionInvokeResponse], MessagingExtensionInvokeResponse]],
-        ],
-    ) -> Callable[
-        [ActivityContext[MessageExtensionQuerySettingUrlInvokeActivity]],
-        Awaitable[Union[InvokeResponse[MessagingExtensionInvokeResponse], MessagingExtensionInvokeResponse]],
-    ]: ...
+        self, handler: InvokeHandler[MessageExtensionQuerySettingUrlInvokeActivity, MessagingExtensionInvokeResponse]
+    ) -> InvokeHandler[MessageExtensionQuerySettingUrlInvokeActivity, MessagingExtensionInvokeResponse]: ...
 
     @overload
     def on_message_ext_query_settings_url(
         self,
     ) -> Callable[
-        [
-            Callable[
-                [ActivityContext[MessageExtensionQuerySettingUrlInvokeActivity]],
-                Awaitable[Union[InvokeResponse[MessagingExtensionInvokeResponse], MessagingExtensionInvokeResponse]],
-            ]
-        ],
-        Callable[
-            [ActivityContext[MessageExtensionQuerySettingUrlInvokeActivity]],
-            Awaitable[Union[InvokeResponse[MessagingExtensionInvokeResponse], MessagingExtensionInvokeResponse]],
-        ],
+        [InvokeHandler[MessageExtensionQuerySettingUrlInvokeActivity, MessagingExtensionInvokeResponse]],
+        InvokeHandler[MessageExtensionQuerySettingUrlInvokeActivity, MessagingExtensionInvokeResponse],
     ]: ...
 
     def on_message_ext_query_settings_url(
         self,
         handler: Optional[
-            Callable[
-                [ActivityContext[MessageExtensionQuerySettingUrlInvokeActivity]],
-                Awaitable[Union[InvokeResponse[MessagingExtensionInvokeResponse], MessagingExtensionInvokeResponse]],
-            ]
+            InvokeHandler[MessageExtensionQuerySettingUrlInvokeActivity, MessagingExtensionInvokeResponse]
         ] = None,
-    ) -> (
-        Callable[
-            [
-                Callable[
-                    [ActivityContext[MessageExtensionQuerySettingUrlInvokeActivity]],
-                    Awaitable[
-                        Union[InvokeResponse[MessagingExtensionInvokeResponse], MessagingExtensionInvokeResponse]
-                    ],
-                ]
-            ],
-            Callable[
-                [ActivityContext[MessageExtensionQuerySettingUrlInvokeActivity]],
-                Awaitable[Union[InvokeResponse[MessagingExtensionInvokeResponse], MessagingExtensionInvokeResponse]],
-            ],
-        ]
-        | Callable[
-            [ActivityContext[MessageExtensionQuerySettingUrlInvokeActivity]],
-            Awaitable[Union[InvokeResponse[MessagingExtensionInvokeResponse], MessagingExtensionInvokeResponse]],
-        ]
-    ):
+    ) -> InvokeHandlerUnion[MessageExtensionQuerySettingUrlInvokeActivity, MessagingExtensionInvokeResponse]:
         """Register a message.ext.query-settings-url activity handler."""
 
         def decorator(
-            func: Callable[
-                [ActivityContext[MessageExtensionQuerySettingUrlInvokeActivity]],
-                Awaitable[Union[InvokeResponse[MessagingExtensionInvokeResponse], MessagingExtensionInvokeResponse]],
-            ],
-        ) -> Callable[
-            [ActivityContext[MessageExtensionQuerySettingUrlInvokeActivity]],
-            Awaitable[Union[InvokeResponse[MessagingExtensionInvokeResponse], MessagingExtensionInvokeResponse]],
-        ]:
+            func: InvokeHandler[MessageExtensionQuerySettingUrlInvokeActivity, MessagingExtensionInvokeResponse],
+        ) -> InvokeHandler[MessageExtensionQuerySettingUrlInvokeActivity, MessagingExtensionInvokeResponse]:
             validate_handler_type(
                 self.logger,
                 func,
@@ -1991,71 +1211,28 @@ class GeneratedActivityHandlerMixin(ABC):
 
     @overload
     def on_message_ext_setting(
-        self,
-        handler: Callable[
-            [ActivityContext[MessageExtensionSettingInvokeActivity]],
-            Awaitable[Union[InvokeResponse[MessagingExtensionInvokeResponse], MessagingExtensionInvokeResponse]],
-        ],
-    ) -> Callable[
-        [ActivityContext[MessageExtensionSettingInvokeActivity]],
-        Awaitable[Union[InvokeResponse[MessagingExtensionInvokeResponse], MessagingExtensionInvokeResponse]],
-    ]: ...
+        self, handler: InvokeHandler[MessageExtensionSettingInvokeActivity, MessagingExtensionInvokeResponse]
+    ) -> InvokeHandler[MessageExtensionSettingInvokeActivity, MessagingExtensionInvokeResponse]: ...
 
     @overload
     def on_message_ext_setting(
         self,
     ) -> Callable[
-        [
-            Callable[
-                [ActivityContext[MessageExtensionSettingInvokeActivity]],
-                Awaitable[Union[InvokeResponse[MessagingExtensionInvokeResponse], MessagingExtensionInvokeResponse]],
-            ]
-        ],
-        Callable[
-            [ActivityContext[MessageExtensionSettingInvokeActivity]],
-            Awaitable[Union[InvokeResponse[MessagingExtensionInvokeResponse], MessagingExtensionInvokeResponse]],
-        ],
+        [InvokeHandler[MessageExtensionSettingInvokeActivity, MessagingExtensionInvokeResponse]],
+        InvokeHandler[MessageExtensionSettingInvokeActivity, MessagingExtensionInvokeResponse],
     ]: ...
 
     def on_message_ext_setting(
         self,
         handler: Optional[
-            Callable[
-                [ActivityContext[MessageExtensionSettingInvokeActivity]],
-                Awaitable[Union[InvokeResponse[MessagingExtensionInvokeResponse], MessagingExtensionInvokeResponse]],
-            ]
+            InvokeHandler[MessageExtensionSettingInvokeActivity, MessagingExtensionInvokeResponse]
         ] = None,
-    ) -> (
-        Callable[
-            [
-                Callable[
-                    [ActivityContext[MessageExtensionSettingInvokeActivity]],
-                    Awaitable[
-                        Union[InvokeResponse[MessagingExtensionInvokeResponse], MessagingExtensionInvokeResponse]
-                    ],
-                ]
-            ],
-            Callable[
-                [ActivityContext[MessageExtensionSettingInvokeActivity]],
-                Awaitable[Union[InvokeResponse[MessagingExtensionInvokeResponse], MessagingExtensionInvokeResponse]],
-            ],
-        ]
-        | Callable[
-            [ActivityContext[MessageExtensionSettingInvokeActivity]],
-            Awaitable[Union[InvokeResponse[MessagingExtensionInvokeResponse], MessagingExtensionInvokeResponse]],
-        ]
-    ):
+    ) -> InvokeHandlerUnion[MessageExtensionSettingInvokeActivity, MessagingExtensionInvokeResponse]:
         """Register a message.ext.setting activity handler."""
 
         def decorator(
-            func: Callable[
-                [ActivityContext[MessageExtensionSettingInvokeActivity]],
-                Awaitable[Union[InvokeResponse[MessagingExtensionInvokeResponse], MessagingExtensionInvokeResponse]],
-            ],
-        ) -> Callable[
-            [ActivityContext[MessageExtensionSettingInvokeActivity]],
-            Awaitable[Union[InvokeResponse[MessagingExtensionInvokeResponse], MessagingExtensionInvokeResponse]],
-        ]:
+            func: InvokeHandler[MessageExtensionSettingInvokeActivity, MessagingExtensionInvokeResponse],
+        ) -> InvokeHandler[MessageExtensionSettingInvokeActivity, MessagingExtensionInvokeResponse]:
             validate_handler_type(
                 self.logger,
                 func,
@@ -2073,68 +1250,25 @@ class GeneratedActivityHandlerMixin(ABC):
 
     @overload
     def on_message_ext_card_button_clicked(
-        self,
-        handler: Callable[
-            [ActivityContext[MessageExtensionCardButtonClickedInvokeActivity]],
-            Awaitable[Union[InvokeResponse[None], None]],
-        ],
-    ) -> Callable[
-        [ActivityContext[MessageExtensionCardButtonClickedInvokeActivity]], Awaitable[Union[InvokeResponse[None], None]]
-    ]: ...
+        self, handler: VoidInvokeHandler[MessageExtensionCardButtonClickedInvokeActivity]
+    ) -> VoidInvokeHandler[MessageExtensionCardButtonClickedInvokeActivity]: ...
 
     @overload
     def on_message_ext_card_button_clicked(
         self,
     ) -> Callable[
-        [
-            Callable[
-                [ActivityContext[MessageExtensionCardButtonClickedInvokeActivity]],
-                Awaitable[Union[InvokeResponse[None], None]],
-            ]
-        ],
-        Callable[
-            [ActivityContext[MessageExtensionCardButtonClickedInvokeActivity]],
-            Awaitable[Union[InvokeResponse[None], None]],
-        ],
+        [VoidInvokeHandler[MessageExtensionCardButtonClickedInvokeActivity]],
+        VoidInvokeHandler[MessageExtensionCardButtonClickedInvokeActivity],
     ]: ...
 
     def on_message_ext_card_button_clicked(
-        self,
-        handler: Optional[
-            Callable[
-                [ActivityContext[MessageExtensionCardButtonClickedInvokeActivity]],
-                Awaitable[Union[InvokeResponse[None], None]],
-            ]
-        ] = None,
-    ) -> (
-        Callable[
-            [
-                Callable[
-                    [ActivityContext[MessageExtensionCardButtonClickedInvokeActivity]],
-                    Awaitable[Union[InvokeResponse[None], None]],
-                ]
-            ],
-            Callable[
-                [ActivityContext[MessageExtensionCardButtonClickedInvokeActivity]],
-                Awaitable[Union[InvokeResponse[None], None]],
-            ],
-        ]
-        | Callable[
-            [ActivityContext[MessageExtensionCardButtonClickedInvokeActivity]],
-            Awaitable[Union[InvokeResponse[None], None]],
-        ]
-    ):
+        self, handler: Optional[VoidInvokeHandler[MessageExtensionCardButtonClickedInvokeActivity]] = None
+    ) -> VoidInvokeHandlerUnion[MessageExtensionCardButtonClickedInvokeActivity]:
         """Register a message.ext.card-button-clicked activity handler."""
 
         def decorator(
-            func: Callable[
-                [ActivityContext[MessageExtensionCardButtonClickedInvokeActivity]],
-                Awaitable[Union[InvokeResponse[None], None]],
-            ],
-        ) -> Callable[
-            [ActivityContext[MessageExtensionCardButtonClickedInvokeActivity]],
-            Awaitable[Union[InvokeResponse[None], None]],
-        ]:
+            func: VoidInvokeHandler[MessageExtensionCardButtonClickedInvokeActivity],
+        ) -> VoidInvokeHandler[MessageExtensionCardButtonClickedInvokeActivity]:
             validate_handler_type(
                 self.logger,
                 func,
@@ -2152,69 +1286,25 @@ class GeneratedActivityHandlerMixin(ABC):
 
     @overload
     def on_dialog_open(
-        self,
-        handler: Callable[
-            [ActivityContext[TaskFetchInvokeActivity]],
-            Awaitable[Union[InvokeResponse[TaskModuleInvokeResponse], TaskModuleInvokeResponse]],
-        ],
-    ) -> Callable[
-        [ActivityContext[TaskFetchInvokeActivity]],
-        Awaitable[Union[InvokeResponse[TaskModuleInvokeResponse], TaskModuleInvokeResponse]],
-    ]: ...
+        self, handler: InvokeHandler[TaskFetchInvokeActivity, TaskModuleInvokeResponse]
+    ) -> InvokeHandler[TaskFetchInvokeActivity, TaskModuleInvokeResponse]: ...
 
     @overload
     def on_dialog_open(
         self,
     ) -> Callable[
-        [
-            Callable[
-                [ActivityContext[TaskFetchInvokeActivity]],
-                Awaitable[Union[InvokeResponse[TaskModuleInvokeResponse], TaskModuleInvokeResponse]],
-            ]
-        ],
-        Callable[
-            [ActivityContext[TaskFetchInvokeActivity]],
-            Awaitable[Union[InvokeResponse[TaskModuleInvokeResponse], TaskModuleInvokeResponse]],
-        ],
+        [InvokeHandler[TaskFetchInvokeActivity, TaskModuleInvokeResponse]],
+        InvokeHandler[TaskFetchInvokeActivity, TaskModuleInvokeResponse],
     ]: ...
 
     def on_dialog_open(
-        self,
-        handler: Optional[
-            Callable[
-                [ActivityContext[TaskFetchInvokeActivity]],
-                Awaitable[Union[InvokeResponse[TaskModuleInvokeResponse], TaskModuleInvokeResponse]],
-            ]
-        ] = None,
-    ) -> (
-        Callable[
-            [
-                Callable[
-                    [ActivityContext[TaskFetchInvokeActivity]],
-                    Awaitable[Union[InvokeResponse[TaskModuleInvokeResponse], TaskModuleInvokeResponse]],
-                ]
-            ],
-            Callable[
-                [ActivityContext[TaskFetchInvokeActivity]],
-                Awaitable[Union[InvokeResponse[TaskModuleInvokeResponse], TaskModuleInvokeResponse]],
-            ],
-        ]
-        | Callable[
-            [ActivityContext[TaskFetchInvokeActivity]],
-            Awaitable[Union[InvokeResponse[TaskModuleInvokeResponse], TaskModuleInvokeResponse]],
-        ]
-    ):
+        self, handler: Optional[InvokeHandler[TaskFetchInvokeActivity, TaskModuleInvokeResponse]] = None
+    ) -> InvokeHandlerUnion[TaskFetchInvokeActivity, TaskModuleInvokeResponse]:
         """Register a dialog.open activity handler."""
 
         def decorator(
-            func: Callable[
-                [ActivityContext[TaskFetchInvokeActivity]],
-                Awaitable[Union[InvokeResponse[TaskModuleInvokeResponse], TaskModuleInvokeResponse]],
-            ],
-        ) -> Callable[
-            [ActivityContext[TaskFetchInvokeActivity]],
-            Awaitable[Union[InvokeResponse[TaskModuleInvokeResponse], TaskModuleInvokeResponse]],
-        ]:
+            func: InvokeHandler[TaskFetchInvokeActivity, TaskModuleInvokeResponse],
+        ) -> InvokeHandler[TaskFetchInvokeActivity, TaskModuleInvokeResponse]:
             validate_handler_type(
                 self.logger, func, TaskFetchInvokeActivity, "on_dialog_open", "TaskFetchInvokeActivity"
             )
@@ -2228,69 +1318,25 @@ class GeneratedActivityHandlerMixin(ABC):
 
     @overload
     def on_dialog_submit(
-        self,
-        handler: Callable[
-            [ActivityContext[TaskSubmitInvokeActivity]],
-            Awaitable[Union[InvokeResponse[TaskModuleInvokeResponse], TaskModuleInvokeResponse]],
-        ],
-    ) -> Callable[
-        [ActivityContext[TaskSubmitInvokeActivity]],
-        Awaitable[Union[InvokeResponse[TaskModuleInvokeResponse], TaskModuleInvokeResponse]],
-    ]: ...
+        self, handler: InvokeHandler[TaskSubmitInvokeActivity, TaskModuleInvokeResponse]
+    ) -> InvokeHandler[TaskSubmitInvokeActivity, TaskModuleInvokeResponse]: ...
 
     @overload
     def on_dialog_submit(
         self,
     ) -> Callable[
-        [
-            Callable[
-                [ActivityContext[TaskSubmitInvokeActivity]],
-                Awaitable[Union[InvokeResponse[TaskModuleInvokeResponse], TaskModuleInvokeResponse]],
-            ]
-        ],
-        Callable[
-            [ActivityContext[TaskSubmitInvokeActivity]],
-            Awaitable[Union[InvokeResponse[TaskModuleInvokeResponse], TaskModuleInvokeResponse]],
-        ],
+        [InvokeHandler[TaskSubmitInvokeActivity, TaskModuleInvokeResponse]],
+        InvokeHandler[TaskSubmitInvokeActivity, TaskModuleInvokeResponse],
     ]: ...
 
     def on_dialog_submit(
-        self,
-        handler: Optional[
-            Callable[
-                [ActivityContext[TaskSubmitInvokeActivity]],
-                Awaitable[Union[InvokeResponse[TaskModuleInvokeResponse], TaskModuleInvokeResponse]],
-            ]
-        ] = None,
-    ) -> (
-        Callable[
-            [
-                Callable[
-                    [ActivityContext[TaskSubmitInvokeActivity]],
-                    Awaitable[Union[InvokeResponse[TaskModuleInvokeResponse], TaskModuleInvokeResponse]],
-                ]
-            ],
-            Callable[
-                [ActivityContext[TaskSubmitInvokeActivity]],
-                Awaitable[Union[InvokeResponse[TaskModuleInvokeResponse], TaskModuleInvokeResponse]],
-            ],
-        ]
-        | Callable[
-            [ActivityContext[TaskSubmitInvokeActivity]],
-            Awaitable[Union[InvokeResponse[TaskModuleInvokeResponse], TaskModuleInvokeResponse]],
-        ]
-    ):
+        self, handler: Optional[InvokeHandler[TaskSubmitInvokeActivity, TaskModuleInvokeResponse]] = None
+    ) -> InvokeHandlerUnion[TaskSubmitInvokeActivity, TaskModuleInvokeResponse]:
         """Register a dialog.submit activity handler."""
 
         def decorator(
-            func: Callable[
-                [ActivityContext[TaskSubmitInvokeActivity]],
-                Awaitable[Union[InvokeResponse[TaskModuleInvokeResponse], TaskModuleInvokeResponse]],
-            ],
-        ) -> Callable[
-            [ActivityContext[TaskSubmitInvokeActivity]],
-            Awaitable[Union[InvokeResponse[TaskModuleInvokeResponse], TaskModuleInvokeResponse]],
-        ]:
+            func: InvokeHandler[TaskSubmitInvokeActivity, TaskModuleInvokeResponse],
+        ) -> InvokeHandler[TaskSubmitInvokeActivity, TaskModuleInvokeResponse]:
             validate_handler_type(
                 self.logger, func, TaskSubmitInvokeActivity, "on_dialog_submit", "TaskSubmitInvokeActivity"
             )
@@ -2304,69 +1350,25 @@ class GeneratedActivityHandlerMixin(ABC):
 
     @overload
     def on_tab_open(
-        self,
-        handler: Callable[
-            [ActivityContext[TabFetchInvokeActivity]],
-            Awaitable[Union[InvokeResponse[TabInvokeResponse], TabInvokeResponse]],
-        ],
-    ) -> Callable[
-        [ActivityContext[TabFetchInvokeActivity]],
-        Awaitable[Union[InvokeResponse[TabInvokeResponse], TabInvokeResponse]],
-    ]: ...
+        self, handler: InvokeHandler[TabFetchInvokeActivity, TabInvokeResponse]
+    ) -> InvokeHandler[TabFetchInvokeActivity, TabInvokeResponse]: ...
 
     @overload
     def on_tab_open(
         self,
     ) -> Callable[
-        [
-            Callable[
-                [ActivityContext[TabFetchInvokeActivity]],
-                Awaitable[Union[InvokeResponse[TabInvokeResponse], TabInvokeResponse]],
-            ]
-        ],
-        Callable[
-            [ActivityContext[TabFetchInvokeActivity]],
-            Awaitable[Union[InvokeResponse[TabInvokeResponse], TabInvokeResponse]],
-        ],
+        [InvokeHandler[TabFetchInvokeActivity, TabInvokeResponse]],
+        InvokeHandler[TabFetchInvokeActivity, TabInvokeResponse],
     ]: ...
 
     def on_tab_open(
-        self,
-        handler: Optional[
-            Callable[
-                [ActivityContext[TabFetchInvokeActivity]],
-                Awaitable[Union[InvokeResponse[TabInvokeResponse], TabInvokeResponse]],
-            ]
-        ] = None,
-    ) -> (
-        Callable[
-            [
-                Callable[
-                    [ActivityContext[TabFetchInvokeActivity]],
-                    Awaitable[Union[InvokeResponse[TabInvokeResponse], TabInvokeResponse]],
-                ]
-            ],
-            Callable[
-                [ActivityContext[TabFetchInvokeActivity]],
-                Awaitable[Union[InvokeResponse[TabInvokeResponse], TabInvokeResponse]],
-            ],
-        ]
-        | Callable[
-            [ActivityContext[TabFetchInvokeActivity]],
-            Awaitable[Union[InvokeResponse[TabInvokeResponse], TabInvokeResponse]],
-        ]
-    ):
+        self, handler: Optional[InvokeHandler[TabFetchInvokeActivity, TabInvokeResponse]] = None
+    ) -> InvokeHandlerUnion[TabFetchInvokeActivity, TabInvokeResponse]:
         """Register a tab.open activity handler."""
 
         def decorator(
-            func: Callable[
-                [ActivityContext[TabFetchInvokeActivity]],
-                Awaitable[Union[InvokeResponse[TabInvokeResponse], TabInvokeResponse]],
-            ],
-        ) -> Callable[
-            [ActivityContext[TabFetchInvokeActivity]],
-            Awaitable[Union[InvokeResponse[TabInvokeResponse], TabInvokeResponse]],
-        ]:
+            func: InvokeHandler[TabFetchInvokeActivity, TabInvokeResponse],
+        ) -> InvokeHandler[TabFetchInvokeActivity, TabInvokeResponse]:
             validate_handler_type(self.logger, func, TabFetchInvokeActivity, "on_tab_open", "TabFetchInvokeActivity")
             config = ACTIVITY_ROUTES["tab.open"]
             self.router.add_handler(config.selector, func)
@@ -2378,69 +1380,25 @@ class GeneratedActivityHandlerMixin(ABC):
 
     @overload
     def on_tab_submit(
-        self,
-        handler: Callable[
-            [ActivityContext[TabSubmitInvokeActivity]],
-            Awaitable[Union[InvokeResponse[TabInvokeResponse], TabInvokeResponse]],
-        ],
-    ) -> Callable[
-        [ActivityContext[TabSubmitInvokeActivity]],
-        Awaitable[Union[InvokeResponse[TabInvokeResponse], TabInvokeResponse]],
-    ]: ...
+        self, handler: InvokeHandler[TabSubmitInvokeActivity, TabInvokeResponse]
+    ) -> InvokeHandler[TabSubmitInvokeActivity, TabInvokeResponse]: ...
 
     @overload
     def on_tab_submit(
         self,
     ) -> Callable[
-        [
-            Callable[
-                [ActivityContext[TabSubmitInvokeActivity]],
-                Awaitable[Union[InvokeResponse[TabInvokeResponse], TabInvokeResponse]],
-            ]
-        ],
-        Callable[
-            [ActivityContext[TabSubmitInvokeActivity]],
-            Awaitable[Union[InvokeResponse[TabInvokeResponse], TabInvokeResponse]],
-        ],
+        [InvokeHandler[TabSubmitInvokeActivity, TabInvokeResponse]],
+        InvokeHandler[TabSubmitInvokeActivity, TabInvokeResponse],
     ]: ...
 
     def on_tab_submit(
-        self,
-        handler: Optional[
-            Callable[
-                [ActivityContext[TabSubmitInvokeActivity]],
-                Awaitable[Union[InvokeResponse[TabInvokeResponse], TabInvokeResponse]],
-            ]
-        ] = None,
-    ) -> (
-        Callable[
-            [
-                Callable[
-                    [ActivityContext[TabSubmitInvokeActivity]],
-                    Awaitable[Union[InvokeResponse[TabInvokeResponse], TabInvokeResponse]],
-                ]
-            ],
-            Callable[
-                [ActivityContext[TabSubmitInvokeActivity]],
-                Awaitable[Union[InvokeResponse[TabInvokeResponse], TabInvokeResponse]],
-            ],
-        ]
-        | Callable[
-            [ActivityContext[TabSubmitInvokeActivity]],
-            Awaitable[Union[InvokeResponse[TabInvokeResponse], TabInvokeResponse]],
-        ]
-    ):
+        self, handler: Optional[InvokeHandler[TabSubmitInvokeActivity, TabInvokeResponse]] = None
+    ) -> InvokeHandlerUnion[TabSubmitInvokeActivity, TabInvokeResponse]:
         """Register a tab.submit activity handler."""
 
         def decorator(
-            func: Callable[
-                [ActivityContext[TabSubmitInvokeActivity]],
-                Awaitable[Union[InvokeResponse[TabInvokeResponse], TabInvokeResponse]],
-            ],
-        ) -> Callable[
-            [ActivityContext[TabSubmitInvokeActivity]],
-            Awaitable[Union[InvokeResponse[TabInvokeResponse], TabInvokeResponse]],
-        ]:
+            func: InvokeHandler[TabSubmitInvokeActivity, TabInvokeResponse],
+        ) -> InvokeHandler[TabSubmitInvokeActivity, TabInvokeResponse]:
             validate_handler_type(
                 self.logger, func, TabSubmitInvokeActivity, "on_tab_submit", "TabSubmitInvokeActivity"
             )
@@ -2454,49 +1412,24 @@ class GeneratedActivityHandlerMixin(ABC):
 
     @overload
     def on_message_submit(
-        self,
-        handler: Callable[
-            [ActivityContext[MessageSubmitActionInvokeActivity]], Awaitable[Union[InvokeResponse[None], None]]
-        ],
-    ) -> Callable[
-        [ActivityContext[MessageSubmitActionInvokeActivity]], Awaitable[Union[InvokeResponse[None], None]]
-    ]: ...
+        self, handler: VoidInvokeHandler[MessageSubmitActionInvokeActivity]
+    ) -> VoidInvokeHandler[MessageSubmitActionInvokeActivity]: ...
 
     @overload
     def on_message_submit(
         self,
     ) -> Callable[
-        [Callable[[ActivityContext[MessageSubmitActionInvokeActivity]], Awaitable[Union[InvokeResponse[None], None]]]],
-        Callable[[ActivityContext[MessageSubmitActionInvokeActivity]], Awaitable[Union[InvokeResponse[None], None]]],
+        [VoidInvokeHandler[MessageSubmitActionInvokeActivity]], VoidInvokeHandler[MessageSubmitActionInvokeActivity]
     ]: ...
 
     def on_message_submit(
-        self,
-        handler: Optional[
-            Callable[[ActivityContext[MessageSubmitActionInvokeActivity]], Awaitable[Union[InvokeResponse[None], None]]]
-        ] = None,
-    ) -> (
-        Callable[
-            [
-                Callable[
-                    [ActivityContext[MessageSubmitActionInvokeActivity]], Awaitable[Union[InvokeResponse[None], None]]
-                ]
-            ],
-            Callable[
-                [ActivityContext[MessageSubmitActionInvokeActivity]], Awaitable[Union[InvokeResponse[None], None]]
-            ],
-        ]
-        | Callable[[ActivityContext[MessageSubmitActionInvokeActivity]], Awaitable[Union[InvokeResponse[None], None]]]
-    ):
+        self, handler: Optional[VoidInvokeHandler[MessageSubmitActionInvokeActivity]] = None
+    ) -> VoidInvokeHandlerUnion[MessageSubmitActionInvokeActivity]:
         """Register a message.submit activity handler."""
 
         def decorator(
-            func: Callable[
-                [ActivityContext[MessageSubmitActionInvokeActivity]], Awaitable[Union[InvokeResponse[None], None]]
-            ],
-        ) -> Callable[
-            [ActivityContext[MessageSubmitActionInvokeActivity]], Awaitable[Union[InvokeResponse[None], None]]
-        ]:
+            func: VoidInvokeHandler[MessageSubmitActionInvokeActivity],
+        ) -> VoidInvokeHandler[MessageSubmitActionInvokeActivity]:
             validate_handler_type(
                 self.logger,
                 func,
@@ -2513,38 +1446,58 @@ class GeneratedActivityHandlerMixin(ABC):
         return decorator
 
     @overload
-    def on_handoff_action(
+    def on_message_submit_feedback(
+        self, handler: VoidInvokeHandler[MessageSubmitActionInvokeActivity]
+    ) -> VoidInvokeHandler[MessageSubmitActionInvokeActivity]: ...
+
+    @overload
+    def on_message_submit_feedback(
         self,
-        handler: Callable[[ActivityContext[HandoffActionInvokeActivity]], Awaitable[Union[InvokeResponse[None], None]]],
-    ) -> Callable[[ActivityContext[HandoffActionInvokeActivity]], Awaitable[Union[InvokeResponse[None], None]]]: ...
+    ) -> Callable[
+        [VoidInvokeHandler[MessageSubmitActionInvokeActivity]], VoidInvokeHandler[MessageSubmitActionInvokeActivity]
+    ]: ...
+
+    def on_message_submit_feedback(
+        self, handler: Optional[VoidInvokeHandler[MessageSubmitActionInvokeActivity]] = None
+    ) -> VoidInvokeHandlerUnion[MessageSubmitActionInvokeActivity]:
+        """Register a message.submit.feedback activity handler."""
+
+        def decorator(
+            func: VoidInvokeHandler[MessageSubmitActionInvokeActivity],
+        ) -> VoidInvokeHandler[MessageSubmitActionInvokeActivity]:
+            validate_handler_type(
+                self.logger,
+                func,
+                MessageSubmitActionInvokeActivity,
+                "on_message_submit_feedback",
+                "MessageSubmitActionInvokeActivity",
+            )
+            config = ACTIVITY_ROUTES["message.submit.feedback"]
+            self.router.add_handler(config.selector, func)
+            return func
+
+        if handler is not None:
+            return decorator(handler)
+        return decorator
+
+    @overload
+    def on_handoff_action(
+        self, handler: VoidInvokeHandler[HandoffActionInvokeActivity]
+    ) -> VoidInvokeHandler[HandoffActionInvokeActivity]: ...
 
     @overload
     def on_handoff_action(
         self,
-    ) -> Callable[
-        [Callable[[ActivityContext[HandoffActionInvokeActivity]], Awaitable[Union[InvokeResponse[None], None]]]],
-        Callable[[ActivityContext[HandoffActionInvokeActivity]], Awaitable[Union[InvokeResponse[None], None]]],
-    ]: ...
+    ) -> Callable[[VoidInvokeHandler[HandoffActionInvokeActivity]], VoidInvokeHandler[HandoffActionInvokeActivity]]: ...
 
     def on_handoff_action(
-        self,
-        handler: Optional[
-            Callable[[ActivityContext[HandoffActionInvokeActivity]], Awaitable[Union[InvokeResponse[None], None]]]
-        ] = None,
-    ) -> (
-        Callable[
-            [Callable[[ActivityContext[HandoffActionInvokeActivity]], Awaitable[Union[InvokeResponse[None], None]]]],
-            Callable[[ActivityContext[HandoffActionInvokeActivity]], Awaitable[Union[InvokeResponse[None], None]]],
-        ]
-        | Callable[[ActivityContext[HandoffActionInvokeActivity]], Awaitable[Union[InvokeResponse[None], None]]]
-    ):
+        self, handler: Optional[VoidInvokeHandler[HandoffActionInvokeActivity]] = None
+    ) -> VoidInvokeHandlerUnion[HandoffActionInvokeActivity]:
         """Register a handoff.action activity handler."""
 
         def decorator(
-            func: Callable[
-                [ActivityContext[HandoffActionInvokeActivity]], Awaitable[Union[InvokeResponse[None], None]]
-            ],
-        ) -> Callable[[ActivityContext[HandoffActionInvokeActivity]], Awaitable[Union[InvokeResponse[None], None]]]:
+            func: VoidInvokeHandler[HandoffActionInvokeActivity],
+        ) -> VoidInvokeHandler[HandoffActionInvokeActivity]:
             validate_handler_type(
                 self.logger, func, HandoffActionInvokeActivity, "on_handoff_action", "HandoffActionInvokeActivity"
             )
@@ -2558,69 +1511,26 @@ class GeneratedActivityHandlerMixin(ABC):
 
     @overload
     def on_signin_token_exchange(
-        self,
-        handler: Callable[
-            [ActivityContext[SignInTokenExchangeInvokeActivity]],
-            Awaitable[Union[InvokeResponse[TokenExchangeInvokeResponseType], TokenExchangeInvokeResponseType]],
-        ],
-    ) -> Callable[
-        [ActivityContext[SignInTokenExchangeInvokeActivity]],
-        Awaitable[Union[InvokeResponse[TokenExchangeInvokeResponseType], TokenExchangeInvokeResponseType]],
-    ]: ...
+        self, handler: InvokeHandler[SignInTokenExchangeInvokeActivity, TokenExchangeInvokeResponseType]
+    ) -> InvokeHandler[SignInTokenExchangeInvokeActivity, TokenExchangeInvokeResponseType]: ...
 
     @overload
     def on_signin_token_exchange(
         self,
     ) -> Callable[
-        [
-            Callable[
-                [ActivityContext[SignInTokenExchangeInvokeActivity]],
-                Awaitable[Union[InvokeResponse[TokenExchangeInvokeResponseType], TokenExchangeInvokeResponseType]],
-            ]
-        ],
-        Callable[
-            [ActivityContext[SignInTokenExchangeInvokeActivity]],
-            Awaitable[Union[InvokeResponse[TokenExchangeInvokeResponseType], TokenExchangeInvokeResponseType]],
-        ],
+        [InvokeHandler[SignInTokenExchangeInvokeActivity, TokenExchangeInvokeResponseType]],
+        InvokeHandler[SignInTokenExchangeInvokeActivity, TokenExchangeInvokeResponseType],
     ]: ...
 
     def on_signin_token_exchange(
         self,
-        handler: Optional[
-            Callable[
-                [ActivityContext[SignInTokenExchangeInvokeActivity]],
-                Awaitable[Union[InvokeResponse[TokenExchangeInvokeResponseType], TokenExchangeInvokeResponseType]],
-            ]
-        ] = None,
-    ) -> (
-        Callable[
-            [
-                Callable[
-                    [ActivityContext[SignInTokenExchangeInvokeActivity]],
-                    Awaitable[Union[InvokeResponse[TokenExchangeInvokeResponseType], TokenExchangeInvokeResponseType]],
-                ]
-            ],
-            Callable[
-                [ActivityContext[SignInTokenExchangeInvokeActivity]],
-                Awaitable[Union[InvokeResponse[TokenExchangeInvokeResponseType], TokenExchangeInvokeResponseType]],
-            ],
-        ]
-        | Callable[
-            [ActivityContext[SignInTokenExchangeInvokeActivity]],
-            Awaitable[Union[InvokeResponse[TokenExchangeInvokeResponseType], TokenExchangeInvokeResponseType]],
-        ]
-    ):
+        handler: Optional[InvokeHandler[SignInTokenExchangeInvokeActivity, TokenExchangeInvokeResponseType]] = None,
+    ) -> InvokeHandlerUnion[SignInTokenExchangeInvokeActivity, TokenExchangeInvokeResponseType]:
         """Register a signin.token-exchange activity handler."""
 
         def decorator(
-            func: Callable[
-                [ActivityContext[SignInTokenExchangeInvokeActivity]],
-                Awaitable[Union[InvokeResponse[TokenExchangeInvokeResponseType], TokenExchangeInvokeResponseType]],
-            ],
-        ) -> Callable[
-            [ActivityContext[SignInTokenExchangeInvokeActivity]],
-            Awaitable[Union[InvokeResponse[TokenExchangeInvokeResponseType], TokenExchangeInvokeResponseType]],
-        ]:
+            func: InvokeHandler[SignInTokenExchangeInvokeActivity, TokenExchangeInvokeResponseType],
+        ) -> InvokeHandler[SignInTokenExchangeInvokeActivity, TokenExchangeInvokeResponseType]:
             validate_handler_type(
                 self.logger,
                 func,
@@ -2638,43 +1548,24 @@ class GeneratedActivityHandlerMixin(ABC):
 
     @overload
     def on_signin_verify_state(
-        self,
-        handler: Callable[
-            [ActivityContext[SignInVerifyStateInvokeActivity]], Awaitable[Union[InvokeResponse[None], None]]
-        ],
-    ) -> Callable[[ActivityContext[SignInVerifyStateInvokeActivity]], Awaitable[Union[InvokeResponse[None], None]]]: ...
+        self, handler: VoidInvokeHandler[SignInVerifyStateInvokeActivity]
+    ) -> VoidInvokeHandler[SignInVerifyStateInvokeActivity]: ...
 
     @overload
     def on_signin_verify_state(
         self,
     ) -> Callable[
-        [Callable[[ActivityContext[SignInVerifyStateInvokeActivity]], Awaitable[Union[InvokeResponse[None], None]]]],
-        Callable[[ActivityContext[SignInVerifyStateInvokeActivity]], Awaitable[Union[InvokeResponse[None], None]]],
+        [VoidInvokeHandler[SignInVerifyStateInvokeActivity]], VoidInvokeHandler[SignInVerifyStateInvokeActivity]
     ]: ...
 
     def on_signin_verify_state(
-        self,
-        handler: Optional[
-            Callable[[ActivityContext[SignInVerifyStateInvokeActivity]], Awaitable[Union[InvokeResponse[None], None]]]
-        ] = None,
-    ) -> (
-        Callable[
-            [
-                Callable[
-                    [ActivityContext[SignInVerifyStateInvokeActivity]], Awaitable[Union[InvokeResponse[None], None]]
-                ]
-            ],
-            Callable[[ActivityContext[SignInVerifyStateInvokeActivity]], Awaitable[Union[InvokeResponse[None], None]]],
-        ]
-        | Callable[[ActivityContext[SignInVerifyStateInvokeActivity]], Awaitable[Union[InvokeResponse[None], None]]]
-    ):
+        self, handler: Optional[VoidInvokeHandler[SignInVerifyStateInvokeActivity]] = None
+    ) -> VoidInvokeHandlerUnion[SignInVerifyStateInvokeActivity]:
         """Register a signin.verify-state activity handler."""
 
         def decorator(
-            func: Callable[
-                [ActivityContext[SignInVerifyStateInvokeActivity]], Awaitable[Union[InvokeResponse[None], None]]
-            ],
-        ) -> Callable[[ActivityContext[SignInVerifyStateInvokeActivity]], Awaitable[Union[InvokeResponse[None], None]]]:
+            func: VoidInvokeHandler[SignInVerifyStateInvokeActivity],
+        ) -> VoidInvokeHandler[SignInVerifyStateInvokeActivity]:
             validate_handler_type(
                 self.logger,
                 func,
@@ -2692,69 +1583,25 @@ class GeneratedActivityHandlerMixin(ABC):
 
     @overload
     def on_card_action(
-        self,
-        handler: Callable[
-            [ActivityContext[AdaptiveCardInvokeActivity]],
-            Awaitable[Union[InvokeResponse[AdaptiveCardInvokeResponse], AdaptiveCardInvokeResponse]],
-        ],
-    ) -> Callable[
-        [ActivityContext[AdaptiveCardInvokeActivity]],
-        Awaitable[Union[InvokeResponse[AdaptiveCardInvokeResponse], AdaptiveCardInvokeResponse]],
-    ]: ...
+        self, handler: InvokeHandler[AdaptiveCardInvokeActivity, AdaptiveCardInvokeResponse]
+    ) -> InvokeHandler[AdaptiveCardInvokeActivity, AdaptiveCardInvokeResponse]: ...
 
     @overload
     def on_card_action(
         self,
     ) -> Callable[
-        [
-            Callable[
-                [ActivityContext[AdaptiveCardInvokeActivity]],
-                Awaitable[Union[InvokeResponse[AdaptiveCardInvokeResponse], AdaptiveCardInvokeResponse]],
-            ]
-        ],
-        Callable[
-            [ActivityContext[AdaptiveCardInvokeActivity]],
-            Awaitable[Union[InvokeResponse[AdaptiveCardInvokeResponse], AdaptiveCardInvokeResponse]],
-        ],
+        [InvokeHandler[AdaptiveCardInvokeActivity, AdaptiveCardInvokeResponse]],
+        InvokeHandler[AdaptiveCardInvokeActivity, AdaptiveCardInvokeResponse],
     ]: ...
 
     def on_card_action(
-        self,
-        handler: Optional[
-            Callable[
-                [ActivityContext[AdaptiveCardInvokeActivity]],
-                Awaitable[Union[InvokeResponse[AdaptiveCardInvokeResponse], AdaptiveCardInvokeResponse]],
-            ]
-        ] = None,
-    ) -> (
-        Callable[
-            [
-                Callable[
-                    [ActivityContext[AdaptiveCardInvokeActivity]],
-                    Awaitable[Union[InvokeResponse[AdaptiveCardInvokeResponse], AdaptiveCardInvokeResponse]],
-                ]
-            ],
-            Callable[
-                [ActivityContext[AdaptiveCardInvokeActivity]],
-                Awaitable[Union[InvokeResponse[AdaptiveCardInvokeResponse], AdaptiveCardInvokeResponse]],
-            ],
-        ]
-        | Callable[
-            [ActivityContext[AdaptiveCardInvokeActivity]],
-            Awaitable[Union[InvokeResponse[AdaptiveCardInvokeResponse], AdaptiveCardInvokeResponse]],
-        ]
-    ):
+        self, handler: Optional[InvokeHandler[AdaptiveCardInvokeActivity, AdaptiveCardInvokeResponse]] = None
+    ) -> InvokeHandlerUnion[AdaptiveCardInvokeActivity, AdaptiveCardInvokeResponse]:
         """Register a card.action activity handler."""
 
         def decorator(
-            func: Callable[
-                [ActivityContext[AdaptiveCardInvokeActivity]],
-                Awaitable[Union[InvokeResponse[AdaptiveCardInvokeResponse], AdaptiveCardInvokeResponse]],
-            ],
-        ) -> Callable[
-            [ActivityContext[AdaptiveCardInvokeActivity]],
-            Awaitable[Union[InvokeResponse[AdaptiveCardInvokeResponse], AdaptiveCardInvokeResponse]],
-        ]:
+            func: InvokeHandler[AdaptiveCardInvokeActivity, AdaptiveCardInvokeResponse],
+        ) -> InvokeHandler[AdaptiveCardInvokeActivity, AdaptiveCardInvokeResponse]:
             validate_handler_type(
                 self.logger, func, AdaptiveCardInvokeActivity, "on_card_action", "AdaptiveCardInvokeActivity"
             )
@@ -2767,32 +1614,15 @@ class GeneratedActivityHandlerMixin(ABC):
         return decorator
 
     @overload
-    def on_invoke(
-        self, handler: Callable[[ActivityContext[InvokeActivity]], Awaitable[None]]
-    ) -> Callable[[ActivityContext[InvokeActivity]], Awaitable[None]]: ...
+    def on_invoke(self, handler: BasicHandler[InvokeActivity]) -> BasicHandler[InvokeActivity]: ...
 
     @overload
-    def on_invoke(
-        self,
-    ) -> Callable[
-        [Callable[[ActivityContext[InvokeActivity]], Awaitable[None]]],
-        Callable[[ActivityContext[InvokeActivity]], Awaitable[None]],
-    ]: ...
+    def on_invoke(self) -> Callable[[BasicHandler[InvokeActivity]], BasicHandler[InvokeActivity]]: ...
 
-    def on_invoke(
-        self, handler: Optional[Callable[[ActivityContext[InvokeActivity]], Awaitable[None]]] = None
-    ) -> (
-        Callable[
-            [Callable[[ActivityContext[InvokeActivity]], Awaitable[None]]],
-            Callable[[ActivityContext[InvokeActivity]], Awaitable[None]],
-        ]
-        | Callable[[ActivityContext[InvokeActivity]], Awaitable[None]]
-    ):
+    def on_invoke(self, handler: Optional[BasicHandler[InvokeActivity]] = None) -> BasicHandlerUnion[InvokeActivity]:
         """Register a invoke activity handler."""
 
-        def decorator(
-            func: Callable[[ActivityContext[InvokeActivity]], Awaitable[None]],
-        ) -> Callable[[ActivityContext[InvokeActivity]], Awaitable[None]]:
+        def decorator(func: BasicHandler[InvokeActivity]) -> BasicHandler[InvokeActivity]:
             validate_handler_type(self.logger, func, InvokeActivity, "on_invoke", "InvokeActivity")
             config = ACTIVITY_ROUTES["invoke"]
             self.router.add_handler(config.selector, func)
@@ -2804,31 +1634,20 @@ class GeneratedActivityHandlerMixin(ABC):
 
     @overload
     def on_installation_update(
-        self, handler: Callable[[ActivityContext[InstallUpdateActivity]], Awaitable[None]]
-    ) -> Callable[[ActivityContext[InstallUpdateActivity]], Awaitable[None]]: ...
+        self, handler: BasicHandler[InstallUpdateActivity]
+    ) -> BasicHandler[InstallUpdateActivity]: ...
 
     @overload
     def on_installation_update(
         self,
-    ) -> Callable[
-        [Callable[[ActivityContext[InstallUpdateActivity]], Awaitable[None]]],
-        Callable[[ActivityContext[InstallUpdateActivity]], Awaitable[None]],
-    ]: ...
+    ) -> Callable[[BasicHandler[InstallUpdateActivity]], BasicHandler[InstallUpdateActivity]]: ...
 
     def on_installation_update(
-        self, handler: Optional[Callable[[ActivityContext[InstallUpdateActivity]], Awaitable[None]]] = None
-    ) -> (
-        Callable[
-            [Callable[[ActivityContext[InstallUpdateActivity]], Awaitable[None]]],
-            Callable[[ActivityContext[InstallUpdateActivity]], Awaitable[None]],
-        ]
-        | Callable[[ActivityContext[InstallUpdateActivity]], Awaitable[None]]
-    ):
+        self, handler: Optional[BasicHandler[InstallUpdateActivity]] = None
+    ) -> BasicHandlerUnion[InstallUpdateActivity]:
         """Register a installation_update activity handler."""
 
-        def decorator(
-            func: Callable[[ActivityContext[InstallUpdateActivity]], Awaitable[None]],
-        ) -> Callable[[ActivityContext[InstallUpdateActivity]], Awaitable[None]]:
+        def decorator(func: BasicHandler[InstallUpdateActivity]) -> BasicHandler[InstallUpdateActivity]:
             validate_handler_type(
                 self.logger, func, InstallUpdateActivity, "on_installation_update", "InstallUpdateActivity"
             )
@@ -2841,32 +1660,17 @@ class GeneratedActivityHandlerMixin(ABC):
         return decorator
 
     @overload
-    def on_install_add(
-        self, handler: Callable[[ActivityContext[InstalledActivity]], Awaitable[None]]
-    ) -> Callable[[ActivityContext[InstalledActivity]], Awaitable[None]]: ...
+    def on_install_add(self, handler: BasicHandler[InstalledActivity]) -> BasicHandler[InstalledActivity]: ...
 
     @overload
-    def on_install_add(
-        self,
-    ) -> Callable[
-        [Callable[[ActivityContext[InstalledActivity]], Awaitable[None]]],
-        Callable[[ActivityContext[InstalledActivity]], Awaitable[None]],
-    ]: ...
+    def on_install_add(self) -> Callable[[BasicHandler[InstalledActivity]], BasicHandler[InstalledActivity]]: ...
 
     def on_install_add(
-        self, handler: Optional[Callable[[ActivityContext[InstalledActivity]], Awaitable[None]]] = None
-    ) -> (
-        Callable[
-            [Callable[[ActivityContext[InstalledActivity]], Awaitable[None]]],
-            Callable[[ActivityContext[InstalledActivity]], Awaitable[None]],
-        ]
-        | Callable[[ActivityContext[InstalledActivity]], Awaitable[None]]
-    ):
+        self, handler: Optional[BasicHandler[InstalledActivity]] = None
+    ) -> BasicHandlerUnion[InstalledActivity]:
         """Register a install.add activity handler."""
 
-        def decorator(
-            func: Callable[[ActivityContext[InstalledActivity]], Awaitable[None]],
-        ) -> Callable[[ActivityContext[InstalledActivity]], Awaitable[None]]:
+        def decorator(func: BasicHandler[InstalledActivity]) -> BasicHandler[InstalledActivity]:
             validate_handler_type(self.logger, func, InstalledActivity, "on_install_add", "InstalledActivity")
             config = ACTIVITY_ROUTES["install.add"]
             self.router.add_handler(config.selector, func)
@@ -2877,32 +1681,17 @@ class GeneratedActivityHandlerMixin(ABC):
         return decorator
 
     @overload
-    def on_install_remove(
-        self, handler: Callable[[ActivityContext[UninstalledActivity]], Awaitable[None]]
-    ) -> Callable[[ActivityContext[UninstalledActivity]], Awaitable[None]]: ...
+    def on_install_remove(self, handler: BasicHandler[UninstalledActivity]) -> BasicHandler[UninstalledActivity]: ...
 
     @overload
-    def on_install_remove(
-        self,
-    ) -> Callable[
-        [Callable[[ActivityContext[UninstalledActivity]], Awaitable[None]]],
-        Callable[[ActivityContext[UninstalledActivity]], Awaitable[None]],
-    ]: ...
+    def on_install_remove(self) -> Callable[[BasicHandler[UninstalledActivity]], BasicHandler[UninstalledActivity]]: ...
 
     def on_install_remove(
-        self, handler: Optional[Callable[[ActivityContext[UninstalledActivity]], Awaitable[None]]] = None
-    ) -> (
-        Callable[
-            [Callable[[ActivityContext[UninstalledActivity]], Awaitable[None]]],
-            Callable[[ActivityContext[UninstalledActivity]], Awaitable[None]],
-        ]
-        | Callable[[ActivityContext[UninstalledActivity]], Awaitable[None]]
-    ):
+        self, handler: Optional[BasicHandler[UninstalledActivity]] = None
+    ) -> BasicHandlerUnion[UninstalledActivity]:
         """Register a install.remove activity handler."""
 
-        def decorator(
-            func: Callable[[ActivityContext[UninstalledActivity]], Awaitable[None]],
-        ) -> Callable[[ActivityContext[UninstalledActivity]], Awaitable[None]]:
+        def decorator(func: BasicHandler[UninstalledActivity]) -> BasicHandler[UninstalledActivity]:
             validate_handler_type(self.logger, func, UninstalledActivity, "on_install_remove", "UninstalledActivity")
             config = ACTIVITY_ROUTES["install.remove"]
             self.router.add_handler(config.selector, func)
@@ -2913,32 +1702,15 @@ class GeneratedActivityHandlerMixin(ABC):
         return decorator
 
     @overload
-    def on_typing(
-        self, handler: Callable[[ActivityContext[TypingActivity]], Awaitable[None]]
-    ) -> Callable[[ActivityContext[TypingActivity]], Awaitable[None]]: ...
+    def on_typing(self, handler: BasicHandler[TypingActivity]) -> BasicHandler[TypingActivity]: ...
 
     @overload
-    def on_typing(
-        self,
-    ) -> Callable[
-        [Callable[[ActivityContext[TypingActivity]], Awaitable[None]]],
-        Callable[[ActivityContext[TypingActivity]], Awaitable[None]],
-    ]: ...
+    def on_typing(self) -> Callable[[BasicHandler[TypingActivity]], BasicHandler[TypingActivity]]: ...
 
-    def on_typing(
-        self, handler: Optional[Callable[[ActivityContext[TypingActivity]], Awaitable[None]]] = None
-    ) -> (
-        Callable[
-            [Callable[[ActivityContext[TypingActivity]], Awaitable[None]]],
-            Callable[[ActivityContext[TypingActivity]], Awaitable[None]],
-        ]
-        | Callable[[ActivityContext[TypingActivity]], Awaitable[None]]
-    ):
+    def on_typing(self, handler: Optional[BasicHandler[TypingActivity]] = None) -> BasicHandlerUnion[TypingActivity]:
         """Register a typing activity handler."""
 
-        def decorator(
-            func: Callable[[ActivityContext[TypingActivity]], Awaitable[None]],
-        ) -> Callable[[ActivityContext[TypingActivity]], Awaitable[None]]:
+        def decorator(func: BasicHandler[TypingActivity]) -> BasicHandler[TypingActivity]:
             validate_handler_type(self.logger, func, TypingActivity, "on_typing", "TypingActivity")
             config = ACTIVITY_ROUTES["typing"]
             self.router.add_handler(config.selector, func)
@@ -2949,32 +1721,15 @@ class GeneratedActivityHandlerMixin(ABC):
         return decorator
 
     @overload
-    def on_trace(
-        self, handler: Callable[[ActivityContext[TraceActivity]], Awaitable[None]]
-    ) -> Callable[[ActivityContext[TraceActivity]], Awaitable[None]]: ...
+    def on_trace(self, handler: BasicHandler[TraceActivity]) -> BasicHandler[TraceActivity]: ...
 
     @overload
-    def on_trace(
-        self,
-    ) -> Callable[
-        [Callable[[ActivityContext[TraceActivity]], Awaitable[None]]],
-        Callable[[ActivityContext[TraceActivity]], Awaitable[None]],
-    ]: ...
+    def on_trace(self) -> Callable[[BasicHandler[TraceActivity]], BasicHandler[TraceActivity]]: ...
 
-    def on_trace(
-        self, handler: Optional[Callable[[ActivityContext[TraceActivity]], Awaitable[None]]] = None
-    ) -> (
-        Callable[
-            [Callable[[ActivityContext[TraceActivity]], Awaitable[None]]],
-            Callable[[ActivityContext[TraceActivity]], Awaitable[None]],
-        ]
-        | Callable[[ActivityContext[TraceActivity]], Awaitable[None]]
-    ):
+    def on_trace(self, handler: Optional[BasicHandler[TraceActivity]] = None) -> BasicHandlerUnion[TraceActivity]:
         """Register a trace activity handler."""
 
-        def decorator(
-            func: Callable[[ActivityContext[TraceActivity]], Awaitable[None]],
-        ) -> Callable[[ActivityContext[TraceActivity]], Awaitable[None]]:
+        def decorator(func: BasicHandler[TraceActivity]) -> BasicHandler[TraceActivity]:
             validate_handler_type(self.logger, func, TraceActivity, "on_trace", "TraceActivity")
             config = ACTIVITY_ROUTES["trace"]
             self.router.add_handler(config.selector, func)
@@ -2985,32 +1740,15 @@ class GeneratedActivityHandlerMixin(ABC):
         return decorator
 
     @overload
-    def on_handoff(
-        self, handler: Callable[[ActivityContext[HandoffActivity]], Awaitable[None]]
-    ) -> Callable[[ActivityContext[HandoffActivity]], Awaitable[None]]: ...
+    def on_handoff(self, handler: BasicHandler[HandoffActivity]) -> BasicHandler[HandoffActivity]: ...
 
     @overload
-    def on_handoff(
-        self,
-    ) -> Callable[
-        [Callable[[ActivityContext[HandoffActivity]], Awaitable[None]]],
-        Callable[[ActivityContext[HandoffActivity]], Awaitable[None]],
-    ]: ...
+    def on_handoff(self) -> Callable[[BasicHandler[HandoffActivity]], BasicHandler[HandoffActivity]]: ...
 
-    def on_handoff(
-        self, handler: Optional[Callable[[ActivityContext[HandoffActivity]], Awaitable[None]]] = None
-    ) -> (
-        Callable[
-            [Callable[[ActivityContext[HandoffActivity]], Awaitable[None]]],
-            Callable[[ActivityContext[HandoffActivity]], Awaitable[None]],
-        ]
-        | Callable[[ActivityContext[HandoffActivity]], Awaitable[None]]
-    ):
+    def on_handoff(self, handler: Optional[BasicHandler[HandoffActivity]] = None) -> BasicHandlerUnion[HandoffActivity]:
         """Register a handoff activity handler."""
 
-        def decorator(
-            func: Callable[[ActivityContext[HandoffActivity]], Awaitable[None]],
-        ) -> Callable[[ActivityContext[HandoffActivity]], Awaitable[None]]:
+        def decorator(func: BasicHandler[HandoffActivity]) -> BasicHandler[HandoffActivity]:
             validate_handler_type(self.logger, func, HandoffActivity, "on_handoff", "HandoffActivity")
             config = ACTIVITY_ROUTES["handoff"]
             self.router.add_handler(config.selector, func)
@@ -3021,31 +1759,15 @@ class GeneratedActivityHandlerMixin(ABC):
         return decorator
 
     @overload
-    def on_activity(
-        self, handler: Callable[[ActivityContext[Activity]], Awaitable[None]]
-    ) -> Callable[[ActivityContext[Activity]], Awaitable[None]]: ...
+    def on_activity(self, handler: BasicHandler[Activity]) -> BasicHandler[Activity]: ...
 
     @overload
-    def on_activity(
-        self,
-    ) -> Callable[
-        [Callable[[ActivityContext[Activity]], Awaitable[None]]], Callable[[ActivityContext[Activity]], Awaitable[None]]
-    ]: ...
+    def on_activity(self) -> Callable[[BasicHandler[Activity]], BasicHandler[Activity]]: ...
 
-    def on_activity(
-        self, handler: Optional[Callable[[ActivityContext[Activity]], Awaitable[None]]] = None
-    ) -> (
-        Callable[
-            [Callable[[ActivityContext[Activity]], Awaitable[None]]],
-            Callable[[ActivityContext[Activity]], Awaitable[None]],
-        ]
-        | Callable[[ActivityContext[Activity]], Awaitable[None]]
-    ):
+    def on_activity(self, handler: Optional[BasicHandler[Activity]] = None) -> BasicHandlerUnion[Activity]:
         """Register a activity activity handler."""
 
-        def decorator(
-            func: Callable[[ActivityContext[Activity]], Awaitable[None]],
-        ) -> Callable[[ActivityContext[Activity]], Awaitable[None]]:
+        def decorator(func: BasicHandler[Activity]) -> BasicHandler[Activity]:
             validate_handler_type(self.logger, func, Activity, "on_activity", "Activity")
             config = ACTIVITY_ROUTES["activity"]
             self.router.add_handler(config.selector, func)
