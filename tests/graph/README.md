@@ -36,15 +36,7 @@ This demo application showcases how to use Microsoft Graph APIs within a Teams b
 
 ## Running
 
-### Option 1: Using the PowerShell Script (Recommended)
-
-From the `tests/graph/` directory:
-
-```powershell
-.\run_demo.ps1
-```
-
-### Option 2: Manual PYTHONPATH Setup
+### Option 1: Manual PYTHONPATH Setup
 
 From the `tests/graph/` directory:
 
@@ -59,7 +51,7 @@ python src\main.py
 PYTHONPATH="../../packages/graph/src:../../packages/api/src:../../packages/apps/src:../../packages/common/src" python src/main.py
 ```
 
-### Option 3: Install Packages in Development Mode
+### Option 2: Install Packages in Development Mode
 
 From the repository root:
 
