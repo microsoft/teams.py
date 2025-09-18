@@ -31,11 +31,19 @@ def find_packages() -> List[Path]:
     return sorted(packages)
 
 
-def dry_run_version_bump(package_path: Path, bump_type: str) -> str:
-    """Run a dry-run version bump to see what the new version would be."""
+def dry_run_version_bump(package_path: Path, bump_types: List[str]) -> str:
+    """Run a dry-run version bump to see what the new version would be.
+
+    Accepts one or more bump types and passes multiple --bump flags to `uv`.
+    """
     try:
+        cmd = ["uv", "version"]
+        for bt in bump_types:
+            cmd.extend(["--bump", bt])
+        cmd.append("--dry-run")
+
         result = subprocess.run(
-            ["uv", "version", "--bump", bump_type, "--dry-run"],
+            cmd,
             cwd=package_path,
             capture_output=True,
             text=True,
@@ -60,13 +68,20 @@ def dry_run_version_bump(package_path: Path, bump_type: str) -> str:
         sys.exit(1)
 
 
-def bump_package_version(package_path: Path, bump_type: str, verbose: bool = False) -> str:
-    """Bump the version of a package and return the new version."""
-    print(f"Bumping {package_path.name} version ({bump_type})...")
+def bump_package_version(package_path: Path, bump_types: List[str], verbose: bool = False) -> str:
+    """Bump the version of a package and return the new version.
+
+    Accepts one or more bump types and passes multiple --bump flags to `uv`.
+    """
+    print(f"Bumping {package_path.name} version ({', '.join(bump_types)})...")
 
     try:
+        cmd = ["uv", "version"]
+        for bt in bump_types:
+            cmd.extend(["--bump", bt])
+
         result = subprocess.run(
-            ["uv", "version", "--bump", bump_type],
+            cmd,
             cwd=package_path,
             capture_output=not verbose,
             text=True,
@@ -134,9 +149,13 @@ Version bump types:
     )
 
     parser.add_argument(
-        "bump_type",
+        "bump_types",
+        nargs="+",
         choices=["major", "minor", "patch", "stable", "alpha", "beta", "rc", "post", "dev"],
-        help="Type of version bump to perform",
+        help=(
+            "One or two bump types to perform (e.g. 'major' or 'major alpha'). "
+            "If two are provided, the second will be passed as an additional --bump to uv."
+        ),
     )
     parser.add_argument(
         "-v",
@@ -146,6 +165,11 @@ Version bump types:
     )
 
     args = parser.parse_args()
+
+    # Validate that at most two bump types were provided
+    if len(args.bump_types) > 2:
+        print("Error: Provide at most two bump types (e.g. 'major' or 'major alpha').")
+        sys.exit(1)
 
     # Find all packages
     packages = find_packages()
@@ -162,7 +186,7 @@ Version bump types:
     print("Running dry-run to check version consistency...")
     dry_run_versions: Dict[str, str] = {}
     for package in packages:
-        new_version = dry_run_version_bump(package, args.bump_type)
+        new_version = dry_run_version_bump(package, args.bump_types)
         dry_run_versions[package.name] = new_version
         print(f"  {package.name}: {get_package_version(package)} -> {new_version}")
 
@@ -182,7 +206,7 @@ Version bump types:
     # Now do the actual version bump
     versions: Dict[str, str] = {}
     for package in packages:
-        new_version = bump_package_version(package, args.bump_type, args.verbose)
+        new_version = bump_package_version(package, args.bump_types, args.verbose)
         versions[package.name] = new_version
 
     # Verify all packages have the same version (should always pass now)
