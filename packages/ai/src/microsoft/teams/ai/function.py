@@ -38,6 +38,24 @@ class FunctionHandler(Protocol[Params]):
         ...
 
 
+class NoParamsFunctionHandler(Protocol):
+    """
+    Protocol for function handlers with no parameters that can be called by AI models.
+
+    Function handlers can be either synchronous or asynchronous and should
+    return a string result that will be passed back to the AI model.
+    """
+
+    def __call__(self) -> Union[str, Awaitable[str]]:
+        """
+        Execute the function with no parameters.
+
+        Returns:
+            String result (sync) or awaitable string result (async)
+        """
+        ...
+
+
 @dataclass
 class Function(Generic[Params]):
     """
@@ -47,13 +65,13 @@ class Function(Generic[Params]):
     providing structured parameter validation and execution.
 
     Type Parameters:
-        Params: Pydantic model class defining the function's parameter schema
+        Params: Pydantic model class defining the function's parameter schema, or None for no parameters
     """
 
     name: str  # Unique identifier for the function
     description: str  # Human-readable description of what the function does
-    parameter_schema: Union[type[Params], Dict[str, Any]]  # Pydantic model class or JSON schema dict
-    handler: FunctionHandler[Params]  # Function implementation (sync or async)
+    parameter_schema: Union[type[Params], Dict[str, Any], None]  # Pydantic model class, JSON schema dict, or None
+    handler: Union[FunctionHandler[Params], NoParamsFunctionHandler]  # Function implementation (sync or async)
 
 
 @dataclass
