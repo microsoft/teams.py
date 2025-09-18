@@ -1,6 +1,6 @@
 [project]
 name = "microsoft-teams-mcpplugin"
-version = "0.0.1a5"
+version = "2.0.0a1"
 description = "library for handling mcp with teams ai library"
 authors = [{ name = "Microsoft", email = "TeamsAISDKFeedback@microsoft.com" }]
 readme = "README.md"
