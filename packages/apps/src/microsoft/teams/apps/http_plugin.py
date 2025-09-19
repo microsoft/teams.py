@@ -315,7 +315,9 @@ class HttpPlugin(Sender):
                 response.status_code = status_code
 
             if body is not None:
+                self.logger.debug(f"Returning body {body}")
                 return body
+            self.logger.debug("Returning empty body")
             return response
 
         self.app.post("/api/messages")(on_activity_request)
