@@ -6,7 +6,7 @@ Licensed under the MIT License.
 from dataclasses import dataclass
 from typing import Literal, Union
 
-from .function import FunctionCall
+from .function import DeferredResult, FunctionCall
 
 
 @dataclass
@@ -64,7 +64,17 @@ class FunctionMessage:
     role: Literal["function"] = "function"  # Message type identifier
 
 
-Message = Union[UserMessage, ModelMessage, SystemMessage, FunctionMessage]
+@dataclass
+class DeferredMessage:
+    """
+    Represents a function call that is deferred
+    """
+
+    deferred_result: DeferredResult
+    function_id: str
+
+
+Message = Union[UserMessage, ModelMessage, SystemMessage, FunctionMessage, DeferredMessage]
 """
 Union type representing any message in a conversation.
 

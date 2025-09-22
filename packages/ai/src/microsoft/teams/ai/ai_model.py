@@ -9,7 +9,7 @@ from pydantic import BaseModel
 
 from .function import Function
 from .memory import Memory
-from .message import Message, ModelMessage, SystemMessage
+from .message import DeferredMessage, Message, ModelMessage, SystemMessage
 
 
 class AIModel(Protocol):
@@ -23,13 +23,13 @@ class AIModel(Protocol):
 
     async def generate_text(
         self,
-        input: Message,
+        input: Message | None,
         *,
         system: SystemMessage | None = None,
         memory: Memory | None = None,
         functions: dict[str, Function[BaseModel]] | None = None,
         on_chunk: Callable[[str], Awaitable[None]] | None = None,
-    ) -> ModelMessage:
+    ) -> ModelMessage | list[DeferredMessage]:
         """
         Generate a text response from the AI model.
 

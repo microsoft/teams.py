@@ -6,7 +6,7 @@ Licensed under the MIT License.
 import inspect
 from dataclasses import dataclass
 from inspect import isawaitable
-from typing import Any, Awaitable, Callable, Self, TypeVar
+from typing import Any, Awaitable, Callable, Self, TypeVar, cast
 
 from pydantic import BaseModel
 
@@ -28,7 +28,8 @@ class ChatSendResult:
     calls and plugin processing have been completed.
     """
 
-    response: ModelMessage  # Final model response after processing
+    response: ModelMessage | None  # Final model response after processing
+    is_deferred: bool = False
 
 
 class ChatPrompt:
@@ -130,6 +131,8 @@ class ChatPrompt:
             functions=wrapped_functions,
             on_chunk=on_chunk_fn if on_chunk else None,
         )
+        if isinstance(response, list):
+            return ChatSendResult(response=None, is_deferred=True)
 
         current_response = await self._run_after_send_hooks(response)
 
@@ -227,7 +230,9 @@ class ChatPrompt:
                 name=func.name,
                 description=func.description,
                 parameter_schema=func.parameter_schema,
-                handler=self._wrap_function_handler(func.handler, func.name),
+                handler=self._wrap_function_handler(cast(FunctionHandler[BaseModel], func.handler), func.name)
+                if func.handler_type == "standard"
+                else func.handler,
             )
 
         return wrapped_functions

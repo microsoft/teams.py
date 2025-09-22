@@ -39,22 +39,6 @@ class FunctionHandler(Protocol[Params]):
         ...
 
 
-@dataclass
-class FunctionCall:
-    """
-    Represents a function call request from an AI model.
-
-    Contains the function name, unique call ID, and parsed arguments
-    that will be passed to the function handler.
-    """
-
-    id: str  # Unique identifier for this function call
-    name: str  # Name of the function to call
-    arguments: dict[str, Any]  # Parsed arguments for the function
-
-    resumable_state: Optional[dict[str, Any]] = None
-
-
 class DeferredFunctionResumer(Generic[Params, ResumableData]):
     """
     The resumable function returns the actual string
@@ -72,6 +56,22 @@ class DeferredResult:
     state: dict[str, Any]
     resumer_name: str
     type: Literal["deferred"] = "deferred"
+
+
+@dataclass
+class FunctionCall:
+    """
+    Represents a function call request from an AI model.
+
+    Contains the function name, unique call ID, and parsed arguments
+    that will be passed to the function handler.
+    """
+
+    id: str  # Unique identifier for this function call
+    name: str  # Name of the function to call
+    arguments: dict[str, Any]  # Parsed arguments for the function
+
+    resumable_state: Optional[DeferredResult] = None
 
 
 class DeferredFunctionHandler(Protocol[Params]):
@@ -101,3 +101,4 @@ class Function(Generic[Params]):
     description: str  # Human-readable description of what the function does
     parameter_schema: Union[type[Params], Dict[str, Any]]  # Pydantic model class or JSON schema dict
     handler: FunctionHandler[Params] | DeferredFunctionHandler[Params]  # Function implementation (sync or async)
+    handler_type: Literal["standard", "deferred"] = "standard"  # Type of function handler
