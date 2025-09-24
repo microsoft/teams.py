@@ -195,7 +195,9 @@ class OpenAICompletionsAIModel(OpenAIBaseModel, AIModel):
                             fn_res = result
 
                         if isinstance(fn_res, DeferredResult):
-                            function_results.append(DeferredMessage(deferred_result=fn_res, function_id=call.id))
+                            function_results.append(
+                                DeferredMessage(deferred_result=fn_res, function_name=call.name, function_id=call.id)
+                            )
                         else:
                             # Create function result message
                             function_results.append(FunctionMessage(content=fn_res, function_id=call.id))

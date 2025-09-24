@@ -4,7 +4,7 @@ Licensed under the MIT License.
 """
 
 from dataclasses import dataclass
-from typing import Any, Awaitable, Dict, Generic, Literal, Optional, Protocol, TypeVar, Union
+from typing import Any, Awaitable, Dict, Generic, Literal, Protocol, TypeVar, Union
 
 from pydantic import BaseModel
 
@@ -44,6 +44,18 @@ class DeferredFunctionResumer(Generic[Params, ResumableData]):
     The resumable function returns the actual string
     """
 
+    def can_handle(self, activity: Any) -> bool:
+        """
+        Check if this resumer can handle the given activity input.
+
+        Args:
+            activity: The activity data to check
+
+        Returns:
+            True if this resumer can process the activity, False otherwise
+        """
+        ...
+
     def __call__(self, params: Params, resumableData: ResumableData) -> Awaitable[str]: ...
 
 
@@ -54,7 +66,6 @@ class DeferredResult:
     """
 
     state: dict[str, Any]
-    resumer_name: str
     type: Literal["deferred"] = "deferred"
 
 
@@ -70,8 +81,6 @@ class FunctionCall:
     id: str  # Unique identifier for this function call
     name: str  # Name of the function to call
     arguments: dict[str, Any]  # Parsed arguments for the function
-
-    resumable_state: Optional[DeferredResult] = None
 
 
 class DeferredFunctionHandler(Protocol[Params]):
@@ -101,4 +110,4 @@ class Function(Generic[Params]):
     description: str  # Human-readable description of what the function does
     parameter_schema: Union[type[Params], Dict[str, Any]]  # Pydantic model class or JSON schema dict
     handler: FunctionHandler[Params] | DeferredFunctionHandler[Params]  # Function implementation (sync or async)
-    handler_type: Literal["standard", "deferred"] = "standard"  # Type of function handler
+    resumer: DeferredFunctionResumer[Params, Any] | None = None  # Optional resumer for deferred functions
