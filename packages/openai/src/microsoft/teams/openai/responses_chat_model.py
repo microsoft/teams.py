@@ -20,6 +20,7 @@ from microsoft.teams.ai import (
     SystemMessage,
     UserMessage,
 )
+from microsoft.teams.ai.message import DeferredMessage
 from pydantic import BaseModel
 
 from openai import NOT_GIVEN
@@ -55,13 +56,13 @@ class OpenAIResponsesAIModel(OpenAIBaseModel, AIModel):
 
     async def generate_text(
         self,
-        input: Message,
+        input: Message | None,
         *,
         system: SystemMessage | None = None,
         memory: Memory | None = None,
         functions: dict[str, Function[BaseModel]] | None = None,
         on_chunk: Callable[[str], Awaitable[None]] | None = None,
-    ) -> ModelMessage:
+    ) -> ModelMessage | list[DeferredMessage]:
         """
         Generate text using OpenAI Responses API.
 
