@@ -6,12 +6,12 @@ Licensed under the MIT License.
 import inspect
 from dataclasses import dataclass
 from inspect import isawaitable
-from typing import Any, Awaitable, Callable, Self, TypeVar
+from typing import Any, Awaitable, Callable, Optional, Self, TypeVar, cast
 
 from pydantic import BaseModel
 
 from .ai_model import AIModel
-from .function import Function, FunctionHandler
+from .function import Function, FunctionHandler, FunctionHandlers, FunctionHandlerWithNoParams
 from .memory import Memory
 from .message import Message, ModelMessage, SystemMessage, UserMessage
 from .plugin import AIPluginProtocol
@@ -135,9 +135,7 @@ class ChatPrompt:
 
         return ChatSendResult(response=current_response)
 
-    def _wrap_function_handler(
-        self, original_handler: FunctionHandler[BaseModel], function_name: str
-    ) -> FunctionHandler[BaseModel]:
+    def _wrap_function_handler(self, original_handler: FunctionHandlers, function_name: str) -> FunctionHandlers:
         """
         Wrap a function handler with plugin before/after hooks.
 
@@ -152,20 +150,28 @@ class ChatPrompt:
             Wrapped handler that includes plugin hook execution
         """
 
-        async def wrapped_handler(params: BaseModel) -> str:
+        async def wrapped_handler(params: Optional[BaseModel]) -> str:
             # Run before function call hooks
             for plugin in self.plugins:
                 await plugin.on_before_function_call(function_name, params)
 
-            # Call the original function (could be sync or async)
-            result = original_handler(params)
-            if isawaitable(result):
-                result = await result
+            if params:
+                # Call the original function with params (could be sync or async)
+                casted_handler = cast(FunctionHandler[BaseModel], original_handler)
+                result = casted_handler(params)
+                if isawaitable(result):
+                    result = await result
+            else:
+                # Function with no parameters case
+                casted_handler = cast(FunctionHandlerWithNoParams, original_handler)
+                result = casted_handler()
+                if isawaitable(result):
+                    result = await result
 
             # Run after function call hooks
             current_result = result
             for plugin in self.plugins:
-                plugin_result = await plugin.on_after_function_call(function_name, params, current_result)
+                plugin_result = await plugin.on_after_function_call(function_name, current_result, params)
                 if plugin_result is not None:
                     current_result = plugin_result
 
