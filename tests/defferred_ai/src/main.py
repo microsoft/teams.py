@@ -162,7 +162,7 @@ async def handle_wrapped_approval_demo(ctx: ActivityContext[MessageActivity]) ->
                 "📈 **Stock Purchase Approval Required**\n\n"
                 "The agent wants to buy:\n"
                 f"• Stock: **{params.stock}**\n"
-                "• Quantity: **{params.quantity} shares**\n\n"
+                f"• Quantity: **{params.quantity} shares**\n\n"
                 "⚠️ This will execute a market order which may"
                 "involve significant financial risk.\n\n"
                 "Approve this stock purchase? Say 'yes' or 'no'"
