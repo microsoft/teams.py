@@ -30,8 +30,11 @@ class GraphTokenManager:
 
     async def get_token(self, tenant_id: Optional[str] = None) -> Optional[TokenProtocol]:
         """Get a Graph token for the specified tenant."""
-        if not tenant_id or not self._credentials:
+        if not self._credentials:
             return None
+
+        if not tenant_id:
+            tenant_id = "botframework.com"  # Default tenant ID, assuming multi-tenant app
 
         # Check cache first
         cached_token = self._token_cache.get(tenant_id)

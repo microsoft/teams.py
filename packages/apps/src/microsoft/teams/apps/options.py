@@ -7,9 +7,10 @@ from dataclasses import dataclass, field
 from logging import Logger
 from typing import Any, Awaitable, Callable, List, Optional, TypedDict, Union, cast
 
-from microsoft.teams.common.storage import Storage
+from microsoft.teams.common import Storage
 from typing_extensions import Unpack
 
+from .manifest import PartialManifest
 from .plugins import PluginBase
 
 
@@ -32,6 +33,9 @@ class AppOptions(TypedDict, total=False):
     # Oauth
     default_connection_name: Optional[str]
 
+    # App Manifest
+    manifest: Optional[PartialManifest]
+
 
 @dataclass
 class InternalAppOptions:
@@ -49,6 +53,7 @@ class InternalAppOptions:
     token: Optional[Callable[[Union[str, list[str]], Optional[str]], Union[str, Awaitable[str]]]] = None
     logger: Optional[Logger] = None
     storage: Optional[Storage[str, Any]] = None
+    manifest: Optional[PartialManifest] = None
 
     @classmethod
     def from_typeddict(cls, options: AppOptions) -> "InternalAppOptions":

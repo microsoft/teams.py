@@ -23,6 +23,7 @@ members = [
     "microsoft-teams-openai",
     "oauth",
     "stream",
+    "tab",
 ]
 
 [manifest.dependency-groups]
@@ -2391,6 +2392,25 @@ requires-dist = [
     { name = "dotenv", specifier = ">=0.9.9" },
     { name = "microsoft-teams-api", editable = "packages/api" },
     { name = "microsoft-teams-apps", editable = "packages/apps" },
+]
+
+[[package]]
+name = "tab"
+version = "0.1.0"
+source = { virtual = "tests/tab" }
+dependencies = [
+    { name = "dotenv" },
+    { name = "microsoft-teams-api" },
+    { name = "microsoft-teams-apps" },
+    { name = "microsoft-teams-devtools" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "dotenv", specifier = ">=0.9.9" },
+    { name = "microsoft-teams-api", editable = "packages/api" },
+    { name = "microsoft-teams-apps", editable = "packages/apps" },
+    { name = "microsoft-teams-devtools", editable = "packages/devtools" },
 ]
 
 [[package]]
