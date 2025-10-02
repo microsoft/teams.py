@@ -37,3 +37,9 @@ tests/**/.vscode/
 tests/**/appPackage/
 tests/**/infra/
 tests/**/teamsapp*
+tests/**/aad.manifest.json
+
+# Node (from tab)
+node_modules
+dist/
+build/

@@ -3,17 +3,19 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from typing import Any, Awaitable, Callable
+from logging import Logger
+from typing import Awaitable, Callable
 
 import jwt
 from fastapi import HTTPException, Request, Response
+from microsoft.teams.api.auth.json_web_token import JsonWebToken
 
-from .service_token_validator import ServiceTokenValidator
+from .token_validator import TokenValidator
 
 
 def create_jwt_validation_middleware(
     app_id: str,
-    logger: Any,
+    logger: Logger,
     paths: list[str],
 ):
     """
@@ -28,7 +30,7 @@ def create_jwt_validation_middleware(
         Middleware function that can be added to FastAPI app
     """
     # Create service token validator
-    token_validator = ServiceTokenValidator(app_id, logger)
+    token_validator = TokenValidator.for_service(app_id, logger)
 
     async def middleware(request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
         """JWT validation middleware function."""
@@ -50,7 +52,8 @@ def create_jwt_validation_middleware(
             service_url = body.get("serviceUrl")
 
             # Validate token
-            validated_token = await token_validator.validate_token(raw_token, service_url)
+            await token_validator.validate_token(raw_token, service_url)
+            validated_token = JsonWebToken(value=raw_token)
 
             logger.debug(f"Validated service token for activity {body.get('id', 'unknown')}")
 

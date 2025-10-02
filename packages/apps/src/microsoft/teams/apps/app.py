@@ -24,15 +24,16 @@ from microsoft.teams.api import (
     MessageActivityInput,
     TokenCredentials,
 )
-from microsoft.teams.apps.routing.activity_context import ActivityContext
 from microsoft.teams.cards import AdaptiveCard
 from microsoft.teams.common import Client, ClientOptions, ConsoleLogger, EventEmitter, LocalStorage
 
+from .app_embed import AppEmbed
 from .app_events import EventManager
 from .app_oauth import OauthHandlers
 from .app_plugins import PluginProcessor
 from .app_process import ActivityProcessor
 from .app_tokens import AppTokens
+from .auth import TokenValidator
 from .container import Container
 from .events import (
     ErrorEvent,
@@ -44,9 +45,16 @@ from .events import (
 )
 from .graph_token_manager import GraphTokenManager
 from .http_plugin import HttpPlugin
+from .manifest import (
+    Bot,
+    Name,
+    PartialManifest,
+    WebApplicationInfo,
+)
 from .options import AppOptions, InternalAppOptions
 from .plugins import PluginBase, PluginStartEvent, get_metadata
 from .routing import ActivityHandlerMixin, ActivityRouter
+from .routing.activity_context import ActivityContext
 
 version = importlib.metadata.version("microsoft-teams-apps")
 
@@ -68,6 +76,7 @@ class App(ActivityHandlerMixin):
 
         self.log = self.options.logger or ConsoleLogger().create_logger("@teams/app")
         self.storage = self.options.storage or LocalStorage()
+        self._manifest = self.options.manifest or {}
 
         self.http_client = Client(
             ClientOptions(
@@ -84,6 +93,7 @@ class App(ActivityHandlerMixin):
         self.container = Container()
         self.container.set_provider("id", providers.Object(self.id))
         self.container.set_provider("name", providers.Object(self.name))
+        self.container.set_provider("manifest", providers.Object(self.manifest))
         self.container.set_provider("credentials", providers.Object(self.credentials))
         self.container.set_provider("bot_token", providers.Callable(lambda: self.tokens.bot))
         self.container.set_provider("graph_token", providers.Callable(lambda: self.tokens.graph))
@@ -148,6 +158,19 @@ class App(ActivityHandlerMixin):
         self.on_signin_token_exchange(oauth_handlers.sign_in_token_exchange)
         self.on_signin_verify_state(oauth_handlers.sign_in_verify_state)
 
+        # Create the embed helper
+        embed = AppEmbed(self)
+
+        if self.credentials and hasattr(self.credentials, "client_id"):
+            self.entra_token_validator = TokenValidator.for_entra(
+                self.credentials.client_id, self.credentials.tenant_id, logger=self.log
+            )
+
+        # Expose methods on the App instance
+        self.func = embed.func
+        self.tab = embed.tab
+        self.configTab = embed.config_tab
+
     @property
     def port(self) -> Optional[int]:
         """Port the app is running on."""
@@ -190,6 +213,39 @@ class App(ActivityHandlerMixin):
         """The app's name from tokens."""
         return getattr(self._tokens.bot, "app_display_name", None) or getattr(
             self._tokens.graph, "app_display_name", None
+        )
+
+    @property
+    def manifest(self) -> PartialManifest:
+        """
+        The app's manifest
+        """
+        name: Name = cast(
+            Name,
+            {
+                "short": self.name or "??",
+                "full": self.name or "??",
+                **(self._manifest.get("name", {}) or {}),
+            },
+        )
+        bots: List[Bot] = [{"botId": self.id or "??", "scopes": ["personal"]}]
+        web_app_info: WebApplicationInfo = cast(
+            WebApplicationInfo,
+            {
+                "id": self.credentials.client_id if self.credentials else "??",
+                "resource": f"api://${{BOT_DOMAIN}}/{self.credentials.client_id if self.credentials else '??'}",
+                **self._manifest.get("webApplicationInfo", {}),
+            },
+        )
+
+        return cast(
+            PartialManifest,
+            {
+                "name": name,
+                "bots": bots,
+                "webApplicationInfo": web_app_info,
+                **self._manifest,
+            },
         )
 
     async def start(self, port: Optional[int] = None) -> None:

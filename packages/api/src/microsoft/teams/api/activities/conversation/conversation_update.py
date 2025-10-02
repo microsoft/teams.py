@@ -18,6 +18,8 @@ ConversationEventType = Literal[
     "teamRenamed",
     "teamRestored",
     "teamUnarchived",
+    "teamMemberRemoved",
+    "teamMemberAdded",
 ]
 
 
