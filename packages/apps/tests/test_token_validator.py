@@ -7,19 +7,18 @@ from unittest.mock import MagicMock, patch
 
 import jwt
 import pytest
-from microsoft.teams.api import JsonWebToken
-from microsoft.teams.apps.auth.service_token_validator import ServiceTokenValidator
+from microsoft.teams.apps.auth.token_validator import TokenValidator
 
 # pyright: basic
 
 
-class TestServiceTokenValidator:
-    """Test suite for ServiceTokenValidator."""
+class TestTokenValidator:
+    """Test suite for TokenValidator."""
 
     @pytest.fixture
     def validator(self):
-        """Create ServiceTokenValidator instance."""
-        return ServiceTokenValidator("test-app-id")
+        """Create TokenValidator instance."""
+        return TokenValidator.for_service("test-app-id")
 
     @pytest.fixture
     def mock_signing_key(self):
@@ -40,19 +39,22 @@ class TestServiceTokenValidator:
         }
 
     def test_init(self):
-        """Test ServiceTokenValidator initialization."""
-        validator = ServiceTokenValidator("test-app-id")
+        """Test TokenValidator initialization."""
+        validator = TokenValidator.for_service("test-app-id")
 
-        assert validator.app_id == "test-app-id"
         assert validator.logger is not None
-        assert validator.jwks_client is not None
+        assert validator.options.validIssuers == ["https://api.botframework.com"]
+        assert validator.options.validAudiences == ["test-app-id", "api://test-app-id"]
+        assert validator.options.jwksUri == "https://login.botframework.com/v1/.well-known/keys"
 
     def test_init_with_custom_logger(self):
-        """Test ServiceTokenValidator initialization with custom logger."""
+        """Test TokenValidator initialization with custom logger."""
         mock_logger = MagicMock()
-        validator = ServiceTokenValidator("test-app-id", mock_logger)
+        validator = TokenValidator.for_service("test-app-id", mock_logger)
 
-        assert validator.app_id == "test-app-id"
+        assert validator.options.validIssuers == ["https://api.botframework.com"]
+        assert validator.options.validAudiences == ["test-app-id", "api://test-app-id"]
+        assert validator.options.jwksUri == "https://login.botframework.com/v1/.well-known/keys"
         assert validator.logger == mock_logger
 
     @pytest.mark.asyncio
@@ -61,13 +63,14 @@ class TestServiceTokenValidator:
         token = "valid.jwt.token"
 
         with (
-            patch.object(validator.jwks_client, "get_signing_key_from_jwt", return_value=mock_signing_key),
+            patch("jwt.PyJWKClient", return_value=mock_signing_key),
             patch("jwt.decode", return_value=valid_payload),
         ):
             result = await validator.validate_token(token)
 
-            assert isinstance(result, JsonWebToken)
-            assert str(result) == token
+            assert isinstance(result, dict)
+            assert result["iss"] == "https://api.botframework.com"
+            assert result["aud"] == "test-app-id"
 
     @pytest.mark.asyncio
     async def test_validate_token_with_service_url(self, validator, mock_signing_key, valid_payload):
@@ -76,13 +79,14 @@ class TestServiceTokenValidator:
         service_url = "https://smba.trafficmanager.net/teams"
 
         with (
-            patch.object(validator.jwks_client, "get_signing_key_from_jwt", return_value=mock_signing_key),
+            patch("jwt.PyJWKClient", return_value=mock_signing_key),
             patch("jwt.decode", return_value=valid_payload),
         ):
             result = await validator.validate_token(token, service_url)
 
-            assert isinstance(result, JsonWebToken)
-            assert str(result) == token
+            assert isinstance(result, dict)
+            assert result["iss"] == "https://api.botframework.com"
+            assert result["aud"] == "test-app-id"
 
     @pytest.mark.asyncio
     async def test_validate_token_empty_token(self, validator):
@@ -101,9 +105,8 @@ class TestServiceTokenValidator:
         """Test validation when JWKS client fails."""
         token = "invalid.jwt.token"
 
-        with patch.object(
-            validator.jwks_client,
-            "get_signing_key_from_jwt",
+        with patch(
+            "jwt.PyJWKClient",
             side_effect=jwt.DecodeError("Invalid token format"),
         ):
             with pytest.raises(jwt.InvalidTokenError):
@@ -115,7 +118,7 @@ class TestServiceTokenValidator:
         token = "invalid.jwt.token"
 
         with (
-            patch.object(validator.jwks_client, "get_signing_key_from_jwt", return_value=mock_signing_key),
+            patch("jwt.PyJWKClient", return_value=mock_signing_key),
             patch("jwt.decode", side_effect=jwt.ExpiredSignatureError("Token expired")),
         ):
             with pytest.raises(jwt.InvalidTokenError):
@@ -127,7 +130,7 @@ class TestServiceTokenValidator:
         token = "invalid.jwt.token"
 
         with (
-            patch.object(validator.jwks_client, "get_signing_key_from_jwt", return_value=mock_signing_key),
+            patch("jwt.PyJWKClient", return_value=mock_signing_key),
             patch("jwt.decode", side_effect=jwt.InvalidAudienceError("Invalid audience")),
         ):
             with pytest.raises(jwt.InvalidTokenError):
@@ -139,7 +142,7 @@ class TestServiceTokenValidator:
         token = "invalid.jwt.token"
 
         with (
-            patch.object(validator.jwks_client, "get_signing_key_from_jwt", return_value=mock_signing_key),
+            patch("jwt.PyJWKClient", return_value=mock_signing_key),
             patch("jwt.decode", side_effect=jwt.InvalidIssuerError("Invalid issuer")),
         ):
             with pytest.raises(jwt.InvalidTokenError):
@@ -156,7 +159,7 @@ class TestServiceTokenValidator:
         }
 
         with (
-            patch.object(validator.jwks_client, "get_signing_key_from_jwt", return_value=mock_signing_key),
+            patch("jwt.PyJWKClient", return_value=mock_signing_key),
             patch("jwt.decode", return_value=payload_without_service_url),
         ):
             with pytest.raises(jwt.InvalidTokenError, match="Token missing serviceurl claim"):
@@ -174,7 +177,7 @@ class TestServiceTokenValidator:
         }
 
         with (
-            patch.object(validator.jwks_client, "get_signing_key_from_jwt", return_value=mock_signing_key),
+            patch("jwt.PyJWKClient", return_value=mock_signing_key),
             patch("jwt.decode", return_value=payload_with_different_url),
         ):
             with pytest.raises(jwt.InvalidTokenError, match="Service URL mismatch"):
@@ -192,12 +195,14 @@ class TestServiceTokenValidator:
         }
 
         with (
-            patch.object(validator.jwks_client, "get_signing_key_from_jwt", return_value=mock_signing_key),
+            patch("jwt.PyJWKClient", return_value=mock_signing_key),
             patch("jwt.decode", return_value=payload_without_slash),
         ):
             # Should succeed because URLs are normalized
             result = await validator.validate_token(token, service_url)
-            assert isinstance(result, JsonWebToken)
+            assert isinstance(result, dict)
+            assert result["iss"] == "https://api.botframework.com"
+            assert result["aud"] == "test-app-id"
 
     def test_validate_service_url_direct(self, validator):
         """Test _validate_service_url method directly."""
