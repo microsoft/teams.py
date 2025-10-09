@@ -79,7 +79,7 @@ class _MessageBase(CustomBaseModel):
 class MessageActivity(_MessageBase, ActivityBase):
     """Output model for received message activities with required fields and read-only properties."""
 
-    text: str  # pyright: ignore [reportGeneralTypeIssues, reportIncompatibleVariableOverride]
+    text: Optional[str] = None
     """The text content of the message."""
 
     def is_recipient_mentioned(self) -> bool:
@@ -128,6 +128,9 @@ class MessageActivity(_MessageBase, ActivityBase):
         Returns:
             Self for method chaining
         """
+
+        if self.text is None:
+            return self
 
         stripped_text = strip_mentions_text(self, options)
         if stripped_text is not None:
