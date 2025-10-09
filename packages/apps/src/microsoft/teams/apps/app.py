@@ -55,6 +55,7 @@ from .routing.activity_context import ActivityContext
 version = importlib.metadata.version("microsoft-teams-apps")
 
 F = TypeVar("F", bound=Callable[..., Any])
+FCtx = TypeVar("FCtx", bound=Callable[[FunctionContext[Any]], Any])
 load_dotenv(find_dotenv(usecwd=True))
 
 USER_AGENT = f"teams.py[app]/{version}"
@@ -463,6 +464,22 @@ class App(ActivityHandlerMixin):
         # Otherwise, return the decorator for later application
         return decorator
 
+    def page(self, name: str, dir_path: str, page_path: Optional[str] = None) -> None:
+        """
+        Register a static page to serve at a specific path.
+
+         Args:
+            name: Unique name for the page
+            dir_path: Directory containing the static files
+            page_path: Optional path to serve the page at (defaults to /pages/{name})
+
+        Example:
+            ```python
+            app.page("customform", os.path.join(os.path.dirname(__file__), "views", "customform"), "/tabs/dialog-form")
+            ```
+        """
+        self.http.mount(name, dir_path, page_path=page_path)
+
     def tab(self, name: str, path: str) -> None:
         """
         Add/update a static tab.
@@ -472,16 +489,18 @@ class App(ActivityHandlerMixin):
 
         Args:
             name A unique identifier for the entity which the tab displays.
-            path The path to the web `dist` folder.
+            path The path to the directory containing the tab's content (HTML, JS, CSS, etc.)
         """
-        self.http.mount(name, dir_path=path, page_path=f"/tabs/{name}/")
+        self.page(name, dir_path=path, page_path=f"/tabs/{name}/")
 
-    def func(self, name_or_func: Union[str, F, None] = None) -> Union[F, Callable[[F], F]]:
+    def func(self, name_or_func: Union[str, FCtx, None] = None) -> Union[FCtx, Callable[[FCtx], FCtx]]:
         """
         Decorator that registers a function as a remotely callable endpoint.
 
         Args:
-            cb: The callback to handle the function.
+            name_or_func:
+            - str: explicit name for the endpoint
+            - Callable: directly decorating the function, endpoint name defaults to the function's name
 
         Example:
             ```python
@@ -491,7 +510,7 @@ class App(ActivityHandlerMixin):
             ```
         """
 
-        def decorator(func: F) -> F:
+        def decorator(func: FCtx) -> FCtx:
             endpoint_name = name_or_func if isinstance(name_or_func, str) else func.__name__.replace("_", "-")
 
             async def endpoint(req: Request):
