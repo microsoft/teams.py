@@ -4,7 +4,7 @@ Licensed under the MIT License.
 """
 
 import json
-from typing import cast
+from typing import Any, cast
 
 from microsoft.teams.cards import (
     ActionSet,
@@ -12,6 +12,7 @@ from microsoft.teams.cards import (
     ExecuteAction,
     SubmitAction,
     SubmitActionData,
+    TeamsCardProperties,
     TextBlock,
     ToggleInput,
 )
@@ -165,3 +166,29 @@ def test_single_object_fallback_serialization():
     assert "type" in parsed["fallback"], "Fallback should have a type field"
     assert parsed["fallback"]["type"] == "Action.Submit"
     assert parsed["fallback"]["title"] == "Fallback Submit"
+
+
+def test_ms_teams_serializes_to_msteams():
+    """Test that ms_teams field serializes to 'msteams' instead of 'msTeams'."""
+    # Test AdaptiveCard.ms_teams serialization
+    card = AdaptiveCard(version="1.5", body=[])
+    card.ms_teams = TeamsCardProperties(width="full")
+
+    json_str = card.model_dump_json(exclude_none=True, by_alias=True)
+    parsed = json.loads(json_str)
+
+    # Verify ms_teams serializes to 'msteams' not 'msTeams'
+    assert "msteams" in parsed, "ms_teams should serialize to 'msteams'"
+    assert "msTeams" not in parsed, "ms_teams should not serialize to 'msTeams'"
+    assert parsed["msteams"]["width"] == "full"
+
+    # Test deserialization from 'msteams'
+    card_data: dict[str, Any] = {
+        "type": "AdaptiveCard",
+        "version": "1.5",
+        "body": [],
+        "msteams": {"width": "full"},
+    }
+    card = AdaptiveCard.model_validate(card_data)
+    assert card.ms_teams is not None
+    assert card.ms_teams.width == "full"
