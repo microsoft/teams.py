@@ -14,15 +14,13 @@ app = App(plugins=[DevToolsPlugin()])
 app.tab("test", str(Path("Web/dist").resolve()))
 
 
+@app.func
 async def post_to_chat(ctx: FunctionContext[Any]):
     """
     Sends a message to the current conversation and returns the conversation ID.
     """
     await ctx.send(ctx.data["message"])
     return {"conversationId": ctx.conversation_id}
-
-
-app.func("post-to-chat", post_to_chat)
 
 
 if __name__ == "__main__":

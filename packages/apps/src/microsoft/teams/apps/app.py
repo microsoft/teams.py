@@ -11,6 +11,7 @@ from typing import Any, Awaitable, Callable, List, Optional, TypeVar, Union, Unp
 
 from dependency_injector import providers
 from dotenv import find_dotenv, load_dotenv
+from fastapi import Request
 from microsoft.teams.api import (
     Account,
     ActivityBase,
@@ -27,14 +28,15 @@ from microsoft.teams.api import (
 from microsoft.teams.cards import AdaptiveCard
 from microsoft.teams.common import Client, ClientOptions, ConsoleLogger, EventEmitter, LocalStorage
 
-from .app_embed import AppEmbed
 from .app_events import EventManager
 from .app_oauth import OauthHandlers
 from .app_plugins import PluginProcessor
 from .app_process import ActivityProcessor
 from .app_tokens import AppTokens
 from .auth import TokenValidator
+from .auth.remote_function_jwt_middleware import remote_function_jwt_validation
 from .container import Container
+from .contexts.function_context import FunctionContext
 from .events import (
     ErrorEvent,
     EventType,
@@ -45,12 +47,6 @@ from .events import (
 )
 from .graph_token_manager import GraphTokenManager
 from .http_plugin import HttpPlugin
-from .manifest import (
-    Bot,
-    Name,
-    PartialManifest,
-    WebApplicationInfo,
-)
 from .options import AppOptions, InternalAppOptions
 from .plugins import PluginBase, PluginStartEvent, get_metadata
 from .routing import ActivityHandlerMixin, ActivityRouter
@@ -76,7 +72,6 @@ class App(ActivityHandlerMixin):
 
         self.log = self.options.logger or ConsoleLogger().create_logger("@teams/app")
         self.storage = self.options.storage or LocalStorage()
-        self._manifest = self.options.manifest or {}
 
         self.http_client = Client(
             ClientOptions(
@@ -93,7 +88,6 @@ class App(ActivityHandlerMixin):
         self.container = Container()
         self.container.set_provider("id", providers.Object(self.id))
         self.container.set_provider("name", providers.Object(self.name))
-        self.container.set_provider("manifest", providers.Object(self.manifest))
         self.container.set_provider("credentials", providers.Object(self.credentials))
         self.container.set_provider("bot_token", providers.Callable(lambda: self.tokens.bot))
         self.container.set_provider("graph_token", providers.Callable(lambda: self.tokens.graph))
@@ -158,18 +152,10 @@ class App(ActivityHandlerMixin):
         self.on_signin_token_exchange(oauth_handlers.sign_in_token_exchange)
         self.on_signin_verify_state(oauth_handlers.sign_in_verify_state)
 
-        # Create the embed helper
-        embed = AppEmbed(self)
-
         if self.credentials and hasattr(self.credentials, "client_id"):
             self.entra_token_validator = TokenValidator.for_entra(
                 self.credentials.client_id, self.credentials.tenant_id, logger=self.log
             )
-
-        # Expose methods on the App instance
-        self.func = embed.func
-        self.tab = embed.tab
-        self.configTab = embed.config_tab
 
     @property
     def port(self) -> Optional[int]:
@@ -213,39 +199,6 @@ class App(ActivityHandlerMixin):
         """The app's name from tokens."""
         return getattr(self._tokens.bot, "app_display_name", None) or getattr(
             self._tokens.graph, "app_display_name", None
-        )
-
-    @property
-    def manifest(self) -> PartialManifest:
-        """
-        The app's manifest
-        """
-        name: Name = cast(
-            Name,
-            {
-                "short": self.name or "??",
-                "full": self.name or "??",
-                **(self._manifest.get("name", {}) or {}),
-            },
-        )
-        bots: List[Bot] = [{"botId": self.id or "??", "scopes": ["personal"]}]
-        web_app_info: WebApplicationInfo = cast(
-            WebApplicationInfo,
-            {
-                "id": self.credentials.client_id if self.credentials else "??",
-                "resource": f"api://${{BOT_DOMAIN}}/{self.credentials.client_id if self.credentials else '??'}",
-                **self._manifest.get("webApplicationInfo", {}),
-            },
-        )
-
-        return cast(
-            PartialManifest,
-            {
-                "name": name,
-                "bots": bots,
-                "webApplicationInfo": web_app_info,
-                **self._manifest,
-            },
         )
 
     async def start(self, port: Optional[int] = None) -> None:
@@ -510,18 +463,60 @@ class App(ActivityHandlerMixin):
         # Otherwise, return the decorator for later application
         return decorator
 
-    def page(self, name: str, dir_path: str, page_path: Optional[str] = None) -> None:
+    def tab(self, name: str, path: str) -> None:
         """
-        Register a static page to serve at a specific path.
+        Add/update a static tab.
+        The tab will be hosted at
+        http://localhost:<PORT>/tabs/<name> or https://<BOT_DOMAIN>/tabs/<name>
+        Scopes default to 'personal'.
 
         Args:
-            name: Unique name for the page
-            dir_path: Directory containing the static files
-            page_path: Optional path to serve the page at (defaults to /pages/{name})
+            name A unique identifier for the entity which the tab displays.
+            path The path to the web `dist` folder.
+        """
+        self.http.mount(name, dir_path=path, page_path=f"/tabs/{name}/")
+
+    def func(self, name_or_func: Union[str, F, None] = None) -> Union[F, Callable[[F], F]]:
+        """
+        Decorator that registers a function as a remotely callable endpoint.
+
+        Args:
+            cb: The callback to handle the function.
 
         Example:
             ```python
-            app.page("customform", os.path.join(os.path.dirname(__file__), "views", "customform"), "/tabs/dialog-form")
+            @app.func
+            async def post_to_chat(ctx: FunctionContext[Any]):
+                await ctx.send(ctx.data["message"])
             ```
         """
-        self.http.mount(name, dir_path, page_path=page_path)
+
+        def decorator(func: F) -> F:
+            endpoint_name = name_or_func if isinstance(name_or_func, str) else func.__name__.replace("_", "-")
+
+            async def endpoint(req: Request):
+                middleware = remote_function_jwt_validation(self.entra_token_validator, self.log)
+
+                async def call_next(r: Request) -> Any:
+                    ctx = FunctionContext(
+                        id=self.id,
+                        name=self.name,
+                        api=self.api,
+                        http=self.http,
+                        log=self.log,
+                        data=await r.json(),
+                        **r.state.context.__dict__,
+                    )
+                    return await func(ctx)
+
+                return await middleware(req, call_next)
+
+            self.http.post(f"/api/functions/{endpoint_name}")(endpoint)
+            return func
+
+        # Direct decoration: @app.func
+        if callable(name_or_func) and not isinstance(name_or_func, str):
+            return decorator(name_or_func)
+
+        # Named decoration: @app.func("name")
+        return decorator

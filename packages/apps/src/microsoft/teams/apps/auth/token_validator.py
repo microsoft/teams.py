@@ -4,6 +4,7 @@ Licensed under the MIT License.
 """
 
 from dataclasses import dataclass
+from logging import Logger
 from typing import Any, Dict, List, Optional
 
 import jwt
@@ -16,17 +17,17 @@ JWT_LEEWAY_SECONDS = 300  # Allowable clock skew when validating JWTs
 class JwtValidationOptions:
     """Configuration for JWT validation."""
 
-    validIssuers: List[str]
+    valid_issuers: List[str]
     """ List of valid issuers for the JWT"""
-    validAudiences: List[str]
+    valid_audiences: List[str]
     """ List of valid audiences for the JWT"""
-    jwksUri: str
+    jwks_uri: str
     """ URI to the JSON Web Key Set (JWKS) for token signature verification """
-    serviceUrl: Optional[str] = None
+    service_url: Optional[str] = None
     """ Optional service URL to validate against token claims """
     scope: Optional[str] = None
     """ Optional scope that must be present in the token """
-    clockTolerance: int = JWT_LEEWAY_SECONDS
+    clock_tolerance: int = JWT_LEEWAY_SECONDS
     """ Allowable clock skew when validating JWTs """
 
 
@@ -35,7 +36,7 @@ class TokenValidator:
     JWT token validator using PyJWKClient for simplified validation.
     """
 
-    def __init__(self, jwt_validation_options: JwtValidationOptions, logger: Optional[Any] = None):
+    def __init__(self, jwt_validation_options: JwtValidationOptions, logger: Optional[Logger] = None):
         """
         Initialize the token validator.
 
@@ -48,7 +49,7 @@ class TokenValidator:
     # ----- Factory constructors -----
     @classmethod
     def for_service(
-        cls, app_id: str, logger: Optional[Any] = None, service_url: Optional[str] = None
+        cls, app_id: str, logger: Optional[Logger] = None, service_url: Optional[str] = None
     ) -> "TokenValidator":
         """Create a validator for Bot Framework service tokens.
 
@@ -60,16 +61,16 @@ class TokenValidator:
             logger: Optional logger instance"""
 
         options = JwtValidationOptions(
-            validIssuers=["https://api.botframework.com"],
-            validAudiences=[app_id, f"api://{app_id}"],
-            jwksUri="https://login.botframework.com/v1/.well-known/keys",
-            serviceUrl=service_url,
+            valid_issuers=["https://api.botframework.com"],
+            valid_audiences=[app_id, f"api://{app_id}"],
+            jwks_uri="https://login.botframework.com/v1/.well-known/keys",
+            service_url=service_url,
         )
         return cls(options, logger)
 
     @classmethod
     def for_entra(
-        cls, app_id: str, tenant_id: Optional[str], scope: Optional[str] = None, logger: Optional[Any] = None
+        cls, app_id: str, tenant_id: Optional[str], scope: Optional[str] = None, logger: Optional[Logger] = None
     ) -> "TokenValidator":
         """Create a validator for Entra ID tokens.
 
@@ -83,12 +84,12 @@ class TokenValidator:
 
         valid_issuers: List[str] = []
         if tenant_id:
-            valid_issuers.append(f"https://login.microsoftonline.com/{tenant_id}/")
+            valid_issuers.append(f"https://login.microsoftonline.com/{tenant_id}/v2.0")
         tenant_id = tenant_id or "common"
         options = JwtValidationOptions(
-            validIssuers=valid_issuers,
-            validAudiences=[app_id, f"api://{app_id}"],
-            jwksUri=f"https://login.microsoftonline.com/{tenant_id}/discovery/v2.0/keys",
+            valid_issuers=valid_issuers,
+            valid_audiences=[app_id, f"api://{app_id}"],
+            jwks_uri=f"https://login.microsoftonline.com/{tenant_id}/discovery/v2.0/keys",
             scope=scope,
         )
         return cls(options, logger)
@@ -115,7 +116,7 @@ class TokenValidator:
             raise jwt.InvalidTokenError("No token provided")
 
         try:
-            jwks_client = jwt.PyJWKClient(self.options.jwksUri)
+            jwks_client = jwt.PyJWKClient(self.options.jwks_uri)
             # Get signing key automatically from JWKS
             signing_key = jwks_client.get_signing_key_from_jwt(raw_token)
 
@@ -124,12 +125,12 @@ class TokenValidator:
                 raw_token,
                 signing_key.key,
                 algorithms=["RS256"],
-                audience=self.options.validAudiences,
-                issuer=self.options.validIssuers,
+                audience=self.options.valid_audiences,
+                issuer=self.options.valid_issuers,
                 options={
                     "verify_signature": True,
                     "verify_aud": True,
-                    "verify_iss": bool(self.options.validIssuers),
+                    "verify_iss": bool(self.options.valid_issuers),
                     "verify_exp": True,
                     "verify_iat": True,
                 },
@@ -137,7 +138,7 @@ class TokenValidator:
             )
 
             # Optional service URL validation
-            expected_service_url = service_url or self.options.serviceUrl
+            expected_service_url = service_url or self.options.service_url
             if expected_service_url:
                 self._validate_service_url(payload, expected_service_url)
 

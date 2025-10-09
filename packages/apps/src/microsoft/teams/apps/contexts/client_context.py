@@ -59,13 +59,10 @@ class ClientContext:
     This field should be used to restore to a specific state within a page,
     such as scrolling to or activating a specific piece of content."""
 
-    _conversation_id: Optional[str] = None
+    _resolved_conversation_id: Optional[str] = None
     """The Microsoft Teams ID for the conversation with which the content is associated."""
 
     @property
     def conversation_id(self) -> Optional[str]:
-        return self._conversation_id or self.chat_id or self.channel_id
-
-    @conversation_id.setter
-    def conversation_id(self, value: Optional[str]):
-        self._conversation_id = value
+        """The Microsoft Teams ID for the conversation with which the content is associated."""
+        return self._resolved_conversation_id

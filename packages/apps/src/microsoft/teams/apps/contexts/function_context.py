@@ -7,13 +7,21 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from logging import Logger
-from typing import TYPE_CHECKING, Any, Generic, Optional, TypeVar
+from typing import Any, Generic, Optional, TypeVar
 
-from microsoft.teams.api import Account, ActivityParams, CreateConversationParams, SentActivity
+from microsoft.teams.api import (
+    Account,
+    ActivityParams,
+    ApiClient,
+    ConversationAccount,
+    ConversationReference,
+    CreateConversationParams,
+    MessageActivityInput,
+    SentActivity,
+)
 from microsoft.teams.cards import AdaptiveCard
 
-if TYPE_CHECKING:
-    from .. import App
+from ..http_plugin import HttpPlugin
 from .client_context import ClientContext
 
 T = TypeVar("T", bound=Any)
@@ -25,8 +33,17 @@ class FunctionContext(ClientContext, Generic[T]):
     Context provided to a remote function execution in a Teams app.
     """
 
-    app: "App"
-    """The App instance for sending messages."""
+    id: Optional[str] = None
+    """The ID of the app."""
+
+    name: Optional[str] = None
+    """The name of the app."""
+
+    api: ApiClient
+    """The API client instance for conversation client."""
+
+    http: HttpPlugin
+    """The HTTP plugin instance for sending messages."""
 
     log: Logger
     """The app logger instance."""
@@ -40,24 +57,83 @@ class FunctionContext(ClientContext, Generic[T]):
 
         Returns None if the conversation ID cannot be determined.
         """
-        if self.app.id is None or self.app.name is None:
+        if self.id is None or self.name is None:
             raise ValueError("app not started")
 
-        if not self.conversation_id:
-            if isinstance(activity, ActivityParams) and activity.conversation:  # pyright: ignore[reportArgumentType]
-                self.conversation_id = activity.conversation.id
+        conversation_id = await self._resolve_conversation_id(activity)
 
-        if not self.conversation_id:
-            """ Conversation ID can be missing if the app is running in a personal scope. In this case, create
-                a conversation between the bot and the user. This will either create a new conversation or return
-                a pre-existing one."""
-            conversation_params = CreateConversationParams(
-                bot=Account(id=self.app.id, name=self.app.name, role="bot"),
-                members=[Account(id=self.user_id, role="user", name=self.user_name)],
-                tenant_id=self.tenant_id,
-                is_group=False,
-            )
-            conversation = await self.app.api.conversations.create(conversation_params)
-            self.conversation_id = conversation.id
+        if not conversation_id:
+            self.log.warning("Cannot send activity: conversation ID could not be resolved")
+            return None
 
-        return await self.app.send(self.conversation_id, activity)
+        conversation_ref = ConversationReference(
+            channel_id="msteams",
+            service_url=self.api.service_url,
+            bot=Account(id=self.id, name=self.name, role="bot"),
+            conversation=ConversationAccount(id=conversation_id, conversation_type="personal"),
+        )
+
+        if isinstance(activity, str):
+            activity = MessageActivityInput(text=activity)
+        elif isinstance(activity, AdaptiveCard):
+            activity = MessageActivityInput().add_card(activity)
+        else:
+            activity = activity
+
+        return await self.http.send(activity, conversation_ref)
+
+    async def _resolve_conversation_id(self, activity: str | ActivityParams | AdaptiveCard) -> Optional[str]:
+        """Resolve or create a conversation ID for the current user/context.
+
+        Args:
+            activity: The activity to be sent, used to extract conversation info if needed.
+
+        Returns:
+            The resolved conversation ID, or None if it could not be determined or created.
+        """
+        if self._resolved_conversation_id:
+            return self._resolved_conversation_id
+
+        self._resolved_conversation_id = self.chat_id or self.channel_id
+
+        # Extract from Activity if available
+        if (
+            not self._resolved_conversation_id
+            and isinstance(activity, ActivityParams)  # type: ignore
+            and activity.conversation
+        ):
+            self._resolved_conversation_id = activity.conversation.id
+
+        # Validate that both the bot and user are members of the conversation.
+        if self._resolved_conversation_id:
+            try:
+                member = await self.api.conversations.members_client.get_by_id(
+                    self._resolved_conversation_id, self.user_id
+                )
+                if not member:
+                    self.log.warning(
+                        f"User {self.user_id} is not a member of conversation {self._resolved_conversation_id}"
+                    )
+                    self._resolved_conversation_id = None
+            except Exception as e:
+                self.log.error(f"Failed to get conversation member: {e}")
+                self._conversation_id = None
+
+        else:
+            """ Conversation ID can be missing if the app is running in a personal scope. In this case,
+            create a conversation between the bot and the user. This will either create a new conversation
+            or return a pre-existing one."""
+            try:
+                conversation_params = CreateConversationParams(
+                    bot=Account(id=self.id, name=self.name, role="bot"),  # type: ignore
+                    members=[Account(id=self.user_id, role="user", name=self.user_name)],
+                    tenant_id=self.tenant_id,
+                    is_group=False,
+                )
+                conversation = await self.api.conversations.create(conversation_params)
+                self._resolved_conversation_id = conversation.id
+            except Exception as e:
+                self.log.error(f"Failed to create conversation: {e}")
+                self._resolved_conversation_id = None
+
+        return self._resolved_conversation_id
