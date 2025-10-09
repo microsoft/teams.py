@@ -18,5 +18,5 @@ class TextActivityProtocol(Protocol):
         entities (Optional[List[Entity]]): A list of entities associated with the text, such as mentions or links.
     """
 
-    text: Optional[str]
+    text: str
     entities: Optional[List[Entity]]
