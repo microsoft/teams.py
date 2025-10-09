@@ -25,7 +25,7 @@ from microsoft.teams.api import (
 from microsoft.teams.apps.http_stream import HttpStream
 from microsoft.teams.common.http.client import Client, ClientOptions
 from microsoft.teams.common.logging import ConsoleLogger
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 from starlette.applications import Starlette
 from starlette.types import Lifespan
 
@@ -269,7 +269,11 @@ class HttpPlugin(Sender):
         response_future = asyncio.get_event_loop().create_future()
         self.pending[activity_id] = response_future
 
-        activity = ActivityTypeAdapter.validate_python(body)
+        try:
+            activity = ActivityTypeAdapter.validate_python(body)
+        except ValidationError as e:
+            self.logger.error(e.errors())
+            raise
 
         # Fire activity processing via callback
         try:

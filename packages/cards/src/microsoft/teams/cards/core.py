@@ -27,6 +27,10 @@ class SerializableObject(BaseModel):
         if field == "from_":
             return "from"
 
+        # Handle ms_teams field which should deserialize from msteams
+        if field == "ms_teams":
+            return "msteams"
+
         # All other fields are converted to camelCase
         return to_camel(field)
 
@@ -41,6 +45,10 @@ class SerializableObject(BaseModel):
         # Handles from field which is a duplicate reserved internal name
         if field == "from_":
             return "from"
+
+        # Handle ms_teams field which should serialize to msteams
+        if field == "ms_teams":
+            return "msteams"
 
         # All other fields are converted to camelCase
         return to_camel(field)
@@ -604,7 +612,7 @@ class AdaptiveCard(CardElement):
     rtl: Optional[bool] = None
     """ Controls if the content of the card is to be rendered left-to-right or right-to-left. """
 
-    ac_schema: Optional[str] = Field(None, alias="schema")
+    ac_schema: Optional[str] = Field(default=None, alias="schema")
     """ A URL to the Adaptive Card schema the card is authored against. """
 
     version: Optional[Version] = None
