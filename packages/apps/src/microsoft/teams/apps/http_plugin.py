@@ -273,7 +273,7 @@ class HttpPlugin(Sender):
             activity = ActivityTypeAdapter.validate_python(body)
         except ValidationError as e:
             self.logger.error(e.errors())
-            raise e
+            raise
 
         # Fire activity processing via callback
         try:
