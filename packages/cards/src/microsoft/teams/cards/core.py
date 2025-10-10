@@ -289,9 +289,8 @@ class SubmitActionData(SerializableObject):
         return self
 
     def with_data(self, value: Dict[str, Any]) -> Self:
-        if self.__pydantic_extra__ is None:
-            self.__pydantic_extra__ = {}
-        self.__pydantic_extra__.update(value)
+        for k, v in value.items():
+            setattr(self, k, v)
         return self
 
 
