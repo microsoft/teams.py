@@ -12,6 +12,7 @@ from microsoft.teams.cards import (
     ExecuteAction,
     SubmitAction,
     SubmitActionData,
+    TaskFetchSubmitActionData,
     TeamsCardProperties,
     TextBlock,
     ToggleInput,
@@ -192,3 +193,30 @@ def test_ms_teams_serializes_to_msteams():
     card = AdaptiveCard.model_validate(card_data)
     assert card.ms_teams is not None
     assert card.ms_teams.width == "full"
+
+
+def test_submit_action_data_ms_teams_serialization():
+    """Test that SubmitActionData.ms_teams serializes to 'msteams' correctly."""
+    # Create SubmitActionData with custom fields and ms_teams
+    action_data = SubmitActionData.model_validate({"opendialogtype": "simple_form"})
+    action_data.ms_teams = TaskFetchSubmitActionData().model_dump()
+
+    # Create a SubmitAction with the data
+    action = SubmitAction(title="Test Action").with_data(action_data)
+
+    # Serialize and verify
+    json_str = action.model_dump_json(exclude_none=True, by_alias=True)
+    parsed = json.loads(json_str)
+
+    # Verify structure
+    assert "data" in parsed
+    assert "msteams" in parsed["data"], "SubmitActionData.ms_teams should serialize to 'msteams'"
+    assert "msTeams" not in parsed["data"], "SubmitActionData.ms_teams should not serialize to 'msTeams'"
+    assert parsed["data"]["msteams"]["type"] == "task/fetch"
+    assert parsed["data"]["opendialogtype"] == "simple_form"
+
+    # Test round-trip deserialization
+    deserialized_action = SubmitAction.model_validate(parsed)
+    assert isinstance(deserialized_action.data, SubmitActionData)
+    assert deserialized_action.data.ms_teams is not None
+    assert deserialized_action.data.ms_teams["type"] == "task/fetch"
