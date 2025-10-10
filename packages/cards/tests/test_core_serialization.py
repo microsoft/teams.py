@@ -4,7 +4,7 @@ Licensed under the MIT License.
 """
 
 import json
-from typing import cast
+from typing import Any, cast
 
 from microsoft.teams.cards import (
     ActionSet,
@@ -12,6 +12,8 @@ from microsoft.teams.cards import (
     ExecuteAction,
     SubmitAction,
     SubmitActionData,
+    TaskFetchSubmitActionData,
+    TeamsCardProperties,
     TextBlock,
     ToggleInput,
 )
@@ -165,3 +167,56 @@ def test_single_object_fallback_serialization():
     assert "type" in parsed["fallback"], "Fallback should have a type field"
     assert parsed["fallback"]["type"] == "Action.Submit"
     assert parsed["fallback"]["title"] == "Fallback Submit"
+
+
+def test_ms_teams_serializes_to_msteams():
+    """Test that ms_teams field serializes to 'msteams' instead of 'msTeams'."""
+    # Test AdaptiveCard.ms_teams serialization
+    card = AdaptiveCard(version="1.5", body=[])
+    card.ms_teams = TeamsCardProperties(width="full")
+
+    json_str = card.model_dump_json(exclude_none=True, by_alias=True)
+    parsed = json.loads(json_str)
+
+    # Verify ms_teams serializes to 'msteams' not 'msTeams'
+    assert "msteams" in parsed, "ms_teams should serialize to 'msteams'"
+    assert "msTeams" not in parsed, "ms_teams should not serialize to 'msTeams'"
+    assert parsed["msteams"]["width"] == "full"
+
+    # Test deserialization from 'msteams'
+    card_data: dict[str, Any] = {
+        "type": "AdaptiveCard",
+        "version": "1.5",
+        "body": [],
+        "msteams": {"width": "full"},
+    }
+    card = AdaptiveCard.model_validate(card_data)
+    assert card.ms_teams is not None
+    assert card.ms_teams.width == "full"
+
+
+def test_submit_action_data_ms_teams_serialization():
+    """Test that SubmitActionData.ms_teams serializes to 'msteams' correctly."""
+    # Create SubmitActionData with custom fields and ms_teams
+    action_data = SubmitActionData.model_validate({"opendialogtype": "simple_form"})
+    action_data.ms_teams = TaskFetchSubmitActionData().model_dump()
+
+    # Create a SubmitAction with the data
+    action = SubmitAction(title="Test Action").with_data(action_data)
+
+    # Serialize and verify
+    json_str = action.model_dump_json(exclude_none=True, by_alias=True)
+    parsed = json.loads(json_str)
+
+    # Verify structure
+    assert "data" in parsed
+    assert "msteams" in parsed["data"], "SubmitActionData.ms_teams should serialize to 'msteams'"
+    assert "msTeams" not in parsed["data"], "SubmitActionData.ms_teams should not serialize to 'msTeams'"
+    assert parsed["data"]["msteams"]["type"] == "task/fetch"
+    assert parsed["data"]["opendialogtype"] == "simple_form"
+
+    # Test round-trip deserialization
+    deserialized_action = SubmitAction.model_validate(parsed)
+    assert isinstance(deserialized_action.data, SubmitActionData)
+    assert deserialized_action.data.ms_teams is not None
+    assert deserialized_action.data.ms_teams["type"] == "task/fetch"

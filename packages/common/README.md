@@ -1,5 +1,5 @@
 > [!CAUTION]
-> This project is in active development and not ready for production use. It has not been publicly announced yet.
+> This project is in public preview. We’ll do our best to maintain compatibility, but there may be breaking changes in upcoming releases. 
 
 # Microsoft Teams Common Utilities
 

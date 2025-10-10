@@ -6,12 +6,14 @@ Licensed under the MIT License.
 import inspect
 import json
 from dataclasses import dataclass
-from typing import Awaitable, Callable
+from typing import Awaitable, Callable, cast
 
 from microsoft.teams.ai import (
     AIModel,
     Function,
     FunctionCall,
+    FunctionHandler,
+    FunctionHandlerWithNoParams,
     FunctionMessage,
     ListMemory,
     Memory,
@@ -241,8 +243,14 @@ class OpenAIResponsesAIModel(OpenAIBaseModel, AIModel):
                         # Parse arguments using utility function
                         parsed_args = parse_function_arguments(function, call.arguments)
 
-                        # Handle both sync and async function handlers
-                        result = function.handler(parsed_args)
+                        if parsed_args:
+                            # Handle both sync and async function handlers
+                            handler = cast(FunctionHandler[BaseModel], function.handler)
+                            result = handler(parsed_args)
+                        else:
+                            # No parameters case - just call the handler with no args
+                            handler = cast(FunctionHandlerWithNoParams, function.handler)
+                            result = handler()
                         if inspect.isawaitable(result):
                             fn_res = await result
                         else:
@@ -320,6 +328,7 @@ class OpenAIResponsesAIModel(OpenAIBaseModel, AIModel):
     def _convert_functions_to_tools(self, functions: dict[str, Function[BaseModel]]) -> list[ToolParam]:
         """Convert functions to Responses API tools format."""
         tools: list[ToolParam] = []
+        schema = {}
 
         for func in functions.values():
             # Get strict schema for Responses API using OpenAI's transformations
@@ -327,7 +336,7 @@ class OpenAIResponsesAIModel(OpenAIBaseModel, AIModel):
                 # For raw JSON schemas, use OpenAI's strict transformation
                 schema = get_function_schema(func)
                 schema = _ensure_strict_json_schema(schema, path=(), root=schema)
-            else:
+            elif func.parameter_schema is not None:
                 # Use OpenAI's official strict schema transformation for Pydantic models
                 schema = to_strict_json_schema(func.parameter_schema)
 

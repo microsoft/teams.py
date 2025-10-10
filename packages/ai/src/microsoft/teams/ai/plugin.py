@@ -4,7 +4,7 @@ Licensed under the MIT License.
 """
 
 from abc import abstractmethod
-from typing import Protocol, TypeVar, runtime_checkable
+from typing import Optional, Protocol, TypeVar, runtime_checkable
 
 from pydantic import BaseModel
 
@@ -61,23 +61,25 @@ class AIPluginProtocol(Protocol):
         """
         ...
 
-    async def on_before_function_call(self, function_name: str, args: BaseModel) -> None:
+    async def on_before_function_call(self, function_name: str, args: Optional[BaseModel] = None) -> None:
         """
         Called before a function is executed.
 
         Args:
             function_name: Name of the function being called
-            args: Validated function arguments
+            args: Validated function arguments, if any.
         """
         ...
 
-    async def on_after_function_call(self, function_name: str, args: BaseModel, result: str) -> str | None:
+    async def on_after_function_call(
+        self, function_name: str, result: str, args: Optional[BaseModel] = None
+    ) -> str | None:
         """
         Called after a function is executed.
 
         Args:
             function_name: Name of the function that was called
-            args: Function arguments that were used
+            args: Function arguments that were used, if any.
             result: Function execution result
 
         Returns:
@@ -146,11 +148,13 @@ class BaseAIPlugin:
         """Modify response after receiving from model."""
         return response
 
-    async def on_before_function_call(self, function_name: str, args: BaseModel) -> None:
+    async def on_before_function_call(self, function_name: str, args: Optional[BaseModel] = None) -> None:
         """Called before a function is executed."""
         pass
 
-    async def on_after_function_call(self, function_name: str, args: BaseModel, result: str) -> str | None:
+    async def on_after_function_call(
+        self, function_name: str, result: str, args: Optional[BaseModel] = None
+    ) -> str | None:
         """Called after a function is executed."""
         return result
 

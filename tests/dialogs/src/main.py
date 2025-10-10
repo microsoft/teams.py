@@ -24,7 +24,7 @@ from microsoft.teams.api import (
 )
 from microsoft.teams.apps import ActivityContext, App
 from microsoft.teams.apps.events.types import ErrorEvent
-from microsoft.teams.cards import AdaptiveCard
+from microsoft.teams.cards import AdaptiveCard, SubmitAction, SubmitActionData, TaskFetchSubmitActionData, TextBlock
 from microsoft.teams.common.logging import ConsoleLogger
 
 logger_instance = ConsoleLogger()
@@ -42,43 +42,35 @@ app.page("customform", os.path.join(os.path.dirname(__file__), "views", "customf
 async def handle_message(ctx: ActivityContext[MessageActivity]) -> None:
     """Handle message activities and show dialog launcher card."""
 
-    # Create the launcher adaptive card using JSON structure
-    card = AdaptiveCard.model_validate(
-        {
-            "type": "AdaptiveCard",
-            "version": "1.4",
-            "body": [
-                {
-                    "type": "TextBlock",
-                    "text": "Select the examples you want to see!",
-                    "size": "Large",
-                    "weight": "Bolder",
-                }
-            ],
-            "actions": [
-                {
-                    "type": "Action.Submit",
-                    "title": "Simple form test",
-                    "data": {"msteams": {"type": "task/fetch"}, "opendialogtype": "simple_form"},
-                },
-                {
-                    "type": "Action.Submit",
-                    "title": "Webpage Dialog",
-                    "data": {"msteams": {"type": "task/fetch"}, "opendialogtype": "webpage_dialog"},
-                },
-                {
-                    "type": "Action.Submit",
-                    "title": "Multi-step Form",
-                    "data": {"msteams": {"type": "task/fetch"}, "opendialogtype": "multi_step_form"},
-                },
-                {
-                    "type": "Action.Submit",
-                    "title": "Mixed Example",
-                    "data": {"msteams": {"type": "task/fetch"}, "opendialogtype": "mixed_example"},
-                },
-            ],
-        }
-    )
+    # Create the launcher adaptive card using Python objects to demonstrate SubmitActionData
+    # This tests that ms_teams correctly serializes to 'msteams'
+    card = AdaptiveCard(version="1.4")
+    card.body = [TextBlock(text="Select the examples you want to see!", size="Large", weight="Bolder")]
+
+    # Use SubmitActionData with ms_teams to test serialization
+    # SubmitActionData uses extra="allow" to accept custom fields
+    simple_form_data = SubmitActionData.model_validate({"opendialogtype": "simple_form"})
+    simple_form_data.ms_teams = TaskFetchSubmitActionData().model_dump()
+
+    webpage_data = SubmitActionData.model_validate({"opendialogtype": "webpage_dialog"})
+    webpage_data.ms_teams = TaskFetchSubmitActionData().model_dump()
+
+    multistep_data = SubmitActionData.model_validate({"opendialogtype": "multi_step_form"})
+    multistep_data.ms_teams = TaskFetchSubmitActionData().model_dump()
+
+    card.actions = [
+        SubmitAction(title="Simple form test").with_data(simple_form_data),
+        SubmitAction(title="Webpage Dialog").with_data(webpage_data),
+        SubmitAction(title="Multi-step Form").with_data(multistep_data),
+        # Keep this one as JSON to show mixed usage
+        SubmitAction.model_validate(
+            {
+                "type": "Action.Submit",
+                "title": "Mixed Example (JSON)",
+                "data": {"msteams": {"type": "task/fetch"}, "opendialogtype": "mixed_example"},
+            }
+        ),
+    ]
 
     # Send the card as an attachment
     message = MessageActivityInput(text="Enter this form").add_card(card)

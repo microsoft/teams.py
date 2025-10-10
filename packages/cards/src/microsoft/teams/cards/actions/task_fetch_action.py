@@ -11,5 +11,6 @@ from ..core import SubmitAction, SubmitActionData, TaskFetchSubmitActionData
 class TaskFetchAction(SubmitAction):
     def __init__(self, value: Dict[str, Any]):
         super().__init__()
-        action_data = TaskFetchSubmitActionData().with_value(value)
-        self.data = SubmitActionData(ms_teams=action_data.model_dump())
+        # For task/fetch, the action data actually goes in the SubmitActionData, not with
+        # msteams. msteams simply contains { type: 'task/fetch' }
+        self.data = SubmitActionData(**value).with_ms_teams(TaskFetchSubmitActionData().model_dump())
