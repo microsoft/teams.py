@@ -278,14 +278,20 @@ class BackgroundImage(SerializableObject):
         return self
 
 
-class SubmitActionData(SerializableObject):
-    """Represents the data of an Action.Submit."""
+class SubmitActionData(SerializableObject, BaseModel):
+    """Represents the data of an Action.Submit. This model can include arbitrary data"""
 
     ms_teams: Optional[Dict[str, Any]] = None
     """ Defines the optional Teams-specific portion of the action's data. """
 
     def with_ms_teams(self, value: Dict[str, Any]) -> Self:
         self.ms_teams = value
+        return self
+
+    def with_data(self, value: Dict[str, Any]) -> Self:
+        if self.__pydantic_extra__ is None:
+            self.__pydantic_extra__ = {}
+        self.__pydantic_extra__.update(value)
         return self
 
 
