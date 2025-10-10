@@ -4,9 +4,7 @@ Licensed under the MIT License.
 """
 
 from .jwt_middleware import create_jwt_validation_middleware
-from .service_token_validator import ServiceTokenValidator
+from .remote_function_jwt_middleware import remote_function_jwt_validation
+from .token_validator import TokenValidator
 
-__all__ = [
-    "ServiceTokenValidator",
-    "create_jwt_validation_middleware",
-]
+__all__ = ["TokenValidator", "create_jwt_validation_middleware", "remote_function_jwt_validation"]
