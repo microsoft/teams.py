@@ -278,7 +278,7 @@ class BackgroundImage(SerializableObject):
         return self
 
 
-class SubmitActionData(SerializableObject, BaseModel):
+class SubmitActionData(SerializableObject):
     """Represents the data of an Action.Submit. This model can include arbitrary data"""
 
     ms_teams: Optional[Dict[str, Any]] = None
