@@ -21,6 +21,11 @@ class TestTokenValidator:
         return TokenValidator.for_service("test-app-id")
 
     @pytest.fixture
+    def validator_entra(self):
+        """Create TokenValidator instance for Entra ID."""
+        return TokenValidator.for_entra(app_id="test-app-id", tenant_id="test-tenant-id", scope="user.read")
+
+    @pytest.fixture
     def mock_signing_key(self):
         """Create mock signing key for PyJWKClient."""
         mock_key = MagicMock()
@@ -38,23 +43,34 @@ class TestTokenValidator:
             "iat": 1000000000,  # Past timestamp
         }
 
+    @pytest.fixture
+    def valid_payload_entra(self):
+        """Valid Entra JWT payload with required scope."""
+        return {
+            "iss": "https://login.microsoftonline.com/test-tenant-id/v2.0",
+            "aud": "test-app-id",
+            "scp": "user.read mail.read",
+            "exp": 9999999999,
+            "iat": 1000000000,
+        }
+
     def test_init(self):
         """Test TokenValidator initialization."""
         validator = TokenValidator.for_service("test-app-id")
 
         assert validator.logger is not None
-        assert validator.options.validIssuers == ["https://api.botframework.com"]
-        assert validator.options.validAudiences == ["test-app-id", "api://test-app-id"]
-        assert validator.options.jwksUri == "https://login.botframework.com/v1/.well-known/keys"
+        assert validator.options.valid_issuers == ["https://api.botframework.com"]
+        assert validator.options.valid_audiences == ["test-app-id", "api://test-app-id"]
+        assert validator.options.jwks_uri == "https://login.botframework.com/v1/.well-known/keys"
 
     def test_init_with_custom_logger(self):
         """Test TokenValidator initialization with custom logger."""
         mock_logger = MagicMock()
         validator = TokenValidator.for_service("test-app-id", mock_logger)
 
-        assert validator.options.validIssuers == ["https://api.botframework.com"]
-        assert validator.options.validAudiences == ["test-app-id", "api://test-app-id"]
-        assert validator.options.jwksUri == "https://login.botframework.com/v1/.well-known/keys"
+        assert validator.options.valid_issuers == ["https://api.botframework.com"]
+        assert validator.options.valid_audiences == ["test-app-id", "api://test-app-id"]
+        assert validator.options.jwks_uri == "https://login.botframework.com/v1/.well-known/keys"
         assert validator.logger == mock_logger
 
     @pytest.mark.asyncio
@@ -220,3 +236,85 @@ class TestTokenValidator:
         # Test URL mismatch
         with pytest.raises(jwt.InvalidTokenError, match="Service URL mismatch"):
             validator._validate_service_url(payload, "https://different.com")
+
+    def test_for_entra_initialization(self, validator_entra):
+        """Check Entra-specific initialization."""
+        options = validator_entra.options
+        assert options.valid_issuers == ["https://login.microsoftonline.com/test-tenant-id/v2.0"]
+        assert options.valid_audiences == ["test-app-id", "api://test-app-id"]
+        assert options.jwks_uri == "https://login.microsoftonline.com/test-tenant-id/discovery/v2.0/keys"
+        assert options.scope == "user.read"
+
+    @pytest.mark.asyncio
+    async def test_validate_entra_token_success_with_scope(
+        self, validator_entra, mock_signing_key, valid_payload_entra
+    ):
+        """Validate Entra token successfully with required scope."""
+        token = "entra.valid.token"
+        with (
+            patch("jwt.PyJWKClient", return_value=mock_signing_key),
+            patch("jwt.decode", return_value=valid_payload_entra),
+        ):
+            payload = await validator_entra.validate_token(token)
+            assert payload["scp"] == "user.read mail.read"
+
+    @pytest.mark.asyncio
+    async def test_validate_entra_token_missing_scope(self, validator_entra, mock_signing_key):
+        """Fail validation if required scope is missing."""
+        token = "entra.missing.scope"
+        payload_missing_scope = {
+            "iss": "https://login.microsoftonline.com/test-tenant-id/v2.0",
+            "aud": "test-app-id",
+            "scp": "mail.read",
+            "exp": 9999999999,
+            "iat": 1000000000,
+        }
+
+        with (
+            patch("jwt.PyJWKClient", return_value=mock_signing_key),
+            patch("jwt.decode", return_value=payload_missing_scope),
+        ):
+            with pytest.raises(jwt.InvalidTokenError, match="Token missing required scope: user.read"):
+                await validator_entra.validate_token(token)
+
+    @pytest.mark.asyncio
+    async def test_validate_entra_token_invalid_issuer(self, validator_entra, mock_signing_key):
+        """Fail validation for invalid issuer."""
+        token = "entra.invalid.issuer"
+        payload_invalid_issuer = {
+            "iss": "https://login.microsoftonline.com/other-tenant/v2.0",
+            "aud": "test-app-id",
+            "scp": "user.read",
+            "exp": 9999999999,
+            "iat": 1000000000,
+        }
+
+        with (
+            patch("jwt.PyJWKClient", return_value=mock_signing_key),
+            patch(
+                "jwt.decode", return_value=payload_invalid_issuer, side_effect=jwt.InvalidIssuerError("Invalid issuer")
+            ),
+        ):
+            with pytest.raises(jwt.InvalidTokenError):
+                await validator_entra.validate_token(token)
+
+    @pytest.mark.asyncio
+    async def test_validate_entra_token_invalid_audience(self, validator_entra, mock_signing_key):
+        """Fail validation for invalid audience."""
+        token = "entra.invalid.aud"
+        payload_invalid_aud = {
+            "iss": "https://login.microsoftonline.com/test-tenant-id/v2.0",
+            "aud": "wrong-app-id",
+            "scp": "user.read",
+            "exp": 9999999999,
+            "iat": 1000000000,
+        }
+
+        with (
+            patch("jwt.PyJWKClient", return_value=mock_signing_key),
+            patch(
+                "jwt.decode", return_value=payload_invalid_aud, side_effect=jwt.InvalidAudienceError("Invalid audience")
+            ),
+        ):
+            with pytest.raises(jwt.InvalidTokenError):
+                await validator_entra.validate_token(token)

@@ -97,12 +97,8 @@ class FunctionContext(ClientContext, Generic[T]):
         self._resolved_conversation_id = self.chat_id or self.channel_id
 
         # Extract from Activity if available
-        if (
-            not self._resolved_conversation_id
-            and isinstance(activity, ActivityParams)  # type: ignore
-            and activity.conversation
-        ):
-            self._resolved_conversation_id = activity.conversation.id
+        if not self._resolved_conversation_id:
+            self._resolved_conversation_id = getattr(getattr(activity, "conversation", None), "id", None)
 
         # Validate that both the bot and user are members of the conversation.
         if self._resolved_conversation_id:
