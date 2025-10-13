@@ -62,6 +62,21 @@ class TestMessageActivity:
         activity = self.create_message_activity()
         assert activity.type == "message"
 
+    def test_message_activity_text_defaults_to_empty_string(self):
+        """Test that text field defaults to empty string in MessageActivity"""
+        from_account = Account(id="bot-123", name="Test Bot", role="bot")
+        recipient = Account(id="user-456", name="Test User", role="user")
+        conversation = ConversationAccount(id="conv-789", conversation_type="personal")
+
+        activity = MessageActivity(
+            id="msg-123",
+            from_=from_account,
+            conversation=conversation,
+            recipient=recipient,
+        )
+
+        assert activity.text == ""
+
     def test_add_text_method(self):
         """Test adding text to the message"""
         activity = self.create_message_activity("Hello")
