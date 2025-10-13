@@ -20,6 +20,7 @@ from microsoft.teams.ai import (
     SystemMessage,
     UserMessage,
 )
+from microsoft.teams.ai.function import FunctionHandler, FunctionHandlerWithNoParams
 from microsoft.teams.openai.common import OpenAIBaseModel
 from pydantic import BaseModel
 
@@ -166,9 +167,14 @@ class OpenAICompletionsAIModel(OpenAIBaseModel, AIModel):
                     try:
                         # Parse arguments using utility function
                         parsed_args = parse_function_arguments(function, call.arguments)
+                        if parsed_args:
+                            # Handle both sync and async function handlers
+                            handler = cast(FunctionHandler[BaseModel], function.handler)
+                            result = handler(parsed_args)
+                        else:
+                            handler = cast(FunctionHandlerWithNoParams, function.handler)
+                            result = handler()
 
-                        # Handle both sync and async function handlers
-                        result = function.handler(parsed_args)
                         if inspect.isawaitable(result):
                             fn_res = await result
                         else:
