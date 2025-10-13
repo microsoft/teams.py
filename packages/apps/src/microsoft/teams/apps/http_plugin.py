@@ -8,6 +8,7 @@ import importlib.metadata
 from contextlib import AsyncExitStack, asynccontextmanager
 from logging import Logger
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Annotated, Any, AsyncGenerator, Awaitable, Callable, Dict, Optional, cast
 
 import uvicorn
@@ -68,7 +69,7 @@ class HttpPlugin(Sender):
         self,
         app_id: Optional[str],
         logger: Optional[Logger] = None,
-        enable_token_validation: bool = True,
+        skip_auth: bool = False,
     ):
         super().__init__()
         self.logger = logger or ConsoleLogger().create_logger("@teams/http-plugin")
@@ -105,7 +106,7 @@ class HttpPlugin(Sender):
         self.app = FastAPI(lifespan=combined_lifespan)
 
         # Add JWT validation middleware
-        if app_id and enable_token_validation:
+        if app_id and not skip_auth:
             jwt_middleware = create_jwt_validation_middleware(
                 app_id=app_id, logger=self.logger, paths=["/api/messages"]
             )
@@ -252,14 +253,26 @@ class HttpPlugin(Sender):
         Returns:
             The activity processing result
         """
-        # Get validated token from middleware (always present if middleware is active)
-        token = getattr(request.state, "validated_token", None)
-        if not token or not isinstance(token, TokenProtocol):
-            self.logger.error("No valid token found in request state")
-            return {"error": "Unauthorized", "status": 401}
-
         # Parse activity data
         body = await request.json()
+
+        # Get validated token from middleware (if present - will be missing if skip_auth is True)
+        if hasattr(request.state, "validated_token") and request.state.validated_token:
+            token = request.state.validated_token
+        else:
+            token = cast(
+                TokenProtocol,
+                SimpleNamespace(
+                    app_id="",
+                    app_display_name="",
+                    tenant_id="",
+                    service_url=body.get("serviceUrl", ""),
+                    from_="azure",
+                    from_id="",
+                    is_expired=lambda: False,
+                ),
+            )
+
         activity_type = body.get("type", "unknown")
         activity_id = body.get("id", "unknown")
 
