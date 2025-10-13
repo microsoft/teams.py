@@ -20,7 +20,7 @@ async def post_to_chat(ctx: FunctionContext[Any]):
     Sends a message to the current conversation and returns the conversation ID.
     """
     await ctx.send(ctx.data["message"])
-    return {"conversationId": ctx.conversation_id}
+    return {"conversation_id": ctx.conversation_id}
 
 
 if __name__ == "__main__":
