@@ -20,6 +20,7 @@ export default function App() {
             logger: new ConsoleLogger('@tests/tab', { level: 'debug' }),
               msalOptions: {
               prewarmScopes: [
+                'https://graph.microsoft.com/User.Read',
                 'https://graph.microsoft.com/Presence.Read',
                 'https://graph.microsoft.com/Presence.ReadWrite'
               ]

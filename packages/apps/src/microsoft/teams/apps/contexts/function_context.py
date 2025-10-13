@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from logging import Logger
-from typing import Any, Generic, Optional, TypeVar
+from typing import Generic, Optional, TypeVar
 
 from microsoft.teams.api import (
     Account,
@@ -24,7 +24,7 @@ from microsoft.teams.cards import AdaptiveCard
 from ..http_plugin import HttpPlugin
 from .client_context import ClientContext
 
-T = TypeVar("T", bound=Any)
+T = TypeVar("T")
 
 
 @dataclass(kw_only=True)

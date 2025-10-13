@@ -512,6 +512,7 @@ class App(ActivityHandlerMixin):
 
         def decorator(func: FCtx) -> FCtx:
             endpoint_name = name_or_func if isinstance(name_or_func, str) else func.__name__.replace("_", "-")
+            self.logger.debug("Generated endpoint name for function '%s': %s", func.__name__, endpoint_name)
 
             async def endpoint(req: Request):
                 middleware = remote_function_jwt_validation(self.entra_token_validator, self.log)
