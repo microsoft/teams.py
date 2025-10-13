@@ -11,6 +11,7 @@ from typing import Any, Awaitable, Callable, List, Optional, TypeVar, Union, Unp
 
 from dependency_injector import providers
 from dotenv import find_dotenv, load_dotenv
+from fastapi import Request
 from microsoft.teams.api import (
     Account,
     ActivityBase,
@@ -24,7 +25,6 @@ from microsoft.teams.api import (
     MessageActivityInput,
     TokenCredentials,
 )
-from microsoft.teams.apps.routing.activity_context import ActivityContext
 from microsoft.teams.cards import AdaptiveCard
 from microsoft.teams.common import Client, ClientOptions, ConsoleLogger, EventEmitter, LocalStorage
 
@@ -33,7 +33,10 @@ from .app_oauth import OauthHandlers
 from .app_plugins import PluginProcessor
 from .app_process import ActivityProcessor
 from .app_tokens import AppTokens
+from .auth import TokenValidator
+from .auth.remote_function_jwt_middleware import remote_function_jwt_validation
 from .container import Container
+from .contexts.function_context import FunctionContext
 from .events import (
     ErrorEvent,
     EventType,
@@ -47,10 +50,12 @@ from .http_plugin import HttpPlugin
 from .options import AppOptions, InternalAppOptions
 from .plugins import PluginBase, PluginStartEvent, get_metadata
 from .routing import ActivityHandlerMixin, ActivityRouter
+from .routing.activity_context import ActivityContext
 
 version = importlib.metadata.version("microsoft-teams-apps")
 
 F = TypeVar("F", bound=Callable[..., Any])
+FCtx = TypeVar("FCtx", bound=Callable[[FunctionContext[Any]], Any])
 load_dotenv(find_dotenv(usecwd=True))
 
 USER_AGENT = f"teams.py[app]/{version}"
@@ -147,6 +152,11 @@ class App(ActivityHandlerMixin):
         )
         self.on_signin_token_exchange(oauth_handlers.sign_in_token_exchange)
         self.on_signin_verify_state(oauth_handlers.sign_in_verify_state)
+
+        if self.credentials and hasattr(self.credentials, "client_id"):
+            self.entra_token_validator = TokenValidator.for_entra(
+                self.credentials.client_id, self.credentials.tenant_id, logger=self.log
+            )
 
     @property
     def port(self) -> Optional[int]:
@@ -458,7 +468,7 @@ class App(ActivityHandlerMixin):
         """
         Register a static page to serve at a specific path.
 
-        Args:
+         Args:
             name: Unique name for the page
             dir_path: Directory containing the static files
             page_path: Optional path to serve the page at (defaults to /pages/{name})
@@ -469,3 +479,64 @@ class App(ActivityHandlerMixin):
             ```
         """
         self.http.mount(name, dir_path, page_path=page_path)
+
+    def tab(self, name: str, path: str) -> None:
+        """
+        Add/update a static tab.
+        The tab will be hosted at
+        http://localhost:<PORT>/tabs/<name> or https://<BOT_DOMAIN>/tabs/<name>
+        Scopes default to 'personal'.
+
+        Args:
+            name A unique identifier for the entity which the tab displays.
+            path The path to the directory containing the tab's content (HTML, JS, CSS, etc.)
+        """
+        self.page(name, dir_path=path, page_path=f"/tabs/{name}/")
+
+    def func(self, name_or_func: Union[str, FCtx, None] = None) -> Union[FCtx, Callable[[FCtx], FCtx]]:
+        """
+        Decorator that registers a function as a remotely callable endpoint.
+
+        Args:
+            name_or_func:
+            - str: explicit name for the endpoint
+            - Callable: directly decorating the function, endpoint name defaults to the function's name
+
+        Example:
+            ```python
+            @app.func
+            async def post_to_chat(ctx: FunctionContext[Any]):
+                await ctx.send(ctx.data["message"])
+            ```
+        """
+
+        def decorator(func: FCtx) -> FCtx:
+            endpoint_name = name_or_func if isinstance(name_or_func, str) else func.__name__.replace("_", "-")
+            self.logger.debug("Generated endpoint name for function '%s': %s", func.__name__, endpoint_name)
+
+            async def endpoint(req: Request):
+                middleware = remote_function_jwt_validation(self.entra_token_validator, self.log)
+
+                async def call_next(r: Request) -> Any:
+                    ctx = FunctionContext(
+                        id=self.id,
+                        name=self.name,
+                        api=self.api,
+                        http=self.http,
+                        log=self.log,
+                        data=await r.json(),
+                        **r.state.context.__dict__,
+                    )
+                    return await func(ctx)
+
+                return await middleware(req, call_next)
+
+            self.http.post(f"/api/functions/{endpoint_name}")(endpoint)
+            return func
+
+        # Direct decoration: @app.func
+        if callable(name_or_func) and not isinstance(name_or_func, str):
+            return decorator(name_or_func)
+
+        # Named decoration: @app.func("name")
+        return decorator

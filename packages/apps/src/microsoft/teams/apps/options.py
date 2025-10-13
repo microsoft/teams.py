@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from logging import Logger
 from typing import Any, Awaitable, Callable, List, Optional, TypedDict, Union, cast
 
-from microsoft.teams.common.storage import Storage
+from microsoft.teams.common import Storage
 from typing_extensions import Unpack
 
 from .plugins import PluginBase
