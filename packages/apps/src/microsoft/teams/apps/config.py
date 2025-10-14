@@ -5,6 +5,7 @@ Licensed under the MIT License.
 
 import os
 from dataclasses import dataclass, field
+from typing import Optional
 
 
 def _get_default_port() -> int:
@@ -88,6 +89,20 @@ class SignInConfig:
 
 
 @dataclass
+class CredentialsConfig:
+    """Application credentials configuration."""
+
+    client_id: Optional[str] = field(default_factory=lambda: os.getenv("CLIENT_ID"))
+    """Application client ID (uses CLIENT_ID env var if not provided)"""
+
+    client_secret: Optional[str] = field(default_factory=lambda: os.getenv("CLIENT_SECRET"))
+    """Application client secret (uses CLIENT_SECRET env var if not provided)"""
+
+    tenant_id: Optional[str] = field(default_factory=lambda: os.getenv("TENANT_ID"))
+    """Application tenant ID (uses TENANT_ID env var if not provided)"""
+
+
+@dataclass
 class AppConfig:
     """
     Centralized configuration for Teams application.
@@ -109,6 +124,7 @@ class AppConfig:
         endpoints: API endpoint URLs and paths
         auth: Authentication and security settings
         signin: Sign-in UI settings
+        credentials: Application credentials (client_id, client_secret, tenant_id)
     """
 
     network: NetworkConfig = field(default_factory=NetworkConfig)
@@ -122,6 +138,9 @@ class AppConfig:
 
     signin: SignInConfig = field(default_factory=SignInConfig)
     """Sign-in UI settings"""
+
+    credentials: Optional[CredentialsConfig] = None
+    """Application credentials (optional, will be populated from AppOptions if not provided)"""
 
 
 # Create a default singleton instance

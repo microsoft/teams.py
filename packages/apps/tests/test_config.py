@@ -9,6 +9,7 @@ Tests for the AppConfig and related configuration classes.
 from microsoft.teams.apps.config import (
     AppConfig,
     AuthConfig,
+    CredentialsConfig,
     EndpointConfig,
     NetworkConfig,
     SignInConfig,
@@ -158,6 +159,45 @@ class TestSignInConfig:
         assert config.oauth_card_text == "Explicit Card Text"
 
 
+class TestCredentialsConfig:
+    """Tests for CredentialsConfig."""
+
+    def test_default_values(self):
+        """Test that CredentialsConfig has correct default values (None if no env vars)."""
+        config = CredentialsConfig()
+        # Values will be None if env vars are not set
+        assert config.client_id is None or isinstance(config.client_id, str)
+        assert config.client_secret is None or isinstance(config.client_secret, str)
+        assert config.tenant_id is None or isinstance(config.tenant_id, str)
+
+    def test_custom_values(self):
+        """Test that CredentialsConfig accepts custom values."""
+        config = CredentialsConfig(
+            client_id="custom-client-id",
+            client_secret="custom-client-secret",
+            tenant_id="custom-tenant-id",
+        )
+        assert config.client_id == "custom-client-id"
+        assert config.client_secret == "custom-client-secret"
+        assert config.tenant_id == "custom-tenant-id"
+
+    def test_env_vars(self, monkeypatch):
+        """Test that CredentialsConfig uses environment variables."""
+        monkeypatch.setenv("CLIENT_ID", "env-client-id")
+        monkeypatch.setenv("CLIENT_SECRET", "env-client-secret")
+        monkeypatch.setenv("TENANT_ID", "env-tenant-id")
+        config = CredentialsConfig()
+        assert config.client_id == "env-client-id"
+        assert config.client_secret == "env-client-secret"
+        assert config.tenant_id == "env-tenant-id"
+
+    def test_explicit_overrides_env_vars(self, monkeypatch):
+        """Test that explicit values override env vars."""
+        monkeypatch.setenv("CLIENT_ID", "env-client-id")
+        config = CredentialsConfig(client_id="explicit-client-id")
+        assert config.client_id == "explicit-client-id"
+
+
 class TestAppConfig:
     """Tests for AppConfig."""
 
@@ -170,6 +210,8 @@ class TestAppConfig:
         assert isinstance(config.endpoints, EndpointConfig)
         assert isinstance(config.auth, AuthConfig)
         assert isinstance(config.signin, SignInConfig)
+        # credentials is optional and None by default
+        assert config.credentials is None
 
         # Spot check some defaults
         assert config.network.default_port == 3978
@@ -236,3 +278,24 @@ class TestAppConfig:
         assert config.network.default_port == 7070
         assert config.endpoints.activity_path == "/env/api"
         assert config.auth.jwt_leeway_seconds == 450
+
+    def test_credentials_config(self, monkeypatch):
+        """Test that credentials can be set via AppConfig."""
+        monkeypatch.setenv("CLIENT_ID", "test-client-id")
+        monkeypatch.setenv("CLIENT_SECRET", "test-client-secret")
+
+        # Without credentials in config
+        config1 = AppConfig()
+        assert config1.credentials is None
+
+        # With credentials in config
+        config2 = AppConfig(
+            credentials=CredentialsConfig(
+                client_id="explicit-client-id",
+                client_secret="explicit-client-secret",
+                tenant_id="explicit-tenant-id",
+            )
+        )
+        assert config2.credentials.client_id == "explicit-client-id"
+        assert config2.credentials.client_secret == "explicit-client-secret"
+        assert config2.credentials.tenant_id == "explicit-tenant-id"

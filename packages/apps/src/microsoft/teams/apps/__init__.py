@@ -10,6 +10,7 @@ from .auth import *  # noqa: F403
 from .config import (
     AppConfig,
     AuthConfig,
+    CredentialsConfig,
     EndpointConfig,
     NetworkConfig,
     SignInConfig,
@@ -31,6 +32,7 @@ __all__: list[str] = [
     "EndpointConfig",
     "AuthConfig",
     "SignInConfig",
+    "CredentialsConfig",
     "HttpPlugin",
     "HttpStream",
     "ActivityContext",
