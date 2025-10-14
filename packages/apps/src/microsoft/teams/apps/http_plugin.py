@@ -9,7 +9,7 @@ from contextlib import AsyncExitStack, asynccontextmanager
 from logging import Logger
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Annotated, Any, AsyncGenerator, Awaitable, Callable, Dict, Optional, cast
+from typing import TYPE_CHECKING, Annotated, Any, AsyncGenerator, Awaitable, Callable, Dict, Optional, cast
 
 import uvicorn
 from fastapi import FastAPI, Request, Response
@@ -28,6 +28,9 @@ from microsoft.teams.common.http.client import Client, ClientOptions
 from microsoft.teams.common.logging import ConsoleLogger
 from pydantic import BaseModel, ValidationError
 from starlette.applications import Starlette
+
+if TYPE_CHECKING:
+    from .config import AppConfig
 from starlette.types import Lifespan
 
 from .auth import create_jwt_validation_middleware
@@ -70,9 +73,13 @@ class HttpPlugin(Sender):
         app_id: Optional[str],
         logger: Optional[Logger] = None,
         skip_auth: bool = False,
+        config: Optional["AppConfig"] = None,
     ):
+        from .config import AppConfig
+
         super().__init__()
         self.logger = logger or ConsoleLogger().create_logger("@teams/http-plugin")
+        self.config = config or AppConfig()
         self._server: Optional[uvicorn.Server] = None
         self._port: Optional[int] = None
         self._on_ready_callback: Optional[Callable[[], Awaitable[None]]] = None
@@ -108,7 +115,7 @@ class HttpPlugin(Sender):
         # Add JWT validation middleware
         if app_id and not skip_auth:
             jwt_middleware = create_jwt_validation_middleware(
-                app_id=app_id, logger=self.logger, paths=["/api/messages"]
+                app_id=app_id, logger=self.logger, paths=[self.config.endpoints.activity_path]
             )
             self.app.middleware("http")(jwt_middleware)
 
@@ -337,13 +344,13 @@ class HttpPlugin(Sender):
             self.logger.debug("Returning empty body")
             return response
 
-        self.app.post("/api/messages")(on_activity_request)
+        self.app.post(self.config.endpoints.activity_path)(on_activity_request)
 
         async def health_check() -> Dict[str, Any]:
             """Basic health check endpoint."""
             return {"status": "healthy", "port": self._port}
 
-        self.app.get("/")(health_check)
+        self.app.get(self.config.endpoints.health_check_path)(health_check)
 
     def create_stream(self, ref: ConversationReference) -> StreamerProtocol:
         """Create a new streaming instance."""
