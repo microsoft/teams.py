@@ -4,10 +4,7 @@ Licensed under the MIT License.
 """
 
 from dataclasses import dataclass, field
-from typing import Literal, Optional
-
-# Type alias for jitter types
-JitterType = Literal["none", "full", "equal", "decorrelated"]
+from typing import Optional
 
 
 @dataclass
@@ -17,14 +14,8 @@ class NetworkConfig:
     default_port: int = 3978
     """Default port for HTTP server (overridden by PORT env var)"""
 
-    host: str = "0.0.0.0"
-    """Server bind address"""
-
     user_agent: Optional[str] = None
     """Custom User-Agent header (defaults to teams.py[app]/{version} if None)"""
-
-    uvicorn_log_level: str = "info"
-    """Log level for uvicorn server"""
 
 
 @dataclass
@@ -67,34 +58,6 @@ class AuthConfig:
 
 
 @dataclass
-class RetryConfig:
-    """Retry behavior configuration."""
-
-    max_attempts: int = 5
-    """Maximum number of retry attempts"""
-
-    initial_delay: float = 0.5
-    """Initial delay before first retry (seconds)"""
-
-    max_delay: float = 30.0
-    """Maximum cap for retry delay (seconds)"""
-
-    jitter_type: JitterType = "full"
-    """Jitter strategy: none, full, equal, or decorrelated"""
-
-
-@dataclass
-class SignInConfig:
-    """Sign-in UI configuration."""
-
-    oauth_card_text: str = "Please Sign In..."
-    """Default text for OAuth card"""
-
-    sign_in_button_text: str = "Sign In"
-    """Default text for sign-in button"""
-
-
-@dataclass
 class LoggerConfig:
     """Logger name configuration."""
 
@@ -112,14 +75,6 @@ class LoggerConfig:
 
     retry_logger_name: str = "@teams/retry"
     """Retry utility logger name"""
-
-
-@dataclass
-class PluginConfig:
-    """Plugin system configuration."""
-
-    metadata_key: str = "teams:plugin"
-    """Attribute name for plugin metadata"""
 
 
 @dataclass
@@ -144,10 +99,7 @@ class AppConfig:
         network: Network and HTTP server settings
         endpoints: API endpoint URLs and paths
         auth: Authentication and security settings
-        retry: Retry behavior settings
-        signin: Sign-in UI settings
         logger: Logger name settings
-        plugin: Plugin system settings
     """
 
     network: NetworkConfig = field(default_factory=NetworkConfig)
@@ -159,17 +111,8 @@ class AppConfig:
     auth: AuthConfig = field(default_factory=AuthConfig)
     """Authentication and security settings"""
 
-    retry: RetryConfig = field(default_factory=RetryConfig)
-    """Retry behavior settings"""
-
-    signin: SignInConfig = field(default_factory=SignInConfig)
-    """Sign-in UI settings"""
-
     logger: LoggerConfig = field(default_factory=LoggerConfig)
     """Logger name settings"""
-
-    plugin: PluginConfig = field(default_factory=PluginConfig)
-    """Plugin system settings"""
 
 
 # Create a default singleton instance
