@@ -4,7 +4,6 @@ Licensed under the MIT License.
 """
 
 from dataclasses import dataclass, field
-from typing import Optional
 
 
 @dataclass
@@ -13,9 +12,6 @@ class NetworkConfig:
 
     default_port: int = 3978
     """Default port for HTTP server (overridden by PORT env var)"""
-
-    user_agent: Optional[str] = None
-    """Custom User-Agent header (defaults to teams.py[app]/{version} if None)"""
 
 
 @dataclass
@@ -58,26 +54,6 @@ class AuthConfig:
 
 
 @dataclass
-class LoggerConfig:
-    """Logger name configuration."""
-
-    app_logger_name: str = "@teams/app"
-    """Main application logger name"""
-
-    http_plugin_logger_name: str = "@teams/http-plugin"
-    """HTTP plugin logger name"""
-
-    token_validator_logger_name: str = "@teams/token-validator"
-    """Token validator logger name"""
-
-    http_stream_logger_name: str = "@teams/http-stream"
-    """HTTP stream logger name"""
-
-    retry_logger_name: str = "@teams/retry"
-    """Retry utility logger name"""
-
-
-@dataclass
 class AppConfig:
     """
     Centralized configuration for Teams application.
@@ -90,8 +66,7 @@ class AppConfig:
         >>> # Customize network settings
         >>> config = AppConfig(
         ...     network=NetworkConfig(
-        ...         default_port=5000,
-        ...         user_agent="MyCustomBot/1.0"
+        ...         default_port=5000
         ...     )
         ... )
 
@@ -99,7 +74,6 @@ class AppConfig:
         network: Network and HTTP server settings
         endpoints: API endpoint URLs and paths
         auth: Authentication and security settings
-        logger: Logger name settings
     """
 
     network: NetworkConfig = field(default_factory=NetworkConfig)
@@ -110,9 +84,6 @@ class AppConfig:
 
     auth: AuthConfig = field(default_factory=AuthConfig)
     """Authentication and security settings"""
-
-    logger: LoggerConfig = field(default_factory=LoggerConfig)
-    """Logger name settings"""
 
 
 # Create a default singleton instance

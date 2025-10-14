@@ -11,7 +11,6 @@ from .config import (
     AppConfig,
     AuthConfig,
     EndpointConfig,
-    LoggerConfig,
     NetworkConfig,
 )
 from .contexts import *  # noqa: F403
@@ -30,7 +29,6 @@ __all__: list[str] = [
     "NetworkConfig",
     "EndpointConfig",
     "AuthConfig",
-    "LoggerConfig",
     "HttpPlugin",
     "HttpStream",
     "ActivityContext",

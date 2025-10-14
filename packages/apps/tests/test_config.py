@@ -10,7 +10,6 @@ from microsoft.teams.apps.config import (
     AppConfig,
     AuthConfig,
     EndpointConfig,
-    LoggerConfig,
     NetworkConfig,
 )
 
@@ -22,16 +21,13 @@ class TestNetworkConfig:
         """Test that NetworkConfig has correct default values."""
         config = NetworkConfig()
         assert config.default_port == 3978
-        assert config.user_agent is None
 
     def test_custom_values(self):
         """Test that NetworkConfig accepts custom values."""
         config = NetworkConfig(
             default_port=5000,
-            user_agent="CustomBot/1.0",
         )
         assert config.default_port == 5000
-        assert config.user_agent == "CustomBot/1.0"
 
 
 class TestEndpointConfig:
@@ -84,28 +80,6 @@ class TestAuthConfig:
         assert config.default_graph_tenant_id == "custom.tenant.com"
 
 
-class TestLoggerConfig:
-    """Tests for LoggerConfig."""
-
-    def test_default_values(self):
-        """Test that LoggerConfig has correct default values."""
-        config = LoggerConfig()
-        assert config.app_logger_name == "@teams/app"
-        assert config.http_plugin_logger_name == "@teams/http-plugin"
-        assert config.token_validator_logger_name == "@teams/token-validator"
-        assert config.http_stream_logger_name == "@teams/http-stream"
-        assert config.retry_logger_name == "@teams/retry"
-
-    def test_custom_values(self):
-        """Test that LoggerConfig accepts custom values."""
-        config = LoggerConfig(
-            app_logger_name="custom-app", http_plugin_logger_name="custom-http", retry_logger_name="custom-retry"
-        )
-        assert config.app_logger_name == "custom-app"
-        assert config.http_plugin_logger_name == "custom-http"
-        assert config.retry_logger_name == "custom-retry"
-
-
 class TestAppConfig:
     """Tests for AppConfig."""
 
@@ -117,7 +91,6 @@ class TestAppConfig:
         assert isinstance(config.network, NetworkConfig)
         assert isinstance(config.endpoints, EndpointConfig)
         assert isinstance(config.auth, AuthConfig)
-        assert isinstance(config.logger, LoggerConfig)
 
         # Spot check some defaults
         assert config.network.default_port == 3978
@@ -126,11 +99,10 @@ class TestAppConfig:
 
     def test_custom_network_config(self):
         """Test that AppConfig accepts custom NetworkConfig."""
-        network = NetworkConfig(default_port=5000, user_agent="CustomBot/1.0")
+        network = NetworkConfig(default_port=5000)
         config = AppConfig(network=network)
 
         assert config.network.default_port == 5000
-        assert config.network.user_agent == "CustomBot/1.0"
         # Other sub-configs should still have defaults
         assert config.endpoints.activity_path == "/api/messages"
 
@@ -150,13 +122,11 @@ class TestAppConfig:
             network=NetworkConfig(default_port=9000),
             endpoints=EndpointConfig(activity_path="/custom/api"),
             auth=AuthConfig(jwt_leeway_seconds=120),
-            logger=LoggerConfig(app_logger_name="my-app"),
         )
 
         assert config.network.default_port == 9000
         assert config.endpoints.activity_path == "/custom/api"
         assert config.auth.jwt_leeway_seconds == 120
-        assert config.logger.app_logger_name == "my-app"
 
     def test_config_immutability(self):
         """Test that config values can be modified after creation."""
