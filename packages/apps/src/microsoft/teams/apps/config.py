@@ -5,7 +5,6 @@ Licensed under the MIT License.
 
 import os
 from dataclasses import dataclass, field
-from typing import Optional
 
 
 def _get_default_port() -> int:
@@ -17,99 +16,75 @@ def _get_default_port() -> int:
 class NetworkConfig:
     """Network and HTTP server configuration."""
 
-    default_port: Optional[int] = None
+    default_port: int = field(default_factory=_get_default_port)
     """Default port for HTTP server (overridden by PORT env var if not provided)"""
-
-    def __post_init__(self):
-        """Initialize default values from environment variables."""
-        if self.default_port is None:
-            self.default_port = _get_default_port()
 
 
 @dataclass
 class EndpointConfig:
     """API endpoint URLs and paths."""
 
-    bot_api_base_url: Optional[str] = None
+    bot_api_base_url: str = field(
+        default_factory=lambda: os.getenv("BOT_API_BASE_URL", "https://smba.trafficmanager.net/teams")
+    )
     """Base URL for Bot Framework API (uses BOT_API_BASE_URL env var or default)"""
 
-    activity_path: Optional[str] = None
+    activity_path: str = field(default_factory=lambda: os.getenv("ACTIVITY_PATH", "/api/messages"))
     """HTTP endpoint path for receiving activities (uses ACTIVITY_PATH env var or default)"""
 
-    health_check_path: Optional[str] = None
+    health_check_path: str = field(default_factory=lambda: os.getenv("HEALTH_CHECK_PATH", "/"))
     """HTTP endpoint for health checks (uses HEALTH_CHECK_PATH env var or default)"""
-
-    def __post_init__(self):
-        """Initialize default values from environment variables."""
-        if self.bot_api_base_url is None:
-            self.bot_api_base_url = os.getenv("BOT_API_BASE_URL", "https://smba.trafficmanager.net/teams")
-        if self.activity_path is None:
-            self.activity_path = os.getenv("ACTIVITY_PATH", "/api/messages")
-        if self.health_check_path is None:
-            self.health_check_path = os.getenv("HEALTH_CHECK_PATH", "/")
 
 
 @dataclass
 class AuthConfig:
     """Authentication and security configuration."""
 
-    jwt_leeway_seconds: Optional[int] = None
+    jwt_leeway_seconds: int = field(default_factory=lambda: int(os.getenv("JWT_LEEWAY_SECONDS", "300")))
     """Clock skew tolerance for JWT validation (seconds, uses JWT_LEEWAY_SECONDS env var or default)"""
 
-    bot_framework_issuer: Optional[str] = None
+    bot_framework_issuer: str = field(
+        default_factory=lambda: os.getenv("BOT_FRAMEWORK_ISSUER", "https://api.botframework.com")
+    )
     """Valid issuer for Bot Framework service tokens (uses BOT_FRAMEWORK_ISSUER env var or default)"""
 
-    bot_framework_jwks_uri: Optional[str] = None
+    bot_framework_jwks_uri: str = field(
+        default_factory=lambda: os.getenv(
+            "BOT_FRAMEWORK_JWKS_URI", "https://login.botframework.com/v1/.well-known/keys"
+        )
+    )
     """JWKS endpoint for Bot Framework token validation (uses BOT_FRAMEWORK_JWKS_URI env var or default)"""
 
-    entra_id_issuer_template: Optional[str] = None
+    entra_id_issuer_template: str = field(
+        default_factory=lambda: os.getenv(
+            "ENTRA_ID_ISSUER_TEMPLATE", "https://login.microsoftonline.com/{tenant_id}/v2.0"
+        )
+    )
     """Template for Entra ID issuer URL (uses ENTRA_ID_ISSUER_TEMPLATE env var or default)"""
 
-    entra_id_jwks_uri_template: Optional[str] = None
+    entra_id_jwks_uri_template: str = field(
+        default_factory=lambda: os.getenv(
+            "ENTRA_ID_JWKS_URI_TEMPLATE",
+            "https://login.microsoftonline.com/{tenant_id}/discovery/v2.0/keys",
+        )
+    )
     """Template for Entra ID JWKS endpoint (uses ENTRA_ID_JWKS_URI_TEMPLATE env var or default)"""
 
-    default_graph_tenant_id: Optional[str] = None
+    default_graph_tenant_id: str = field(
+        default_factory=lambda: os.getenv("DEFAULT_GRAPH_TENANT_ID", "botframework.com")
+    )
     """Default tenant ID for Graph API tokens (uses DEFAULT_GRAPH_TENANT_ID env var or default)"""
-
-    def __post_init__(self):
-        """Initialize default values from environment variables."""
-        if self.jwt_leeway_seconds is None:
-            self.jwt_leeway_seconds = int(os.getenv("JWT_LEEWAY_SECONDS", "300"))
-        if self.bot_framework_issuer is None:
-            self.bot_framework_issuer = os.getenv("BOT_FRAMEWORK_ISSUER", "https://api.botframework.com")
-        if self.bot_framework_jwks_uri is None:
-            self.bot_framework_jwks_uri = os.getenv(
-                "BOT_FRAMEWORK_JWKS_URI", "https://login.botframework.com/v1/.well-known/keys"
-            )
-        if self.entra_id_issuer_template is None:
-            self.entra_id_issuer_template = os.getenv(
-                "ENTRA_ID_ISSUER_TEMPLATE", "https://login.microsoftonline.com/{tenant_id}/v2.0"
-            )
-        if self.entra_id_jwks_uri_template is None:
-            self.entra_id_jwks_uri_template = os.getenv(
-                "ENTRA_ID_JWKS_URI_TEMPLATE",
-                "https://login.microsoftonline.com/{tenant_id}/discovery/v2.0/keys",
-            )
-        if self.default_graph_tenant_id is None:
-            self.default_graph_tenant_id = os.getenv("DEFAULT_GRAPH_TENANT_ID", "botframework.com")
 
 
 @dataclass
 class SignInConfig:
     """Sign-in UI configuration."""
 
-    oauth_card_text: Optional[str] = None
+    oauth_card_text: str = field(default_factory=lambda: os.getenv("OAUTH_CARD_TEXT", "Please Sign In..."))
     """Default text for OAuth card (uses OAUTH_CARD_TEXT env var or default)"""
 
-    sign_in_button_text: Optional[str] = None
+    sign_in_button_text: str = field(default_factory=lambda: os.getenv("SIGN_IN_BUTTON_TEXT", "Sign In"))
     """Default text for sign-in button (uses SIGN_IN_BUTTON_TEXT env var or default)"""
-
-    def __post_init__(self):
-        """Initialize default values from environment variables."""
-        if self.oauth_card_text is None:
-            self.oauth_card_text = os.getenv("OAUTH_CARD_TEXT", "Please Sign In...")
-        if self.sign_in_button_text is None:
-            self.sign_in_button_text = os.getenv("SIGN_IN_BUTTON_TEXT", "Sign In")
 
 
 @dataclass
