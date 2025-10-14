@@ -9,7 +9,7 @@ from contextlib import AsyncExitStack, asynccontextmanager
 from logging import Logger
 from pathlib import Path
 from types import SimpleNamespace
-from typing import TYPE_CHECKING, Annotated, Any, AsyncGenerator, Awaitable, Callable, Dict, Optional, cast
+from typing import Annotated, Any, AsyncGenerator, Awaitable, Callable, Dict, Optional, cast
 
 import uvicorn
 from fastapi import FastAPI, Request, Response
@@ -28,12 +28,10 @@ from microsoft.teams.common.http.client import Client, ClientOptions
 from microsoft.teams.common.logging import ConsoleLogger
 from pydantic import BaseModel, ValidationError
 from starlette.applications import Starlette
-
-if TYPE_CHECKING:
-    from .config import AppConfig
 from starlette.types import Lifespan
 
 from .auth import create_jwt_validation_middleware
+from .config import AppConfig
 from .events import ActivityEvent, ErrorEvent
 from .plugins import (
     DependencyMetadata,
@@ -73,10 +71,8 @@ class HttpPlugin(Sender):
         app_id: Optional[str],
         logger: Optional[Logger] = None,
         skip_auth: bool = False,
-        config: Optional["AppConfig"] = None,
+        config: Optional[AppConfig] = None,
     ):
-        from .config import AppConfig
-
         super().__init__()
         self.logger = logger or ConsoleLogger().create_logger("@teams/http-plugin")
         self.config = config or AppConfig()

@@ -311,15 +311,31 @@ class App(ActivityHandlerMixin):
 
     def _init_credentials(self) -> Optional[Credentials]:
         """Initialize authentication credentials from options and environment."""
-        # Use credentials from config if available, otherwise fall back to options
+        # If config.credentials not provided, update it with values from options
+        if not self.config.credentials:
+            from .config import CredentialsConfig
+
+            client_id = self.options.client_id or os.getenv("CLIENT_ID")
+            client_secret = self.options.client_secret or os.getenv("CLIENT_SECRET")
+            tenant_id = self.options.tenant_id or os.getenv("TENANT_ID")
+
+            # Only create CredentialsConfig if at least one value is provided
+            if client_id or client_secret or tenant_id:
+                self.config.credentials = CredentialsConfig(
+                    client_id=client_id,
+                    client_secret=client_secret,
+                    tenant_id=tenant_id
+                )
+
+        # Now use config as the source of truth
         if self.config.credentials:
             client_id = self.config.credentials.client_id
             client_secret = self.config.credentials.client_secret
             tenant_id = self.config.credentials.tenant_id
         else:
-            client_id = self.options.client_id or os.getenv("CLIENT_ID")
-            client_secret = self.options.client_secret or os.getenv("CLIENT_SECRET")
-            tenant_id = self.options.tenant_id or os.getenv("TENANT_ID")
+            client_id = None
+            client_secret = None
+            tenant_id = None
 
         token = self.options.token
 
