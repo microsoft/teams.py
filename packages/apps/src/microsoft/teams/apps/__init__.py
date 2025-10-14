@@ -12,6 +12,7 @@ from .config import (
     AuthConfig,
     EndpointConfig,
     NetworkConfig,
+    SignInConfig,
 )
 from .contexts import *  # noqa: F403
 from .events import *  # noqa: F401, F403
@@ -29,6 +30,7 @@ __all__: list[str] = [
     "NetworkConfig",
     "EndpointConfig",
     "AuthConfig",
+    "SignInConfig",
     "HttpPlugin",
     "HttpStream",
     "ActivityContext",

@@ -11,6 +11,7 @@ from microsoft.teams.apps.config import (
     AuthConfig,
     EndpointConfig,
     NetworkConfig,
+    SignInConfig,
 )
 
 
@@ -124,6 +125,39 @@ class TestAuthConfig:
         assert config.jwt_leeway_seconds == 900
 
 
+class TestSignInConfig:
+    """Tests for SignInConfig."""
+
+    def test_default_values(self):
+        """Test that SignInConfig has correct default values."""
+        config = SignInConfig()
+        assert config.oauth_card_text == "Please Sign In..."
+        assert config.sign_in_button_text == "Sign In"
+
+    def test_custom_values(self):
+        """Test that SignInConfig accepts custom values."""
+        config = SignInConfig(
+            oauth_card_text="Custom Sign In Text",
+            sign_in_button_text="Custom Button",
+        )
+        assert config.oauth_card_text == "Custom Sign In Text"
+        assert config.sign_in_button_text == "Custom Button"
+
+    def test_env_vars(self, monkeypatch):
+        """Test that SignInConfig uses environment variables."""
+        monkeypatch.setenv("OAUTH_CARD_TEXT", "Env Card Text")
+        monkeypatch.setenv("SIGN_IN_BUTTON_TEXT", "Env Button")
+        config = SignInConfig()
+        assert config.oauth_card_text == "Env Card Text"
+        assert config.sign_in_button_text == "Env Button"
+
+    def test_explicit_overrides_env_vars(self, monkeypatch):
+        """Test that explicit values override env vars."""
+        monkeypatch.setenv("OAUTH_CARD_TEXT", "Env Card Text")
+        config = SignInConfig(oauth_card_text="Explicit Card Text")
+        assert config.oauth_card_text == "Explicit Card Text"
+
+
 class TestAppConfig:
     """Tests for AppConfig."""
 
@@ -135,11 +169,13 @@ class TestAppConfig:
         assert isinstance(config.network, NetworkConfig)
         assert isinstance(config.endpoints, EndpointConfig)
         assert isinstance(config.auth, AuthConfig)
+        assert isinstance(config.signin, SignInConfig)
 
         # Spot check some defaults
         assert config.network.default_port == 3978
         assert config.endpoints.activity_path == "/api/messages"
         assert config.auth.jwt_leeway_seconds == 300
+        assert config.signin.oauth_card_text == "Please Sign In..."
 
     def test_custom_network_config(self):
         """Test that AppConfig accepts custom NetworkConfig."""

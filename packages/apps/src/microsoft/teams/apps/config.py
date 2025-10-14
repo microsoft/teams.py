@@ -95,6 +95,24 @@ class AuthConfig:
 
 
 @dataclass
+class SignInConfig:
+    """Sign-in UI configuration."""
+
+    oauth_card_text: Optional[str] = None
+    """Default text for OAuth card (uses OAUTH_CARD_TEXT env var or default)"""
+
+    sign_in_button_text: Optional[str] = None
+    """Default text for sign-in button (uses SIGN_IN_BUTTON_TEXT env var or default)"""
+
+    def __post_init__(self):
+        """Initialize default values from environment variables."""
+        if self.oauth_card_text is None:
+            self.oauth_card_text = os.getenv("OAUTH_CARD_TEXT", "Please Sign In...")
+        if self.sign_in_button_text is None:
+            self.sign_in_button_text = os.getenv("SIGN_IN_BUTTON_TEXT", "Sign In")
+
+
+@dataclass
 class AppConfig:
     """
     Centralized configuration for Teams application.
@@ -115,6 +133,7 @@ class AppConfig:
         network: Network and HTTP server settings
         endpoints: API endpoint URLs and paths
         auth: Authentication and security settings
+        signin: Sign-in UI settings
     """
 
     network: NetworkConfig = field(default_factory=NetworkConfig)
@@ -125,6 +144,9 @@ class AppConfig:
 
     auth: AuthConfig = field(default_factory=AuthConfig)
     """Authentication and security settings"""
+
+    signin: SignInConfig = field(default_factory=SignInConfig)
+    """Sign-in UI settings"""
 
 
 # Create a default singleton instance
