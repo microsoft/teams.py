@@ -20,7 +20,7 @@ def require_fields(fields: Dict[str, Optional[Any]], context: str, logger: Logge
         raise HTTPException(status_code=401, detail=message)
 
 
-def remote_function_jwt_validation(entra_token_validator: TokenValidator, logger: Logger):
+def remote_function_jwt_validation(logger: Logger, entra_token_validator: Optional[TokenValidator] = None):
     """
     Middleware to validate JWT for remote function calls.
     Args:
@@ -47,6 +47,9 @@ def remote_function_jwt_validation(entra_token_validator: TokenValidator, logger
             "header",
             logger,
         )
+
+        if not entra_token_validator:
+            raise HTTPException(status_code=500, detail="Token validator not configured")
 
         # Validate token
         token_payload = await entra_token_validator.validate_token(auth_token)
