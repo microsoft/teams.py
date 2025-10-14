@@ -29,6 +29,18 @@ class TestNetworkConfig:
         )
         assert config.default_port == 5000
 
+    def test_env_var_port(self, monkeypatch):
+        """Test that NetworkConfig uses PORT env var."""
+        monkeypatch.setenv("PORT", "8080")
+        config = NetworkConfig()
+        assert config.default_port == 8080
+
+    def test_explicit_overrides_env_var(self, monkeypatch):
+        """Test that explicit values override env vars."""
+        monkeypatch.setenv("PORT", "8080")
+        config = NetworkConfig(default_port=9000)
+        assert config.default_port == 9000
+
 
 class TestEndpointConfig:
     """Tests for EndpointConfig."""
@@ -50,6 +62,22 @@ class TestEndpointConfig:
         assert config.bot_api_base_url == "https://custom.api.com"
         assert config.activity_path == "/custom/messages"
         assert config.health_check_path == "/health"
+
+    def test_env_vars(self, monkeypatch):
+        """Test that EndpointConfig uses environment variables."""
+        monkeypatch.setenv("BOT_API_BASE_URL", "https://env.api.com")
+        monkeypatch.setenv("ACTIVITY_PATH", "/env/messages")
+        monkeypatch.setenv("HEALTH_CHECK_PATH", "/env/health")
+        config = EndpointConfig()
+        assert config.bot_api_base_url == "https://env.api.com"
+        assert config.activity_path == "/env/messages"
+        assert config.health_check_path == "/env/health"
+
+    def test_explicit_overrides_env_vars(self, monkeypatch):
+        """Test that explicit values override env vars."""
+        monkeypatch.setenv("BOT_API_BASE_URL", "https://env.api.com")
+        config = EndpointConfig(bot_api_base_url="https://explicit.api.com")
+        assert config.bot_api_base_url == "https://explicit.api.com"
 
 
 class TestAuthConfig:
@@ -78,6 +106,22 @@ class TestAuthConfig:
         assert config.jwt_leeway_seconds == 600
         assert config.bot_framework_issuer == "https://custom.issuer.com"
         assert config.default_graph_tenant_id == "custom.tenant.com"
+
+    def test_env_vars(self, monkeypatch):
+        """Test that AuthConfig uses environment variables."""
+        monkeypatch.setenv("JWT_LEEWAY_SECONDS", "600")
+        monkeypatch.setenv("BOT_FRAMEWORK_ISSUER", "https://env.issuer.com")
+        monkeypatch.setenv("DEFAULT_GRAPH_TENANT_ID", "env.tenant.com")
+        config = AuthConfig()
+        assert config.jwt_leeway_seconds == 600
+        assert config.bot_framework_issuer == "https://env.issuer.com"
+        assert config.default_graph_tenant_id == "env.tenant.com"
+
+    def test_explicit_overrides_env_vars(self, monkeypatch):
+        """Test that explicit values override env vars."""
+        monkeypatch.setenv("JWT_LEEWAY_SECONDS", "600")
+        config = AuthConfig(jwt_leeway_seconds=900)
+        assert config.jwt_leeway_seconds == 900
 
 
 class TestAppConfig:
@@ -144,3 +188,15 @@ class TestAppConfig:
         )
 
         assert isinstance(config.network.default_port, int)
+
+    def test_env_vars_propagate(self, monkeypatch):
+        """Test that env vars propagate through AppConfig."""
+        monkeypatch.setenv("PORT", "7070")
+        monkeypatch.setenv("ACTIVITY_PATH", "/env/api")
+        monkeypatch.setenv("JWT_LEEWAY_SECONDS", "450")
+
+        config = AppConfig()
+
+        assert config.network.default_port == 7070
+        assert config.endpoints.activity_path == "/env/api"
+        assert config.auth.jwt_leeway_seconds == 450
