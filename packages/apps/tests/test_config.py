@@ -5,7 +5,6 @@ Licensed under the MIT License.
 Tests for the AppConfig and related configuration classes.
 """
 
-import pytest
 
 from microsoft.teams.apps.config import (
     AppConfig,
