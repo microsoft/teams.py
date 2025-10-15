@@ -14,11 +14,6 @@ from microsoft.teams.apps import ActivityContext
 from pydantic import BaseModel
 
 
-class SearchPokemonParams(BaseModel):
-    pokemon_name: str
-    """The name of the pokemon."""
-
-
 class GetLocationParams(BaseModel):
     """No parameters needed for location"""
 
@@ -30,13 +25,16 @@ class GetWeatherParams(BaseModel):
     """The location to get weather for"""
 
 
-async def pokemon_search_handler(params: SearchPokemonParams) -> str:
+async def pokemon_search_handler(params: BaseModel) -> str:
     """Search for Pokemon using PokeAPI - matches documentation example"""
     try:
+        pokemon_name = getattr(params, "pokemon_name", None)
+        if not pokemon_name:
+            raise ValueError("Missing required parameter 'pokemon_name'")
         async with aiohttp.ClientSession() as session:
-            async with session.get(f"https://pokeapi.co/api/v2/pokemon/{params.pokemon_name.lower()}") as response:
+            async with session.get(f"https://pokeapi.co/api/v2/pokemon/{pokemon_name.lower()}") as response:
                 if response.status != 200:
-                    raise ValueError(f"Pokemon '{params.pokemon_name}' not found")
+                    raise ValueError(f"Pokemon '{pokemon_name}' not found")
 
                 data = await response.json()
 
@@ -55,12 +53,17 @@ async def pokemon_search_handler(params: SearchPokemonParams) -> str:
 async def handle_pokemon_search(model: AIModel, ctx: ActivityContext[MessageActivity]) -> None:
     """Handle single function calling - Pokemon search"""
     agent = Agent(model)
+
     agent.with_function(
         Function(
             name="pokemon_search",
             description="Search for pokemon information including height, weight, and types",
-            parameter_schema=SearchPokemonParams,
-            handler=pokemon_search_handler,
+            parameter_schema={
+                "type": "object",
+                "properties": {"pokemon_name": {"type": "string"}},
+                "required": ["pokemon_name"],
+            },
+            handler=pokemon_search_handler,  # type: ignore
         )
     )
 

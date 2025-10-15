@@ -6,7 +6,7 @@ Licensed under the MIT License.
 from typing import Any, Dict, Optional
 
 from microsoft.teams.ai import Function
-from pydantic import BaseModel, create_model
+from pydantic import BaseModel, Field
 
 
 def get_function_schema(func: Function[BaseModel]) -> Dict[str, Any]:
@@ -53,7 +53,30 @@ def parse_function_arguments(func: Function[BaseModel], arguments: Dict[str, Any
 
     if isinstance(func.parameter_schema, dict):
         # For dict schemas, create a simple BaseModel dynamically
-        DynamicModel = create_model("DynamicParams")
+        schema = func.parameter_schema
+        props = schema.get("properties", {})
+        required = set(schema.get("required", []))
+
+        def map_type(json_type: str) -> Any:
+            """Map JSON Schema types to Python types"""
+            return {
+                "string": str,
+                "integer": int,
+                "number": float,
+                "boolean": bool,
+                "array": list,
+                "object": dict,
+            }.get(json_type, Any)
+
+        attrs: Dict[str, Any] = {}
+        annotations: Dict[str, Any] = {}
+        for name, details in props.items():
+            annotations[name] = map_type(details.get("type"))
+            default = ... if name in required else None
+            attrs[name] = Field(default=default, description=details.get("description", ""))
+
+        DynamicModel = type("DynamicParams", (BaseModel,), {"__annotations__": annotations, **attrs})
+
         return DynamicModel(**arguments)
     else:
         # For Pydantic model schemas, parse normally
