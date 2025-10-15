@@ -3,9 +3,10 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from typing import Any, Dict, Literal, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 from .custom_base_model import CustomBaseModel
+from .membership_source import MembershipSource
 
 AccountRole = Literal["user", "bot"]
 
@@ -35,6 +36,7 @@ class Account(CustomBaseModel):
     """
     The name of the account.
     """
+    membershipSources: Optional[List[MembershipSource]] = None
 
 
 class ConversationAccount(CustomBaseModel):
