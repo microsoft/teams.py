@@ -346,7 +346,7 @@ class HttpPlugin(Sender):
             """Basic health check endpoint."""
             return {"status": "healthy", "port": self._port}
 
-        self.app.get(self.config.endpoints.health_check_path)(health_check)
+        self.app.get("/")(health_check)
 
     def create_stream(self, ref: ConversationReference) -> StreamerProtocol:
         """Create a new streaming instance."""

@@ -25,56 +25,20 @@ class NetworkConfig:
 class EndpointConfig:
     """API endpoint URLs and paths."""
 
-    bot_api_base_url: str = field(
-        default_factory=lambda: os.getenv("BOT_API_BASE_URL", "https://smba.trafficmanager.net/teams")
+    api_base_url: str = field(
+        default_factory=lambda: os.getenv("API_BASE_URL", "https://smba.trafficmanager.net/teams")
     )
-    """Base URL for Bot Framework API (uses BOT_API_BASE_URL env var or default)"""
+    """Base URL for Bot Framework API (uses API_BASE_URL env var or default)"""
 
     activity_path: str = field(default_factory=lambda: os.getenv("ACTIVITY_PATH", "/api/messages"))
     """HTTP endpoint path for receiving activities (uses ACTIVITY_PATH env var or default)"""
-
-    health_check_path: str = field(default_factory=lambda: os.getenv("HEALTH_CHECK_PATH", "/"))
-    """HTTP endpoint for health checks (uses HEALTH_CHECK_PATH env var or default)"""
 
 
 @dataclass
 class AuthConfig:
     """Authentication and security configuration."""
 
-    jwt_leeway_seconds: int = field(default_factory=lambda: int(os.getenv("JWT_LEEWAY_SECONDS", "300")))
-    """Clock skew tolerance for JWT validation (seconds, uses JWT_LEEWAY_SECONDS env var or default)"""
-
-    bot_framework_issuer: str = field(
-        default_factory=lambda: os.getenv("BOT_FRAMEWORK_ISSUER", "https://api.botframework.com")
-    )
-    """Valid issuer for Bot Framework service tokens (uses BOT_FRAMEWORK_ISSUER env var or default)"""
-
-    bot_framework_jwks_uri: str = field(
-        default_factory=lambda: os.getenv(
-            "BOT_FRAMEWORK_JWKS_URI", "https://login.botframework.com/v1/.well-known/keys"
-        )
-    )
-    """JWKS endpoint for Bot Framework token validation (uses BOT_FRAMEWORK_JWKS_URI env var or default)"""
-
-    entra_id_issuer_template: str = field(
-        default_factory=lambda: os.getenv(
-            "ENTRA_ID_ISSUER_TEMPLATE", "https://login.microsoftonline.com/{tenant_id}/v2.0"
-        )
-    )
-    """Template for Entra ID issuer URL (uses ENTRA_ID_ISSUER_TEMPLATE env var or default)"""
-
-    entra_id_jwks_uri_template: str = field(
-        default_factory=lambda: os.getenv(
-            "ENTRA_ID_JWKS_URI_TEMPLATE",
-            "https://login.microsoftonline.com/{tenant_id}/discovery/v2.0/keys",
-        )
-    )
-    """Template for Entra ID JWKS endpoint (uses ENTRA_ID_JWKS_URI_TEMPLATE env var or default)"""
-
-    default_graph_tenant_id: str = field(
-        default_factory=lambda: os.getenv("DEFAULT_GRAPH_TENANT_ID", "botframework.com")
-    )
-    """Default tenant ID for Graph API tokens (uses DEFAULT_GRAPH_TENANT_ID env var or default)"""
+    pass
 
 
 @dataclass

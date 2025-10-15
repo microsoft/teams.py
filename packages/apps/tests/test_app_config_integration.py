@@ -27,9 +27,8 @@ class TestAppConfigIntegration:
         """Test that App uses custom endpoints from AppConfig."""
         config = AppConfig(
             endpoints=EndpointConfig(
-                bot_api_base_url="https://custom.api.example.com",
+                api_base_url="https://custom.api.example.com",
                 activity_path="/custom/activity",
-                health_check_path="/custom/health",
             )
         )
         
@@ -38,7 +37,6 @@ class TestAppConfigIntegration:
         # Verify App uses the custom endpoint
         assert app.api.service_url == "https://custom.api.example.com"
         assert app.config.endpoints.activity_path == "/custom/activity"
-        assert app.config.endpoints.health_check_path == "/custom/health"
 
     def test_app_uses_credentials_from_config(self):
         """Test that App uses credentials from AppConfig."""
@@ -91,19 +89,19 @@ class TestAppConfigIntegration:
         # Should have default config
         assert app.config is not None
         assert app.config.network.default_port == 3978
-        assert app.config.endpoints.bot_api_base_url == "https://smba.trafficmanager.net/teams"
+        assert app.config.endpoints.api_base_url == "https://smba.trafficmanager.net/teams"
         assert app.config.endpoints.activity_path == "/api/messages"
 
     def test_config_env_vars_used_by_app(self, monkeypatch):
         """Test that App respects environment variables via AppConfig."""
         monkeypatch.setenv("PORT", "7777")
-        monkeypatch.setenv("BOT_API_BASE_URL", "https://env.api.example.com")
+        monkeypatch.setenv("API_BASE_URL", "https://env.api.example.com")
         
         app = App()
         
         # Config should use env vars
         assert app.config.network.default_port == 7777
-        assert app.config.endpoints.bot_api_base_url == "https://env.api.example.com"
+        assert app.config.endpoints.api_base_url == "https://env.api.example.com"
         assert app.api.service_url == "https://env.api.example.com"
 
     def test_explicit_config_overrides_env_vars(self, monkeypatch):
@@ -137,7 +135,6 @@ class TestAppConfigIntegration:
         config = AppConfig(
             endpoints=EndpointConfig(
                 activity_path="/custom/messages",
-                health_check_path="/custom/status",
             )
         )
         
@@ -145,4 +142,3 @@ class TestAppConfigIntegration:
         
         # Verify HttpPlugin got the config
         assert app.http.config.endpoints.activity_path == "/custom/messages"
-        assert app.http.config.endpoints.health_check_path == "/custom/status"

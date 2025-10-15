@@ -72,10 +72,7 @@ class App(ActivityHandlerMixin):
     def __init__(self, **options: Unpack[AppOptions]):
         self.options = InternalAppOptions.from_typeddict(options)
 
-        # Initialize config (use provided config or create default)
         self.config = self.options.config or AppConfig()
-
-        # Validate and merge credentials between AppConfig and AppOptions
         self._validate_and_merge_credentials()
 
         self.log = self.options.logger or ConsoleLogger().create_logger("@teams/app")
@@ -104,7 +101,7 @@ class App(ActivityHandlerMixin):
         self.container.set_provider(self.http_client.__class__.__name__, providers.Factory(lambda: self.http_client))
 
         self.api = ApiClient(
-            self.config.endpoints.bot_api_base_url,
+            self.config.endpoints.api_base_url,
             self.http_client.clone(ClientOptions(token=lambda: self.tokens.bot)),
         )
 
