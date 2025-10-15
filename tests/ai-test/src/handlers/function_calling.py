@@ -63,7 +63,7 @@ async def handle_pokemon_search(model: AIModel, ctx: ActivityContext[MessageActi
                 "properties": {"pokemon_name": {"type": "string"}},
                 "required": ["pokemon_name"],
             },
-            handler=pokemon_search_handler,  # type: ignore
+            handler=pokemon_search_handler,
         )
     )
 
