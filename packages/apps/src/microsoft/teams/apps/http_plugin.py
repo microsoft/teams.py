@@ -31,6 +31,7 @@ from starlette.applications import Starlette
 from starlette.types import Lifespan
 
 from .auth import create_jwt_validation_middleware
+from .config import AppConfig
 from .events import ActivityEvent, ErrorEvent
 from .plugins import (
     DependencyMetadata,
@@ -70,9 +71,11 @@ class HttpPlugin(Sender):
         app_id: Optional[str],
         logger: Optional[Logger] = None,
         skip_auth: bool = False,
+        config: Optional[AppConfig] = None,
     ):
         super().__init__()
         self.logger = logger or ConsoleLogger().create_logger("@teams/http-plugin")
+        self.config = config or AppConfig()
         self._server: Optional[uvicorn.Server] = None
         self._port: Optional[int] = None
         self._on_ready_callback: Optional[Callable[[], Awaitable[None]]] = None
@@ -108,7 +111,12 @@ class HttpPlugin(Sender):
         # Add JWT validation middleware
         if app_id and not skip_auth:
             jwt_middleware = create_jwt_validation_middleware(
-                app_id=app_id, logger=self.logger, paths=["/api/messages"]
+                app_id=app_id,
+                logger=self.logger,
+                paths=[self.config.endpoints.activity_path],
+                clock_tolerance=self.config.auth.jwt_leeway_seconds,
+                issuer=self.config.auth.bot_framework_issuer,
+                jwks_uri=self.config.auth.bot_framework_jwks_uri,
             )
             self.app.middleware("http")(jwt_middleware)
 
@@ -337,7 +345,7 @@ class HttpPlugin(Sender):
             self.logger.debug("Returning empty body")
             return response
 
-        self.app.post("/api/messages")(on_activity_request)
+        self.app.post(self.config.endpoints.activity_path)(on_activity_request)
 
         async def health_check() -> Dict[str, Any]:
             """Basic health check endpoint."""

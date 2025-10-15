@@ -35,6 +35,7 @@ from .app_process import ActivityProcessor
 from .app_tokens import AppTokens
 from .auth import TokenValidator
 from .auth.remote_function_jwt_middleware import remote_function_jwt_validation
+from .config import AppConfig
 from .container import Container
 from .contexts.function_context import FunctionContext
 from .events import (
@@ -71,6 +72,9 @@ class App(ActivityHandlerMixin):
     def __init__(self, **options: Unpack[AppOptions]):
         self.options = InternalAppOptions.from_typeddict(options)
 
+        self.config = self.options.config or AppConfig()
+        self._validate_and_merge_credentials()
+
         self.log = self.options.logger or ConsoleLogger().create_logger("@teams/app")
         self.storage = self.options.storage or LocalStorage()
 
@@ -97,7 +101,7 @@ class App(ActivityHandlerMixin):
         self.container.set_provider(self.http_client.__class__.__name__, providers.Factory(lambda: self.http_client))
 
         self.api = ApiClient(
-            "https://smba.trafficmanager.net/teams",
+            self.config.endpoints.api_base_url,
             self.http_client.clone(ClientOptions(token=lambda: self.tokens.bot)),
         )
 
@@ -116,7 +120,7 @@ class App(ActivityHandlerMixin):
             if self.credentials and hasattr(self.credentials, "client_id"):
                 app_id = self.credentials.client_id
 
-            http_plugin = HttpPlugin(app_id, self.log, self.options.skip_auth)
+            http_plugin = HttpPlugin(app_id, self.log, self.options.skip_auth, self.config)
 
         plugins.insert(0, http_plugin)
         self.http = cast(HttpPlugin, http_plugin)
@@ -155,7 +159,12 @@ class App(ActivityHandlerMixin):
 
         if self.credentials and hasattr(self.credentials, "client_id"):
             self.entra_token_validator = TokenValidator.for_entra(
-                self.credentials.client_id, self.credentials.tenant_id, logger=self.log
+                self.credentials.client_id,
+                self.credentials.tenant_id,
+                logger=self.log,
+                clock_tolerance=self.config.auth.jwt_leeway_seconds,
+                issuer_template=self.config.auth.entra_id_issuer_template,
+                jwks_uri_template=self.config.auth.entra_id_jwks_uri_template,
             )
 
     @property
@@ -216,7 +225,7 @@ class App(ActivityHandlerMixin):
             self.log.warning("App is already running")
             return
 
-        self._port = port or int(os.getenv("PORT", "3978"))
+        self._port = port or self.config.network.default_port
 
         try:
             await self._refresh_tokens(force=True)
@@ -304,9 +313,32 @@ class App(ActivityHandlerMixin):
 
     def _init_credentials(self) -> Optional[Credentials]:
         """Initialize authentication credentials from options and environment."""
-        client_id = self.options.client_id or os.getenv("CLIENT_ID")
-        client_secret = self.options.client_secret or os.getenv("CLIENT_SECRET")
-        tenant_id = self.options.tenant_id or os.getenv("TENANT_ID")
+        # If config.credentials not provided, update it with values from options
+        if not self.config.credentials:
+            from .config import CredentialsConfig
+
+            client_id = self.options.client_id or os.getenv("CLIENT_ID")
+            client_secret = self.options.client_secret or os.getenv("CLIENT_SECRET")
+            tenant_id = self.options.tenant_id or os.getenv("TENANT_ID")
+
+            # Only create CredentialsConfig if at least one value is provided
+            if client_id or client_secret or tenant_id:
+                self.config.credentials = CredentialsConfig(
+                    client_id=client_id,
+                    client_secret=client_secret,
+                    tenant_id=tenant_id
+                )
+
+        # Now use config as the source of truth
+        if self.config.credentials:
+            client_id = self.config.credentials.client_id
+            client_secret = self.config.credentials.client_secret
+            tenant_id = self.config.credentials.tenant_id
+        else:
+            client_id = None
+            client_secret = None
+            tenant_id = None
+
         token = self.options.token
 
         self.log.debug(f"Using CLIENT_ID: {client_id}")
@@ -324,6 +356,34 @@ class App(ActivityHandlerMixin):
             return TokenCredentials(client_id=client_id, tenant_id=tenant_id, token=token)
 
         return None
+
+    def _validate_and_merge_credentials(self) -> None:
+        """Validate and merge credentials between AppConfig and AppOptions."""
+        # If both AppConfig.credentials and AppOptions credentials are provided, validate they match
+        if self.config.credentials:
+            config_client_id = self.config.credentials.client_id
+            config_client_secret = self.config.credentials.client_secret
+            config_tenant_id = self.config.credentials.tenant_id
+
+            options_client_id = self.options.client_id or os.getenv("CLIENT_ID")
+            options_client_secret = self.options.client_secret or os.getenv("CLIENT_SECRET")
+            options_tenant_id = self.options.tenant_id or os.getenv("TENANT_ID")
+
+            # Check for conflicts
+            if options_client_id and config_client_id and options_client_id != config_client_id:
+                raise ValueError(
+                    f"Conflicting client_id: AppConfig has '{config_client_id}' "
+                    f"but AppOptions has '{options_client_id}'"
+                )
+            if options_client_secret and config_client_secret and options_client_secret != config_client_secret:
+                raise ValueError(
+                    "Conflicting client_secret: AppConfig and AppOptions have different values"
+                )
+            if options_tenant_id and config_tenant_id and options_tenant_id != config_tenant_id:
+                raise ValueError(
+                    f"Conflicting tenant_id: AppConfig has '{config_tenant_id}' "
+                    f"but AppOptions has '{options_tenant_id}'"
+                )
 
     async def _refresh_tokens(self, force: bool = False) -> None:
         """Refresh bot and graph tokens."""

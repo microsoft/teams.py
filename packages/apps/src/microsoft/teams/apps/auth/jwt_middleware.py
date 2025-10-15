@@ -17,6 +17,9 @@ def create_jwt_validation_middleware(
     app_id: str,
     logger: Logger,
     paths: list[str],
+    clock_tolerance: int = 300,
+    issuer: str = "https://api.botframework.com",
+    jwks_uri: str = "https://login.botframework.com/v1/.well-known/keys",
 ):
     """
     Create JWT validation middleware instance.
@@ -25,12 +28,17 @@ def create_jwt_validation_middleware(
         app_id: Bot's Microsoft App ID for audience validation
         logger: Logger instance
         paths: List of paths to validate
+        clock_tolerance: Allowable clock skew when validating JWTs
+        issuer: Valid issuer for Bot Framework service tokens
+        jwks_uri: JWKS endpoint for Bot Framework token validation
 
     Returns:
         Middleware function that can be added to FastAPI app
     """
     # Create service token validator
-    token_validator = TokenValidator.for_service(app_id, logger)
+    token_validator = TokenValidator.for_service(
+        app_id, logger, clock_tolerance=clock_tolerance, issuer=issuer, jwks_uri=jwks_uri
+    )
 
     async def middleware(request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
         """JWT validation middleware function."""

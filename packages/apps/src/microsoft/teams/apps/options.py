@@ -10,6 +10,7 @@ from typing import Any, Awaitable, Callable, List, Optional, TypedDict, Union, c
 from microsoft.teams.common import Storage
 from typing_extensions import Unpack
 
+from .config import AppConfig
 from .plugins import PluginBase
 
 
@@ -32,6 +33,9 @@ class AppOptions(TypedDict, total=False):
     # Oauth
     default_connection_name: Optional[str]
 
+    # Configuration
+    config: Optional[AppConfig]
+
 
 @dataclass
 class InternalAppOptions:
@@ -49,6 +53,7 @@ class InternalAppOptions:
     token: Optional[Callable[[Union[str, list[str]], Optional[str]], Union[str, Awaitable[str]]]] = None
     logger: Optional[Logger] = None
     storage: Optional[Storage[str, Any]] = None
+    config: Optional[AppConfig] = None
 
     @classmethod
     def from_typeddict(cls, options: AppOptions) -> "InternalAppOptions":

@@ -7,6 +7,14 @@ from . import auth, contexts, events, plugins
 from .app import App
 from .app_tokens import AppTokens
 from .auth import *  # noqa: F403
+from .config import (
+    AppConfig,
+    AuthConfig,
+    CredentialsConfig,
+    EndpointConfig,
+    NetworkConfig,
+    SignInConfig,
+)
 from .contexts import *  # noqa: F403
 from .events import *  # noqa: F401, F403
 from .http_plugin import HttpPlugin
@@ -16,7 +24,20 @@ from .plugins import *  # noqa: F401, F403
 from .routing import ActivityContext
 
 # Combine all exports from submodules
-__all__: list[str] = ["App", "AppOptions", "HttpPlugin", "HttpStream", "ActivityContext", "AppTokens"]
+__all__: list[str] = [
+    "App",
+    "AppOptions",
+    "AppConfig",
+    "NetworkConfig",
+    "EndpointConfig",
+    "AuthConfig",
+    "SignInConfig",
+    "CredentialsConfig",
+    "HttpPlugin",
+    "HttpStream",
+    "ActivityContext",
+    "AppTokens",
+]
 __all__.extend(auth.__all__)
 __all__.extend(events.__all__)
 __all__.extend(plugins.__all__)
