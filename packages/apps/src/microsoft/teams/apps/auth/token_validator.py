@@ -49,7 +49,13 @@ class TokenValidator:
     # ----- Factory constructors -----
     @classmethod
     def for_service(
-        cls, app_id: str, logger: Optional[Logger] = None, service_url: Optional[str] = None
+        cls,
+        app_id: str,
+        logger: Optional[Logger] = None,
+        service_url: Optional[str] = None,
+        clock_tolerance: int = JWT_LEEWAY_SECONDS,
+        issuer: str = "https://api.botframework.com",
+        jwks_uri: str = "https://login.botframework.com/v1/.well-known/keys",
     ) -> "TokenValidator":
         """Create a validator for Bot Framework service tokens.
 
@@ -58,19 +64,30 @@ class TokenValidator:
         Args:
             app_id: The bot's Microsoft App ID (used for audience validation)
             service_url: Optional service URL to validate against token claims
-            logger: Optional logger instance"""
+            logger: Optional logger instance
+            clock_tolerance: Allowable clock skew when validating JWTs
+            issuer: Valid issuer for Bot Framework service tokens
+            jwks_uri: JWKS endpoint for Bot Framework token validation"""
 
         options = JwtValidationOptions(
-            valid_issuers=["https://api.botframework.com"],
+            valid_issuers=[issuer],
             valid_audiences=[app_id, f"api://{app_id}"],
-            jwks_uri="https://login.botframework.com/v1/.well-known/keys",
+            jwks_uri=jwks_uri,
             service_url=service_url,
+            clock_tolerance=clock_tolerance,
         )
         return cls(options, logger)
 
     @classmethod
     def for_entra(
-        cls, app_id: str, tenant_id: Optional[str], scope: Optional[str] = None, logger: Optional[Logger] = None
+        cls,
+        app_id: str,
+        tenant_id: Optional[str],
+        scope: Optional[str] = None,
+        logger: Optional[Logger] = None,
+        clock_tolerance: int = JWT_LEEWAY_SECONDS,
+        issuer_template: str = "https://login.microsoftonline.com/{tenant_id}/v2.0",
+        jwks_uri_template: str = "https://login.microsoftonline.com/{tenant_id}/discovery/v2.0/keys",
     ) -> "TokenValidator":
         """Create a validator for Entra ID tokens.
 
@@ -79,18 +96,22 @@ class TokenValidator:
             tenant_id: The Azure AD tenant ID
             scope: Optional scope that must be present in the token
             logger: Optional logger instance
+            clock_tolerance: Allowable clock skew when validating JWTs
+            issuer_template: Template for Entra ID issuer URL (can contain {tenant_id} placeholder)
+            jwks_uri_template: Template for Entra ID JWKS URI (can contain {tenant_id} placeholder)
 
         """
 
         valid_issuers: List[str] = []
         if tenant_id:
-            valid_issuers.append(f"https://login.microsoftonline.com/{tenant_id}/v2.0")
-        tenant_id = tenant_id or "common"
+            valid_issuers.append(issuer_template.format(tenant_id=tenant_id))
+        tenant_id_for_jwks = tenant_id or "common"
         options = JwtValidationOptions(
             valid_issuers=valid_issuers,
             valid_audiences=[app_id, f"api://{app_id}"],
-            jwks_uri=f"https://login.microsoftonline.com/{tenant_id}/discovery/v2.0/keys",
+            jwks_uri=jwks_uri_template.format(tenant_id=tenant_id_for_jwks),
             scope=scope,
+            clock_tolerance=clock_tolerance,
         )
         return cls(options, logger)
 
@@ -134,7 +155,7 @@ class TokenValidator:
                     "verify_exp": True,
                     "verify_iat": True,
                 },
-                leeway=JWT_LEEWAY_SECONDS,
+                leeway=self.options.clock_tolerance,
             )
 
             # Optional service URL validation

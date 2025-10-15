@@ -83,8 +83,49 @@ class TestAuthConfig:
     def test_default_values(self):
         """Test that AuthConfig has correct default values."""
         config = AuthConfig()
-        # AuthConfig is now empty placeholder for future auth settings
-        assert config is not None
+        assert config.jwt_leeway_seconds == 300
+        assert config.bot_framework_issuer == "https://api.botframework.com"
+        assert config.bot_framework_jwks_uri == "https://login.botframework.com/v1/.well-known/keys"
+        assert config.entra_id_issuer_template == "https://login.microsoftonline.com/{tenant_id}/v2.0"
+        assert (
+            config.entra_id_jwks_uri_template
+            == "https://login.microsoftonline.com/{tenant_id}/discovery/v2.0/keys"
+        )
+
+    def test_custom_values(self):
+        """Test that AuthConfig accepts custom values."""
+        config = AuthConfig(
+            jwt_leeway_seconds=600,
+            bot_framework_issuer="https://custom.botframework.com",
+            bot_framework_jwks_uri="https://custom.keys.com",
+            entra_id_issuer_template="https://custom.entra.com/{tenant_id}/v2.0",
+            entra_id_jwks_uri_template="https://custom.entra.com/{tenant_id}/keys",
+        )
+        assert config.jwt_leeway_seconds == 600
+        assert config.bot_framework_issuer == "https://custom.botframework.com"
+        assert config.bot_framework_jwks_uri == "https://custom.keys.com"
+        assert config.entra_id_issuer_template == "https://custom.entra.com/{tenant_id}/v2.0"
+        assert config.entra_id_jwks_uri_template == "https://custom.entra.com/{tenant_id}/keys"
+
+    def test_env_vars(self, monkeypatch):
+        """Test that AuthConfig uses environment variables."""
+        monkeypatch.setenv("JWT_LEEWAY_SECONDS", "900")
+        monkeypatch.setenv("BOT_FRAMEWORK_ISSUER", "https://env.botframework.com")
+        monkeypatch.setenv("BOT_FRAMEWORK_JWKS_URI", "https://env.keys.com")
+        monkeypatch.setenv("ENTRA_ID_ISSUER_TEMPLATE", "https://env.entra.com/{tenant_id}/v2.0")
+        monkeypatch.setenv("ENTRA_ID_JWKS_URI_TEMPLATE", "https://env.entra.com/{tenant_id}/keys")
+        config = AuthConfig()
+        assert config.jwt_leeway_seconds == 900
+        assert config.bot_framework_issuer == "https://env.botframework.com"
+        assert config.bot_framework_jwks_uri == "https://env.keys.com"
+        assert config.entra_id_issuer_template == "https://env.entra.com/{tenant_id}/v2.0"
+        assert config.entra_id_jwks_uri_template == "https://env.entra.com/{tenant_id}/keys"
+
+    def test_explicit_overrides_env_vars(self, monkeypatch):
+        """Test that explicit values override environment variables."""
+        monkeypatch.setenv("JWT_LEEWAY_SECONDS", "900")
+        config = AuthConfig(jwt_leeway_seconds=1200)
+        assert config.jwt_leeway_seconds == 1200
 
 
 class TestSignInConfig:

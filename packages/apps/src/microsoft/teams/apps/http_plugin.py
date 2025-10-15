@@ -111,7 +111,12 @@ class HttpPlugin(Sender):
         # Add JWT validation middleware
         if app_id and not skip_auth:
             jwt_middleware = create_jwt_validation_middleware(
-                app_id=app_id, logger=self.logger, paths=[self.config.endpoints.activity_path]
+                app_id=app_id,
+                logger=self.logger,
+                paths=[self.config.endpoints.activity_path],
+                clock_tolerance=self.config.auth.jwt_leeway_seconds,
+                issuer=self.config.auth.bot_framework_issuer,
+                jwks_uri=self.config.auth.bot_framework_jwks_uri,
             )
             self.app.middleware("http")(jwt_middleware)
 

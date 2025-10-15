@@ -159,7 +159,12 @@ class App(ActivityHandlerMixin):
 
         if self.credentials and hasattr(self.credentials, "client_id"):
             self.entra_token_validator = TokenValidator.for_entra(
-                self.credentials.client_id, self.credentials.tenant_id, logger=self.log
+                self.credentials.client_id,
+                self.credentials.tenant_id,
+                logger=self.log,
+                clock_tolerance=self.config.auth.jwt_leeway_seconds,
+                issuer_template=self.config.auth.entra_id_issuer_template,
+                jwks_uri_template=self.config.auth.entra_id_jwks_uri_template,
             )
 
     @property
