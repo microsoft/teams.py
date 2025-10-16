@@ -20,7 +20,7 @@ def require_fields(fields: Dict[str, Optional[Any]], context: str, logger: Logge
         raise HTTPException(status_code=401, detail=message)
 
 
-def remote_function_jwt_validation(logger: Logger, entra_token_validator: Optional[TokenValidator] = None):
+def remote_function_jwt_validation(logger: Logger, entra_token_validator: Optional[TokenValidator]):
     """
     Middleware to validate JWT for remote function calls.
     Args:
