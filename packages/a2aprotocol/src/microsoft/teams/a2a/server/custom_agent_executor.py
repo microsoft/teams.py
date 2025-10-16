@@ -12,6 +12,8 @@ from a2a.server.events import EventQueue
 from a2a.types import Message, Part, Role, Task, TextPart
 
 type Respond = Callable[[Union[str, Message, Task]], Awaitable[None]]
+
+# This key MUST be used for A2A message events.
 A2AMessageEventKey = "a2a:message"
 
 
