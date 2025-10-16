@@ -11,7 +11,7 @@ license = "MIT"
 dependencies = [
     "microsoft-teams-ai",
     "microsoft-teams-common",
-    "openai>=1.102.0",
+    "openai==1.102.0",
     "python-dotenv",
 ]
 
