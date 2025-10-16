@@ -4,12 +4,13 @@ Licensed under the MIT License.
 """
 
 from dataclasses import field
+from logging import Logger
 from typing import Any, Callable, List, Optional, Union
 
-from a2a.client import A2AClient
+from pydantic import BaseModel, ConfigDict
+
+from a2a.client import Client
 from a2a.types import AgentCard, Message, Task
-from microsoft.teams.common import ConsoleLogger
-from pydantic import BaseModel
 
 
 class FunctionMetadata(BaseModel):
@@ -19,7 +20,9 @@ class FunctionMetadata(BaseModel):
 
 class AgentPromptParams(BaseModel):
     card: AgentCard
-    client: A2AClient
+    client: Client
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
 
 class BuildPromptMetadata(BaseModel):
@@ -58,8 +61,10 @@ class A2AClientPluginOptions(BaseModel):
     "Optional function to customize the message format sent to each agent."
     build_message_from_agent_response: Optional[BuildMessageFromAgentResponse] = None
     "Optional function to customize how agent responses are processed into strings."
-    logger: Optional[ConsoleLogger] = None
+    logger: Optional[Logger] = None
     "The associated logger"
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
 
 class A2APluginUseParams(BaseModel):
@@ -69,6 +74,8 @@ class A2APluginUseParams(BaseModel):
 
     key: str
     "Unique key to identify this agent"
+    base_url: str
+    "Base URL to the agent's card"
     card_url: str
     "URL to the agent's card endpoint"
     build_function_metadata: Optional[BuildFunctionMetadata] = None

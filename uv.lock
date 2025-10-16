@@ -8,6 +8,7 @@ resolution-markers = [
 
 [manifest]
 members = [
+    "a2a",
     "ai-test",
     "cards",
     "dialogs",
@@ -16,7 +17,7 @@ members = [
     "mcp-client",
     "mcp-server",
     "message-extensions",
-    "microsoft-teams-a2aprotocol",
+    "microsoft-teams-a2a",
     "microsoft-teams-ai",
     "microsoft-teams-api",
     "microsoft-teams-apps",
@@ -37,6 +38,29 @@ dev = [
     { name = "pre-commit", specifier = ">=4.2.0" },
     { name = "pyright", specifier = ">=1.1.404" },
     { name = "ruff", specifier = ">=0.11.13" },
+]
+
+[[package]]
+name = "a2a"
+version = "0.1.0"
+source = { virtual = "tests/a2a-test" }
+dependencies = [
+    { name = "dotenv" },
+    { name = "microsoft-teams-a2a" },
+    { name = "microsoft-teams-ai" },
+    { name = "microsoft-teams-apps" },
+    { name = "microsoft-teams-common" },
+    { name = "microsoft-teams-openai" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "dotenv", specifier = ">=0.9.9" },
+    { name = "microsoft-teams-a2a", editable = "packages/a2aprotocol" },
+    { name = "microsoft-teams-ai", editable = "packages/ai" },
+    { name = "microsoft-teams-apps", editable = "packages/apps" },
+    { name = "microsoft-teams-common", editable = "packages/common" },
+    { name = "microsoft-teams-openai", editable = "packages/openai" },
 ]
 
 [[package]]
@@ -1530,11 +1554,13 @@ wheels = [
 ]
 
 [[package]]
-name = "microsoft-teams-a2aprotocol"
+name = "microsoft-teams-a2a"
 version = "2.0.0a1"
 source = { editable = "packages/a2aprotocol" }
 dependencies = [
     { name = "a2a-sdk", extra = ["all"] },
+    { name = "microsoft-teams-ai" },
+    { name = "microsoft-teams-apps" },
     { name = "microsoft-teams-common" },
     { name = "pytest" },
 ]
@@ -1542,6 +1568,8 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "a2a-sdk", extras = ["all"], specifier = ">=0.3.7" },
+    { name = "microsoft-teams-ai", editable = "packages/ai" },
+    { name = "microsoft-teams-apps", editable = "packages/apps" },
     { name = "microsoft-teams-common", editable = "packages/common" },
     { name = "pytest", specifier = ">=8.4.1" },
 ]

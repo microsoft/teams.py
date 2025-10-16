@@ -438,7 +438,7 @@ class App(ActivityHandlerMixin):
 
             # Validate the detected type against registered events
             if not is_registered_event(detected_type):
-                raise ValueError(f"Event type '{detected_type}' is not registered. ")
+                self.log.info(f"Event type '{detected_type}' is not a registered type. ")
             detected_type = cast(EventType, detected_type)
 
             # add it to the event emitter
