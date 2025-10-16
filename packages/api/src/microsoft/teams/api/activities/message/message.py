@@ -79,7 +79,7 @@ class _MessageBase(CustomBaseModel):
 class MessageActivity(_MessageBase, ActivityBase):
     """Output model for received message activities with required fields and read-only properties."""
 
-    text: str  # pyright: ignore [reportGeneralTypeIssues, reportIncompatibleVariableOverride]
+    text: str = ""  # pyright: ignore [reportGeneralTypeIssues, reportIncompatibleVariableOverride]
     """The text content of the message."""
 
     def is_recipient_mentioned(self) -> bool:
@@ -137,6 +137,136 @@ class MessageActivity(_MessageBase, ActivityBase):
 
 class MessageActivityInput(_MessageBase, ActivityInputBase):
     """Input model for creating message activities with builder methods."""
+
+    def with_text(self, text: str) -> Self:
+        """
+        Set the text content of the message.
+
+        Args:
+            text: Text to set
+
+        Returns:
+            Self for method chaining
+        """
+        self.text = text
+        return self
+
+    def with_speak(self, speak: str) -> Self:
+        """
+        Set the text to speak.
+
+        Args:
+            speak: Text to speak
+
+        Returns:
+            Self for method chaining
+        """
+        self.speak = speak
+        return self
+
+    def with_input_hint(self, input_hint: InputHint) -> Self:
+        """
+        Set the input hint.
+
+        Args:
+            input_hint: Input hint value
+
+        Returns:
+            Self for method chaining
+        """
+        self.input_hint = input_hint
+        return self
+
+    def with_summary(self, summary: str) -> Self:
+        """
+        Set the text to display if the channel cannot render cards.
+
+        Args:
+            summary: Summary text
+
+        Returns:
+            Self for method chaining
+        """
+        self.summary = summary
+        return self
+
+    def with_text_format(self, text_format: TextFormat) -> Self:
+        """
+        Set the format of text fields.
+
+        Args:
+            text_format: Text format (markdown, plain, xml)
+
+        Returns:
+            Self for method chaining
+        """
+        self.text_format = text_format
+        return self
+
+    def with_attachment_layout(self, attachment_layout: AttachmentLayout) -> Self:
+        """
+        Set the layout hint for multiple attachments.
+
+        Args:
+            attachment_layout: Attachment layout (list, carousel)
+
+        Returns:
+            Self for method chaining
+        """
+        self.attachment_layout = attachment_layout
+        return self
+
+    def with_suggested_actions(self, suggested_actions: SuggestedActions) -> Self:
+        """
+        Set the suggested actions for the activity.
+
+        Args:
+            suggested_actions: Suggested actions
+
+        Returns:
+            Self for method chaining
+        """
+        self.suggested_actions = suggested_actions
+        return self
+
+    def with_importance(self, importance: Importance) -> Self:
+        """
+        Set the importance of the activity.
+
+        Args:
+            importance: Importance (low, normal, high)
+
+        Returns:
+            Self for method chaining
+        """
+        self.importance = importance
+        return self
+
+    def with_delivery_mode(self, delivery_mode: DeliveryMode) -> Self:
+        """
+        Set the delivery mode for the activity.
+
+        Args:
+            delivery_mode: Delivery mode (normal, notification)
+
+        Returns:
+            Self for method chaining
+        """
+        self.delivery_mode = delivery_mode
+        return self
+
+    def with_expiration(self, expiration: datetime) -> Self:
+        """
+        Set the expiration time for the activity.
+
+        Args:
+            expiration: Expiration datetime
+
+        Returns:
+            Self for method chaining
+        """
+        self.expiration = expiration
+        return self
 
     def add_text(self, text: str) -> Self:
         """

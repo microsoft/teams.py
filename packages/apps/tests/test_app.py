@@ -543,3 +543,19 @@ class TestApp:
         handlers = app_with_options.router.select_handlers(message_activity)
         assert len(handlers) == 1
         assert handlers[0] == logging_middleware
+
+    @pytest.mark.asyncio
+    async def test_func_decorator_registration(self, app_with_options: App):
+        """Simple test that @app.func registers a function."""
+        app_with_options.http.post = MagicMock()
+
+        # Dummy request to simulate a call
+        async def dummy_func(ctx):
+            return "called"
+
+        decorated = app_with_options.func(dummy_func)
+        assert decorated == dummy_func
+
+        # Extract the endpoint path it was registered to
+        endpoint_path = app_with_options.http.post.call_args[0][0]
+        assert endpoint_path == f"/api/functions/{dummy_func.__name__.replace('_', '-')}"

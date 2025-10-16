@@ -1,6 +1,6 @@
 [project]
 name = "microsoft-teams-a2a"
-version = "2.0.0a1"
+version = "2.0.0a2"
 description = "plugin that enables your teams agent to be used as an a2a agent"
 authors = [{ name = "Microsoft", email = "TeamsAISDKFeedback@microsoft.com" }]
 readme = "README.md"
@@ -8,6 +8,7 @@ requires-python = ">=3.12"
 repository = "https://github.com/microsoft/teams.py"
 keywords = ["microsoft", "teams", "ai", "bot", "agents"]
 license = "MIT"
+classifiers = ["Private :: Do Not Upload"]
 dependencies = [
     "a2a-sdk[all]>=0.3.7",
     "microsoft-teams-ai",

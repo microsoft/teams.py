@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from logging import Logger
 from typing import Any, Awaitable, Callable, List, Optional, TypedDict, Union, cast
 
-from microsoft.teams.common.storage import Storage
+from microsoft.teams.common import Storage
 from typing_extensions import Unpack
 
 from .plugins import PluginBase
@@ -27,7 +27,7 @@ class AppOptions(TypedDict, total=False):
     logger: Optional[Logger]
     storage: Optional[Storage[str, Any]]
     plugins: Optional[List[PluginBase]]
-    enable_token_validation: Optional[bool]
+    skip_auth: Optional[bool]
 
     # Oauth
     default_connection_name: Optional[str]
@@ -38,7 +38,7 @@ class InternalAppOptions:
     """Internal dataclass for AppOptions with defaults and non-nullable fields."""
 
     # Fields with defaults
-    enable_token_validation: bool = True
+    skip_auth: bool = False
     default_connection_name: str = "graph"
     plugins: List[PluginBase] = field(default_factory=lambda: [])
 
@@ -76,7 +76,7 @@ def merge_app_options_with_defaults(**options: Unpack[AppOptions]) -> AppOptions
         AppOptions with defaults applied
     """
     defaults: AppOptions = {
-        "enable_token_validation": True,
+        "skip_auth": False,
         "default_connection_name": "graph",
         "plugins": [],
     }
