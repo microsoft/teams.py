@@ -224,7 +224,7 @@ class A2AClientPlugin(BaseAIPlugin):
                 )
                 self.log.debug(f"Added function in ChatPrompt to call {agent_card.name}")
             except Exception as e:
-                print(f"Failed to build function for agent {key}: {e}")
+                self.log.info(f"Failed to build function for agent {key}: {e}")
                 # Continue with other agents even if one fails
 
         functions = functions + all_functions
@@ -247,7 +247,7 @@ class A2AClientPlugin(BaseAIPlugin):
                             )
                         )
             except Exception as e:
-                print(f"Failed to get agent card for {key}: {e}")
+                self.log.info(f"Failed to get agent card for {key}: {e}")
 
         # use custom build_prompt if provided, otherwise use default
         if self._build_prompt:
