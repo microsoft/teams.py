@@ -8,7 +8,6 @@ requires-python = ">=3.12"
 repository = "https://github.com/microsoft/teams.py"
 keywords = ["microsoft", "teams", "ai", "bot", "agents"]
 license = "MIT"
-classifiers = ["Private :: Do Not Upload"]
 dependencies = [
     "a2a-sdk[all]>=0.3.7",
     "microsoft-teams-ai",
