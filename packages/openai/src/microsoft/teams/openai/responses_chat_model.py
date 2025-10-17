@@ -24,7 +24,7 @@ from microsoft.teams.ai import (
 )
 from pydantic import BaseModel
 
-from openai import NOT_GIVEN
+from openai import omit
 from openai.lib._pydantic import (
     _ensure_strict_json_schema,  # pyright: ignore [reportPrivateUsage]
     to_strict_json_schema,
@@ -121,7 +121,7 @@ class OpenAIResponsesAIModel(OpenAIBaseModel, AIModel):
         # Convert to Responses API format - just the current input as string
         responses_input = self._convert_to_responses_format(input, None, messages)
         # Convert functions to tools format
-        tools = self._convert_functions_to_tools(functions) if functions else NOT_GIVEN
+        tools = self._convert_functions_to_tools(functions) if functions else omit
 
         self.logger.debug(f"Making Responses API call with input type: {type(input).__name__}")
 
@@ -189,7 +189,7 @@ class OpenAIResponsesAIModel(OpenAIBaseModel, AIModel):
         responses_input = self._convert_to_responses_format(input, None, messages)
 
         # Convert functions to tools format
-        tools = self._convert_functions_to_tools(functions) if functions else NOT_GIVEN
+        tools = self._convert_functions_to_tools(functions) if functions else omit
 
         self.logger.debug(f"Making Responses API call with input type: {type(input).__name__}")
 
@@ -197,7 +197,7 @@ class OpenAIResponsesAIModel(OpenAIBaseModel, AIModel):
         response = await self._client.responses.create(
             model=self._model,
             input=responses_input,
-            instructions=system.content if system and system.content else NOT_GIVEN,
+            instructions=system.content if system and system.content else omit,
             tools=tools,
         )
 
