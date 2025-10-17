@@ -90,7 +90,7 @@ def get_weather_handler(params: BaseModel) -> str:
         "New York": {"temperature": 75, "condition": "rainy"},
     }
 
-    location = params.__dict__["location"]
+    location = getattr(params, "location")  # noqa
     weather = weather_by_location.get(location)
     if not weather:
         return "Sorry, I could not find the weather for that location"
@@ -110,12 +110,15 @@ async def handle_multiple_functions(model: AIModel, ctx: ActivityContext[Message
             handler=get_location_handler,
         )
     ).with_function(
-        Function(
-            name="weather_search",
-            description="Search for weather at a specific location",
-            parameter_schema=GetWeatherParams,
-            handler=get_weather_handler,
-        )
+        name="weather_search",
+        description="Search for weather at a specific location",
+        parameter_schema={
+            "title": "GetWeatherParams",
+            "type": "object",
+            "properties": {"location": {"title": "Location", "type": "string"}},
+            "required": ["location"],
+        },
+        handler=get_weather_handler,
     )
 
     chat_result = await agent.send(
