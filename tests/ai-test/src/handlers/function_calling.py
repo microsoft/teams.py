@@ -82,7 +82,7 @@ def get_location_handler(params: GetLocationParams) -> str:
     return location
 
 
-def get_weather_handler(params: GetWeatherParams) -> str:
+def get_weather_handler(params: BaseModel) -> str:
     """Get weather for location (mock)"""
     weather_by_location: Dict[str, Dict[str, Any]] = {
         "Seattle": {"temperature": 65, "condition": "sunny"},
@@ -90,13 +90,12 @@ def get_weather_handler(params: GetWeatherParams) -> str:
         "New York": {"temperature": 75, "condition": "rainy"},
     }
 
-    weather = weather_by_location.get(params.location)
+    location = params.__dict__["location"]
+    weather = weather_by_location.get(location)
     if not weather:
         return "Sorry, I could not find the weather for that location"
 
-    return (
-        f"The weather in {params.location} is {weather['condition']} with a temperature of {weather['temperature']}°F"
-    )
+    return f"The weather in {location} is {weather['condition']} with a temperature of {weather['temperature']}°F"
 
 
 async def handle_multiple_functions(model: AIModel, ctx: ActivityContext[MessageActivity]) -> None:
