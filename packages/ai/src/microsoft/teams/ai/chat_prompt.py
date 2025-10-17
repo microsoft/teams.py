@@ -6,7 +6,7 @@ Licensed under the MIT License.
 import inspect
 from dataclasses import dataclass
 from inspect import isawaitable
-from typing import Any, Awaitable, Callable, Optional, Self, TypeVar, cast
+from typing import Any, Awaitable, Callable, Optional, Self, cast
 
 from pydantic import BaseModel
 
@@ -15,8 +15,6 @@ from .function import Function, FunctionHandler, FunctionHandlers, FunctionHandl
 from .memory import Memory
 from .message import Message, ModelMessage, SystemMessage, UserMessage
 from .plugin import AIPluginProtocol
-
-T = TypeVar("T", bound=BaseModel)
 
 
 @dataclass
@@ -58,7 +56,7 @@ class ChatPrompt:
         self.functions: dict[str, Function[Any]] = {func.name: func for func in functions} if functions else {}
         self.plugins: list[AIPluginProtocol] = plugins or []
 
-    def with_function(self, function: Function[T]) -> Self:
+    def with_function(self, function: Function[BaseModel]) -> Self:
         """
         Add a function to the available functions for this prompt.
 
