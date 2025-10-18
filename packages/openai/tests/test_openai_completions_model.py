@@ -16,7 +16,7 @@ from microsoft.teams.ai import (
     UserMessage,
 )
 from microsoft.teams.openai.completions_model import OpenAICompletionsAIModel
-from openai import NOT_GIVEN
+from openai import Omit
 from openai._streaming import AsyncStream
 from openai.types.chat import (
     ChatCompletion,
@@ -90,7 +90,7 @@ class TestOpenAICompletionsAIModel:
         assert messages[0]["content"] == "Hello"
 
         # Should not have tools when no functions provided
-        assert "tools" not in call_args[1] or call_args[1]["tools"] is NOT_GIVEN
+        assert "tools" not in call_args[1] or isinstance(call_args[1]["tools"], Omit)
 
         mock_openai_client.chat.completions.create.assert_called_once()
 
