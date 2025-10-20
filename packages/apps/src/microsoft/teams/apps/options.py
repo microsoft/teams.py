@@ -33,7 +33,7 @@ class AppOptions(TypedDict, total=False):
     # Oauth
     default_connection_name: Optional[str]
 
-    # Configuration
+    # A number of internal defaults can be configured by overriding values in this option
     config: Optional[AppConfig]
 
 

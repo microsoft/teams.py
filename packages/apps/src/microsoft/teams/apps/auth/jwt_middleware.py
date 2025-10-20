@@ -17,9 +17,9 @@ def create_jwt_validation_middleware(
     app_id: str,
     logger: Logger,
     paths: list[str],
-    clock_tolerance: int = 300,
-    issuer: str = "https://api.botframework.com",
-    jwks_uri: str = "https://login.botframework.com/v1/.well-known/keys",
+    clock_tolerance: int,
+    issuer: str,
+    jwks_uri: str,
 ):
     """
     Create JWT validation middleware instance.
