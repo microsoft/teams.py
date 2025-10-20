@@ -1720,7 +1720,7 @@ wheels = [
 
 [[package]]
 name = "microsoft-teams-a2a"
-version = "2.0.0a2"
+version = "2.0.0a3"
 source = { editable = "packages/a2aprotocol" }
 dependencies = [
     { name = "a2a-sdk", extra = ["all"] },
@@ -1741,7 +1741,7 @@ requires-dist = [
 
 [[package]]
 name = "microsoft-teams-ai"
-version = "2.0.0a2"
+version = "2.0.0a3"
 source = { editable = "packages/ai" }
 dependencies = [
     { name = "microsoft-teams-common" },
@@ -1752,7 +1752,7 @@ requires-dist = [{ name = "microsoft-teams-common", editable = "packages/common"
 
 [[package]]
 name = "microsoft-teams-api"
-version = "2.0.0a2"
+version = "2.0.0a3"
 source = { editable = "packages/api" }
 dependencies = [
     { name = "microsoft-teams-cards" },
@@ -1785,7 +1785,7 @@ dev = [
 
 [[package]]
 name = "microsoft-teams-apps"
-version = "2.0.0a2"
+version = "2.0.0a3"
 source = { editable = "packages/apps" }
 dependencies = [
     { name = "cryptography" },
@@ -1831,7 +1831,7 @@ test = [
 
 [[package]]
 name = "microsoft-teams-cards"
-version = "2.0.0a2"
+version = "2.0.0a3"
 source = { editable = "packages/cards" }
 dependencies = [
     { name = "coverage" },
@@ -1850,7 +1850,7 @@ requires-dist = [
 
 [[package]]
 name = "microsoft-teams-common"
-version = "2.0.0a2"
+version = "2.0.0a3"
 source = { editable = "packages/common" }
 dependencies = [
     { name = "coverage" },
@@ -1881,7 +1881,7 @@ dev = [
 
 [[package]]
 name = "microsoft-teams-devtools"
-version = "2.0.0a2"
+version = "2.0.0a3"
 source = { editable = "packages/devtools" }
 dependencies = [
     { name = "fastapi" },
@@ -1902,7 +1902,7 @@ requires-dist = [
 
 [[package]]
 name = "microsoft-teams-graph"
-version = "2.0.0a2"
+version = "2.0.0a3"
 source = { editable = "packages/graph" }
 dependencies = [
     { name = "azure-core" },
@@ -1933,7 +1933,7 @@ dev = [
 
 [[package]]
 name = "microsoft-teams-mcpplugin"
-version = "2.0.0a2"
+version = "2.0.0a3"
 source = { editable = "packages/mcpplugin" }
 dependencies = [
     { name = "fastmcp" },
@@ -1954,7 +1954,7 @@ requires-dist = [
 
 [[package]]
 name = "microsoft-teams-openai"
-version = "2.0.0a2"
+version = "2.0.0a3"
 source = { editable = "packages/openai" }
 dependencies = [
     { name = "microsoft-teams-ai" },
@@ -1967,7 +1967,7 @@ dependencies = [
 requires-dist = [
     { name = "microsoft-teams-ai", editable = "packages/ai" },
     { name = "microsoft-teams-common", editable = "packages/common" },
-    { name = "openai", specifier = "==1.102.0" },
+    { name = "openai", specifier = ">=2.4.0" },
     { name = "python-dotenv" },
 ]
 
@@ -2163,7 +2163,7 @@ requires-dist = [
 
 [[package]]
 name = "openai"
-version = "1.102.0"
+version = "2.4.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "anyio" },
@@ -2175,9 +2175,9 @@ dependencies = [
     { name = "tqdm" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/07/55/da5598ed5c6bdd9939633854049cddc5cbac0da938dfcfcb3c6b119c16c0/openai-1.102.0.tar.gz", hash = "sha256:2e0153bcd64a6523071e90211cbfca1f2bbc5ceedd0993ba932a5869f93b7fc9", size = 519027, upload-time = "2025-08-26T20:50:29.397Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/ef/24/d0b0f088c39fa75a73292aef24d7436fbc537f12bf6026c6a69a1bfdae6e/openai-2.4.0.tar.gz", hash = "sha256:97860859172b637ffb308433c207a371d4683586ed2b24b360cb4c08cf377d01", size = 591541, upload-time = "2025-10-16T15:14:05.163Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/bd/0d/c9e7016d82c53c5b5e23e2bad36daebb8921ed44f69c0a985c6529a35106/openai-1.102.0-py3-none-any.whl", hash = "sha256:d751a7e95e222b5325306362ad02a7aa96e1fab3ed05b5888ce1c7ca63451345", size = 812015, upload-time = "2025-08-26T20:50:27.219Z" },
+    { url = "https://files.pythonhosted.org/packages/d8/f6/68a8bbb62c001e5580de6b89372ddab03c3484ac3e251c298a30da094f5e/openai-2.4.0-py3-none-any.whl", hash = "sha256:5099f4fbfa80e7e5785ba52402c580eadba21e6172c85df05455676605ad150f", size = 1003092, upload-time = "2025-10-16T15:14:02.826Z" },
 ]
 
 [[package]]

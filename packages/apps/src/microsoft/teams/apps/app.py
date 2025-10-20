@@ -153,6 +153,7 @@ class App(ActivityHandlerMixin):
         self.on_signin_token_exchange(oauth_handlers.sign_in_token_exchange)
         self.on_signin_verify_state(oauth_handlers.sign_in_verify_state)
 
+        self.entra_token_validator: Optional[TokenValidator] = None
         if self.credentials and hasattr(self.credentials, "client_id"):
             self.entra_token_validator = TokenValidator.for_entra(
                 self.credentials.client_id, self.credentials.tenant_id, logger=self.log
@@ -515,7 +516,7 @@ class App(ActivityHandlerMixin):
             self.logger.debug("Generated endpoint name for function '%s': %s", func.__name__, endpoint_name)
 
             async def endpoint(req: Request):
-                middleware = remote_function_jwt_validation(self.entra_token_validator, self.log)
+                middleware = remote_function_jwt_validation(self.log, self.entra_token_validator)
 
                 async def call_next(r: Request) -> Any:
                     ctx = FunctionContext(
