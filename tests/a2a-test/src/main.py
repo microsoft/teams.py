@@ -12,7 +12,6 @@ from typing import List, Union, cast
 from a2a.types import AgentCapabilities, AgentCard, AgentSkill, Message, Part, Role, TextPart
 from microsoft.teams.a2a import (
     A2AClientPlugin,
-    A2AClientPluginOptions,
     A2AMessageEvent,
     A2AMessageEventKey,
     A2APlugin,
@@ -46,7 +45,7 @@ AZURE_OPENAI_MODEL = get_required_env("AZURE_OPENAI_MODEL")
 completions_model = OpenAICompletionsAIModel(model=AZURE_OPENAI_MODEL)
 
 # Setup A2A Client Plugin
-client_plugin = A2AClientPlugin(A2AClientPluginOptions())
+client_plugin = A2AClientPlugin()
 # Specify the connection details for the agent we want to use
 client_plugin.on_use_plugin(
     A2APluginUseParams(
@@ -96,14 +95,12 @@ def build_message_from_agent_response(data: BuildMessageFromAgentMetadata) -> st
 
 ## Advanced A2AClientPlugin
 advanced_plugin = A2AClientPlugin(
-    A2AClientPluginOptions(
-        # Custom function metadata builder
-        build_function_metadata=build_function_metadata,
-        # Custom message builder - can return either Message or string
-        build_message_for_agent=build_message_for_agent,
-        # Custom response processor
-        build_message_from_agent_response=build_message_from_agent_response,
-    )
+    # Custom function metadata builder
+    build_function_metadata=build_function_metadata,
+    # Custom message builder - can return either Message or string
+    build_message_for_agent=build_message_for_agent,
+    # Custom response processor
+    build_message_from_agent_response=build_message_from_agent_response,
 )
 advanced_plugin.on_use_plugin(
     A2APluginUseParams(
