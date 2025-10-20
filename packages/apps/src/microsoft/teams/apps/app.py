@@ -160,15 +160,18 @@ class App(ActivityHandlerMixin):
         self.on_signin_verify_state(oauth_handlers.sign_in_verify_state)
 
         if self.credentials and hasattr(self.credentials, "client_id"):
+            kwargs = {"logger": self.log}
+            if self.config.auth.jwt_leeway_seconds is not None:
+                kwargs["clock_tolerance"] = self.config.auth.jwt_leeway_seconds
+            if self.config.auth.entra_id_issuer_template is not None:
+                kwargs["issuer_template"] = self.config.auth.entra_id_issuer_template
+            if self.config.auth.entra_id_jwks_uri_template is not None:
+                kwargs["jwks_uri_template"] = self.config.auth.entra_id_jwks_uri_template
+
             self.entra_token_validator = TokenValidator.for_entra(
                 self.credentials.client_id,
                 self.credentials.tenant_id,
-                logger=self.log,
-                clock_tolerance=self.config.auth.jwt_leeway_seconds or 300,
-                issuer_template=self.config.auth.entra_id_issuer_template
-                or "https://login.microsoftonline.com/{tenant_id}/v2.0",
-                jwks_uri_template=self.config.auth.entra_id_jwks_uri_template
-                or "https://login.microsoftonline.com/{tenant_id}/discovery/v2.0/keys",
+                **kwargs
             )
 
     @property
