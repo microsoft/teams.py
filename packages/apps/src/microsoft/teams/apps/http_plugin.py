@@ -68,6 +68,7 @@ class HttpPlugin(Sender):
 
     def __init__(
         self,
+        *,
         app_id: Optional[str],
         logger: Optional[Logger] = None,
         skip_auth: bool = False,
@@ -114,9 +115,10 @@ class HttpPlugin(Sender):
                 app_id=app_id,
                 logger=self.logger,
                 paths=[self.config.endpoints.activity_path],
-                clock_tolerance=self.config.auth.jwt_leeway_seconds,
-                issuer=self.config.auth.bot_framework_issuer,
-                jwks_uri=self.config.auth.bot_framework_jwks_uri,
+                clock_tolerance=self.config.auth.jwt_leeway_seconds or 300,
+                issuer=self.config.auth.bot_framework_issuer or "https://api.botframework.com",
+                jwks_uri=self.config.auth.bot_framework_jwks_uri
+                or "https://login.botframework.com/v1/.well-known/keys",
             )
             self.app.middleware("http")(jwt_middleware)
 

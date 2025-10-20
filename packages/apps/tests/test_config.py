@@ -81,16 +81,13 @@ class TestAuthConfig:
     """Tests for AuthConfig."""
 
     def test_default_values(self):
-        """Test that AuthConfig has correct default values."""
+        """Test that AuthConfig has correct default values (None when env vars not set)."""
         config = AuthConfig()
-        assert config.jwt_leeway_seconds == 300
-        assert config.bot_framework_issuer == "https://api.botframework.com"
-        assert config.bot_framework_jwks_uri == "https://login.botframework.com/v1/.well-known/keys"
-        assert config.entra_id_issuer_template == "https://login.microsoftonline.com/{tenant_id}/v2.0"
-        assert (
-            config.entra_id_jwks_uri_template
-            == "https://login.microsoftonline.com/{tenant_id}/discovery/v2.0/keys"
-        )
+        assert config.jwt_leeway_seconds is None
+        assert config.bot_framework_issuer is None
+        assert config.bot_framework_jwks_uri is None
+        assert config.entra_id_issuer_template is None
+        assert config.entra_id_jwks_uri_template is None
 
     def test_custom_values(self):
         """Test that AuthConfig accepts custom values."""
