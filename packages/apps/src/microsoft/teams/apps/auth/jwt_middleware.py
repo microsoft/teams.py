@@ -4,7 +4,7 @@ Licensed under the MIT License.
 """
 
 from logging import Logger
-from typing import Awaitable, Callable
+from typing import Awaitable, Callable, Optional
 
 import jwt
 from fastapi import HTTPException, Request, Response
@@ -17,9 +17,9 @@ def create_jwt_validation_middleware(
     app_id: str,
     logger: Logger,
     paths: list[str],
-    clock_tolerance: int,
-    issuer: str,
-    jwks_uri: str,
+    clock_tolerance: Optional[int] = None,
+    issuer: Optional[str] = None,
+    jwks_uri: Optional[str] = None,
 ):
     """
     Create JWT validation middleware instance.
@@ -28,17 +28,23 @@ def create_jwt_validation_middleware(
         app_id: Bot's Microsoft App ID for audience validation
         logger: Logger instance
         paths: List of paths to validate
-        clock_tolerance: Allowable clock skew when validating JWTs
-        issuer: Valid issuer for Bot Framework service tokens
-        jwks_uri: JWKS endpoint for Bot Framework token validation
+        clock_tolerance: Optional clock skew tolerance (defaults in TokenValidator.for_service)
+        issuer: Optional Bot Framework issuer (defaults in TokenValidator.for_service)
+        jwks_uri: Optional JWKS endpoint (defaults in TokenValidator.for_service)
 
     Returns:
         Middleware function that can be added to FastAPI app
     """
-    # Create service token validator
-    token_validator = TokenValidator.for_service(
-        app_id, logger, clock_tolerance=clock_tolerance, issuer=issuer, jwks_uri=jwks_uri
-    )
+    # Create service token validator - pass kwargs only if not None
+    kwargs = {"logger": logger}
+    if clock_tolerance is not None:
+        kwargs["clock_tolerance"] = clock_tolerance
+    if issuer is not None:
+        kwargs["issuer"] = issuer
+    if jwks_uri is not None:
+        kwargs["jwks_uri"] = jwks_uri
+
+    token_validator = TokenValidator.for_service(app_id, **kwargs)
 
     async def middleware(request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
         """JWT validation middleware function."""
