@@ -7,7 +7,7 @@ import re
 import uuid
 from functools import partial
 from logging import Logger
-from typing import Any, Dict, List, Optional, Union, cast
+from typing import Any, Dict, List, Optional, Union, Unpack, cast
 
 from httpx import AsyncClient
 from microsoft.teams.ai import Function as ChatFunction
@@ -35,6 +35,7 @@ from .types import (
     BuildPrompt,
     BuildPromptMetadata,
     FunctionMetadata,
+    InternalA2AClientPluginOptions,
 )
 
 
@@ -53,13 +54,15 @@ class A2AClientPlugin(BaseAIPlugin):
     _build_message_for_agent: Optional[BuildMessageForAgent] = None
     _build_message_from_agent_response: Optional[BuildMessageFromAgentResponse] = None
 
-    def __init__(self, options: A2AClientPluginOptions):
+    def __init__(self, **options: Unpack[A2AClientPluginOptions]):
         super().__init__("a2a")
-        self._build_function_metadata = options.build_function_metadata
-        self._build_prompt = options.build_prompt
-        self._build_message_for_agent = options.build_message_for_agent
-        self._build_message_from_agent_response = options.build_message_from_agent_response
-        self.log = options.logger if options.logger else ConsoleLogger().create_logger(name="a2a:client")
+
+        self.options = InternalA2AClientPluginOptions.from_typed_dict(options)
+        self._build_function_metadata = self.options.build_function_metadata
+        self._build_prompt = self.options.build_prompt
+        self._build_message_for_agent = self.options.build_message_for_agent
+        self._build_message_from_agent_response = self.options.build_message_from_agent_response
+        self.log = self.options.logger if self.options.logger else ConsoleLogger().create_logger(name="a2a:client")
 
     def on_use_plugin(self, args: A2APluginUseParams):
         # just store the config, defer client creation to on_build_functions
@@ -101,12 +104,8 @@ class A2AClientPlugin(BaseAIPlugin):
             self.log.error(f"Error creating client or fetching agent card for {key}: {e}")
             return None
 
-    def snake_case(self, input_string: str) -> str:
-        text = re.sub(r"(?<!^)(?=[A-Z])", "_", input_string).lower()
-        return text
-
     def _default_function_metadata(self, card: AgentCard) -> FunctionMetadata:
-        name = f"message_{self.snake_case(card.name)}"
+        name = f"message_{re.sub(r'(?<!^)(?=[A-Z])', '_', card.name).lower()}"
         description = card.description or f"Interact with {card.name} agent"
         return FunctionMetadata(name=name, description=description)
 
@@ -145,6 +144,7 @@ class A2AClientPlugin(BaseAIPlugin):
             try:
                 agent_card = await self._get_agent_card(key, config)
                 if not agent_card:
+                    self.log.warning(f"Could not retrieve agent card for {key}, continuing to next agent.")
                     # skip if we couldn't get the agent card
                     continue
 
@@ -153,8 +153,9 @@ class A2AClientPlugin(BaseAIPlugin):
                     config.build_function_metadata or self._build_function_metadata or self._default_function_metadata
                 )
 
-                name = build_metadata(agent_card).name
-                description = build_metadata(agent_card).description
+                metadata = build_metadata(agent_card)
+                name = metadata.name
+                description = metadata.description
 
                 async def message_handler(
                     params: A2AClientMessageParams, config: AgentConfig, agent_card: AgentCard, key: str

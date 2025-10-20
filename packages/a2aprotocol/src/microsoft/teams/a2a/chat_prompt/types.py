@@ -3,9 +3,9 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from dataclasses import field
+from dataclasses import dataclass, field
 from logging import Logger
-from typing import Any, Callable, List, Optional, Union
+from typing import Any, Callable, List, Optional, TypedDict, Union
 
 from pydantic import BaseModel, ConfigDict
 
@@ -48,23 +48,47 @@ BuildMessageForAgent = Callable[[BuildMessageForAgentMetadata], Union[Message, s
 BuildMessageFromAgentResponse = Callable[[BuildMessageFromAgentMetadata], str]
 
 
-class A2AClientPluginOptions(BaseModel):
+class A2AClientPluginOptions(TypedDict, total=False):
     """
     Options for constructing an A2AClientPlugin using the official SDK.
     """
 
-    build_function_metadata: Optional[BuildFunctionMetadata] = None
+    build_function_metadata: Optional[BuildFunctionMetadata]
     "Optional function to customize the function name and description for each agent card."
-    build_prompt: Optional[BuildPrompt] = None
+    build_prompt: Optional[BuildPrompt]
     "Optional function to customize the prompt given all agent cards."
-    build_message_for_agent: Optional[BuildMessageForAgent] = None
+    build_message_for_agent: Optional[BuildMessageForAgent]
     "Optional function to customize the message format sent to each agent."
-    build_message_from_agent_response: Optional[BuildMessageFromAgentResponse] = None
+    build_message_from_agent_response: Optional[BuildMessageFromAgentResponse]
     "Optional function to customize how agent responses are processed into strings."
-    logger: Optional[Logger] = None
+    logger: Optional[Logger]
     "The associated logger"
 
-    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+@dataclass
+class InternalA2AClientPluginOptions:
+    """Internal dataclass for A2AClientPluginOptions with defaults and non-nullable fields."""
+
+    # Optional fields
+    build_function_metadata: Optional[BuildFunctionMetadata] = None
+    build_prompt: Optional[BuildPrompt] = None
+    build_message_for_agent: Optional[BuildMessageForAgent] = None
+    build_message_from_agent_response: Optional[BuildMessageFromAgentResponse] = None
+    logger: Optional[Logger] = None
+
+    @classmethod
+    def from_typed_dict(cls, options: A2AClientPluginOptions) -> "InternalA2AClientPluginOptions":
+        """
+        Create InternalA2AClientPluginOptions from A2AClientPluginOptions TypedDict.
+
+        Args:
+            options: A2AClientPluginOptions TypedDict
+
+        Returns:
+            InternalA2AClientPluginOptions with proper defaults and non-nullable required fields
+        """
+        kwargs: dict[str, Any] = {k: v for k, v in options.items() if v is not None}
+        return cls(**kwargs)
 
 
 class A2APluginUseParams(BaseModel):
