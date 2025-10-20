@@ -5,6 +5,7 @@ Licensed under the MIT License.
 
 import re
 import uuid
+from dataclasses import asdict
 from functools import partial
 from logging import Logger
 from typing import Any, Dict, List, Optional, Union, Unpack, cast
@@ -97,7 +98,7 @@ class A2AClientPlugin(BaseAIPlugin):
             card = await self.fetch_agent_card(base_url=config.base_url, card_url=config.card_url)
             client_config = ClientConfig()
             client = ClientFactory(client_config).create(card=card)
-            client_info = AgentClientInfo(**config.model_dump(), client=client, agent_card=card)
+            client_info = AgentClientInfo(**asdict(config), client=client, agent_card=card)
             self._clients.update({key: client_info})
             return card
         except Exception as e:
@@ -135,10 +136,8 @@ class A2AClientPlugin(BaseAIPlugin):
         else:
             return "Agent responded with non-message content."
 
-    async def on_build_functions(
-        self, functions: list[ChatFunction[BaseModel]]
-    ) -> list[ChatFunction[BaseModel]] | None:
-        all_functions: List[ChatFunction[BaseModel]] = []
+    async def on_build_functions(self, functions: list[ChatFunction[Any]]) -> list[ChatFunction[Any]] | None:
+        all_functions: List[ChatFunction[Any]] = []
 
         for key, config in self._agent_configs.items():
             try:

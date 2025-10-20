@@ -9,7 +9,7 @@ repository = "https://github.com/microsoft/teams.py"
 keywords = ["microsoft", "teams", "ai", "bot", "agents"]
 license = "MIT"
 dependencies = [
-    "a2a-sdk[all]>=0.3.7",
+    "a2a-sdk[core,http-server]>=0.3.7",
     "microsoft-teams-ai",
     "microsoft-teams-apps",
     "microsoft-teams-common",

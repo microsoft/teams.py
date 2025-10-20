@@ -3,14 +3,14 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
+from dataclasses import dataclass
 from typing import Optional
-
-from pydantic import BaseModel
 
 from .types import BuildFunctionMetadata, BuildMessageForAgent, BuildMessageFromAgentResponse
 
 
-class AgentConfig(BaseModel):
+@dataclass
+class AgentConfig:
     key: str
     base_url: str
     card_url: str

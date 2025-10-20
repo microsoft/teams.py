@@ -7,36 +7,37 @@ from dataclasses import dataclass, field
 from logging import Logger
 from typing import Any, Callable, List, Optional, TypedDict, Union
 
-from pydantic import BaseModel, ConfigDict
-
 from a2a.client import Client
 from a2a.types import AgentCard, Message, Task
 
 
-class FunctionMetadata(BaseModel):
+@dataclass
+class FunctionMetadata:
     name: str
     description: str
 
 
-class AgentPromptParams(BaseModel):
+@dataclass
+class AgentPromptParams:
     card: AgentCard
     client: Client
 
-    model_config = ConfigDict(arbitrary_types_allowed=True)
 
-
-class BuildPromptMetadata(BaseModel):
+@dataclass
+class BuildPromptMetadata:
     system_prompt: Optional[str] = None
     agent_details: List[AgentPromptParams] = field(default_factory=lambda: [])
 
 
-class BuildMessageForAgentMetadata(BaseModel):
+@dataclass
+class BuildMessageForAgentMetadata:
     card: AgentCard
     input: str
     metadata: Optional[dict[str, Any]] = None
 
 
-class BuildMessageFromAgentMetadata(BaseModel):
+@dataclass
+class BuildMessageFromAgentMetadata:
     card: AgentCard
     response: Union[Task, Message]
     original_input: str
@@ -91,7 +92,8 @@ class InternalA2AClientPluginOptions:
         return cls(**kwargs)
 
 
-class A2APluginUseParams(BaseModel):
+@dataclass
+class A2APluginUseParams:
     """
     Parameters for registering an agent with the A2AClientPlugin.
     """

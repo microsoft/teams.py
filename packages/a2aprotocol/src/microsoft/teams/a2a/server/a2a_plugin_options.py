@@ -3,9 +3,8 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
+from dataclasses import dataclass
 from typing import Optional
-
-from pydantic import BaseModel, ConfigDict
 
 from a2a.server.agent_execution import AgentExecutor
 from a2a.server.tasks import TaskStore
@@ -13,7 +12,8 @@ from a2a.types import AgentCard
 from a2a.utils.constants import AGENT_CARD_WELL_KNOWN_PATH
 
 
-class A2APluginOptions(BaseModel):
+@dataclass
+class A2APluginOptions:
     agent_card: AgentCard
     "The agent card to be used for the A2A plugin."
     path: Optional[str] = "/a2a"
@@ -30,5 +30,3 @@ class A2APluginOptions(BaseModel):
      For a completely custom executor, you may provide your own executor that will
      get executed whenever the a2a agent is InMemoryTaskStore
     """
-
-    model_config = ConfigDict(arbitrary_types_allowed=True)
