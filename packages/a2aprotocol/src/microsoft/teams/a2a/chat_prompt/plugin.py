@@ -279,7 +279,7 @@ class A2AClientPlugin(BaseAIPlugin):
         )
 
         prompt = (
-            (str(instructions) if instructions else "")
+            (instructions.content if instructions else "")
             + "\n\nHere are details about available agents that you can message:\n"
             + agent_details
         )
