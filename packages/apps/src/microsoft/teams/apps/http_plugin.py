@@ -70,10 +70,11 @@ class HttpPlugin(Sender):
         app_id: Optional[str],
         logger: Optional[Logger] = None,
         skip_auth: bool = False,
+        server: Optional[uvicorn.Server] = None,
     ):
         super().__init__()
         self.logger = logger or ConsoleLogger().create_logger("@teams/http-plugin")
-        self._server: Optional[uvicorn.Server] = None
+        self._server = server
         self._port: Optional[int] = None
         self._on_ready_callback: Optional[Callable[[], Awaitable[None]]] = None
         self._on_stopped_callback: Optional[Callable[[], Awaitable[None]]] = None
@@ -145,14 +146,17 @@ class HttpPlugin(Sender):
 
     async def on_start(self, event: PluginStartEvent) -> None:
         """Start the HTTP server."""
-        port = event.port
         self._port = event.port
 
         try:
-            config = uvicorn.Config(app=self.app, host="0.0.0.0", port=port, log_level="info")
-            self._server = uvicorn.Server(config)
+            if self._server:
+                self._server.config.port = self._port
+                self._server.config.app = self.app
+            else:
+                config = uvicorn.Config(app=self.app, host="0.0.0.0", port=self._port, log_level="info")
+                self._server = uvicorn.Server(config)
 
-            self.logger.info("Starting HTTP server on port %d", port)
+            self.logger.info("Starting HTTP server on port %d", self._port)
 
             # The lifespan handler will call the callback when the server is ready
             await self._server.serve()
