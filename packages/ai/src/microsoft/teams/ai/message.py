@@ -73,6 +73,7 @@ class DeferredMessage:
     deferred_result: DeferredResult
     function_name: str
     function_id: str
+    content: None = None
 
 
 Message = Union[UserMessage, ModelMessage, SystemMessage, FunctionMessage, DeferredMessage]
