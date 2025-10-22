@@ -10,6 +10,7 @@ from typing import Awaitable, Callable, cast
 
 from microsoft.teams.ai import (
     AIModel,
+    DeferredMessage,
     Function,
     FunctionCall,
     FunctionHandler,
@@ -21,8 +22,9 @@ from microsoft.teams.ai import (
     ModelMessage,
     SystemMessage,
     UserMessage,
+    get_function_schema,
+    parse_function_arguments,
 )
-from microsoft.teams.ai.message import DeferredMessage
 from pydantic import BaseModel
 
 from openai import omit
@@ -41,7 +43,6 @@ from openai.types.responses import (
 )
 
 from .common import OpenAIBaseModel
-from .function_utils import get_function_schema, parse_function_arguments
 
 
 @dataclass

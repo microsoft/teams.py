@@ -3,7 +3,6 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-import inspect
 import json
 from dataclasses import dataclass
 from typing import Any, Awaitable, Callable, TypedDict, cast
@@ -19,9 +18,11 @@ from microsoft.teams.ai import (
     ModelMessage,
     SystemMessage,
     UserMessage,
+    get_function_schema,
 )
-from microsoft.teams.ai.function import DeferredResult, FunctionHandler, FunctionHandlerWithNoParams
+from microsoft.teams.ai.function import DeferredResult
 from microsoft.teams.ai.message import DeferredMessage
+from microsoft.teams.ai.utils.function_utils import execute_function
 from microsoft.teams.openai.common import OpenAIBaseModel
 from pydantic import BaseModel
 
@@ -39,8 +40,6 @@ from openai.types.chat import (
     ChatCompletionToolUnionParam,
     ChatCompletionUserMessageParam,
 )
-
-from .function_utils import get_function_schema, parse_function_arguments
 
 
 class _ToolCallData(TypedDict):
@@ -185,20 +184,7 @@ class OpenAICompletionsAIModel(OpenAIBaseModel, AIModel):
                     function = functions[call.name]
                     try:
                         # Parse arguments using utility function
-                        parsed_args = parse_function_arguments(function, call.arguments)
-                        if parsed_args:
-                            # Handle both sync and async function handlers
-                            handler = cast(FunctionHandler[BaseModel], function.handler)
-                            result = handler(parsed_args)
-                        else:
-                            handler = cast(FunctionHandlerWithNoParams, function.handler)
-                            result = handler()
-
-                        if inspect.isawaitable(result):
-                            fn_res = await result
-                        else:
-                            fn_res = result
-
+                        fn_res = await execute_function(function, call.arguments)
                         if isinstance(fn_res, DeferredResult):
                             function_results.append(
                                 DeferredMessage(deferred_result=fn_res, function_name=call.name, function_id=call.id)

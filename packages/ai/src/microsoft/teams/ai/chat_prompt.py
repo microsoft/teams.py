@@ -188,41 +188,69 @@ class ChatPrompt:
             if not isinstance(msg, DeferredMessage):
                 continue
 
-            # Find the function from the deferred result's resumer_name
-            resumer_name = msg.function_name
-            associated_func = self.functions.get(resumer_name)
-            if not associated_func or associated_func.resumer is None:
-                raise ValueError(f"Expected a resumer for {resumer_name} but chat prompt was not set up with one")
+            # Try plugins first, then fall back to built-in resumer
+            result = await self._try_resolve_with_plugins(msg, activity)
+            if result is None:
+                result = await self._try_resolve_with_builtin_resumer(msg, activity)
 
-            # Use the resumer function directly from the function definition
-            # Check if the resumer can handle this type of activity
-            if not associated_func.resumer.can_handle(activity):
-                # Skip this deferred function - it can't handle this activity type
-                continue
-
-            try:
-                # Call the resumer with the activity and saved state
-                result = associated_func.resumer(activity, msg.deferred_result.state)
-                if isawaitable(result):
-                    result = await result
-
-                # Replace the DeferredMessage with FunctionMessage in-place
+            if result is not None:
                 updated_messages[i] = FunctionMessage(content=result, function_id=msg.function_id)
                 results.append(result)
-
-            except Exception as e:
-                # Log error but continue with other deferred functions
-                error_msg = f"Error resolving {resumer_name}: {str(e)}"
-                results.append(error_msg)
-
-                # Replace with error FunctionMessage
-                updated_messages[i] = FunctionMessage(content=error_msg, function_id=msg.function_id)
 
         # Update memory with resolved messages
         if results:  # Only update if we actually resolved something
             await self.memory.set_all(updated_messages)
 
         return results
+
+    async def _try_resolve_with_plugins(self, msg: DeferredMessage, activity: Any) -> str | None:
+        """
+        Try to resolve a deferred message using plugins.
+
+        Args:
+            msg: The deferred message to resolve
+            activity: Activity data for resolution
+
+        Returns:
+            Result string if a plugin handled it, None otherwise
+        """
+        for plugin in self.plugins:
+            result = await plugin.on_resume(msg.function_name, activity, msg.deferred_result.state)
+            if result is not None:
+                return result
+        return None
+
+    async def _try_resolve_with_builtin_resumer(self, msg: DeferredMessage, activity: Any) -> str | None:
+        """
+        Try to resolve a deferred message using the built-in resumer.
+
+        Args:
+            msg: The deferred message to resolve
+            activity: Activity data for resolution
+
+        Returns:
+            Result string if resolved successfully, None if skipped, raises on error
+        """
+        resumer_name = msg.function_name
+        associated_func = self.functions.get(resumer_name)
+
+        if not associated_func or associated_func.resumer is None:
+            raise ValueError(f"Expected a resumer for {resumer_name} but chat prompt was not set up with one")
+
+        # Check if the resumer can handle this type of activity
+        if not associated_func.resumer.can_handle(activity):
+            return None  # Skip this deferred function
+
+        try:
+            # Call the resumer with the activity and saved state
+            result = associated_func.resumer(activity, msg.deferred_result.state)
+            if isawaitable(result):
+                result = await result
+            return result
+
+        except Exception as e:
+            # Return error message instead of raising
+            return f"Error resolving {resumer_name}: {str(e)}"
 
     async def resume(self, activity: Any) -> ChatSendResult:
         """
@@ -243,18 +271,11 @@ class ChatPrompt:
         if await self.requires_resuming():
             return ChatSendResult(response=None, is_deferred=True)
 
-        # All deferred functions resolved, continue with normal chat processing
-        # Use the activity text as input
-        input_text = getattr(activity, "text", None)
-        if input_text is None:
-            # No text to process, just return success
-            return ChatSendResult(response=None, is_deferred=False)
-
-        return await self.send(input=input_text)
+        return await self.send(input=None)
 
     async def send(
         self,
-        input: str | Message,
+        input: str | Message | None,
         *,
         memory: Memory | None = None,
         on_chunk: Callable[[str], Awaitable[None]] | Callable[[str], None] | None = None,
@@ -284,7 +305,10 @@ class ChatPrompt:
         if isinstance(instructions, str):
             instructions = SystemMessage(content=instructions)
 
-        current_input = await self._run_before_send_hooks(input)
+        if input is not None:
+            current_input = await self._run_before_send_hooks(input)
+        else:
+            current_input = None
         current_system_message = await self._run_build_instructions_hooks(instructions)
         wrapped_functions = await self._build_wrapped_functions()
 
