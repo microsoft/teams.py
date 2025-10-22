@@ -68,7 +68,7 @@ async def handle_pokemon_search(model: AIModel, ctx: ActivityContext[MessageActi
         input=ctx.activity.text, instructions="You are a helpful assistant that can look up Pokemon for the user."
     )
 
-    if chat_result.response.content:
+    if chat_result.response and chat_result.response.content:
         message = MessageActivityInput(text=chat_result.response.content).add_ai_generated()
         await ctx.send(message)
     else:
@@ -129,7 +129,7 @@ async def handle_multiple_functions(model: AIModel, ctx: ActivityContext[Message
         ),
     )
 
-    if chat_result.response.content:
+    if chat_result.response and chat_result.response.content:
         message = MessageActivityInput(text=chat_result.response.content).add_ai_generated()
         await ctx.send(message)
     else:

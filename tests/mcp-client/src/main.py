@@ -88,7 +88,7 @@ async def handle_agent_chat(ctx: ActivityContext[MessageActivity]):
 
         # Use Agent with MCP tools (stateful conversation)
         result = await responses_agent.send(query)
-        if result.response.content:
+        if result.response and result.response.content:
             message = MessageActivityInput(text=result.response.content).add_ai_generated()
             await ctx.send(message)
 
@@ -111,7 +111,7 @@ async def handle_prompt_chat(ctx: ActivityContext[MessageActivity]):
             ),
         )
 
-        if result.response.content:
+        if result.response and result.response.content:
             message = MessageActivityInput(text=result.response.content).add_ai_generated()
             await ctx.send(message)
 
@@ -157,7 +157,7 @@ async def handle_fallback_message(ctx: ActivityContext[MessageActivity]):
 
     # Use Agent with MCP tools for general conversation
     result = await responses_agent.send(ctx.activity.text)
-    if result.response.content:
+    if result.response and result.response.content:
         message = MessageActivityInput(text=result.response.content).add_ai_generated()
         await ctx.send(message)
 
