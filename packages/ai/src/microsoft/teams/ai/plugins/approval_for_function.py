@@ -69,8 +69,6 @@ class ApprovalPlugin(BaseAIPlugin):
         if not any(keyword in text for keyword in approval_keywords):
             return None  # Not an approval response yet
 
-        await self.sender.send("[DEBUG] got approval result from user")
-
         # Handle approval/denial
         if any(word in text for word in ["yes", "approve", "confirm"]):
             return await self._execute_wrapped_function(function_name, state)
