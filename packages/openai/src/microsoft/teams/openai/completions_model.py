@@ -20,12 +20,12 @@ from microsoft.teams.ai import (
     SystemMessage,
     UserMessage,
 )
-from microsoft.teams.ai.function import DeferredResult
+from microsoft.teams.ai.function import DeferredResult, FunctionHandler, FunctionHandlerWithNoParams
 from microsoft.teams.ai.message import DeferredMessage
 from microsoft.teams.openai.common import OpenAIBaseModel
 from pydantic import BaseModel
 
-from openai import NOT_GIVEN
+from openai import omit
 from openai._streaming import AsyncStream
 from openai.types.chat import (
     ChatCompletion,
@@ -133,7 +133,7 @@ class OpenAICompletionsAIModel(OpenAIBaseModel, AIModel):
         self.logger.debug(f"Converted to {len(openai_messages)} OpenAI messages")
 
         # Convert functions to OpenAI tools format if provided
-        tools = self._convert_functions(functions) if functions else NOT_GIVEN
+        tools = self._convert_functions(functions) if functions else omit
 
         self.logger.debug(f"Making Chat Completions API call (streaming: {bool(on_chunk)})")
 
@@ -186,9 +186,14 @@ class OpenAICompletionsAIModel(OpenAIBaseModel, AIModel):
                     try:
                         # Parse arguments using utility function
                         parsed_args = parse_function_arguments(function, call.arguments)
+                        if parsed_args:
+                            # Handle both sync and async function handlers
+                            handler = cast(FunctionHandler[BaseModel], function.handler)
+                            result = handler(parsed_args)
+                        else:
+                            handler = cast(FunctionHandlerWithNoParams, function.handler)
+                            result = handler()
 
-                        # Handle both sync and async function handlers
-                        result = function.handler(parsed_args)
                         if inspect.isawaitable(result):
                             fn_res = await result
                         else:

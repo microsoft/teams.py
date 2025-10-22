@@ -3,13 +3,13 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from microsoft.teams.ai import Function
-from pydantic import BaseModel, create_model
+from pydantic import BaseModel, ConfigDict, create_model
 
 
-def get_function_schema(func: Function[BaseModel]) -> Dict[str, Any]:
+def get_function_schema(func: Function[Any]) -> Dict[str, Any]:
     """
     Get JSON schema from a Function's parameter_schema.
 
@@ -22,6 +22,10 @@ def get_function_schema(func: Function[BaseModel]) -> Dict[str, Any]:
     Returns:
         Dictionary containing JSON schema for the function parameters
     """
+    if not func.parameter_schema:
+        # No parameters case
+        return {}
+
     if isinstance(func.parameter_schema, dict):
         # Raw JSON schema - use as-is
         return func.parameter_schema.copy()
@@ -30,7 +34,7 @@ def get_function_schema(func: Function[BaseModel]) -> Dict[str, Any]:
         return func.parameter_schema.model_json_schema()
 
 
-def parse_function_arguments(func: Function[BaseModel], arguments: Dict[str, Any]) -> BaseModel:
+def parse_function_arguments(func: Function[Any], arguments: Dict[str, Any]) -> Optional[BaseModel]:
     """
     Parse function arguments into a BaseModel instance.
 
@@ -44,9 +48,13 @@ def parse_function_arguments(func: Function[BaseModel], arguments: Dict[str, Any
     Returns:
         BaseModel instance with validated and parsed arguments
     """
+    if not func.parameter_schema:
+        return None
+
     if isinstance(func.parameter_schema, dict):
         # For dict schemas, create a simple BaseModel dynamically
-        DynamicModel = create_model("DynamicParams")
+        # Use extra='allow' to accept arbitrary fields from the arguments dict
+        DynamicModel = create_model("DynamicParams", __config__=ConfigDict(extra="allow"))
         return DynamicModel(**arguments)
     else:
         # For Pydantic model schemas, parse normally

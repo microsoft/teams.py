@@ -94,6 +94,29 @@ class DeferredFunctionHandler(Protocol[Params]):
     def __call__(self, params: Params) -> Awaitable[DeferredResult]: ...
 
 
+class FunctionHandlerWithNoParams(Protocol):
+    """
+    Protocol for function handlers that can be called by AI models.
+
+    This handler does not have any parameters.
+
+    Function handlers can be either synchronous or asynchronous and should
+    return a string result that will be passed back to the AI model.
+    """
+
+    def __call__(self) -> Union[str, Awaitable[str]]:
+        """
+        Execute the function with no parameters.
+
+        Returns:
+            String result (sync) or awaitable string result (async)
+        """
+        ...
+
+
+FunctionHandlers = Union[FunctionHandler[Any], FunctionHandlerWithNoParams]
+
+
 @dataclass
 class Function(Generic[Params]):
     """
@@ -103,11 +126,19 @@ class Function(Generic[Params]):
     providing structured parameter validation and execution.
 
     Type Parameters:
-        Params: Pydantic model class defining the function's parameter schema
+        Params: Pydantic model class defining the function's parameter schema, if any.
+
+    Note:
+        For best type safety, use explicit type parameters when creating Function objects:
+        Function[SearchPokemonParams](name=..., parameter_schema=SearchPokemonParams, handler=...)
+
+        This ensures the handler parameter type matches the parameter_schema at compile time.
     """
 
     name: str  # Unique identifier for the function
     description: str  # Human-readable description of what the function does
-    parameter_schema: Union[type[Params], Dict[str, Any]]  # Pydantic model class or JSON schema dict
-    handler: FunctionHandler[Params] | DeferredFunctionHandler[Params]  # Function implementation (sync or async)
+    parameter_schema: Union[type[Params], Dict[str, Any], None]  # Pydantic model class or JSON schema dict
+    handler: (
+        FunctionHandler[Params] | FunctionHandlerWithNoParams | DeferredFunctionHandler[Params]
+    )  # Function implementation (sync or async)
     resumer: DeferredFunctionResumer[Params, Any] | None = None  # Optional resumer for deferred functions

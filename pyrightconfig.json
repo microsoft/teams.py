@@ -1,5 +1,5 @@
 {
-   "include":[
+   "include": [
       "packages/**/src/**/*.py",
       "tests/**/src/**/*.py"
    ],
@@ -14,7 +14,8 @@
       "packages/devtools/src",
       "packages/ai/src",
       "packages/openai/src",
-      "packages/mcpplugin/src"
+      "packages/mcpplugin/src",
+      "packages/a2aprotocol/src"
    ],
    "typeCheckingMode": "strict",
    "executionEnvironments": [

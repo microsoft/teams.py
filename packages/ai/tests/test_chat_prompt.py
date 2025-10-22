@@ -4,7 +4,7 @@ Licensed under the MIT License.
 """
 
 from inspect import isawaitable
-from typing import Any, Awaitable, Callable
+from typing import Any, Awaitable, Callable, Optional, cast
 from unittest.mock import Mock
 
 import pytest
@@ -13,6 +13,7 @@ from microsoft.teams.ai import (
     ChatSendResult,
     Function,
     FunctionCall,
+    FunctionHandler,
     ListMemory,
     Memory,
     Message,
@@ -71,8 +72,10 @@ class MockAIModel:
             # Actually execute the function (simulate real behavior)
             function = functions["test_function"]
             try:
-                params = function.parameter_schema(value="test_input")
-                result = function.handler(params)
+                casted_schema = cast(type, function.parameter_schema)
+                params = casted_schema(value="test_input")
+                handler = cast(FunctionHandler[BaseModel], function.handler)
+                result = handler(params)
                 # Handle both sync and async results
                 if isawaitable(result):
                     result = await result
@@ -293,6 +296,46 @@ class TestChatPromptEssentials:
         result3 = await prompt.send(model_msg)
         assert result3.response.content == "GENERATED - Model message"
 
+    @pytest.mark.asyncio
+    async def test_with_function_unpacked_parameters(self, mock_model: MockAIModel) -> None:
+        """Test with_function using unpacked parameters instead of Function object"""
+        prompt = ChatPrompt(mock_model)
+
+        # Test with parameter schema
+        def handler_with_params(params: MockFunctionParams) -> str:
+            return f"Result: {params.value}"
+
+        prompt.with_function(
+            name="test_func",
+            description="Test function with params",
+            parameter_schema=MockFunctionParams,
+            handler=handler_with_params,
+        )
+
+        assert "test_func" in prompt.functions
+        assert prompt.functions["test_func"].name == "test_func"
+        assert prompt.functions["test_func"].description == "Test function with params"
+        assert prompt.functions["test_func"].parameter_schema == MockFunctionParams
+
+        # Test without parameter schema (no params function)
+        def handler_no_params() -> str:
+            return "No params result"
+
+        prompt.with_function(
+            name="no_params_func",
+            description="Function with no parameters",
+            handler=handler_no_params,
+        )
+
+        assert "no_params_func" in prompt.functions
+        assert prompt.functions["no_params_func"].name == "no_params_func"
+        assert prompt.functions["no_params_func"].description == "Function with no parameters"
+        assert prompt.functions["no_params_func"].parameter_schema is None
+
+        # Verify both work in send
+        result = await prompt.send("Test message")
+        assert result.response.content == "GENERATED - Test message"
+
 
 class MockPlugin(BaseAIPlugin):
     """Mock plugin for testing that tracks all hook calls"""
@@ -301,8 +344,8 @@ class MockPlugin(BaseAIPlugin):
         super().__init__(name)
         self.before_send_called = False
         self.after_send_called = False
-        self.before_function_called: list[tuple[str, BaseModel]] = []
-        self.after_function_called: list[tuple[str, BaseModel, str]] = []
+        self.before_function_called: list[tuple[str, Optional[BaseModel]]] = []
+        self.after_function_called: list[tuple[str, Optional[BaseModel], str]] = []
         self.build_functions_called = False
         self.build_system_message_called = False
         self.input_modifications: list[str] = []
@@ -332,10 +375,12 @@ class MockPlugin(BaseAIPlugin):
             )
         return response
 
-    async def on_before_function_call(self, function_name: str, args: BaseModel) -> None:
+    async def on_before_function_call(self, function_name: str, args: Optional[BaseModel] = None) -> None:
         self.before_function_called.append((function_name, args))
 
-    async def on_after_function_call(self, function_name: str, args: BaseModel, result: str) -> str | None:
+    async def on_after_function_call(
+        self, function_name: str, result: str, args: Optional[BaseModel] = None
+    ) -> str | None:
         self.after_function_called.append((function_name, args, result))
         if self.function_result_modifications:
             modification = self.function_result_modifications.pop(0)

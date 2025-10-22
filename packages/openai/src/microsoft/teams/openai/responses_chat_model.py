@@ -6,12 +6,14 @@ Licensed under the MIT License.
 import inspect
 import json
 from dataclasses import dataclass
-from typing import Awaitable, Callable
+from typing import Awaitable, Callable, cast
 
 from microsoft.teams.ai import (
     AIModel,
     Function,
     FunctionCall,
+    FunctionHandler,
+    FunctionHandlerWithNoParams,
     FunctionMessage,
     ListMemory,
     Memory,
@@ -23,7 +25,7 @@ from microsoft.teams.ai import (
 from microsoft.teams.ai.message import DeferredMessage
 from pydantic import BaseModel
 
-from openai import NOT_GIVEN
+from openai import omit
 from openai.lib._pydantic import (
     _ensure_strict_json_schema,  # pyright: ignore [reportPrivateUsage]
     to_strict_json_schema,
@@ -94,13 +96,13 @@ class OpenAIResponsesAIModel(OpenAIBaseModel, AIModel):
 
     async def _send_stateful(
         self,
-        input: Message,
+        input: Message | None,
         system: SystemMessage | None,
         memory: Memory,
         functions: dict[str, Function[BaseModel]] | None,
         on_chunk: Callable[[str], Awaitable[None]] | None,
         function_results: list[FunctionMessage],
-    ) -> ModelMessage:
+    ) -> ModelMessage | list[DeferredMessage]:
         """Handle stateful conversation using OpenAI Responses API state management."""
         # Get response IDs from memory - OpenAI manages conversation state
         messages = list(await memory.get_all())
@@ -120,7 +122,7 @@ class OpenAIResponsesAIModel(OpenAIBaseModel, AIModel):
         # Convert to Responses API format - just the current input as string
         responses_input = self._convert_to_responses_format(input, None, messages)
         # Convert functions to tools format
-        tools = self._convert_functions_to_tools(functions) if functions else NOT_GIVEN
+        tools = self._convert_functions_to_tools(functions) if functions else omit
 
         self.logger.debug(f"Making Responses API call with input type: {type(input).__name__}")
 
@@ -162,21 +164,22 @@ class OpenAIResponsesAIModel(OpenAIBaseModel, AIModel):
 
     async def _send_stateless(
         self,
-        input: Message,
+        input: Message | None,
         system: SystemMessage | None,
         memory: Memory,
         functions: dict[str, Function[BaseModel]] | None,
         on_chunk: Callable[[str], Awaitable[None]] | None,
         function_results: list[FunctionMessage],
-    ) -> ModelMessage:
+    ) -> ModelMessage | list[DeferredMessage]:
         """Handle stateless conversation using standard OpenAI API pattern."""
         # Get conversation history from memory (make a copy to avoid modifying memory's internal state)
         messages = list(await memory.get_all())
         self.logger.debug(f"Retrieved {len(messages)} messages from memory")
 
-        # Push current input to memory
-        await memory.push(input)
-        messages.append(input)
+        if input:
+            # Push current input to memory
+            await memory.push(input)
+            messages.append(input)
 
         # Push function results to memory and add to messages
         if function_results:
@@ -188,7 +191,7 @@ class OpenAIResponsesAIModel(OpenAIBaseModel, AIModel):
         responses_input = self._convert_to_responses_format(input, None, messages)
 
         # Convert functions to tools format
-        tools = self._convert_functions_to_tools(functions) if functions else NOT_GIVEN
+        tools = self._convert_functions_to_tools(functions) if functions else omit
 
         self.logger.debug(f"Making Responses API call with input type: {type(input).__name__}")
 
@@ -196,7 +199,7 @@ class OpenAIResponsesAIModel(OpenAIBaseModel, AIModel):
         response = await self._client.responses.create(
             model=self._model,
             input=responses_input,
-            instructions=system.content if system and system.content else NOT_GIVEN,
+            instructions=system.content if system and system.content else omit,
             tools=tools,
         )
 
@@ -228,7 +231,7 @@ class OpenAIResponsesAIModel(OpenAIBaseModel, AIModel):
         return model_response
 
     async def _execute_functions(
-        self, input: Message, functions: dict[str, Function[BaseModel]] | None
+        self, input: Message | None, functions: dict[str, Function[BaseModel]] | None
     ) -> list[FunctionMessage]:
         """Execute any pending function calls in the input message."""
         function_results: list[FunctionMessage] = []
@@ -242,8 +245,14 @@ class OpenAIResponsesAIModel(OpenAIBaseModel, AIModel):
                         # Parse arguments using utility function
                         parsed_args = parse_function_arguments(function, call.arguments)
 
-                        # Handle both sync and async function handlers
-                        result = function.handler(parsed_args)
+                        if parsed_args:
+                            # Handle both sync and async function handlers
+                            handler = cast(FunctionHandler[BaseModel], function.handler)
+                            result = handler(parsed_args)
+                        else:
+                            # No parameters case - just call the handler with no args
+                            handler = cast(FunctionHandlerWithNoParams, function.handler)
+                            result = handler()
                         if inspect.isawaitable(result):
                             fn_res = await result
                         else:
@@ -321,6 +330,7 @@ class OpenAIResponsesAIModel(OpenAIBaseModel, AIModel):
     def _convert_functions_to_tools(self, functions: dict[str, Function[BaseModel]]) -> list[ToolParam]:
         """Convert functions to Responses API tools format."""
         tools: list[ToolParam] = []
+        schema = {}
 
         for func in functions.values():
             # Get strict schema for Responses API using OpenAI's transformations
@@ -328,7 +338,7 @@ class OpenAIResponsesAIModel(OpenAIBaseModel, AIModel):
                 # For raw JSON schemas, use OpenAI's strict transformation
                 schema = get_function_schema(func)
                 schema = _ensure_strict_json_schema(schema, path=(), root=schema)
-            else:
+            elif func.parameter_schema is not None:
                 # Use OpenAI's official strict schema transformation for Pydantic models
                 schema = to_strict_json_schema(func.parameter_schema)
 

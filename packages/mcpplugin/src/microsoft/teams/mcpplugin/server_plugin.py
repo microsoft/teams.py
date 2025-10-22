@@ -6,11 +6,11 @@ Licensed under the MIT License.
 import importlib.metadata
 import logging
 from inspect import isawaitable
-from typing import Annotated, Any, TypeVar
+from typing import Annotated, Any, TypeVar, cast
 
 from fastmcp import FastMCP
 from fastmcp.tools import FunctionTool
-from microsoft.teams.ai import Function
+from microsoft.teams.ai import Function, FunctionHandler
 from microsoft.teams.apps import (
     DependencyMetadata,
     HttpPlugin,
@@ -93,11 +93,12 @@ class McpServerPlugin(PluginBase):
         """
         try:
             # Prepare parameter schema for FastMCP
-            parameter_schema = (
-                function.parameter_schema
-                if isinstance(function.parameter_schema, dict)
-                else function.parameter_schema.model_json_schema()
-            )
+            parameter_schema = {}
+
+            if isinstance(function.parameter_schema, dict):
+                parameter_schema = function.parameter_schema
+            elif function.parameter_schema:
+                parameter_schema = function.parameter_schema.model_json_schema()
 
             # Create wrapper handler that converts kwargs to the expected format
             async def wrapped_handler(**kwargs: Any) -> Any:
@@ -117,9 +118,10 @@ class McpServerPlugin(PluginBase):
                     if isinstance(function.parameter_schema, type):
                         # parameter_schema is a Pydantic model class - instantiate it
                         params = function.parameter_schema(**kwargs)
-                        result = function.handler(params)
+                        handler = cast(FunctionHandler[BaseModel], function.handler)
+                        result = handler(params)
                     else:
-                        # parameter_schema is a dict - pass kwargs directly
+                        # parameter_schema is a dict or None - pass kwargs directly
                         result = function.handler(**kwargs)
 
                     # Handle both sync and async handlers

@@ -7,13 +7,13 @@ import inspect
 from dataclasses import dataclass
 from inspect import isawaitable
 from logging import Logger
-from typing import Any, Awaitable, Callable, Self, TypeVar, cast
+from typing import Any, Awaitable, Callable, Dict, Optional, Self, TypeVar, Union, cast, overload
 
 from microsoft.teams.common.logging import ConsoleLogger
 from pydantic import BaseModel
 
 from .ai_model import AIModel
-from .function import Function, FunctionHandler
+from .function import Function, FunctionHandler, FunctionHandlers, FunctionHandlerWithNoParams
 from .memory import Memory
 from .message import DeferredMessage, FunctionMessage, Message, ModelMessage, SystemMessage, UserMessage
 from .plugin import AIPluginProtocol
@@ -70,17 +70,67 @@ class ChatPrompt:
         self.logger = logger or ConsoleLogger().create_logger("@teams/ai/chat_prompt")
         self.instructions = instructions
 
-    def with_function(self, function: Function[T]) -> Self:
+    @overload
+    def with_function(self, function: Function[T]) -> Self: ...
+
+    @overload
+    def with_function(
+        self,
+        *,
+        name: str,
+        description: str,
+        parameter_schema: Union[type[T], Dict[str, Any]],
+        handler: FunctionHandlers,
+    ) -> Self: ...
+
+    @overload
+    def with_function(
+        self,
+        *,
+        name: str,
+        description: str,
+        handler: FunctionHandlerWithNoParams,
+    ) -> Self: ...
+
+    def with_function(
+        self,
+        function: Function[T] | None = None,
+        *,
+        name: str | None = None,
+        description: str | None = None,
+        parameter_schema: Union[type[T], Dict[str, Any], None] = None,
+        handler: FunctionHandlers | None = None,
+    ) -> Self:
         """
         Add a function to the available functions for this prompt.
 
+        Can be called in three ways:
+        1. with_function(function=Function(...))
+        2. with_function(name=..., description=..., parameter_schema=..., handler=...)
+        3. with_function(name=..., description=..., handler=...) - for functions with no parameters
+
         Args:
-            function: Function to add to the available functions
+            function: Function object to add (first overload)
+            name: Function name (second and third overload)
+            description: Function description (second and third overload)
+            parameter_schema: Function parameter schema (second overload, optional)
+            handler: Function handler (second and third overload)
 
         Returns:
             Self for method chaining
         """
-        self.functions[function.name] = function
+        if function is not None:
+            self.functions[function.name] = function
+        else:
+            if name is None or description is None or handler is None:
+                raise ValueError("When not providing a Function object, name, description, and handler are required")
+            func = Function[T](
+                name=name,
+                description=description,
+                parameter_schema=parameter_schema,
+                handler=handler,
+            )
+            self.functions[func.name] = func
         return self
 
     def with_plugin(self, plugin: AIPluginProtocol) -> Self:
@@ -259,9 +309,7 @@ class ChatPrompt:
 
         return ChatSendResult(response=current_response)
 
-    def _wrap_function_handler(
-        self, original_handler: FunctionHandler[BaseModel], function_name: str
-    ) -> FunctionHandler[BaseModel]:
+    def _wrap_function_handler(self, original_handler: FunctionHandlers, function_name: str) -> FunctionHandlers:
         """
         Wrap a function handler with plugin before/after hooks.
 
@@ -276,20 +324,28 @@ class ChatPrompt:
             Wrapped handler that includes plugin hook execution
         """
 
-        async def wrapped_handler(params: BaseModel) -> str:
+        async def wrapped_handler(params: Optional[BaseModel]) -> str:
             # Run before function call hooks
             for plugin in self.plugins:
                 await plugin.on_before_function_call(function_name, params)
 
-            # Call the original function (could be sync or async)
-            result = original_handler(params)
-            if isawaitable(result):
-                result = await result
+            if params:
+                # Call the original function with params (could be sync or async)
+                casted_handler = cast(FunctionHandler[BaseModel], original_handler)
+                result = casted_handler(params)
+                if isawaitable(result):
+                    result = await result
+            else:
+                # Function with no parameters case
+                casted_handler = cast(FunctionHandlerWithNoParams, original_handler)
+                result = casted_handler()
+                if isawaitable(result):
+                    result = await result
 
             # Run after function call hooks
             current_result = result
             for plugin in self.plugins:
-                plugin_result = await plugin.on_after_function_call(function_name, params, current_result)
+                plugin_result = await plugin.on_after_function_call(function_name, current_result, params)
                 if plugin_result is not None:
                     current_result = plugin_result
 

@@ -8,6 +8,8 @@ from unittest.mock import MagicMock
 import pytest
 from microsoft.teams.apps.utils import RetryOptions, retry
 
+# pyright: basic
+
 
 class TestRetryOptions:
     """Test RetryOptions functionality."""
