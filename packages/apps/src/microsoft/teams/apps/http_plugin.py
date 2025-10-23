@@ -118,7 +118,9 @@ class HttpPlugin(Sender):
         if server_factory:
             self._server = server_factory(self.app)
             if self._server.config.app is not self.app:
-                raise ValueError("server_factory must return a uvicorn.Server configured with the provided FastAPI app instance.")
+                raise ValueError(
+                    "server_factory must return a uvicorn.Server configured with the provided FastAPI app instance."
+                )
 
         # Add JWT validation middleware
         if app_id and not skip_auth:
