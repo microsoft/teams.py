@@ -1,0 +1,13 @@
+[project]
+name = "defferred_ai"
+version = "0.1.0"
+description = "testing deferred tools"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "dotenv>=0.9.9",
+    "microsoft-teams-apps",
+]
+
+[tool.uv.sources]
+microsoft-teams-apps = { workspace = true }

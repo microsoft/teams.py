@@ -68,7 +68,7 @@ async def handle_simple_chat(ctx: ActivityContext[MessageActivity]):
         input=ctx.activity.text, instructions="You are a friendly assistant who talks like a pirate"
     )
 
-    if chat_result.response.content:
+    if chat_result.response and chat_result.response.content:
         message = MessageActivityInput(text=chat_result.response.content).add_ai_generated()
         await ctx.send(message)
 
@@ -107,7 +107,7 @@ async def handle_streaming(ctx: ActivityContext[MessageActivity]):
 
         if hasattr(ctx.activity.conversation, "is_group") and ctx.activity.conversation.is_group:
             # Group chat - send final response
-            if chat_result.response.content:
+            if chat_result.response and chat_result.response.content:
                 message = MessageActivityInput(text=chat_result.response.content).add_ai_generated()
                 await ctx.send(message)
         else:
@@ -167,7 +167,7 @@ async def handle_feedback_demo(ctx: ActivityContext[MessageActivity]):
         input="Tell me a short joke", instructions="You are a comedian. Keep responses brief and funny."
     )
 
-    if chat_result.response.content:
+    if chat_result.response and chat_result.response.content:
         # Create message with feedback enabled and initialize storage
         message = MessageActivityInput(text=chat_result.response.content).add_ai_generated().add_feedback()
         sent_message = await ctx.send(message)

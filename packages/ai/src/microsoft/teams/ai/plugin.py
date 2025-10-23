@@ -4,7 +4,7 @@ Licensed under the MIT License.
 """
 
 from abc import abstractmethod
-from typing import Optional, Protocol, TypeVar, runtime_checkable
+from typing import Any, Optional, Protocol, TypeVar, runtime_checkable
 
 from pydantic import BaseModel
 
@@ -111,6 +111,20 @@ class AIPluginProtocol(Protocol):
         """
         ...
 
+    async def on_resume(self, function_name: str, activity: Any, state: dict[str, Any]) -> str | None:
+        """
+        Called when ChatPrompt is attempting to resume a deferred function.
+
+        Args:
+            function_name: Name of the function that was deferred
+            activity: The activity data to use for resolving
+            state: The state that was saved when function was deferred
+
+        Returns:
+            Result string if this plugin handled the resuming, None otherwise
+        """
+        ...
+
 
 class BaseAIPlugin:
     """
@@ -165,3 +179,7 @@ class BaseAIPlugin:
     async def on_build_instructions(self, instructions: SystemMessage | None) -> SystemMessage | None:
         """Modify the system message before sending to model."""
         return instructions
+
+    async def on_resume(self, function_name: str, activity: Any, state: dict[str, Any]) -> str | None:
+        """Called when ChatPrompt is attempting to resume a deferred function."""
+        return None
