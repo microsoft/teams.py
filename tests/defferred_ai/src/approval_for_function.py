@@ -6,13 +6,10 @@ Licensed under the MIT License.
 import logging
 from typing import Any, Protocol
 
+from microsoft.teams.ai import BaseAIPlugin, DeferredResult, Function, execute_function
 from microsoft.teams.api import MessageActivityInput
 from microsoft.teams.common.logging.console import ConsoleLogger
 from pydantic import BaseModel
-
-from ..function import DeferredResult, Function
-from ..plugin import BaseAIPlugin
-from ..utils import execute_function
 
 
 class MessageSender(Protocol):

@@ -17,7 +17,7 @@ from .function import (
 )
 from .memory import ListMemory, Memory
 from .message import DeferredMessage, FunctionMessage, Message, ModelMessage, SystemMessage, UserMessage
-from .plugins import *  # noqa: F401, F403
+from .plugin import AIPluginProtocol, BaseAIPlugin
 from .utils import *  # noqa: F401, F403
 
 __all__ = [
@@ -36,6 +36,8 @@ __all__ = [
     "Memory",
     "ListMemory",
     "AIModel",
+    "AIPluginProtocol",
+    "BaseAIPlugin",
     "FunctionHandler",
     "FunctionHandlerWithNoParams",
     "FunctionHandlers",

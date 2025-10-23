@@ -6,9 +6,9 @@ Licensed under the MIT License.
 import asyncio
 from os import getenv
 
+from approval_for_function import ApprovalPlugin
 from dotenv import find_dotenv, load_dotenv
 from microsoft.teams.ai import ChatPrompt, Function, ListMemory
-from microsoft.teams.ai.plugins import ApprovalPlugin
 from microsoft.teams.api import MessageActivity, MessageActivityInput
 from microsoft.teams.apps import ActivityContext, App
 from microsoft.teams.devtools import DevToolsPlugin
