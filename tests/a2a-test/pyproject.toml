@@ -1,0 +1,21 @@
+[project]
+name = "a2a"
+version = "0.1.0"
+description = "sample showcasing a2a server and client"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "dotenv>=0.9.9",
+    "microsoft-teams-apps",
+    "microsoft-teams-a2a",
+    "microsoft-teams-ai",
+    "microsoft-teams-openai",
+    "microsoft-teams-common",
+]
+
+[tool.uv.sources]
+microsoft-teams-apps = { workspace = true }
+microsoft-teams-ai = { workspace = true }
+microsoft-teams-a2a = { workspace = true }
+microsoft-teams-openai = { workspace = true }
+microsoft-teams-common = { workspace = true }

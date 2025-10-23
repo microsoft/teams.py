@@ -59,6 +59,7 @@ A comprehensive SDK for building Microsoft Teams applications, bots, and AI agen
 > external packages to integrate with external protocols and microsoft-teams-cards
 
 - [`microsoft-teams-mcpplugin`](./packages/mcp/README.md)
+- [`microsoft-teams-a2a`](./packages/a2aprotocol/README.md)
 
 ### Create a New Package
 
