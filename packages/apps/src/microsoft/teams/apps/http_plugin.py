@@ -70,12 +70,20 @@ class HttpPlugin(Sender):
         app_id: Optional[str],
         logger: Optional[Logger] = None,
         skip_auth: bool = False,
-        server: Optional[uvicorn.Server] = None,
+        server_factory: Optional[Callable[[FastAPI], uvicorn.Server]] = None,
     ):
+        """
+        Args:
+            app_id: Optional Microsoft App ID.
+            logger: Optional logger.
+            skip_auth: Whether to skip JWT validation.
+            server_factory: Optional function that takes an ASGI app
+                and returns a configured `uvicorn.Server`.
+        """
         super().__init__()
         self.logger = logger or ConsoleLogger().create_logger("@teams/http-plugin")
-        self._server = server
         self._port: Optional[int] = None
+        self._server: Optional[uvicorn.Server] = None
         self._on_ready_callback: Optional[Callable[[], Awaitable[None]]] = None
         self._on_stopped_callback: Optional[Callable[[], Awaitable[None]]] = None
 
@@ -105,6 +113,12 @@ class HttpPlugin(Sender):
                 yield
 
         self.app = FastAPI(lifespan=combined_lifespan)
+
+        # Create uvicorn server if user provides custom factory method
+        if server_factory:
+            self._server = server_factory(self.app)
+            if self._server.config.app is not self.app:
+                raise ValueError("The server was created with a different app than the one provided.")
 
         # Add JWT validation middleware
         if app_id and not skip_auth:
@@ -149,9 +163,13 @@ class HttpPlugin(Sender):
         self._port = event.port
 
         try:
-            if self._server:
-                self._server.config.port = self._port
-                self._server.config.app = self.app
+            if self._server and self._server.config.port != self._port:
+                self.logger.warning(
+                    "Using port configured by server factory: %d, but plugin had requested port %d.",
+                    self._server.config.port,
+                    self._port,
+                )
+                self._port = self._server.config.port
             else:
                 config = uvicorn.Config(app=self.app, host="0.0.0.0", port=self._port, log_level="info")
                 self._server = uvicorn.Server(config)
