@@ -20,7 +20,10 @@ class TeamInfo(CustomBaseModel):
     name: Optional[str] = None
     "Name of team."
 
-    team_type: Optional[Literal["standard", "sharedChannel", "privateChannel"]] = None
+    tenant_id: Optional[str] = None
+    "The tenant ID for the team."
+
+    type: Optional[Literal["standard", "sharedChannel", "privateChannel"]] = None
     "The type of the team"
 
     member_count: Optional[int] = None
