@@ -10,4 +10,4 @@ class AttachmentLayout(str, Enum):
     """Enum for attachment layout types."""
 
     LIST = "list"
-    CAROUSEL = "carousel"
+    GRID = "grid"
