@@ -11,7 +11,6 @@ from microsoft.teams.api import (
     ActivityParams,
     ApiClient,
     ConversationReference,
-    GetUserTokenParams,
     InvokeResponse,
     SentActivity,
     TokenProtocol,
@@ -22,12 +21,11 @@ from microsoft.teams.common import Client, ClientOptions, LocalStorage, Storage
 
 if TYPE_CHECKING:
     from .app_events import EventManager
-from .app_tokens import AppTokens
 from .events import ActivityEvent, ActivityResponseEvent, ActivitySentEvent
-from .graph_token_manager import GraphTokenManager
 from .plugins import PluginActivityEvent, PluginBase, Sender
 from .routing.activity_context import ActivityContext
 from .routing.router import ActivityHandler, ActivityRouter
+from .token_manager import TokenManager
 from .utils import extract_tenant_id
 
 
@@ -42,8 +40,7 @@ class ActivityProcessor:
         storage: Union[Storage[str, Any], LocalStorage[Any]],
         default_connection_name: str,
         http_client: Client,
-        token: AppTokens,
-        graph_token_manager: GraphTokenManager,
+        token_manager: TokenManager,
     ) -> None:
         self.router = router
         self.logger = logger
@@ -51,20 +48,11 @@ class ActivityProcessor:
         self.storage = storage
         self.default_connection_name = default_connection_name
         self.http_client = http_client
-        self.tokens = token
-        self._graph_token_manager = graph_token_manager
+        self.token_manager = token_manager
 
         # This will be set after the EventManager is initialized due to
         # a circular dependency
         self.event_manager: Optional["EventManager"] = None
-
-    async def _get_or_refresh_graph_token(self, tenant_id: Optional[str] = None) -> Optional[TokenProtocol]:
-        """Get the current graph token or refresh it if needed."""
-        try:
-            return await self._graph_token_manager.get_token(tenant_id)
-        except Exception as e:
-            self.logger.error(f"Failed to get graph token via manager: {e}")
-            return self.tokens.graph
 
     async def _build_context(
         self,
@@ -92,28 +80,22 @@ class ActivityProcessor:
             locale=activity.locale,
             user=activity.from_,
         )
-        api_client = ApiClient(service_url, self.http_client.clone(ClientOptions(token=self.tokens.bot)))
+        api_client = ApiClient(service_url, self.http_client.clone(ClientOptions(token=self.token_manager.tokens.bot)))
 
         # Check if user is signed in
         is_signed_in = False
         user_token: Optional[str] = None
         try:
-            user_token_res = await api_client.users.token.get(
-                GetUserTokenParams(
-                    connection_name=self.default_connection_name,
-                    user_id=activity.from_.id,
-                    channel_id=activity.channel_id,
-                )
+            user_token = await self.token_manager.get_user_token(
+                channel_id=activity.channel_id, user_id=activity.from_.id
             )
-            user_token = user_token_res.token
             is_signed_in = True
         except Exception:
             # User token not available
+            self.logger.debug("No user token available")
             pass
 
         tenant_id = extract_tenant_id(activity)
-
-        graph_token = await self._get_or_refresh_graph_token(tenant_id)
 
         activityCtx = ActivityContext(
             activity,
@@ -126,7 +108,7 @@ class ActivityProcessor:
             is_signed_in,
             self.default_connection_name,
             sender,
-            app_token=graph_token,
+            app_token=lambda: self.token_manager.get_or_refresh_graph_token(tenant_id),
         )
 
         send = activityCtx.send
