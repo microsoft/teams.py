@@ -8,11 +8,11 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from microsoft.teams.api import Activity, ActivityBase, ConversationReference
-from microsoft.teams.apps import ActivityContext, AppTokens, Sender
+from microsoft.teams.apps import ActivityContext, Sender
 from microsoft.teams.apps.app_events import EventManager
 from microsoft.teams.apps.app_process import ActivityProcessor
-from microsoft.teams.apps.graph_token_manager import GraphTokenManager
 from microsoft.teams.apps.routing.router import ActivityHandler, ActivityRouter
+from microsoft.teams.apps.token_manager import TokenManager
 from microsoft.teams.common import Client, ConsoleLogger, LocalStorage
 
 
@@ -30,8 +30,7 @@ class TestActivityProcessor:
         """Create an ActivityProcessor instance."""
         mock_storage = MagicMock(spec=LocalStorage)
         mock_activity_router = MagicMock(spec=ActivityRouter)
-        mock_tokens = MagicMock(spec=AppTokens)
-        mock_graph_token_manager = MagicMock(spec=GraphTokenManager)
+        mock_token_manager = MagicMock(spec=TokenManager)
         return ActivityProcessor(
             mock_activity_router,
             mock_logger,
@@ -39,8 +38,7 @@ class TestActivityProcessor:
             mock_storage,
             "default_connection",
             mock_http_client,
-            mock_tokens,
-            mock_graph_token_manager,
+            mock_token_manager,
         )
 
     @pytest.mark.asyncio
