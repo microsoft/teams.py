@@ -4,8 +4,7 @@ Licensed under the MIT License.
 """
 
 import logging
-from types import SimpleNamespace
-from typing import Any, Optional
+from typing import Optional
 
 from microsoft.teams.api import ChannelID, ClientCredentials
 from microsoft.teams.api.auth.credentials import Credentials
@@ -13,8 +12,6 @@ from microsoft.teams.api.auth.json_web_token import JsonWebToken
 from microsoft.teams.api.auth.token import TokenProtocol
 from microsoft.teams.api.clients.api_client import ApiClient
 from microsoft.teams.api.clients.user.params import GetUserTokenParams
-from microsoft.teams.apps.events.registry import EventType
-from microsoft.teams.common.events.event_emitter import EventEmitter
 from microsoft.teams.common.logging.console import ConsoleLogger
 from microsoft.teams.common.storage.local_storage import LocalStorage, LocalStorageOptions
 
@@ -26,13 +23,11 @@ class TokenManager:
         self,
         api_client: ApiClient,
         credentials: Optional[Credentials],
-        event_emitter: EventEmitter[EventType],
         logger: Optional[logging.Logger] = None,
         default_connection_name: Optional[str] = None,
     ):
         self._api_client = api_client
         self._credentials = credentials
-        self._events = event_emitter
         self._default_connection_name = default_connection_name
 
         if not logger:
@@ -46,12 +41,14 @@ class TokenManager:
         self._graph_tokens: LocalStorage[TokenProtocol] = LocalStorage({}, LocalStorageOptions(max=20000))
 
     @property
-    def tokens(self) -> Any:
-        """Current authentication tokens."""
-        return SimpleNamespace(
-            bot=self._bot_token,
-            graph=self._graph_tokens.get(""),  # Default graph token
-        )
+    def bot_token(self):
+        return self._bot_token
+
+    def get_tenant_graph_token(self, tenant_id: str | None):
+        """
+        Returns the graph token for a given tenant id.
+        """
+        return self._graph_tokens.get(tenant_id or "")
 
     async def refresh_bot_token(self, force: bool = False) -> Optional[TokenProtocol]:
         """Refresh the bot authentication token."""

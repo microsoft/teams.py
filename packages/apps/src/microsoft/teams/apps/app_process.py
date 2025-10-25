@@ -80,7 +80,9 @@ class ActivityProcessor:
             locale=activity.locale,
             user=activity.from_,
         )
-        api_client = ApiClient(service_url, self.http_client.clone(ClientOptions(token=self.token_manager.tokens.bot)))
+        api_client = ApiClient(
+            service_url, self.http_client.clone(ClientOptions(token=self.token_manager.refresh_bot_token))
+        )
 
         # Check if user is signed in
         is_signed_in = False

@@ -92,7 +92,6 @@ class App(ActivityHandlerMixin):
         self._token_manager = TokenManager(
             api_client=self.api,
             credentials=self.credentials,
-            event_emitter=self._events,
             logger=self.log,
             default_connection_name=self.options.default_connection_name,
         )
