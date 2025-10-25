@@ -64,7 +64,7 @@ class TestTokenManager:
         token1 = await manager.refresh_bot_token()
         assert token1 is not None
         assert isinstance(token1, JsonWebToken)
-        assert manager.bot_token == token1
+        assert manager.cached_bot_token == token1
 
         # Second call should use cache
         token2 = await manager.refresh_bot_token()

@@ -41,7 +41,7 @@ class TokenManager:
         self._graph_tokens: LocalStorage[TokenProtocol] = LocalStorage({}, LocalStorageOptions(max=20000))
 
     @property
-    def bot_token(self):
+    def cached_bot_token(self):
         return self._bot_token
 
     def get_tenant_graph_token(self, tenant_id: str | None):
