@@ -184,9 +184,10 @@ class App(ActivityHandlerMixin):
 
     @property
     def id(self) -> Optional[str]:
-        """The app's ID from tokens."""
-        tokens = self._token_manager.tokens
-        return tokens.bot.app_id if tokens.bot else tokens.graph.app_id if tokens.graph else None
+        """The app's ID from credentials."""
+        if not self.credentials:
+            return None
+        return self.credentials.client_id
 
     async def start(self, port: Optional[int] = None) -> None:
         """
