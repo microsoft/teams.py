@@ -83,12 +83,6 @@ class App(ActivityHandlerMixin):
 
         self.credentials = self._init_credentials()
 
-        self.api = ApiClient(
-            "https://smba.trafficmanager.net/teams",
-            self.http_client.clone(ClientOptions(token=self._get_or_refresh_bot_token)),
-        )
-
-        # Initialize token manager early so id/name properties work
         self._token_manager = TokenManager(
             api_client=self.api,
             credentials=self.credentials,
@@ -103,6 +97,11 @@ class App(ActivityHandlerMixin):
         self.container.set_provider("logger", providers.Object(self.log))
         self.container.set_provider("storage", providers.Object(self.storage))
         self.container.set_provider(self.http_client.__class__.__name__, providers.Factory(lambda: self.http_client))
+
+        self.api = ApiClient(
+            "https://smba.trafficmanager.net/teams",
+            self.http_client.clone(ClientOptions(token=self._get_or_refresh_bot_token)),
+        )
 
         plugins: List[PluginBase] = list(self.options.plugins)
 
