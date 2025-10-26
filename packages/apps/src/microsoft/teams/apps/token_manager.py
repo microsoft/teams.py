@@ -6,14 +6,17 @@ Licensed under the MIT License.
 import logging
 from typing import Optional
 
-from microsoft.teams.api import ChannelID, ClientCredentials
-from microsoft.teams.api.auth.credentials import Credentials
-from microsoft.teams.api.auth.json_web_token import JsonWebToken
-from microsoft.teams.api.auth.token import TokenProtocol
-from microsoft.teams.api.clients.api_client import ApiClient
-from microsoft.teams.api.clients.user.params import GetUserTokenParams
-from microsoft.teams.common.logging.console import ConsoleLogger
-from microsoft.teams.common.storage.local_storage import LocalStorage, LocalStorageOptions
+from microsoft.teams.api import (
+    BotTokenClient,
+    ChannelID,
+    ClientCredentials,
+    Credentials,
+    GetUserTokenParams,
+    JsonWebToken,
+    TokenProtocol,
+    UserTokenClient,
+)
+from microsoft.teams.common import Client, ConsoleLogger, LocalStorage, LocalStorageOptions
 
 
 class TokenManager:
@@ -21,12 +24,13 @@ class TokenManager:
 
     def __init__(
         self,
-        api_client: ApiClient,
+        http_client: Client,
         credentials: Optional[Credentials],
         logger: Optional[logging.Logger] = None,
         default_connection_name: Optional[str] = None,
     ):
-        self._api_client = api_client
+        self._bot_token_client = BotTokenClient(http_client.clone())
+        self._user_token_client = UserTokenClient(http_client.clone())
         self._credentials = credentials
         self._default_connection_name = default_connection_name
 
@@ -62,7 +66,7 @@ class TokenManager:
         if self._bot_token:
             self._logger.debug("Refreshing bot token")
 
-        token_response = await self._api_client.bots.token.get(self._credentials)
+        token_response = await self._bot_token_client.get(self._credentials)
         self._bot_token = JsonWebToken(token_response.access_token)
         self._logger.debug("Bot token refreshed successfully")
         return self._bot_token
@@ -99,7 +103,7 @@ class TokenManager:
                 tenant_id=tenant_id,
             )
 
-        response = await self._api_client.bots.token.get_graph(creds)
+        response = await self._bot_token_client.get_graph(creds)
         token = JsonWebToken(response.access_token)
         self._graph_tokens.set(key, token)
 
@@ -122,7 +126,7 @@ class TokenManager:
             self._logger.warning("No default connection name configured, cannot get user token")
             return None
 
-        response = await self._api_client.users.token.get(
+        response = await self._user_token_client.get(
             GetUserTokenParams(
                 channel_id=channel_id,
                 user_id=user_id,

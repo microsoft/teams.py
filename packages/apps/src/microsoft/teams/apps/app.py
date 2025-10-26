@@ -84,7 +84,7 @@ class App(ActivityHandlerMixin):
         self.credentials = self._init_credentials()
 
         self._token_manager = TokenManager(
-            api_client=self.api,
+            http_client=self.http_client,
             credentials=self.credentials,
             logger=self.log,
             default_connection_name=self.options.default_connection_name,
@@ -464,5 +464,5 @@ class App(ActivityHandlerMixin):
         # Named decoration: @app.func("name")
         return decorator
 
-    def _get_or_refresh_bot_token(self):
-        return self._token_manager.refresh_bot_token()
+    async def _get_or_refresh_bot_token(self):
+        return await self._token_manager.refresh_bot_token()
