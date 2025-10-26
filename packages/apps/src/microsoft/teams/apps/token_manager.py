@@ -17,6 +17,7 @@ from microsoft.teams.api import (
     UserTokenClient,
 )
 from microsoft.teams.common import Client, ConsoleLogger, LocalStorage, LocalStorageOptions
+from microsoft.teams.common.http.client import ClientOptions
 
 
 class TokenManager:
@@ -30,7 +31,9 @@ class TokenManager:
         default_connection_name: Optional[str] = None,
     ):
         self._bot_token_client = BotTokenClient(http_client.clone())
-        self._user_token_client = UserTokenClient(http_client.clone())
+        self._user_token_client = UserTokenClient(
+            http_client.clone(ClientOptions(token=lambda: self.refresh_bot_token(force=False)))
+        )
         self._credentials = credentials
         self._default_connection_name = default_connection_name
 
@@ -65,6 +68,8 @@ class TokenManager:
 
         if self._bot_token:
             self._logger.debug("Refreshing bot token")
+        else:
+            self._logger.debug("Retrieving bot token")
 
         token_response = await self._bot_token_client.get(self._credentials)
         self._bot_token = JsonWebToken(token_response.access_token)

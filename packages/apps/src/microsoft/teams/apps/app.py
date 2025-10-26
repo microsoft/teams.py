@@ -93,7 +93,7 @@ class App(ActivityHandlerMixin):
         self.container = Container()
         self.container.set_provider("id", providers.Object(self.id))
         self.container.set_provider("credentials", providers.Object(self.credentials))
-        self.container.set_provider("bot_token", providers.Factory(self._get_or_refresh_bot_token))
+        self.container.set_provider("bot_token", providers.Factory(lambda: self._get_or_refresh_bot_token))
         self.container.set_provider("logger", providers.Object(self.log))
         self.container.set_provider("storage", providers.Object(self.storage))
         self.container.set_provider(self.http_client.__class__.__name__, providers.Factory(lambda: self.http_client))
@@ -464,5 +464,5 @@ class App(ActivityHandlerMixin):
         # Named decoration: @app.func("name")
         return decorator
 
-    async def _get_or_refresh_bot_token(self):
-        return await self._token_manager.refresh_bot_token()
+    def _get_or_refresh_bot_token(self):
+        return self._token_manager.refresh_bot_token()
