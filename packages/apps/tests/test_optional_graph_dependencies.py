@@ -128,5 +128,5 @@ class TestOptionalGraphDependencies:
         )
 
         # app_graph should raise ValueError when no app token is available
-        with pytest.raises(ValueError, match="No app token available for Graph client"):
+        with pytest.raises(ValueError, match="Token cannot be None"):
             _ = activity_context.app_graph
