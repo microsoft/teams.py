@@ -464,5 +464,5 @@ class App(ActivityHandlerMixin):
         # Named decoration: @app.func("name")
         return decorator
 
-    def _get_or_refresh_bot_token(self):
-        return self._token_manager.refresh_bot_token()
+    async def _get_or_refresh_bot_token(self):
+        return await self._token_manager.refresh_bot_token()
