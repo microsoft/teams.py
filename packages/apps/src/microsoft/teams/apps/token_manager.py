@@ -38,22 +38,6 @@ class TokenManager:
 
         self._msal_clients_by_tenantId: dict[str, ConfidentialClientApplication] = {}
 
-    def _get_msal_client_for_tenant(self, tenant_id: str) -> ConfidentialClientApplication:
-        credentials = self._credentials
-        assert isinstance(credentials, ClientCredentials), (
-            "MSAL clients are only eligible for client credentials,"
-            f"but current credentials is {reveal_type(credentials)}"
-        )
-        cached_client = self._msal_clients_by_tenantId.setdefault(
-            tenant_id,
-            ConfidentialClientApplication(
-                credentials.client_id,
-                client_credential=credentials.client_secret if credentials else None,
-                authority=f"https://login.microsoftonline.com/{tenant_id}",
-            ),
-        )
-        return cached_client
-
     async def get_bot_token(self) -> Optional[TokenProtocol]:
         """Refresh the bot authentication token."""
         return await self._get_token("https://api.botframework.com/.default")
@@ -104,3 +88,19 @@ class TokenManager:
                 access_token = token
 
             return JsonWebToken(access_token)
+
+    def _get_msal_client_for_tenant(self, tenant_id: str) -> ConfidentialClientApplication:
+        credentials = self._credentials
+        assert isinstance(credentials, ClientCredentials), (
+            "MSAL clients are only eligible for client credentials,"
+            f"but current credentials is {reveal_type(credentials)}"
+        )
+        cached_client = self._msal_clients_by_tenantId.setdefault(
+            tenant_id,
+            ConfidentialClientApplication(
+                credentials.client_id,
+                client_credential=credentials.client_secret if credentials else None,
+                authority=f"https://login.microsoftonline.com/{tenant_id}",
+            ),
+        )
+        return cached_client
