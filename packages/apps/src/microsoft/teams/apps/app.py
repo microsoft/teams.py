@@ -21,6 +21,7 @@ from microsoft.teams.api import (
     ConversationAccount,
     ConversationReference,
     Credentials,
+    ManagedIdentityCredentials,
     MessageActivityInput,
     TokenCredentials,
 )
@@ -290,12 +291,24 @@ class App(ActivityHandlerMixin):
         client_secret = self.options.client_secret or os.getenv("CLIENT_SECRET")
         tenant_id = self.options.tenant_id or os.getenv("TENANT_ID")
         token = self.options.token
+        enable_managed_identity = self.options.enable_managed_identity or os.getenv("ENABLE_MANAGED_IDENTITY")
 
         self.log.debug(f"Using CLIENT_ID: {client_id}")
         if not tenant_id:
             self.log.warning("TENANT_ID is not set, assuming multi-tenant app")
         else:
             self.log.debug(f"Using TENANT_ID: {tenant_id} (assuming single-tenant app)")
+
+        if enable_managed_identity and client_id:
+            assert enable_managed_identity in ("system", "user"), (
+                f"enable_managed_identity must be 'system' or 'user', got: {enable_managed_identity}"
+            )
+            self.log.debug(f"Using managed identity: {enable_managed_identity}")
+            return ManagedIdentityCredentials(
+                client_id=client_id,
+                managed_identity_type=enable_managed_identity,
+                tenant_id=tenant_id,
+            )
 
         # - If client_id + client_secret : use ClientCredentials (standard client auth)
         if client_id and client_secret:
