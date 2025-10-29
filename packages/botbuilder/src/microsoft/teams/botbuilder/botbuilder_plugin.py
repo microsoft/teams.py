@@ -104,6 +104,15 @@ class BotBuilderPlugin(HttpPlugin):
             self.logger.info("BotBuilder plugin initialized successfully")
 
     async def on_activity_request(self, request: Request, response: Response) -> Any:
+        """
+        Handles an incoming activity.
+
+        Overrides the base HTTP plugin behavior to:
+        1. Process the activity using the Bot Framework adapter/handler.
+        2. Then pass the request to the Teams plugin pipeline (_handle_activity_request).
+
+        Returns the final HTTP response.
+        """
         if not self.adapter:
             raise RuntimeError("plugin not registered")
 
