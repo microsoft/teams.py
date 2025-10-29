@@ -5,6 +5,7 @@
    ],
    "venv": ".venv",
    "venvPath": ".",
+   "stubPath": "stubs",
    "extraPaths": [
       "packages/api/src",
       "packages/common/src",
