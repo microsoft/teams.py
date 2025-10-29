@@ -15,7 +15,7 @@ from microsoft.teams.api import (
     TokenProtocol,
 )
 from microsoft.teams.api.auth.credentials import TokenCredentials
-from microsoft.teams.common import Client, ConsoleLogger
+from microsoft.teams.common import ConsoleLogger
 from msal import ConfidentialClientApplication  # pyright: ignore[reportMissingTypeStubs]
 
 
@@ -24,7 +24,6 @@ class TokenManager:
 
     def __init__(
         self,
-        http_client: Client,
         credentials: Optional[Credentials],
         logger: Optional[logging.Logger] = None,
         default_connection_name: Optional[str] = None,
@@ -59,7 +58,7 @@ class TokenManager:
         """Refresh the bot authentication token."""
         return await self._get_token("https://api.botframework.com/.default")
 
-    async def get_graph_token(self, tenant_id: Optional[str] = None, force: bool = False) -> Optional[TokenProtocol]:
+    async def get_graph_token(self, tenant_id: Optional[str] = None) -> Optional[TokenProtocol]:
         """
         Get or refresh a Graph API token.
 

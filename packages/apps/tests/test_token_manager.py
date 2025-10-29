@@ -61,7 +61,6 @@ class TestTokenManager:
 
         with patch("microsoft.teams.apps.token_manager.BotTokenClient", return_value=mock_bot_token_client):
             manager = TokenManager(
-                http_client=mock_http_client,
                 credentials=mock_credentials,
             )
 
@@ -85,12 +84,6 @@ class TestTokenManager:
             assert token3 != token1  # New token
             assert mock_bot_token_client.get.call_count == 2
 
-            # Force refresh even if not expired
-            token3.is_expired = MagicMock(return_value=False)
-            token4 = await manager.get_bot_token(force=True)
-            assert token4 is not None
-            assert mock_bot_token_client.get.call_count == 3
-
     @pytest.mark.asyncio
     async def test_get_bot_token_no_credentials(self):
         """Test refreshing bot token with no credentials returns None."""
@@ -99,7 +92,6 @@ class TestTokenManager:
 
         with patch("microsoft.teams.apps.token_manager.BotTokenClient"):
             manager = TokenManager(
-                http_client=mock_http_client,
                 credentials=None,
             )
 
@@ -136,7 +128,6 @@ class TestTokenManager:
 
         with patch("microsoft.teams.apps.token_manager.BotTokenClient", return_value=mock_bot_token_client):
             manager = TokenManager(
-                http_client=mock_http_client,
                 credentials=mock_credentials,
             )
 
@@ -180,7 +171,6 @@ class TestTokenManager:
 
         with patch("microsoft.teams.apps.token_manager.BotTokenClient", return_value=mock_bot_token_client):
             manager = TokenManager(
-                http_client=mock_http_client,
                 credentials=original_credentials,
             )
 
@@ -222,7 +212,6 @@ class TestTokenManager:
 
         with patch("microsoft.teams.apps.token_manager.BotTokenClient", return_value=mock_bot_token_client):
             manager = TokenManager(
-                http_client=mock_http_client,
                 credentials=mock_credentials,
             )
 
@@ -235,8 +224,3 @@ class TestTokenManager:
             token2 = await manager.get_graph_token()
             assert token2 == token1
             mock_bot_token_client.get_graph.assert_called_once()  # Still only called once
-
-            # Force refresh should call API even if not expired
-            token3 = await manager.get_graph_token(force=True)
-            assert token3 is not None
-            assert mock_bot_token_client.get_graph.call_count == 2  # Now called twice
