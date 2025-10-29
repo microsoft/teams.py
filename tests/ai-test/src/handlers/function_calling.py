@@ -82,7 +82,7 @@ def get_location_handler(params: GetLocationParams) -> str:
     return location
 
 
-def get_weather_handler(params: GetWeatherParams) -> str:
+def get_weather_handler(params: BaseModel) -> str:
     """Get weather for location (mock)"""
     weather_by_location: Dict[str, Dict[str, Any]] = {
         "Seattle": {"temperature": 65, "condition": "sunny"},
@@ -90,13 +90,12 @@ def get_weather_handler(params: GetWeatherParams) -> str:
         "New York": {"temperature": 75, "condition": "rainy"},
     }
 
-    weather = weather_by_location.get(params.location)
+    location = getattr(params, "location")  # noqa
+    weather = weather_by_location.get(location)
     if not weather:
         return "Sorry, I could not find the weather for that location"
 
-    return (
-        f"The weather in {params.location} is {weather['condition']} with a temperature of {weather['temperature']}°F"
-    )
+    return f"The weather in {location} is {weather['condition']} with a temperature of {weather['temperature']}°F"
 
 
 async def handle_multiple_functions(model: AIModel, ctx: ActivityContext[MessageActivity]) -> None:
@@ -111,12 +110,15 @@ async def handle_multiple_functions(model: AIModel, ctx: ActivityContext[Message
             handler=get_location_handler,
         )
     ).with_function(
-        Function(
-            name="weather_search",
-            description="Search for weather at a specific location",
-            parameter_schema=GetWeatherParams,
-            handler=get_weather_handler,
-        )
+        name="weather_search",
+        description="Search for weather at a specific location",
+        parameter_schema={
+            "title": "GetWeatherParams",
+            "type": "object",
+            "properties": {"location": {"title": "Location", "type": "string"}},
+            "required": ["location"],
+        },
+        handler=get_weather_handler,
     )
 
     chat_result = await agent.send(

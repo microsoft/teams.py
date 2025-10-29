@@ -296,6 +296,46 @@ class TestChatPromptEssentials:
         result3 = await prompt.send(model_msg)
         assert result3.response.content == "GENERATED - Model message"
 
+    @pytest.mark.asyncio
+    async def test_with_function_unpacked_parameters(self, mock_model: MockAIModel) -> None:
+        """Test with_function using unpacked parameters instead of Function object"""
+        prompt = ChatPrompt(mock_model)
+
+        # Test with parameter schema
+        def handler_with_params(params: MockFunctionParams) -> str:
+            return f"Result: {params.value}"
+
+        prompt.with_function(
+            name="test_func",
+            description="Test function with params",
+            parameter_schema=MockFunctionParams,
+            handler=handler_with_params,
+        )
+
+        assert "test_func" in prompt.functions
+        assert prompt.functions["test_func"].name == "test_func"
+        assert prompt.functions["test_func"].description == "Test function with params"
+        assert prompt.functions["test_func"].parameter_schema == MockFunctionParams
+
+        # Test without parameter schema (no params function)
+        def handler_no_params() -> str:
+            return "No params result"
+
+        prompt.with_function(
+            name="no_params_func",
+            description="Function with no parameters",
+            handler=handler_no_params,
+        )
+
+        assert "no_params_func" in prompt.functions
+        assert prompt.functions["no_params_func"].name == "no_params_func"
+        assert prompt.functions["no_params_func"].description == "Function with no parameters"
+        assert prompt.functions["no_params_func"].parameter_schema is None
+
+        # Verify both work in send
+        result = await prompt.send("Test message")
+        assert result.response.content == "GENERATED - Test message"
+
 
 class MockPlugin(BaseAIPlugin):
     """Mock plugin for testing that tracks all hook calls"""

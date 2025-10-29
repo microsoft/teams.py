@@ -71,12 +71,18 @@ class Function(Generic[Params]):
 
     Type Parameters:
         Params: Pydantic model class defining the function's parameter schema, if any.
+
+    Note:
+        For best type safety, use explicit type parameters when creating Function objects:
+        Function[SearchPokemonParams](name=..., parameter_schema=SearchPokemonParams, handler=...)
+
+        This ensures the handler parameter type matches the parameter_schema at compile time.
     """
 
     name: str  # Unique identifier for the function
     description: str  # Human-readable description of what the function does
     parameter_schema: Union[type[Params], Dict[str, Any], None]  # Pydantic model class, JSON schema dict, or None
-    handler: FunctionHandlers  # Function implementation (sync or async)
+    handler: Union[FunctionHandler[Params], FunctionHandlerWithNoParams]  # Function implementation (sync or async)
 
 
 @dataclass

@@ -6,7 +6,7 @@ Licensed under the MIT License.
 import inspect
 from dataclasses import dataclass
 from inspect import isawaitable
-from typing import Any, Awaitable, Callable, Optional, Self, TypeVar, cast
+from typing import Any, Awaitable, Callable, Dict, Optional, Self, TypeVar, Union, cast, overload
 
 from pydantic import BaseModel
 
@@ -58,17 +58,67 @@ class ChatPrompt:
         self.functions: dict[str, Function[Any]] = {func.name: func for func in functions} if functions else {}
         self.plugins: list[AIPluginProtocol] = plugins or []
 
-    def with_function(self, function: Function[T]) -> Self:
+    @overload
+    def with_function(self, function: Function[T]) -> Self: ...
+
+    @overload
+    def with_function(
+        self,
+        *,
+        name: str,
+        description: str,
+        parameter_schema: Union[type[T], Dict[str, Any]],
+        handler: FunctionHandlers,
+    ) -> Self: ...
+
+    @overload
+    def with_function(
+        self,
+        *,
+        name: str,
+        description: str,
+        handler: FunctionHandlerWithNoParams,
+    ) -> Self: ...
+
+    def with_function(
+        self,
+        function: Function[T] | None = None,
+        *,
+        name: str | None = None,
+        description: str | None = None,
+        parameter_schema: Union[type[T], Dict[str, Any], None] = None,
+        handler: FunctionHandlers | None = None,
+    ) -> Self:
         """
         Add a function to the available functions for this prompt.
 
+        Can be called in three ways:
+        1. with_function(function=Function(...))
+        2. with_function(name=..., description=..., parameter_schema=..., handler=...)
+        3. with_function(name=..., description=..., handler=...) - for functions with no parameters
+
         Args:
-            function: Function to add to the available functions
+            function: Function object to add (first overload)
+            name: Function name (second and third overload)
+            description: Function description (second and third overload)
+            parameter_schema: Function parameter schema (second overload, optional)
+            handler: Function handler (second and third overload)
 
         Returns:
             Self for method chaining
         """
-        self.functions[function.name] = function
+        if function is not None:
+            self.functions[function.name] = function
+        else:
+            if name is None or description is None or handler is None:
+                raise ValueError("When not providing a Function object, name, description, and handler are required")
+            func = Function[T](
+                name=name,
+                description=description,
+                parameter_schema=parameter_schema,
+                handler=handler,
+            )
+            self.functions[func.name] = func
         return self
 
     def with_plugin(self, plugin: AIPluginProtocol) -> Self:
