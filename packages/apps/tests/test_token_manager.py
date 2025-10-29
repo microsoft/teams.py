@@ -3,12 +3,11 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from microsoft.teams.api import ClientCredentials, JsonWebToken
 from microsoft.teams.apps.token_manager import TokenManager
-from microsoft.teams.common import Client
 
 # Valid JWT-like token for testing (format: header.payload.signature)
 VALID_TEST_TOKEN = (
@@ -23,204 +22,86 @@ class TestTokenManager:
 
     @pytest.mark.asyncio
     async def test_get_bot_token_success(self):
-        """Test successful bot token refresh, caching, and expiration refresh."""
-        # First token response
-        mock_token_response1 = MagicMock()
-        mock_token_response1.access_token = VALID_TEST_TOKEN
-
-        # Second token response for expired token
-        mock_token_response2 = MagicMock()
-        mock_token_response2.access_token = (
-            "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9."
-            "eyJzdWIiOiI5ODc2NTQzMjEwIiwibmFtZSI6IkphbmUgRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ."
-            "Twzj7LKlhYUUe2GFRME4WOZdWq2TdayZhWjhBr1r5X4"
-        )
-
-        # Third token response for force refresh
-        mock_token_response3 = MagicMock()
-        mock_token_response3.access_token = (
-            "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9."
-            "eyJzdWIiOiIxMTExMTExMTExIiwibmFtZSI6IkZvcmNlIFJlZnJlc2giLCJpYXQiOjE1MTYyMzkwMjJ9."
-            "dQw4w9WgXcQ"
-        )
-
+        """Test successful bot token retrieval using MSAL."""
         mock_credentials = ClientCredentials(
             client_id="test-client-id",
             client_secret="test-client-secret",
             tenant_id="test-tenant-id",
         )
 
-        # Mock the BotTokenClient
-        mock_bot_token_client = MagicMock()
-        mock_bot_token_client.get = AsyncMock(
-            side_effect=[mock_token_response1, mock_token_response2, mock_token_response3]
-        )
+        # Mock MSAL ConfidentialClientApplication
+        mock_msal_app = MagicMock()
+        mock_msal_app.acquire_token_for_client = MagicMock(return_value={"access_token": VALID_TEST_TOKEN})
 
-        mock_http_client = MagicMock(spec=Client)
-        mock_http_client.clone = MagicMock(return_value=mock_http_client)
+        with patch("microsoft.teams.apps.token_manager.ConfidentialClientApplication", return_value=mock_msal_app):
+            manager = TokenManager(credentials=mock_credentials)
 
-        with patch("microsoft.teams.apps.token_manager.BotTokenClient", return_value=mock_bot_token_client):
-            manager = TokenManager(
-                credentials=mock_credentials,
-            )
+            token = await manager.get_bot_token()
 
-            # First call
-            token1 = await manager.get_bot_token()
-            assert token1 is not None
-            assert isinstance(token1, JsonWebToken)
-            mock_bot_token_client.get.assert_called_once()
+            assert token is not None
+            assert isinstance(token, JsonWebToken)
+            assert str(token) == VALID_TEST_TOKEN
 
-            # Second call should use cache (mock should still only be called once)
-            token2 = await manager.get_bot_token()
-            assert token2 == token1
-            mock_bot_token_client.get.assert_called_once()  # Still only called once due to caching
-
-            # Mock the token as expired
-            token1.is_expired = MagicMock(return_value=True)
-
-            # Third call should refresh because token is expired
-            token3 = await manager.get_bot_token()
-            assert token3 is not None
-            assert token3 != token1  # New token
-            assert mock_bot_token_client.get.call_count == 2
+            # Verify MSAL was called with correct scope
+            mock_msal_app.acquire_token_for_client.assert_called_once_with(["https://api.botframework.com/.default"])
 
     @pytest.mark.asyncio
     async def test_get_bot_token_no_credentials(self):
-        """Test refreshing bot token with no credentials returns None."""
-        mock_http_client = MagicMock(spec=Client)
-        mock_http_client.clone = MagicMock(return_value=mock_http_client)
-
-        with patch("microsoft.teams.apps.token_manager.BotTokenClient"):
-            manager = TokenManager(
-                credentials=None,
-            )
-
-            token = await manager.get_bot_token()
-            assert token is None
+        """Test getting bot token with no credentials returns None."""
+        manager = TokenManager(credentials=None)
+        token = await manager.get_bot_token()
+        assert token is None
 
     @pytest.mark.asyncio
     async def test_get_graph_token_default(self):
-        """Test getting default graph token with caching and expiration refresh."""
-        # First token response
-        mock_token_response1 = MagicMock()
-        mock_token_response1.access_token = VALID_TEST_TOKEN
-
-        # Second token response for expired token
-        mock_token_response2 = MagicMock()
-        mock_token_response2.access_token = (
-            "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9."
-            "eyJzdWIiOiI5ODc2NTQzMjEwIiwibmFtZSI6IkphbmUgRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ."
-            "Twzj7LKlhYUUe2GFRME4WOZdWq2TdayZhWjhBr1r5X4"
-        )
-
+        """Test getting default graph token using MSAL."""
         mock_credentials = ClientCredentials(
             client_id="test-client-id",
             client_secret="test-client-secret",
             tenant_id="default-tenant-id",
         )
 
-        # Mock the BotTokenClient
-        mock_bot_token_client = MagicMock()
-        mock_bot_token_client.get_graph = AsyncMock(side_effect=[mock_token_response1, mock_token_response2])
+        # Mock MSAL ConfidentialClientApplication
+        mock_msal_app = MagicMock()
+        mock_msal_app.acquire_token_for_client = MagicMock(return_value={"access_token": VALID_TEST_TOKEN})
 
-        mock_http_client = MagicMock(spec=Client)
-        mock_http_client.clone = MagicMock(return_value=mock_http_client)
+        with patch("microsoft.teams.apps.token_manager.ConfidentialClientApplication", return_value=mock_msal_app):
+            manager = TokenManager(credentials=mock_credentials)
 
-        with patch("microsoft.teams.apps.token_manager.BotTokenClient", return_value=mock_bot_token_client):
-            manager = TokenManager(
-                credentials=mock_credentials,
-            )
+            token = await manager.get_graph_token()
 
-            token1 = await manager.get_graph_token()
+            assert token is not None
+            assert isinstance(token, JsonWebToken)
+            assert str(token) == VALID_TEST_TOKEN
 
-            assert token1 is not None
-            assert isinstance(token1, JsonWebToken)
-
-            # Verify it's cached
-            token2 = await manager.get_graph_token()
-            assert token2 == token1
-            mock_bot_token_client.get_graph.assert_called_once()
-
-            # Mock the token as expired
-            token1.is_expired = MagicMock(return_value=True)
-
-            # Third call should refresh because token is expired
-            token3 = await manager.get_graph_token()
-            assert token3 is not None
-            assert token3 != token1  # New token
-            assert mock_bot_token_client.get_graph.call_count == 2
+            # Verify MSAL was called with correct scope
+            mock_msal_app.acquire_token_for_client.assert_called_once_with(["https://graph.microsoft.com/.default"])
 
     @pytest.mark.asyncio
     async def test_get_graph_token_with_tenant(self):
-        """Test getting tenant-specific graph token."""
-        mock_token_response = MagicMock()
-        mock_token_response.access_token = VALID_TEST_TOKEN
-
+        """Test getting tenant-specific graph token using MSAL."""
         original_credentials = ClientCredentials(
             client_id="test-client-id",
             client_secret="test-client-secret",
             tenant_id="original-tenant-id",
         )
 
-        # Mock the BotTokenClient
-        mock_bot_token_client = MagicMock()
-        mock_bot_token_client.get_graph = AsyncMock(return_value=mock_token_response)
+        # Mock MSAL ConfidentialClientApplication
+        mock_msal_app = MagicMock()
+        mock_msal_app.acquire_token_for_client = MagicMock(return_value={"access_token": VALID_TEST_TOKEN})
 
-        mock_http_client = MagicMock(spec=Client)
-        mock_http_client.clone = MagicMock(return_value=mock_http_client)
-
-        with patch("microsoft.teams.apps.token_manager.BotTokenClient", return_value=mock_bot_token_client):
-            manager = TokenManager(
-                credentials=original_credentials,
-            )
+        with patch(
+            "microsoft.teams.apps.token_manager.ConfidentialClientApplication", return_value=mock_msal_app
+        ) as mock_msal_class:
+            manager = TokenManager(credentials=original_credentials)
 
             token = await manager.get_graph_token("different-tenant-id")
 
             assert token is not None
-            mock_bot_token_client.get_graph.assert_called_once()
+            assert isinstance(token, JsonWebToken)
 
-            # Verify tenant-specific credentials were created
-            call_args = mock_bot_token_client.get_graph.call_args
-            passed_credentials = call_args[0][0]
-            assert isinstance(passed_credentials, ClientCredentials)
-            assert passed_credentials.tenant_id == "different-tenant-id"
-
-    @pytest.mark.asyncio
-    async def test_graph_token_force_refresh(self):
-        """Test force refreshing graph token even when not expired."""
-        mock_token_response1 = MagicMock()
-        mock_token_response1.access_token = VALID_TEST_TOKEN
-
-        mock_token_response2 = MagicMock()
-        mock_token_response2.access_token = (
-            "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9."
-            "eyJzdWIiOiIxMTExMTExMTExIiwibmFtZSI6IkZvcmNlIFJlZnJlc2giLCJpYXQiOjE1MTYyMzkwMjJ9."
-            "dQw4w9WgXcQ"
-        )
-
-        mock_credentials = ClientCredentials(
-            client_id="test-client-id",
-            client_secret="test-client-secret",
-            tenant_id="test-tenant-id",
-        )
-
-        mock_bot_token_client = MagicMock()
-        mock_bot_token_client.get_graph = AsyncMock(side_effect=[mock_token_response1, mock_token_response2])
-
-        mock_http_client = MagicMock(spec=Client)
-        mock_http_client.clone = MagicMock(return_value=mock_http_client)
-
-        with patch("microsoft.teams.apps.token_manager.BotTokenClient", return_value=mock_bot_token_client):
-            manager = TokenManager(
-                credentials=mock_credentials,
-            )
-
-            # First call
-            token1 = await manager.get_graph_token()
-            assert token1 is not None
-            mock_bot_token_client.get_graph.assert_called_once()
-
-            # Second call should use cache
-            token2 = await manager.get_graph_token()
-            assert token2 == token1
-            mock_bot_token_client.get_graph.assert_called_once()  # Still only called once
+            # Verify MSAL app was created with different tenant ID
+            # The manager caches MSAL clients, so we check the call to the class constructor
+            calls = mock_msal_class.call_args_list
+            # Should have been called with different-tenant-id
+            assert any("different-tenant-id" in str(call) for call in calls)
