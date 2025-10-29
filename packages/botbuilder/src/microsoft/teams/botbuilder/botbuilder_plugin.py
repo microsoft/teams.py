@@ -1,81 +1,81 @@
+# pyright: reportMissingTypeStubs=false, reportUnknownMemberType=false
+
 """
 Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
 import importlib.metadata
-from dataclasses import dataclass
 from logging import Logger
-from typing import Annotated, Optional
+from types import SimpleNamespace
+from typing import Annotated, Any, Callable, Optional, TypedDict, Unpack, cast
 
-from fastapi import Request
-from microsoft.teams.api import Credentials
+from fastapi import HTTPException, Request, Response
+from microsoft.teams.api import Credentials, TokenProtocol
 from microsoft.teams.apps import (
+    ActivityEvent,
     DependencyMetadata,
+    ErrorEvent,
+    EventMetadata,
     HttpPlugin,
     LoggerDependencyOptions,
     Plugin,
 )
-from pydantic import BaseModel
+from microsoft.teams.common import Client
 
-from botbuilder.core import ActivityHandler, TurnContext  # pyright: ignore[reportMissingTypeStubs]
-from botbuilder.integration.aiohttp import (  # pyright: ignore[reportMissingTypeStubs]
+from botbuilder.core import (
+    ActivityHandler,
+    TurnContext,
+)
+from botbuilder.integration.aiohttp import (
     CloudAdapter,
     ConfigurationBotFrameworkAuthentication,
-    ConfigurationServiceClientCredentialFactory,
 )
-from botbuilder.schema import Activity  # pyright: ignore[reportMissingTypeStubs]
+from botbuilder.schema import Activity
 
 version = importlib.metadata.version("microsoft-teams-botbuilder")
 
 
-class BotBuilderPluginOptions(BaseModel):
+class BotBuilderPluginOptions(TypedDict, total=False):
     """Options for configuring the BotBuilder plugin."""
 
-    skip_auth: bool = False
-    handler: Optional[ActivityHandler] = None
-    adapter: Optional[CloudAdapter] = None
+    skip_auth: bool
+    handler: ActivityHandler
+    adapter: CloudAdapter
 
 
-@dataclass
-class BotFrameworkConfig:
-    APP_TYPE: str
-    APP_ID: Optional[str]
-    APP_PASSWORD: Optional[str]
-    APP_TENANTID: Optional[str]
-
-
-@Plugin(name="botbuilder-plugin", version=version)
+@Plugin(name="http", version=version, description="BotBuilder plugin for Microsoft Bot Framework integration")
 class BotBuilderPlugin(HttpPlugin):
     """
     BotBuilder plugin that provides Microsoft Bot Framework integration.
-
-    This plugin extends HttpPlugin and provides Bot Framework capabilities
-    including CloudAdapter integration and activity handling.
     """
 
-    # Dependency injections using type annotations
+    # Dependency injections
     logger: Annotated[Logger, LoggerDependencyOptions()]
-
     credentials: Annotated[Optional[Credentials], DependencyMetadata(optional=True)]
+    client: Annotated[Client, DependencyMetadata()]
 
-    def __init__(self, options: Optional[BotBuilderPluginOptions] = None):
+    bot_token: Annotated[Optional[Callable[[], TokenProtocol]], DependencyMetadata(optional=True)]
+    graph_token: Annotated[Optional[Callable[[], TokenProtocol]], DependencyMetadata(optional=True)]
+
+    on_error_event: Annotated[Callable[[ErrorEvent], None], EventMetadata(name="error")]
+    on_activity_event: Annotated[Callable[[ActivityEvent], None], EventMetadata(name="activity")]
+
+    def __init__(self, **options: Unpack[BotBuilderPluginOptions]):
         """
         Initialize the BotBuilder plugin.
 
         Args:
             options: Configuration options for the plugin
         """
-        self.options = options or BotBuilderPluginOptions()
-
-        # Initialize HttpPlugin
+        self.options = options
         super().__init__(
-            app_id=self.credentials.client_id if self.credentials else None,
-            skip_auth=self.options.skip_auth,
+            app_id=None,
+            skip_auth=self.options.get("skip_auth", False),
         )
 
-        self.handler: Optional[ActivityHandler] = self.options.handler
-        self.adapter: Optional[CloudAdapter] = self.options.adapter
+        self.handler: Optional[ActivityHandler] = self.options.get("handler")
+        self.adapter: Optional[CloudAdapter] = self.options.get("adapter")
 
     async def on_init(self) -> None:
         """Initialize the plugin when the app starts."""
@@ -92,42 +92,48 @@ class BotBuilderPlugin(HttpPlugin):
                 client_secret = getattr(self.credentials, "client_secret", None)
                 tenant_id = getattr(self.credentials, "tenant_id", None)
 
-            config = BotFrameworkConfig(
-                APP_TYPE="SingleTenant" if tenant_id else "MultiTenant",
+            config = SimpleNamespace(
+                APP_TYPE="singletenant" if tenant_id else "multitenant",
                 APP_ID=client_id,
                 APP_PASSWORD=client_secret,
                 APP_TENANTID=tenant_id,
             )
 
-            self.adapter = CloudAdapter(
-                ConfigurationBotFrameworkAuthentication(
-                    ConfigurationServiceClientCredentialFactory(config, logger=self.logger)
-                )
-            )
+            self.adapter = CloudAdapter(ConfigurationBotFrameworkAuthentication(configuration=config))
 
-        self.logger.info("BotBuilder plugin initialized successfully")
+            self.logger.info("BotBuilder plugin initialized successfully")
 
-    async def on_request(self, request: Request):
+    async def on_activity_request(self, request: Request, response: Response) -> Any:
         if not self.adapter:
             raise RuntimeError("plugin not registered")
 
-        # Parse activity data
-        body = await request.json()
+        try:
+            # Parse activity data
+            body = await request.json()
+            activity_bf = cast(Activity, Activity().deserialize(body))
 
-        activity_type = body.get("type", "unknown")
-        activity_id = body.get("id", "unknown")
+            # A POST request must contain an Activity
+            if not activity_bf.type:
+                raise HTTPException(status_code=400, detail="Missing activity type")
 
-        self.logger.debug(f"Received activity: {activity_type} (ID: {activity_id})")
+            async def logic(turn_context: TurnContext):
+                if not turn_context.activity.id:
+                    return
 
-        activity: Activity = Activity().deserialize(body)  # type: ignore
+                # Handle activity with botframework handler
+                if self.handler:
+                    await self.handler.on_turn(turn_context)
 
-        async def logic(turn_context: TurnContext):
-            if not turn_context.activity.id:
-                return
+            # Grab the auth header from the inbound request
+            auth_header = request.headers["Authorization"] if "Authorization" in request.headers else ""
+            await self.adapter.process_activity(auth_header, activity_bf, logic)
 
-            if self.handler:
-                await self.handler.on_turn(turn_context)
-            return
+            # Call HTTP plugin to handle activity request
+            result = await self._handle_activity_request(request)
+            return self._handle_activity_response(response, result)
 
-        auth_header = request.headers.get("Authorization", "")
-        await self.adapter.process_activity(auth_header, activity, logic)  # type: ignore
+        except HTTPException:
+            raise
+        except Exception as err:
+            self.logger.error(f"Error processing activity: {err}", exc_info=True)
+            raise HTTPException(status_code=500, detail=str(err)) from err

@@ -3,6 +3,6 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from .botbuilder_plugin import BotBuilderPlugin
+from .botbuilder_plugin import BotBuilderPlugin, BotBuilderPluginOptions
 
-__all__ = ["BotBuilderPlugin"]
+__all__ = ["BotBuilderPlugin", "BotBuilderPluginOptions"]

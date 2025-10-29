@@ -9,6 +9,7 @@ resolution-markers = [
 [manifest]
 members = [
     "ai-test",
+    "botbuilder",
     "cards",
     "dialogs",
     "echo",
@@ -35,7 +36,6 @@ members = [
 [manifest.dependency-groups]
 dev = [
     { name = "cookiecutter", specifier = ">=2.6.0" },
-    { name = "microsoft-teams-botbuilder", editable = "packages/botbuilder" },
     { name = "poethepoet", specifier = ">=0.35.0" },
     { name = "pre-commit", specifier = ">=4.2.0" },
     { name = "pyright", specifier = ">=1.1.404" },
@@ -312,6 +312,27 @@ wheels = [
 ]
 
 [[package]]
+name = "botbuilder"
+version = "0.1.0"
+source = { virtual = "tests/botbuilder" }
+dependencies = [
+    { name = "botbuilder-core" },
+    { name = "dotenv" },
+    { name = "microsoft-teams-apps" },
+    { name = "microsoft-teams-botbuilder" },
+    { name = "microsoft-teams-devtools" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "botbuilder-core", specifier = ">=4.14.0" },
+    { name = "dotenv", specifier = ">=0.9.9" },
+    { name = "microsoft-teams-apps", editable = "packages/apps" },
+    { name = "microsoft-teams-botbuilder", editable = "packages/botbuilder" },
+    { name = "microsoft-teams-devtools", editable = "packages/devtools" },
+]
+
+[[package]]
 name = "botbuilder-core"
 version = "4.17.0"
 source = { registry = "https://pypi.org/simple" }
@@ -323,6 +344,21 @@ dependencies = [
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/5e/51/0e4d0ba1fc25d57977e17d7bfd55c7bd06a9d8403d5efb23e6fc512356fa/botbuilder_core-4.17.0-py3-none-any.whl", hash = "sha256:56828b11d9af663a200fba0fae4e0b9ad6f815a679c3e90e9b6425b9cbe16d53", size = 116148, upload-time = "2025-05-29T15:10:00.474Z" },
+]
+
+[[package]]
+name = "botbuilder-integration-aiohttp"
+version = "4.17.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "aiohttp" },
+    { name = "botbuilder-core" },
+    { name = "botbuilder-schema" },
+    { name = "botframework-connector" },
+    { name = "yarl" },
+]
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/92/e2/78d9ed5beeeaf9dcdcfd8b7dd0fe4116c8b3ed55b81eb9b01b28037a2b7c/botbuilder_integration_aiohttp-4.17.0-py3-none-any.whl", hash = "sha256:30cd8de3eeec132463bf1834fbd6cfbc6c4a9a361bf478627b6b2f0e7ee211b6", size = 19030, upload-time = "2025-05-29T15:10:02.884Z" },
 ]
 
 [[package]]
@@ -1706,6 +1742,7 @@ version = "2.0.0a2"
 source = { editable = "packages/botbuilder" }
 dependencies = [
     { name = "botbuilder-core" },
+    { name = "botbuilder-integration-aiohttp" },
     { name = "microsoft-teams-api" },
     { name = "microsoft-teams-apps" },
     { name = "microsoft-teams-common" },
@@ -1714,6 +1751,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "botbuilder-core", specifier = ">=4.14.0" },
+    { name = "botbuilder-integration-aiohttp", specifier = ">=4.17.0" },
     { name = "microsoft-teams-api", editable = "packages/api" },
     { name = "microsoft-teams-apps", editable = "packages/apps" },
     { name = "microsoft-teams-common", editable = "packages/common" },

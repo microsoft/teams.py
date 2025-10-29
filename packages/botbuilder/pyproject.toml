@@ -1,7 +1,7 @@
 [project]
 name = "microsoft-teams-botbuilder"
 version = "2.0.0a2"
-description = ""
+description = "BotBuilder plugin for Microsoft Teams"
 authors = [{ name = "Microsoft", email = "TeamsAISDKFeedback@microsoft.com" }]
 readme = "README.md"
 requires-python = ">=3.12"
@@ -11,9 +11,18 @@ license = "MIT"
 dependencies = [
     "botbuilder-core>=4.14.0",
     "botbuilder-integration-aiohttp>=4.17.0",
-    "microsoft-teams-apps>=2.0.0a2",
-    "microsoft-teams-api>=2.0.0a2",
-    "microsoft-teams-common>=2.0.0a2",
+    "microsoft-teams-apps",
+    "microsoft-teams-api",
+    "microsoft-teams-common",
+    "coverage>=7.8.0",
+    "pytest>=8.3.5",
+    "ruff>=0.11.5",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.4.0",
+    "pytest-asyncio>=1.0.0",
 ]
 
 [project.urls]
@@ -29,3 +38,8 @@ packages = ["src/microsoft"]
 
 [tool.hatch.build.targets.sdist]
 include = ["src"]
+
+[tool.uv.sources]
+microsoft-teams-apps = { workspace = true }
+microsoft-teams-api = { workspace = true }
+microsoft-teams-common = { workspace = true }

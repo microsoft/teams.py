@@ -306,38 +306,51 @@ class HttpPlugin(Sender):
 
         return result
 
+    def _handle_activity_response(self, response: Response, result: Any) -> Any:
+        """
+        Handle the activity response formatting.
+
+        Args:
+            response: The FastAPI response object
+            result: The result from activity processing
+
+        Returns:
+            The formatted response
+        """
+        status_code: Optional[int] = None
+        body: Optional[Dict[str, Any]] = None
+        resp_dict: Optional[Dict[str, Any]] = None
+        if isinstance(result, dict):
+            resp_dict = cast(Dict[str, Any], result)
+        elif isinstance(result, BaseModel):
+            resp_dict = result.model_dump(exclude_none=True)
+
+        # if resp_dict has status set it
+        if resp_dict and "status" in resp_dict:
+            status_code = resp_dict.get("status")
+
+        if resp_dict and "body" in resp_dict:
+            body = resp_dict.get("body", None)
+
+        if status_code is not None:
+            response.status_code = status_code
+
+        if body is not None:
+            self.logger.debug(f"Returning body {body}")
+            return body
+        self.logger.debug("Returning empty body")
+        return response
+
+    async def on_activity_request(self, request: Request, response: Response) -> Any:
+        """Handle incoming Teams activity."""
+        # Process the activity (token validation handled by middleware)
+        result = await self._handle_activity_request(request)
+        return self._handle_activity_response(response, result)
+
     def _setup_routes(self) -> None:
         """Setup FastAPI routes."""
 
-        async def on_activity_request(request: Request, response: Response) -> Any:
-            """Handle incoming Teams activity."""
-            # Process the activity (token validation handled by middleware)
-            result = await self._handle_activity_request(request)
-            status_code: Optional[int] = None
-            body: Optional[Dict[str, Any]] = None
-            resp_dict: Optional[Dict[str, Any]] = None
-            if isinstance(result, dict):
-                resp_dict = cast(Dict[str, Any], result)
-            elif isinstance(result, BaseModel):
-                resp_dict = result.model_dump(exclude_none=True)
-
-            # if resp_dict has status set it
-            if resp_dict and "status" in resp_dict:
-                status_code = resp_dict.get("status")
-
-            if resp_dict and "body" in resp_dict:
-                body = resp_dict.get("body", None)
-
-            if status_code is not None:
-                response.status_code = status_code
-
-            if body is not None:
-                self.logger.debug(f"Returning body {body}")
-                return body
-            self.logger.debug("Returning empty body")
-            return response
-
-        self.app.post("/api/messages")(on_activity_request)
+        self.app.post("/api/messages")(self.on_activity_request)
 
         async def health_check() -> Dict[str, Any]:
             """Basic health check endpoint."""
