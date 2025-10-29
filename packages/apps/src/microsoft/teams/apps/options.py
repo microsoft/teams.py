@@ -5,7 +5,7 @@ Licensed under the MIT License.
 
 from dataclasses import dataclass, field
 from logging import Logger
-from typing import Any, Awaitable, Callable, List, Optional, TypedDict, Union, cast
+from typing import Any, Awaitable, Callable, List, Literal, Optional, TypedDict, Union, cast
 
 from microsoft.teams.common import Storage
 from typing_extensions import Unpack
@@ -22,6 +22,8 @@ class AppOptions(TypedDict, total=False):
     tenant_id: Optional[str]
     # Custom token provider function
     token: Optional[Callable[[Union[str, list[str]], Optional[str]], Union[str, Awaitable[str]]]]
+    # Managed identity configuration
+    enable_managed_identity: Optional[Literal["system", "user"]]
 
     # Infrastructure
     logger: Optional[Logger]
@@ -47,6 +49,7 @@ class InternalAppOptions:
     client_secret: Optional[str] = None
     tenant_id: Optional[str] = None
     token: Optional[Callable[[Union[str, list[str]], Optional[str]], Union[str, Awaitable[str]]]] = None
+    enable_managed_identity: Optional[Literal["system", "user"]] = None
     logger: Optional[Logger] = None
     storage: Optional[Storage[str, Any]] = None
 
