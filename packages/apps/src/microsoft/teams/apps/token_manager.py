@@ -8,10 +8,8 @@ from typing import Optional
 
 from microsoft.teams.api import (
     BotTokenClient,
-    ChannelID,
     ClientCredentials,
     Credentials,
-    GetUserTokenParams,
     JsonWebToken,
     TokenProtocol,
     UserTokenClient,
@@ -32,7 +30,7 @@ class TokenManager:
     ):
         self._bot_token_client = BotTokenClient(http_client.clone())
         self._user_token_client = UserTokenClient(
-            http_client.clone(ClientOptions(token=lambda: self.refresh_bot_token(force=False)))
+            http_client.clone(ClientOptions(token=lambda: self.get_bot_token(force=False)))
         )
         self._credentials = credentials
         self._default_connection_name = default_connection_name
@@ -47,17 +45,7 @@ class TokenManager:
         # Key: tenant_id (empty string "" for default app graph token)
         self._graph_tokens: LocalStorage[TokenProtocol] = LocalStorage({}, LocalStorageOptions(max=20000))
 
-    @property
-    def cached_bot_token(self):
-        return self._bot_token
-
-    def get_tenant_graph_token(self, tenant_id: str | None):
-        """
-        Returns the graph token for a given tenant id.
-        """
-        return self._graph_tokens.get(tenant_id or "")
-
-    async def refresh_bot_token(self, force: bool = False) -> Optional[TokenProtocol]:
+    async def get_bot_token(self, force: bool = False) -> Optional[TokenProtocol]:
         """Refresh the bot authentication token."""
         if not self._credentials:
             self._logger.warning("No credentials provided, skipping bot token refresh")
@@ -76,9 +64,7 @@ class TokenManager:
         self._logger.debug("Bot token refreshed successfully")
         return self._bot_token
 
-    async def get_or_refresh_graph_token(
-        self, tenant_id: Optional[str] = None, force: bool = False
-    ) -> Optional[TokenProtocol]:
+    async def get_graph_token(self, tenant_id: Optional[str] = None, force: bool = False) -> Optional[TokenProtocol]:
         """
         Get or refresh a Graph API token.
 
@@ -115,27 +101,3 @@ class TokenManager:
         self._logger.debug(f"Refreshed graph token tenant_id={tenant_id}")
 
         return token
-
-    async def get_user_token(self, channel_id: ChannelID, user_id: str) -> Optional[str]:
-        """
-        Get a user token for the specified channel and user.
-
-        Args:
-            channel_id: The channel ID
-            user_id: The user ID
-
-        Returns:
-            The user token or None if not available
-        """
-        if not self._default_connection_name:
-            self._logger.warning("No default connection name configured, cannot get user token")
-            return None
-
-        response = await self._user_token_client.get(
-            GetUserTokenParams(
-                channel_id=channel_id,
-                user_id=user_id,
-                connection_name=self._default_connection_name,
-            )
-        )
-        return response.token

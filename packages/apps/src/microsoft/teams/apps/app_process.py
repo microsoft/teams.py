@@ -16,6 +16,7 @@ from microsoft.teams.api import (
     TokenProtocol,
     is_invoke_response,
 )
+from microsoft.teams.api.clients.user.params import GetUserTokenParams
 from microsoft.teams.cards import AdaptiveCard
 from microsoft.teams.common import Client, ClientOptions, LocalStorage, Storage
 
@@ -81,16 +82,22 @@ class ActivityProcessor:
             user=activity.from_,
         )
         api_client = ApiClient(
-            service_url, self.http_client.clone(ClientOptions(token=self.token_manager.refresh_bot_token))
+            service_url, self.http_client.clone(ClientOptions(token=self.token_manager.get_bot_token))
         )
 
         # Check if user is signed in
         is_signed_in = False
         user_token: Optional[str] = None
         try:
-            user_token = await self.token_manager.get_user_token(
-                channel_id=activity.channel_id, user_id=activity.from_.id
+            user_token_res = await api_client.users.token.get(
+                GetUserTokenParams(
+                    channel_id=activity.channel_id,
+                    user_id=activity.from_.id,
+                    connection_name=self.default_connection_name,
+                )
             )
+
+            user_token = user_token_res.token
             is_signed_in = True
         except Exception:
             # User token not available
@@ -110,7 +117,7 @@ class ActivityProcessor:
             is_signed_in,
             self.default_connection_name,
             sender,
-            app_token=lambda: self.token_manager.get_or_refresh_graph_token(tenant_id),
+            app_token=lambda: self.token_manager.get_graph_token(tenant_id),
         )
 
         send = activityCtx.send
