@@ -8,9 +8,9 @@ from __future__ import annotations
 from typing import List, Optional
 
 from ...models.activity import Activity as ActivityBase
-from ..attachment.attachment_layout import AttachmentLayout
 from ..custom_base_model import CustomBaseModel
 from .messaging_extension_attachment import MessagingExtensionAttachment
+from .messaging_extension_attachment_layout import MessagingExtensionAttachmentLayout
 from .messaging_extension_result_type import MessagingExtensionResultType
 from .messaging_extension_suggested_action import MessagingExtensionSuggestedAction
 
@@ -20,7 +20,7 @@ class MessagingExtensionResult(CustomBaseModel):
     Messaging extension result
     """
 
-    attachment_layout: Optional[AttachmentLayout] = None
+    attachment_layout: Optional[MessagingExtensionAttachmentLayout] = None
     "Hint for how to deal with multiple attachments."
 
     type: Optional[MessagingExtensionResultType] = None
