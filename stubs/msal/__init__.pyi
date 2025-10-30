@@ -6,7 +6,12 @@ class ConfidentialClientApplication:
     """MSAL Confidential Client Application"""
 
     def __init__(
-        self, client_id: str, *, client_credential: Optional[str] = None, authority: Optional[str] = None, **kwargs: Any
+        self,
+        client_id: str,
+        *,
+        client_credential: Optional[str | dict[str, Any]] = None,
+        authority: Optional[str] = None,
+        **kwargs: Any,
     ) -> None: ...
     def acquire_token_for_client(
         self, scopes: list[str], claims_challenge: Optional[str] = None, **kwargs: Any

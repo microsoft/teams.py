@@ -43,6 +43,27 @@ class TokenCredentials(CustomBaseModel):
     """
 
 
+class CertificateCredentials(CustomBaseModel):
+    """Credentials for authentication using X.509 certificate (PEM format)."""
+
+    client_id: str
+    """
+    The client ID.
+    """
+    private_key: str
+    """
+    The private key in PEM format.
+    """
+    thumbprint: str
+    """
+    The SHA-1 thumbprint of the certificate.
+    """
+    tenant_id: Optional[str] = None
+    """
+    The tenant ID. This should only be passed in for single tenant apps.
+    """
+
+
 class ManagedIdentityCredentials(CustomBaseModel):
     """Credentials for authentication using Azure Managed Identity."""
 
@@ -61,4 +82,4 @@ class ManagedIdentityCredentials(CustomBaseModel):
 
 
 # Union type for credentials
-Credentials = Union[ClientCredentials, TokenCredentials, ManagedIdentityCredentials]
+Credentials = Union[ClientCredentials, TokenCredentials, CertificateCredentials, ManagedIdentityCredentials]
