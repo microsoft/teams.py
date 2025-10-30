@@ -208,7 +208,7 @@ class MessageActivityInput(_MessageBase, ActivityInputBase):
         Set the layout hint for multiple attachments.
 
         Args:
-            attachment_layout: Attachment layout (list, grid)
+            attachment_layout: Attachment layout (list, carousel)
 
         Returns:
             Self for method chaining

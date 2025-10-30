@@ -6,8 +6,8 @@ Licensed under the MIT License.
 from enum import Enum
 
 
-class AttachmentLayout(str, Enum):
-    """Enum for attachment layout types."""
+class MessagingExtensionAttachmentLayout(str, Enum):
+    """Enum for messaging extension attachment layout types."""
 
     LIST = "list"
-    CAROUSEL = "carousel"
+    GRID = "grid"
