@@ -58,7 +58,7 @@ F = TypeVar("F", bound=Callable[..., Any])
 FCtx = TypeVar("FCtx", bound=Callable[[FunctionContext[Any]], Any])
 load_dotenv(find_dotenv(usecwd=True))
 
-USER_AGENT = f"teams.py[app]/{version}"
+USER_AGENT = f"teams.py[apps]/{version}"
 
 
 class App(ActivityHandlerMixin):

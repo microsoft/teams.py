@@ -559,3 +559,14 @@ class TestApp:
         # Extract the endpoint path it was registered to
         endpoint_path = app_with_options.http.post.call_args[0][0]
         assert endpoint_path == f"/api/functions/{dummy_func.__name__.replace('_', '-')}"
+
+    def test_user_agent_format(self, app_with_options: App):
+        """Test that USER_AGENT follows the expected format teams.py[apps]/{version}."""
+        import importlib.metadata
+
+        version = importlib.metadata.version("microsoft-teams-apps")
+        expected_user_agent = f"teams.py[apps]/{version}"
+
+        # Verify the http_client has the correct User-Agent header
+        assert "User-Agent" in app_with_options.http_client._options.headers
+        assert app_with_options.http_client._options.headers["User-Agent"] == expected_user_agent
