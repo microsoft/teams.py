@@ -47,15 +47,25 @@ from microsoft.teams.mcpplugin import McpServerPlugin
 from microsoft.teams.ai import Function
 from pydantic import BaseModel
 
-app = App()
+# Create MCP server plugin
+mcp_server = McpServerPlugin(name="my-mcp-server")
 
+# Define a tool
 class EchoParams(BaseModel):
-    message: str
+    input: str
 
 async def echo_handler(params: EchoParams) -> str:
-    return f"Echo: {params.message}"
+    return f"You said {params.input}"
 
-# Expose app as MCP server
-mcp_server = McpServerPlugin(name="my-mcp-server")
-app.use(mcp_server)
+# Register tool with MCP server
+mcp_server.use_tool(
+    Function(
+        name="echo",
+        description="Echo back whatever you said",
+        parameter_schema=EchoParams,
+        handler=echo_handler
+    )
+)
+
+app = App(plugins=[mcp_server])
 ```
