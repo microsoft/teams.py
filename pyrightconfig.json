@@ -1,7 +1,7 @@
 {
    "include": [
       "packages/**/src/**/*.py",
-      "tests/**/src/**/*.py"
+      "examples/**/src/**/*.py"
    ],
    "venv": ".venv",
    "venvPath": ".",
