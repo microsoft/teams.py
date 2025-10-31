@@ -104,9 +104,6 @@ class HttpStream(StreamerProtocol):
         Args:
             activity: The activity to emit.
         """
-        if self._timeout is not None:
-            self._timeout.cancel()
-            self._timeout = None
 
         if isinstance(activity, str):
             activity = MessageActivityInput(text=activity, type="message")
@@ -115,7 +112,9 @@ class HttpStream(StreamerProtocol):
         # Clear the queue empty event since we just added an item
         self._queue_empty_event.clear()
 
-        self._timeout = Timeout(0.5, self._flush)
+        if not self._timeout:
+            loop = asyncio.get_running_loop()
+            loop.create_task(self._flush())
 
     def update(self, text: str) -> None:
         """
@@ -171,10 +170,15 @@ class HttpStream(StreamerProtocol):
         Flush the current activity queue.
         """
         # If there are no items in the queue, nothing to flush
-        async with self._lock:
-            if not self._queue:
-                return
+        if self._lock.locked():
+            return
 
+        await self._lock.acquire()
+
+        if not self._queue:
+            return
+
+        try:
             if self._timeout is not None:
                 self._timeout.cancel()
                 self._timeout = None
@@ -223,6 +227,10 @@ class HttpStream(StreamerProtocol):
             # If more queued, schedule another flush
             if self._queue and not self._timeout:
                 self._timeout = Timeout(0.5, self._flush)
+
+        finally:
+            # Reset flushing flag so future emits can trigger another flush
+            self._lock.release()
 
     async def _send_activity(self, to_send: TypingActivityInput):
         """
