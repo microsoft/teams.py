@@ -12,7 +12,7 @@ on:
 permissions: read-all
 
 env:
-  EXCLUDE_PACKAGE_FOLDERS: "a2aprotocol"
+  EXCLUDE_PACKAGE_FOLDERS: ""
 
 jobs:
   build:
@@ -53,8 +53,15 @@ jobs:
       - name: Publish to PyPI
         run: |
           shopt -s extglob  # Enable extended globbing
-          EXCLUDE_PATTERN="@($(echo $EXCLUDE_PACKAGE_FOLDERS | sed 's/ /|/g' | sed 's/\([^ ]*\)/microsoft_teams_\1*/g'))"
-          echo "Excluding pattern: ${EXCLUDE_PATTERN}"
-          echo "Publishing files:"
-          ls -1 dist/!(${EXCLUDE_PATTERN})
-          uv publish --trusted-publishing always dist/!(${EXCLUDE_PATTERN})
+          if [ -z "$EXCLUDE_PACKAGE_FOLDERS" ]; then
+            echo "No packages to exclude"
+            echo "Publishing files:"
+            ls -1 dist/*
+            uv publish --trusted-publishing always dist/*
+          else
+            EXCLUDE_PATTERN="@($(echo $EXCLUDE_PACKAGE_FOLDERS | sed 's/ /|/g' | sed 's/\([^ ]*\)/microsoft_teams_\1*/g'))"
+            echo "Excluding pattern: ${EXCLUDE_PATTERN}"
+            echo "Publishing files:"
+            ls -1 dist/!(${EXCLUDE_PATTERN})
+            uv publish --trusted-publishing always dist/!(${EXCLUDE_PATTERN})
+          fi
