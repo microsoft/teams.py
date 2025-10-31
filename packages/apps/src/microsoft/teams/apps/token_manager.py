@@ -98,6 +98,8 @@ class TokenManager:
             else:
                 self._logger.debug(f"TokenRes: {token_res}")
                 error = token_res.get("error", ValueError("Error retrieving token"))
+                if not isinstance(error, BaseException):
+                    error = ValueError(error)
                 error_description = token_res.get("error_description", "Error retrieving token from MSAL")
                 self._logger.error(error_description)
                 raise error
