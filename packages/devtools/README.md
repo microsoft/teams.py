@@ -29,7 +29,7 @@ from microsoft.teams.apps import App
 from microsoft.teams.devtools import DevToolsPlugin
 
 app = App()
-app.use(DevToolsPlugin(port=3979))
+app.use(DevToolsPlugin())
 
 await app.start()
 # Open http://localhost:3979/devtools in your browser
