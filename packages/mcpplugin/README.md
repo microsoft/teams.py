@@ -37,13 +37,12 @@ pip install microsoft-teams-mcpplugin
 
 ```python
 from microsoft.teams.apps import App
-from microsoft.teams.ai import PromptManager
-from microsoft.teams.mcpplugin import MCPPlugin
+from microsoft.teams.mcpplugin import McpClientPlugin
 
 app = App()
 
-# Configure MCP plugin
-mcp_plugin = MCPPlugin(
+# Configure MCP client plugin
+mcp_plugin = McpClientPlugin(
     server_command="uvx",
     server_args=["mcp-server-time"]
 )
@@ -57,12 +56,12 @@ app.use(mcp_plugin)
 ## Using MCP Resources
 
 ```python
-# Access MCP resources
-resources = await mcp_plugin.list_resources()
+# Access MCP resources through the plugin
+# The plugin integrates with your Teams AI agent
+# and makes MCP tools available as functions
 
-for resource in resources:
-    content = await mcp_plugin.read_resource(resource.uri)
-    print(f"Resource: {resource.name}, Content: {content}")
+# MCP tools can be called by the AI model
+# when using the Teams AI framework
 ```
 
 ## Supported MCP Servers

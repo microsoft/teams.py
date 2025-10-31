@@ -37,13 +37,12 @@ pip install microsoft-teams-a2a
 
 ```python
 from microsoft.teams.apps import App
-from microsoft.teams.ai import PromptManager
-from microsoft.teams.a2a import A2AServerPlugin
+from microsoft.teams.a2a import A2APlugin
 
 app = App()
 
-# Configure A2A server plugin
-a2a_plugin = A2AServerPlugin(
+# Configure A2A plugin
+a2a_plugin = A2APlugin(
     port=5000,
     host="0.0.0.0"
 )
@@ -57,6 +56,9 @@ app.use(a2a_plugin)
 ## Agent Integration
 
 ```python
+from microsoft.teams.api import MessageActivity
+from microsoft.teams.apps import ActivityContext
+
 # Your Teams agent can now receive requests from other A2A agents
 # and respond according to your configured prompts and actions
 

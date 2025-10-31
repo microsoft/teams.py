@@ -37,23 +37,17 @@ pip install microsoft-teams-ai
 ## Quick Start
 
 ```python
-from microsoft.teams.ai import AIAgent, PromptManager
-from microsoft.teams.openai import OpenAIModel
+from microsoft.teams.ai import Agent, ChatPrompt
+from microsoft.teams.openai import OpenAICompletionsAIModel
 
-# Create prompt manager
-prompts = PromptManager()
-
-# Configure AI model
-model = OpenAIModel(
+# Create AI model
+model = OpenAICompletionsAIModel(
     api_key="your-api-key",
     model="gpt-4"
 )
 
-# Create AI agent
-agent = AIAgent(
-    model=model,
-    prompts=prompts
-)
+# Create agent
+agent = Agent(model=model)
 
 # Use in Teams app
 @app.on_message
@@ -65,16 +59,15 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
 ## Prompt Templates
 
 ```python
-# Define a prompt template
-prompts.add_prompt("greeting", """
-You are a helpful assistant for {{company}}.
-Greet the user and ask how you can help them today.
-""")
+# Define a chat prompt
+prompt = ChatPrompt(
+    instructions="You are a helpful assistant for {{company}}.",
+    functions=[]
+)
 
 # Use the prompt with variables
-result = await agent.run(
-    ctx,
-    prompt_name="greeting",
+result = await agent.chat(
+    prompt,
     variables={"company": "Contoso"}
 )
 ```
@@ -82,33 +75,40 @@ result = await agent.run(
 ## Actions and Tools
 
 ```python
-from microsoft.teams.ai import Action
+from microsoft.teams.ai import Function
 
-# Register custom actions
-@agent.action("get_weather")
-async def get_weather(context, parameters):
-    location = parameters.get("location")
+# Register custom functions
+weather_function = Function(
+    name="get_weather",
+    description="Get weather for a location",
+    parameters={
+        "type": "object",
+        "properties": {
+            "location": {"type": "string"}
+        }
+    }
+)
+
+# Add function handler
+@agent.function("get_weather")
+async def get_weather(location: str):
     # Fetch weather data
     return {"temperature": 72, "conditions": "sunny"}
-
-# AI can now call this action when needed
 ```
 
 ## Memory and State
 
 ```python
 # Configure memory for conversation history
-from microsoft.teams.ai import ConversationMemory
+from microsoft.teams.ai import ListMemory
 
-memory = ConversationMemory(max_turns=10)
-agent = AIAgent(
+memory = ListMemory(max_items=10)
+agent = Agent(
     model=model,
-    prompts=prompts,
     memory=memory
 )
 
 # Access conversation state
-state = await memory.get_state(ctx)
-state["user_preference"] = "dark_mode"
-await memory.save_state(ctx, state)
+messages = await memory.get()
+await memory.add(user_message)
 ```

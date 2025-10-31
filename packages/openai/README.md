@@ -36,32 +36,31 @@ pip install microsoft-teams-openai
 ## Quick Start
 
 ```python
-from microsoft.teams.openai import OpenAIModel
-from microsoft.teams.ai import PromptManager
+from microsoft.teams.openai import OpenAICompletionsAIModel
+from microsoft.teams.ai import ChatPrompt
 
 # Configure OpenAI model
-model = OpenAIModel(
+model = OpenAICompletionsAIModel(
     api_key="your-api-key",
     model="gpt-4",
     temperature=0.7
 )
 
 # Use with Teams AI
-prompt_manager = PromptManager()
-result = await model.complete(prompt_manager, "Hello!")
+prompt = ChatPrompt(instructions="You are a helpful assistant.")
+result = await model.chat(prompt)
 ```
 
 ## Azure OpenAI Support
 
 ```python
-from microsoft.teams.openai import AzureOpenAIModel
+from microsoft.teams.openai import OpenAICompletionsAIModel
 
 # Configure Azure OpenAI
-model = AzureOpenAIModel(
+model = OpenAICompletionsAIModel(
     api_key="your-azure-key",
-    endpoint="https://your-resource.openai.azure.com/",
-    deployment="your-deployment-name",
-    api_version="2024-02-01"
+    base_url="https://your-resource.openai.azure.com/openai/deployments/your-deployment-name",
+    model="gpt-4"
 )
 ```
 
@@ -69,36 +68,41 @@ model = AzureOpenAIModel(
 
 ```python
 # Enable streaming for real-time responses
-model = OpenAIModel(
+model = OpenAIResponsesAIModel(
     api_key="your-api-key",
-    model="gpt-4",
-    stream=True
+    model="gpt-4"
 )
 
-async for chunk in model.stream_complete(prompt_manager, "Tell me a story"):
-    print(chunk.content, end="", flush=True)
+# Streaming is handled through the model's chat method
+result = await model.chat(prompt, stream=True)
 ```
 
 ## Function Calling
 
 ```python
-# Define functions for the model to call
-functions = [
-    {
-        "name": "get_weather",
-        "description": "Get the weather for a location",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "location": {"type": "string"}
-            }
-        }
-    }
-]
+from microsoft.teams.ai import Function
 
-model = OpenAIModel(
+# Define functions for the model to call
+get_weather = Function(
+    name="get_weather",
+    description="Get the weather for a location",
+    parameters={
+        "type": "object",
+        "properties": {
+            "location": {"type": "string"}
+        },
+        "required": ["location"]
+    }
+)
+
+# Add functions to your prompt
+prompt = ChatPrompt(
+    instructions="You are a helpful assistant.",
+    functions=[get_weather]
+)
+
+model = OpenAICompletionsAIModel(
     api_key="your-api-key",
-    model="gpt-4",
-    functions=functions
+    model="gpt-4"
 )
 ```
