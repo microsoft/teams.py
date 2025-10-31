@@ -60,6 +60,7 @@ class HttpStream(StreamerProtocol):
         self._result: Optional[SentActivity] = None
         self._lock = asyncio.Lock()
         self._timeout: Optional[Timeout] = None
+        self._total_wait_timeout: float = 30.0
 
         self._reset_state()
 
@@ -122,16 +123,13 @@ class HttpStream(StreamerProtocol):
     async def _wait_for_id_and_queue(self):
         """Wait until _id is set and the queue is empty, with a total timeout."""
 
-        timeout = 30.0  # total timeout
-        interval = 0.1  # polling interval
-
         async def _poll():
             while not self._id or self._queue:
                 self._logger.debug("waiting for _id to be set or queue to be empty")
-                await asyncio.sleep(interval)
+                await asyncio.sleep(0.1)
 
         try:
-            await asyncio.wait_for(_poll(), timeout=timeout)
+            await asyncio.wait_for(_poll(), timeout=self._total_wait_timeout)
         except asyncio.TimeoutError:
             self._logger.warning("Timeout while waiting for _id to be set and queue to be empty, returning None")
             return None
