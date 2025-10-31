@@ -9,7 +9,7 @@ class ConfidentialClientApplication:
         self, client_id: str, *, client_credential: Optional[str] = None, authority: Optional[str] = None, **kwargs: Any
     ) -> None: ...
     def acquire_token_for_client(
-        self, scopes: list[str] | str, claims_challenge: Optional[str] = None, **kwargs: Any
+        self, scopes: list[str], claims_challenge: Optional[str] = None, **kwargs: Any
     ) -> dict[str, Any]: ...
 
 class SystemAssignedManagedIdentity:
@@ -34,6 +34,4 @@ class ManagedIdentityClient:
         http_cache: Optional[Any] = None,
         client_capabilities: Optional[list[str]] = None,
     ) -> None: ...
-    def acquire_token_for_client(
-        self, scopes: list[str] | str, claims_challenge: Optional[str] = None, **kwargs: Any
-    ) -> dict[str, Any]: ...
+    def acquire_token_for_client(self, *, resource: str, claims_challenge: Optional[str] = None) -> dict[str, Any]: ...
