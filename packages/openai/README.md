@@ -9,8 +9,25 @@
     </a>
 </p>
 
-OpenAI model implementations to be used with @microsoft-teams-ai. Supports all OpenAI-like API models.
+OpenAI model implementations for Microsoft Teams AI applications.
+Supports OpenAI and OpenAI-compatible APIs for chat completions and embeddings.
 
 <a href="https://microsoft.github.io/teams-ai" target="_blank">
     <img src="https://img.shields.io/badge/📖 Getting Started-blue?style=for-the-badge" />
 </a>
+
+## Installation
+
+```bash
+uv add microsoft-teams-openai
+```
+
+## Usage
+
+```python
+from microsoft.teams.openai import OpenAICompletionsAIModel
+from microsoft.teams.ai import ChatPrompt
+
+model = OpenAICompletionsAIModel(api_key="your-api-key", model="gpt-4")
+prompt = ChatPrompt(model)
+```
