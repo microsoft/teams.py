@@ -290,24 +290,14 @@ class App(ActivityHandlerMixin):
         client_secret = self.options.client_secret or os.getenv("CLIENT_SECRET")
         tenant_id = self.options.tenant_id or os.getenv("TENANT_ID")
         token = self.options.token
-        enable_managed_identity = self.options.enable_managed_identity or os.getenv("ENABLE_MANAGED_IDENTITY")
+        managed_identity_client_id = self.options.managed_identity_client_id or os.getenv("MANAGED_IDENTITY_CLIENT_ID")
+        managed_identity_type = self.options.managed_identity_type or os.getenv("MANAGED_IDENTITY_TYPE") or "user"
 
         self.log.debug(f"Using CLIENT_ID: {client_id}")
         if not tenant_id:
             self.log.warning("TENANT_ID is not set, assuming multi-tenant app")
         else:
             self.log.debug(f"Using TENANT_ID: {tenant_id} (assuming single-tenant app)")
-
-        if enable_managed_identity and client_id:
-            assert enable_managed_identity in ("system", "user"), (
-                f"enable_managed_identity must be 'system' or 'user', got: {enable_managed_identity}"
-            )
-            self.log.debug(f"Using managed identity: {enable_managed_identity}")
-            return ManagedIdentityCredentials(
-                client_id=client_id,
-                managed_identity_type=enable_managed_identity,
-                tenant_id=tenant_id,
-            )
 
         # - If client_id + client_secret : use ClientCredentials (standard client auth)
         if client_id and client_secret:
@@ -316,6 +306,20 @@ class App(ActivityHandlerMixin):
         # - If client_id + token callable : use TokenCredentials (where token is a custom token provider)
         if client_id and token:
             return TokenCredentials(client_id=client_id, tenant_id=tenant_id, token=token)
+
+        # - If client_id but no client_secret : use ManagedIdentityCredentials (inferred)
+        if client_id:
+            assert managed_identity_type in ("system", "user"), (
+                f"managed_identity_type must be 'system' or 'user', got: {managed_identity_type}"
+            )
+            self.log.debug(f"Using managed identity: {managed_identity_type}")
+            # Use managed_identity_client_id if provided, otherwise fall back to client_id
+            mi_client_id = managed_identity_client_id or client_id
+            return ManagedIdentityCredentials(
+                client_id=mi_client_id,
+                managed_identity_type=managed_identity_type,
+                tenant_id=tenant_id,
+            )
 
         return None
 
