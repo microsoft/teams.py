@@ -14,9 +14,7 @@
 
 Developer tools for locally testing and debugging Teams applications. Streamlines the development process by eliminating the need to deploy apps or expose public endpoints during development.
 
-<a href="https://microsoft.github.io/teams-ai" target="_blank">
-    <img src="https://img.shields.io/badge/📖 Getting Started-blue?style=for-the-badge" />
-</a>
+[📖 Documentation](https://microsoft.github.io/teams-ai/developer-tools/devtools/)
 
 ## Installation
 
