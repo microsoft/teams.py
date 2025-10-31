@@ -60,8 +60,6 @@ class HttpStream(StreamerProtocol):
         self._result: Optional[SentActivity] = None
         self._lock = asyncio.Lock()
         self._timeout: Optional[Timeout] = None
-        self._id_set_event = asyncio.Event()
-        self._queue_empty_event = asyncio.Event()
 
         self._reset_state()
 
@@ -108,9 +106,6 @@ class HttpStream(StreamerProtocol):
             activity = MessageActivityInput(text=activity, type="message")
         self._queue.append(activity)
 
-        # Clear the queue empty event since we just added an item
-        self._queue_empty_event.clear()
-
         if not self._timeout:
             loop = asyncio.get_running_loop()
             loop.create_task(self._flush())
@@ -124,11 +119,19 @@ class HttpStream(StreamerProtocol):
         """
         self.emit(TypingActivityInput().with_text(text).with_channel_data(ChannelData(stream_type="informative")))
 
-    async def _wait_for_queue_empty(self):
-        """Helper to wait until queue is empty."""
-        while self._queue:
-            self._logger.debug("waiting for queue to be empty...")
-            await self._queue_empty_event.wait()
+    async def _wait_for_id_and_queue(self, timeout: float = 5.0, interval: float = 0.1):
+        """Wait until _id is set and the queue is empty, with a total timeout."""
+
+        async def _poll():
+            while not self._id or self._queue:
+                self._logger.debug("waiting for _id to be set or queue to be empty")
+                await asyncio.sleep(interval)
+
+        try:
+            await asyncio.wait_for(_poll(), timeout=timeout)
+        except asyncio.TimeoutError:
+            self._logger.warning("Timeout while waiting for _id to be set and queue to be empty, returning None")
+            return None
 
     async def close(self) -> Optional[SentActivity]:
         # wait for lock to be free
@@ -141,17 +144,7 @@ class HttpStream(StreamerProtocol):
             return None
 
         # Wait until _id is set and queue is empty
-        if not self._id:
-            self._logger.debug("waiting for ID to be set")
-            try:
-                await asyncio.wait_for(self._id_set_event.wait(), timeout=30.0)
-            except asyncio.TimeoutError:
-                self._logger.warning("_id was never set, closing stream anyway")
-
-        try:
-            await asyncio.wait_for(self._wait_for_queue_empty(), timeout=30.0)
-        except asyncio.TimeoutError:
-            self._logger.warning("Queue did not empty within 30 seconds; closing anyway")
+        await self._wait_for_id_and_queue(timeout=30.0, interval=0.1)
 
         if self._text == "" and self._attachments == []:
             self._logger.warning("no text or attachments to send, cannot close stream")
@@ -228,10 +221,6 @@ class HttpStream(StreamerProtocol):
                 to_send = TypingActivityInput(text=self._text)
                 await self._send_activity(to_send)
 
-            # Signal if queue is now empty
-            if not self._queue:
-                self._queue_empty_event.set()
-
             # If more queued, schedule another flush
             if self._queue and not self._timeout:
                 self._timeout = Timeout(0.5, self._flush)
@@ -256,8 +245,6 @@ class HttpStream(StreamerProtocol):
         self._index += 1
         if self._id is None:
             self._id = res.id
-            # Signal that ID has been set
-            self._id_set_event.set()
 
     async def _send(self, to_send: Union[TypingActivityInput, MessageActivityInput]) -> SentActivity:
         """
