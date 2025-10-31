@@ -1,0 +1,73 @@
+# Microsoft Teams MCP Plugin
+
+<p>
+    <a href="https://pypi.org/project/microsoft-teams-mcpplugin/" target="_blank">
+        <img src="https://img.shields.io/pypi/v/microsoft-teams-mcpplugin" />
+    </a>
+    <a href="https://pypi.org/project/microsoft-teams-mcpplugin/" target="_blank">
+        <img src="https://img.shields.io/pypi/dw/microsoft-teams-mcpplugin" />
+    </a>
+</p>
+
+Model Context Protocol (MCP) integration for Microsoft Teams AI applications.
+Enables Teams bots to use MCP servers as tools and resources.
+
+<a href="https://microsoft.github.io/teams-ai" target="_blank">
+    <img src="https://img.shields.io/badge/📖 Getting Started-blue?style=for-the-badge" />
+</a>
+
+## Features
+
+- **MCP Server Integration**: Connect to MCP servers for extended capabilities
+- **Tool Execution**: Execute MCP tools from within Teams conversations
+- **Resource Access**: Access MCP resources in your bot logic
+- **FastMCP Support**: Compatible with FastMCP server implementations
+
+## Installation
+
+```bash
+# Using uv (recommended)
+uv add microsoft-teams-mcpplugin
+
+# Using pip
+pip install microsoft-teams-mcpplugin
+```
+
+## Quick Start
+
+```python
+from microsoft.teams.apps import App
+from microsoft.teams.ai import PromptManager
+from microsoft.teams.mcpplugin import MCPPlugin
+
+app = App()
+
+# Configure MCP plugin
+mcp_plugin = MCPPlugin(
+    server_command="uvx",
+    server_args=["mcp-server-time"]
+)
+
+# Register the plugin
+app.use(mcp_plugin)
+
+# MCP tools are now available to your AI agent
+```
+
+## Using MCP Resources
+
+```python
+# Access MCP resources
+resources = await mcp_plugin.list_resources()
+
+for resource in resources:
+    content = await mcp_plugin.read_resource(resource.uri)
+    print(f"Resource: {resource.name}, Content: {content}")
+```
+
+## Supported MCP Servers
+
+This plugin works with any MCP-compliant server, including:
+- Built-in MCP servers (filesystem, git, etc.)
+- Custom MCP servers
+- FastMCP-based servers
