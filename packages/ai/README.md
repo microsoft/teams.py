@@ -37,7 +37,7 @@ pip install microsoft-teams-ai
 ## Quick Start
 
 ```python
-from microsoft.teams.ai import Agent, ChatPrompt
+from microsoft.teams.ai import Agent
 from microsoft.teams.openai import OpenAICompletionsAIModel
 
 # Create AI model
@@ -52,63 +52,58 @@ agent = Agent(model=model)
 # Use in Teams app
 @app.on_message
 async def handle_message(ctx: ActivityContext[MessageActivity]):
-    response = await agent.run(ctx)
-    await ctx.send(response)
+    result = await agent.send(
+        input=ctx.activity.text,
+        instructions="You are a helpful assistant."
+    )
+    await ctx.send(result.response.content)
 ```
 
-## Prompt Templates
+## Prompt Instructions
 
 ```python
-# Define a chat prompt
-prompt = ChatPrompt(
-    instructions="You are a helpful assistant for {{company}}.",
-    functions=[]
-)
-
-# Use the prompt with variables
-result = await agent.chat(
-    prompt,
-    variables={"company": "Contoso"}
+# Define custom instructions for your agent
+result = await agent.send(
+    input="What can you help me with?",
+    instructions="You are a helpful assistant for {{company}}. Be professional and courteous."
 )
 ```
 
-## Actions and Tools
+## Function Calling
 
 ```python
 from microsoft.teams.ai import Function
+from pydantic import BaseModel
 
-# Register custom functions
-weather_function = Function(
-    name="get_weather",
-    description="Get weather for a location",
-    parameters={
-        "type": "object",
-        "properties": {
-            "location": {"type": "string"}
-        }
-    }
-)
+class GetWeatherParams(BaseModel):
+    location: str
 
-# Add function handler
-@agent.function("get_weather")
-async def get_weather(location: str):
+async def get_weather_handler(params: GetWeatherParams) -> str:
     # Fetch weather data
-    return {"temperature": 72, "conditions": "sunny"}
+    return f"Weather in {params.location}: sunny, 72°F"
+
+# Register function with agent
+agent.with_function(
+    Function(
+        name="get_weather",
+        description="Get weather for a location",
+        parameter_schema=GetWeatherParams,
+        handler=get_weather_handler
+    )
+)
 ```
 
-## Memory and State
+## Memory Management
 
 ```python
-# Configure memory for conversation history
-from microsoft.teams.ai import ListMemory
+from microsoft.teams.ai import ListMemory, UserMessage
 
-memory = ListMemory(max_items=10)
-agent = Agent(
-    model=model,
-    memory=memory
-)
+# Create memory for conversation history
+memory = ListMemory()
 
-# Access conversation state
-messages = await memory.get()
-await memory.add(user_message)
+# Add messages to memory
+await memory.push(UserMessage(content="Hello"))
+
+# Retrieve conversation history
+messages = await memory.get_all()
 ```

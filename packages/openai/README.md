@@ -37,7 +37,6 @@ pip install microsoft-teams-openai
 
 ```python
 from microsoft.teams.openai import OpenAICompletionsAIModel
-from microsoft.teams.ai import ChatPrompt
 
 # Configure OpenAI model
 model = OpenAICompletionsAIModel(
@@ -46,9 +45,14 @@ model = OpenAICompletionsAIModel(
     temperature=0.7
 )
 
-# Use with Teams AI
-prompt = ChatPrompt(instructions="You are a helpful assistant.")
-result = await model.chat(prompt)
+# Use with Teams AI Agent
+from microsoft.teams.ai import Agent
+
+agent = Agent(model=model)
+result = await agent.send(
+    input="Hello!",
+    instructions="You are a helpful assistant."
+)
 ```
 
 ## Azure OpenAI Support
@@ -56,7 +60,7 @@ result = await model.chat(prompt)
 ```python
 from microsoft.teams.openai import OpenAICompletionsAIModel
 
-# Configure Azure OpenAI
+# Configure Azure OpenAI with base_url
 model = OpenAICompletionsAIModel(
     api_key="your-azure-key",
     base_url="https://your-resource.openai.azure.com/openai/deployments/your-deployment-name",
@@ -67,42 +71,49 @@ model = OpenAICompletionsAIModel(
 ## Streaming Responses
 
 ```python
-# Enable streaming for real-time responses
+from microsoft.teams.openai import OpenAIResponsesAIModel
+
+# Use OpenAIResponsesAIModel for streaming support
 model = OpenAIResponsesAIModel(
     api_key="your-api-key",
     model="gpt-4"
 )
 
-# Streaming is handled through the model's chat method
-result = await model.chat(prompt, stream=True)
+# Streaming is handled through callback
+def on_chunk(chunk: str):
+    print(chunk, end="", flush=True)
+
+result = await model.generate_text(
+    prompt=chat_prompt,
+    on_chunk=on_chunk
+)
 ```
 
 ## Function Calling
 
 ```python
-from microsoft.teams.ai import Function
+from microsoft.teams.ai import Agent, Function
+from pydantic import BaseModel
 
-# Define functions for the model to call
-get_weather = Function(
-    name="get_weather",
-    description="Get the weather for a location",
-    parameters={
-        "type": "object",
-        "properties": {
-            "location": {"type": "string"}
-        },
-        "required": ["location"]
-    }
-)
+class GetWeatherParams(BaseModel):
+    location: str
 
-# Add functions to your prompt
-prompt = ChatPrompt(
-    instructions="You are a helpful assistant.",
-    functions=[get_weather]
-)
+async def get_weather_handler(params: GetWeatherParams) -> str:
+    return f"Weather in {params.location}: sunny, 72°F"
 
+# Configure agent with function
 model = OpenAICompletionsAIModel(
     api_key="your-api-key",
     model="gpt-4"
+)
+
+agent = Agent(model=model)
+agent.with_function(
+    Function(
+        name="get_weather",
+        description="Get the weather for a location",
+        parameter_schema=GetWeatherParams,
+        handler=get_weather_handler
+    )
 )
 ```
