@@ -70,7 +70,7 @@ class TokenManager:
         )
 
     async def _get_token(
-        self, scope: str | list[str], tenant_id: str, *, caller_name: str | None = None
+        self, scope: str, tenant_id: str, *, caller_name: str | None = None
     ) -> Optional[TokenProtocol]:
         credentials = self._credentials
         if self._credentials is None:
@@ -79,9 +79,19 @@ class TokenManager:
             return None
         if isinstance(credentials, (ClientCredentials, ManagedIdentityCredentials)):
             msal_client = self._get_msal_client(tenant_id)
-            token_res: dict[str, Any] | None = await asyncio.to_thread(
-                lambda: msal_client.acquire_token_for_client(scope if isinstance(scope, list) else [scope])
-            )
+
+            # Handle different acquire_token_for_client signatures
+            if isinstance(msal_client, ManagedIdentityClient):
+                # ManagedIdentityClient expects resource as a keyword-only string parameter
+                token_res: dict[str, Any] | None = await asyncio.to_thread(
+                    lambda: msal_client.acquire_token_for_client(resource=scope)
+                )
+            else:
+                # ConfidentialClientApplication expects scopes as a list
+                token_res: dict[str, Any] | None = await asyncio.to_thread(
+                    lambda: msal_client.acquire_token_for_client([scope])
+                )
+
             if token_res.get("access_token", None):
                 access_token = token_res["access_token"]
                 return JsonWebToken(access_token)
