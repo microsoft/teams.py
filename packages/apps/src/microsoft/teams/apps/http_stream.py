@@ -130,9 +130,9 @@ class HttpStream(StreamerProtocol):
 
         try:
             await asyncio.wait_for(_poll(), timeout=self._total_wait_timeout)
+            return True
         except asyncio.TimeoutError:
-            self._logger.warning("Timeout while waiting for _id to be set and queue to be empty, cannot close stream")
-            return None
+            return False
 
     async def close(self) -> Optional[SentActivity]:
         # wait for lock to be free
@@ -145,7 +145,10 @@ class HttpStream(StreamerProtocol):
             return None
 
         # Wait until _id is set and queue is empty
-        await self._wait_for_id_and_queue()
+        result = await self._wait_for_id_and_queue()
+        if not result:
+            self._logger.warning("Timeout while waiting for _id to be set and queue to be empty, cannot close stream")
+            return None
 
         if self._text == "" and self._attachments == []:
             self._logger.warning("no text or attachments to send, cannot close stream")
