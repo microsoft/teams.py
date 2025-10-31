@@ -1,5 +1,5 @@
 {
-  "test_app_name": "test-app-name",
+  "example_app_name": "example-app-name",
   "project_short_description": "app description",
   "version": "0.1.0"
 }

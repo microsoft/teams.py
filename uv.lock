@@ -44,7 +44,7 @@ dev = [
 [[package]]
 name = "a2a"
 version = "0.1.0"
-source = { virtual = "tests/a2a-test" }
+source = { virtual = "examples/a2a-test" }
 dependencies = [
     { name = "dotenv" },
     { name = "microsoft-teams-a2a" },
@@ -90,7 +90,7 @@ http-server = [
 [[package]]
 name = "ai-test"
 version = "0.1.0"
-source = { virtual = "tests/ai-test" }
+source = { virtual = "examples/ai-test" }
 dependencies = [
     { name = "dotenv" },
     { name = "microsoft-teams-ai" },
@@ -323,7 +323,7 @@ wheels = [
 [[package]]
 name = "cards"
 version = "0.1.0"
-source = { virtual = "tests/cards" }
+source = { virtual = "examples/cards" }
 dependencies = [
     { name = "dotenv" },
     { name = "microsoft-teams-apps" },
@@ -681,7 +681,7 @@ wheels = [
 [[package]]
 name = "dialogs"
 version = "0.1.0"
-source = { virtual = "tests/dialogs" }
+source = { virtual = "examples/dialogs" }
 dependencies = [
     { name = "dotenv" },
     { name = "microsoft-teams-apps" },
@@ -752,7 +752,7 @@ wheels = [
 [[package]]
 name = "echo"
 version = "0.1.0"
-source = { virtual = "tests/echo" }
+source = { virtual = "examples/echo" }
 dependencies = [
     { name = "dotenv" },
     { name = "microsoft-teams-api" },
@@ -972,7 +972,7 @@ wheels = [
 [[package]]
 name = "graph"
 version = "0.1.0"
-source = { virtual = "tests/graph" }
+source = { virtual = "examples/graph" }
 dependencies = [
     { name = "microsoft-teams-apps" },
     { name = "microsoft-teams-graph" },
@@ -1377,7 +1377,7 @@ wheels = [
 [[package]]
 name = "mcp-client"
 version = "0.1.0"
-source = { virtual = "tests/mcp-client" }
+source = { virtual = "examples/mcp-client" }
 dependencies = [
     { name = "dotenv" },
     { name = "microsoft-teams-ai" },
@@ -1400,7 +1400,7 @@ requires-dist = [
 [[package]]
 name = "mcp-server"
 version = "0.1.0"
-source = { virtual = "tests/mcp-server" }
+source = { virtual = "examples/mcp-server" }
 dependencies = [
     { name = "dotenv" },
     { name = "microsoft-teams-apps" },
@@ -1428,7 +1428,7 @@ wheels = [
 [[package]]
 name = "message-extensions"
 version = "0.1.0"
-source = { virtual = "tests/message-extensions" }
+source = { virtual = "examples/message-extensions" }
 dependencies = [
     { name = "dotenv" },
     { name = "microsoft-teams-apps" },
@@ -1964,7 +1964,7 @@ wheels = [
 [[package]]
 name = "oauth"
 version = "0.1.0"
-source = { virtual = "tests/oauth" }
+source = { virtual = "examples/oauth" }
 dependencies = [
     { name = "dotenv" },
     { name = "microsoft-teams-apps" },
@@ -2840,7 +2840,7 @@ wheels = [
 [[package]]
 name = "stream"
 version = "0.1.0"
-source = { virtual = "tests/stream" }
+source = { virtual = "examples/stream" }
 dependencies = [
     { name = "dotenv" },
     { name = "microsoft-teams-api" },
@@ -2857,7 +2857,7 @@ requires-dist = [
 [[package]]
 name = "tab"
 version = "0.1.0"
-source = { virtual = "tests/tab" }
+source = { virtual = "examples/tab" }
 dependencies = [
     { name = "dotenv" },
     { name = "microsoft-teams-api" },
