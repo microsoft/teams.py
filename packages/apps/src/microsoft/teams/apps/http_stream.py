@@ -131,7 +131,7 @@ class HttpStream(StreamerProtocol):
         try:
             await asyncio.wait_for(_poll(), timeout=self._total_wait_timeout)
         except asyncio.TimeoutError:
-            self._logger.warning("Timeout while waiting for _id to be set and queue to be empty, returning None")
+            self._logger.warning("Timeout while waiting for _id to be set and queue to be empty, cannot close stream")
             return None
 
     async def close(self) -> Optional[SentActivity]:
