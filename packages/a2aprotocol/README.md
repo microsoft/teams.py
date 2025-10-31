@@ -29,19 +29,24 @@ uv add microsoft-teams-a2a
 ```python
 from microsoft.teams.apps import App
 from microsoft.teams.a2a import A2APlugin, A2APluginOptions
-from a2a.types import AgentCard
+from a2a.types import AgentCard, AgentCapabilities
 
 app = App()
 
-# Expose your Teams agent via A2A protocol
+# Define agent card with capabilities
 agent_card = AgentCard(
-    name="My Agent",
-    description="A helpful agent",
-    capabilities={}
+    name="weather_agent",
+    description="An agent that can tell you the weather",
+    url="http://localhost:4000/a2a/",
+    version="0.0.1",
+    protocol_version="0.3.0",
+    capabilities=AgentCapabilities(),
+    default_input_modes=[],
+    default_output_modes=[]
 )
 
 a2a_server = A2APlugin(A2APluginOptions(agent_card=agent_card))
-app.use(a2a_server)
+app = App(plugins=[a2a_server])
 ```
 
 ### A2A Client (Use Other Agents)
@@ -57,7 +62,7 @@ model = OpenAICompletionsAIModel(api_key="your-api-key", model="gpt-4")
 a2a_client = A2AClientPlugin()
 a2a_client.on_use_plugin(
     A2APluginUseParams(
-        key="weather-agent",
+        key="my-weather-agent",
         base_url="http://localhost:4000/a2a",
         card_url=".well-known/agent-card.json"
     )
