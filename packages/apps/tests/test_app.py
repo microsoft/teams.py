@@ -131,11 +131,14 @@ class TestApp:
     @pytest.mark.asyncio
     async def test_app_lifecycle_start_stop(self, app_with_options):
         """Test basic app lifecycle: start and stop."""
+
         # Mock the underlying HTTP server to avoid actual server startup
-        with (
-            patch.object(app_with_options, "_refresh_tokens", new_callable=AsyncMock),
-            patch.object(app_with_options.http, "on_start", new_callable=AsyncMock),
-        ):
+        async def mock_on_start(event):
+            # Simulate the HTTP plugin calling the ready callback
+            if app_with_options.http.on_ready_callback:
+                await app_with_options.http.on_ready_callback()
+
+        with patch.object(app_with_options.http, "on_start", new_callable=AsyncMock, side_effect=mock_on_start):
             # Test start
             start_task = asyncio.create_task(app_with_options.start(3978))
             await asyncio.sleep(0.1)
@@ -507,16 +510,18 @@ class TestApp:
 
         options = AppOptions(client_id="test-client-123", token=get_token)
 
-        app = App(**options)
+        # Mock environment variables to ensure they don't interfere
+        with patch.dict("os.environ", {"CLIENT_ID": "", "CLIENT_SECRET": "", "TENANT_ID": ""}, clear=False):
+            app = App(**options)
 
-        assert app.credentials is not None
-        assert type(app.credentials) is TokenCredentials
-        assert app.credentials.client_id == "test-client-123"
-        assert callable(app.credentials.token)
+            assert app.credentials is not None
+            assert type(app.credentials) is TokenCredentials
+            assert app.credentials.client_id == "test-client-123"
+            assert callable(app.credentials.token)
 
-        res = await app.api.bots.token.get(app.credentials)
-        assert token_called is True
-        assert res.access_token == "test.jwt.token"
+            res = await app.api.bots.token.get(app.credentials)
+            assert token_called is True
+            assert res.access_token == "test.jwt.token"
 
     def test_middleware_registration(self, app_with_options: App) -> None:
         """Test that middleware is registered correctly using app.use()."""
@@ -559,3 +564,14 @@ class TestApp:
         # Extract the endpoint path it was registered to
         endpoint_path = app_with_options.http.post.call_args[0][0]
         assert endpoint_path == f"/api/functions/{dummy_func.__name__.replace('_', '-')}"
+
+    def test_user_agent_format(self, app_with_options: App):
+        """Test that USER_AGENT follows the expected format teams.py[apps]/{version}."""
+        import importlib.metadata
+
+        version = importlib.metadata.version("microsoft-teams-apps")
+        expected_user_agent = f"teams.py[apps]/{version}"
+
+        # Verify the http_client has the correct User-Agent header
+        assert "User-Agent" in app_with_options.http_client._options.headers
+        assert app_with_options.http_client._options.headers["User-Agent"] == expected_user_agent

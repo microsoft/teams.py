@@ -6,6 +6,7 @@ Licensed under the MIT License.
 from .messaging_extension_action import MessagingExtensionAction
 from .messaging_extension_action_response import MessagingExtensionActionResponse
 from .messaging_extension_attachment import MessagingExtensionAttachment
+from .messaging_extension_attachment_layout import MessagingExtensionAttachmentLayout
 from .messaging_extension_parameter import MessagingExtensionParameter
 from .messaging_extension_query import MessagingExtensionQuery, MessagingExtensionQueryOptions
 from .messaging_extension_response import MessagingExtensionResponse
@@ -17,6 +18,7 @@ __all__ = [
     "MessagingExtensionAction",
     "MessagingExtensionActionResponse",
     "MessagingExtensionAttachment",
+    "MessagingExtensionAttachmentLayout",
     "MessagingExtensionParameter",
     "MessagingExtensionQuery",
     "MessagingExtensionQueryOptions",

@@ -100,12 +100,6 @@ class BotTokenDependencyOptions(DependencyMetadata):
 
 
 @dataclass
-class GraphTokenDependencyOptions(DependencyMetadata):
-    name = "graph_token"
-    optional = True
-
-
-@dataclass
 class LoggerDependencyOptions(DependencyMetadata):
     name = "logger"
     optional = False
@@ -129,7 +123,6 @@ DependencyOptions = Union[
     ManifestDependencyOptions,
     CredentialsDependencyOptions,
     BotTokenDependencyOptions,
-    GraphTokenDependencyOptions,
     LoggerDependencyOptions,
     StorageDependencyOptions,
     PluginDependencyOptions,
