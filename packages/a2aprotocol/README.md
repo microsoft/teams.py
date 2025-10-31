@@ -37,14 +37,20 @@ pip install microsoft-teams-a2a
 
 ```python
 from microsoft.teams.apps import App
-from microsoft.teams.a2a import A2APlugin
+from microsoft.teams.a2a import A2APlugin, A2APluginOptions
+from a2a.types import AgentCard
 
 app = App()
 
-# Configure A2A plugin
+# Configure A2A plugin with agent card
+agent_card = AgentCard(
+    name="My Agent",
+    description="A helpful agent",
+    capabilities={}
+)
+
 a2a_plugin = A2APlugin(
-    port=5000,
-    host="0.0.0.0"
+    A2APluginOptions(agent_card=agent_card)
 )
 
 # Register the plugin with your app
@@ -59,12 +65,9 @@ app.use(a2a_plugin)
 from microsoft.teams.api import MessageActivity
 from microsoft.teams.apps import ActivityContext
 
-# Your Teams agent can now receive requests from other A2A agents
-# and respond according to your configured prompts and actions
-
+# Define message handler for both Teams and A2A requests
 @app.on_message
 async def handle_message(ctx: ActivityContext[MessageActivity]):
-    # Handle both Teams messages and A2A requests
     await ctx.send(f"Received: {ctx.activity.text}")
 ```
 

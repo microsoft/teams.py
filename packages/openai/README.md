@@ -72,6 +72,7 @@ model = OpenAICompletionsAIModel(
 
 ```python
 from microsoft.teams.openai import OpenAIResponsesAIModel
+from microsoft.teams.ai import UserMessage
 
 # Use OpenAIResponsesAIModel for streaming support
 model = OpenAIResponsesAIModel(
@@ -84,7 +85,7 @@ def on_chunk(chunk: str):
     print(chunk, end="", flush=True)
 
 result = await model.generate_text(
-    prompt=chat_prompt,
+    input=UserMessage(content="Tell me a story"),
     on_chunk=on_chunk
 )
 ```
