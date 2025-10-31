@@ -49,7 +49,6 @@ version = importlib.metadata.version("microsoft-teams-devtools")
 class DevToolsPlugin(Sender):
     logger: Annotated[Logger, LoggerDependencyOptions()]
     id: Annotated[Optional[TokenProtocol], DependencyMetadata(optional=True)]
-    name: Annotated[Optional[TokenProtocol], DependencyMetadata(optional=True)]
     http: Annotated[HttpPlugin, DependencyMetadata()]
 
     on_error_event: Annotated[Callable[[ErrorEvent], None], EventMetadata(name="error")]
@@ -180,7 +179,6 @@ class DevToolsPlugin(Sender):
                     "type": "metadata",
                     "body": {
                         "id": self.id.__str__(),
-                        "name": self.name.__str__(),
                         "pages": self.pages,
                     },
                     "sent_at": datetime.now().isoformat(),
