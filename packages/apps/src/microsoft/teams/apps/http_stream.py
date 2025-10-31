@@ -29,13 +29,12 @@ class HttpStream(StreamerProtocol):
     HTTP-based streaming implementation for Microsoft Teams activities.
 
     Flow:
-    1. emit() adds activities to a queue and cancels any pending flush timeout
-    2. emit() schedules _flush() to run after 0.5 seconds via Timeout
-    3. If another emit() happens before flush executes, the timeout is cancelled and rescheduled
-    4. _flush() starts by cancelling any pending timeout, then processes up to 10 queued activities under a lock
-    5. _flush() combines text from MessageActivity and sends it as a Typing activity with streamType='streaming'
-    6. _flush() schedules another flush if more items remain in queue
-    7. close() waits for queue to empty, then sends final message with stream_type='stream_final'
+    1. emit() adds activities to a queue
+    2. _flush() processes up to 10 queued items under a lock.
+    3. Informative typing updates are sent immediately if no message started.
+    4. Message text are combined into a typing chunk.
+    5. Another flush is scheduled if more items remain.
+    6. close() waits for queue to empty, then sends final message with stream_type='stream_final'
 
     The timeout cancellation ensures only one flush operation is scheduled at a time.
     The delays between flushes is to ensure we dont hit API rate limits with Microsoft Teams.
@@ -125,6 +124,12 @@ class HttpStream(StreamerProtocol):
         """
         self.emit(TypingActivityInput().with_text(text).with_channel_data(ChannelData(stream_type="informative")))
 
+    async def _wait_for_queue_empty(self):
+        """Helper to wait until queue is empty."""
+        while self._queue:
+            self._logger.debug("waiting for queue to be empty...")
+            await self._queue_empty_event.wait()
+
     async def close(self) -> Optional[SentActivity]:
         # wait for lock to be free
         if self._result is not None:
@@ -138,11 +143,15 @@ class HttpStream(StreamerProtocol):
         # Wait until _id is set and queue is empty
         if not self._id:
             self._logger.debug("waiting for ID to be set")
-            await self._id_set_event.wait()
+            try:
+                await asyncio.wait_for(self._id_set_event.wait(), timeout=30.0)
+            except asyncio.TimeoutError:
+                self._logger.warning("_id was never set, closing stream anyway")
 
-        while self._queue:
-            self._logger.debug("waiting for queue to be empty...")
-            await self._queue_empty_event.wait()
+        try:
+            await asyncio.wait_for(self._wait_for_queue_empty(), timeout=30.0)
+        except asyncio.TimeoutError:
+            self._logger.warning("Queue did not empty within 30 seconds; closing anyway")
 
         if self._text == "" and self._attachments == []:
             self._logger.warning("no text or attachments to send, cannot close stream")
