@@ -175,10 +175,9 @@ class HttpStream(StreamerProtocol):
 
         await self._lock.acquire()
 
-        if not self._queue:
-            return
-
         try:
+            if not self._queue:
+                return
             if self._timeout is not None:
                 self._timeout.cancel()
                 self._timeout = None
