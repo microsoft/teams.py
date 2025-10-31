@@ -16,14 +16,28 @@ from .plugins import PluginBase
 class AppOptions(TypedDict, total=False):
     """Configuration options for the Teams App."""
 
-    # Authentication credentials
     client_id: Optional[str]
+    """The client ID of the app registration."""
     client_secret: Optional[str]
+    """The client secret. If provided with client_id, uses ClientCredentials auth."""
     tenant_id: Optional[str]
+    """The tenant ID. Required for single-tenant apps."""
     # Custom token provider function
     token: Optional[Callable[[Union[str, list[str]], Optional[str]], Union[str, Awaitable[str]]]]
-    # Managed identity configuration
-    enable_managed_identity: Optional[Literal["system", "user"]]
+    """Custom token provider function. If provided with client_id (no client_secret), uses TokenCredentials."""
+
+    # Managed identity configuration (used when client_id provided without client_secret or token)
+    managed_identity_client_id: Optional[str]
+    """
+    The managed identity client ID for user-assigned managed identity.
+    Defaults to client_id if not provided.
+    """
+
+    managed_identity_type: Optional[Literal["system", "user"]]
+    """
+    The type of managed identity: 'system' for system-assigned or 'user'
+    for user-assigned. Defaults to 'user' (if managed identity is used at all)
+    """
 
     # Infrastructure
     logger: Optional[Logger]
@@ -46,10 +60,17 @@ class InternalAppOptions:
 
     # Optional fields
     client_id: Optional[str] = None
+    """The client ID of the app registration."""
     client_secret: Optional[str] = None
+    """The client secret. If provided with client_id, uses ClientCredentials auth."""
     tenant_id: Optional[str] = None
+    """The tenant ID. Required for single-tenant apps."""
     token: Optional[Callable[[Union[str, list[str]], Optional[str]], Union[str, Awaitable[str]]]] = None
-    enable_managed_identity: Optional[Literal["system", "user"]] = None
+    """Custom token provider function. If provided with client_id (no client_secret), uses TokenCredentials."""
+    managed_identity_client_id: Optional[str] = None
+    """The managed identity client ID for user-assigned managed identity. Defaults to client_id if not provided."""
+    managed_identity_type: Optional[Literal["system", "user"]] = None
+    """The type of managed identity: 'system' for system-assigned or 'user' for user-assigned. Defaults to 'user'."""
     logger: Optional[Logger] = None
     storage: Optional[Storage[str, Any]] = None
 
