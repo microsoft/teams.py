@@ -15,7 +15,8 @@
       "packages/ai/src",
       "packages/openai/src",
       "packages/mcpplugin/src",
-      "packages/a2aprotocol/src"
+      "packages/a2aprotocol/src",
+      "packages/botbuilder/src"
    ],
    "typeCheckingMode": "strict",
    "executionEnvironments": [

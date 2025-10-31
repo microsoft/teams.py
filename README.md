@@ -1,5 +1,5 @@
 > [!CAUTION]
-> This project is in public preview. We’ll do our best to maintain compatibility, but there may be breaking changes in upcoming releases. 
+> This project is in public preview. We’ll do our best to maintain compatibility, but there may be breaking changes in upcoming releases.
 
 # Microsoft Teams AI Library for Python
 
@@ -19,17 +19,20 @@ A comprehensive SDK for building Microsoft Teams applications, bots, and AI agen
 ### Prerequisites
 
 - UV version is >= 0.8.11. Install and upgrade from [docs.astral.sh/uv](https://docs.astral.sh/uv/getting-started/installation/).
-- Python version is >= 3.12.  Install or upgrade from [python.org/downloads](https://www.python.org/downloads/).
+- Python version is >= 3.12. Install or upgrade from [python.org/downloads](https://www.python.org/downloads/).
 
 ### Installation
 
 #### 1. Install the dependencies.
+
 ```bash
  uv sync --all-packages --group dev
 ```
 
 #### 2. Activate the virtual env
+
 > **Note:** After the initial setup, you need to activate the virtual environment each time you start a new terminal session
+
 ```bash
 # On Mac
  `source .venv/bin/activate`
@@ -39,6 +42,7 @@ A comprehensive SDK for building Microsoft Teams applications, bots, and AI agen
 ```
 
 #### 3. Install the pre-commit hooks
+
 ```bash
  pre-commit install
 ```
@@ -55,6 +59,7 @@ A comprehensive SDK for building Microsoft Teams applications, bots, and AI agen
 - [`microsoft-teams-devtools`](./packages/devtools/README.md)
 - [`microsoft-teams-graph`](./packages/graph/README.md)
 - [`microsoft-teams-openai`](./packages/openai/README.md)
+- [`microsoft-teams-botbuilder`](./packages/botbuilder/README.md)
 
 > external packages to integrate with external protocols and microsoft-teams-cards
 
