@@ -27,16 +27,18 @@ uv add microsoft-teams-mcpplugin
 ```python
 from microsoft.teams.apps import App
 from microsoft.teams.mcpplugin import McpClientPlugin
+from microsoft.teams.ai import ChatPrompt
+from microsoft.teams.openai import OpenAICompletionsAIModel
 
-app = App()
+# Create MCP client plugin
+mcp_client = McpClientPlugin()
 
-# Connect to an MCP server
-mcp_client = McpClientPlugin(
-    server_command="uvx",
-    server_args=["mcp-server-time"]
-)
+# Connect to MCP servers
+mcp_client.use_mcp_server("https://example.com/mcp")
 
-app.use(mcp_client)
+# Use with ChatPrompt
+model = OpenAICompletionsAIModel(api_key="your-api-key", model="gpt-4")
+prompt = ChatPrompt(model, plugins=[mcp_client])
 ```
 
 ### MCP Server (Expose Tools)
