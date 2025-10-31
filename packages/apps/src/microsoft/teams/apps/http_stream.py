@@ -119,8 +119,11 @@ class HttpStream(StreamerProtocol):
         """
         self.emit(TypingActivityInput().with_text(text).with_channel_data(ChannelData(stream_type="informative")))
 
-    async def _wait_for_id_and_queue(self, timeout: float = 5.0, interval: float = 0.1):
+    async def _wait_for_id_and_queue(self):
         """Wait until _id is set and the queue is empty, with a total timeout."""
+
+        timeout = 30.0  # total timeout
+        interval = 0.1  # polling interval
 
         async def _poll():
             while not self._id or self._queue:
@@ -144,7 +147,7 @@ class HttpStream(StreamerProtocol):
             return None
 
         # Wait until _id is set and queue is empty
-        await self._wait_for_id_and_queue(timeout=30.0, interval=0.1)
+        await self._wait_for_id_and_queue()
 
         if self._text == "" and self._attachments == []:
             self._logger.warning("no text or attachments to send, cannot close stream")
