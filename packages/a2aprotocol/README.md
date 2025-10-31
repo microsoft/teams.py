@@ -1,4 +1,4 @@
-# Microsoft Teams A2A Protocol
+# Microsoft Teams A2A
 
 <p>
     <a href="https://pypi.org/project/microsoft-teams-a2a/" target="_blank">
