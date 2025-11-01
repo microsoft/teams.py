@@ -21,6 +21,7 @@ from microsoft.teams.api import (
     ConversationAccount,
     ConversationReference,
     Credentials,
+    ManagedIdentityCredentials,
     MessageActivityInput,
     TokenCredentials,
 )
@@ -92,14 +93,14 @@ class App(ActivityHandlerMixin):
         self.container = Container()
         self.container.set_provider("id", providers.Object(self.id))
         self.container.set_provider("credentials", providers.Object(self.credentials))
-        self.container.set_provider("bot_token", providers.Factory(lambda: self._get_or_get_bot_token))
+        self.container.set_provider("bot_token", providers.Factory(lambda: self._get_bot_token))
         self.container.set_provider("logger", providers.Object(self.log))
         self.container.set_provider("storage", providers.Object(self.storage))
         self.container.set_provider(self.http_client.__class__.__name__, providers.Factory(lambda: self.http_client))
 
         self.api = ApiClient(
             "https://smba.trafficmanager.net/teams",
-            self.http_client.clone(ClientOptions(token=self._get_or_get_bot_token)),
+            self.http_client.clone(ClientOptions(token=self._get_bot_token)),
         )
 
         plugins: List[PluginBase] = list(self.options.plugins)
@@ -290,6 +291,8 @@ class App(ActivityHandlerMixin):
         client_secret = self.options.client_secret or os.getenv("CLIENT_SECRET")
         tenant_id = self.options.tenant_id or os.getenv("TENANT_ID")
         token = self.options.token
+        managed_identity_client_id = self.options.managed_identity_client_id or os.getenv("MANAGED_IDENTITY_CLIENT_ID")
+        managed_identity_type = self.options.managed_identity_type or os.getenv("MANAGED_IDENTITY_TYPE") or "user"
 
         self.log.debug(f"Using CLIENT_ID: {client_id}")
         if not tenant_id:
@@ -299,11 +302,26 @@ class App(ActivityHandlerMixin):
 
         # - If client_id + client_secret : use ClientCredentials (standard client auth)
         if client_id and client_secret:
+            self.log.debug("Using client secret for auth")
             return ClientCredentials(client_id=client_id, client_secret=client_secret, tenant_id=tenant_id)
 
         # - If client_id + token callable : use TokenCredentials (where token is a custom token provider)
         if client_id and token:
             return TokenCredentials(client_id=client_id, tenant_id=tenant_id, token=token)
+
+        # - If client_id but no client_secret : use ManagedIdentityCredentials (inferred)
+        if client_id:
+            assert managed_identity_type in ("system", "user"), (
+                f"managed_identity_type must be 'system' or 'user', got: {managed_identity_type}"
+            )
+            self.log.debug(f"Using managed identity: {managed_identity_type} for auth")
+            # Use managed_identity_client_id if provided, otherwise fall back to client_id
+            mi_client_id = managed_identity_client_id or client_id
+            return ManagedIdentityCredentials(
+                client_id=mi_client_id,
+                managed_identity_type=managed_identity_type,
+                tenant_id=tenant_id,
+            )
 
         return None
 
@@ -463,5 +481,5 @@ class App(ActivityHandlerMixin):
         # Named decoration: @app.func("name")
         return decorator
 
-    async def _get_or_get_bot_token(self):
+    async def _get_bot_token(self):
         return await self._token_manager.get_bot_token()

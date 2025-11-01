@@ -3,7 +3,7 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from typing import Awaitable, Callable, Optional, Union
+from typing import Awaitable, Callable, Literal, Optional, Union
 
 from ..models import CustomBaseModel
 
@@ -43,5 +43,22 @@ class TokenCredentials(CustomBaseModel):
     """
 
 
+class ManagedIdentityCredentials(CustomBaseModel):
+    """Credentials for authentication using Azure Managed Identity."""
+
+    client_id: str
+    """
+    The client ID of the app registration.
+    """
+    managed_identity_type: Literal["system", "user"]
+    """
+    The type of managed identity: 'system' for system-assigned or 'user' for user-assigned.
+    """
+    tenant_id: Optional[str] = None
+    """
+    The tenant ID.
+    """
+
+
 # Union type for credentials
-Credentials = Union[ClientCredentials, TokenCredentials]
+Credentials = Union[ClientCredentials, TokenCredentials, ManagedIdentityCredentials]
