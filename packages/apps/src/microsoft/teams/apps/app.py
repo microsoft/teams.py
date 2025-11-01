@@ -17,6 +17,7 @@ from microsoft.teams.api import (
     ActivityBase,
     ActivityParams,
     ApiClient,
+    CertificateCredentials,
     ClientCredentials,
     ConversationAccount,
     ConversationReference,
@@ -290,6 +291,10 @@ class App(ActivityHandlerMixin):
         client_id = self.options.client_id or os.getenv("CLIENT_ID")
         client_secret = self.options.client_secret or os.getenv("CLIENT_SECRET")
         tenant_id = self.options.tenant_id or os.getenv("TENANT_ID")
+        certificate_private_key_path = self.options.certificate_private_key_path or os.getenv(
+            "CERTIFICATE_PRIVATE_KEY_PATH"
+        )
+        certificate_thumbprint = self.options.certificate_thumbprint or os.getenv("CERTIFICATE_THUMBPRINT")
         token = self.options.token
         managed_identity_client_id = self.options.managed_identity_client_id or os.getenv("MANAGED_IDENTITY_CLIENT_ID")
         managed_identity_type = self.options.managed_identity_type or os.getenv("MANAGED_IDENTITY_TYPE") or "user"
@@ -323,6 +328,16 @@ class App(ActivityHandlerMixin):
                 tenant_id=tenant_id,
             )
 
+        # - If client_id + certificate : use CertificateCredentials (certificate-based auth)
+        if client_id and certificate_private_key_path and certificate_thumbprint:
+            with open(certificate_private_key_path, "r") as f:
+                private_key = f.read()
+            return CertificateCredentials(
+                client_id=client_id,
+                private_key=private_key,
+                thumbprint=certificate_thumbprint,
+                tenant_id=tenant_id,
+            )
         return None
 
     @overload

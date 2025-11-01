@@ -15,7 +15,11 @@ from microsoft.teams.api import (
     JsonWebToken,
     TokenProtocol,
 )
-from microsoft.teams.api.auth.credentials import ManagedIdentityCredentials, TokenCredentials
+from microsoft.teams.api.auth.credentials import (
+    CertificateCredentials,
+    ManagedIdentityCredentials,
+    TokenCredentials,
+)
 from microsoft.teams.common import ConsoleLogger
 from msal import (  # pyright: ignore[reportMissingTypeStubs]
     ConfidentialClientApplication,
@@ -69,7 +73,7 @@ class TokenManager:
             if caller_name:
                 self._logger.debug(f"No credentials provided for {caller_name}")
             return None
-        if isinstance(credentials, (ClientCredentials, ManagedIdentityCredentials)):
+        if isinstance(credentials, (ClientCredentials, CertificateCredentials, ManagedIdentityCredentials)):
             tenant_id_param = tenant_id or credentials.tenant_id or "botframework.com"
             msal_client = self._get_msal_client(tenant_id_param)
 
@@ -121,6 +125,15 @@ class TokenManager:
             client: ConfidentialClientApplication | ManagedIdentityClient = ConfidentialClientApplication(
                 credentials.client_id,
                 client_credential=credentials.client_secret,
+                authority=f"https://login.microsoftonline.com/{tenant_id}",
+            )
+        elif isinstance(credentials, CertificateCredentials):
+            client = ConfidentialClientApplication(
+                credentials.client_id,
+                client_credential={
+                    "private_key": credentials.private_key,
+                    "thumbprint": credentials.thumbprint,
+                },
                 authority=f"https://login.microsoftonline.com/{tenant_id}",
             )
         elif isinstance(credentials, ManagedIdentityCredentials):

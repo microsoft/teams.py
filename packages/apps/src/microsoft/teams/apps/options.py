@@ -26,6 +26,10 @@ class AppOptions(TypedDict, total=False):
     token: Optional[Callable[[Union[str, list[str]], Optional[str]], Union[str, Awaitable[str]]]]
     """Custom token provider function. If provided with client_id (no client_secret), uses TokenCredentials."""
 
+    # Certificate-based authentication
+    certificate_private_key_path: Optional[str]
+    certificate_thumbprint: Optional[str]
+
     # Managed identity configuration (used when client_id provided without client_secret or token)
     managed_identity_client_id: Optional[str]
     """
@@ -66,6 +70,8 @@ class InternalAppOptions:
     tenant_id: Optional[str] = None
     """The tenant ID. Required for single-tenant apps."""
     token: Optional[Callable[[Union[str, list[str]], Optional[str]], Union[str, Awaitable[str]]]] = None
+    certificate_private_key_path: Optional[str] = None
+    certificate_thumbprint: Optional[str] = None
     """Custom token provider function. If provided with client_id (no client_secret), uses TokenCredentials."""
     managed_identity_client_id: Optional[str] = None
     """The managed identity client ID for user-assigned managed identity. Defaults to client_id if not provided."""
