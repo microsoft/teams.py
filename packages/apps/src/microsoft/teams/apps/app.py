@@ -301,6 +301,7 @@ class App(ActivityHandlerMixin):
 
         # - If client_id + client_secret : use ClientCredentials (standard client auth)
         if client_id and client_secret:
+            self.log.debug("Using client secret for auth")
             return ClientCredentials(client_id=client_id, client_secret=client_secret, tenant_id=tenant_id)
 
         # - If client_id + token callable : use TokenCredentials (where token is a custom token provider)
@@ -312,7 +313,7 @@ class App(ActivityHandlerMixin):
             assert managed_identity_type in ("system", "user"), (
                 f"managed_identity_type must be 'system' or 'user', got: {managed_identity_type}"
             )
-            self.log.debug(f"Using managed identity: {managed_identity_type}")
+            self.log.debug(f"Using managed identity: {managed_identity_type} for auth")
             # Use managed_identity_client_id if provided, otherwise fall back to client_id
             mi_client_id = managed_identity_client_id or client_id
             return ManagedIdentityCredentials(
