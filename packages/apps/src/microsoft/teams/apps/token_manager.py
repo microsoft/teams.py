@@ -76,6 +76,7 @@ class TokenManager:
             # Handle different acquire_token_for_client signatures
             if isinstance(msal_client, ManagedIdentityClient):
                 # ManagedIdentityClient expects resource as a keyword-only string parameter
+                scope = scope.removesuffix("/.default")
                 token_res: dict[str, Any] | None = await asyncio.to_thread(
                     lambda: msal_client.acquire_token_for_client(resource=scope)
                 )
