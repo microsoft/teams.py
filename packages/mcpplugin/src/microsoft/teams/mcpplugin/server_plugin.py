@@ -30,15 +30,15 @@ P = TypeVar("P", bound=BaseModel)
 
 
 @Plugin(
-    name="mcp-server", version=version, description="MCP server plugin that exposes Teams Teams SDK functions as MCP tools"
+    name="mcp-server", version=version, description="MCP server plugin that exposes Teams SDK functions as MCP tools"
 )
 class McpServerPlugin(PluginBase):
     """
     MCP Server Plugin for Teams Apps.
 
-    This plugin wraps FastMCP and provides a bridge between Teams Teams SDK Functions
+    This plugin wraps FastMCP and provides a bridge between Teams SDK Functions
     and MCP tools, exposing them via streamable HTTP transport. It allows
-    Teams Teams SDK functions to be discovered and called by MCP clients.
+    Teams SDK functions to be discovered and called by MCP clients.
     """
 
     # Dependency injection
@@ -70,7 +70,7 @@ class McpServerPlugin(PluginBase):
 
     def use_tool(self, function: Function[P]) -> "McpServerPlugin":
         """
-        Add a Teams Teams SDK function as an MCP tool.
+        Add a Teams SDK function as an MCP tool.
 
         This a convenience wrapper on top of the underlying FastMCP's add_tool.
         Use it like:
@@ -86,7 +86,7 @@ class McpServerPlugin(PluginBase):
         ```
 
         Args:
-            function: The Teams Teams SDK function to register as an MCP tool
+            function: The Teams SDK function to register as an MCP tool
 
         Returns:
             Self for method chTeams SDKning
@@ -103,7 +103,7 @@ class McpServerPlugin(PluginBase):
             # Create wrapper handler that converts kwargs to the expected format
             async def wrapped_handler(**kwargs: Any) -> Any:
                 """
-                Wrapper that adapts Teams Teams SDK function calls to MCP format.
+                Wrapper that adapts Teams SDK function calls to MCP format.
 
                 Args:
                     **kwargs: Function arguments from MCP client
