@@ -9,7 +9,7 @@
     </a>
 </p>
 
-This package provides seamless access to Microsoft Graph APIs from Teams bots and agents built with the Microsoft Teams AI SDK for Python.
+This package provides seamless access to Microsoft Graph APIs from Teams bots and agents built with the Microsoft Teams SDK for Python.
 
 <a href="https://microsoft.github.io/teams-ai" target="_blank">
     <img src="https://img.shields.io/badge/📖 Getting Started-blue?style=for-the-badge" />
@@ -23,7 +23,7 @@ This package provides seamless access to Microsoft Graph APIs from Teams bots an
 
 ## Requirements
 
-- Teams AI Library for Python
+- Teams SDK for Python
 - Microsoft Graph SDK for Python (msgraph-sdk)
 - Azure Core library (azure-core)
 - Microsoft Teams Common library (microsoft-teams-common)

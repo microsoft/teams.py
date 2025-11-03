@@ -1,4 +1,4 @@
-# Microsoft Teams AI
+# Microsoft Teams SDK
 
 <p>
     <a href="https://pypi.org/project/microsoft-teams-ai/" target="_blank">
