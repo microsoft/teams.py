@@ -89,7 +89,7 @@ class McpServerPlugin(PluginBase):
             function: The Teams SDK function to register as an MCP tool
 
         Returns:
-            Self for method chTeams SDKning
+            Self for method chaining
         """
         try:
             # Prepare parameter schema for FastMCP
