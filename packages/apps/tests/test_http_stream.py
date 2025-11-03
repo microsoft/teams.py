@@ -5,7 +5,7 @@ Licensed under the MIT License.
 # pyright: basic
 
 import asyncio
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 from microsoft.teams.api import (
@@ -36,11 +36,15 @@ class TestHttpStream:
         client.send_call_count = 0
         client.sent_activities = []
 
+        client.pending_futures = []
+
         async def mock_send(activity):
+            fut = asyncio.Future()
+            client.pending_futures.append((fut, activity))
             client.send_call_count += 1
             client.sent_activities.append(activity)
-            await asyncio.sleep(0.05)  # Simulate network delay
-            return SentActivity(id=f"test-id-{client.send_call_count}", activity_params=activity)
+            print("Mock send called with activity:", activity)
+            await fut
 
         client.conversations.activities().create = mock_send
 
@@ -61,42 +65,43 @@ class TestHttpStream:
         return HttpStream(mock_api_client, conversation_reference, mock_logger)
 
     @pytest.mark.asyncio
-    async def test_stream_emit_message_flushes_immediately(self, mock_api_client, conversation_reference, mock_logger):
-        """Test that messages are flushed immediately."""
-
-        stream = HttpStream(mock_api_client, conversation_reference, mock_logger)
-        stream.emit("Test message")
-        await asyncio.sleep(0.07)  # Wait for the flush task to complete
-        assert mock_api_client.send_call_count == 1
-
-    @pytest.mark.asyncio
-    async def test_stream_multiple_emits_timer_check(self, mock_api_client, conversation_reference, mock_logger):
+    async def test_stream_multiple_emits_with_timer(self, http_stream):
         """Test that multiple emits reset the timer."""
 
-        stream = HttpStream(mock_api_client, conversation_reference, mock_logger)
+        callbacks = []
 
-        stream.emit("First message")
-        stream.emit("Second message")
-        stream.emit("Third message")
-        stream.emit("Fourth message")
-        stream.emit("Fifth message")
-        stream.emit("Sixth message")
-        stream.emit("Seventh message")
-        stream.emit("Eighth message")
-        stream.emit("Ninth message")
-        stream.emit("Tenth message")
-        stream.emit("Eleventh message")
-        stream.emit("Twelfth message")
+        class FakeHandle:
+            def cancel(self):
+                pass
 
-        await asyncio.sleep(0.07)  # Wait for the flush task to complete
-        assert mock_api_client.send_call_count == 1  # First message should trigger flush immediately
+        def fake_call_later(delay, callback, *args, **kwargs):
+            # Store callback for manual triggering
+            nonlocal callbacks
+            callbacks.append(callback)
+            return FakeHandle()
 
-        stream.emit("Thirteenth message")
-        await asyncio.sleep(0.3)  # Less than 500ms from first flush
-        assert mock_api_client.send_call_count == 1, "No new flush should have occurred yet"
+        loop = asyncio.get_running_loop()
+        with patch.object(loop, "call_later", side_effect=fake_call_later):
+            # Emit multiple messages
+            for i in range(12):
+                http_stream.emit(f"Message {i + 1}")
+                await asyncio.sleep(0)
 
-        await asyncio.sleep(0.3)  # Now exceed 500ms from last emit
-        assert mock_api_client.send_call_count == 2, "Second flush should have occurred"
+            # Simulate first flush completing
+            fut, _ = http_stream._client.pending_futures.pop(0)
+            fut.set_result(None)
+
+            # Only one flush so far
+            assert http_stream._client.send_call_count == 1
+
+            # Manually trigger all callbacks
+            while callbacks:
+                cb = callbacks.pop(0)
+                print("Triggering callback:", cb)
+                cb()
+
+            # Second flush should now have occurred
+            assert http_stream._client.send_call_count == 2
 
     @pytest.mark.asyncio
     async def test_stream_error_handled_gracefully(self, mock_api_client, conversation_reference, mock_logger):

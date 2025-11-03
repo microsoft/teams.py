@@ -21,7 +21,7 @@ from microsoft.teams.api import (
 from microsoft.teams.common import ConsoleLogger, EventEmitter
 
 from .plugins.streamer import StreamerEvent, StreamerProtocol
-from .utils import RetryOptions, Timeout, retry
+from .utils import RetryOptions, retry
 
 
 class HttpStream(StreamerProtocol):
@@ -59,7 +59,7 @@ class HttpStream(StreamerProtocol):
 
         self._result: Optional[SentActivity] = None
         self._lock = asyncio.Lock()
-        self._timeout: Optional[Timeout] = None
+        self._timeout: Optional[asyncio.TimerHandle] = None
         self._total_wait_timeout: float = 30.0
 
         self._reset_state()
@@ -108,8 +108,7 @@ class HttpStream(StreamerProtocol):
         self._queue.append(activity)
 
         if not self._timeout:
-            loop = asyncio.get_running_loop()
-            loop.create_task(self._flush())
+            asyncio.create_task(self._flush())
 
     def update(self, text: str) -> None:
         """
@@ -227,7 +226,7 @@ class HttpStream(StreamerProtocol):
 
             # If more queued, schedule another flush
             if self._queue and not self._timeout:
-                self._timeout = Timeout(0.5, self._flush)
+                self._timeout = asyncio.get_running_loop().call_later(0.5, self._flush)
 
         finally:
             # Reset flushing flag so future emits can trigger another flush
