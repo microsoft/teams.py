@@ -101,7 +101,7 @@ class BotBuilderPlugin(HttpPlugin):
 
             self.adapter = CloudAdapter(ConfigurationBotFrameworkAuthentication(configuration=config))
 
-            self.logger.info("BotBuilder plugin initialized successfully")
+            self.logger.debug("BotBuilder plugin initialized successfully")
 
     async def on_activity_request(self, request: Request, response: Response) -> Any:
         """

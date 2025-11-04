@@ -9,7 +9,7 @@ from contextlib import AsyncExitStack, asynccontextmanager
 from logging import Logger
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Annotated, Any, AsyncGenerator, Awaitable, Callable, Dict, Optional, cast
+from typing import Annotated, Any, AsyncGenerator, Awaitable, Callable, Dict, Optional, Union, cast
 
 import uvicorn
 from fastapi import FastAPI, Request, Response
@@ -306,7 +306,7 @@ class HttpPlugin(Sender):
 
         return result
 
-    def _handle_activity_response(self, response: Response, result: Any) -> Any:
+    def _handle_activity_response(self, response: Response, result: Any) -> Union[Response, Dict[str, object]]:
         """
         Handle the activity response formatting.
 
