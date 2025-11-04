@@ -79,6 +79,14 @@ class HttpPlugin(Sender):
             skip_auth: Whether to skip JWT validation.
             server_factory: Optional function that takes an ASGI app
                 and returns a configured `uvicorn.Server`.
+            Example:
+                ```python
+                def custom_server_factory(app: FastAPI) -> uvicorn.Server:
+                    return uvicorn.Server(config=uvicorn.Config(app, host="0.0.0.0", port=8000))
+
+
+                http_plugin = HttpPlugin(app_id="your-app-id", server_factory=custom_server_factory)
+                ```
         """
         super().__init__()
         self.logger = logger or ConsoleLogger().create_logger("@teams/http-plugin")
@@ -167,7 +175,7 @@ class HttpPlugin(Sender):
         try:
             if self._server and self._server.config.port != self._port:
                 self.logger.warning(
-                    "Using port configured by server factory: %d, but plugin had requested port %d.",
+                    "Using port configured by server factory: %d, but plugin start event has port %d.",
                     self._server.config.port,
                     self._port,
                 )
