@@ -5,7 +5,7 @@
 
 A comprehensive SDK for building Microsoft Teams applications, bots, and AI agents using Python. This SDK provides a high-level framework with built-in Microsoft Graph integration, OAuth handling, and extensible plugin architecture.
 
-<a href="https://microsoft.github.io/teams-ai" target="_blank">
+<a href="https://microsoft.github.io/teams-sdk" target="_blank">
     <img src="https://img.shields.io/badge/📖 Getting Started-blue?style=for-the-badge" />
 </a>
 
@@ -90,7 +90,7 @@ cookiecutter templates/test -o tests
 > ⚠️ **WARNING** these apps are changed often and are not intended to be used outside the
 > projects monorepo. To easily setup a new project please use the **templates** available via
 > the [@microsoft/teams.cli](https://www.npmjs.com/package/@microsoft/teams.cli) and follow the
-> [Getting Started](https://microsoft.github.io/teams-ai/python/getting-started) documentation!
+> [Getting Started](https://microsoft.github.io/teams-sdk/python/getting-started) documentation!
 
 - [`@tests/echo`](./tests/echo/README.md)
 - [`@tests/message-extensions`](./tests/message-extensions/README.md)
