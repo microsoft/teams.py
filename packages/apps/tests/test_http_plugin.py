@@ -32,16 +32,16 @@ class TestHttpPlugin:
     @pytest.fixture
     def plugin_with_validator(self, mock_logger):
         """Create HttpPlugin with token validator."""
-        return HttpPlugin("test-app-id", mock_logger)
+        return HttpPlugin(app_id="test-app-id", logger=mock_logger)
 
     @pytest.fixture
     def plugin_without_validator(self, mock_logger):
         """Create HttpPlugin without token validator."""
-        return HttpPlugin(None, mock_logger)
+        return HttpPlugin(app_id=None, logger=mock_logger)
 
     def test_init_with_app_id(self, mock_logger):
         """Test HttpPlugin initialization with app ID."""
-        plugin = HttpPlugin("test-app-id", mock_logger)
+        plugin = HttpPlugin(app_id="test-app-id", logger=mock_logger)
 
         assert plugin.logger == mock_logger
         assert plugin.app is not None
@@ -49,14 +49,14 @@ class TestHttpPlugin:
 
     def test_init_without_app_id(self, mock_logger):
         """Test HttpPlugin initialization without app ID."""
-        plugin = HttpPlugin(None, mock_logger)
+        plugin = HttpPlugin(app_id=None, logger=mock_logger)
 
         assert plugin.logger == mock_logger
         assert plugin.app is not None
 
     def test_init_with_default_logger(self):
         """Test HttpPlugin initialization with default logger."""
-        plugin = HttpPlugin("test-app-id", None)
+        plugin = HttpPlugin(app_id="test-app-id")
 
         assert plugin.logger is not None
 
@@ -280,7 +280,7 @@ class TestHttpPlugin:
 
     def test_logger_property(self, mock_logger):
         """Test logger property assignment."""
-        plugin = HttpPlugin("test-app-id", mock_logger)
+        plugin = HttpPlugin(app_id="test-app-id", logger=mock_logger)
         assert plugin.logger == mock_logger
 
     def test_app_property(self, plugin_with_validator):
