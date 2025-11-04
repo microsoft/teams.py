@@ -24,7 +24,7 @@ from microsoft.teams.ai.function import FunctionHandler, FunctionHandlerWithNoPa
 from microsoft.teams.openai.common import OpenAIBaseModel
 from pydantic import BaseModel
 
-from openai import NOT_GIVEN
+from openai import omit
 from openai._streaming import AsyncStream
 from openai.types.chat import (
     ChatCompletion,
@@ -124,7 +124,7 @@ class OpenAICompletionsAIModel(OpenAIBaseModel, AIModel):
         self.logger.debug(f"Converted to {len(openai_messages)} OpenAI messages")
 
         # Convert functions to OpenAI tools format if provided
-        tools = self._convert_functions(functions) if functions else NOT_GIVEN
+        tools = self._convert_functions(functions) if functions else omit
 
         self.logger.debug(f"Making Chat Completions API call (streaming: {bool(on_chunk)})")
 

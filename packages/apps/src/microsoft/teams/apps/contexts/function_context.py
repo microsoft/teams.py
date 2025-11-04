@@ -113,7 +113,7 @@ class FunctionContext(ClientContext, Generic[T]):
                     self._resolved_conversation_id = None
             except Exception as e:
                 self.log.error(f"Failed to get conversation member: {e}")
-                self._conversation_id = None
+                self._resolved_conversation_id = None
 
         else:
             """ Conversation ID can be missing if the app is running in a personal scope. In this case,

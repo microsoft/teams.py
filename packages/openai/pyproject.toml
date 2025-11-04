@@ -1,6 +1,6 @@
 [project]
 name = "microsoft-teams-openai"
-version = "2.0.0a2"
+version = "2.0.0a4"
 description = "model package for enabling chat experiences with openai"
 authors = [{ name = "Microsoft", email = "TeamsAISDKFeedback@microsoft.com" }]
 readme = "README.md"
@@ -11,7 +11,7 @@ license = "MIT"
 dependencies = [
     "microsoft-teams-ai",
     "microsoft-teams-common",
-    "openai>=1.102.0",
+    "openai>=2.4.0",
     "python-dotenv",
 ]
 
