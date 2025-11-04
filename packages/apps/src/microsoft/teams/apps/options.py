@@ -5,7 +5,7 @@ Licensed under the MIT License.
 
 from dataclasses import dataclass, field
 from logging import Logger
-from typing import Any, Awaitable, Callable, List, Literal, Optional, TypedDict, Union, cast
+from typing import Any, Awaitable, Callable, List, Optional, TypedDict, Union, cast
 
 from microsoft.teams.common import Storage
 from typing_extensions import Unpack
@@ -31,12 +31,6 @@ class AppOptions(TypedDict, total=False):
     """
     The managed identity client ID for user-assigned managed identity.
     Defaults to client_id if not provided.
-    """
-
-    managed_identity_type: Optional[Literal["system", "user"]]
-    """
-    The type of managed identity: 'system' for system-assigned or 'user'
-    for user-assigned. Defaults to 'user' (if managed identity is used at all)
     """
 
     # Infrastructure
@@ -69,8 +63,6 @@ class InternalAppOptions:
     """Custom token provider function. If provided with client_id (no client_secret), uses TokenCredentials."""
     managed_identity_client_id: Optional[str] = None
     """The managed identity client ID for user-assigned managed identity. Defaults to client_id if not provided."""
-    managed_identity_type: Optional[Literal["system", "user"]] = None
-    """The type of managed identity: 'system' for system-assigned or 'user' for user-assigned. Defaults to 'user'."""
     logger: Optional[Logger] = None
     storage: Optional[Storage[str, Any]] = None
 

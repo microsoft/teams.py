@@ -20,7 +20,6 @@ from microsoft.teams.common import ConsoleLogger
 from msal import (  # pyright: ignore[reportMissingTypeStubs]
     ConfidentialClientApplication,
     ManagedIdentityClient,
-    SystemAssignedManagedIdentity,
     UserAssignedManagedIdentity,
 )
 
@@ -129,11 +128,8 @@ class TokenManager:
                 authority=f"https://login.microsoftonline.com/{tenant_id}",
             )
         elif isinstance(credentials, ManagedIdentityCredentials):
-            # Create the appropriate managed identity based on type
-            if credentials.managed_identity_type == "system":
-                managed_identity = SystemAssignedManagedIdentity()
-            else:  # "user"
-                managed_identity = UserAssignedManagedIdentity(client_id=credentials.client_id)
+            # Create user-assigned managed identity
+            managed_identity = UserAssignedManagedIdentity(client_id=credentials.client_id)
 
             client = ManagedIdentityClient(
                 managed_identity,
