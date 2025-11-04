@@ -76,7 +76,7 @@ class PluginProcessor:
     def inject(self, plugin: PluginBase) -> None:
         """Injects dependencies and events into the plugin."""
 
-        hints = get_type_hints(plugin, include_extras=True)
+        hints = get_type_hints(plugin.__class__, include_extras=True)
 
         for field_name, annotated_type in hints.items():
             origin = getattr(annotated_type, "__origin__", None)

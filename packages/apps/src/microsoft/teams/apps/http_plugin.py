@@ -24,7 +24,7 @@ from microsoft.teams.api import (
     TokenProtocol,
 )
 from microsoft.teams.apps.http_stream import HttpStream
-from microsoft.teams.common.http.client import Client, ClientOptions
+from microsoft.teams.common.http import Client, ClientOptions, Token
 from microsoft.teams.common.logging import ConsoleLogger
 from pydantic import BaseModel, ValidationError
 from starlette.applications import Starlette
@@ -60,8 +60,7 @@ class HttpPlugin(Sender):
 
     client: Annotated[Client, DependencyMetadata()]
 
-    bot_token: Annotated[Optional[Callable[[], TokenProtocol]], DependencyMetadata(optional=True)]
-    graph_token: Annotated[Optional[Callable[[], TokenProtocol]], DependencyMetadata(optional=True)]
+    bot_token: Annotated[Optional[Callable[[], Token]], DependencyMetadata(optional=True)]
 
     lifespans: list[Lifespan[Starlette]] = []
 

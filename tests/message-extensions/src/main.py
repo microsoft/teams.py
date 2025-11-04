@@ -29,12 +29,12 @@ from microsoft.teams.api import (
     card_attachment,
 )
 from microsoft.teams.api.models import (
-    AttachmentLayout,
     CardAction,
     CardActionType,
     CardTaskModuleTaskInfo,
     MessagingExtensionActionInvokeResponse,
     MessagingExtensionAttachment,
+    MessagingExtensionAttachmentLayout,
     MessagingExtensionInvokeResponse,
     MessagingExtensionResult,
     MessagingExtensionResultType,
@@ -87,7 +87,9 @@ async def handle_message_ext_query_link(ctx: ActivityContext[MessageExtensionQue
     )
 
     result = MessagingExtensionResult(
-        type=MessagingExtensionResultType.RESULT, attachment_layout=AttachmentLayout.LIST, attachments=[attachment]
+        type=MessagingExtensionResultType.RESULT,
+        attachment_layout=MessagingExtensionAttachmentLayout.LIST,
+        attachments=[attachment],
     )
 
     return MessagingExtensionInvokeResponse(compose_extension=result)
@@ -110,7 +112,9 @@ async def handle_message_ext_submit(ctx: ActivityContext[MessageExtensionSubmitA
     )
 
     result = MessagingExtensionResult(
-        type=MessagingExtensionResultType.RESULT, attachment_layout=AttachmentLayout.LIST, attachments=[attachment]
+        type=MessagingExtensionResultType.RESULT,
+        attachment_layout=MessagingExtensionAttachmentLayout.LIST,
+        attachments=[attachment],
     )
 
     return MessagingExtensionActionInvokeResponse(compose_extension=result)
@@ -154,7 +158,9 @@ async def handle_message_ext_query(ctx: ActivityContext[MessageExtensionQueryInv
             attachments.append(attachment)
 
         result = MessagingExtensionResult(
-            type=MessagingExtensionResultType.RESULT, attachment_layout=AttachmentLayout.LIST, attachments=attachments
+            type=MessagingExtensionResultType.RESULT,
+            attachment_layout=MessagingExtensionAttachmentLayout.LIST,
+            attachments=attachments,
         )
 
         return MessagingExtensionInvokeResponse(compose_extension=result)
@@ -168,7 +174,9 @@ async def handle_message_ext_select_item(ctx: ActivityContext[MessageExtensionSe
     await ctx.send(f"Selected item: {option}")
 
     result = MessagingExtensionResult(
-        type=MessagingExtensionResultType.RESULT, attachment_layout=AttachmentLayout.LIST, attachments=[]
+        type=MessagingExtensionResultType.RESULT,
+        attachment_layout=MessagingExtensionAttachmentLayout.LIST,
+        attachments=[],
     )
 
     return MessagingExtensionInvokeResponse(compose_extension=result)
@@ -200,7 +208,9 @@ async def handle_message_ext_setting(ctx: ActivityContext[MessageExtensionSettin
 
     if state == "CancelledByUser":
         result = MessagingExtensionResult(
-            type=MessagingExtensionResultType.RESULT, attachment_layout=AttachmentLayout.LIST, attachments=[]
+            type=MessagingExtensionResultType.RESULT,
+            attachment_layout=MessagingExtensionAttachmentLayout.LIST,
+            attachments=[],
         )
         return MessagingExtensionInvokeResponse(compose_extension=result)
 
@@ -208,7 +218,9 @@ async def handle_message_ext_setting(ctx: ActivityContext[MessageExtensionSettin
     await ctx.send(f"Selected option: {selected_option}")
 
     result = MessagingExtensionResult(
-        type=MessagingExtensionResultType.RESULT, attachment_layout=AttachmentLayout.LIST, attachments=[]
+        type=MessagingExtensionResultType.RESULT,
+        attachment_layout=MessagingExtensionAttachmentLayout.LIST,
+        attachments=[],
     )
 
     return MessagingExtensionInvokeResponse(compose_extension=result)
