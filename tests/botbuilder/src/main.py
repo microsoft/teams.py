@@ -4,6 +4,7 @@ Licensed under the MIT License.
 """
 
 import asyncio
+import os
 
 from botbuilder.core import ActivityHandler, TurnContext  # pyright: ignore[reportMissingTypeStubs]
 from microsoft.teams.api import MessageActivity
@@ -22,7 +23,7 @@ handler = MyActivityHandler()
 
 app = App(
     plugins=[
-        BotBuilderPlugin(handler=handler),
+        BotBuilderPlugin(app_id=os.getenv("CLIENT_ID"), handler=handler),
         DevToolsPlugin(),
     ]
 )

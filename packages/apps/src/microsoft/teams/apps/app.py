@@ -118,7 +118,7 @@ class App(ActivityHandlerMixin):
             if self.credentials and hasattr(self.credentials, "client_id"):
                 app_id = self.credentials.client_id
 
-            http_plugin = HttpPlugin(app_id, self.log, self.options.skip_auth)
+            http_plugin = HttpPlugin(app_id=app_id, logger=self.log, skip_auth=self.options.skip_auth)
 
         plugins.insert(0, http_plugin)
         self.http = cast(HttpPlugin, http_plugin)

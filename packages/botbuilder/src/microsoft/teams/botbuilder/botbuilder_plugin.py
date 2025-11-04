@@ -8,20 +8,17 @@ Licensed under the MIT License.
 import importlib.metadata
 from logging import Logger
 from types import SimpleNamespace
-from typing import Annotated, Any, Callable, Optional, TypedDict, Unpack, cast
+from typing import Annotated, Any, Optional, Unpack, cast
 
 from fastapi import HTTPException, Request, Response
-from microsoft.teams.api import Credentials, TokenProtocol
+from microsoft.teams.api import Credentials
 from microsoft.teams.apps import (
-    ActivityEvent,
     DependencyMetadata,
-    ErrorEvent,
-    EventMetadata,
     HttpPlugin,
     LoggerDependencyOptions,
     Plugin,
 )
-from microsoft.teams.common import Client
+from microsoft.teams.apps.http_plugin import HttpPluginOptions
 
 from botbuilder.core import (
     ActivityHandler,
@@ -35,11 +32,14 @@ from botbuilder.schema import Activity
 
 version = importlib.metadata.version("microsoft-teams-botbuilder")
 
+# Constants for app types
+SINGLE_TENANT = "singletenant"
+MULTI_TENANT = "multitenant"
 
-class BotBuilderPluginOptions(TypedDict, total=False):
+
+class BotBuilderPluginOptions(HttpPluginOptions, total=False):
     """Options for configuring the BotBuilder plugin."""
 
-    skip_auth: bool
     handler: ActivityHandler
     adapter: CloudAdapter
 
@@ -53,13 +53,6 @@ class BotBuilderPlugin(HttpPlugin):
     # Dependency injections
     logger: Annotated[Logger, LoggerDependencyOptions()]
     credentials: Annotated[Optional[Credentials], DependencyMetadata(optional=True)]
-    client: Annotated[Client, DependencyMetadata()]
-
-    bot_token: Annotated[Optional[Callable[[], TokenProtocol]], DependencyMetadata(optional=True)]
-    graph_token: Annotated[Optional[Callable[[], TokenProtocol]], DependencyMetadata(optional=True)]
-
-    on_error_event: Annotated[Callable[[ErrorEvent], None], EventMetadata(name="error")]
-    on_activity_event: Annotated[Callable[[ActivityEvent], None], EventMetadata(name="activity")]
 
     def __init__(self, **options: Unpack[BotBuilderPluginOptions]):
         """
@@ -68,14 +61,11 @@ class BotBuilderPlugin(HttpPlugin):
         Args:
             options: Configuration options for the plugin
         """
-        self.options = options
-        super().__init__(
-            app_id=None,
-            skip_auth=self.options.get("skip_auth", False),
-        )
 
-        self.handler: Optional[ActivityHandler] = self.options.get("handler")
-        self.adapter: Optional[CloudAdapter] = self.options.get("adapter")
+        self.handler: Optional[ActivityHandler] = options.get("handler")
+        self.adapter: Optional[CloudAdapter] = options.get("adapter")
+
+        super().__init__(**options)
 
     async def on_init(self) -> None:
         """Initialize the plugin when the app starts."""
@@ -93,13 +83,14 @@ class BotBuilderPlugin(HttpPlugin):
                 tenant_id = getattr(self.credentials, "tenant_id", None)
 
             config = SimpleNamespace(
-                APP_TYPE="singletenant" if tenant_id else "multitenant",
+                APP_TYPE=SINGLE_TENANT if tenant_id else MULTI_TENANT,
                 APP_ID=client_id,
                 APP_PASSWORD=client_secret,
                 APP_TENANTID=tenant_id,
             )
 
-            self.adapter = CloudAdapter(ConfigurationBotFrameworkAuthentication(configuration=config))
+            bot_framework_auth = ConfigurationBotFrameworkAuthentication(configuration=config)
+            self.adapter = CloudAdapter(bot_framework_auth)
 
             self.logger.debug("BotBuilder plugin initialized successfully")
 
@@ -141,7 +132,8 @@ class BotBuilderPlugin(HttpPlugin):
             result = await self._handle_activity_request(request)
             return self._handle_activity_response(response, result)
 
-        except HTTPException:
+        except HTTPException as http_err:
+            self.logger.error(f"HTTP error processing activity: {http_err}", exc_info=True)
             raise
         except Exception as err:
             self.logger.error(f"Error processing activity: {err}", exc_info=True)

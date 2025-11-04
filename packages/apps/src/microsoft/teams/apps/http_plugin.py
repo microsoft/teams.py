@@ -9,7 +9,20 @@ from contextlib import AsyncExitStack, asynccontextmanager
 from logging import Logger
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Annotated, Any, AsyncGenerator, Awaitable, Callable, Dict, Optional, Union, cast
+from typing import (
+    Annotated,
+    Any,
+    AsyncGenerator,
+    Awaitable,
+    Callable,
+    Dict,
+    Optional,
+    Required,
+    TypedDict,
+    Union,
+    Unpack,
+    cast,
+)
 
 import uvicorn
 from fastapi import FastAPI, Request, Response
@@ -47,6 +60,15 @@ from .plugins.metadata import Plugin
 version = importlib.metadata.version("microsoft-teams-apps")
 
 
+class HttpPluginOptions(TypedDict, total=False):
+    """Options for configuring the HTTP plugin."""
+
+    app_id: Required[Optional[str]]  # must be present, but can be None
+    logger: Logger
+    skip_auth: bool
+    server_factory: Callable[[FastAPI], uvicorn.Server]
+
+
 @Plugin(name="http", version=version, description="the default plugin for sending/receiving activities")
 class HttpPlugin(Sender):
     """
@@ -64,13 +86,7 @@ class HttpPlugin(Sender):
 
     lifespans: list[Lifespan[Starlette]] = []
 
-    def __init__(
-        self,
-        app_id: Optional[str],
-        logger: Optional[Logger] = None,
-        skip_auth: bool = False,
-        server_factory: Optional[Callable[[FastAPI], uvicorn.Server]] = None,
-    ):
+    def __init__(self, **options: Unpack[HttpPluginOptions]):
         """
         Args:
             app_id: Optional Microsoft App ID.
@@ -88,7 +104,7 @@ class HttpPlugin(Sender):
                 ```
         """
         super().__init__()
-        self.logger = logger or ConsoleLogger().create_logger("@teams/http-plugin")
+        self.logger = options.get("logger") or ConsoleLogger().create_logger("@teams/http-plugin")
         self._port: Optional[int] = None
         self._server: Optional[uvicorn.Server] = None
         self._on_ready_callback: Optional[Callable[[], Awaitable[None]]] = None
@@ -122,6 +138,7 @@ class HttpPlugin(Sender):
         self.app = FastAPI(lifespan=combined_lifespan)
 
         # Create uvicorn server if user provides custom factory method
+        server_factory = options.get("server_factory")
         if server_factory:
             self._server = server_factory(self.app)
             if self._server.config.app is not self.app:
@@ -130,6 +147,8 @@ class HttpPlugin(Sender):
                 )
 
         # Add JWT validation middleware
+        app_id = options.get("app_id")
+        skip_auth = options.get("skip_auth", False)
         if app_id and not skip_auth:
             jwt_middleware = create_jwt_validation_middleware(
                 app_id=app_id, logger=self.logger, paths=["/api/messages"]
