@@ -12,6 +12,7 @@ import pytest
 from microsoft.teams.api import (
     Account,
     ConversationAccount,
+    FederatedIdentityCredentials,
     InvokeActivity,
     ManagedIdentityCredentials,
     MessageActivity,
@@ -19,7 +20,6 @@ from microsoft.teams.api import (
     TokenProtocol,
     TypingActivity,
 )
-from microsoft.teams.api.auth.credentials import FederatedIdentityCredentials
 from microsoft.teams.apps import ActivityContext, ActivityEvent, App, AppOptions
 
 
@@ -640,25 +640,46 @@ class TestApp:
             assert app.credentials.client_id == expected_client_id, f"Failed for: {description}"
             assert app.credentials.tenant_id == expected_tenant_id, f"Failed for: {description}"
 
-    def test_app_init_with_managed_identity_client_id_mismatch(self, mock_logger, mock_storage):
-        """Test app init creates FederatedIdentityCredentials when managed_identity_client_id != client_id."""
-        # When managed_identity_client_id differs from client_id, should use Federated Identity Credentials
+    @pytest.mark.parametrize(
+        "managed_identity_client_id,expected_mi_type,expected_mi_client_id,description",
+        [
+            # System-assigned managed identity
+            ("system", "system", None, "system-assigned managed identity"),
+            # User-assigned managed identity (federated)
+            (
+                "different-managed-identity-id",
+                "user",
+                "different-managed-identity-id",
+                "user-assigned federated identity",
+            ),
+        ],
+    )
+    def test_app_init_with_federated_identity(
+        self,
+        mock_logger,
+        mock_storage,
+        managed_identity_client_id: str,
+        expected_mi_type: str,
+        expected_mi_client_id: str | None,
+        description: str,
+    ):
+        """Test app initialization with FederatedIdentityCredentials."""
         options = AppOptions(
             logger=mock_logger,
             storage=mock_storage,
             client_id="app-client-id",
-            managed_identity_client_id="different-managed-identity-id",  # Different!
+            managed_identity_client_id=managed_identity_client_id,
         )
 
         with patch.dict("os.environ", {"CLIENT_SECRET": "", "TENANT_ID": "test-tenant-id"}, clear=False):
             app = App(**options)
 
-            assert app.credentials is not None
-            assert isinstance(app.credentials, FederatedIdentityCredentials)
-            assert app.credentials.client_id == "app-client-id"
-            assert app.credentials.managed_identity_client_id == "different-managed-identity-id"
-            assert app.credentials.managed_identity_type == "user"
-            assert app.credentials.tenant_id == "test-tenant-id"
+            assert app.credentials is not None, f"Failed for: {description}"
+            assert isinstance(app.credentials, FederatedIdentityCredentials), f"Failed for: {description}"
+            assert app.credentials.client_id == "app-client-id", f"Failed for: {description}"
+            assert app.credentials.managed_identity_type == expected_mi_type, f"Failed for: {description}"
+            assert app.credentials.managed_identity_client_id == expected_mi_client_id, f"Failed for: {description}"
+            assert app.credentials.tenant_id == "test-tenant-id", f"Failed for: {description}"
 
     def test_app_init_with_client_secret_takes_precedence(self, mock_logger, mock_storage):
         """Test that ClientCredentials is used when both client_secret and managed_identity_client_id are provided."""

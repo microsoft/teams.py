@@ -3,12 +3,16 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from typing import Optional
+from typing import Literal, cast
 from unittest.mock import MagicMock, create_autospec, patch
 
 import pytest
-from microsoft.teams.api import ClientCredentials, JsonWebToken, ManagedIdentityCredentials
-from microsoft.teams.api.auth.credentials import FederatedIdentityCredentials
+from microsoft.teams.api import (
+    ClientCredentials,
+    FederatedIdentityCredentials,
+    JsonWebToken,
+    ManagedIdentityCredentials,
+)
 from microsoft.teams.apps.token_manager import TokenManager
 from msal import ManagedIdentityClient  # pyright: ignore[reportMissingTypeStubs]
 
@@ -208,7 +212,9 @@ class TestTokenManager:
 
         manager = TokenManager(credentials=mock_credentials)
 
+        # Patch _get_managed_identity_client to return our mock
         with patch.object(manager, "_get_managed_identity_client", return_value=mock_msal_client):
+            # Call the method dynamically
             token = await getattr(manager, get_token_method)()
 
             assert token is not None
@@ -218,41 +224,6 @@ class TestTokenManager:
             # Verify MSAL was called with resource parameter (not scopes list)
             # and without /.default suffix
             mock_msal_client.acquire_token_for_client.assert_called_once_with(resource=expected_resource)
-
-    @pytest.mark.asyncio
-    async def test_get_graph_token_with_managed_identity_and_tenant(self):
-        """Test getting tenant-specific graph token with ManagedIdentityCredentials."""
-        mock_credentials = ManagedIdentityCredentials(
-            client_id="test-managed-identity-client-id",
-            tenant_id="original-tenant-id",
-        )
-
-        # Create a mock that will pass isinstance checks
-        mock_msal_client = create_autospec(ManagedIdentityClient, instance=True)
-        mock_msal_client.acquire_token_for_client.return_value = {"access_token": VALID_TEST_TOKEN}
-
-        manager = TokenManager(credentials=mock_credentials)
-
-        # Track calls to _get_managed_identity_client
-        get_managed_identity_client_calls: list[str] = []
-
-        def track_get_managed_identity_client(
-            credentials: ManagedIdentityCredentials | FederatedIdentityCredentials, tenant_id: Optional[str] = None
-        ) -> ManagedIdentityClient:
-            if tenant_id:
-                get_managed_identity_client_calls.append(tenant_id)
-            return mock_msal_client
-
-        # Patch _get_managed_identity_client to track calls
-        with patch.object(manager, "_get_managed_identity_client", side_effect=track_get_managed_identity_client):
-            # Request token for different tenant
-            token = await manager.get_graph_token("different-tenant-id")
-
-            assert token is not None
-            assert isinstance(token, JsonWebToken)
-
-            # Note: ManagedIdentityClient is tenant-agnostic and cached, so it won't be called again
-            assert len(get_managed_identity_client_calls) >= 0
 
     @pytest.mark.asyncio
     async def test_get_token_error_handling_with_managed_identity(self):
@@ -278,3 +249,92 @@ class TestTokenManager:
                 await manager.get_bot_token()
 
             assert "invalid_client" in str(exc_info.value)
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "mi_type,mi_client_id,description",
+        [
+            ("system", None, "system-assigned managed identity"),
+            ("user", "test-user-mi-client-id", "user-assigned managed identity"),
+        ],
+    )
+    async def test_get_token_with_federated_identity(self, mi_type: str, mi_client_id: str | None, description: str):
+        """Test token retrieval using FederatedIdentityCredentials (two-step flow)."""
+        mock_credentials = FederatedIdentityCredentials(
+            client_id="test-app-client-id",
+            managed_identity_type=cast(Literal["system", "user"], mi_type),
+            managed_identity_client_id=mi_client_id,
+            tenant_id="test-tenant-id",
+        )
+
+        manager = TokenManager(credentials=mock_credentials)
+
+        # Mock the managed identity token acquisition (step 1)
+        mi_token = "mi_token_from_step_1"
+        with patch.object(manager, "_acquire_managed_identity_token", return_value=mi_token):
+            # Mock ConfidentialClientApplication for step 2
+            with patch("microsoft.teams.apps.token_manager.ConfidentialClientApplication") as mock_confidential_app:
+                mock_app_instance = MagicMock()
+                mock_app_instance.acquire_token_for_client.return_value = {"access_token": VALID_TEST_TOKEN}
+                mock_confidential_app.return_value = mock_app_instance
+
+                token = await manager.get_bot_token()
+
+                assert token is not None, f"Failed for: {description}"
+                assert isinstance(token, JsonWebToken), f"Failed for: {description}"
+                assert str(token) == VALID_TEST_TOKEN, f"Failed for: {description}"
+
+                # Verify ConfidentialClientApplication was called with MI token as client_assertion
+                mock_confidential_app.assert_called_once()
+                call_kwargs = mock_confidential_app.call_args[1]
+                assert call_kwargs["client_credential"] == {"client_assertion": mi_token}, f"Failed for: {description}"
+
+    @pytest.mark.asyncio
+    async def test_get_token_with_federated_identity_step1_failure(self):
+        """Test error handling when step 1 (MI token acquisition) fails."""
+        mock_credentials = FederatedIdentityCredentials(
+            client_id="test-app-client-id",
+            managed_identity_type="user",
+            managed_identity_client_id="test-mi-client-id",
+            tenant_id="test-tenant-id",
+        )
+
+        manager = TokenManager(credentials=mock_credentials)
+
+        # Mock step 1 to fail
+        with patch.object(
+            manager, "_acquire_managed_identity_token", side_effect=ValueError("MI token acquisition failed")
+        ):
+            with pytest.raises(ValueError) as exc_info:
+                await manager.get_bot_token()
+
+            assert "MI token acquisition failed" in str(exc_info.value)
+
+    @pytest.mark.asyncio
+    async def test_get_token_with_federated_identity_step2_failure(self):
+        """Test error handling when step 2 (final token acquisition) fails."""
+        mock_credentials = FederatedIdentityCredentials(
+            client_id="test-app-client-id",
+            managed_identity_type="user",
+            managed_identity_client_id="test-mi-client-id",
+            tenant_id="test-tenant-id",
+        )
+
+        manager = TokenManager(credentials=mock_credentials)
+
+        # Mock step 1 to succeed
+        mi_token = "mi_token_from_step_1"
+        with patch.object(manager, "_acquire_managed_identity_token", return_value=mi_token):
+            # Mock step 2 to fail
+            with patch("microsoft.teams.apps.token_manager.ConfidentialClientApplication") as mock_confidential_app:
+                mock_app_instance = MagicMock()
+                mock_app_instance.acquire_token_for_client.return_value = {
+                    "error": "invalid_grant",
+                    "error_description": "FIC Step 2 failed",
+                }
+                mock_confidential_app.return_value = mock_app_instance
+
+                with pytest.raises(ValueError) as exc_info:
+                    await manager.get_bot_token()
+
+                assert "invalid_grant" in str(exc_info.value)
