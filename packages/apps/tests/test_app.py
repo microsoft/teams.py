@@ -19,6 +19,7 @@ from microsoft.teams.api import (
     TokenProtocol,
     TypingActivity,
 )
+from microsoft.teams.api.auth.credentials import FederatedIdentityCredentials
 from microsoft.teams.apps import ActivityContext, ActivityEvent, App, AppOptions
 
 
@@ -640,9 +641,8 @@ class TestApp:
             assert app.credentials.tenant_id == expected_tenant_id, f"Failed for: {description}"
 
     def test_app_init_with_managed_identity_client_id_mismatch(self, mock_logger, mock_storage):
-        """Test app init raises error when managed_identity_client_id != client_id (federated identity)."""
-        # When managed_identity_client_id differs from client_id, should raise error
-        # (Federated Identity Credentials not yet supported)
+        """Test app init creates FederatedIdentityCredentials when managed_identity_client_id != client_id."""
+        # When managed_identity_client_id differs from client_id, should use Federated Identity Credentials
         options = AppOptions(
             logger=mock_logger,
             storage=mock_storage,
@@ -651,11 +651,14 @@ class TestApp:
         )
 
         with patch.dict("os.environ", {"CLIENT_SECRET": "", "TENANT_ID": "test-tenant-id"}, clear=False):
-            with pytest.raises(ValueError) as exc_info:
-                App(**options)
+            app = App(**options)
 
-            assert "Federated Identity Credentials is not yet supported" in str(exc_info.value)
-            assert "managed_identity_client_id must equal client_id" in str(exc_info.value)
+            assert app.credentials is not None
+            assert isinstance(app.credentials, FederatedIdentityCredentials)
+            assert app.credentials.client_id == "app-client-id"
+            assert app.credentials.managed_identity_client_id == "different-managed-identity-id"
+            assert app.credentials.managed_identity_type == "user"
+            assert app.credentials.tenant_id == "test-tenant-id"
 
     def test_app_init_with_client_secret_takes_precedence(self, mock_logger, mock_storage):
         """Test that ClientCredentials is used when both client_secret and managed_identity_client_id are provided."""

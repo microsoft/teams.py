@@ -21,6 +21,7 @@ from microsoft.teams.api import (
     ConversationAccount,
     ConversationReference,
     Credentials,
+    FederatedIdentityCredentials,
     ManagedIdentityCredentials,
     MessageActivityInput,
     TokenCredentials,
@@ -291,6 +292,7 @@ class App(ActivityHandlerMixin):
         tenant_id = self.options.tenant_id or os.getenv("TENANT_ID")
         token = self.options.token
         managed_identity_client_id = self.options.managed_identity_client_id or os.getenv("MANAGED_IDENTITY_CLIENT_ID")
+        managed_identity_type = self.options.managed_identity_type or os.getenv("MANAGED_IDENTITY_TYPE")
 
         self.log.debug(f"Using CLIENT_ID: {client_id}")
         if not tenant_id:
@@ -307,17 +309,35 @@ class App(ActivityHandlerMixin):
         if client_id and token:
             return TokenCredentials(client_id=client_id, tenant_id=tenant_id, token=token)
 
-        # - If client_id but no client_secret : use ManagedIdentityCredentials (inferred)
+        # - If client_id but no client_secret : use Managed Identity (direct or federated)
         if client_id:
-            # Validate that if managed_identity_client_id is provided, it must equal client_id
-            if managed_identity_client_id and managed_identity_client_id != client_id:
-                raise ValueError(
-                    "Federated Identity Credentials is not yet supported. "
-                    "managed_identity_client_id must equal client_id."
+            # If managed_identity_type is explicitly provided, use Federated Identity Credentials
+            if managed_identity_type:
+                assert managed_identity_type in ("system", "user"), (
+                    f"managed_identity_type must be 'system' or 'user', got: {managed_identity_type}"
+                )
+                self.log.debug(
+                    f"Using Federated Identity Credentials with {managed_identity_type}-assigned managed identity"
+                )
+                return FederatedIdentityCredentials(
+                    client_id=client_id,
+                    managed_identity_type=managed_identity_type,
+                    managed_identity_client_id=managed_identity_client_id,
+                    tenant_id=tenant_id,
                 )
 
-            self.log.debug("Using user-assigned managed identity for auth")
-            # Use managed_identity_client_id if provided, otherwise fall back to client_id
+            # If managed_identity_client_id is provided and different from client_id, use Federated Identity Credentials
+            if managed_identity_client_id and managed_identity_client_id != client_id:
+                self.log.debug("Using Federated Identity Credentials with user-assigned managed identity")
+                return FederatedIdentityCredentials(
+                    client_id=client_id,
+                    managed_identity_type="user",
+                    managed_identity_client_id=managed_identity_client_id,
+                    tenant_id=tenant_id,
+                )
+
+            # Otherwise, use direct Managed Identity (no federation)
+            self.log.debug("Using user-assigned managed identity (direct)")
             mi_client_id = managed_identity_client_id or client_id
             return ManagedIdentityCredentials(
                 client_id=mi_client_id,
