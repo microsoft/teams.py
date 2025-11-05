@@ -24,10 +24,10 @@ REFETCH_TIMEOUT_MS = 24 * 60 * 60 * 1000  # 1 day
 
 class McpClientPlugin(BaseAIPlugin):
     """
-    MCP Client Plugin for Teams AI integration.
+    MCP Client Plugin for Teams SDK integration.
 
     Connects to MCP (Model Context Protocol) servers to dynamically fetch
-    and expose their tools as functions in the Teams AI framework.
+    and expose their tools as functions in the Teams SDK framework.
     Supports caching, multiple servers, and automatic tool discovery.
     """
 
@@ -119,7 +119,7 @@ class McpClientPlugin(BaseAIPlugin):
         Build functions from MCP tools.
 
         Fetches tools from configured MCP servers and converts them to
-        Teams AI functions, adding them to the available function list.
+        Teams SDK functions, adding them to the available function list.
 
         Args:
             functions: Existing list of functions
@@ -197,7 +197,7 @@ class McpClientPlugin(BaseAIPlugin):
         self, url: str, tool: McpToolDetails, plugin_params: McpClientPluginParams
     ) -> Function[BaseModel]:
         """
-        Create a Teams AI function from an MCP tool.
+        Create a Teams SDK function from an MCP tool.
 
         Args:
             url: MCP server URL

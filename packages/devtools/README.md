@@ -1,5 +1,5 @@
 > [!CAUTION]
-> This project is in public preview. We’ll do our best to maintain compatibility, but there may be breaking changes in upcoming releases. 
+> This project is in public preview. We’ll do our best to maintain compatibility, but there may be breaking changes in upcoming releases.
 
 # Microsoft Teams DevTools
 
@@ -14,7 +14,7 @@
 
 Developer tools for locally testing and debugging Teams applications. Streamlines the development process by eliminating the need to deploy apps or expose public endpoints during development.
 
-<a href="https://microsoft.github.io/teams-ai" target="_blank">
+<a href="https://microsoft.github.io/teams-sdk" target="_blank">
     <img src="https://img.shields.io/badge/📖 Getting Started-blue?style=for-the-badge" />
 </a>
 
