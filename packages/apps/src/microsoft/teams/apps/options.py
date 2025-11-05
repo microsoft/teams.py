@@ -5,7 +5,7 @@ Licensed under the MIT License.
 
 from dataclasses import dataclass, field
 from logging import Logger
-from typing import Any, Awaitable, Callable, List, Literal, Optional, TypedDict, Union, cast
+from typing import Any, Awaitable, Callable, List, Optional, TypedDict, Union, cast
 
 from microsoft.teams.common import Storage
 from typing_extensions import Unpack
@@ -30,12 +30,9 @@ class AppOptions(TypedDict, total=False):
     managed_identity_client_id: Optional[str]
     """
     The managed identity client ID for user-assigned managed identity.
-    If different from client_id, triggers Federated Identity Credentials.
-    """
-    managed_identity_type: Optional[Literal["system", "user"]]
-    """
-    The type of managed identity for Federated Identity Credentials.
-    If provided, triggers Federated Identity Credentials flow.
+    Set to "system" for system-assigned managed identity (triggers Federated Identity Credentials).
+    If set to a different client ID than client_id, triggers Federated Identity Credentials with user-assigned MI.
+    If not set or equals client_id, uses direct managed identity (no federation).
     """
 
     # Infrastructure
@@ -68,13 +65,10 @@ class InternalAppOptions:
     """Custom token provider function. If provided with client_id (no client_secret), uses TokenCredentials."""
     managed_identity_client_id: Optional[str] = None
     """
-    The managed identity client ID for user-assigned managed identity. If different from client_id, triggers
-    Federated Identity Credentials.
-    """
-    managed_identity_type: Optional[Literal["system", "user"]] = None
-    """
-    The type of managed identity for Federated Identity Credentials. If provided, triggers
-    Federated Identity Credentials flow.
+    The managed identity client ID for user-assigned managed identity.
+    Set to "system" for system-assigned managed identity (triggers Federated Identity Credentials).
+    If set to a different client ID than client_id, triggers Federated Identity Credentials with user-assigned MI.
+    If not set or equals client_id, uses direct managed identity (no federation).
     """
     logger: Optional[Logger] = None
     storage: Optional[Storage[str, Any]] = None
