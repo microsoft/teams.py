@@ -6,7 +6,7 @@ Licensed under the MIT License.
 import asyncio
 import logging
 from inspect import isawaitable
-from typing import Any, Optional, reveal_type
+from typing import Any, Optional
 
 from microsoft.teams.api import (
     ClientCredentials,
@@ -92,8 +92,7 @@ class TokenManager:
     def _get_msal_client_for_tenant(self, tenant_id: str) -> ConfidentialClientApplication:
         credentials = self._credentials
         assert isinstance(credentials, ClientCredentials), (
-            "MSAL clients are only eligible for client credentials,"
-            f"but current credentials is {reveal_type(credentials)}"
+            f"MSAL clients are only eligible for client credentials,but current credentials is {type(credentials)}"
         )
         cached_client = self._msal_clients_by_tenantId.setdefault(
             tenant_id,
