@@ -6,6 +6,7 @@ Licensed under the MIT License.
 import inspect
 from typing import Literal, Optional, Union
 
+from microsoft.teams.api.auth.credentials import ClientCredentials
 from microsoft.teams.common.http import Client, ClientOptions
 from pydantic import BaseModel
 
@@ -69,6 +70,10 @@ class BotTokenClient(BaseClient):
                 access_token=token,
             )
 
+        assert isinstance(credentials, ClientCredentials), (
+            "Bot token client currently only supports Credentials with secrets."
+        )
+
         tenant_id = credentials.tenant_id or "botframework.com"
         res = await self.http.post(
             f"https://login.microsoftonline.com/{tenant_id}/oauth2/v2.0/token",
@@ -105,6 +110,10 @@ class BotTokenClient(BaseClient):
                 expires_in=-1,
                 access_token=token,
             )
+
+        assert isinstance(credentials, ClientCredentials), (
+            "Bot token client currently only supports Credentials with secrets."
+        )
 
         tenant_id = credentials.tenant_id or "botframework.com"
         res = await self.http.post(
