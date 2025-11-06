@@ -12,7 +12,7 @@
 Model Context Protocol (MCP) integration for Microsoft Teams AI applications.
 Enables Teams bots to both expose tools as MCP servers and use MCP servers as clients.
 
-[📖 Documentation](https://microsoft.github.io/teams-ai/python/in-depth-guides/ai/mcp/)
+[📖 Documentation](https://microsoft.github.io/teams-sdk/python/in-depth-guides/ai/mcp/)
 
 ## Installation
 
