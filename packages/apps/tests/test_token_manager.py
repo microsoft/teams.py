@@ -33,7 +33,9 @@ class TestTokenManager:
         mock_msal_app = MagicMock()
         mock_msal_app.acquire_token_for_client = MagicMock(return_value={"access_token": VALID_TEST_TOKEN})
 
-        with patch("microsoft.teams.apps.token_manager.ConfidentialClientApplication", return_value=mock_msal_app):
+        with patch(
+            "microsoft.teams.apps.token_manager.ConfidentialClientApplication", return_value=mock_msal_app
+        ) as mock_msal_class:
             manager = TokenManager(credentials=mock_credentials)
 
             token = await manager.get_bot_token()
@@ -45,12 +47,49 @@ class TestTokenManager:
             # Verify MSAL was called with correct scope
             mock_msal_app.acquire_token_for_client.assert_called_once_with(["https://api.botframework.com/.default"])
 
+            # Verify MSAL app was created with the credentials tenant_id
+            mock_msal_class.assert_called_once_with(
+                "test-client-id",
+                client_credential="test-client-secret",
+                authority="https://login.microsoftonline.com/test-tenant-id",
+            )
+
     @pytest.mark.asyncio
     async def test_get_bot_token_no_credentials(self):
         """Test getting bot token with no credentials returns None."""
         manager = TokenManager(credentials=None)
         token = await manager.get_bot_token()
         assert token is None
+
+    @pytest.mark.asyncio
+    async def test_get_bot_token_default_tenant(self):
+        """Test bot token uses default tenant when credentials have no tenant_id."""
+        mock_credentials = ClientCredentials(
+            client_id="test-client-id",
+            client_secret="test-client-secret",
+            tenant_id=None,
+        )
+
+        # Mock MSAL ConfidentialClientApplication
+        mock_msal_app = MagicMock()
+        mock_msal_app.acquire_token_for_client = MagicMock(return_value={"access_token": VALID_TEST_TOKEN})
+
+        with patch(
+            "microsoft.teams.apps.token_manager.ConfidentialClientApplication", return_value=mock_msal_app
+        ) as mock_msal_class:
+            manager = TokenManager(credentials=mock_credentials)
+
+            token = await manager.get_bot_token()
+
+            assert token is not None
+            assert isinstance(token, JsonWebToken)
+
+            # Verify MSAL app was created with default bot token tenant
+            mock_msal_class.assert_called_once_with(
+                "test-client-id",
+                client_credential="test-client-secret",
+                authority="https://login.microsoftonline.com/botframework.com",
+            )
 
     @pytest.mark.asyncio
     async def test_get_graph_token_default(self):
@@ -65,7 +104,9 @@ class TestTokenManager:
         mock_msal_app = MagicMock()
         mock_msal_app.acquire_token_for_client = MagicMock(return_value={"access_token": VALID_TEST_TOKEN})
 
-        with patch("microsoft.teams.apps.token_manager.ConfidentialClientApplication", return_value=mock_msal_app):
+        with patch(
+            "microsoft.teams.apps.token_manager.ConfidentialClientApplication", return_value=mock_msal_app
+        ) as mock_msal_class:
             manager = TokenManager(credentials=mock_credentials)
 
             token = await manager.get_graph_token()
@@ -76,6 +117,43 @@ class TestTokenManager:
 
             # Verify MSAL was called with correct scope
             mock_msal_app.acquire_token_for_client.assert_called_once_with(["https://graph.microsoft.com/.default"])
+
+            # Verify MSAL app was created with the credentials tenant_id
+            mock_msal_class.assert_called_once_with(
+                "test-client-id",
+                client_credential="test-client-secret",
+                authority="https://login.microsoftonline.com/default-tenant-id",
+            )
+
+    @pytest.mark.asyncio
+    async def test_get_graph_token_default_tenant(self):
+        """Test graph token uses default tenant when credentials have no tenant_id."""
+        mock_credentials = ClientCredentials(
+            client_id="test-client-id",
+            client_secret="test-client-secret",
+            tenant_id=None,
+        )
+
+        # Mock MSAL ConfidentialClientApplication
+        mock_msal_app = MagicMock()
+        mock_msal_app.acquire_token_for_client = MagicMock(return_value={"access_token": VALID_TEST_TOKEN})
+
+        with patch(
+            "microsoft.teams.apps.token_manager.ConfidentialClientApplication", return_value=mock_msal_app
+        ) as mock_msal_class:
+            manager = TokenManager(credentials=mock_credentials)
+
+            token = await manager.get_graph_token()
+
+            assert token is not None
+            assert isinstance(token, JsonWebToken)
+
+            # Verify MSAL app was created with default graph token tenant "common"
+            mock_msal_class.assert_called_once_with(
+                "test-client-id",
+                client_credential="test-client-secret",
+                authority="https://login.microsoftonline.com/common",
+            )
 
     @pytest.mark.asyncio
     async def test_get_graph_token_with_tenant(self):

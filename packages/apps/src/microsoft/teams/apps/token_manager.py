@@ -18,6 +18,12 @@ from microsoft.teams.api.auth.credentials import TokenCredentials
 from microsoft.teams.common import ConsoleLogger
 from msal import ConfidentialClientApplication  # pyright: ignore[reportMissingTypeStubs]
 
+BOT_TOKEN_SCOPE = "https://api.botframework.com/.default"
+GRAPH_TOKEN_SCOPE = "https://graph.microsoft.com/.default"
+DEFAULT_TENANT_FOR_BOT_TOKEN = "botframework.com"
+DEFAULT_TENANT_FOR_GRAPH_TOKEN = "common"
+DEFAULT_TOKEN_AUTHORITY = "https://login.microsoftonline.com/{tenant_id}"
+
 
 class TokenManager:
     """Manages authentication tokens for the Teams application."""
@@ -38,7 +44,9 @@ class TokenManager:
 
     async def get_bot_token(self) -> Optional[TokenProtocol]:
         """Refresh the bot authentication token."""
-        return await self._get_token("https://api.botframework.com/.default")
+        return await self._get_token(
+            BOT_TOKEN_SCOPE, tenant_id=self._resolve_tenant_id(None, DEFAULT_TENANT_FOR_BOT_TOKEN)
+        )
 
     async def get_graph_token(self, tenant_id: Optional[str] = None) -> Optional[TokenProtocol]:
         """
@@ -51,10 +59,12 @@ class TokenManager:
         Returns:
             The graph token or None if not available
         """
-        return await self._get_token("https://graph.microsoft.com/.default", tenant_id)
+        return await self._get_token(
+            GRAPH_TOKEN_SCOPE, tenant_id=self._resolve_tenant_id(tenant_id, DEFAULT_TENANT_FOR_GRAPH_TOKEN)
+        )
 
     async def _get_token(
-        self, scope: str | list[str], tenant_id: str | None = None, *, caller_name: str | None = None
+        self, scope: str | list[str], tenant_id: str, *, caller_name: str | None = None
     ) -> Optional[TokenProtocol]:
         credentials = self._credentials
         if self._credentials is None:
@@ -62,8 +72,7 @@ class TokenManager:
                 self._logger.debug(f"No credentials provided for {caller_name}")
             return None
         if isinstance(credentials, ClientCredentials):
-            tenant_id_param = tenant_id or credentials.tenant_id or "botframework.com"
-            msal_client = self._get_msal_client_for_tenant(tenant_id_param)
+            msal_client = self._get_msal_client_for_tenant(tenant_id)
             token_res: dict[str, Any] | None = await asyncio.to_thread(
                 lambda: msal_client.acquire_token_for_client(scope if isinstance(scope, list) else [scope])
             )
@@ -77,8 +86,6 @@ class TokenManager:
                 self._logger.error(error_description)
                 raise error
         elif isinstance(credentials, TokenCredentials):
-            tenant_id_param = tenant_id or credentials.tenant_id or "botframework.com"
-            tenant_id = tenant_id or "botframework.com"
             token = credentials.token(scope, tenant_id)
             if isawaitable(token):
                 access_token = await token
@@ -97,7 +104,10 @@ class TokenManager:
             ConfidentialClientApplication(
                 credentials.client_id,
                 client_credential=credentials.client_secret if credentials else None,
-                authority=f"https://login.microsoftonline.com/{tenant_id}",
+                authority=DEFAULT_TOKEN_AUTHORITY.format(tenant_id=tenant_id),
             ),
         )
         return cached_client
+
+    def _resolve_tenant_id(self, tenant_id: str | None, default_tenant_id: str):
+        return tenant_id or (self._credentials.tenant_id if self._credentials else False) or default_tenant_id
