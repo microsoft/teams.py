@@ -26,10 +26,8 @@ class TokenManager:
         self,
         credentials: Optional[Credentials],
         logger: Optional[logging.Logger] = None,
-        default_connection_name: Optional[str] = None,
     ):
         self._credentials = credentials
-        self._default_connection_name = default_connection_name
 
         if not logger:
             self._logger = ConsoleLogger().create_logger("TokenManager")

@@ -86,7 +86,6 @@ class App(ActivityHandlerMixin):
         self._token_manager = TokenManager(
             credentials=self.credentials,
             logger=self.log,
-            default_connection_name=self.options.default_connection_name,
         )
 
         self.container = Container()
