@@ -104,4 +104,8 @@ class TestTokenManager:
             # The manager caches MSAL clients, so we check the call to the class constructor
             calls = mock_msal_class.call_args_list
             # Should have been called with different-tenant-id
-            assert any("different-tenant-id" in str(call) for call in calls)
+            # Check the 'authority' argument in each call
+            assert any(
+                call.kwargs.get("authority") == "https://login.microsoftonline.com/different-tenant-id"
+                for call in calls
+            )
