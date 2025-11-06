@@ -17,7 +17,7 @@ from microsoft.teams.api import (
 )
 from microsoft.teams.api.auth.credentials import ManagedIdentityCredentials, TokenCredentials
 from microsoft.teams.common import ConsoleLogger
-from msal import (  # pyright: ignore[reportMissingTypeStubs]
+from msal import (
     ConfidentialClientApplication,
     ManagedIdentityClient,
     UserAssignedManagedIdentity,
