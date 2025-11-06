@@ -7,14 +7,14 @@
     <a href="https://pypi.org/project/microsoft-teams-openai" target="_blank">
         <img src="https://img.shields.io/pypi/dw/microsoft-teams-openai" />
     </a>
+    <a href="https://microsoft.github.io/teams-sdk" target="_blank">
+        <img src="https://img.shields.io/badge/📖 Getting Started-blue?style=for-the-badge" />
+    </a>
 </p>
+
 
 OpenAI model implementations for Microsoft Teams AI applications.
 Supports OpenAI and OpenAI-compatible APIs for chat completions and embeddings.
-
-<a href="https://microsoft.github.io/teams-ai" target="_blank">
-    <img src="https://img.shields.io/badge/📖 Getting Started-blue?style=for-the-badge" />
-</a>
 
 ## Installation
 

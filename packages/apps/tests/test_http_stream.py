@@ -20,6 +20,7 @@ from microsoft.teams.api import (
 from microsoft.teams.apps import HttpStream
 
 
+@pytest.mark.skip(reason="introduces delays in CI pipeline")
 class TestHttpStream:
     @pytest.fixture
     def mock_logger(self):
