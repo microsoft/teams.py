@@ -5,7 +5,8 @@ Licensed under the MIT License.
 
 from .card import SignInCard
 from .exchange_token import SignInExchangeToken
+from .failure import SignInFailure
 from .response import SignInUrlResponse
 from .state_verify_query import SignInStateVerifyQuery
 
-__all__ = ["SignInUrlResponse", "SignInCard", "SignInExchangeToken", "SignInStateVerifyQuery"]
+__all__ = ["SignInUrlResponse", "SignInCard", "SignInExchangeToken", "SignInStateVerifyQuery", "SignInFailure"]

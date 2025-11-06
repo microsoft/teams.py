@@ -29,9 +29,7 @@ except importlib.metadata.PackageNotFoundError:
 P = TypeVar("P", bound=BaseModel)
 
 
-@Plugin(
-    name="mcp-server", version=version, description="MCP server plugin that exposes AI functions as MCP tools"
-)
+@Plugin(name="mcp-server", version=version, description="MCP server plugin that exposes AI functions as MCP tools")
 class McpServerPlugin(PluginBase):
     """
     MCP Server Plugin for Teams Apps.
