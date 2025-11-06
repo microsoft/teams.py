@@ -12,7 +12,7 @@
 AI-powered conversational experiences for Microsoft Teams applications.
 Provides prompt management, action planning, and model integration for building intelligent Teams bots.
 
-[📖 Documentation](https://microsoft.github.io/teams-ai/python/in-depth-guides/ai/)
+[📖 Documentation](https://microsoft.github.io/teams-sdk/python/in-depth-guides/ai/)
 
 ## Installation
 
