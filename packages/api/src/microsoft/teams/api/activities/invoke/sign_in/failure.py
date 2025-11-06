@@ -17,7 +17,7 @@ class SignInFailureInvokeActivity(InvokeActivity):
     during the authentication process.
     """
 
-    name: Literal["signin/failure"] = "signin/failure"  #
+    name: Literal["signin/failure"] = "signin/failure"
     """The name of the operation associated with an invoke or event activity."""
 
     value: SignInFailure
