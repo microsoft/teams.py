@@ -45,7 +45,8 @@ class TokenManager:
         else:
             self._logger = logger.getChild("TokenManager")
 
-        self._msal_clients_by_tenantId: dict[str, ConfidentialClientApplication | ManagedIdentityClient] = {}
+        self._confidential_clients_by_tenant: dict[str, ConfidentialClientApplication] = {}
+        self._managed_identity_client: Optional[ManagedIdentityClient] = None
 
     async def get_bot_token(self) -> Optional[TokenProtocol]:
         """Refresh the bot authentication token."""
@@ -115,31 +116,35 @@ class TokenManager:
     def _get_msal_client(self, tenant_id: str) -> ConfidentialClientApplication | ManagedIdentityClient:
         credentials = self._credentials
 
-        # Check if client already exists in cache
-        cached_client = self._msal_clients_by_tenantId.get(tenant_id)
-        if cached_client:
-            return cached_client
-
         # Create the appropriate client based on credential type
         if isinstance(credentials, ClientCredentials):
-            client: ConfidentialClientApplication | ManagedIdentityClient = ConfidentialClientApplication(
+            # Check if client already exists in cache for this tenant
+            cached_client = self._confidential_clients_by_tenant.get(tenant_id)
+            if cached_client:
+                return cached_client
+
+            client: ConfidentialClientApplication = ConfidentialClientApplication(
                 credentials.client_id,
                 client_credential=credentials.client_secret,
                 authority=f"https://login.microsoftonline.com/{tenant_id}",
             )
+            self._confidential_clients_by_tenant[tenant_id] = client
+            return client
         elif isinstance(credentials, ManagedIdentityCredentials):
+            # ManagedIdentityClient is tenant-agnostic, cache single instance
+            if self._managed_identity_client:
+                return self._managed_identity_client
+
             # Create user-assigned managed identity
             managed_identity = UserAssignedManagedIdentity(client_id=credentials.client_id)
 
-            client = ManagedIdentityClient(
+            self._managed_identity_client = ManagedIdentityClient(
                 managed_identity,
                 http_client=requests.Session(),
             )
+            return self._managed_identity_client
         else:
             raise ValueError(f"Unsupported credential type: {type(credentials)}")
-
-        self._msal_clients_by_tenantId[tenant_id] = client
-        return client
 
     def _resolve_tenant_id(self, tenant_id: str | None, default_tenant_id: str):
         return tenant_id or (self._credentials.tenant_id if self._credentials else False) or default_tenant_id

@@ -30,8 +30,8 @@ class ManagedIdentityClient:
         managed_identity: SystemAssignedManagedIdentity | UserAssignedManagedIdentity | dict[str, Any],
         *,
         http_client: Any,
-        token_cache: Optional[Any] = None,
-        http_cache: Optional[Any] = None,
-        client_capabilities: Optional[list[str]] = None,
+        token_cache: Any | None = None,
+        http_cache: Any | None = None,
+        client_capabilities: list[str] | None = None,
     ) -> None: ...
-    def acquire_token_for_client(self, *, resource: str, claims_challenge: Optional[str] = None) -> dict[str, Any]: ...
+    def acquire_token_for_client(self, *, resource: str, claims_challenge: str | None = None) -> dict[str, Any]: ...
