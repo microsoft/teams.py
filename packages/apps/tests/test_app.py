@@ -13,6 +13,7 @@ from microsoft.teams.api import (
     Account,
     ConversationAccount,
     InvokeActivity,
+    ManagedIdentityCredentials,
     MessageActivity,
     TokenCredentials,
     TokenProtocol,
@@ -575,3 +576,102 @@ class TestApp:
         # Verify the http_client has the correct User-Agent header
         assert "User-Agent" in app_with_options.http_client._options.headers
         assert app_with_options.http_client._options.headers["User-Agent"] == expected_user_agent
+
+    @pytest.mark.parametrize(
+        "options_dict,env_vars,expected_client_id,expected_tenant_id,description",
+        [
+            # Inferred from client_id only
+            (
+                {"client_id": "test-managed-identity-client-id"},
+                {"CLIENT_SECRET": "", "TENANT_ID": "test-tenant-id"},
+                "test-managed-identity-client-id",
+                "test-tenant-id",
+                "inferred from client_id only",
+            ),
+            # managed_identity_client_id equals client_id (valid)
+            (
+                {"client_id": "test-client-id", "managed_identity_client_id": "test-client-id"},
+                {"CLIENT_SECRET": "", "TENANT_ID": "test-tenant-id"},
+                "test-client-id",
+                "test-tenant-id",
+                "managed_identity_client_id equals client_id",
+            ),
+            # From environment variables
+            (
+                {},
+                {"CLIENT_ID": "env-managed-identity-client-id", "CLIENT_SECRET": "", "TENANT_ID": "env-tenant-id"},
+                "env-managed-identity-client-id",
+                "env-tenant-id",
+                "from environment variables",
+            ),
+            # Explicit managed_identity_client_id
+            (
+                {
+                    "client_id": "test-app-id",
+                    "managed_identity_client_id": "test-app-id",
+                    "tenant_id": "test-tenant-id",
+                },
+                {"CLIENT_SECRET": ""},
+                "test-app-id",
+                "test-tenant-id",
+                "explicit managed_identity_client_id",
+            ),
+        ],
+    )
+    def test_app_init_with_managed_identity(
+        self,
+        mock_logger,
+        mock_storage,
+        options_dict: dict,
+        env_vars: dict,
+        expected_client_id: str,
+        expected_tenant_id: str,
+        description: str,
+    ):
+        """Test app initialization with managed identity credentials."""
+        options = AppOptions(logger=mock_logger, storage=mock_storage, **options_dict)
+
+        with patch.dict("os.environ", env_vars, clear=False):
+            app = App(**options)
+
+            assert app.credentials is not None, f"Failed for: {description}"
+            assert isinstance(app.credentials, ManagedIdentityCredentials), f"Failed for: {description}"
+            assert app.credentials.client_id == expected_client_id, f"Failed for: {description}"
+            assert app.credentials.tenant_id == expected_tenant_id, f"Failed for: {description}"
+
+    def test_app_init_with_managed_identity_client_id_mismatch(self, mock_logger, mock_storage):
+        """Test app init raises error when managed_identity_client_id != client_id (federated identity)."""
+        # When managed_identity_client_id differs from client_id, should raise error
+        # (Federated Identity Credentials not yet supported)
+        options = AppOptions(
+            logger=mock_logger,
+            storage=mock_storage,
+            client_id="app-client-id",
+            managed_identity_client_id="different-managed-identity-id",  # Different!
+        )
+
+        with patch.dict("os.environ", {"CLIENT_SECRET": "", "TENANT_ID": "test-tenant-id"}, clear=False):
+            with pytest.raises(ValueError) as exc_info:
+                App(**options)
+
+            assert "Federated Identity Credentials is not yet supported" in str(exc_info.value)
+            assert "managed_identity_client_id must equal client_id" in str(exc_info.value)
+
+    def test_app_init_with_client_secret_takes_precedence(self, mock_logger, mock_storage):
+        """Test that ClientCredentials is used when both client_secret and managed_identity_client_id are provided."""
+        # When client_secret is provided, it should take precedence over managed identity
+        options = AppOptions(
+            logger=mock_logger,
+            storage=mock_storage,
+            client_id="test-client-id",
+            client_secret="test-client-secret",
+            managed_identity_client_id="test-managed-id",  # This should be ignored
+            tenant_id="test-tenant-id",
+        )
+
+        app = App(**options)
+
+        assert app.credentials is not None
+        # Should use ClientCredentials, not ManagedIdentityCredentials
+        assert type(app.credentials).__name__ == "ClientCredentials"
+        assert app.credentials.client_id == "test-client-id"

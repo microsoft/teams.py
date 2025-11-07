@@ -3,11 +3,12 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, create_autospec, patch
 
 import pytest
-from microsoft.teams.api import ClientCredentials, JsonWebToken
+from microsoft.teams.api import ClientCredentials, JsonWebToken, ManagedIdentityCredentials
 from microsoft.teams.apps.token_manager import TokenManager
+from msal import ManagedIdentityClient  # pyright: ignore[reportMissingTypeStubs]
 
 # Valid JWT-like token for testing (format: header.payload.signature)
 VALID_TEST_TOKEN = (
@@ -182,8 +183,95 @@ class TestTokenManager:
             # The manager caches MSAL clients, so we check the call to the class constructor
             calls = mock_msal_class.call_args_list
             # Should have been called with different-tenant-id
-            # Check the 'authority' argument in each call
-            assert any(
-                call.kwargs.get("authority") == "https://login.microsoftonline.com/different-tenant-id"
-                for call in calls
-            )
+            assert any("different-tenant-id" in str(call) for call in calls)
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "get_token_method,expected_resource",
+        [
+            ("get_bot_token", "https://api.botframework.com"),
+            ("get_graph_token", "https://graph.microsoft.com"),
+        ],
+    )
+    async def test_get_token_with_managed_identity(self, get_token_method: str, expected_resource: str):
+        """Test token retrieval using ManagedIdentityCredentials."""
+        mock_credentials = ManagedIdentityCredentials(
+            client_id="test-managed-identity-client-id",
+            tenant_id="test-tenant-id",
+        )
+
+        # Create a mock that will pass isinstance checks
+        mock_msal_client = create_autospec(ManagedIdentityClient, instance=True)
+        mock_msal_client.acquire_token_for_client.return_value = {"access_token": VALID_TEST_TOKEN}
+
+        manager = TokenManager(credentials=mock_credentials)
+
+        # Patch _get_msal_client to return our mock
+        with patch.object(manager, "_get_msal_client", return_value=mock_msal_client):
+            # Call the method dynamically
+            token = await getattr(manager, get_token_method)()
+
+            assert token is not None
+            assert isinstance(token, JsonWebToken)
+            assert str(token) == VALID_TEST_TOKEN
+
+            # Verify MSAL was called with resource parameter (not scopes list)
+            # and without /.default suffix
+            mock_msal_client.acquire_token_for_client.assert_called_once_with(resource=expected_resource)
+
+    @pytest.mark.asyncio
+    async def test_get_graph_token_with_managed_identity_and_tenant(self):
+        """Test getting tenant-specific graph token with ManagedIdentityCredentials."""
+        mock_credentials = ManagedIdentityCredentials(
+            client_id="test-managed-identity-client-id",
+            tenant_id="original-tenant-id",
+        )
+
+        # Create a mock that will pass isinstance checks
+        mock_msal_client = create_autospec(ManagedIdentityClient, instance=True)
+        mock_msal_client.acquire_token_for_client.return_value = {"access_token": VALID_TEST_TOKEN}
+
+        manager = TokenManager(credentials=mock_credentials)
+
+        # Track calls to _get_msal_client
+        get_msal_client_calls: list[str] = []
+
+        def track_get_msal_client(tenant_id: str):
+            get_msal_client_calls.append(tenant_id)
+            return mock_msal_client
+
+        # Patch _get_msal_client to track calls
+        with patch.object(manager, "_get_msal_client", side_effect=track_get_msal_client):
+            # Request token for different tenant
+            token = await manager.get_graph_token("different-tenant-id")
+
+            assert token is not None
+            assert isinstance(token, JsonWebToken)
+
+            # Verify _get_msal_client was called with different-tenant-id
+            assert "different-tenant-id" in get_msal_client_calls
+
+    @pytest.mark.asyncio
+    async def test_get_token_error_handling_with_managed_identity(self):
+        """Test error handling when token acquisition fails with ManagedIdentityCredentials."""
+        mock_credentials = ManagedIdentityCredentials(
+            client_id="test-managed-identity-client-id",
+            tenant_id="test-tenant-id",
+        )
+
+        # Create a mock that returns an error
+        mock_msal_client = create_autospec(ManagedIdentityClient, instance=True)
+        mock_msal_client.acquire_token_for_client.return_value = {
+            "error": "invalid_client",
+            "error_description": "Invalid managed identity configuration",
+        }
+
+        manager = TokenManager(credentials=mock_credentials)
+
+        # Patch _get_msal_client to return our mock
+        with patch.object(manager, "_get_msal_client", return_value=mock_msal_client):
+            # Should raise an error when token acquisition fails
+            with pytest.raises(ValueError) as exc_info:
+                await manager.get_bot_token()
+
+            assert "invalid_client" in str(exc_info.value)

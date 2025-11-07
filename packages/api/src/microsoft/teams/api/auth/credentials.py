@@ -43,5 +43,18 @@ class TokenCredentials(CustomBaseModel):
     """
 
 
+class ManagedIdentityCredentials(CustomBaseModel):
+    """Credentials for authentication using Azure User-Assigned Managed Identity."""
+
+    client_id: str
+    """
+    The client ID of the user-assigned managed identity.
+    """
+    tenant_id: Optional[str] = None
+    """
+    The tenant ID.
+    """
+
+
 # Union type for credentials
-Credentials = Union[ClientCredentials, TokenCredentials]
+Credentials = Union[ClientCredentials, TokenCredentials, ManagedIdentityCredentials]
