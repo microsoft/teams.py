@@ -30,7 +30,9 @@ class AppOptions(TypedDict, total=False):
     managed_identity_client_id: Optional[str]
     """
     The managed identity client ID for user-assigned managed identity.
-    Defaults to client_id if not provided.
+    Set to "system" for system-assigned managed identity (triggers Federated Identity Credentials).
+    If set to a different client ID than client_id, triggers Federated Identity Credentials with user-assigned MI.
+    If not set or equals client_id, uses direct managed identity (no federation).
     """
 
     # Infrastructure
@@ -62,7 +64,12 @@ class InternalAppOptions:
     token: Optional[Callable[[Union[str, list[str]], Optional[str]], Union[str, Awaitable[str]]]] = None
     """Custom token provider function. If provided with client_id (no client_secret), uses TokenCredentials."""
     managed_identity_client_id: Optional[str] = None
-    """The managed identity client ID for user-assigned managed identity. Defaults to client_id if not provided."""
+    """
+    The managed identity client ID for user-assigned managed identity.
+    Set to "system" for system-assigned managed identity (triggers Federated Identity Credentials).
+    If set to a different client ID than client_id, triggers Federated Identity Credentials with user-assigned MI.
+    If not set or equals client_id, uses direct managed identity (no federation).
+    """
     logger: Optional[Logger] = None
     storage: Optional[Storage[str, Any]] = None
 
