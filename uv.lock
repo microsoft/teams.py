@@ -1608,6 +1608,7 @@ dependencies = [
     { name = "fastapi" },
     { name = "microsoft-teams-api" },
     { name = "microsoft-teams-common" },
+    { name = "msal" },
     { name = "pyjwt", extra = ["crypto"] },
     { name = "uvicorn" },
 ]
@@ -1632,6 +1633,7 @@ requires-dist = [
     { name = "microsoft-teams-api", editable = "packages/api" },
     { name = "microsoft-teams-common", editable = "packages/common" },
     { name = "microsoft-teams-graph", marker = "extra == 'graph'", editable = "packages/graph" },
+    { name = "msal", specifier = ">=1.33.0" },
     { name = "pyjwt", extras = ["crypto"], specifier = ">=2.10.0" },
     { name = "uvicorn", specifier = ">=0.34.3" },
 ]

@@ -84,10 +84,8 @@ class App(ActivityHandlerMixin):
         self.credentials = self._init_credentials()
 
         self._token_manager = TokenManager(
-            http_client=self.http_client,
             credentials=self.credentials,
             logger=self.log,
-            default_connection_name=self.options.default_connection_name,
         )
 
         self.container = Container()
