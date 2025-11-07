@@ -27,7 +27,7 @@ class ManagedIdentityClient:
 
     def __init__(
         self,
-        managed_identity: SystemAssignedManagedIdentity | UserAssignedManagedIdentity | dict[str, Any],
+        managed_identity: SystemAssignedManagedIdentity | UserAssignedManagedIdentity,
         *,
         http_client: Any,
         token_cache: Any | None = None,
