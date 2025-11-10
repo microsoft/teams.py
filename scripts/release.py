@@ -12,6 +12,10 @@ from typing import Dict, List
 
 import tomllib
 
+# ANSI color codes
+GREEN = "\033[92m"
+RESET = "\033[0m"
+
 
 def get_packages_dir() -> Path:
     """Get the packages directory relative to the script location."""
@@ -268,7 +272,7 @@ Version bump types:
         if commits_since_tag:
             print(f"\nCommits since {last_tag}:")
             for commit in commits_since_tag:
-                print(f"  {commit}")
+                print(f"  {GREEN}{commit}{RESET}")
             print()
         else:
             print(f"No commits since {last_tag}\n")
@@ -334,7 +338,7 @@ Version bump types:
             if commits_since_tag:
                 print("\nCommits to include in PR description:")
                 for commit in commits_since_tag:
-                    print(f"  {commit}")
+                    print(f"  {GREEN}{commit}{RESET}")
     else:
         print(f"\nVersion bump complete. Release version: {release_version}")
         print("You can manually commit and create a branch/PR when ready.")
@@ -342,7 +346,7 @@ Version bump types:
         if commits_since_tag:
             print("\nCommits since last tag:")
             for commit in commits_since_tag:
-                print(f"  {commit}")
+                print(f"  {GREEN}{commit}{RESET}")
 
 
 if __name__ == "__main__":
