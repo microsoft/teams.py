@@ -1,6 +1,6 @@
 [project]
 name = "microsoft-teams-graph"
-version = "2.0.0a4"
+version = "2.0.0a5"
 description = "The Graph package for a Microsoft Teams agent"
 readme = "README.md"
 license = { text = "MIT" }

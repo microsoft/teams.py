@@ -1,6 +1,6 @@
 [project]
 name = "microsoft-teams-api"
-version = "2.0.0a4"
+version = "2.0.0a5"
 description = "API package for Microsoft Teams"
 readme = "README.md"
 repository = "https://github.com/microsoft/teams.py"

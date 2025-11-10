@@ -1,6 +1,6 @@
 [project]
 name = "microsoft-teams-openai"
-version = "2.0.0a4"
+version = "2.0.0a5"
 description = "model package for enabling chat experiences with openai"
 authors = [{ name = "Microsoft", email = "TeamsAISDKFeedback@microsoft.com" }]
 readme = "README.md"

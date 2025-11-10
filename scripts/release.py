@@ -12,6 +12,10 @@ from typing import Dict, List
 
 import tomllib
 
+# ANSI color codes
+GREEN = "\033[92m"
+RESET = "\033[0m"
+
 
 def get_packages_dir() -> Path:
     """Get the packages directory relative to the script location."""
@@ -107,6 +111,38 @@ def get_package_version(package_path: Path) -> str:
         sys.exit(1)
 
 
+def get_last_tag() -> str:
+    """Get the last git tag matching v* pattern."""
+    try:
+        result = subprocess.run(
+            ["git", "describe", "--tags", "--abbrev=0", "--match", "v*"],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        return result.stdout.strip()
+    except subprocess.CalledProcessError:
+        print("Warning: No previous tags found matching 'v*' pattern")
+        return ""
+
+
+def get_commits_since_tag(tag: str) -> List[str]:
+    """Get commit messages from current HEAD to the specified tag."""
+    try:
+        # Get commit messages in format: "- <commit message>"
+        result = subprocess.run(
+            ["git", "log", f"{tag}..HEAD", "--pretty=format:- %s"],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        commits = result.stdout.strip().split("\n")
+        return [c for c in commits if c]  # Filter empty strings
+    except subprocess.CalledProcessError as e:
+        print(f"Error getting commits: {e}")
+        return []
+
+
 def create_release_branch(version: str, verbose: bool = False) -> str:
     """Create a new release branch."""
     branch_name = f"release_{version}"
@@ -126,6 +162,51 @@ def create_release_branch(version: str, verbose: bool = False) -> str:
         return branch_name
     except subprocess.CalledProcessError as e:
         print(f"Error creating release branch: {e}")
+        sys.exit(1)
+
+
+def create_pull_request(version: str, commits: List[str], verbose: bool = False) -> None:
+    """Create a pull request for the release."""
+    try:
+        # Push the branch to remote
+        branch_name = f"release_{version}"
+        subprocess.run(
+            ["git", "push", "-u", "origin", branch_name],
+            check=True,
+            capture_output=not verbose,
+        )
+        print(f"Pushed branch {branch_name} to remote")
+
+        # Create PR body with commits
+        pr_body = f"## Release {version}\n\n### Changes\n\n"
+        if commits:
+            pr_body += "\n".join(commits)
+        else:
+            pr_body += "No commits since last tag"
+
+        # Create PR using gh CLI
+        result = subprocess.run(
+            [
+                "gh",
+                "pr",
+                "create",
+                "--title",
+                f"Release {version}",
+                "--body",
+                pr_body,
+                "--base",
+                "main",
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        print("✓ Pull request created successfully")
+        print(result.stdout.strip())
+    except subprocess.CalledProcessError as e:
+        print(f"Error creating pull request: {e}")
+        if e.stderr:
+            print(f"  {e.stderr}")
         sys.exit(1)
 
 
@@ -182,6 +263,22 @@ Version bump types:
         print(f"  - {pkg.name}")
     print()
 
+    # Get commits since last tag for PR description (show regardless of PR creation)
+    last_tag = get_last_tag()
+    commits_since_tag: List[str] = []
+    if last_tag:
+        print(f"Last tag: {last_tag}")
+        commits_since_tag = get_commits_since_tag(last_tag)
+        if commits_since_tag:
+            print(f"\nCommits since {last_tag}:")
+            for commit in commits_since_tag:
+                print(f"  {GREEN}{commit}{RESET}")
+            print()
+        else:
+            print(f"No commits since {last_tag}\n")
+    else:
+        print("No previous tags found\n")
+
     # First, do a dry-run to check all packages would have the same version
     print("Running dry-run to check version consistency...")
     dry_run_versions: Dict[str, str] = {}
@@ -228,9 +325,28 @@ Version bump types:
         branch_name = create_release_branch(release_version, args.verbose)
         print(f"\n✓ Release {release_version} is ready!")
         print(f"  Branch: {branch_name}")
+
+        # Ask user about creating PR
+        pr_response = input("\nWould you like to create a pull request (y/N): ").strip().lower()
+        if pr_response in ("y", "yes"):
+            create_pull_request(release_version, commits_since_tag, args.verbose)
+        else:
+            print("\nYou can manually create a PR when ready using:")
+            print(f"  git push -u origin {branch_name}")
+            print(f"  gh pr create --title 'Release {release_version}' --base main")
+            # Show commits again for easy copy-paste
+            if commits_since_tag:
+                print("\nCommits to include in PR description:")
+                for commit in commits_since_tag:
+                    print(f"  {GREEN}{commit}{RESET}")
     else:
         print(f"\nVersion bump complete. Release version: {release_version}")
         print("You can manually commit and create a branch/PR when ready.")
+        # Show commits for reference even if no branch was created
+        if commits_since_tag:
+            print("\nCommits since last tag:")
+            for commit in commits_since_tag:
+                print(f"  {GREEN}{commit}{RESET}")
 
 
 if __name__ == "__main__":
