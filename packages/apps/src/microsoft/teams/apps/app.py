@@ -101,7 +101,7 @@ class App(ActivityHandlerMixin):
         self.api = ApiClient(
             "https://smba.trafficmanager.net/teams",
             self.http_client.clone(ClientOptions(token=self._get_bot_token)),
-            self.options.oauth.client_settings,
+            self.options.api_client_settings,
         )
 
         plugins: List[PluginBase] = list(self.options.plugins)
@@ -136,7 +136,7 @@ class App(ActivityHandlerMixin):
             self.options.oauth.default_connection_name,
             self.http_client,
             self._token_manager,
-            self.options.oauth.client_settings,
+            self.options.api_client_settings,
         )
         self.event_manager = EventManager(self._events, self.activity_processor)
         self.activity_processor.event_manager = self.event_manager

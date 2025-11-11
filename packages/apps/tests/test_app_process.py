@@ -28,8 +28,6 @@ class TestActivityProcessor:
     @pytest.fixture
     def activity_processor(self, mock_logger, mock_http_client):
         """Create an ActivityProcessor instance."""
-        from microsoft.teams.api import DEFAULT_API_CLIENT_SETTINGS
-
         mock_storage = MagicMock(spec=LocalStorage)
         mock_activity_router = MagicMock(spec=ActivityRouter)
         mock_token_manager = MagicMock(spec=TokenManager)
@@ -41,7 +39,7 @@ class TestActivityProcessor:
             "default_connection",
             mock_http_client,
             mock_token_manager,
-            DEFAULT_API_CLIENT_SETTINGS,
+            None,
         )
 
     @pytest.mark.asyncio

@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from logging import Logger
 from typing import Any, Awaitable, Callable, List, Optional, TypedDict, Union, cast
 
-from microsoft.teams.api import DEFAULT_API_CLIENT_SETTINGS, ApiClientSettings
+from microsoft.teams.api import ApiClientSettings
 from microsoft.teams.common import Storage
 from typing_extensions import Unpack
 
@@ -20,11 +20,9 @@ class OAuthSettings:
 
     Attributes:
         default_connection_name: The OAuth connection name to use for authentication.
-        client_settings: Client settings for authentication. Important for configuring regional bots.
     """
 
     default_connection_name: str = "graph"
-    client_settings: ApiClientSettings = field(default_factory=lambda: DEFAULT_API_CLIENT_SETTINGS)
 
 
 class AppOptions(TypedDict, total=False):
@@ -59,7 +57,11 @@ class AppOptions(TypedDict, total=False):
     default_connection_name: Optional[str]
     """DEPRECATED: Use oauth instead. The OAuth connection name to use for authentication. Defaults to 'graph'."""
     oauth: Optional[OAuthSettings]
-    """OAuth settings including connection name and client settings for regional bots."""
+    """OAuth settings including connection name."""
+
+    # API Client Settings
+    api_client_settings: Optional[ApiClientSettings]
+    """API client settings used for overriding OAuth endpoints for regional bots."""
 
 
 @dataclass
@@ -72,6 +74,8 @@ class InternalAppOptions:
     """DEPRECATED: Use oauth.default_connection_name instead."""
     oauth: OAuthSettings = field(default_factory=OAuthSettings)
     plugins: List[PluginBase] = field(default_factory=lambda: [])
+    api_client_settings: Optional[ApiClientSettings] = None
+    """API client settings for overriding OAuth endpoints."""
 
     # Optional fields
     client_id: Optional[str] = None

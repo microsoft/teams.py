@@ -43,12 +43,12 @@ from microsoft.teams.api import ApiClientSettings
 from microsoft.teams.apps import App, AppOptions, OAuthSettings
 
 # Configure for Europe region
-oauth_settings = OAuthSettings(
-    default_connection_name="graph",
-    client_settings=ApiClientSettings(oauth_url="https://europe.token.botframework.com")
+app_options = AppOptions(
+    oauth=OAuthSettings(default_connection_name="graph"),
+    api_client_settings=ApiClientSettings(oauth_url="https://europe.token.botframework.com")
 )
 
-app = App(oauth=oauth_settings)
+app = App(**app_options)
 ```
 
 **Regional OAuth endpoints:**

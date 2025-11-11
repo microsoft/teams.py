@@ -43,7 +43,7 @@ class ActivityProcessor:
         default_connection_name: str,
         http_client: Client,
         token_manager: TokenManager,
-        api_client_settings: ApiClientSettings,
+        api_client_settings: Optional[ApiClientSettings],
     ) -> None:
         self.router = router
         self.logger = logger

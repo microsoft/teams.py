@@ -8,8 +8,8 @@ import logging
 import os
 
 from azure.core.exceptions import ClientAuthenticationError
-from microsoft.teams.api import MessageActivity
-from microsoft.teams.apps import ActivityContext, App, AppOptions, ErrorEvent, SignInEvent
+from microsoft.teams.api import ApiClientSettings, MessageActivity
+from microsoft.teams.apps import ActivityContext, App, AppOptions, ErrorEvent, OAuthSettings, SignInEvent
 from microsoft.teams.graph import get_graph_client
 from msgraph.generated.users.item.messages.messages_request_builder import (  # type: ignore
     MessagesRequestBuilder,
@@ -18,13 +18,12 @@ from msgraph.generated.users.item.messages.messages_request_builder import (  # 
 logger = logging.getLogger(__name__)
 
 # Create app with OAuth connection
-# For regional bots, specify the OAuth endpoint in the client_settings:
+# For regional bots, specify the OAuth endpoint in api_client_settings:
 # Example for Europe region:
-# oauth_settings = OAuthSettings(
-#     default_connection_name=os.getenv("CONNECTION_NAME", "graph"),
-#     client_settings=ApiClientSettings(oauth_url="https://europe.token.botframework.com")
+# app_options = AppOptions(
+#     oauth=OAuthSettings(default_connection_name=os.getenv("CONNECTION_NAME", "graph")),
+#     api_client_settings=ApiClientSettings(oauth_url="https://europe.token.botframework.com")
 # )
-# app_options = AppOptions(oauth=oauth_settings)
 
 app_options = AppOptions(default_connection_name=os.getenv("CONNECTION_NAME", "graph"))
 app = App(**app_options)
