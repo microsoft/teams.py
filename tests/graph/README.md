@@ -35,12 +35,12 @@ This demo application showcases how to use Microsoft Graph APIs within a Teams b
    ```
 
 ## Configuring a Regional Bot
-NOTE: This example uses west europe, but follow the equivalent for other locations.
+NOTE: This example uses West Europe, but follow the equivalent for other locations.
 
 1. In `azurebot.bicep`, replace all `global` occurrences to `westeurope`
 2. In `manifest.json`, in `validDomains`, `*.botframework.com` should be replaced by `europe.token.botframework.com`
-2. In `aad.manifest.json`, replace `https://token.botframework.com/.auth/web/redirect` with `https://europe.token.botframework.com/.auth/web/redirect`
-3. In `main.py`, update `AppOptions` to include `api_client_settings`
+3. In `aad.manifest.json`, replace `https://token.botframework.com/.auth/web/redirect` with `https://europe.token.botframework.com/.auth/web/redirect`
+4. In `main.py`, update `AppOptions` to include `api_client_settings`
 
 ```python
 app = App(

@@ -18,6 +18,7 @@ dependencies = [
     "pyjwt[crypto]>=2.10.0",
     "dependency-injector>=4.48.1",
     "msal>=1.33.0",
+    "python-dotenv>=1.0.0",
 ]
 
 [project.optional-dependencies]
