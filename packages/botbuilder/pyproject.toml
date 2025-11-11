@@ -1,10 +1,10 @@
 [project]
 name = "microsoft-teams-botbuilder"
-version = "2.0.0a3"
+version = "2.0.0a5"
 description = "BotBuilder plugin for Microsoft Teams"
 authors = [{ name = "Microsoft", email = "TeamsAISDKFeedback@microsoft.com" }]
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.12,<3.14"
 repository = "https://github.com/microsoft/teams.py"
 keywords = ["microsoft", "teams", "ai", "bot", "agents"]
 license = "MIT"
@@ -14,12 +14,6 @@ dependencies = [
     "microsoft-teams-apps",
     "microsoft-teams-api",
     "microsoft-teams-common"
-]
-
-[dependency-groups]
-dev = [
-    "pytest>=8.4.0",
-    "pytest-asyncio>=1.0.0",
 ]
 
 [project.urls]

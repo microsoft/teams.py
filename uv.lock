@@ -1554,7 +1554,7 @@ test = [
 
 [[package]]
 name = "microsoft-teams-botbuilder"
-version = "2.0.0a2"
+version = "2.0.0a5"
 source = { editable = "packages/botbuilder" }
 dependencies = [
     { name = "botbuilder-core" },
