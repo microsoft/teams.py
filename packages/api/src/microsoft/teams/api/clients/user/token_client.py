@@ -41,7 +41,7 @@ class UserTokenClient(BaseClient):
 
         Args:
             options: Optional Client or ClientOptions instance. If not provided, a default Client will be created.
-            api_client_settings: Optional API client settings for configuring OAuth endpoints.
+            api_client_settings: Optional API client settings.
         """
         super().__init__(options)
         self._api_client_settings = merge_api_client_settings(api_client_settings)

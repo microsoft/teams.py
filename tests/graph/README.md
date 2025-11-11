@@ -34,32 +34,22 @@ This demo application showcases how to use Microsoft Graph APIs within a Teams b
    # PORT=3979  # Optional: specify custom port (defaults to 3979)
    ```
 
-### Regional Bot Configuration
+## Configuring a Regional Bot
+NOTE: This example uses west europe, but follow the equivalent for other locations.
 
-If you're using a regional bot (e.g., a bot deployed in the Europe region), you need to configure the OAuth endpoint to match your region:
+1. In `azurebot.bicep`, replace all `global` occurrences to `westeurope`
+2. In `manifest.json`, in `validDomains`, `*.botframework.com` should be replaced by `europe.token.botframework.com`
+2. In `aad.manifest.json`, replace `https://token.botframework.com/.auth/web/redirect` with `https://europe.token.botframework.com/.auth/web/redirect`
+3. In `main.py`, update `AppOptions` to include `api_client_settings`
 
 ```python
-from microsoft.teams.api import ApiClientSettings
-from microsoft.teams.apps import App, AppOptions, OAuthSettings
-
-# Configure for Europe region
-app_options = AppOptions(
-    oauth=OAuthSettings(default_connection_name="graph"),
-    api_client_settings=ApiClientSettings(oauth_url="https://europe.token.botframework.com")
+app = App(
+    default_connection_name='graph',
+    api_client_settings=ApiClientSettings(
+        oauth_url="https://europe.token.botframework.com"
+    )
 )
-
-app = App(**app_options)
 ```
-
-**Regional OAuth endpoints:**
-- Global (default): `https://token.botframework.com`
-- Europe: `https://europe.token.botframework.com`
-- See [Bot Service regionalization documentation](https://learn.microsoft.com/en-us/azure/bot-service/bot-builder-concept-regionalization) for other regions
-
-**Additional Azure configuration required:**
-1. In your Azure Bot resource, ensure the region matches (e.g., "westeurope")
-2. In `manifest.json`, update `validDomains` to include your regional endpoint (e.g., `europe.token.botframework.com`)
-3. In AAD app registration, update redirect URIs to use the regional endpoint
 
 ## Running
 

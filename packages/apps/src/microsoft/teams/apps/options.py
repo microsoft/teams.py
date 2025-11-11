@@ -14,17 +14,6 @@ from typing_extensions import Unpack
 from .plugins import PluginBase
 
 
-@dataclass
-class OAuthSettings:
-    """OAuth configuration settings.
-
-    Attributes:
-        default_connection_name: The OAuth connection name to use for authentication.
-    """
-
-    default_connection_name: str = "graph"
-
-
 class AppOptions(TypedDict, total=False):
     """Configuration options for the Teams App."""
 
@@ -55,13 +44,11 @@ class AppOptions(TypedDict, total=False):
 
     # OAuth
     default_connection_name: Optional[str]
-    """DEPRECATED: Use oauth instead. The OAuth connection name to use for authentication. Defaults to 'graph'."""
-    oauth: Optional[OAuthSettings]
-    """OAuth settings including connection name."""
+    """The OAuth connection name to use for authentication. Defaults to 'graph'."""
 
     # API Client Settings
     api_client_settings: Optional[ApiClientSettings]
-    """API client settings used for overriding OAuth endpoints for regional bots."""
+    """API client settings used for overriding."""
 
 
 @dataclass
@@ -71,11 +58,10 @@ class InternalAppOptions:
     # Fields with defaults
     skip_auth: bool = False
     default_connection_name: str = "graph"
-    """DEPRECATED: Use oauth.default_connection_name instead."""
-    oauth: OAuthSettings = field(default_factory=OAuthSettings)
+    """The OAuth connection name to use for authentication."""
     plugins: List[PluginBase] = field(default_factory=lambda: [])
     api_client_settings: Optional[ApiClientSettings] = None
-    """API client settings for overriding OAuth endpoints."""
+    """API client settings used for overriding."""
 
     # Optional fields
     client_id: Optional[str] = None
@@ -107,21 +93,7 @@ class InternalAppOptions:
         Returns:
             InternalAppOptions with proper defaults and non-nullable required fields
         """
-        kwargs: dict[str, Any] = {}
-
-        # Handle OAuth settings
-        if "oauth" in options and options["oauth"] is not None:
-            kwargs["oauth"] = options["oauth"]
-        elif "default_connection_name" in options and options["default_connection_name"] is not None:
-            # Support legacy default_connection_name field
-            kwargs["oauth"] = OAuthSettings(default_connection_name=options["default_connection_name"])
-            kwargs["default_connection_name"] = options["default_connection_name"]
-
-        # Copy other fields
-        for key, value in options.items():
-            if key not in ("oauth", "default_connection_name") and value is not None:
-                kwargs[key] = value
-
+        kwargs: dict[str, Any] = {k: v for k, v in options.items() if v is not None}
         return cls(**kwargs)
 
 

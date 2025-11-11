@@ -133,7 +133,7 @@ class App(ActivityHandlerMixin):
             self.log,
             self.id,
             self.storage,
-            self.options.oauth.default_connection_name,
+            self.options.default_connection_name,
             self.http_client,
             self._token_manager,
             self.options.api_client_settings,
@@ -145,7 +145,7 @@ class App(ActivityHandlerMixin):
 
         # default event handlers
         oauth_handlers = OauthHandlers(
-            default_connection_name=self.options.oauth.default_connection_name,
+            default_connection_name=self.options.default_connection_name,
             event_emitter=self._events,
         )
         self.on_signin_token_exchange(oauth_handlers.sign_in_token_exchange)

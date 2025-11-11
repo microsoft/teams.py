@@ -27,7 +27,7 @@ class MeetingClient(BaseClient):
         Args:
             service_url: The service URL for API calls.
             options: Optional Client or ClientOptions instance. If not provided, a default Client will be created.
-            api_client_settings: Optional API client settings for configuring OAuth endpoints.
+            api_client_settings: Optional API client settings.
         """
         super().__init__(options)
         self.service_url = service_url

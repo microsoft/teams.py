@@ -73,7 +73,7 @@ class ConversationClient(BaseClient):
         Args:
             service_url: The Teams service URL.
             options: Either an HTTP client instance or client options. If None, a default client is created.
-            api_client_settings: Optional API client settings for configuring OAuth endpoints.
+            api_client_settings: Optional API client settings.
         """
         super().__init__(options)
         self.service_url = service_url
