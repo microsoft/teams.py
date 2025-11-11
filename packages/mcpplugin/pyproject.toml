@@ -1,10 +1,10 @@
 [project]
 name = "microsoft-teams-mcpplugin"
-version = "2.0.0a4"
-description = "library for handling mcp with teams ai library"
+version = "2.0.0a5"
+description = "library for handling mcp with teams sdk"
 authors = [{ name = "Microsoft", email = "TeamsAISDKFeedback@microsoft.com" }]
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.12,<3.14"
 repository = "https://github.com/microsoft/teams.py"
 keywords = ["microsoft", "teams", "ai", "bot", "agents"]
 license = "MIT"
@@ -13,7 +13,7 @@ dependencies = [
     "microsoft-teams-common",
     "fastmcp>=0.5.0",
     "microsoft-teams-apps",
-    "microsoft-teams-ai" 
+    "microsoft-teams-ai"
 ]
 
 [tool.microsoft-teams.metadata]

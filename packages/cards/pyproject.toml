@@ -1,6 +1,6 @@
 [project]
 name = "microsoft-teams-cards"
-version = "2.0.0a4"
+version = "2.0.0a5"
 description = "Cards package for Microsoft Teams"
 readme = "README.md"
 repository = "https://github.com/microsoft/teams.py"
@@ -9,7 +9,7 @@ license = "MIT"
 authors = [
     { name = "Microsoft", email = "TeamsAISDKFeedback@microsoft.com" }
 ]
-requires-python = ">=3.12"
+requires-python = ">=3.12,<3.14"
 dependencies = [
     "coverage>=7.8.0",
     "pytest>=8.3.5",

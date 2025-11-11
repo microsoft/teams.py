@@ -1,6 +1,6 @@
-# Microsoft Teams AI Library for Python
+# Microsoft Teams SDK for Python
 
-Microsoft Teams AI Library for Python is a comprehensive SDK for building Microsoft Teams applications, bots, and AI agents using Python. This is a monorepo with workspace structure containing core packages and test applications.
+Microsoft Teams SDK for Python is a comprehensive SDK for building Microsoft Teams applications, bots, and AI agents using Python. This is a monorepo with workspace structure containing core packages and test applications.
 
 **Always reference these instructions first and fallback to search or bash commands only when you encounter unexpected information that does not match the info here.**
 
@@ -23,10 +23,10 @@ Microsoft Teams AI Library for Python is a comprehensive SDK for building Micros
    ```bash
    # On Linux/Mac
    source .venv/bin/activate
-   
+
    # On Windows
    .venv\Scripts\Activate
-   
+
    # Alternative: Use uv run (no activation needed)
    # Example: uv run pytest packages
    ```
@@ -89,7 +89,7 @@ Microsoft Teams AI Library for Python is a comprehensive SDK for building Micros
 ```bash
 # These commands must pass:
 ruff format --check  # Format validation
-ruff check          # Linting validation  
+ruff check          # Linting validation
 pyright             # Type checking validation
 ```
 
@@ -97,7 +97,7 @@ pyright             # Type checking validation
 
 ### Core Packages (`/packages`)
 - **microsoft-teams-apps**: Main application framework
-- **microsoft-teams-ai**: AI integration functionality  
+- **microsoft-teams-ai**: AI integration functionality
 - **microsoft-teams-api**: Teams API client
 - **microsoft-teams-cards**: Adaptive cards support
 - **microsoft-teams-common**: Shared utilities
@@ -153,7 +153,7 @@ The CI pipeline (`.github/workflows/ci.yml`) runs:
 
 ### Common Problems
 - **Import errors**: Ensure virtual environment is activated (`source .venv/bin/activate`) or use `uv run` commands
-- **UV not found**: Install with pip: `python -m pip install uv`  
+- **UV not found**: Install with pip: `python -m pip install uv`
 - **Test failures**: Run `uv sync --all-packages --group dev` to update dependencies
 - **Type errors**: Run `pyright` to catch type issues before CI
 - **Format issues**: Run `ruff format` to auto-fix formatting
@@ -163,7 +163,7 @@ The CI pipeline (`.github/workflows/ci.yml`) runs:
 
 - **NEVER CANCEL builds or tests** - Commands complete in 3-18 seconds but network delays may occur
 - **ALWAYS use timeouts of 60+ seconds** for any UV or build commands
-- **ALWAYS activate virtual environment or use uv run** before running Python commands  
+- **ALWAYS activate virtual environment or use uv run** before running Python commands
 - **ALWAYS validate with a test app** after making changes to core packages
 - **ALWAYS run pre-commit validation** (`poe check && pyright`) before committing
 - **NEVER skip manual testing** - Automated tests don't cover integration scenarios
@@ -175,7 +175,7 @@ The CI pipeline (`.github/workflows/ci.yml`) runs:
 .
 ├── .github/          # GitHub workflows and configs
 ├── packages/         # Core SDK packages
-├── tests/           # Test applications  
+├── tests/           # Test applications
 ├── templates/       # Cookiecutter templates
 ├── scripts/         # Build and release scripts
 ├── pyproject.toml   # Workspace and tool configuration
