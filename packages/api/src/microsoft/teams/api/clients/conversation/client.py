@@ -8,6 +8,7 @@ from typing import Dict, Optional, Union
 from microsoft.teams.common.http import Client, ClientOptions
 
 from ...models import ConversationResource
+from ..api_client_settings import ApiClientSettings, merge_api_client_settings
 from ..base_client import BaseClient
 from .activity import ActivityParams, ConversationActivityClient
 from .member import ConversationMemberClient
@@ -61,18 +62,25 @@ class MemberOperations(ConversationOperations):
 class ConversationClient(BaseClient):
     """Client for managing Teams conversations."""
 
-    def __init__(self, service_url: str, options: Optional[Union[Client, ClientOptions]] = None) -> None:
+    def __init__(
+        self,
+        service_url: str,
+        options: Optional[Union[Client, ClientOptions]] = None,
+        api_client_settings: Optional[ApiClientSettings] = None,
+    ) -> None:
         """Initialize the client.
 
         Args:
             service_url: The Teams service URL.
             options: Either an HTTP client instance or client options. If None, a default client is created.
+            api_client_settings: Optional API client settings for configuring OAuth endpoints.
         """
         super().__init__(options)
         self.service_url = service_url
+        self._api_client_settings = merge_api_client_settings(api_client_settings)
 
-        self._activities_client = ConversationActivityClient(service_url, self.http)
-        self._members_client = ConversationMemberClient(service_url, self.http)
+        self._activities_client = ConversationActivityClient(service_url, self.http, self._api_client_settings)
+        self._members_client = ConversationMemberClient(service_url, self.http, self._api_client_settings)
 
     @property
     def http(self) -> Client:

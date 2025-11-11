@@ -4,6 +4,7 @@ Licensed under the MIT License.
 """
 
 import pytest
+from microsoft.teams.api.clients import ApiClientSettings
 from microsoft.teams.api.clients.user import UserClient
 from microsoft.teams.api.clients.user.params import (
     ExchangeUserTokenParams,
@@ -143,3 +144,96 @@ class TestUserClientHttpClientSharing:
         client.http = new_http_client
 
         assert client.token.http == new_http_client
+
+
+@pytest.mark.unit
+class TestUserClientRegionalEndpoints:
+    """Test that UserClient can use regional OAuth endpoints."""
+
+    @pytest.mark.asyncio
+    async def test_user_token_get_with_regional_endpoint(self, mock_http_client):
+        """Test getting user token with regional endpoint."""
+        regional_settings = ApiClientSettings(oauth_url="https://europe.token.botframework.com")
+        client = UserClient(mock_http_client, regional_settings)
+
+        params = GetUserTokenParams(
+            user_id="test_user_id",
+            connection_name="test_connection",
+            channel_id="test_channel_id",
+            code="auth_code_123",
+        )
+
+        response = await client.token.get(params)
+
+        assert response.token is not None
+        assert response.connection_name == "test_connection"
+
+    @pytest.mark.asyncio
+    async def test_user_token_get_aad_with_regional_endpoint(self, mock_http_client):
+        """Test getting AAD tokens with regional endpoint."""
+        regional_settings = ApiClientSettings(oauth_url="https://europe.token.botframework.com")
+        client = UserClient(mock_http_client, regional_settings)
+
+        params = GetUserAADTokenParams(
+            user_id="test_user_id",
+            connection_name="test_connection",
+            resource_urls=["https://graph.microsoft.com"],
+            channel_id="test_channel_id",
+        )
+
+        response = await client.token.get_aad(params)
+
+        assert isinstance(response, dict)
+
+    @pytest.mark.asyncio
+    async def test_user_token_get_status_with_regional_endpoint(self, mock_http_client):
+        """Test getting token status with regional endpoint."""
+        regional_settings = ApiClientSettings(oauth_url="https://europe.token.botframework.com")
+        client = UserClient(mock_http_client, regional_settings)
+
+        params = GetUserTokenStatusParams(
+            user_id="test_user_id",
+            channel_id="test_channel_id",
+            include_filter="*",
+        )
+
+        response = await client.token.get_status(params)
+
+        assert isinstance(response, list)
+
+    @pytest.mark.asyncio
+    async def test_user_token_sign_out_with_regional_endpoint(self, mock_http_client):
+        """Test signing out with regional endpoint."""
+        regional_settings = ApiClientSettings(oauth_url="https://europe.token.botframework.com")
+        client = UserClient(mock_http_client, regional_settings)
+
+        params = SignOutUserParams(
+            user_id="test_user_id",
+            connection_name="test_connection",
+            channel_id="test_channel_id",
+        )
+
+        await client.token.sign_out(params)
+
+    @pytest.mark.asyncio
+    async def test_user_token_exchange_with_regional_endpoint(self, mock_http_client):
+        """Test exchanging token with regional endpoint."""
+        regional_settings = ApiClientSettings(oauth_url="https://europe.token.botframework.com")
+        client = UserClient(mock_http_client, regional_settings)
+
+        exchange_request = TokenExchangeRequest(
+            uri="https://test.resource.com",
+            token="exchange_token_123",
+        )
+
+        params = ExchangeUserTokenParams(
+            user_id="test_user_id",
+            connection_name="test_connection",
+            channel_id="test_channel_id",
+            exchange_request=exchange_request,
+        )
+
+        response = await client.token.exchange(params)
+
+        assert response.token is not None
+        assert response.connection_name == "test_connection"

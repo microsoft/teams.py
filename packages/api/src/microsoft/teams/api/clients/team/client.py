@@ -8,6 +8,7 @@ from typing import List, Optional, Union
 from microsoft.teams.common.http import Client, ClientOptions
 
 from ...models import ChannelInfo, TeamDetails
+from ..api_client_settings import ApiClientSettings, merge_api_client_settings
 from ..base_client import BaseClient
 
 
@@ -18,6 +19,7 @@ class TeamClient(BaseClient):
         self,
         service_url: str,
         options: Optional[Union[Client, ClientOptions]] = None,
+        api_client_settings: Optional[ApiClientSettings] = None,
     ) -> None:
         """
         Initialize the TeamClient.
@@ -25,9 +27,11 @@ class TeamClient(BaseClient):
         Args:
             service_url: The service URL for API calls.
             options: Optional Client or ClientOptions instance. If not provided, a default Client will be created.
+            api_client_settings: Optional API client settings for configuring OAuth endpoints.
         """
         super().__init__(options)
         self.service_url = service_url
+        self._api_client_settings = merge_api_client_settings(api_client_settings)
 
     async def get_by_id(self, id: str) -> TeamDetails:
         """

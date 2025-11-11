@@ -8,6 +8,7 @@ from typing import Optional, Union
 from microsoft.teams.common import Client as HttpClient
 from microsoft.teams.common import ClientOptions
 
+from .api_client_settings import ApiClientSettings, merge_api_client_settings
 from .base_client import BaseClient
 from .bot import BotClient
 from .conversation import ConversationClient
@@ -19,22 +20,29 @@ from .user import UserClient
 class ApiClient(BaseClient):
     """Unified client for Microsoft Teams API operations."""
 
-    def __init__(self, service_url: str, options: Optional[Union[HttpClient, ClientOptions]] = None) -> None:
+    def __init__(
+        self,
+        service_url: str,
+        options: Optional[Union[HttpClient, ClientOptions]] = None,
+        api_client_settings: Optional[ApiClientSettings] = None,
+    ) -> None:
         """Initialize the unified Teams API client.
 
         Args:
             service_url: The Teams service URL for API calls.
             options: Either an HTTP client instance or client options. If None, a default client is created.
+            api_client_settings: Optional API client settings for configuring OAuth endpoints.
         """
         super().__init__(options)
         self.service_url = service_url
+        self._api_client_settings = merge_api_client_settings(api_client_settings)
 
         # Initialize all client types
-        self.bots = BotClient(self._http)
-        self.users = UserClient(self._http)
-        self.conversations = ConversationClient(service_url, self._http)
-        self.teams = TeamClient(service_url, self._http)
-        self.meetings = MeetingClient(service_url, self._http)
+        self.bots = BotClient(self._http, self._api_client_settings)
+        self.users = UserClient(self._http, self._api_client_settings)
+        self.conversations = ConversationClient(service_url, self._http, self._api_client_settings)
+        self.teams = TeamClient(service_url, self._http, self._api_client_settings)
+        self.meetings = MeetingClient(service_url, self._http, self._api_client_settings)
 
     @property
     def http(self) -> HttpClient:

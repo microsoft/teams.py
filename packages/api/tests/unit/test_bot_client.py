@@ -5,6 +5,7 @@ Licensed under the MIT License.
 # pyright: basic
 
 import pytest
+from microsoft.teams.api.clients import ApiClientSettings
 from microsoft.teams.api.clients.bot import BotClient
 from microsoft.teams.api.clients.bot.params import (
     GetBotSignInResourceParams,
@@ -134,3 +135,38 @@ class TestBotClientHttpClientSharing:
 
         assert client.token.http == new_http_client
         assert client.sign_in.http == new_http_client
+
+
+@pytest.mark.unit
+class TestBotClientRegionalEndpoints:
+    """Test that BotClient can use regional OAuth endpoints."""
+
+    @pytest.mark.asyncio
+    async def test_bot_sign_in_get_url_with_regional_endpoint(self, mock_http_client):
+        """Test getting bot sign-in URL with regional endpoint."""
+        regional_settings = ApiClientSettings(oauth_url="https://europe.token.botframework.com")
+        client = BotClient(mock_http_client, regional_settings)
+
+        params = GetBotSignInUrlParams(
+            state="test_state",
+            code_challenge="test_challenge",
+        )
+
+        url = await client.sign_in.get_url(params)
+
+        assert isinstance(url, str)
+
+    @pytest.mark.asyncio
+    async def test_bot_sign_in_get_resource_with_regional_endpoint(self, mock_http_client):
+        """Test getting bot sign-in resource with regional endpoint."""
+        regional_settings = ApiClientSettings(oauth_url="https://europe.token.botframework.com")
+        client = BotClient(mock_http_client, regional_settings)
+
+        params = GetBotSignInResourceParams(
+            state="test_state",
+            code_challenge="test_challenge",
+        )
+
+        response = await client.sign_in.get_resource(params)
+
+        assert response.sign_in_link is not None
