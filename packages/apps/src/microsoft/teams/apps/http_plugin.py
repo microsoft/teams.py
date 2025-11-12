@@ -17,7 +17,6 @@ from typing import (
     Callable,
     Dict,
     Optional,
-    Required,
     TypedDict,
     Union,
     Unpack,
@@ -36,6 +35,7 @@ from microsoft.teams.api import (
     SentActivity,
     TokenProtocol,
 )
+from microsoft.teams.api.auth.credentials import Credentials
 from microsoft.teams.apps.http_stream import HttpStream
 from microsoft.teams.common.http import Client, ClientOptions, Token
 from microsoft.teams.common.logging import ConsoleLogger
@@ -63,7 +63,6 @@ version = importlib.metadata.version("microsoft-teams-apps")
 class HttpPluginOptions(TypedDict, total=False):
     """Options for configuring the HTTP plugin."""
 
-    app_id: Required[Optional[str]]  # must be present, but can be None
     logger: Logger
     skip_auth: bool
     server_factory: Callable[[FastAPI], uvicorn.Server]
@@ -76,6 +75,7 @@ class HttpPlugin(Sender):
     """
 
     logger: Annotated[Logger, LoggerDependencyOptions()]
+    credentials: Annotated[Optional[Credentials], DependencyMetadata(optional=True)]
 
     on_error_event: Annotated[Callable[[ErrorEvent], None], EventMetadata(name="error")]
     on_activity_event: Annotated[Callable[[ActivityEvent], None], EventMetadata(name="activity")]
@@ -89,7 +89,6 @@ class HttpPlugin(Sender):
     def __init__(self, **options: Unpack[HttpPluginOptions]):
         """
         Args:
-            app_id: Optional Microsoft App ID.
             logger: Optional logger.
             skip_auth: Whether to skip JWT validation.
             server_factory: Optional function that takes an ASGI app
@@ -106,6 +105,7 @@ class HttpPlugin(Sender):
         super().__init__()
         self.logger = options.get("logger") or ConsoleLogger().create_logger("@teams/http-plugin")
         self._port: Optional[int] = None
+        self._skip_auth: bool = options.get("skip_auth", False)
         self._server: Optional[uvicorn.Server] = None
         self._on_ready_callback: Optional[Callable[[], Awaitable[None]]] = None
         self._on_stopped_callback: Optional[Callable[[], Awaitable[None]]] = None
@@ -146,15 +146,6 @@ class HttpPlugin(Sender):
                     "server_factory must return a uvicorn.Server configured with the provided FastAPI app instance."
                 )
 
-        # Add JWT validation middleware
-        app_id = options.get("app_id")
-        skip_auth = options.get("skip_auth", False)
-        if app_id and not skip_auth:
-            jwt_middleware = create_jwt_validation_middleware(
-                app_id=app_id, logger=self.logger, paths=["/api/messages"]
-            )
-            self.app.middleware("http")(jwt_middleware)
-
         # Expose FastAPI routing methods (like TypeScript exposes Express methods)
         self.get = self.app.get
         self.post = self.app.post
@@ -185,6 +176,20 @@ class HttpPlugin(Sender):
     def on_stopped_callback(self, callback: Optional[Callable[[], Awaitable[None]]]) -> None:
         """Set callback to call when HTTP server is stopped."""
         self._on_stopped_callback = callback
+
+    async def on_init(self) -> None:
+        """
+        Initialize the HTTP plugin when the app starts.
+        This adds JWT validation middleware unless `skip_auth` is True.
+        """
+
+        # Add JWT validation middleware
+        app_id = getattr(self.credentials, "client_id", None)
+        if app_id and not self._skip_auth:
+            jwt_middleware = create_jwt_validation_middleware(
+                app_id=app_id, logger=self.logger, paths=["/api/messages"]
+            )
+            self.app.middleware("http")(jwt_middleware)
 
     async def on_start(self, event: PluginStartEvent) -> None:
         """Start the HTTP server."""

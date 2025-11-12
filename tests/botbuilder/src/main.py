@@ -5,7 +5,6 @@ Licensed under the MIT License.
 
 import asyncio
 import datetime
-import os
 import sys
 import traceback
 
@@ -48,9 +47,10 @@ async def on_error(context: TurnContext, error: Exception):
 
 adapter.on_turn_error = on_error
 
-app = App(
-    plugins=[BotBuilderPlugin(app_id=os.getenv("CLIENT_ID"), adapter=adapter, handler=EchoBot()), DevToolsPlugin()]
-)
+# Provide the Bot Framework's adapter and activity handler to `BotBuilderPlugin`
+# BotBuilderPlugin will route incoming Teams messages through the adapter
+# and invoke the handler to process and respond to each activity.
+app = App(plugins=[BotBuilderPlugin(adapter=adapter, handler=EchoBot()), DevToolsPlugin()])
 
 
 @app.on_message
