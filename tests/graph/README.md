@@ -34,6 +34,23 @@ This demo application showcases how to use Microsoft Graph APIs within a Teams b
    # PORT=3979  # Optional: specify custom port (defaults to 3979)
    ```
 
+## Configuring a Regional Bot
+NOTE: This example uses West Europe, but follow the equivalent for other locations.
+
+1. In `azurebot.bicep`, replace all `global` occurrences to `westeurope`
+2. In `manifest.json`, in `validDomains`, `*.botframework.com` should be replaced by `europe.token.botframework.com`
+3. In `aad.manifest.json`, replace `https://token.botframework.com/.auth/web/redirect` with `https://europe.token.botframework.com/.auth/web/redirect`
+4. In `main.py`, update `AppOptions` to include `api_client_settings`
+
+```python
+app = App(
+    default_connection_name='graph',
+    api_client_settings=ApiClientSettings(
+        oauth_url="https://europe.token.botframework.com"
+    )
+)
+```
+
 ## Running
 
 ### Option 1: Using the PowerShell Script (Recommended)
