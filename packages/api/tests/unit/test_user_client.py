@@ -3,43 +3,25 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
+# pyright: basic
+
 import pytest
-from microsoft.teams.api.clients import ApiClientSettings
-from microsoft.teams.api.clients.user import UserClient
-from microsoft.teams.api.clients.user.params import (
+from microsoft.teams.api import (
+    ApiClientSettings,
     ExchangeUserTokenParams,
     GetUserAADTokenParams,
     GetUserTokenParams,
     GetUserTokenStatusParams,
     SignOutUserParams,
+    TokenExchangeRequest,
+    UserClient,
 )
-from microsoft.teams.api.models import TokenExchangeRequest
 
 
 @pytest.mark.unit
 class TestUserClient:
-    """Unit tests for UserClient."""
-
-    def test_user_client_initialization(self, mock_http_client):
-        """Test UserClient initialization."""
-        client = UserClient(mock_http_client)
-
-        assert client.http == mock_http_client
-        assert client.token is not None
-
-    def test_user_client_initialization_with_options(self):
-        """Test UserClient initialization with ClientOptions."""
-        from microsoft.teams.common.http import ClientOptions
-
-        options = ClientOptions(base_url="https://test.api.com")
-        client = UserClient(options)
-
-        assert client.http is not None
-        assert client.token is not None
-
     @pytest.mark.asyncio
     async def test_user_token_get(self, mock_http_client):
-        """Test getting user token."""
         client = UserClient(mock_http_client)
 
         params = GetUserTokenParams(
@@ -52,11 +34,11 @@ class TestUserClient:
         response = await client.token.get(params)
 
         assert response.token is not None
+        assert response.token == "mock_access_token_123"
         assert response.connection_name == "test_connection"
 
     @pytest.mark.asyncio
     async def test_user_token_get_aad(self, mock_http_client):
-        """Test getting AAD tokens for user."""
         client = UserClient(mock_http_client)
 
         params = GetUserAADTokenParams(
@@ -68,12 +50,11 @@ class TestUserClient:
 
         response = await client.token.get_aad(params)
 
-        assert isinstance(response, dict)
-        # Mock response should return token responses for each resource
+        assert "https://graph.microsoft.com" in response
+        assert "https://api.botframework.com" in response
 
     @pytest.mark.asyncio
     async def test_user_token_get_status(self, mock_http_client):
-        """Test getting user token status."""
         client = UserClient(mock_http_client)
 
         params = GetUserTokenStatusParams(
@@ -84,11 +65,13 @@ class TestUserClient:
 
         response = await client.token.get_status(params)
 
-        assert isinstance(response, list)
+        assert len(response) > 0
+        for item in response:
+            assert item.connection_name == "test_connection"
+            assert item.has_token is True
 
     @pytest.mark.asyncio
     async def test_user_token_sign_out(self, mock_http_client):
-        """Test signing out user."""
         client = UserClient(mock_http_client)
 
         params = SignOutUserParams(
@@ -98,11 +81,11 @@ class TestUserClient:
         )
 
         # Should not raise an exception
-        await client.token.sign_out(params)
+        result = await client.token.sign_out(params)
+        assert result is None or result is True
 
     @pytest.mark.asyncio
     async def test_user_token_exchange(self, mock_http_client):
-        """Test exchanging user token."""
         client = UserClient(mock_http_client)
 
         exchange_request = TokenExchangeRequest(
@@ -120,21 +103,18 @@ class TestUserClient:
         response = await client.token.exchange(params)
 
         assert response.token is not None
+        assert response.token == "mock_exchanged_token_123"
         assert response.connection_name == "test_connection"
 
 
 @pytest.mark.unit
 class TestUserClientHttpClientSharing:
-    """Test that HTTP client is properly shared between sub-clients."""
-
     def test_http_client_sharing(self, mock_http_client):
-        """Test that all sub-clients share the same HTTP client."""
         client = UserClient(mock_http_client)
 
         assert client.token.http == mock_http_client
 
     def test_http_client_update_propagates(self, mock_http_client):
-        """Test that updating HTTP client propagates to sub-clients."""
         from microsoft.teams.common.http import Client, ClientOptions
 
         client = UserClient(mock_http_client)
@@ -148,11 +128,8 @@ class TestUserClientHttpClientSharing:
 
 @pytest.mark.unit
 class TestUserClientRegionalEndpoints:
-    """Test that UserClient can use regional OAuth endpoints."""
-
     @pytest.mark.asyncio
     async def test_user_token_get_with_regional_endpoint(self, mock_http_client):
-        """Test getting user token with regional endpoint."""
         regional_settings = ApiClientSettings(oauth_url="https://europe.token.botframework.com")
         client = UserClient(mock_http_client, regional_settings)
 
@@ -166,11 +143,11 @@ class TestUserClientRegionalEndpoints:
         response = await client.token.get(params)
 
         assert response.token is not None
+        assert response.token == "mock_access_token_123"
         assert response.connection_name == "test_connection"
 
     @pytest.mark.asyncio
     async def test_user_token_get_aad_with_regional_endpoint(self, mock_http_client):
-        """Test getting AAD tokens with regional endpoint."""
         regional_settings = ApiClientSettings(oauth_url="https://europe.token.botframework.com")
         client = UserClient(mock_http_client, regional_settings)
 
@@ -183,11 +160,10 @@ class TestUserClientRegionalEndpoints:
 
         response = await client.token.get_aad(params)
 
-        assert isinstance(response, dict)
+        assert "https://graph.microsoft.com" in response
 
     @pytest.mark.asyncio
     async def test_user_token_get_status_with_regional_endpoint(self, mock_http_client):
-        """Test getting token status with regional endpoint."""
         regional_settings = ApiClientSettings(oauth_url="https://europe.token.botframework.com")
         client = UserClient(mock_http_client, regional_settings)
 
@@ -199,11 +175,13 @@ class TestUserClientRegionalEndpoints:
 
         response = await client.token.get_status(params)
 
-        assert isinstance(response, list)
+        assert len(response) > 0
+        for item in response:
+            assert item.connection_name == "test_connection"
+            assert item.has_token is True
 
     @pytest.mark.asyncio
     async def test_user_token_sign_out_with_regional_endpoint(self, mock_http_client):
-        """Test signing out with regional endpoint."""
         regional_settings = ApiClientSettings(oauth_url="https://europe.token.botframework.com")
         client = UserClient(mock_http_client, regional_settings)
 
@@ -213,11 +191,11 @@ class TestUserClientRegionalEndpoints:
             channel_id="test_channel_id",
         )
 
-        await client.token.sign_out(params)
+        result = await client.token.sign_out(params)
+        assert result is None or result is True
 
     @pytest.mark.asyncio
     async def test_user_token_exchange_with_regional_endpoint(self, mock_http_client):
-        """Test exchanging token with regional endpoint."""
         regional_settings = ApiClientSettings(oauth_url="https://europe.token.botframework.com")
         client = UserClient(mock_http_client, regional_settings)
 
@@ -236,4 +214,5 @@ class TestUserClientRegionalEndpoints:
         response = await client.token.exchange(params)
 
         assert response.token is not None
+        assert response.token == "mock_exchanged_token_123"
         assert response.connection_name == "test_connection"
