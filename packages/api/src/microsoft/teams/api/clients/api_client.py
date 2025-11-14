@@ -8,7 +8,7 @@ from typing import Optional, Union
 from microsoft.teams.common import Client as HttpClient
 from microsoft.teams.common import ClientOptions
 
-from .api_client_settings import ApiClientSettings, merge_api_client_settings
+from .api_client_settings import ApiClientSettings
 from .base_client import BaseClient
 from .bot import BotClient
 from .conversation import ConversationClient
@@ -33,9 +33,8 @@ class ApiClient(BaseClient):
             options: Either an HTTP client instance or client options. If None, a default client is created.
             api_client_settings: Optional API client settings.
         """
-        super().__init__(options)
+        super().__init__(options, api_client_settings)
         self.service_url = service_url
-        self._api_client_settings = merge_api_client_settings(api_client_settings)
 
         # Initialize all client types
         self.bots = BotClient(self._http, self._api_client_settings)

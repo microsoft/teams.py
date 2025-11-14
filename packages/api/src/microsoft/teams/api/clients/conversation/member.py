@@ -8,7 +8,7 @@ from typing import List, Optional
 from microsoft.teams.common.http import Client
 
 from ...models import Account
-from ..api_client_settings import ApiClientSettings, merge_api_client_settings
+from ..api_client_settings import ApiClientSettings
 from ..base_client import BaseClient
 
 
@@ -31,9 +31,8 @@ class ConversationMemberClient(BaseClient):
             http_client: Optional HTTP client to use. If not provided, a new one will be created.
             api_client_settings: Optional API client settings.
         """
-        super().__init__(http_client)
+        super().__init__(http_client, api_client_settings)
         self.service_url = service_url
-        self._api_client_settings = merge_api_client_settings(api_client_settings)
 
     async def get(self, conversation_id: str) -> List[Account]:
         """

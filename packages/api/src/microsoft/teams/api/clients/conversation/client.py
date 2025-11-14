@@ -8,7 +8,7 @@ from typing import Dict, Optional, Union
 from microsoft.teams.common.http import Client, ClientOptions
 
 from ...models import ConversationResource
-from ..api_client_settings import ApiClientSettings, merge_api_client_settings
+from ..api_client_settings import ApiClientSettings
 from ..base_client import BaseClient
 from .activity import ActivityParams, ConversationActivityClient
 from .member import ConversationMemberClient
@@ -75,9 +75,8 @@ class ConversationClient(BaseClient):
             options: Either an HTTP client instance or client options. If None, a default client is created.
             api_client_settings: Optional API client settings.
         """
-        super().__init__(options)
+        super().__init__(options, api_client_settings)
         self.service_url = service_url
-        self._api_client_settings = merge_api_client_settings(api_client_settings)
 
         self._activities_client = ConversationActivityClient(service_url, self.http, self._api_client_settings)
         self._members_client = ConversationMemberClient(service_url, self.http, self._api_client_settings)
