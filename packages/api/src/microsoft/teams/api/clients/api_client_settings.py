@@ -26,7 +26,7 @@ class ApiClientSettings:
 DEFAULT_API_CLIENT_SETTINGS = ApiClientSettings()
 
 
-def merge_api_client_settings(api_client_settings: Optional[ApiClientSettings] = None) -> ApiClientSettings:
+def merge_api_client_settings(api_client_settings: Optional[ApiClientSettings]) -> ApiClientSettings:
     """
     Merge API client settings with environment variables and defaults.
 

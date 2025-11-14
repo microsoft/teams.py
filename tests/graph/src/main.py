@@ -17,10 +17,7 @@ from msgraph.generated.users.item.messages.messages_request_builder import (  # 
 
 logger = logging.getLogger(__name__)
 
-app_options = AppOptions(
-    default_connection_name=os.getenv("CONNECTION_NAME", "graph"),
-    # api_client_settings=ApiClientSettings(oauth_url="https://europe.token.botframework.com")
-)
+app_options = AppOptions(default_connection_name=os.getenv("CONNECTION_NAME", "graph"))
 app = App(**app_options)
 
 
