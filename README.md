@@ -9,6 +9,11 @@ A comprehensive SDK for building Microsoft Teams applications, bots, and AI agen
     <img src="https://img.shields.io/badge/📖 Getting Started-blue?style=for-the-badge" />
 </a>
 
+## Questions & Issues
+
+- **Questions or Feature Requests**: Please use [GitHub Discussions](https://github.com/microsoft/teams-sdk/discussions)
+- **Bug Reports**: Please [open an issue](https://github.com/microsoft/teams.py/issues/new/choose)
+
 - [Getting Started](#getting-started)
 - [Packages](#packages)
 - [Test Apps](#test-apps)
