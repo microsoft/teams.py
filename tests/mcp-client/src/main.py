@@ -8,7 +8,7 @@ import re
 from os import getenv
 
 from dotenv import find_dotenv, load_dotenv
-from microsoft.teams.ai import Agent, ChatPrompt, ListMemory
+from microsoft.teams.ai import ChatPrompt, ListMemory
 from microsoft.teams.api import MessageActivity, MessageActivityInput, TypingActivityInput
 from microsoft.teams.apps import ActivityContext, App
 from microsoft.teams.devtools import DevToolsPlugin
@@ -66,8 +66,8 @@ else:
 # Memory for stateful conversations
 chat_memory = ListMemory()
 
-# Agent using Responses API with MCP tools
-responses_agent = Agent(responses_model, memory=chat_memory, plugins=[mcp_plugin])
+# ChatPrompt using Responses API with MCP tools (stateful)
+responses_prompt = ChatPrompt(responses_model, memory=chat_memory, plugins=[mcp_plugin])
 
 # ChatPrompt with MCP tools (demonstrating docs example)
 chat_prompt = ChatPrompt(completions_model, plugins=[mcp_plugin])
@@ -78,7 +78,7 @@ chat_prompt = ChatPrompt(completions_model, plugins=[mcp_plugin])
 
 @app.on_message_pattern(re.compile(r"^agent\s+(.+)", re.IGNORECASE))
 async def handle_agent_chat(ctx: ActivityContext[MessageActivity]):
-    """Handle 'agent <query>' command using Agent with MCP tools (stateful)"""
+    """Handle 'agent <query>' command using ChatPrompt with MCP tools (stateful)"""
     match = re.match(r"^agent\s+(.+)", ctx.activity.text, re.IGNORECASE)
     if match:
         query = match.group(1).strip()
@@ -86,8 +86,8 @@ async def handle_agent_chat(ctx: ActivityContext[MessageActivity]):
         print(f"[AGENT] Processing: {query}")
         await ctx.send(TypingActivityInput())
 
-        # Use Agent with MCP tools (stateful conversation)
-        result = await responses_agent.send(query)
+        # Use ChatPrompt with MCP tools (stateful conversation)
+        result = await responses_prompt.send(query)
         if result.response.content:
             message = MessageActivityInput(text=result.response.content).add_ai_generated()
             await ctx.send(message)
@@ -147,16 +147,16 @@ async def handle_mcp_info(ctx: ActivityContext[MessageActivity]):
     await ctx.reply(info_text)
 
 
-# Fallback handler for general chat (uses Agent by default)
+# Fallback handler for general chat (uses ChatPrompt by default)
 @app.on_message
 async def handle_fallback_message(ctx: ActivityContext[MessageActivity]):
-    """Fallback handler using Agent with MCP tools"""
+    """Fallback handler using ChatPrompt with MCP tools"""
     print(f"[FALLBACK] Message received: {ctx.activity.text}")
     print(f"[FALLBACK] From: {ctx.activity.from_}")
     await ctx.send(TypingActivityInput())
 
-    # Use Agent with MCP tools for general conversation
-    result = await responses_agent.send(ctx.activity.text)
+    # Use ChatPrompt with MCP tools for general conversation
+    result = await responses_prompt.send(ctx.activity.text)
     if result.response.content:
         message = MessageActivityInput(text=result.response.content).add_ai_generated()
         await ctx.send(message)
