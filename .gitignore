@@ -19,6 +19,7 @@ venv.bak/
 dmypy.json
 
 .copilot-instructions.md
+.private/
 
 # other
 .DS_STORE
