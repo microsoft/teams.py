@@ -1,0 +1,20 @@
+{
+  "id": "activity-1",
+  "name": "signin/failure",
+  "type": "invoke",
+  "from": {
+    "id": "user-1",
+    "name": "Test User"
+  },
+  "conversation": {
+    "id": "conv-1"
+  },
+  "recipient": {
+    "id": "bot-1",
+    "name": "Test Bot"
+  },
+  "value": {
+    "code": "resourcematchfailed",
+    "message": "Resource match failed"
+  }
+}

@@ -9,4 +9,4 @@ from .failure import SignInFailure
 from .response import SignInUrlResponse
 from .state_verify_query import SignInStateVerifyQuery
 
-__all__ = ["SignInUrlResponse", "SignInCard", "SignInExchangeToken", "SignInStateVerifyQuery", "SignInFailure"]
+__all__ = ["SignInCard", "SignInExchangeToken", "SignInFailure", "SignInStateVerifyQuery", "SignInUrlResponse"]
