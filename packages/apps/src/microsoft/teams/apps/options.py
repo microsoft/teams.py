@@ -16,12 +16,24 @@ from .plugins import PluginBase
 class AppOptions(TypedDict, total=False):
     """Configuration options for the Teams App."""
 
-    # Authentication credentials
     client_id: Optional[str]
+    """The client ID of the app registration."""
     client_secret: Optional[str]
+    """The client secret. If provided with client_id, uses ClientCredentials auth."""
     tenant_id: Optional[str]
+    """The tenant ID. Required for single-tenant apps."""
     # Custom token provider function
     token: Optional[Callable[[Union[str, list[str]], Optional[str]], Union[str, Awaitable[str]]]]
+    """Custom token provider function. If provided with client_id (no client_secret), uses TokenCredentials."""
+
+    # Managed identity configuration (used when client_id provided without client_secret or token)
+    managed_identity_client_id: Optional[str]
+    """
+    The managed identity client ID for user-assigned managed identity.
+    Set to "system" for system-assigned managed identity (triggers Federated Identity Credentials).
+    If set to a different client ID than client_id, triggers Federated Identity Credentials with user-assigned MI.
+    If not set or equals client_id, uses direct managed identity (no federation).
+    """
 
     # Infrastructure
     logger: Optional[Logger]
@@ -44,9 +56,20 @@ class InternalAppOptions:
 
     # Optional fields
     client_id: Optional[str] = None
+    """The client ID of the app registration."""
     client_secret: Optional[str] = None
+    """The client secret. If provided with client_id, uses ClientCredentials auth."""
     tenant_id: Optional[str] = None
+    """The tenant ID. Required for single-tenant apps."""
     token: Optional[Callable[[Union[str, list[str]], Optional[str]], Union[str, Awaitable[str]]]] = None
+    """Custom token provider function. If provided with client_id (no client_secret), uses TokenCredentials."""
+    managed_identity_client_id: Optional[str] = None
+    """
+    The managed identity client ID for user-assigned managed identity.
+    Set to "system" for system-assigned managed identity (triggers Federated Identity Credentials).
+    If set to a different client ID than client_id, triggers Federated Identity Credentials with user-assigned MI.
+    If not set or equals client_id, uses direct managed identity (no federation).
+    """
     logger: Optional[Logger] = None
     storage: Optional[Storage[str, Any]] = None
 

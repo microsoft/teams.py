@@ -17,7 +17,7 @@ class AIModel(Protocol):
     Protocol defining the interface for AI models that can generate text responses.
 
     This protocol standardizes how different AI providers (OpenAI, Azure OpenAI, etc.)
-    integrate with the Teams AI framework. Implementations should handle message
+    integrate with the Teams SDK. Implementations should handle message
     processing, function calling, and optional streaming.
     """
 

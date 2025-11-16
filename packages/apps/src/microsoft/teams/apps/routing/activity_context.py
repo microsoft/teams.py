@@ -26,7 +26,6 @@ from microsoft.teams.api import (
     TokenExchangeResource,
     TokenExchangeState,
     TokenPostResource,
-    TokenProtocol,
 )
 from microsoft.teams.api.models.attachment.card_attachment import (
     OAuthCardAttachment,
@@ -35,6 +34,7 @@ from microsoft.teams.api.models.attachment.card_attachment import (
 from microsoft.teams.api.models.oauth import OAuthCard
 from microsoft.teams.cards import AdaptiveCard
 from microsoft.teams.common import Storage
+from microsoft.teams.common.http.client_token import Token
 
 if TYPE_CHECKING:
     from msgraph.graph_service_client import GraphServiceClient
@@ -46,7 +46,7 @@ T = TypeVar("T", bound=ActivityBase, contravariant=True)
 SendCallable = Callable[[str | ActivityParams | AdaptiveCard], Awaitable[SentActivity]]
 
 
-def _get_graph_client(token: TokenProtocol):
+def _get_graph_client(token: Token):
     """Lazy import and call get_graph_client when needed."""
     try:
         from microsoft.teams.graph import get_graph_client
@@ -97,7 +97,7 @@ class ActivityContext(Generic[T]):
         is_signed_in: bool,
         connection_name: str,
         sender: Sender,
-        app_token: Optional[TokenProtocol],
+        app_token: Token,
     ):
         self.activity = activity
         self.app_id = app_id
@@ -158,9 +158,6 @@ class ActivityContext(Generic[T]):
             ImportError: If the graph dependencies are not installed.
 
         """
-        if not self._app_token:
-            raise ValueError("No app token available for Graph client")
-
         if self._app_graph is None:
             try:
                 self._app_graph = _get_graph_client(self._app_token)

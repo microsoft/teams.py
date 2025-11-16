@@ -21,7 +21,8 @@ from microsoft.teams.api import (
     ConversationAccount,
     ConversationReference,
     Credentials,
-    JsonWebToken,
+    FederatedIdentityCredentials,
+    ManagedIdentityCredentials,
     MessageActivityInput,
     TokenCredentials,
 )
@@ -32,7 +33,6 @@ from .app_events import EventManager
 from .app_oauth import OauthHandlers
 from .app_plugins import PluginProcessor
 from .app_process import ActivityProcessor
-from .app_tokens import AppTokens
 from .auth import TokenValidator
 from .auth.remote_function_jwt_middleware import remote_function_jwt_validation
 from .container import Container
@@ -45,12 +45,12 @@ from .events import (
     get_event_type_from_signature,
     is_registered_event,
 )
-from .graph_token_manager import GraphTokenManager
 from .http_plugin import HttpPlugin
 from .options import AppOptions, InternalAppOptions
 from .plugins import PluginBase, PluginStartEvent, get_metadata
 from .routing import ActivityHandlerMixin, ActivityRouter
 from .routing.activity_context import ActivityContext
+from .token_manager import TokenManager
 
 version = importlib.metadata.version("microsoft-teams-apps")
 
@@ -58,7 +58,7 @@ F = TypeVar("F", bound=Callable[..., Any])
 FCtx = TypeVar("FCtx", bound=Callable[[FunctionContext[Any]], Any])
 load_dotenv(find_dotenv(usecwd=True))
 
-USER_AGENT = f"teams.py[app]/{version}"
+USER_AGENT = f"teams.py[apps]/{version}"
 
 
 class App(ActivityHandlerMixin):
@@ -83,22 +83,24 @@ class App(ActivityHandlerMixin):
         self._events = EventEmitter[EventType]()
         self._router = ActivityRouter()
 
-        self._tokens = AppTokens()
         self.credentials = self._init_credentials()
+
+        self._token_manager = TokenManager(
+            credentials=self.credentials,
+            logger=self.log,
+        )
 
         self.container = Container()
         self.container.set_provider("id", providers.Object(self.id))
-        self.container.set_provider("name", providers.Object(self.name))
         self.container.set_provider("credentials", providers.Object(self.credentials))
-        self.container.set_provider("bot_token", providers.Callable(lambda: self.tokens.bot))
-        self.container.set_provider("graph_token", providers.Callable(lambda: self.tokens.graph))
+        self.container.set_provider("bot_token", providers.Factory(lambda: self._get_bot_token))
         self.container.set_provider("logger", providers.Object(self.log))
         self.container.set_provider("storage", providers.Object(self.storage))
         self.container.set_provider(self.http_client.__class__.__name__, providers.Factory(lambda: self.http_client))
 
         self.api = ApiClient(
             "https://smba.trafficmanager.net/teams",
-            self.http_client.clone(ClientOptions(token=lambda: self.tokens.bot)),
+            self.http_client.clone(ClientOptions(token=self._get_bot_token)),
         )
 
         plugins: List[PluginBase] = list(self.options.plugins)
@@ -125,11 +127,6 @@ class App(ActivityHandlerMixin):
         self._running = False
 
         # initialize all event, activity, and plugin processors
-        self.graph_token_manager = GraphTokenManager(
-            api_client=self.api,
-            credentials=self.credentials,
-            logger=self.log,
-        )
         self.activity_processor = ActivityProcessor(
             self._router,
             self.log,
@@ -137,8 +134,7 @@ class App(ActivityHandlerMixin):
             self.storage,
             self.options.default_connection_name,
             self.http_client,
-            self.tokens,
-            self.graph_token_manager,
+            self._token_manager,
         )
         self.event_manager = EventManager(self._events, self.activity_processor)
         self.activity_processor.event_manager = self.event_manager
@@ -170,11 +166,6 @@ class App(ActivityHandlerMixin):
         return self._running
 
     @property
-    def tokens(self) -> AppTokens:
-        """Current authentication tokens."""
-        return self._tokens
-
-    @property
     def logger(self) -> Logger:
         """The logger instance used by the app."""
         return self.log
@@ -191,17 +182,10 @@ class App(ActivityHandlerMixin):
 
     @property
     def id(self) -> Optional[str]:
-        """The app's ID from tokens."""
-        return (
-            self._tokens.bot.app_id if self._tokens.bot else self._tokens.graph.app_id if self._tokens.graph else None
-        )
-
-    @property
-    def name(self) -> Optional[str]:
-        """The app's name from tokens."""
-        return getattr(self._tokens.bot, "app_display_name", None) or getattr(
-            self._tokens.graph, "app_display_name", None
-        )
+        """The app's ID from credentials."""
+        if not self.credentials:
+            return None
+        return self.credentials.client_id
 
     async def start(self, port: Optional[int] = None) -> None:
         """
@@ -220,9 +204,6 @@ class App(ActivityHandlerMixin):
         self._port = port or int(os.getenv("PORT", "3978"))
 
         try:
-            await self._refresh_tokens(force=True)
-            self._running = True
-
             for plugin in self.plugins:
                 # Inject the dependencies
                 self._plugin_processor.inject(plugin)
@@ -234,6 +215,7 @@ class App(ActivityHandlerMixin):
                 self.log.info("Teams app started successfully")
                 assert self._port is not None, "Port must be set before emitting start event"
                 self._events.emit("start", StartEvent(port=self._port))
+                self._running = True
 
             self.http.on_ready_callback = on_http_ready
 
@@ -280,13 +262,13 @@ class App(ActivityHandlerMixin):
     async def send(self, conversation_id: str, activity: str | ActivityParams | AdaptiveCard):
         """Send an activity proactively."""
 
-        if self.id is None or self.name is None:
+        if self.id is None:
             raise ValueError("app not started")
 
         conversation_ref = ConversationReference(
             channel_id="msteams",
             service_url=self.api.service_url,
-            bot=Account(id=self.id, name=self.name, role="bot"),
+            bot=Account(id=self.id, role="bot"),
             conversation=ConversationAccount(id=conversation_id, conversation_type="personal"),
         )
 
@@ -309,6 +291,7 @@ class App(ActivityHandlerMixin):
         client_secret = self.options.client_secret or os.getenv("CLIENT_SECRET")
         tenant_id = self.options.tenant_id or os.getenv("TENANT_ID")
         token = self.options.token
+        managed_identity_client_id = self.options.managed_identity_client_id or os.getenv("MANAGED_IDENTITY_CLIENT_ID")
 
         self.log.debug(f"Using CLIENT_ID: {client_id}")
         if not tenant_id:
@@ -316,74 +299,40 @@ class App(ActivityHandlerMixin):
         else:
             self.log.debug(f"Using TENANT_ID: {tenant_id} (assuming single-tenant app)")
 
-        # - If client_id + client_secret : use ClientCredentials (standard client auth)
         if client_id and client_secret:
+            self.log.debug("Using client secret for auth")
             return ClientCredentials(client_id=client_id, client_secret=client_secret, tenant_id=tenant_id)
 
-        # - If client_id + token callable : use TokenCredentials (where token is a custom token provider)
         if client_id and token:
             return TokenCredentials(client_id=client_id, tenant_id=tenant_id, token=token)
 
+        if client_id:
+            if managed_identity_client_id == "system":
+                self.log.debug("Using Federated Identity Credentials with system-assigned managed identity")
+                return FederatedIdentityCredentials(
+                    client_id=client_id,
+                    managed_identity_type="system",
+                    managed_identity_client_id=None,
+                    tenant_id=tenant_id,
+                )
+
+            if managed_identity_client_id and managed_identity_client_id != client_id:
+                self.log.debug("Using Federated Identity Credentials with user-assigned managed identity")
+                return FederatedIdentityCredentials(
+                    client_id=client_id,
+                    managed_identity_type="user",
+                    managed_identity_client_id=managed_identity_client_id,
+                    tenant_id=tenant_id,
+                )
+
+            self.log.debug("Using user-assigned managed identity (direct)")
+            mi_client_id = managed_identity_client_id or client_id
+            return ManagedIdentityCredentials(
+                client_id=mi_client_id,
+                tenant_id=tenant_id,
+            )
+
         return None
-
-    async def _refresh_tokens(self, force: bool = False) -> None:
-        """Refresh bot and graph tokens."""
-        await asyncio.gather(self._refresh_bot_token(force), self._refresh_graph_token(force), return_exceptions=True)
-
-    async def _refresh_bot_token(self, force: bool = False) -> None:
-        """Refresh the bot authentication token."""
-        if not self.credentials:
-            self.log.warning("No credentials provided, skipping bot token refresh")
-            return
-
-        if not force and self._tokens.bot and not self._tokens.bot.is_expired():
-            return
-
-        if self._tokens.bot:
-            self.log.debug("Refreshing bot token")
-
-        try:
-            token_response = await self.api.bots.token.get(self.credentials)
-            self._tokens.bot = JsonWebToken(token_response.access_token)
-            self.log.debug("Bot token refreshed successfully")
-
-        except Exception as error:
-            self.log.error(f"Failed to refresh bot token: {error}")
-
-            self._events.emit("error", ErrorEvent(error, context={"method": "_refresh_bot_token"}))
-            raise
-
-    async def _refresh_graph_token(self, force: bool = False) -> None:
-        """Refresh the Graph API token."""
-        if not self.credentials:
-            self.log.warning("No credentials provided, skipping graph token refresh")
-            return
-
-        if not force and self._tokens.graph and not self._tokens.graph.is_expired():
-            return
-
-        if self._tokens.graph:
-            self.log.debug("Refreshing graph token")
-
-        try:
-            # Use GraphTokenManager for tenant-aware token management
-            tenant_id = self.credentials.tenant_id if self.credentials else None
-            token = await self.graph_token_manager.get_token(tenant_id)
-
-            if token:
-                self._tokens.graph = token
-                self.log.debug("Graph token refreshed successfully")
-
-                # Emit token acquired event
-                self._events.emit("token", {"type": "graph", "token": self._tokens.graph})
-            else:
-                self.log.debug("Failed to get graph token from GraphTokenManager")
-
-        except Exception as error:
-            self.log.error(f"Failed to refresh graph token: {error}")
-
-            self._events.emit("error", ErrorEvent(error, context={"method": "_refresh_graph_token"}))
-            raise
 
     @overload
     def event(self, func_or_event_type: F) -> F:
@@ -447,9 +396,9 @@ class App(ActivityHandlerMixin):
                     "Either provide an explicit event_type or use a typed parameter."
                 )
 
-            # Validate the detected type against registered events
+            # Validate the detected type against registered events or custom event
             if not is_registered_event(detected_type):
-                raise ValueError(f"Event type '{detected_type}' is not registered. ")
+                self.logger.info(f"Event type '{detected_type}' is not a registered type.")
             detected_type = cast(EventType, detected_type)
 
             # add it to the event emitter
@@ -521,7 +470,6 @@ class App(ActivityHandlerMixin):
                 async def call_next(r: Request) -> Any:
                     ctx = FunctionContext(
                         id=self.id,
-                        name=self.name,
                         api=self.api,
                         http=self.http,
                         log=self.log,
@@ -541,3 +489,6 @@ class App(ActivityHandlerMixin):
 
         # Named decoration: @app.func("name")
         return decorator
+
+    async def _get_bot_token(self):
+        return await self._token_manager.get_bot_token()

@@ -12,7 +12,9 @@ import pytest
 from microsoft.teams.api import (
     Account,
     ConversationAccount,
+    FederatedIdentityCredentials,
     InvokeActivity,
+    ManagedIdentityCredentials,
     MessageActivity,
     TokenCredentials,
     TokenProtocol,
@@ -131,11 +133,14 @@ class TestApp:
     @pytest.mark.asyncio
     async def test_app_lifecycle_start_stop(self, app_with_options):
         """Test basic app lifecycle: start and stop."""
+
         # Mock the underlying HTTP server to avoid actual server startup
-        with (
-            patch.object(app_with_options, "_refresh_tokens", new_callable=AsyncMock),
-            patch.object(app_with_options.http, "on_start", new_callable=AsyncMock),
-        ):
+        async def mock_on_start(event):
+            # Simulate the HTTP plugin calling the ready callback
+            if app_with_options.http.on_ready_callback:
+                await app_with_options.http.on_ready_callback()
+
+        with patch.object(app_with_options.http, "on_start", new_callable=AsyncMock, side_effect=mock_on_start):
             # Test start
             start_task = asyncio.create_task(app_with_options.start(3978))
             await asyncio.sleep(0.1)
@@ -507,16 +512,18 @@ class TestApp:
 
         options = AppOptions(client_id="test-client-123", token=get_token)
 
-        app = App(**options)
+        # Mock environment variables to ensure they don't interfere
+        with patch.dict("os.environ", {"CLIENT_ID": "", "CLIENT_SECRET": "", "TENANT_ID": ""}, clear=False):
+            app = App(**options)
 
-        assert app.credentials is not None
-        assert type(app.credentials) is TokenCredentials
-        assert app.credentials.client_id == "test-client-123"
-        assert callable(app.credentials.token)
+            assert app.credentials is not None
+            assert type(app.credentials) is TokenCredentials
+            assert app.credentials.client_id == "test-client-123"
+            assert callable(app.credentials.token)
 
-        res = await app.api.bots.token.get(app.credentials)
-        assert token_called is True
-        assert res.access_token == "test.jwt.token"
+            res = await app.api.bots.token.get(app.credentials)
+            assert token_called is True
+            assert res.access_token == "test.jwt.token"
 
     def test_middleware_registration(self, app_with_options: App) -> None:
         """Test that middleware is registered correctly using app.use()."""
@@ -559,3 +566,136 @@ class TestApp:
         # Extract the endpoint path it was registered to
         endpoint_path = app_with_options.http.post.call_args[0][0]
         assert endpoint_path == f"/api/functions/{dummy_func.__name__.replace('_', '-')}"
+
+    def test_user_agent_format(self, app_with_options: App):
+        """Test that USER_AGENT follows the expected format teams.py[apps]/{version}."""
+        import importlib.metadata
+
+        version = importlib.metadata.version("microsoft-teams-apps")
+        expected_user_agent = f"teams.py[apps]/{version}"
+
+        # Verify the http_client has the correct User-Agent header
+        assert "User-Agent" in app_with_options.http_client._options.headers
+        assert app_with_options.http_client._options.headers["User-Agent"] == expected_user_agent
+
+    @pytest.mark.parametrize(
+        "options_dict,env_vars,expected_client_id,expected_tenant_id,description",
+        [
+            # Inferred from client_id only
+            (
+                {"client_id": "test-managed-identity-client-id"},
+                {"CLIENT_SECRET": "", "TENANT_ID": "test-tenant-id"},
+                "test-managed-identity-client-id",
+                "test-tenant-id",
+                "inferred from client_id only",
+            ),
+            # managed_identity_client_id equals client_id (valid)
+            (
+                {"client_id": "test-client-id", "managed_identity_client_id": "test-client-id"},
+                {"CLIENT_SECRET": "", "TENANT_ID": "test-tenant-id"},
+                "test-client-id",
+                "test-tenant-id",
+                "managed_identity_client_id equals client_id",
+            ),
+            # From environment variables
+            (
+                {},
+                {"CLIENT_ID": "env-managed-identity-client-id", "CLIENT_SECRET": "", "TENANT_ID": "env-tenant-id"},
+                "env-managed-identity-client-id",
+                "env-tenant-id",
+                "from environment variables",
+            ),
+            # Explicit managed_identity_client_id
+            (
+                {
+                    "client_id": "test-app-id",
+                    "managed_identity_client_id": "test-app-id",
+                    "tenant_id": "test-tenant-id",
+                },
+                {"CLIENT_SECRET": ""},
+                "test-app-id",
+                "test-tenant-id",
+                "explicit managed_identity_client_id",
+            ),
+        ],
+    )
+    def test_app_init_with_managed_identity(
+        self,
+        mock_logger,
+        mock_storage,
+        options_dict: dict,
+        env_vars: dict,
+        expected_client_id: str,
+        expected_tenant_id: str,
+        description: str,
+    ):
+        """Test app initialization with managed identity credentials."""
+        options = AppOptions(logger=mock_logger, storage=mock_storage, **options_dict)
+
+        with patch.dict("os.environ", env_vars, clear=False):
+            app = App(**options)
+
+            assert app.credentials is not None, f"Failed for: {description}"
+            assert isinstance(app.credentials, ManagedIdentityCredentials), f"Failed for: {description}"
+            assert app.credentials.client_id == expected_client_id, f"Failed for: {description}"
+            assert app.credentials.tenant_id == expected_tenant_id, f"Failed for: {description}"
+
+    @pytest.mark.parametrize(
+        "managed_identity_client_id,expected_mi_type,expected_mi_client_id,description",
+        [
+            # System-assigned managed identity
+            ("system", "system", None, "system-assigned managed identity"),
+            # User-assigned managed identity (federated)
+            (
+                "different-managed-identity-id",
+                "user",
+                "different-managed-identity-id",
+                "user-assigned federated identity",
+            ),
+        ],
+    )
+    def test_app_init_with_federated_identity(
+        self,
+        mock_logger,
+        mock_storage,
+        managed_identity_client_id: str,
+        expected_mi_type: str,
+        expected_mi_client_id: str | None,
+        description: str,
+    ):
+        """Test app initialization with FederatedIdentityCredentials."""
+        options = AppOptions(
+            logger=mock_logger,
+            storage=mock_storage,
+            client_id="app-client-id",
+            managed_identity_client_id=managed_identity_client_id,
+        )
+
+        with patch.dict("os.environ", {"CLIENT_SECRET": "", "TENANT_ID": "test-tenant-id"}, clear=False):
+            app = App(**options)
+
+            assert app.credentials is not None, f"Failed for: {description}"
+            assert isinstance(app.credentials, FederatedIdentityCredentials), f"Failed for: {description}"
+            assert app.credentials.client_id == "app-client-id", f"Failed for: {description}"
+            assert app.credentials.managed_identity_type == expected_mi_type, f"Failed for: {description}"
+            assert app.credentials.managed_identity_client_id == expected_mi_client_id, f"Failed for: {description}"
+            assert app.credentials.tenant_id == "test-tenant-id", f"Failed for: {description}"
+
+    def test_app_init_with_client_secret_takes_precedence(self, mock_logger, mock_storage):
+        """Test that ClientCredentials is used when both client_secret and managed_identity_client_id are provided."""
+        # When client_secret is provided, it should take precedence over managed identity
+        options = AppOptions(
+            logger=mock_logger,
+            storage=mock_storage,
+            client_id="test-client-id",
+            client_secret="test-client-secret",
+            managed_identity_client_id="test-managed-id",  # This should be ignored
+            tenant_id="test-tenant-id",
+        )
+
+        app = App(**options)
+
+        assert app.credentials is not None
+        # Should use ClientCredentials, not ManagedIdentityCredentials
+        assert type(app.credentials).__name__ == "ClientCredentials"
+        assert app.credentials.client_id == "test-client-id"

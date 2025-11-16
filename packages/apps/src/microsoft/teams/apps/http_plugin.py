@@ -24,7 +24,7 @@ from microsoft.teams.api import (
     TokenProtocol,
 )
 from microsoft.teams.apps.http_stream import HttpStream
-from microsoft.teams.common.http.client import Client, ClientOptions
+from microsoft.teams.common.http import Client, ClientOptions, Token
 from microsoft.teams.common.logging import ConsoleLogger
 from pydantic import BaseModel, ValidationError
 from starlette.applications import Starlette
@@ -60,8 +60,7 @@ class HttpPlugin(Sender):
 
     client: Annotated[Client, DependencyMetadata()]
 
-    bot_token: Annotated[Optional[Callable[[], TokenProtocol]], DependencyMetadata(optional=True)]
-    graph_token: Annotated[Optional[Callable[[], TokenProtocol]], DependencyMetadata(optional=True)]
+    bot_token: Annotated[Optional[Callable[[], Token]], DependencyMetadata(optional=True)]
 
     lifespans: list[Lifespan[Starlette]] = []
 
@@ -70,11 +69,28 @@ class HttpPlugin(Sender):
         app_id: Optional[str],
         logger: Optional[Logger] = None,
         skip_auth: bool = False,
+        server_factory: Optional[Callable[[FastAPI], uvicorn.Server]] = None,
     ):
+        """
+        Args:
+            app_id: Optional Microsoft App ID.
+            logger: Optional logger.
+            skip_auth: Whether to skip JWT validation.
+            server_factory: Optional function that takes an ASGI app
+                and returns a configured `uvicorn.Server`.
+            Example:
+                ```python
+                def custom_server_factory(app: FastAPI) -> uvicorn.Server:
+                    return uvicorn.Server(config=uvicorn.Config(app, host="0.0.0.0", port=8000))
+
+
+                http_plugin = HttpPlugin(app_id="your-app-id", server_factory=custom_server_factory)
+                ```
+        """
         super().__init__()
         self.logger = logger or ConsoleLogger().create_logger("@teams/http-plugin")
-        self._server: Optional[uvicorn.Server] = None
         self._port: Optional[int] = None
+        self._server: Optional[uvicorn.Server] = None
         self._on_ready_callback: Optional[Callable[[], Awaitable[None]]] = None
         self._on_stopped_callback: Optional[Callable[[], Awaitable[None]]] = None
 
@@ -104,6 +120,14 @@ class HttpPlugin(Sender):
                 yield
 
         self.app = FastAPI(lifespan=combined_lifespan)
+
+        # Create uvicorn server if user provides custom factory method
+        if server_factory:
+            self._server = server_factory(self.app)
+            if self._server.config.app is not self.app:
+                raise ValueError(
+                    "server_factory must return a uvicorn.Server configured with the provided FastAPI app instance."
+                )
 
         # Add JWT validation middleware
         if app_id and not skip_auth:
@@ -145,14 +169,21 @@ class HttpPlugin(Sender):
 
     async def on_start(self, event: PluginStartEvent) -> None:
         """Start the HTTP server."""
-        port = event.port
         self._port = event.port
 
         try:
-            config = uvicorn.Config(app=self.app, host="0.0.0.0", port=port, log_level="info")
-            self._server = uvicorn.Server(config)
+            if self._server and self._server.config.port != self._port:
+                self.logger.warning(
+                    "Using port configured by server factory: %d, but plugin start event has port %d.",
+                    self._server.config.port,
+                    self._port,
+                )
+                self._port = self._server.config.port
+            else:
+                config = uvicorn.Config(app=self.app, host="0.0.0.0", port=self._port, log_level="info")
+                self._server = uvicorn.Server(config)
 
-            self.logger.info("Starting HTTP server on port %d", port)
+            self.logger.info("Starting HTTP server on port %d", self._port)
 
             # The lifespan handler will call the callback when the server is ready
             await self._server.serve()
