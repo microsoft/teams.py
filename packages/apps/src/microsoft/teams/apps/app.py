@@ -21,6 +21,8 @@ from microsoft.teams.api import (
     ConversationAccount,
     ConversationReference,
     Credentials,
+    FederatedIdentityCredentials,
+    ManagedIdentityCredentials,
     MessageActivityInput,
     TokenCredentials,
 )
@@ -84,23 +86,21 @@ class App(ActivityHandlerMixin):
         self.credentials = self._init_credentials()
 
         self._token_manager = TokenManager(
-            http_client=self.http_client,
             credentials=self.credentials,
             logger=self.log,
-            default_connection_name=self.options.default_connection_name,
         )
 
         self.container = Container()
         self.container.set_provider("id", providers.Object(self.id))
         self.container.set_provider("credentials", providers.Object(self.credentials))
-        self.container.set_provider("bot_token", providers.Factory(lambda: self._get_or_get_bot_token))
+        self.container.set_provider("bot_token", providers.Factory(lambda: self._get_bot_token))
         self.container.set_provider("logger", providers.Object(self.log))
         self.container.set_provider("storage", providers.Object(self.storage))
         self.container.set_provider(self.http_client.__class__.__name__, providers.Factory(lambda: self.http_client))
 
         self.api = ApiClient(
             "https://smba.trafficmanager.net/teams",
-            self.http_client.clone(ClientOptions(token=self._get_or_get_bot_token)),
+            self.http_client.clone(ClientOptions(token=self._get_bot_token)),
         )
 
         plugins: List[PluginBase] = list(self.options.plugins)
@@ -291,6 +291,7 @@ class App(ActivityHandlerMixin):
         client_secret = self.options.client_secret or os.getenv("CLIENT_SECRET")
         tenant_id = self.options.tenant_id or os.getenv("TENANT_ID")
         token = self.options.token
+        managed_identity_client_id = self.options.managed_identity_client_id or os.getenv("MANAGED_IDENTITY_CLIENT_ID")
 
         self.log.debug(f"Using CLIENT_ID: {client_id}")
         if not tenant_id:
@@ -298,13 +299,38 @@ class App(ActivityHandlerMixin):
         else:
             self.log.debug(f"Using TENANT_ID: {tenant_id} (assuming single-tenant app)")
 
-        # - If client_id + client_secret : use ClientCredentials (standard client auth)
         if client_id and client_secret:
+            self.log.debug("Using client secret for auth")
             return ClientCredentials(client_id=client_id, client_secret=client_secret, tenant_id=tenant_id)
 
-        # - If client_id + token callable : use TokenCredentials (where token is a custom token provider)
         if client_id and token:
             return TokenCredentials(client_id=client_id, tenant_id=tenant_id, token=token)
+
+        if client_id:
+            if managed_identity_client_id == "system":
+                self.log.debug("Using Federated Identity Credentials with system-assigned managed identity")
+                return FederatedIdentityCredentials(
+                    client_id=client_id,
+                    managed_identity_type="system",
+                    managed_identity_client_id=None,
+                    tenant_id=tenant_id,
+                )
+
+            if managed_identity_client_id and managed_identity_client_id != client_id:
+                self.log.debug("Using Federated Identity Credentials with user-assigned managed identity")
+                return FederatedIdentityCredentials(
+                    client_id=client_id,
+                    managed_identity_type="user",
+                    managed_identity_client_id=managed_identity_client_id,
+                    tenant_id=tenant_id,
+                )
+
+            self.log.debug("Using user-assigned managed identity (direct)")
+            mi_client_id = managed_identity_client_id or client_id
+            return ManagedIdentityCredentials(
+                client_id=mi_client_id,
+                tenant_id=tenant_id,
+            )
 
         return None
 
@@ -464,5 +490,5 @@ class App(ActivityHandlerMixin):
         # Named decoration: @app.func("name")
         return decorator
 
-    async def _get_or_get_bot_token(self):
+    async def _get_bot_token(self):
         return await self._token_manager.get_bot_token()
