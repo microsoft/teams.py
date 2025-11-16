@@ -45,7 +45,7 @@ class Agent(ChatPrompt):
 
     async def send(
         self,
-        input: str | Message,
+        input: str | Message | None,
         *,
         instructions: str | SystemMessage | None = None,
         memory: Memory | None = None,
