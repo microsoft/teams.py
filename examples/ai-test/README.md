@@ -36,7 +36,7 @@ source .venv/bin/activate  # On macOS/Linux
 # .venv\Scripts\Activate   # On Windows
 
 # Run the AI test
-python tests/ai-test/src/main.py
+python examples/ai-test/src/main.py
 ```
 
 ## Usage

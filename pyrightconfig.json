@@ -1,7 +1,7 @@
 {
    "include": [
       "packages/**/src/**/*.py",
-      "tests/**/src/**/*.py"
+      "examples/**/src/**/*.py"
    ],
    "venv": ".venv",
    "venvPath": ".",
@@ -32,7 +32,7 @@
       "reportUnknownMemberType": "none"
       },
       {
-         "root": "tests/botbuilder/src",
+         "root": "examples/botbuilder/src",
          "reportMissingTypeStubs": "none",
          "reportUnknownMemberType": "none"
       }

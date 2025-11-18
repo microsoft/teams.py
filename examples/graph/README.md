@@ -55,7 +55,7 @@ app = App(
 
 ### Option 1: Using the PowerShell Script (Recommended)
 
-From the `tests/graph/` directory:
+From the `examples/graph/` directory:
 
 ```powershell
 .\run_demo.ps1
@@ -63,7 +63,7 @@ From the `tests/graph/` directory:
 
 ### Option 2: Manual PYTHONPATH Setup
 
-From the `tests/graph/` directory:
+From the `examples/graph/` directory:
 
 ```powershell
 # PowerShell
@@ -88,7 +88,7 @@ pip install -e packages/app
 pip install -e packages/common
 
 # Then run the demo
-python tests/graph/src/main.py
+python examples/graph/src/main.py
 ```
 
 ## Architecture
