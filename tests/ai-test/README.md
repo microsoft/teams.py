@@ -61,7 +61,7 @@ From Teams, DevTools, or your test client, use any of the following commands to 
 
 ### Core AI Functionality
 
-- **ChatPrompt and Agent** - Basic LLM interaction patterns
+- **ChatPrompt** - Basic LLM interaction patterns with optional persistent memory
 - **String instructions** - Simple instruction passing (vs SystemMessage objects)
 - **Model switching** - Runtime switching between different AI models
 

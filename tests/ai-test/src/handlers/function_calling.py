@@ -7,7 +7,7 @@ import random
 from typing import Any, Dict
 
 import aiohttp
-from microsoft.teams.ai import Agent, Function
+from microsoft.teams.ai import ChatPrompt, Function
 from microsoft.teams.ai.ai_model import AIModel
 from microsoft.teams.api import MessageActivity, MessageActivityInput
 from microsoft.teams.apps import ActivityContext
@@ -54,8 +54,8 @@ async def pokemon_search_handler(params: SearchPokemonParams) -> str:
 
 async def handle_pokemon_search(model: AIModel, ctx: ActivityContext[MessageActivity]) -> None:
     """Handle single function calling - Pokemon search"""
-    agent = Agent(model)
-    agent.with_function(
+    prompt = ChatPrompt(model)
+    prompt.with_function(
         Function(
             name="pokemon_search",
             description="Search for pokemon information including height, weight, and types",
@@ -64,7 +64,7 @@ async def handle_pokemon_search(model: AIModel, ctx: ActivityContext[MessageActi
         )
     )
 
-    chat_result = await agent.send(
+    chat_result = await prompt.send(
         input=ctx.activity.text, instructions="You are a helpful assistant that can look up Pokemon for the user."
     )
 
@@ -100,9 +100,9 @@ def get_weather_handler(params: BaseModel) -> str:
 
 async def handle_multiple_functions(model: AIModel, ctx: ActivityContext[MessageActivity]) -> None:
     """Handle multiple function calling - location then weather"""
-    agent = Agent(model)
+    prompt = ChatPrompt(model)
 
-    agent.with_function(
+    prompt.with_function(
         Function(
             name="get_user_location",
             description="Gets the location of the user",
@@ -121,7 +121,7 @@ async def handle_multiple_functions(model: AIModel, ctx: ActivityContext[Message
         handler=get_weather_handler,
     )
 
-    chat_result = await agent.send(
+    chat_result = await prompt.send(
         input=ctx.activity.text,
         instructions=(
             "You are a helpful assistant that can help the user get the weather."

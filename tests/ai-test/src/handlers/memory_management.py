@@ -3,7 +3,7 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from microsoft.teams.ai import Agent, ListMemory
+from microsoft.teams.ai import ChatPrompt, ListMemory
 from microsoft.teams.ai.ai_model import AIModel
 from microsoft.teams.api import MessageActivity, MessageActivityInput
 from microsoft.teams.apps import ActivityContext
@@ -32,10 +32,10 @@ async def handle_stateful_conversation(model: AIModel, ctx: ActivityContext[Mess
     existing_messages = await memory.get_all()
     print(f"Existing messages before sending to prompt: {len(existing_messages)} messages")
 
-    # Create agent with conversation-specific memory
-    agent = Agent(model, memory=memory)
+    # Create prompt with conversation-specific memory
+    prompt = ChatPrompt(model, memory=memory)
 
-    chat_result = await agent.send(
+    chat_result = await prompt.send(
         input=ctx.activity.text, instructions="You are a helpful assistant that remembers our previous conversation."
     )
 
