@@ -9,6 +9,7 @@
 "microsoft-teams-openai" = { workspace = true }
 "microsoft-teams-mcpplugin" = { workspace = true }
 "microsoft-teams-a2a" = { workspace = true }
+"microsoft-teams-botbuilder" = { workspace = true }
 
 [tool.uv.workspace]
 members = ["packages/*", "examples/*"]

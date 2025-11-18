@@ -17,7 +17,6 @@ from msgraph.generated.users.item.messages.messages_request_builder import (  # 
 
 logger = logging.getLogger(__name__)
 
-# Create app with OAuth connection
 app_options = AppOptions(default_connection_name=os.getenv("CONNECTION_NAME", "graph"))
 app = App(**app_options)
 

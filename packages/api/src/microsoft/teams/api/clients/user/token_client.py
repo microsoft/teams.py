@@ -8,6 +8,7 @@ from typing import Dict, List, Optional, Union
 from microsoft.teams.common.http import Client, ClientOptions
 
 from ...models import TokenResponse, TokenStatus
+from ..api_client_settings import ApiClientSettings, merge_api_client_settings
 from ..base_client import BaseClient
 from .params import (
     ExchangeUserTokenParams,
@@ -17,18 +18,33 @@ from .params import (
     SignOutUserParams,
 )
 
+# User token API endpoints
+USER_TOKEN_ENDPOINTS = {
+    "GET_TOKEN": "api/usertoken/GetToken",
+    "GET_AAD_TOKENS": "api/usertoken/GetAadTokens",
+    "GET_STATUS": "api/usertoken/GetTokenStatus",
+    "SIGN_OUT": "api/usertoken/SignOut",
+    "EXCHANGE": "api/usertoken/exchange",
+}
+
 
 class UserTokenClient(BaseClient):
     """Client for managing user tokens in Teams."""
 
-    def __init__(self, options: Optional[Union[Client, ClientOptions]] = None) -> None:
+    def __init__(
+        self,
+        options: Optional[Union[Client, ClientOptions]] = None,
+        api_client_settings: Optional[ApiClientSettings] = None,
+    ) -> None:
         """
         Initialize the UserTokenClient.
 
         Args:
             options: Optional Client or ClientOptions instance. If not provided, a default Client will be created.
+            api_client_settings: Optional API client settings.
         """
         super().__init__(options)
+        self._api_client_settings = merge_api_client_settings(api_client_settings)
 
     async def get(self, params: GetUserTokenParams) -> TokenResponse:
         """
@@ -42,7 +58,7 @@ class UserTokenClient(BaseClient):
         """
         query_params = params.model_dump(exclude_none=True)
         response = await self.http.get(
-            "https://token.botframework.com/api/usertoken/GetToken",
+            f"{self._api_client_settings.oauth_url}/{USER_TOKEN_ENDPOINTS['GET_TOKEN']}",
             params=query_params,
         )
         return TokenResponse.model_validate(response.json())
@@ -59,7 +75,7 @@ class UserTokenClient(BaseClient):
         """
         query_params = params.model_dump(exclude_none=True)
         response = await self.http.post(
-            "https://token.botframework.com/api/usertoken/GetAadTokens",
+            f"{self._api_client_settings.oauth_url}/{USER_TOKEN_ENDPOINTS['GET_AAD_TOKENS']}",
             params=query_params,
         )
         data = response.json()
@@ -77,7 +93,7 @@ class UserTokenClient(BaseClient):
         """
         query_params = params.model_dump(exclude_none=True)
         response = await self.http.get(
-            "https://token.botframework.com/api/usertoken/GetTokenStatus",
+            f"{self._api_client_settings.oauth_url}/{USER_TOKEN_ENDPOINTS['GET_STATUS']}",
             params=query_params,
         )
         return [TokenStatus.model_validate(item) for item in response.json()]
@@ -91,7 +107,7 @@ class UserTokenClient(BaseClient):
         """
         query_params = params.model_dump(exclude_none=True)
         await self.http.delete(
-            "https://token.botframework.com/api/usertoken/SignOut",
+            f"{self._api_client_settings.oauth_url}/{USER_TOKEN_ENDPOINTS['SIGN_OUT']}",
             params=query_params,
         )
 
@@ -111,7 +127,7 @@ class UserTokenClient(BaseClient):
             "channelId": params.channel_id,
         }
         response = await self.http.post(
-            "https://token.botframework.com/api/usertoken/exchange",
+            f"{self._api_client_settings.oauth_url}/{USER_TOKEN_ENDPOINTS['EXCHANGE']}",
             params=query_params,
             json=params.exchange_request.model_dump(),
         )

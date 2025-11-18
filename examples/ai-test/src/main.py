@@ -21,7 +21,7 @@ from handlers.feedback_management import (
     initialize_feedback_storage,
 )
 from handlers.memory_management import clear_conversation_memory
-from microsoft.teams.ai import Agent
+from microsoft.teams.ai import ChatPrompt
 from microsoft.teams.api import MessageActivity, MessageActivityInput
 from microsoft.teams.api.activities.invoke.message.submit_action import MessageSubmitActionInvokeActivity
 from microsoft.teams.apps import ActivityContext, App
@@ -63,8 +63,8 @@ current_model = completions_model
 @app.on_message_pattern(re.compile(r"^hi$", re.IGNORECASE))
 async def handle_simple_chat(ctx: ActivityContext[MessageActivity]):
     """Handle 'hi' message with simple AI response"""
-    agent = Agent(completions_model)
-    chat_result = await agent.send(
+    prompt = ChatPrompt(completions_model)
+    chat_result = await prompt.send(
         input=ctx.activity.text, instructions="You are a friendly assistant who talks like a pirate"
     )
 
@@ -98,8 +98,8 @@ async def handle_streaming(ctx: ActivityContext[MessageActivity]):
     if match:
         query = match.group(1).strip()
 
-        agent = Agent(current_model)
-        chat_result = await agent.send(
+        prompt = ChatPrompt(current_model)
+        chat_result = await prompt.send(
             input=query,
             instructions="You are a friendly assistant who responds in extremely verbose language",
             on_chunk=lambda chunk: ctx.stream.emit(chunk) if hasattr(ctx, "stream") else None,
@@ -162,8 +162,8 @@ async def handle_memory_clear(ctx: ActivityContext[MessageActivity]):
 @app.on_message_pattern(re.compile(r"^feedback\s+demo\b", re.IGNORECASE))
 async def handle_feedback_demo(ctx: ActivityContext[MessageActivity]):
     """Handle 'feedback demo' command to demonstrate feedback collection"""
-    agent = Agent(current_model)
-    chat_result = await agent.send(
+    prompt = ChatPrompt(current_model)
+    chat_result = await prompt.send(
         input="Tell me a short joke", instructions="You are a comedian. Keep responses brief and funny."
     )
 
