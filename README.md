@@ -98,13 +98,13 @@ cookiecutter templates/test -o tests
 > the [@microsoft/teams.cli](https://www.npmjs.com/package/@microsoft/teams.cli) and follow the
 > [Getting Started](https://microsoft.github.io/teams-sdk/python/getting-started) documentation!
 
-- [`@tests/echo`](./tests/echo/README.md)
-- [`@tests/message-extensions`](./tests/message-extensions/README.md)
-- [`@tests/dialogs`](./tests/dialogs/README.md)
-- [`@tests/graph`](./tests/graph/README.md)
-- [`@tests/ai-test`](./tests/ai-test/README.md)
-- [`@tests/stream`](./tests/stream/README.md)
-- [`@tests/oauth`](./tests/oauth/README.md)
+- [`@examples/echo`](./examples/echo/README.md)
+- [`@examples/message-extensions`](./examples/message-extensions/README.md)
+- [`@examples/dialogs`](./examples/dialogs/README.md)
+- [`@examples/graph`](./examples/graph/README.md)
+- [`@examples/ai-test`](./examples/ai-test/README.md)
+- [`@examples/stream`](./examples/stream/README.md)
+- [`@examples/oauth`](./examples/oauth/README.md)
 
 ## Links
 

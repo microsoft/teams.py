@@ -17,7 +17,7 @@ export default function App() {
       try {
           // initialize the app and prompt for Graph scope consent, if not already granted
           const app = new client.App(clientId, {
-            logger: new ConsoleLogger('@tests/tab', { level: 'debug' }),
+            logger: new ConsoleLogger('@examples/tab', { level: 'debug' }),
               msalOptions: {
               prewarmScopes: [
                 'https://graph.microsoft.com/User.Read',
