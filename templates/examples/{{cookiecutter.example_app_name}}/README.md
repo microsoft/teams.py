@@ -1,1 +1,1 @@
-# {{cookiecutter.test_app_name}}
+# {{cookiecutter.example_app_name}}

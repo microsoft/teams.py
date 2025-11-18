@@ -4,8 +4,8 @@
   "manifestVersion": "1.20",
   "id": "${{"{{TEAMS_APP_ID}}"}}",
   "name": {
-    "short": "{{cookiecutter.test_app_name}}",
-    "full": "{{cookiecutter.test_app_name}}"
+    "short": "{{cookiecutter.example_app_name}}",
+    "full": "{{cookiecutter.example_app_name}}"
   },
   "developer": {
     "name": "Microsoft",
