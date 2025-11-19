@@ -18,7 +18,7 @@ venv.bak/
 .dmypy.json
 dmypy.json
 
-.copilot-instructions.md
+private/
 
 # other
 .DS_STORE
@@ -30,6 +30,7 @@ ref/
 py.typed
 CLAUDE.md
 
+.copilot-instructions.md
 .env.claude/
 .claude/
 

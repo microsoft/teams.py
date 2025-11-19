@@ -180,7 +180,11 @@ async def my_event_handler(user_message: str) -> Union[Message, str]:
             parts=[Part(root=TextPart(kind="text", text="Please provide a location"))],
         )
     else:
-        return result.response.content if result.response.content else "No weather information available."
+        return (
+            result.response.content
+            if result.response and result.response.content
+            else "No weather information available."
+        )
 
 
 # A2A Server Message Event Handler
@@ -206,7 +210,7 @@ async def handle_a2a_message(message: A2AMessageEvent) -> None:
         await respond(result)
 
 
-async def handler(message: str) -> ModelMessage:
+async def handler(message: str) -> ModelMessage | None:
     # Now we can send the message to the prompt and it will decide if
     # the a2a agent should be used or not and also manages contacting the agent
     result = await prompt.send(message)
@@ -219,7 +223,7 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
     await ctx.reply(TypingActivityInput())
 
     result = await handler(ctx.activity.text)
-    if result.content:
+    if result and result.content:
         await ctx.send(result.content)
 
 

@@ -3,7 +3,6 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-import inspect
 import json
 from dataclasses import dataclass
 from typing import Any, Awaitable, Callable, TypedDict, cast
@@ -19,8 +18,11 @@ from microsoft.teams.ai import (
     ModelMessage,
     SystemMessage,
     UserMessage,
+    get_function_schema,
 )
-from microsoft.teams.ai.function import FunctionHandler, FunctionHandlerWithNoParams
+from microsoft.teams.ai.function import DeferredResult
+from microsoft.teams.ai.message import DeferredMessage
+from microsoft.teams.ai.utils.function_utils import execute_function
 from microsoft.teams.openai.common import OpenAIBaseModel
 from pydantic import BaseModel
 
@@ -38,8 +40,6 @@ from openai.types.chat import (
     ChatCompletionToolUnionParam,
     ChatCompletionUserMessageParam,
 )
-
-from .function_utils import get_function_schema, parse_function_arguments
 
 
 class _ToolCallData(TypedDict):
@@ -68,13 +68,13 @@ class OpenAICompletionsAIModel(OpenAIBaseModel, AIModel):
 
     async def generate_text(
         self,
-        input: Message,
+        input: Message | None,
         *,
         system: SystemMessage | None = None,
         memory: Memory | None = None,
         functions: dict[str, Function[BaseModel]] | None = None,
         on_chunk: Callable[[str], Awaitable[None]] | None = None,
-    ) -> ModelMessage:
+    ) -> ModelMessage | list[DeferredMessage]:
         """
         Generate text using OpenAI Chat Completions API.
 
@@ -97,27 +97,35 @@ class OpenAICompletionsAIModel(OpenAIBaseModel, AIModel):
         if memory is None:
             memory = ListMemory()
 
-        # Execute any pending function calls first
-        function_results = await self._execute_functions(input, functions)
-
         # Get conversation history from memory (make a copy to avoid modifying memory's internal state)
         messages = list(await memory.get_all())
+
+        # Execute any pending function calls first
+        function_results = await self._execute_functions(input, messages, functions)
         self.logger.debug(f"Retrieved {len(messages)} messages from memory, {len(function_results)} function results")
 
         # Push current input to memory
-        await memory.push(input)
+        if input is not None:
+            await memory.push(input)
 
         # Push function results to memory and add to messages
+        deferred_messages: list[DeferredMessage] = []
         if function_results:
             # Add the original ModelMessage with function_calls to messages first
-            messages.append(input)
+            if input is not None:
+                messages.append(input)
             for result in function_results:
                 await memory.push(result)
                 messages.append(result)
+                if isinstance(result, DeferredMessage):
+                    deferred_messages.append(result)
             # Don't add input again at the end - Order matters here!
             input_to_send = None
         else:
             input_to_send = input
+
+        if len(deferred_messages) > 0:
+            return deferred_messages
 
         # Convert messages to OpenAI format
         openai_messages = self._convert_messages(input_to_send, system, messages)
@@ -153,35 +161,37 @@ class OpenAICompletionsAIModel(OpenAIBaseModel, AIModel):
         return model_response
 
     async def _execute_functions(
-        self, input: Message, functions: dict[str, Function[BaseModel]] | None
-    ) -> list[FunctionMessage]:
+        self, input: Message | None, memory_messages: list[Message], functions: dict[str, Function[BaseModel]] | None
+    ) -> list[FunctionMessage | DeferredMessage]:
         """Execute any pending function calls in the input message."""
-        function_results: list[FunctionMessage] = []
+        function_results: list[FunctionMessage | DeferredMessage] = []
 
         if isinstance(input, ModelMessage) and input.function_calls:
             # Execute any pending function calls
             self.logger.debug(f"Executing {len(input.function_calls)} function calls")
             for call in input.function_calls:
+                existing_function_result = next(
+                    (
+                        message
+                        for message in memory_messages
+                        if isinstance(message, FunctionMessage) and message.function_id == call.id
+                    ),
+                    None,
+                )
+                if existing_function_result is None:
+                    self.logger.debug(f"{call.name} already called. Skipping exeuction")
                 if functions and call.name in functions:
                     function = functions[call.name]
                     try:
                         # Parse arguments using utility function
-                        parsed_args = parse_function_arguments(function, call.arguments)
-                        if parsed_args:
-                            # Handle both sync and async function handlers
-                            handler = cast(FunctionHandler[BaseModel], function.handler)
-                            result = handler(parsed_args)
+                        fn_res = await execute_function(function, call.arguments)
+                        if isinstance(fn_res, DeferredResult):
+                            function_results.append(
+                                DeferredMessage(deferred_result=fn_res, function_name=call.name, function_id=call.id)
+                            )
                         else:
-                            handler = cast(FunctionHandlerWithNoParams, function.handler)
-                            result = handler()
-
-                        if inspect.isawaitable(result):
-                            fn_res = await result
-                        else:
-                            fn_res = result
-
-                        # Create function result message
-                        function_results.append(FunctionMessage(content=fn_res, function_id=call.id))
+                            # Create function result message
+                            function_results.append(FunctionMessage(content=fn_res, function_id=call.id))
                     except Exception as e:
                         self.logger.error(e)
                         # Handle function execution errors
@@ -264,37 +274,43 @@ class OpenAICompletionsAIModel(OpenAIBaseModel, AIModel):
         return openai_messages
 
     def _convert_message_to_openai_format(self, message: Message) -> ChatCompletionMessageParam:
-        if isinstance(
-            message,
-            UserMessage,
-        ):
-            return ChatCompletionUserMessageParam(role=message.role, content=message.content)
-        if isinstance(message, SystemMessage):
-            return ChatCompletionSystemMessageParam(role=message.role, content=message.content)
-
-        elif isinstance(message, FunctionMessage):
-            return ChatCompletionToolMessageParam(
-                role="tool",
-                content=message.content or [],
-                tool_call_id=message.function_id,
-            )
-        elif isinstance(message, ModelMessage):  # pyright: ignore [reportUnnecessaryIsInstance]
-            if message.function_calls:
-                tool_calls = [
-                    ChatCompletionMessageFunctionToolCallParam(
-                        id=call.id,
-                        function={"name": call.name, "arguments": json.dumps(call.arguments)},
-                        type="function",
+        match message:
+            case UserMessage():
+                return ChatCompletionUserMessageParam(role=message.role, content=message.content)
+            case SystemMessage():
+                return ChatCompletionSystemMessageParam(role=message.role, content=message.content)
+            case FunctionMessage():
+                return ChatCompletionToolMessageParam(
+                    role="tool",
+                    content=message.content or [],
+                    tool_call_id=message.function_id,
+                )
+            case ModelMessage():
+                if message.function_calls:
+                    tool_calls = [
+                        ChatCompletionMessageFunctionToolCallParam(
+                            id=call.id,
+                            function={"name": call.name, "arguments": json.dumps(call.arguments)},
+                            type="function",
+                        )
+                        for call in message.function_calls
+                    ]
+                else:
+                    # we need to do this cast because Completions expects tool_calls to be >= 1,
+                    # but the type is not Optional
+                    tool_calls = cast(list[ChatCompletionMessageFunctionToolCallParam], None)
+                return ChatCompletionAssistantMessageParam(
+                    role="assistant", content=message.content, tool_calls=tool_calls
+                )
+            case DeferredMessage():
+                raise ValueError(
+                    (
+                        "A deferred_message should not be sent to OpenAI. It needs to be resolved "
+                        "and converted to a FunctionMessage."
                     )
-                    for call in message.function_calls
-                ]
-            else:
-                # we need to do this cast because Completions expects tool_calls to be >= 1,
-                # but the type is not Optional
-                tool_calls = cast(list[ChatCompletionMessageFunctionToolCallParam], None)
-            return ChatCompletionAssistantMessageParam(role="assistant", content=message.content, tool_calls=tool_calls)
-        else:
-            raise Exception(f"Message {message.role} not supported")
+                )
+            case _:
+                raise Exception(f"Message {message.role} not supported")
 
     def _convert_functions(self, functions: dict[str, Function[BaseModel]]) -> list[ChatCompletionToolUnionParam]:
         function_values = functions.values()

@@ -39,7 +39,7 @@ async def handle_stateful_conversation(model: AIModel, ctx: ActivityContext[Mess
         input=ctx.activity.text, instructions="You are a helpful assistant that remembers our previous conversation."
     )
 
-    if chat_result.response.content:
+    if chat_result.response and chat_result.response.content:
         message = MessageActivityInput(text=chat_result.response.content).add_ai_generated()
         await ctx.send(message)
     else:
