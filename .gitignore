@@ -34,11 +34,11 @@ CLAUDE.md
 .env.claude/
 .claude/
 
-tests/**/.vscode/
-tests/**/appPackage/
-tests/**/infra/
-tests/**/teamsapp*
-tests/**/aad.manifest.json
+examples/**/.vscode/
+examples/**/appPackage/
+examples/**/infra/
+examples/**/teamsapp*
+examples/**/aad.manifest.json
 
 # Node (from tab)
 node_modules

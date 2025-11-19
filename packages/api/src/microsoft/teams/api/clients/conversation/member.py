@@ -8,6 +8,7 @@ from typing import List, Optional
 from microsoft.teams.common.http import Client
 
 from ...models import Account
+from ..api_client_settings import ApiClientSettings
 from ..base_client import BaseClient
 
 
@@ -16,15 +17,21 @@ class ConversationMemberClient(BaseClient):
     Client for managing members in a Teams conversation.
     """
 
-    def __init__(self, service_url: str, http_client: Optional[Client] = None):
+    def __init__(
+        self,
+        service_url: str,
+        http_client: Optional[Client] = None,
+        api_client_settings: Optional[ApiClientSettings] = None,
+    ):
         """
         Initialize the conversation member client.
 
         Args:
             service_url: The base URL for the Teams service
             http_client: Optional HTTP client to use. If not provided, a new one will be created.
+            api_client_settings: Optional API client settings.
         """
-        super().__init__(http_client)
+        super().__init__(http_client, api_client_settings)
         self.service_url = service_url
 
     async def get(self, conversation_id: str) -> List[Account]:

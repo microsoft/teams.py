@@ -39,6 +39,7 @@ class TestActivityProcessor:
             "default_connection",
             mock_http_client,
             mock_token_manager,
+            None,
         )
 
     @pytest.mark.asyncio

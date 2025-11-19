@@ -9,7 +9,19 @@ from contextlib import AsyncExitStack, asynccontextmanager
 from logging import Logger
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Annotated, Any, AsyncGenerator, Awaitable, Callable, Dict, Optional, cast
+from typing import (
+    Annotated,
+    Any,
+    AsyncGenerator,
+    Awaitable,
+    Callable,
+    Dict,
+    Optional,
+    TypedDict,
+    Union,
+    Unpack,
+    cast,
+)
 
 import uvicorn
 from fastapi import FastAPI, Request, Response
@@ -23,6 +35,7 @@ from microsoft.teams.api import (
     SentActivity,
     TokenProtocol,
 )
+from microsoft.teams.api.auth.credentials import Credentials
 from microsoft.teams.apps.http_stream import HttpStream
 from microsoft.teams.common.http import Client, ClientOptions, Token
 from microsoft.teams.common.logging import ConsoleLogger
@@ -47,6 +60,14 @@ from .plugins.metadata import Plugin
 version = importlib.metadata.version("microsoft-teams-apps")
 
 
+class HttpPluginOptions(TypedDict, total=False):
+    """Options for configuring the HTTP plugin."""
+
+    logger: Logger
+    skip_auth: bool
+    server_factory: Callable[[FastAPI], uvicorn.Server]
+
+
 @Plugin(name="http", version=version, description="the default plugin for sending/receiving activities")
 class HttpPlugin(Sender):
     """
@@ -54,6 +75,7 @@ class HttpPlugin(Sender):
     """
 
     logger: Annotated[Logger, LoggerDependencyOptions()]
+    credentials: Annotated[Optional[Credentials], DependencyMetadata(optional=True)]
 
     on_error_event: Annotated[Callable[[ErrorEvent], None], EventMetadata(name="error")]
     on_activity_event: Annotated[Callable[[ActivityEvent], None], EventMetadata(name="activity")]
@@ -64,16 +86,9 @@ class HttpPlugin(Sender):
 
     lifespans: list[Lifespan[Starlette]] = []
 
-    def __init__(
-        self,
-        app_id: Optional[str],
-        logger: Optional[Logger] = None,
-        skip_auth: bool = False,
-        server_factory: Optional[Callable[[FastAPI], uvicorn.Server]] = None,
-    ):
+    def __init__(self, **options: Unpack[HttpPluginOptions]):
         """
         Args:
-            app_id: Optional Microsoft App ID.
             logger: Optional logger.
             skip_auth: Whether to skip JWT validation.
             server_factory: Optional function that takes an ASGI app
@@ -88,8 +103,9 @@ class HttpPlugin(Sender):
                 ```
         """
         super().__init__()
-        self.logger = logger or ConsoleLogger().create_logger("@teams/http-plugin")
+        self.logger = options.get("logger") or ConsoleLogger().create_logger("@teams/http-plugin")
         self._port: Optional[int] = None
+        self._skip_auth: bool = options.get("skip_auth", False)
         self._server: Optional[uvicorn.Server] = None
         self._on_ready_callback: Optional[Callable[[], Awaitable[None]]] = None
         self._on_stopped_callback: Optional[Callable[[], Awaitable[None]]] = None
@@ -122,19 +138,13 @@ class HttpPlugin(Sender):
         self.app = FastAPI(lifespan=combined_lifespan)
 
         # Create uvicorn server if user provides custom factory method
+        server_factory = options.get("server_factory")
         if server_factory:
             self._server = server_factory(self.app)
             if self._server.config.app is not self.app:
                 raise ValueError(
                     "server_factory must return a uvicorn.Server configured with the provided FastAPI app instance."
                 )
-
-        # Add JWT validation middleware
-        if app_id and not skip_auth:
-            jwt_middleware = create_jwt_validation_middleware(
-                app_id=app_id, logger=self.logger, paths=["/api/messages"]
-            )
-            self.app.middleware("http")(jwt_middleware)
 
         # Expose FastAPI routing methods (like TypeScript exposes Express methods)
         self.get = self.app.get
@@ -166,6 +176,20 @@ class HttpPlugin(Sender):
     def on_stopped_callback(self, callback: Optional[Callable[[], Awaitable[None]]]) -> None:
         """Set callback to call when HTTP server is stopped."""
         self._on_stopped_callback = callback
+
+    async def on_init(self) -> None:
+        """
+        Initialize the HTTP plugin when the app starts.
+        This adds JWT validation middleware unless `skip_auth` is True.
+        """
+
+        # Add JWT validation middleware
+        app_id = getattr(self.credentials, "client_id", None)
+        if app_id and not self._skip_auth:
+            jwt_middleware = create_jwt_validation_middleware(
+                app_id=app_id, logger=self.logger, paths=["/api/messages"]
+            )
+            self.app.middleware("http")(jwt_middleware)
 
     async def on_start(self, event: PluginStartEvent) -> None:
         """Start the HTTP server."""
@@ -337,38 +361,51 @@ class HttpPlugin(Sender):
 
         return result
 
+    def _handle_activity_response(self, response: Response, result: Any) -> Union[Response, Dict[str, object]]:
+        """
+        Handle the activity response formatting.
+
+        Args:
+            response: The FastAPI response object
+            result: The result from activity processing
+
+        Returns:
+            The formatted response
+        """
+        status_code: Optional[int] = None
+        body: Optional[Dict[str, Any]] = None
+        resp_dict: Optional[Dict[str, Any]] = None
+        if isinstance(result, dict):
+            resp_dict = cast(Dict[str, Any], result)
+        elif isinstance(result, BaseModel):
+            resp_dict = result.model_dump(exclude_none=True)
+
+        # if resp_dict has status set it
+        if resp_dict and "status" in resp_dict:
+            status_code = resp_dict.get("status")
+
+        if resp_dict and "body" in resp_dict:
+            body = resp_dict.get("body", None)
+
+        if status_code is not None:
+            response.status_code = status_code
+
+        if body is not None:
+            self.logger.debug(f"Returning body {body}")
+            return body
+        self.logger.debug("Returning empty body")
+        return response
+
+    async def on_activity_request(self, request: Request, response: Response) -> Any:
+        """Handle incoming Teams activity."""
+        # Process the activity (token validation handled by middleware)
+        result = await self._handle_activity_request(request)
+        return self._handle_activity_response(response, result)
+
     def _setup_routes(self) -> None:
         """Setup FastAPI routes."""
 
-        async def on_activity_request(request: Request, response: Response) -> Any:
-            """Handle incoming Teams activity."""
-            # Process the activity (token validation handled by middleware)
-            result = await self._handle_activity_request(request)
-            status_code: Optional[int] = None
-            body: Optional[Dict[str, Any]] = None
-            resp_dict: Optional[Dict[str, Any]] = None
-            if isinstance(result, dict):
-                resp_dict = cast(Dict[str, Any], result)
-            elif isinstance(result, BaseModel):
-                resp_dict = result.model_dump(exclude_none=True)
-
-            # if resp_dict has status set it
-            if resp_dict and "status" in resp_dict:
-                status_code = resp_dict.get("status")
-
-            if resp_dict and "body" in resp_dict:
-                body = resp_dict.get("body", None)
-
-            if status_code is not None:
-                response.status_code = status_code
-
-            if body is not None:
-                self.logger.debug(f"Returning body {body}")
-                return body
-            self.logger.debug("Returning empty body")
-            return response
-
-        self.app.post("/api/messages")(on_activity_request)
+        self.app.post("/api/messages")(self.on_activity_request)
 
         async def health_check() -> Dict[str, Any]:
             """Basic health check endpoint."""

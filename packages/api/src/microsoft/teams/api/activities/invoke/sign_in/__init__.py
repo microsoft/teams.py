@@ -7,16 +7,18 @@ from typing import Annotated, Union
 
 from pydantic import Field
 
+from .failure import SignInFailureInvokeActivity
 from .token_exchange import SignInTokenExchangeInvokeActivity
 from .verify_state import SignInVerifyStateInvokeActivity
 
 SignInInvokeActivity = Annotated[
-    Union[SignInTokenExchangeInvokeActivity, SignInVerifyStateInvokeActivity],
+    Union[SignInTokenExchangeInvokeActivity, SignInVerifyStateInvokeActivity, SignInFailureInvokeActivity],
     Field(discriminator="name"),
 ]
 
 __all__ = [
     "SignInTokenExchangeInvokeActivity",
     "SignInVerifyStateInvokeActivity",
+    "SignInFailureInvokeActivity",
     "SignInInvokeActivity",
 ]

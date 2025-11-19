@@ -57,6 +57,7 @@ class ChatPrompt:
 
         Args:
             model: AI model implementation for text generation
+            memory: Optional default memory for conversation persistence
             functions: Optional list of functions the model can call
             plugins: Optional list of plugins for extending functionality
             memory: Optional memory for conversation context and deferred state
@@ -64,6 +65,7 @@ class ChatPrompt:
             instructions: Optional default system instructions for the model
         """
         self.model = model
+        self.memory = memory
         self.functions: dict[str, Function[Any]] = {func.name: func for func in functions} if functions else {}
         self.plugins: list[AIPluginProtocol] = plugins or []
         self.memory = memory
@@ -286,7 +288,8 @@ class ChatPrompt:
 
         Args:
             input: Message to send (string will be converted to UserMessage)
-            memory: Optional memory for conversation context
+            memory: Optional memory for conversation context.
+                    If not provided, uses the default memory set in constructor
             on_chunk: Optional callback for streaming response chunks
             instructions: Optional system message to guide model behavior
 

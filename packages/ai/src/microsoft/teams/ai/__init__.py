@@ -4,7 +4,6 @@ Licensed under the MIT License.
 """
 
 from . import plugins, utils
-from .agent import Agent
 from .ai_model import AIModel
 from .chat_prompt import ChatPrompt, ChatSendResult
 from .function import (
@@ -23,7 +22,6 @@ from .utils import *  # noqa: F401, F403
 __all__ = [
     "ChatSendResult",
     "ChatPrompt",
-    "Agent",
     "Message",
     "UserMessage",
     "ModelMessage",

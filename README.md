@@ -9,6 +9,11 @@ A comprehensive SDK for building Microsoft Teams applications, bots, and AI agen
     <img src="https://img.shields.io/badge/📖 Getting Started-blue?style=for-the-badge" />
 </a>
 
+## Questions & Issues
+
+- **Questions or Feature Requests**: Please use [GitHub Discussions](https://github.com/microsoft/teams-sdk/discussions)
+- **Bug Reports**: Please [open an issue](https://github.com/microsoft/teams.py/issues/new/choose)
+
 - [Getting Started](#getting-started)
 - [Packages](#packages)
 - [Test Apps](#test-apps)
@@ -59,6 +64,7 @@ A comprehensive SDK for building Microsoft Teams applications, bots, and AI agen
 - [`microsoft-teams-devtools`](./packages/devtools/README.md)
 - [`microsoft-teams-graph`](./packages/graph/README.md)
 - [`microsoft-teams-openai`](./packages/openai/README.md)
+- [`microsoft-teams-botbuilder`](./packages/botbuilder/README.md)
 
 > external packages to integrate with external protocols and microsoft-teams-cards
 
@@ -92,13 +98,13 @@ cookiecutter templates/test -o tests
 > the [@microsoft/teams.cli](https://www.npmjs.com/package/@microsoft/teams.cli) and follow the
 > [Getting Started](https://microsoft.github.io/teams-sdk/python/getting-started) documentation!
 
-- [`@tests/echo`](./tests/echo/README.md)
-- [`@tests/message-extensions`](./tests/message-extensions/README.md)
-- [`@tests/dialogs`](./tests/dialogs/README.md)
-- [`@tests/graph`](./tests/graph/README.md)
-- [`@tests/ai-test`](./tests/ai-test/README.md)
-- [`@tests/stream`](./tests/stream/README.md)
-- [`@tests/oauth`](./tests/oauth/README.md)
+- [`@examples/echo`](./examples/echo/README.md)
+- [`@examples/message-extensions`](./examples/message-extensions/README.md)
+- [`@examples/dialogs`](./examples/dialogs/README.md)
+- [`@examples/graph`](./examples/graph/README.md)
+- [`@examples/ai-test`](./examples/ai-test/README.md)
+- [`@examples/stream`](./examples/stream/README.md)
+- [`@examples/oauth`](./examples/oauth/README.md)
 
 ## Links
 

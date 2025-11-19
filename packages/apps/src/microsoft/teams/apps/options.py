@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 from logging import Logger
 from typing import Any, Awaitable, Callable, List, Optional, TypedDict, Union, cast
 
+from microsoft.teams.api import ApiClientSettings
 from microsoft.teams.common import Storage
 from typing_extensions import Unpack
 
@@ -41,8 +42,13 @@ class AppOptions(TypedDict, total=False):
     plugins: Optional[List[PluginBase]]
     skip_auth: Optional[bool]
 
-    # Oauth
+    # OAuth
     default_connection_name: Optional[str]
+    """The OAuth connection name to use for authentication. Defaults to 'graph'."""
+
+    # API Client Settings
+    api_client_settings: Optional[ApiClientSettings]
+    """API client settings used for overriding."""
 
 
 @dataclass
@@ -52,7 +58,10 @@ class InternalAppOptions:
     # Fields with defaults
     skip_auth: bool = False
     default_connection_name: str = "graph"
+    """The OAuth connection name to use for authentication."""
     plugins: List[PluginBase] = field(default_factory=lambda: [])
+    api_client_settings: Optional[ApiClientSettings] = None
+    """API client settings used for overriding."""
 
     # Optional fields
     client_id: Optional[str] = None

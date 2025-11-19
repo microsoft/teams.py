@@ -10,6 +10,7 @@ from microsoft.teams.api import (
     ActivityBase,
     ActivityParams,
     ApiClient,
+    ApiClientSettings,
     ConversationReference,
     InvokeResponse,
     SentActivity,
@@ -42,6 +43,7 @@ class ActivityProcessor:
         default_connection_name: str,
         http_client: Client,
         token_manager: TokenManager,
+        api_client_settings: Optional[ApiClientSettings],
     ) -> None:
         self.router = router
         self.logger = logger
@@ -50,6 +52,7 @@ class ActivityProcessor:
         self.default_connection_name = default_connection_name
         self.http_client = http_client
         self.token_manager = token_manager
+        self.api_client_settings = api_client_settings
 
         # This will be set after the EventManager is initialized due to
         # a circular dependency
@@ -82,7 +85,9 @@ class ActivityProcessor:
             user=activity.from_,
         )
         api_client = ApiClient(
-            service_url, self.http_client.clone(ClientOptions(token=self.token_manager.get_bot_token))
+            service_url,
+            self.http_client.clone(ClientOptions(token=self.token_manager.get_bot_token)),
+            self.api_client_settings,
         )
 
         # Check if user is signed in

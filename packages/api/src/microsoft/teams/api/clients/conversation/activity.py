@@ -9,6 +9,7 @@ from microsoft.teams.common.http import Client
 
 from ...activities import ActivityParams, SentActivity
 from ...models import Account
+from ..api_client_settings import ApiClientSettings
 from ..base_client import BaseClient
 
 
@@ -17,15 +18,21 @@ class ConversationActivityClient(BaseClient):
     Client for managing activities in a Teams conversation.
     """
 
-    def __init__(self, service_url: str, http_client: Optional[Client] = None):
+    def __init__(
+        self,
+        service_url: str,
+        http_client: Optional[Client] = None,
+        api_client_settings: Optional[ApiClientSettings] = None,
+    ):
         """
         Initialize the conversation activity client.
 
         Args:
             service_url: The base URL for the Teams service
             http_client: Optional HTTP client to use. If not provided, a new one will be created.
+            api_client_settings: Optional API client settings.
         """
-        super().__init__(http_client)
+        super().__init__(http_client, api_client_settings)
         self.service_url = service_url
 
     async def create(self, conversation_id: str, activity: ActivityParams) -> SentActivity:
