@@ -23,7 +23,7 @@ class Timeout:
         self._handle: Optional[asyncio.TimerHandle] = None
         self._cancelled: bool = False
 
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         self._handle = loop.call_later(delay, self._run)
 
     def _run(self) -> None:
