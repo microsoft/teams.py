@@ -155,7 +155,7 @@ if result.value:
 class SentimentResult(BaseModel):
     sentiment: Literal["positive", "negative"]
 
-# NOTE: ChatPrompt does not support structured output natively
+# NOTE: ChatPrompt does not support structured output natively. Typescript has this, but not python. (And typescript's version is a bit clunky https://microsoft.github.io/teams-sdk/typescript/in-depth-guides/ai/function-calling#stopping-functions-early)
 chat_result = await prompt.send(
     input=text,
     instructions="""
