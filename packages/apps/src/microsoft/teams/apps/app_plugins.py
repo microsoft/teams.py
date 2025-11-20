@@ -8,6 +8,7 @@ from typing import Any, List, Optional, cast, get_type_hints
 
 from dependency_injector import providers
 from microsoft.teams.api.activities import Activity
+from microsoft.teams.api.models.invoke_response import InvokeResponse
 from microsoft.teams.common.events.event_emitter import EventEmitter
 
 from .app_events import EventManager
@@ -105,9 +106,9 @@ class PluginProcessor:
         elif meta.name == "activity":
             self.logger.debug("Injecting the activity event")
 
-            async def activity_handler(event: PluginActivityEvent) -> None:
+            async def activity_handler(event: PluginActivityEvent) -> InvokeResponse[Any]:
                 sender = cast(Sender, plugin)
-                await self.event_manager.on_activity(
+                return await self.event_manager.on_activity(
                     ActivityEvent(activity=event.activity, sender=sender, token=event.token), self.plugins
                 )
 

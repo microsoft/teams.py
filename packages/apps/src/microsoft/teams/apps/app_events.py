@@ -5,7 +5,9 @@ Licensed under the MIT License.
 
 from typing import List
 
+from microsoft.teams.api.models.invoke_response import InvokeResponse
 from microsoft.teams.common.events.event_emitter import EventEmitter
+from typing_extensions import Any
 
 from .app_process import ActivityProcessor
 from .events import ActivityEvent, ActivityResponseEvent, ActivitySentEvent, ErrorEvent, EventType
@@ -24,9 +26,9 @@ class EventManager:
 
         self.event_emitter.emit("error", event)
 
-    async def on_activity(self, event: ActivityEvent, plugins: List[PluginBase]) -> None:
+    async def on_activity(self, event: ActivityEvent, plugins: List[PluginBase]) -> InvokeResponse[Any]:
         self.event_emitter.emit("activity", event)
-        await self.activity_processor.process_activity(plugins=plugins, sender=event.sender, event=event)
+        return await self.activity_processor.process_activity(plugins=plugins, sender=event.sender, event=event)
 
     async def on_activity_sent(self, sender: Sender, event: ActivitySentEvent, plugins: List[PluginBase]) -> None:
         for plugin in plugins:
