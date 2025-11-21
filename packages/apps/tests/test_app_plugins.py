@@ -20,6 +20,7 @@ from microsoft.teams.apps import (
 )
 from microsoft.teams.apps.app_events import EventManager
 from microsoft.teams.apps.app_plugins import PluginProcessor
+from microsoft.teams.apps.app_process import ActivityProcessor
 from microsoft.teams.apps.container import Container
 from microsoft.teams.apps.events.types import ActivityEvent
 from microsoft.teams.apps.plugins.plugin_activity_event import PluginActivityEvent
@@ -51,13 +52,18 @@ class TestPluginProcessor:
         return MagicMock(spec=EventEmitter)
 
     @pytest.fixture
-    def plugin_processor(self, container, mock_event_emitter, mock_logger, mock_event_manager):
+    def mock_activity_processor(self):
+        return MagicMock(spec=ActivityProcessor)
+
+    @pytest.fixture
+    def plugin_processor(self, container, mock_event_emitter, mock_logger, mock_event_manager, mock_activity_processor):
         """Create a PluginProcessor instance."""
         return PluginProcessor(
             container=container,
             event_manager=mock_event_manager,
             event_emitter=mock_event_emitter,
             logger=mock_logger,
+            activity_processor=mock_activity_processor,
         )
 
     @pytest.fixture
@@ -115,7 +121,7 @@ class TestPluginProcessor:
         plugin_processor.container.set_provider("client", mock_client)
 
         invoke_response = InvokeResponse[Any](status=200, body=None)
-        plugin_processor.event_manager.on_activity = AsyncMock(return_value=invoke_response)
+        plugin_processor.activity_processor.process_activity = AsyncMock(return_value=invoke_response)
 
         plugin_processor.initialize_plugins([mock_plugin])
         plugin_processor.inject(mock_plugin)
@@ -126,5 +132,5 @@ class TestPluginProcessor:
         assert hasattr(mock_plugin, "on_error_event")
         assert mock_plugin.client._extract_mock_name() == "mock()"
 
-        plugin_processor.event_manager.on_activity.assert_called_once()
+        plugin_processor.activity_processor.process_activity.assert_called_once()
         assert result == invoke_response
