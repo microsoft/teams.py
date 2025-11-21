@@ -8,10 +8,12 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from microsoft.teams.api import Activity, ConversationReference, TokenProtocol
+from microsoft.teams.api.models.invoke_response import InvokeResponse
 from microsoft.teams.apps import ActivityEvent, ActivityResponseEvent, ActivitySentEvent, ErrorEvent, HttpPlugin, Sender
 from microsoft.teams.apps.app_events import EventManager
 from microsoft.teams.apps.app_process import ActivityProcessor
 from microsoft.teams.common.events.event_emitter import EventEmitter
+from typing_extensions import Any
 
 
 class TestEventManager:
@@ -59,13 +61,16 @@ class TestEventManager:
         activity_event = ActivityEvent(
             sender=Sender(), activity=MagicMock(spec=Activity), token=MagicMock(spec=TokenProtocol)
         )
+        invoke_response = InvokeResponse[Any](status=200, body=None)
+        mock_activity_processor.process_activity = AsyncMock(return_value=invoke_response)
 
-        await event_manager.on_activity(activity_event, mock_plugins)
+        result = await event_manager.on_activity(activity_event, mock_plugins)
 
         mock_event_emitter.emit.assert_called_once_with("activity", activity_event)
         mock_activity_processor.process_activity.assert_called_once_with(
             plugins=mock_plugins, sender=activity_event.sender, event=activity_event
         )
+        assert result == invoke_response
 
     @pytest.mark.asyncio
     async def test_on_activity_sent(self, event_manager, mock_event_emitter, mock_plugins):
