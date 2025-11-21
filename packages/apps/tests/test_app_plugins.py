@@ -40,9 +40,7 @@ class TestPluginProcessor:
 
     @pytest.fixture
     def mock_event_manager(self):
-        event_manager = MagicMock(spec=EventManager)
-        event_manager.on_activity = AsyncMock()
-        return event_manager
+        return MagicMock(spec=EventManager)
 
     @pytest.fixture
     def mock_client(self):
@@ -116,12 +114,17 @@ class TestPluginProcessor:
         plugin_processor.container.set_provider("logger", mock_logger)
         plugin_processor.container.set_provider("client", mock_client)
 
+        invoke_response = InvokeResponse[Any](status=200, body=None)
+        plugin_processor.event_manager.on_activity = AsyncMock(return_value=invoke_response)
+
         plugin_processor.initialize_plugins([mock_plugin])
         plugin_processor.inject(mock_plugin)
 
-        await mock_plugin.on_activity_event(MagicMock(spec=PluginActivityEvent))
+        result = await mock_plugin.on_activity_event(MagicMock(spec=PluginActivityEvent))
 
         assert mock_plugin.logger._extract_mock_name() == "mock().getChild()"
         assert hasattr(mock_plugin, "on_error_event")
         assert mock_plugin.client._extract_mock_name() == "mock()"
+
         plugin_processor.event_manager.on_activity.assert_called_once()
+        assert result == invoke_response
