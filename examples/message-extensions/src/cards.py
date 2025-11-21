@@ -151,6 +151,12 @@ async def create_dummy_cards(search_query: str) -> List[Dict[str, Any]]:
             "thumbnail": {
                 "title": item["title"],
                 "text": item["description"],
+                "images": [
+                    {
+                        "alt": "Mario PNG",
+                        "url": "https://us-prod.asyncgw.teams.microsoft.com/urlp/v1/url/content?url=https%3a%2f%2ftse1.mm.bing.net%2fth%2fid%2fOIP.0PJdFY9vGiLB0l2ApUUraQHaJP%3fpid%3dApi%26w%3d85%26h%3d85%26c%3d7",
+                    }
+                ],
             },
         }
         cards.append(card_data)
