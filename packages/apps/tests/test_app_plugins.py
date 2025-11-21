@@ -6,9 +6,10 @@ Licensed under the MIT License.
 
 from logging import Logger
 from typing import Annotated, Callable
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from microsoft.teams.api.models.invoke_response import InvokeResponse
 from microsoft.teams.apps import (
     DependencyMetadata,
     ErrorEvent,
@@ -20,7 +21,10 @@ from microsoft.teams.apps import (
 from microsoft.teams.apps.app_events import EventManager
 from microsoft.teams.apps.app_plugins import PluginProcessor
 from microsoft.teams.apps.container import Container
+from microsoft.teams.apps.events.types import ActivityEvent
+from microsoft.teams.apps.plugins.plugin_activity_event import PluginActivityEvent
 from microsoft.teams.common import Client, EventEmitter
+from typing_extensions import Any
 
 
 class TestPluginProcessor:
@@ -36,7 +40,9 @@ class TestPluginProcessor:
 
     @pytest.fixture
     def mock_event_manager(self):
-        return MagicMock(spec=EventManager)
+        event_manager = MagicMock(spec=EventManager)
+        event_manager.on_activity = AsyncMock()
+        return event_manager
 
     @pytest.fixture
     def mock_client(self):
@@ -65,6 +71,7 @@ class TestPluginProcessor:
             logger: Annotated[Logger, LoggerDependencyOptions()]
             on_error_event: Annotated[Callable[[ErrorEvent], None], EventMetadata(name="error")]
             client: Annotated[Client, DependencyMetadata()]
+            on_activity_event: Annotated[Callable[[ActivityEvent], InvokeResponse[Any]], EventMetadata(name="activity")]
 
             def __init__(self):
                 super().__init__()
@@ -112,6 +119,9 @@ class TestPluginProcessor:
         plugin_processor.initialize_plugins([mock_plugin])
         plugin_processor.inject(mock_plugin)
 
+        await mock_plugin.on_activity_event(MagicMock(spec=PluginActivityEvent))
+
         assert mock_plugin.logger._extract_mock_name() == "mock().getChild()"
         assert hasattr(mock_plugin, "on_error_event")
         assert mock_plugin.client._extract_mock_name() == "mock()"
+        plugin_processor.event_manager.on_activity.assert_called_once()
