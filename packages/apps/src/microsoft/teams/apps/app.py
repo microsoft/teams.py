@@ -134,9 +134,11 @@ class App(ActivityHandlerMixin):
             self._token_manager,
             self.options.api_client_settings,
         )
-        self.event_manager = EventManager(self._events, self.activity_processor)
+        self.event_manager = EventManager(self._events)
         self.activity_processor.event_manager = self.event_manager
-        self._plugin_processor = PluginProcessor(self.container, self.event_manager, self.log, self._events)
+        self._plugin_processor = PluginProcessor(
+            self.container, self.event_manager, self.log, self._events, self.activity_processor
+        )
         self.plugins = self._plugin_processor.initialize_plugins(plugins)
 
         # default event handlers

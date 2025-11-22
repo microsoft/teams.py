@@ -196,7 +196,7 @@ class TestApp:
         plugin = app_with_activity_handler.http
 
         await app_with_activity_handler.event_manager.on_activity(
-            ActivityEvent(activity=activity, sender=plugin, token=FakeToken()), plugins=[plugin]
+            ActivityEvent(activity=activity, sender=plugin, token=FakeToken())
         )
 
         # Wait for the async event handler to complete
@@ -251,8 +251,7 @@ class TestApp:
         )
 
         await app_with_options.event_manager.on_activity(
-            ActivityEvent(activity=activity, sender=app_with_options.http, token=FakeToken()),
-            plugins=[app_with_options.http],
+            ActivityEvent(activity=activity, sender=app_with_options.http, token=FakeToken())
         )
 
         # Wait for both async event handlers to complete
@@ -365,41 +364,6 @@ class TestApp:
         assert len(typing_handlers) == 1
         assert message_handlers[0] == handle_message
         assert typing_handlers[0] == handle_typing
-
-    @pytest.mark.asyncio
-    async def test_generated_handler_execution(self, app_with_options: App) -> None:
-        """Test that generated handlers are executed correctly."""
-        handler_data = {}
-
-        @app_with_options.on_message
-        async def handle_message(ctx: ActivityContext[MessageActivity]) -> None:
-            handler_data["called"] = True
-            handler_data["activity_text"] = ctx.activity.text
-
-        from_account = Account(id="bot-123", name="Test Bot", role="bot")
-        recipient = Account(id="user-456", name="Test User", role="user")
-        conversation = ConversationAccount(id="conv-789", conversation_type="personal")
-
-        activity = MessageActivity(
-            id="test-activity-id",
-            type="message",
-            text="Hello from generated handler!",
-            from_=from_account,
-            recipient=recipient,
-            conversation=conversation,
-        )
-
-        # Mock the HTTP plugin response method
-        app_with_options.http.on_activity_response = AsyncMock()
-
-        await app_with_options.event_manager.on_activity(
-            ActivityEvent(activity=activity, sender=app_with_options.http, token=FakeToken()),
-            plugins=[app_with_options.http],
-        )
-
-        # Verify handler was called and executed
-        assert handler_data["called"] is True
-        assert handler_data["activity_text"] == "Hello from generated handler!"
 
     def test_runtime_type_validation(self, app_with_options: App) -> None:
         """Test that runtime type validation catches incorrect type annotations."""

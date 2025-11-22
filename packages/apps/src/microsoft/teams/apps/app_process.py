@@ -171,7 +171,7 @@ class ActivityProcessor:
 
     async def process_activity(
         self, plugins: List[PluginBase], sender: Sender, event: ActivityEvent
-    ) -> Optional[InvokeResponse[Any]]:
+    ) -> InvokeResponse[Any]:
         activityCtx = await self._build_context(event.activity, event.token, plugins, sender)
 
         self.logger.debug(f"Received activity: {activityCtx.activity}")
@@ -200,31 +200,30 @@ class ActivityProcessor:
         ]
         handlers = plugin_routes + handlers
 
-        response: Optional[InvokeResponse[Any]] = None
+        response: InvokeResponse[Any]
 
-        # If no registered handlers, fall back to legacy activity_handler
-        if handlers:
-            middleware_result = await self.execute_middleware_chain(activityCtx, handlers)
+        # If no registered handlers, middleware_result is set to None
+        middleware_result = await self.execute_middleware_chain(activityCtx, handlers)
 
-            await activityCtx.stream.close()
+        await activityCtx.stream.close()
 
-            if not self.event_manager:
-                raise ValueError("EventManager was not initialized properly")
+        if not self.event_manager:
+            raise ValueError("EventManager was not initialized properly")
 
-            if not middleware_result or not is_invoke_response(middleware_result):
-                response = InvokeResponse[Any](status=200, body=middleware_result)
-            else:
-                response = cast(InvokeResponse[Any], middleware_result)
+        if is_invoke_response(middleware_result):
+            response = cast(InvokeResponse[Any], middleware_result)
+        else:
+            response = InvokeResponse[Any](status=200, body=middleware_result)
 
-            await self.event_manager.on_activity_response(
-                sender,
-                ActivityResponseEvent(
-                    activity=event.activity,
-                    response=response,
-                    conversation_ref=activityCtx.conversation_ref,
-                ),
-                plugins=plugins,
-            )
+        await self.event_manager.on_activity_response(
+            sender,
+            ActivityResponseEvent(
+                activity=event.activity,
+                response=response,
+                conversation_ref=activityCtx.conversation_ref,
+            ),
+            plugins=plugins,
+        )
 
         self.logger.debug("Completed processing activity")
 
