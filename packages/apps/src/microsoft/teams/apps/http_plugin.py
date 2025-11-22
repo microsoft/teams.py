@@ -99,7 +99,7 @@ class HttpPlugin(Sender):
                     return uvicorn.Server(config=uvicorn.Config(app, host="0.0.0.0", port=8000))
 
 
-                http_plugin = HttpPlugin(app_id="your-app-id", server_factory=custom_server_factory)
+                http_plugin = HttpPlugin(server_factory=custom_server_factory)
                 ```
         """
         super().__init__()
