@@ -1421,7 +1421,7 @@ wheels = [
 
 [[package]]
 name = "microsoft-teams-a2a"
-version = "2.0.0a5"
+version = "2.0.0a6"
 source = { editable = "packages/a2aprotocol" }
 dependencies = [
     { name = "a2a-sdk", extra = ["http-server"] },
@@ -1442,7 +1442,7 @@ requires-dist = [
 
 [[package]]
 name = "microsoft-teams-ai"
-version = "2.0.0a5"
+version = "2.0.0a6"
 source = { editable = "packages/ai" }
 dependencies = [
     { name = "microsoft-teams-common" },
@@ -1453,7 +1453,7 @@ requires-dist = [{ name = "microsoft-teams-common", editable = "packages/common"
 
 [[package]]
 name = "microsoft-teams-api"
-version = "2.0.0a5"
+version = "2.0.0a6"
 source = { editable = "packages/api" }
 dependencies = [
     { name = "microsoft-teams-cards" },
@@ -1486,7 +1486,7 @@ dev = [
 
 [[package]]
 name = "microsoft-teams-apps"
-version = "2.0.0a5"
+version = "2.0.0a6"
 source = { editable = "packages/apps" }
 dependencies = [
     { name = "cryptography" },
@@ -1536,7 +1536,7 @@ test = [
 
 [[package]]
 name = "microsoft-teams-botbuilder"
-version = "2.0.0a5"
+version = "2.0.0a6"
 source = { editable = "packages/botbuilder" }
 dependencies = [
     { name = "botbuilder-core" },
@@ -1557,7 +1557,7 @@ requires-dist = [
 
 [[package]]
 name = "microsoft-teams-cards"
-version = "2.0.0a5"
+version = "2.0.0a6"
 source = { editable = "packages/cards" }
 dependencies = [
     { name = "coverage" },
@@ -1576,7 +1576,7 @@ requires-dist = [
 
 [[package]]
 name = "microsoft-teams-common"
-version = "2.0.0a5"
+version = "2.0.0a6"
 source = { editable = "packages/common" }
 dependencies = [
     { name = "coverage" },
@@ -1607,7 +1607,7 @@ dev = [
 
 [[package]]
 name = "microsoft-teams-devtools"
-version = "2.0.0a5"
+version = "2.0.0a6"
 source = { editable = "packages/devtools" }
 dependencies = [
     { name = "fastapi" },
@@ -1628,7 +1628,7 @@ requires-dist = [
 
 [[package]]
 name = "microsoft-teams-graph"
-version = "2.0.0a5"
+version = "2.0.0a6"
 source = { editable = "packages/graph" }
 dependencies = [
     { name = "azure-core" },
@@ -1659,7 +1659,7 @@ dev = [
 
 [[package]]
 name = "microsoft-teams-mcpplugin"
-version = "2.0.0a5"
+version = "2.0.0a6"
 source = { editable = "packages/mcpplugin" }
 dependencies = [
     { name = "fastmcp" },
@@ -1680,7 +1680,7 @@ requires-dist = [
 
 [[package]]
 name = "microsoft-teams-openai"
-version = "2.0.0a5"
+version = "2.0.0a6"
 source = { editable = "packages/openai" }
 dependencies = [
     { name = "microsoft-teams-ai" },
