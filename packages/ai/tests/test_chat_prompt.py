@@ -139,7 +139,7 @@ class TestChatPromptEssentials:
         result = await prompt.send("Hello world")
 
         assert isinstance(result, ChatSendResult)
-        assert result.response.content == "GENERATED - Hello world"
+        assert result.response and result.response.content == "GENERATED - Hello world"
 
     @pytest.mark.asyncio
     async def test_memory_updates(self) -> None:
@@ -182,6 +182,7 @@ class TestChatPromptEssentials:
         result = await prompt.send("Call the function")
 
         # Verify the function call is in the response
+        assert isinstance(result.response, ModelMessage)
         assert result.response.function_calls is not None
         assert len(result.response.function_calls) == 1
         assert result.response.function_calls[0].name == "test_function"
@@ -223,10 +224,12 @@ class TestChatPromptEssentials:
 
         # First exchange
         result1 = await prompt.send("Hello", memory=memory)
+        assert isinstance(result1.response, ModelMessage)
         assert result1.response.content == "GENERATED - Hello"
 
         # Second exchange
         result2 = await prompt.send("How are you?", memory=memory)
+        assert isinstance(result2.response, ModelMessage)
         assert result2.response.content == "GENERATED - How are you?"
 
         # Verify memory contains complete conversation history
@@ -284,16 +287,19 @@ class TestChatPromptEssentials:
 
         # String input
         result1 = await prompt.send("String input")
+        assert isinstance(result1.response, ModelMessage)
         assert result1.response.content == "GENERATED - String input"
 
         # UserMessage input
         user_msg = UserMessage(content="User message")
         result2 = await prompt.send(user_msg)
+        assert isinstance(result2.response, ModelMessage)
         assert result2.response.content == "GENERATED - User message"
 
         # ModelMessage input (for function calling scenarios)
         model_msg = ModelMessage(content="Model message", function_calls=None)
         result3 = await prompt.send(model_msg)
+        assert isinstance(result3.response, ModelMessage)
         assert result3.response.content == "GENERATED - Model message"
 
     @pytest.mark.asyncio
@@ -334,6 +340,7 @@ class TestChatPromptEssentials:
 
         # Verify both work in send
         result = await prompt.send("Test message")
+        assert isinstance(result.response, ModelMessage)
         assert result.response.content == "GENERATED - Test message"
 
 
@@ -431,6 +438,7 @@ class TestChatPromptPlugins:
         assert mock_model.last_input is not None
         assert mock_model.last_input.content == "MODIFIED: Original message"
         # Verify the response reflects the modified input
+        assert isinstance(result.response, ModelMessage)
         assert result.response.content == "GENERATED - MODIFIED: Original message"
 
     @pytest.mark.asyncio
@@ -443,6 +451,7 @@ class TestChatPromptPlugins:
         result = await prompt.send("Test message")
 
         assert plugin.after_send_called
+        assert isinstance(result.response, ModelMessage)
         assert result.response.content == "RESPONSE_MODIFIED: GENERATED - Test message"
 
     @pytest.mark.asyncio
@@ -493,6 +502,7 @@ class TestChatPromptPlugins:
         # Verify after hook was called and modified result
         assert len(plugin.after_function_called) == 1
         assert plugin.after_function_called[0][0] == "test_function"
+        assert isinstance(result.response, ModelMessage)
         assert result.response.content is not None
         assert "FUNCTION_MODIFIED: Function executed successfully" in result.response.content
 
@@ -536,6 +546,7 @@ class TestChatPromptPlugins:
         assert plugin2.after_send_called
 
         # Input should be modified by both plugins in order
+        assert isinstance(result.response, ModelMessage)
         assert result.response.content == "SECOND_RESP: FIRST_RESP: GENERATED - SECOND: FIRST: Original"
 
     @pytest.mark.asyncio
@@ -557,6 +568,7 @@ class TestChatPromptPlugins:
         result = await prompt.send("Test message")
 
         # Should be unchanged since plugin returned None
+        assert isinstance(result.response, ModelMessage)
         assert result.response.content == "GENERATED - Test message"
 
     @pytest.mark.asyncio
@@ -568,6 +580,8 @@ class TestChatPromptPlugins:
         result_with = await prompt_with_plugins.send("Test message")
         result_without = await prompt_without_plugins.send("Test message")
 
+        assert isinstance(result_with.response, ModelMessage)
+        assert isinstance(result_without.response, ModelMessage)
         assert result_with.response.content == result_without.response.content
 
     @pytest.mark.asyncio
@@ -592,6 +606,7 @@ class TestChatPromptPlugins:
         # Verify function was called and result was modified by plugin
         assert len(plugin.before_function_called) == 1
         assert len(plugin.after_function_called) == 1
+        assert isinstance(result.response, ModelMessage)
         assert result.response.content is not None
         assert "ASYNC_MODIFIED: Function executed successfully" in result.response.content
 
@@ -621,6 +636,7 @@ class TestChatPromptPlugins:
 
         # Should work without any issues using default implementations
         result = await prompt.send("Test with base plugin")
+        assert isinstance(result.response, ModelMessage)
         assert result.response.content == "GENERATED - Test with base plugin"
 
         # Test with functions too
@@ -631,6 +647,7 @@ class TestChatPromptPlugins:
         prompt_with_func = ChatPrompt(mock_model, functions=[test_function], plugins=[base_plugin])
 
         result2 = await prompt_with_func.send("Test with function")
+        assert isinstance(result2.response, ModelMessage)
         assert result2.response.content == "GENERATED - Test with function"
 
     @pytest.mark.asyncio
@@ -673,6 +690,7 @@ class TestChatPromptPlugins:
         assert "test_function" in mock_model.last_functions
 
         # Verify final response includes all modifications
+        assert isinstance(result.response, ModelMessage)
         assert result.response.content is not None
         assert "RESP_MOD:" in result.response.content
         assert "FUNC_MOD: Function executed successfully" in result.response.content

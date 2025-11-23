@@ -3,12 +3,13 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from dataclasses import dataclass, field
-from typing import Any, Awaitable, Dict, Generic, Protocol, TypeVar, Union
+from dataclasses import dataclass
+from typing import Any, Awaitable, Dict, Generic, Literal, Protocol, TypeVar, Union
 
 from pydantic import BaseModel
 
 Params = TypeVar("Params", bound=BaseModel, contravariant=True)
+ResumableData = TypeVar("ResumableData")
 """
 Type variable for function parameter schemas.
 
@@ -36,6 +37,61 @@ class FunctionHandler(Protocol[Params]):
             String result (sync) or awaitable string result (async)
         """
         ...
+
+
+class DeferredFunctionResumer(Generic[Params, ResumableData]):
+    """
+    The resumable function returns the actual string
+    """
+
+    def can_handle(self, activity: Any) -> bool:
+        """
+        Check if this resumer can handle the given activity input.
+
+        Args:
+            activity: The activity data to check
+
+        Returns:
+            True if this resumer can process the activity, False otherwise
+        """
+        ...
+
+    def __call__(self, params: Params, resumableData: ResumableData) -> Awaitable[str]: ...
+
+
+@dataclass
+class DeferredResult:
+    """
+    Represents a deferred result that can be resumed later on
+    """
+
+    state: dict[str, Any]
+    type: Literal["deferred"] = "deferred"
+
+
+@dataclass
+class FunctionCall:
+    """
+    Represents a function call request from an AI model.
+
+    Contains the function name, unique call ID, and parsed arguments
+    that will be passed to the function handler.
+    """
+
+    id: str  # Unique identifier for this function call
+    name: str  # Name of the function to call
+    arguments: dict[str, Any]  # Parsed arguments for the function
+
+
+class DeferredFunctionHandler(Protocol[Params]):
+    """
+    The Deferred Function handler defers the job and returns the name
+    of the resumable function
+    Returns the name of the resumable function, and the parameters to save
+    state
+    """
+
+    def __call__(self, params: Params) -> Awaitable[DeferredResult]: ...
 
 
 class FunctionHandlerWithNoParams(Protocol):
@@ -81,19 +137,8 @@ class Function(Generic[Params]):
 
     name: str  # Unique identifier for the function
     description: str  # Human-readable description of what the function does
-    parameter_schema: Union[type[Params], Dict[str, Any], None]  # Pydantic model class, JSON schema dict, or None
-    handler: Union[FunctionHandler[Params], FunctionHandlerWithNoParams]  # Function implementation (sync or async)
-
-
-@dataclass
-class FunctionCall:
-    """
-    Represents a function call request from an AI model.
-
-    Contains the function name, unique call ID, and parsed arguments
-    that will be passed to the function handler if any.
-    """
-
-    id: str  # Unique identifier for this function call
-    name: str  # Name of the function to call
-    arguments: dict[str, Any] = field(default_factory=dict[str, Any])  # Parsed arguments for the function
+    parameter_schema: Union[type[Params], Dict[str, Any], None]  # Pydantic model class or JSON schema dict
+    handler: (
+        FunctionHandler[Params] | FunctionHandlerWithNoParams | DeferredFunctionHandler[Params]
+    )  # Function implementation (sync or async)
+    resumer: DeferredFunctionResumer[Params, Any] | None = None  # Optional resumer for deferred functions

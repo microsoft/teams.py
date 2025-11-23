@@ -3,10 +3,18 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from typing import Any, Dict, Optional
+import inspect
+from typing import Any, Dict, Optional, cast
 
-from microsoft.teams.ai import Function
 from pydantic import BaseModel, ConfigDict, create_model
+
+from ..function import (
+    DeferredFunctionHandler,
+    DeferredResult,
+    Function,
+    FunctionHandler,
+    FunctionHandlerWithNoParams,
+)
 
 
 def get_function_schema(func: Function[Any]) -> Dict[str, Any]:
@@ -59,3 +67,20 @@ def parse_function_arguments(func: Function[Any], arguments: Dict[str, Any]) -> 
     else:
         # For Pydantic model schemas, parse normally
         return func.parameter_schema(**arguments)
+
+
+async def execute_function(function: Function[Any], arguments: Dict[str, Any]) -> str | DeferredResult:
+    parsed_args = parse_function_arguments(function, arguments)
+    if parsed_args:
+        # Handle both sync and async function handlers
+        handler = cast(FunctionHandler[BaseModel] | DeferredFunctionHandler[BaseModel], function.handler)
+        result = handler(parsed_args)
+    else:
+        handler = cast(FunctionHandlerWithNoParams, function.handler)
+        result = handler()
+
+    if inspect.isawaitable(result):
+        fn_res = await result
+    else:
+        fn_res = result
+    return fn_res

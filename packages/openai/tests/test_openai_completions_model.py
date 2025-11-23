@@ -76,6 +76,7 @@ class TestOpenAICompletionsAIModel:
         result = await model.generate_text(input_msg)
 
         # Assertions
+        assert isinstance(result, ModelMessage)
         assert result.content == "Hello, world!"
         assert result.function_calls is None
 

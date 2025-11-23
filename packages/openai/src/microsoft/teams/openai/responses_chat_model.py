@@ -10,6 +10,7 @@ from typing import Awaitable, Callable, cast
 
 from microsoft.teams.ai import (
     AIModel,
+    DeferredMessage,
     Function,
     FunctionCall,
     FunctionHandler,
@@ -21,6 +22,8 @@ from microsoft.teams.ai import (
     ModelMessage,
     SystemMessage,
     UserMessage,
+    get_function_schema,
+    parse_function_arguments,
 )
 from pydantic import BaseModel
 
@@ -40,7 +43,6 @@ from openai.types.responses import (
 )
 
 from .common import OpenAIBaseModel
-from .function_utils import get_function_schema, parse_function_arguments
 
 
 @dataclass
@@ -57,13 +59,13 @@ class OpenAIResponsesAIModel(OpenAIBaseModel, AIModel):
 
     async def generate_text(
         self,
-        input: Message,
+        input: Message | None,
         *,
         system: SystemMessage | None = None,
         memory: Memory | None = None,
         functions: dict[str, Function[BaseModel]] | None = None,
         on_chunk: Callable[[str], Awaitable[None]] | None = None,
-    ) -> ModelMessage:
+    ) -> ModelMessage | list[DeferredMessage]:
         """
         Generate text using OpenAI Responses API.
 
@@ -95,13 +97,13 @@ class OpenAIResponsesAIModel(OpenAIBaseModel, AIModel):
 
     async def _send_stateful(
         self,
-        input: Message,
+        input: Message | None,
         system: SystemMessage | None,
         memory: Memory,
         functions: dict[str, Function[BaseModel]] | None,
         on_chunk: Callable[[str], Awaitable[None]] | None,
         function_results: list[FunctionMessage],
-    ) -> ModelMessage:
+    ) -> ModelMessage | list[DeferredMessage]:
         """Handle stateful conversation using OpenAI Responses API state management."""
         # Get response IDs from memory - OpenAI manages conversation state
         messages = list(await memory.get_all())
@@ -163,21 +165,22 @@ class OpenAIResponsesAIModel(OpenAIBaseModel, AIModel):
 
     async def _send_stateless(
         self,
-        input: Message,
+        input: Message | None,
         system: SystemMessage | None,
         memory: Memory,
         functions: dict[str, Function[BaseModel]] | None,
         on_chunk: Callable[[str], Awaitable[None]] | None,
         function_results: list[FunctionMessage],
-    ) -> ModelMessage:
+    ) -> ModelMessage | list[DeferredMessage]:
         """Handle stateless conversation using standard OpenAI API pattern."""
         # Get conversation history from memory (make a copy to avoid modifying memory's internal state)
         messages = list(await memory.get_all())
         self.logger.debug(f"Retrieved {len(messages)} messages from memory")
 
-        # Push current input to memory
-        await memory.push(input)
-        messages.append(input)
+        if input:
+            # Push current input to memory
+            await memory.push(input)
+            messages.append(input)
 
         # Push function results to memory and add to messages
         if function_results:
@@ -229,7 +232,7 @@ class OpenAIResponsesAIModel(OpenAIBaseModel, AIModel):
         return model_response
 
     async def _execute_functions(
-        self, input: Message, functions: dict[str, Function[BaseModel]] | None
+        self, input: Message | None, functions: dict[str, Function[BaseModel]] | None
     ) -> list[FunctionMessage]:
         """Execute any pending function calls in the input message."""
         function_results: list[FunctionMessage] = []
