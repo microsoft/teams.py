@@ -157,7 +157,7 @@ def create_feedback_card() -> AdaptiveCard:
             ActionSet(
                 actions=[
                     ExecuteAction(title="Submit Feedback")
-                    .with_data({"action": "submit_feedback"})
+                    .with_data(SubmitActionData("submit_feedback"))
                     .with_associated_inputs("auto")
                 ]
             ),
@@ -208,7 +208,7 @@ async def handle_form(ctx: ActivityContext[MessageActivity]):
             ActionSet(
                 actions=[
                     ExecuteAction(title="Create Task")
-                    .with_data({"action": "create_task"})
+                    .with_data(SubmitActionData("create_task"))
                     .with_associated_inputs("auto")
                     .with_style("positive")
                 ]
