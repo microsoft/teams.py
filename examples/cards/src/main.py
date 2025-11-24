@@ -18,6 +18,7 @@ from microsoft.teams.cards import (
     ExecuteAction,
     NumberInput,
     OpenUrlAction,
+    SubmitActionData,
     TextBlock,
     ToggleInput,
 )
@@ -35,7 +36,9 @@ def create_basic_adaptive_card() -> AdaptiveCard:
             ToggleInput(label="Notify me").with_id("notify"),
             ActionSet(
                 actions=[
-                    ExecuteAction(title="Submit").with_data({"action": "submit_basic"}).with_associated_inputs("auto")
+                    ExecuteAction(title="Submit")
+                    .with_data(SubmitActionData("submit_basic"))
+                    .with_associated_inputs("auto")
                 ]
             ),
         ],
@@ -108,7 +111,7 @@ def create_profile_card() -> AdaptiveCard:
             ActionSet(
                 actions=[
                     ExecuteAction(title="Save")
-                    .with_data({"action": "save_profile", "entity_id": "12345"})
+                    .with_data(SubmitActionData("save_profile", {"entity_id": "12345"}))
                     .with_associated_inputs("auto"),
                     OpenUrlAction(url="https://adaptivecards.microsoft.com").with_title("Learn More"),
                 ]
