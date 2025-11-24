@@ -15,7 +15,6 @@ from typing import Callable, Optional, overload
 
 from microsoft.teams.api.activities import (
     Activity,
-    AdaptiveCardInvokeActivity,
     CommandResultActivity,
     CommandSendActivity,
     ConfigFetchInvokeActivity,
@@ -53,19 +52,15 @@ from microsoft.teams.api.activities import (
     SignInVerifyStateInvokeActivity,
     TabFetchInvokeActivity,
     TabSubmitInvokeActivity,
-    TaskFetchInvokeActivity,
-    TaskSubmitInvokeActivity,
     TraceActivity,
     TypingActivity,
     UninstalledActivity,
 )
 from microsoft.teams.api.models.invoke_response import (
-    AdaptiveCardInvokeResponse,
     ConfigInvokeResponse,
     MessagingExtensionActionInvokeResponse,
     MessagingExtensionInvokeResponse,
     TabInvokeResponse,
-    TaskModuleInvokeResponse,
     TokenExchangeInvokeResponseType,
 )
 
@@ -1285,70 +1280,6 @@ class GeneratedActivityHandlerMixin(ABC):
         return decorator
 
     @overload
-    def on_dialog_open(
-        self, handler: InvokeHandler[TaskFetchInvokeActivity, TaskModuleInvokeResponse]
-    ) -> InvokeHandler[TaskFetchInvokeActivity, TaskModuleInvokeResponse]: ...
-
-    @overload
-    def on_dialog_open(
-        self,
-    ) -> Callable[
-        [InvokeHandler[TaskFetchInvokeActivity, TaskModuleInvokeResponse]],
-        InvokeHandler[TaskFetchInvokeActivity, TaskModuleInvokeResponse],
-    ]: ...
-
-    def on_dialog_open(
-        self, handler: Optional[InvokeHandler[TaskFetchInvokeActivity, TaskModuleInvokeResponse]] = None
-    ) -> InvokeHandlerUnion[TaskFetchInvokeActivity, TaskModuleInvokeResponse]:
-        """Register a dialog.open activity handler."""
-
-        def decorator(
-            func: InvokeHandler[TaskFetchInvokeActivity, TaskModuleInvokeResponse],
-        ) -> InvokeHandler[TaskFetchInvokeActivity, TaskModuleInvokeResponse]:
-            validate_handler_type(
-                self.logger, func, TaskFetchInvokeActivity, "on_dialog_open", "TaskFetchInvokeActivity"
-            )
-            config = ACTIVITY_ROUTES["dialog.open"]
-            self.router.add_handler(config.selector, func)
-            return func
-
-        if handler is not None:
-            return decorator(handler)
-        return decorator
-
-    @overload
-    def on_dialog_submit(
-        self, handler: InvokeHandler[TaskSubmitInvokeActivity, TaskModuleInvokeResponse]
-    ) -> InvokeHandler[TaskSubmitInvokeActivity, TaskModuleInvokeResponse]: ...
-
-    @overload
-    def on_dialog_submit(
-        self,
-    ) -> Callable[
-        [InvokeHandler[TaskSubmitInvokeActivity, TaskModuleInvokeResponse]],
-        InvokeHandler[TaskSubmitInvokeActivity, TaskModuleInvokeResponse],
-    ]: ...
-
-    def on_dialog_submit(
-        self, handler: Optional[InvokeHandler[TaskSubmitInvokeActivity, TaskModuleInvokeResponse]] = None
-    ) -> InvokeHandlerUnion[TaskSubmitInvokeActivity, TaskModuleInvokeResponse]:
-        """Register a dialog.submit activity handler."""
-
-        def decorator(
-            func: InvokeHandler[TaskSubmitInvokeActivity, TaskModuleInvokeResponse],
-        ) -> InvokeHandler[TaskSubmitInvokeActivity, TaskModuleInvokeResponse]:
-            validate_handler_type(
-                self.logger, func, TaskSubmitInvokeActivity, "on_dialog_submit", "TaskSubmitInvokeActivity"
-            )
-            config = ACTIVITY_ROUTES["dialog.submit"]
-            self.router.add_handler(config.selector, func)
-            return func
-
-        if handler is not None:
-            return decorator(handler)
-        return decorator
-
-    @overload
     def on_tab_open(
         self, handler: InvokeHandler[TabFetchInvokeActivity, TabInvokeResponse]
     ) -> InvokeHandler[TabFetchInvokeActivity, TabInvokeResponse]: ...
@@ -1574,38 +1505,6 @@ class GeneratedActivityHandlerMixin(ABC):
                 "SignInVerifyStateInvokeActivity",
             )
             config = ACTIVITY_ROUTES["signin.verify-state"]
-            self.router.add_handler(config.selector, func)
-            return func
-
-        if handler is not None:
-            return decorator(handler)
-        return decorator
-
-    @overload
-    def on_card_action(
-        self, handler: InvokeHandler[AdaptiveCardInvokeActivity, AdaptiveCardInvokeResponse]
-    ) -> InvokeHandler[AdaptiveCardInvokeActivity, AdaptiveCardInvokeResponse]: ...
-
-    @overload
-    def on_card_action(
-        self,
-    ) -> Callable[
-        [InvokeHandler[AdaptiveCardInvokeActivity, AdaptiveCardInvokeResponse]],
-        InvokeHandler[AdaptiveCardInvokeActivity, AdaptiveCardInvokeResponse],
-    ]: ...
-
-    def on_card_action(
-        self, handler: Optional[InvokeHandler[AdaptiveCardInvokeActivity, AdaptiveCardInvokeResponse]] = None
-    ) -> InvokeHandlerUnion[AdaptiveCardInvokeActivity, AdaptiveCardInvokeResponse]:
-        """Register a card.action activity handler."""
-
-        def decorator(
-            func: InvokeHandler[AdaptiveCardInvokeActivity, AdaptiveCardInvokeResponse],
-        ) -> InvokeHandler[AdaptiveCardInvokeActivity, AdaptiveCardInvokeResponse]:
-            validate_handler_type(
-                self.logger, func, AdaptiveCardInvokeActivity, "on_card_action", "AdaptiveCardInvokeActivity"
-            )
-            config = ACTIVITY_ROUTES["card.action"]
             self.router.add_handler(config.selector, func)
             return func
 

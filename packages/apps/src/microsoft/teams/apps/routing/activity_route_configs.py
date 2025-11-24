@@ -49,9 +49,6 @@ from microsoft.teams.api import (
     TabFetchInvokeActivity,
     TabInvokeResponse,
     TabSubmitInvokeActivity,
-    TaskFetchInvokeActivity,
-    TaskModuleInvokeResponse,
-    TaskSubmitInvokeActivity,
     TraceActivity,
     TypingActivity,
     UninstalledActivity,
@@ -423,24 +420,26 @@ ACTIVITY_ROUTES: Dict[str, ActivityConfig] = {
         output_model=None,
         is_invoke=True,
     ),
-    "dialog.open": ActivityConfig(
-        name="dialog.open",
-        method_name="on_dialog_open",
-        input_model=TaskFetchInvokeActivity,
-        selector=lambda activity: activity.type == "invoke" and cast(InvokeActivity, activity).name == "task/fetch",
-        output_model=TaskModuleInvokeResponse,
-        output_type_name="TaskModuleInvokeResponse",
-        is_invoke=True,
-    ),
-    "dialog.submit": ActivityConfig(
-        name="dialog.submit",
-        method_name="on_dialog_submit",
-        input_model=TaskSubmitInvokeActivity,
-        selector=lambda activity: activity.type == "invoke" and cast(InvokeActivity, activity).name == "task/submit",
-        output_model=TaskModuleInvokeResponse,
-        output_type_name="TaskModuleInvokeResponse",
-        is_invoke=True,
-    ),
+    # Note: dialog.open and dialog.submit are manually implemented in activity_handlers.py
+    # They have overloaded versions that accept dialog_id/action parameters for routing
+    # "dialog.open": ActivityConfig(
+    #     name="dialog.open",
+    #     method_name="on_dialog_open",
+    #     input_model=TaskFetchInvokeActivity,
+    #     selector=lambda activity: activity.type == "invoke" and cast(InvokeActivity, activity).name == "task/fetch",
+    #     output_model=TaskModuleInvokeResponse,
+    #     output_type_name="TaskModuleInvokeResponse",
+    #     is_invoke=True,
+    # ),
+    # "dialog.submit": ActivityConfig(
+    #     name="dialog.submit",
+    #     method_name="on_dialog_submit",
+    #     input_model=TaskSubmitInvokeActivity,
+    #     selector=lambda activity: activity.type == "invoke" and cast(InvokeActivity, activity).name == "task/submit",
+    #     output_model=TaskModuleInvokeResponse,
+    #     output_type_name="TaskModuleInvokeResponse",
+    #     is_invoke=True,
+    # ),
     "tab.open": ActivityConfig(
         name="tab.open",
         method_name="on_tab_open",
@@ -504,15 +503,15 @@ ACTIVITY_ROUTES: Dict[str, ActivityConfig] = {
         output_model=None,
         is_invoke=True,
     ),
-    "card.action": ActivityConfig(
-        name="card.action",
-        method_name="on_card_action",
-        input_model="AdaptiveCardInvokeActivity",
-        selector=lambda activity: activity.type == "invoke"
-        and cast(InvokeActivity, activity).name == "adaptiveCard/action",
-        output_type_name="AdaptiveCardInvokeResponse",
-        is_invoke=True,
-    ),
+    # "card.action": ActivityConfig(
+    #     name="card.action",
+    #     method_name="on_card_action",
+    #     input_model="AdaptiveCardInvokeActivity",
+    #     selector=lambda activity: activity.type == "invoke"
+    #     and cast(InvokeActivity, activity).name == "adaptiveCard/action",
+    #     output_type_name="AdaptiveCardInvokeResponse",
+    #     is_invoke=True,
+    # ),
     # Generic invoke handler (fallback for any invoke not matching specific aliases)
     "invoke": ActivityConfig(
         name="invoke",

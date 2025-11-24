@@ -8,10 +8,8 @@ from datetime import datetime
 
 from microsoft.teams.api import AdaptiveCardInvokeActivity, MessageActivity, MessageActivityInput
 from microsoft.teams.api.models.adaptive_card import (
-    AdaptiveCardActionErrorResponse,
     AdaptiveCardActionMessageResponse,
 )
-from microsoft.teams.api.models.error import HttpError, InnerHttpError
 from microsoft.teams.api.models.invoke_response import AdaptiveCardInvokeResponse
 from microsoft.teams.apps import ActivityContext, App
 from microsoft.teams.cards import (
@@ -242,69 +240,71 @@ async def handle_feedback_card(ctx: ActivityContext[MessageActivity]):
     await ctx.send(card)
 
 
-@app.on_card_action
-async def handle_form_action(ctx: ActivityContext[AdaptiveCardInvokeActivity]) -> AdaptiveCardInvokeResponse:
-    """Handle card action submissions from form example."""
+@app.on_card_action("submit_basic")
+async def handle_submit_basic(ctx: ActivityContext[AdaptiveCardInvokeActivity]) -> AdaptiveCardInvokeResponse:
+    """Handle basic card submission."""
     data = ctx.activity.value.action.data
-    if not data.get("action"):
-        print(ctx.activity)
-        return AdaptiveCardActionErrorResponse(
-            status_code=400,
-            type="application/vnd.microsoft.error",
-            value=HttpError(
-                code="BadRequest",
-                message="No action specified",
-                inner_http_error=InnerHttpError(
-                    status_code=400,
-                    body={"error": "No action specified"},
-                ),
-            ),
-        )
+    print("Received submit_basic action data:", data)
+    notify_value = data.get("notify", "false")
+    await ctx.send(f"Basic card submitted! Notify setting: {notify_value}")
+    return AdaptiveCardActionMessageResponse(
+        status_code=200,
+        type="application/vnd.microsoft.activity.message",
+        value="Action processed successfully",
+    )
 
-    print("Received action data:", data)
 
-    if data["action"] == "submit_basic":
-        notify_value = data.get("notify", "false")
-        await ctx.send(f"Basic card submitted! Notify setting: {notify_value}")
-    elif data["action"] == "submit_feedback":
-        feedback_text = data.get("feedback", "No feedback provided")
-        await ctx.send(f"Feedback received: {feedback_text}")
-    elif data["action"] == "create_task":
-        title = data.get("title", "Untitled")
-        priority = data.get("priority", "medium")
-        due_date = data.get("due_date", "No date")
-        await ctx.send(f"Task created!\nTitle: {title}\nPriority: {priority}\nDue: {due_date}")
-    elif data["action"] == "save_profile":
-        entity_id = data.get("entity_id")
-        name = data.get("name", "Unknown")
-        email = data.get("email", "No email")
-        subscribe = data.get("subscribe", "false")
-        age = data.get("age")
-        location = data.get("location", "Not specified")
+@app.on_card_action("submit_feedback")
+async def handle_submit_feedback(ctx: ActivityContext[AdaptiveCardInvokeActivity]) -> AdaptiveCardInvokeResponse:
+    """Handle feedback submission."""
+    data = ctx.activity.value.action.data
+    print("Received submit_feedback action data:", data)
+    feedback_text = data.get("feedback", "No feedback provided")
+    await ctx.send(f"Feedback received: {feedback_text}")
+    return AdaptiveCardActionMessageResponse(
+        status_code=200,
+        type="application/vnd.microsoft.activity.message",
+        value="Action processed successfully",
+    )
 
-        response_text = f"Profile saved!\nName: {name}\nEmail: {email}\nSubscribed: {subscribe}"
-        if entity_id:
-            response_text += f"\nEntity ID: {entity_id}"
-        if age:
-            response_text += f"\nAge: {age}"
-        if location != "Not specified":
-            response_text += f"\nLocation: {location}"
 
-        await ctx.send(response_text)
-    else:
-        return AdaptiveCardActionErrorResponse(
-            status_code=400,
-            type="application/vnd.microsoft.error",
-            value=HttpError(
-                code="BadRequest",
-                message="Unknown action",
-                inner_http_error=InnerHttpError(
-                    status_code=400,
-                    body={"error": "Unknown action"},
-                ),
-            ),
-        )
+@app.on_card_action("create_task")
+async def handle_create_task(ctx: ActivityContext[AdaptiveCardInvokeActivity]) -> AdaptiveCardInvokeResponse:
+    """Handle task creation."""
+    data = ctx.activity.value.action.data
+    print("Received create_task action data:", data)
+    title = data.get("title", "Untitled")
+    priority = data.get("priority", "medium")
+    due_date = data.get("due_date", "No date")
+    await ctx.send(f"Task created!\nTitle: {title}\nPriority: {priority}\nDue: {due_date}")
+    return AdaptiveCardActionMessageResponse(
+        status_code=200,
+        type="application/vnd.microsoft.activity.message",
+        value="Action processed successfully",
+    )
 
+
+@app.on_card_action("save_profile")
+async def handle_save_profile(ctx: ActivityContext[AdaptiveCardInvokeActivity]) -> AdaptiveCardInvokeResponse:
+    """Handle profile save."""
+    data = ctx.activity.value.action.data
+    print("Received save_profile action data:", data)
+    entity_id = data.get("entity_id")
+    name = data.get("name", "Unknown")
+    email = data.get("email", "No email")
+    subscribe = data.get("subscribe", "false")
+    age = data.get("age")
+    location = data.get("location", "Not specified")
+
+    response_text = f"Profile saved!\nName: {name}\nEmail: {email}\nSubscribed: {subscribe}"
+    if entity_id:
+        response_text += f"\nEntity ID: {entity_id}"
+    if age:
+        response_text += f"\nAge: {age}"
+    if location != "Not specified":
+        response_text += f"\nLocation: {location}"
+
+    await ctx.send(response_text)
     return AdaptiveCardActionMessageResponse(
         status_code=200,
         type="application/vnd.microsoft.activity.message",
