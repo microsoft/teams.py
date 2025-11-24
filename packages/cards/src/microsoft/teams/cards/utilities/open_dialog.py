@@ -12,7 +12,7 @@ RESERVED_KEYWORD = "dialog_id"
 
 class OpenDialogData(SubmitActionData):
     def __init__(self, dialog_identifier: str, extra_data: Dict[str, Any] | None = None):
-        super()
+        super().__init__()
         self.with_ms_teams(TaskFetchSubmitActionData().model_dump())
         if extra_data:
             data = {**extra_data}
