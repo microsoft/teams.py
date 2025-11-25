@@ -31,6 +31,9 @@ class SerializableObject(BaseModel):
         if field == "ms_teams":
             return "msteams"
 
+        if field == "choices_data":
+            return "choices.data"
+
         # All other fields are converted to camelCase
         return to_camel(field)
 
@@ -49,6 +52,9 @@ class SerializableObject(BaseModel):
         # Handle ms_teams field which should serialize to msteams
         if field == "ms_teams":
             return "msteams"
+
+        if field == "choices_data":
+            return "choices.data"
 
         # All other fields are converted to camelCase
         return to_camel(field)
