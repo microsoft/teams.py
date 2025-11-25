@@ -8,6 +8,13 @@ import os
 from pathlib import Path
 from typing import cast
 
+from cards import (
+    create_card,
+    create_conversation_members_card,
+    create_dummy_cards,
+    create_link_unfurl_card,
+    create_message_details_card,
+)
 from microsoft.teams.api import (
     AdaptiveCardAttachment,
     ConfigFetchInvokeActivity,
@@ -41,16 +48,9 @@ from microsoft.teams.api.models import (
     MessagingExtensionSuggestedAction,
     TaskModuleContinueResponse,
 )
+from microsoft.teams.api.models.card.thumbnail_card import ThumbnailCard
 from microsoft.teams.apps import ActivityContext, App
 from typing_extensions import Any, Dict
-
-from .cards import (
-    create_card,
-    create_conversation_members_card,
-    create_dummy_cards,
-    create_link_unfurl_card,
-    create_message_details_card,
-)
 
 app = App()
 
@@ -150,7 +150,9 @@ async def handle_message_ext_query(ctx: ActivityContext[MessageExtensionQueryInv
         attachments: list[MessagingExtensionAttachment] = []
         for card_data in cards:
             main_attachment = card_attachment(AdaptiveCardAttachment(content=card_data["card"]))
-            preview_attachment = card_attachment(ThumbnailCardAttachment(content=card_data["thumbnail"]))
+            preview_attachment = card_attachment(
+                ThumbnailCardAttachment(content=ThumbnailCard(**card_data["thumbnail"]))
+            )
 
             attachment = MessagingExtensionAttachment(
                 content_type=main_attachment.content_type, content=main_attachment.content, preview=preview_attachment
@@ -159,7 +161,7 @@ async def handle_message_ext_query(ctx: ActivityContext[MessageExtensionQueryInv
 
         result = MessagingExtensionResult(
             type=MessagingExtensionResultType.RESULT,
-            attachment_layout=MessagingExtensionAttachmentLayout.LIST,
+            attachment_layout=MessagingExtensionAttachmentLayout.GRID,
             attachments=attachments,
         )
 
