@@ -67,9 +67,9 @@ class EventEmitter(EventEmitterProtocol[EventTypeT]):
         # Use provided logger or create default console logger
         logger = options.get("logger") if options else None
         if logger:
-            self._logger = logger.getChild("microsoft.teams.common.events.EventEmitter")
+            self._logger = logger.getChild("microsoft_teams.common.events.EventEmitter")
         else:
-            self._logger = ConsoleLogger().create_logger("microsoft.teams.common.events.EventEmitter")
+            self._logger = ConsoleLogger().create_logger("microsoft_teams.common.events.EventEmitter")
 
     def on(self, event: EventTypeT, handler: EventHandler) -> int:
         """
