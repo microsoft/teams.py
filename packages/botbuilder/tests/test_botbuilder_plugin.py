@@ -45,9 +45,9 @@ class TestBotBuilderPlugin:
         assert plugin_without_adapter.adapter is None
 
         with (
-            patch("microsoft.teams.botbuilder.botbuilder_plugin.CloudAdapter") as mock_adapter_class,
+            patch("microsoft_teams.botbuilder.botbuilder_plugin.CloudAdapter") as mock_adapter_class,
             patch(
-                "microsoft.teams.botbuilder.botbuilder_plugin.ConfigurationBotFrameworkAuthentication"
+                "microsoft_teams.botbuilder.botbuilder_plugin.ConfigurationBotFrameworkAuthentication"
             ) as mock_config_class,
         ):
             mock_adapter_class.return_value = "mock_adapter"
