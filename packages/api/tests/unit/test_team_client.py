@@ -5,9 +5,9 @@ Licensed under the MIT License.
 # pyright: basic
 
 import pytest
-from microsoft.teams.api.clients.team import TeamClient
-from microsoft.teams.api.models import ChannelInfo, TeamDetails
-from microsoft.teams.common.http import Client, ClientOptions
+from microsoft_teams.api.clients.team import TeamClient
+from microsoft_teams.api.models import ChannelInfo, TeamDetails
+from microsoft_teams.common.http import Client, ClientOptions
 
 
 @pytest.mark.unit

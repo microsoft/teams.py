@@ -8,7 +8,7 @@ from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
-from microsoft.teams.apps.routing.activity_context import ActivityContext
+from microsoft_teams.apps.routing.activity_context import ActivityContext
 
 
 class TestOptionalGraphDependencies:

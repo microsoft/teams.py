@@ -8,8 +8,8 @@ Licensed under the MIT License.
 from typing import Optional
 
 import pytest
-from microsoft.teams.ai import Function
-from microsoft.teams.openai.function_utils import get_function_schema, parse_function_arguments
+from microsoft_teams.ai import Function
+from microsoft_teams.openai.function_utils import get_function_schema, parse_function_arguments
 from pydantic import BaseModel, ValidationError
 
 

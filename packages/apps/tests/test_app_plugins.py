@@ -9,7 +9,7 @@ from typing import Annotated, Callable
 from unittest.mock import MagicMock
 
 import pytest
-from microsoft.teams.apps import (
+from microsoft_teams.apps import (
     DependencyMetadata,
     ErrorEvent,
     EventMetadata,
@@ -17,10 +17,10 @@ from microsoft.teams.apps import (
     Plugin,
     PluginBase,
 )
-from microsoft.teams.apps.app_events import EventManager
-from microsoft.teams.apps.app_plugins import PluginProcessor
-from microsoft.teams.apps.container import Container
-from microsoft.teams.common import Client, EventEmitter
+from microsoft_teams.apps.app_events import EventManager
+from microsoft_teams.apps.app_plugins import PluginProcessor
+from microsoft_teams.apps.container import Container
+from microsoft_teams.common import Client, EventEmitter
 
 
 class TestPluginProcessor:

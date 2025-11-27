@@ -1,22 +1,26 @@
 """
 Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
+
+
+Backward compatibility shim for microsoft.teams.apps.
+
+DEPRECATED: This import path is deprecated and will be removed in version 2.0.0 GA.
+Please update your imports to use 'microsoft_teams.apps' instead.
 """
 
-from . import auth, contexts, events, plugins
-from .app import App
-from .auth import *  # noqa: F403
-from .contexts import *  # noqa: F403
-from .events import *  # noqa: F401, F403
-from .http_plugin import HttpPlugin
-from .http_stream import HttpStream
-from .options import AppOptions
-from .plugins import *  # noqa: F401, F403
-from .routing import ActivityContext
+import sys
+import warnings
 
-# Combine all exports from submodules
-__all__: list[str] = ["App", "AppOptions", "HttpPlugin", "HttpStream", "ActivityContext"]
-__all__.extend(auth.__all__)
-__all__.extend(events.__all__)
-__all__.extend(plugins.__all__)
-__all__.extend(contexts.__all__)
+warnings.warn(
+    "The 'microsoft.teams.apps' namespace is deprecated and will be removed in "
+    "version 2.0.0 GA. Please update your imports to 'microsoft_teams.apps'.",
+    DeprecationWarning,
+    stacklevel=2,
+)
+
+from microsoft_teams.apps import *  # noqa: E402, F401, F403  # noqa: F401, F403
+from microsoft_teams.apps import __all__  # noqa: E402, F401
+
+_new_module = sys.modules["microsoft_teams.apps"]
+sys.modules[__name__] = _new_module

@@ -9,7 +9,7 @@ from typing import Optional
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from microsoft.teams.api import (
+from microsoft_teams.api import (
     Account,
     ConversationAccount,
     FederatedIdentityCredentials,
@@ -20,7 +20,7 @@ from microsoft.teams.api import (
     TokenProtocol,
     TypingActivity,
 )
-from microsoft.teams.apps import ActivityContext, ActivityEvent, App, AppOptions
+from microsoft_teams.apps import ActivityContext, ActivityEvent, App, AppOptions
 
 
 class FakeToken(TokenProtocol):

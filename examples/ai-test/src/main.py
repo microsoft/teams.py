@@ -21,12 +21,12 @@ from handlers.feedback_management import (
     initialize_feedback_storage,
 )
 from handlers.memory_management import clear_conversation_memory
-from microsoft.teams.ai import ChatPrompt
-from microsoft.teams.api import MessageActivity, MessageActivityInput
-from microsoft.teams.api.activities.invoke.message.submit_action import MessageSubmitActionInvokeActivity
-from microsoft.teams.apps import ActivityContext, App
-from microsoft.teams.devtools import DevToolsPlugin
-from microsoft.teams.openai import OpenAICompletionsAIModel, OpenAIResponsesAIModel
+from microsoft_teams.ai import ChatPrompt
+from microsoft_teams.api import MessageActivity, MessageActivityInput
+from microsoft_teams.api.activities.invoke.message.submit_action import MessageSubmitActionInvokeActivity
+from microsoft_teams.apps import ActivityContext, App
+from microsoft_teams.devtools import DevToolsPlugin
+from microsoft_teams.openai import OpenAICompletionsAIModel, OpenAIResponsesAIModel
 
 load_dotenv(find_dotenv(usecwd=True))
 

@@ -3,10 +3,10 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from microsoft.teams.ai import ChatPrompt, ListMemory
-from microsoft.teams.ai.ai_model import AIModel
-from microsoft.teams.api import MessageActivity, MessageActivityInput
-from microsoft.teams.apps import ActivityContext
+from microsoft_teams.ai import ChatPrompt, ListMemory
+from microsoft_teams.ai.ai_model import AIModel
+from microsoft_teams.api import MessageActivity, MessageActivityInput
+from microsoft_teams.apps import ActivityContext
 
 # Simple in-memory store for conversation histories
 # In your application, it may be a good idea to use a more

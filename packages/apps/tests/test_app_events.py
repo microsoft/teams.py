@@ -7,11 +7,11 @@ Licensed under the MIT License.
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from microsoft.teams.api import Activity, ConversationReference, TokenProtocol
-from microsoft.teams.apps import ActivityEvent, ActivityResponseEvent, ActivitySentEvent, ErrorEvent, HttpPlugin, Sender
-from microsoft.teams.apps.app_events import EventManager
-from microsoft.teams.apps.app_process import ActivityProcessor
-from microsoft.teams.common.events.event_emitter import EventEmitter
+from microsoft_teams.api import Activity, ConversationReference, TokenProtocol
+from microsoft_teams.apps import ActivityEvent, ActivityResponseEvent, ActivitySentEvent, ErrorEvent, HttpPlugin, Sender
+from microsoft_teams.apps.app_events import EventManager
+from microsoft_teams.apps.app_process import ActivityProcessor
+from microsoft_teams.common.events.event_emitter import EventEmitter
 
 
 class TestEventManager:

@@ -12,8 +12,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from mcp.types import CallToolResult, ContentBlock, ListToolsResult, TextContent, Tool
-from microsoft.teams.mcpplugin.ai_plugin import McpClientPlugin
-from microsoft.teams.mcpplugin.models import McpCachedValue, McpClientPluginParams, McpToolDetails
+from microsoft_teams.mcpplugin.ai_plugin import McpClientPlugin
+from microsoft_teams.mcpplugin.models import McpCachedValue, McpClientPluginParams, McpToolDetails
 from pydantic import BaseModel
 
 # pyright: basic

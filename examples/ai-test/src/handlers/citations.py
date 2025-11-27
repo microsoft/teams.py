@@ -3,8 +3,8 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from microsoft.teams.api import CitationAppearance, MessageActivity, MessageActivityInput
-from microsoft.teams.apps import ActivityContext
+from microsoft_teams.api import CitationAppearance, MessageActivity, MessageActivityInput
+from microsoft_teams.apps import ActivityContext
 
 
 async def handle_citations_demo(ctx: ActivityContext[MessageActivity]) -> None:

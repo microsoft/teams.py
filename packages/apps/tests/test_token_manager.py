@@ -7,13 +7,13 @@ from typing import Literal, cast
 from unittest.mock import MagicMock, create_autospec, patch
 
 import pytest
-from microsoft.teams.api import (
+from microsoft_teams.api import (
     ClientCredentials,
     FederatedIdentityCredentials,
     JsonWebToken,
     ManagedIdentityCredentials,
 )
-from microsoft.teams.apps.token_manager import TokenManager
+from microsoft_teams.apps.token_manager import TokenManager
 from msal import ManagedIdentityClient  # pyright: ignore[reportMissingTypeStubs]
 
 # Valid JWT-like token for testing (format: header.payload.signature)

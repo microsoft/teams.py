@@ -5,8 +5,8 @@ Licensed under the MIT License.
 
 from typing import Any, Dict, List, Union
 
-from microsoft.teams.api import Account, Message
-from microsoft.teams.cards import AdaptiveCard
+from microsoft_teams.api import Account, Message
+from microsoft_teams.cards import AdaptiveCard
 
 IMAGE_URL = "https://github.com/microsoft/teams-agent-accelerator-samples/raw/main/python/memory-sample-agent/docs/images/memory-thumbnail.png"
 

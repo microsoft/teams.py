@@ -7,10 +7,10 @@ import random
 from typing import Any, Dict
 
 import aiohttp
-from microsoft.teams.ai import ChatPrompt, Function
-from microsoft.teams.ai.ai_model import AIModel
-from microsoft.teams.api import MessageActivity, MessageActivityInput
-from microsoft.teams.apps import ActivityContext
+from microsoft_teams.ai import ChatPrompt, Function
+from microsoft_teams.ai.ai_model import AIModel
+from microsoft_teams.api import MessageActivity, MessageActivityInput
+from microsoft_teams.apps import ActivityContext
 from pydantic import BaseModel
 
 

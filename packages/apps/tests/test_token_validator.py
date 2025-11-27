@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 
 import jwt
 import pytest
-from microsoft.teams.apps.auth.token_validator import TokenValidator
+from microsoft_teams.apps.auth.token_validator import TokenValidator
 
 # pyright: basic
 

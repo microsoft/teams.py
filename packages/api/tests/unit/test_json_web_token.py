@@ -7,7 +7,7 @@ Licensed under the MIT License.
 from typing import Any
 
 import jwt
-from microsoft.teams.api.auth import CallerIds, JsonWebToken
+from microsoft_teams.api.auth import CallerIds, JsonWebToken
 
 
 def build_token(token_payload: dict[str, Any]) -> str:

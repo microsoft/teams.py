@@ -1,17 +1,30 @@
 """
 Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
+
+
+Backward compatibility shim for microsoft.teams.common.
+
+DEPRECATED: This import path is deprecated and will be removed in version 2.0.0 GA.
+Please update your imports to use 'microsoft_teams.common' instead.
 """
 
-from . import events, http, logging, storage  # noqa: E402
-from .events import *  # noqa: F401, F402, F403
-from .http import *  # noqa: F401, F402, F403
-from .logging import *  # noqa: F401, F402, F403
-from .storage import *  # noqa: F401, F402, F403
+import sys
+import warnings
 
-# Combine all exports from submodules
-__all__: list[str] = []
-__all__.extend(events.__all__)
-__all__.extend(http.__all__)
-__all__.extend(logging.__all__)
-__all__.extend(storage.__all__)
+# Issue deprecation warning
+warnings.warn(
+    "The 'microsoft.teams.common' namespace is deprecated and will be removed in "
+    "version 2.0.0 GA. Please update your imports to 'microsoft_teams.common'.",
+    DeprecationWarning,
+    stacklevel=2,
+)
+
+# Import everything from the new namespace
+from microsoft_teams.common import *  # noqa: E402, F401, F403  # noqa: F401, F403
+from microsoft_teams.common import __all__  # noqa: E402, F401
+
+# sys.modules trick to make submodule imports work
+# This ensures: from microsoft.teams.common.submodule import X works
+_new_module = sys.modules["microsoft_teams.common"]
+sys.modules[__name__] = _new_module

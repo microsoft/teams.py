@@ -5,12 +5,12 @@ Licensed under the MIT License.
 # pyright: basic
 
 import pytest
-from microsoft.teams.api.clients.conversation import ConversationClient
-from microsoft.teams.api.clients.conversation.params import (
+from microsoft_teams.api.clients.conversation import ConversationClient
+from microsoft_teams.api.clients.conversation.params import (
     CreateConversationParams,
     GetConversationsParams,
 )
-from microsoft.teams.common.http import Client, ClientOptions
+from microsoft_teams.common.http import Client, ClientOptions
 
 
 @pytest.mark.unit

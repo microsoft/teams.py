@@ -7,13 +7,13 @@ Licensed under the MIT License.
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from microsoft.teams.api import Activity, ActivityBase, ConversationReference
-from microsoft.teams.apps import ActivityContext, Sender
-from microsoft.teams.apps.app_events import EventManager
-from microsoft.teams.apps.app_process import ActivityProcessor
-from microsoft.teams.apps.routing.router import ActivityHandler, ActivityRouter
-from microsoft.teams.apps.token_manager import TokenManager
-from microsoft.teams.common import Client, ConsoleLogger, LocalStorage
+from microsoft_teams.api import Activity, ActivityBase, ConversationReference
+from microsoft_teams.apps import ActivityContext, Sender
+from microsoft_teams.apps.app_events import EventManager
+from microsoft_teams.apps.app_process import ActivityProcessor
+from microsoft_teams.apps.routing.router import ActivityHandler, ActivityRouter
+from microsoft_teams.apps.token_manager import TokenManager
+from microsoft_teams.common import Client, ConsoleLogger, LocalStorage
 
 
 class TestActivityProcessor:

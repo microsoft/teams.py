@@ -4,7 +4,7 @@ Licensed under the MIT License.
 """
 
 import pytest
-from microsoft.teams.api import (
+from microsoft_teams.api import (
     Account,
     ConversationResource,
     MessageActivityInput,

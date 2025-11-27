@@ -8,7 +8,7 @@ import os
 from logging import Logger
 from typing import Any, Optional
 
-from microsoft.teams.api import (
+from microsoft_teams.api import (
     AdaptiveCardAttachment,
     CardTaskModuleTaskInfo,
     InvokeResponse,
@@ -22,10 +22,10 @@ from microsoft.teams.api import (
     UrlTaskModuleTaskInfo,
     card_attachment,
 )
-from microsoft.teams.apps import ActivityContext, App
-from microsoft.teams.apps.events.types import ErrorEvent
-from microsoft.teams.cards import AdaptiveCard, SubmitAction, SubmitActionData, TaskFetchSubmitActionData, TextBlock
-from microsoft.teams.common.logging import ConsoleLogger
+from microsoft_teams.apps import ActivityContext, App
+from microsoft_teams.apps.events.types import ErrorEvent
+from microsoft_teams.cards import AdaptiveCard, SubmitAction, SubmitActionData, TaskFetchSubmitActionData, TextBlock
+from microsoft_teams.common.logging import ConsoleLogger
 
 logger_instance = ConsoleLogger()
 logger: Logger = logger_instance.create_logger("@apps/dialogs")

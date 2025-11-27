@@ -11,8 +11,8 @@ from botbuilder.core import ActivityHandler, TurnContext
 from botbuilder.integration.aiohttp import CloudAdapter
 from botbuilder.schema import Activity
 from fastapi import HTTPException, Request, Response
-from microsoft.teams.api import Credentials
-from microsoft.teams.botbuilder import BotBuilderPlugin
+from microsoft_teams.api import Credentials
+from microsoft_teams.botbuilder import BotBuilderPlugin
 
 
 class TestBotBuilderPlugin:

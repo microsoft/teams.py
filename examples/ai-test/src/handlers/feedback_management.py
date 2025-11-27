@@ -8,8 +8,8 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any, Dict, List
 
-from microsoft.teams.api.activities.invoke.message.submit_action import MessageSubmitActionInvokeActivity
-from microsoft.teams.apps import ActivityContext
+from microsoft_teams.api.activities.invoke.message.submit_action import MessageSubmitActionInvokeActivity
+from microsoft_teams.apps import ActivityContext
 
 
 @dataclass
