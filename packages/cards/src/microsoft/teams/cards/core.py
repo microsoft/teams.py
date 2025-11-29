@@ -31,6 +31,7 @@ class SerializableObject(BaseModel):
         if field == "ms_teams":
             return "msteams"
 
+        # Handle choices_data field which should deserialize from choices.data
         if field == "choices_data":
             return "choices.data"
 
@@ -53,6 +54,7 @@ class SerializableObject(BaseModel):
         if field == "ms_teams":
             return "msteams"
 
+        # Handle choices_data field which should serialize to choices.data
         if field == "choices_data":
             return "choices.data"
 

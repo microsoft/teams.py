@@ -9,7 +9,9 @@ from typing import Any, cast
 from microsoft.teams.cards import (
     ActionSet,
     AdaptiveCard,
+    ChoiceSetInput,
     ExecuteAction,
+    QueryData,
     SubmitAction,
     SubmitActionData,
     TaskFetchSubmitActionData,
@@ -221,3 +223,28 @@ def test_submit_action_data_ms_teams_serialization():
     assert isinstance(deserialized_action.data, BaseSubmitActionData)
     assert deserialized_action.data.ms_teams is not None
     assert deserialized_action.data.ms_teams["type"] == "task/fetch"
+
+
+def test_choices_data_serializes_to_choices_dot_data():
+    """Test that choices_data field serializes to 'choices.data' instead of 'choicesData'."""
+    # Create a ChoiceSetInput with choices_data
+    query_data = QueryData(dataset="my_dataset")
+    choice_set = ChoiceSetInput(id="myChoices", choices_data=query_data)
+
+    json_str = choice_set.model_dump_json(exclude_none=True, by_alias=True)
+    parsed = json.loads(json_str)
+
+    # Verify choices_data serializes to 'choices.data' not 'choicesData'
+    assert "choices.data" in parsed, "choices_data should serialize to 'choices.data'"
+    assert "choicesData" not in parsed, "choices_data should not serialize to 'choicesData'"
+    assert parsed["choices.data"]["dataset"] == "my_dataset"
+
+    # Test deserialization from 'choices.data'
+    input_data: dict[str, Any] = {
+        "type": "Input.ChoiceSet",
+        "id": "myChoices",
+        "choices.data": {"dataset": "my_dataset"},
+    }
+    choice_set = ChoiceSetInput.model_validate(input_data)
+    assert choice_set.choices_data is not None
+    assert choice_set.choices_data.dataset == "my_dataset"
