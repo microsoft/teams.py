@@ -134,3 +134,5 @@ class TestPluginProcessor:
 
         plugin_processor.activity_processor.process_activity.assert_called_once()
         assert result == invoke_response
+
+        assert plugin_processor.event_manager.on_activity.called
