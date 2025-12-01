@@ -13,9 +13,9 @@ from typing import Annotated, Any, AsyncGenerator, Awaitable, Callable, Dict, Li
 from uuid import uuid4
 
 import uvicorn
-from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
-from fastapi.responses import FileResponse
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.routing import APIRouter
+from fastapi.staticfiles import StaticFiles
 from microsoft_teams.api import Activity, ActivityParams, ConversationReference, SentActivity, TokenProtocol
 from microsoft_teams.apps import (
     ActivityEvent,
@@ -88,17 +88,12 @@ class DevToolsPlugin(Sender):
 
         dist = os.path.join(os.path.dirname(__file__), "web")
 
-        # Define catch-all route BEFORE mounting static files
-        @self.app.get("/devtools/{path:path}")
-        async def custom_path(request: Request, path: str):  # type: ignore
-            file_path = os.path.join(dist, path)
-            if os.path.isfile(file_path):
-                return FileResponse(file_path)
-            return FileResponse(os.path.join(dist, "index.html"))
-
-        @self.app.get("/devtools")
-        async def root():  # type: ignore
-            return FileResponse(os.path.join(dist, "index.html"))
+        # Mount static files with built-in security (prevents path traversal)
+        self.app.mount(
+            "/devtools",
+            StaticFiles(directory=dist, check_dir=True, html=True),
+            name="devtools-ui",
+        )
 
     @property
     def on_ready_callback(self) -> Optional[Callable[[], Awaitable[None]]]:
