@@ -21,7 +21,7 @@ warnings.warn(
 )
 
 # Import everything from the new namespace
-from microsoft_teams.common import *  # noqa: E402, F401, F403  # noqa: F401, F403
+from microsoft_teams.common import *  # noqa: E402, F401, F403
 from microsoft_teams.common import __all__  # noqa: E402, F401
 
 # sys.modules trick to make submodule imports work

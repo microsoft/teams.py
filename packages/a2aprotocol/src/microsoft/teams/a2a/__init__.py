@@ -19,7 +19,7 @@ warnings.warn(
     stacklevel=2,
 )
 
-from microsoft_teams.a2a import *  # noqa: E402, F401, F403  # noqa: F401, F403
+from microsoft_teams.a2a import *  # noqa: E402, F401, F403
 from microsoft_teams.a2a import __all__  # noqa: E402, F401
 
 _new_module = sys.modules["microsoft_teams.a2a"]
