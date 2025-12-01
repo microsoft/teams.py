@@ -189,7 +189,12 @@ class ChatPrompt:
 
         return ChatSendResult(response=current_response)
 
-    def _wrap_function_handler(self, original_handler: FunctionHandlers, function_name: str) -> FunctionHandlers:
+    def _wrap_function_handler(
+        self,
+        original_handler: FunctionHandlers,
+        function_name: str,
+        parameter_schema: type[BaseModel] | Dict[str, Any] | None,
+    ) -> FunctionHandlers:
         """
         Wrap a function handler with plugin before/after hooks.
 
@@ -230,6 +235,9 @@ class ChatPrompt:
                     current_result = plugin_result
 
             return current_result
+
+        if parameter_schema is None:
+            return lambda: wrapped_handler(None)
 
         return wrapped_handler
 
@@ -287,7 +295,7 @@ class ChatPrompt:
                 name=func.name,
                 description=func.description,
                 parameter_schema=func.parameter_schema,
-                handler=self._wrap_function_handler(func.handler, func.name),
+                handler=self._wrap_function_handler(func.handler, func.name, func.parameter_schema),
             )
 
         return wrapped_functions
