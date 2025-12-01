@@ -152,3 +152,45 @@ class TestActivityProcessor:
         # Assert
         assert result.status == expected_result.status
         assert result.body == expected_result.body
+
+    @pytest.mark.asyncio
+    async def test_process_activity_raises_exception(self, activity_processor):
+        """Test process_activity with different middleware return values."""
+        # Setup mocks
+        mock_plugins = []
+        mock_sender = MagicMock()
+        stream = MagicMock()
+        stream.close = AsyncMock()
+        mock_sender.create_stream.return_value = stream
+
+        # Create real activity and event
+        mock_account = Account(id="user-123", name="Test User")
+        mock_conversation = ConversationAccount(id="conv-789")
+        mock_bot = Account(id="bot-456", name="Test Bot")
+        activity = MessageActivity(
+            type="message",
+            text="Test message",
+            from_=mock_account,
+            conversation=mock_conversation,
+            recipient=mock_bot,
+            id="activity-123",
+            service_url="https://service.url",
+        )
+        mock_token = MagicMock(spec=TokenProtocol)
+        mock_activity_event = ActivityEvent(activity=activity, sender=mock_sender, token=mock_token)
+
+        # Setup processor mocks
+        activity_processor.router.select_handlers = MagicMock(return_value=[])
+        activity_processor.execute_middleware_chain = AsyncMock()
+        activity_processor.execute_middleware_chain.side_effect = Exception("Test exception")
+        activity_processor.event_manager = AsyncMock()
+        activity_processor.event_manager.on_activity_response = AsyncMock()
+
+        # Act
+        result = await activity_processor.process_activity(mock_plugins, mock_sender, mock_activity_event)
+
+        # Assert
+        assert result.status == 500
+        assert result.body is None
+        assert activity_processor.event_manager.on_activity_response.called
+        assert activity_processor.event_manager.on_error.called
