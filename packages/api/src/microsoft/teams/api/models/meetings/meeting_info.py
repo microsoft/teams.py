@@ -5,7 +5,7 @@ Licensed under the MIT License.
 
 from typing import Optional
 
-from ..account import Account, ConversationAccount
+from ..account import ConversationAccount, TeamsChannelAccount
 from ..custom_base_model import CustomBaseModel
 from .meeting_details import MeetingDetails
 
@@ -24,5 +24,5 @@ class MeetingInfo(CustomBaseModel):
     conversation: Optional[ConversationAccount] = None
     "The Conversation Account for the meeting."
 
-    organizer: Optional[Account] = None
+    organizer: Optional[TeamsChannelAccount] = None
     "The organizer's user information."
