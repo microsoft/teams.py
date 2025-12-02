@@ -10,6 +10,7 @@ from microsoft.teams.api.clients.conversation.params import (
     CreateConversationParams,
     GetConversationsParams,
 )
+from microsoft.teams.api.models import TeamsChannelAccount
 from microsoft.teams.common.http import Client, ClientOptions
 
 
@@ -181,7 +182,7 @@ class TestConversationMemberOperations:
     """Unit tests for ConversationClient member operations."""
 
     async def test_member_get_all(self, mock_http_client):
-        """Test getting all members."""
+        """Test getting all members returns TeamsChannelAccount instances."""
         service_url = "https://test.service.url"
         client = ConversationClient(service_url, mock_http_client)
 
@@ -191,9 +192,11 @@ class TestConversationMemberOperations:
         result = await members.get_all()
 
         assert result is not None
+        assert len(result) > 0
+        assert isinstance(result[0], TeamsChannelAccount)
 
     async def test_member_get(self, mock_http_client):
-        """Test getting a specific member."""
+        """Test getting a specific member returns TeamsChannelAccount instance."""
         service_url = "https://test.service.url"
         client = ConversationClient(service_url, mock_http_client)
 
@@ -204,6 +207,7 @@ class TestConversationMemberOperations:
         result = await members.get(member_id)
 
         assert result is not None
+        assert isinstance(result, TeamsChannelAccount)
 
     async def test_member_delete(self, mock_http_client):
         """Test deleting a member."""
