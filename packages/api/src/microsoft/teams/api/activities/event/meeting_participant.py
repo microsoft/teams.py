@@ -5,7 +5,7 @@ Licensed under the MIT License.
 
 from typing import List, Literal
 
-from ...models import Account, ActivityBase, CustomBaseModel
+from ...models import ActivityBase, CustomBaseModel, TeamsChannelAccount
 
 
 class MeetingParticipantInfo(CustomBaseModel):
@@ -25,7 +25,7 @@ class MeetingParticipant(CustomBaseModel):
     Represents a participant in a Microsoft Teams meeting.
     """
 
-    user: Account
+    user: TeamsChannelAccount
     """The participant account."""
 
     meeting: MeetingParticipantInfo
