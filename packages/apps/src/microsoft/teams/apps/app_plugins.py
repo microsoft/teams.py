@@ -115,9 +115,9 @@ class PluginProcessor:
 
             async def activity_handler(event: PluginActivityEvent) -> InvokeResponse[Any]:
                 sender = cast(Sender, plugin)
-                return await self.activity_processor.process_activity(
-                    self.plugins, sender, ActivityEvent(activity=event.activity, sender=sender, token=event.token)
-                )
+                activity_event = ActivityEvent(activity=event.activity, sender=sender, token=event.token)
+                await self.event_manager.on_activity(activity_event)
+                return await self.activity_processor.process_activity(self.plugins, sender, activity_event)
 
             setattr(plugin, field_name, activity_handler)
         elif meta.name == "custom":
