@@ -238,17 +238,6 @@ class HttpPlugin(Sender):
         """
         self.logger.debug(f"Completing activity response for {event.activity.id}")
 
-    async def on_error(self, event: PluginErrorEvent) -> None:
-        """
-        Handle errors from the App.
-
-        Args:
-            error: The error that occurred
-            activity_id: The ID of the activity that failed (if applicable)
-            plugin: The plugin that caused the error (if applicable)
-        """
-        self.logger.error(f"Plugin error: {event.error}")
-
     async def send(self, activity: ActivityParams, ref: ConversationReference) -> SentActivity:
         api = ApiClient(service_url=ref.service_url, options=self.client.clone(ClientOptions(token=self.bot_token)))
 
@@ -281,7 +270,8 @@ class HttpPlugin(Sender):
             else:
                 result = self.on_activity_event(event)
         except Exception as error:
-            # Complete with error
+            # Log with full traceback
+            self.logger.exception(str(error))
             await self.on_error(PluginErrorEvent(sender=self, error=error, activity=activity))
             result = InvokeResponse(status=500)
 
