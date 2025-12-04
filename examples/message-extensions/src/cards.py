@@ -3,9 +3,9 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from typing import Any, Dict, List, Union
+from typing import Any, Dict, List, Sequence, Union
 
-from microsoft_teams.api import Account, Message
+from microsoft_teams.api import Account, Message, TeamsChannelAccount
 from microsoft_teams.cards import AdaptiveCard
 
 IMAGE_URL = "https://github.com/microsoft/teams-agent-accelerator-samples/raw/main/python/memory-sample-agent/docs/images/memory-thumbnail.png"
@@ -92,7 +92,7 @@ def create_message_details_card(message_payload: Message) -> AdaptiveCard:
     return AdaptiveCard.model_validate({"type": "AdaptiveCard", "version": "1.4", "body": body, "actions": actions})
 
 
-def create_conversation_members_card(members: List[Account]) -> AdaptiveCard:
+def create_conversation_members_card(members: Sequence[Union[Account, TeamsChannelAccount]]) -> AdaptiveCard:
     """Create a card showing conversation members."""
     members_list = ", ".join(member.name for member in members if member.name)
 

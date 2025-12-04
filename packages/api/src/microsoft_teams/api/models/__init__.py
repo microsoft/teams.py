@@ -22,7 +22,7 @@ from . import (
     token,
     token_exchange,
 )
-from .account import Account, AccountRole, ConversationAccount
+from .account import Account, AccountRole, ConversationAccount, TeamsChannelAccount
 from .action import Action
 from .activity import Activity as ActivityBase
 from .activity import ActivityInput as ActivityInputBase
@@ -90,6 +90,7 @@ __all__: list[str] = [
     "InvokeResponseBody",
     "SuggestedActions",
     "TeamDetails",
+    "TeamsChannelAccount",
     "TextFormat",
     "InvokeResponse",
     "ConfigInvokeResponse",
