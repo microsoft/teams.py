@@ -100,9 +100,6 @@ class TestHttpPlugin:
             PluginErrorEvent(sender=plugin_with_validator, activity=mock_activity, error=error)
         )
 
-        mock_logger.error.assert_called_once()
-        mock_logger.error.assert_called_with(f"Plugin error: {error}")
-
     @pytest.mark.asyncio
     async def test_on_start_success(self, plugin_with_validator):
         """Test successful server startup."""
@@ -233,9 +230,6 @@ class TestHttpPlugin:
         mock_handler = AsyncMock(side_effect=test_error) if is_handler_async else MagicMock(side_effect=test_error)
         plugin_without_validator.on_activity_event = mock_handler
 
-        mock_error_handler = AsyncMock()
-        plugin_without_validator.on_error = mock_error_handler
-
         mock_request = AsyncMock(spec=Request)
         activity = cast(
             MessageActivity,
@@ -258,10 +252,8 @@ class TestHttpPlugin:
         result = await plugin_without_validator.on_activity_request(mock_request, mock_response)
 
         mock_handler.assert_called_once()
-        mock_error_handler.assert_called_once()
-        error_event = mock_error_handler.call_args[0][0]
-        assert error_event.sender == plugin_without_validator
-        assert error_event.error == test_error
+        # Exception is logged directly at exception site
+        plugin_without_validator.logger.exception.assert_called_once_with(str(test_error))
 
         assert isinstance(result, Response)
         assert result.status_code == 500

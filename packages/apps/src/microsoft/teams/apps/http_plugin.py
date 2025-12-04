@@ -51,7 +51,6 @@ from .plugins import (
     EventMetadata,
     LoggerDependencyOptions,
     PluginActivityResponseEvent,
-    PluginErrorEvent,
     PluginStartEvent,
     Sender,
     StreamerProtocol,
@@ -272,7 +271,6 @@ class HttpPlugin(Sender):
         except Exception as error:
             # Log with full traceback
             self.logger.exception(str(error))
-            await self.on_error(PluginErrorEvent(sender=self, error=error, activity=activity))
             result = InvokeResponse(status=500)
 
         return result

@@ -155,7 +155,7 @@ class TestActivityProcessor:
 
     @pytest.mark.asyncio
     async def test_process_activity_raises_exception(self, activity_processor):
-        """Test process_activity with different middleware return values."""
+        """Test process_activity raises exception when middleware chain fails."""
         # Setup mocks
         mock_plugins = []
         mock_sender = MagicMock()
@@ -182,15 +182,14 @@ class TestActivityProcessor:
         # Setup processor mocks
         activity_processor.router.select_handlers = MagicMock(return_value=[])
         activity_processor.execute_middleware_chain = AsyncMock()
-        activity_processor.execute_middleware_chain.side_effect = Exception("Test exception")
+        test_exception = Exception("Test exception")
+        activity_processor.execute_middleware_chain.side_effect = test_exception
         activity_processor.event_manager = AsyncMock()
         activity_processor.event_manager.on_activity_response = AsyncMock()
 
-        # Act
-        result = await activity_processor.process_activity(mock_plugins, mock_sender, mock_activity_event)
+        # Act & Assert - expect exception to be raised
+        with pytest.raises(Exception, match="Test exception"):
+            await activity_processor.process_activity(mock_plugins, mock_sender, mock_activity_event)
 
-        # Assert
-        assert result.status == 500
-        assert result.body is None
-        assert activity_processor.event_manager.on_activity_response.called
+        # Assert error event was called
         assert activity_processor.event_manager.on_error.called

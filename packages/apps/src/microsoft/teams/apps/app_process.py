@@ -226,17 +226,8 @@ class ActivityProcessor:
                 plugins=plugins,
             )
         except Exception as error:
-            response = InvokeResponse[Any](status=500)
             await self.event_manager.on_error(ErrorEvent(error=error, activity=event.activity, sender=sender), plugins)
-            await self.event_manager.on_activity_response(
-                sender,
-                ActivityResponseEvent(
-                    activity=event.activity,
-                    response=response,
-                    conversation_ref=activityCtx.conversation_ref,
-                ),
-                plugins=plugins,
-            )
+            raise error
 
         self.logger.debug("Completed processing activity")
 
