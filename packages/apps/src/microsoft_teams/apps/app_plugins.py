@@ -7,10 +7,11 @@ from logging import Logger
 from typing import Any, List, Optional, cast, get_type_hints
 
 from dependency_injector import providers
-from microsoft_teams.api.activities import Activity
-from microsoft_teams.common.events.event_emitter import EventEmitter
+from microsoft_teams.api import Activity, InvokeResponse
+from microsoft_teams.common import EventEmitter
 
 from .app_events import EventManager
+from .app_process import ActivityProcessor
 from .container import Container
 from .events import ActivityEvent, ErrorEvent, EventType, is_registered_event
 from .plugins import (
@@ -33,13 +34,19 @@ class PluginProcessor:
     """
 
     def __init__(
-        self, container: Container, event_manager: EventManager, logger: Logger, event_emitter: EventEmitter[EventType]
+        self,
+        container: Container,
+        event_manager: EventManager,
+        logger: Logger,
+        event_emitter: EventEmitter[EventType],
+        activity_processor: ActivityProcessor,
     ):
         self.plugins: List[PluginBase] = []
         self.container = container
         self.event_manager = event_manager
         self.logger = logger
         self.event_emitter = event_emitter
+        self.activity_processor = activity_processor
 
     def initialize_plugins(self, plugins: List[PluginBase]) -> List[PluginBase]:
         """Initializes and adds all the plugins for the app."""
@@ -105,11 +112,11 @@ class PluginProcessor:
         elif meta.name == "activity":
             self.logger.debug("Injecting the activity event")
 
-            async def activity_handler(event: PluginActivityEvent) -> None:
+            async def activity_handler(event: PluginActivityEvent) -> InvokeResponse[Any]:
                 sender = cast(Sender, plugin)
-                await self.event_manager.on_activity(
-                    ActivityEvent(activity=event.activity, sender=sender, token=event.token), self.plugins
-                )
+                activity_event = ActivityEvent(activity=event.activity, sender=sender, token=event.token)
+                await self.event_manager.on_activity(activity_event)
+                return await self.activity_processor.process_activity(self.plugins, sender, activity_event)
 
             setattr(plugin, field_name, activity_handler)
         elif meta.name == "custom":

@@ -5,17 +5,15 @@ Licensed under the MIT License.
 
 from typing import List
 
-from microsoft_teams.common.events.event_emitter import EventEmitter
+from microsoft_teams.common import EventEmitter
 
-from .app_process import ActivityProcessor
 from .events import ActivityEvent, ActivityResponseEvent, ActivitySentEvent, ErrorEvent, EventType
 from .plugins import PluginActivityResponseEvent, PluginActivitySentEvent, PluginBase, PluginErrorEvent, Sender
 
 
 class EventManager:
-    def __init__(self, event_emitter: EventEmitter[EventType], activity_processor: ActivityProcessor):
+    def __init__(self, event_emitter: EventEmitter[EventType]):
         self.event_emitter = event_emitter
-        self.activity_processor = activity_processor
 
     async def on_error(self, event: ErrorEvent, plugins: List[PluginBase]) -> None:
         for plugin in plugins:
@@ -24,9 +22,8 @@ class EventManager:
 
         self.event_emitter.emit("error", event)
 
-    async def on_activity(self, event: ActivityEvent, plugins: List[PluginBase]) -> None:
+    async def on_activity(self, event: ActivityEvent) -> None:
         self.event_emitter.emit("activity", event)
-        await self.activity_processor.process_activity(plugins=plugins, sender=event.sender, event=event)
 
     async def on_activity_sent(self, sender: Sender, event: ActivitySentEvent, plugins: List[PluginBase]) -> None:
         for plugin in plugins:

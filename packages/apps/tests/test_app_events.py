@@ -8,10 +8,16 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from microsoft_teams.api import Activity, ConversationReference, TokenProtocol
-from microsoft_teams.apps import ActivityEvent, ActivityResponseEvent, ActivitySentEvent, ErrorEvent, HttpPlugin, Sender
+from microsoft_teams.apps import (
+    ActivityEvent,
+    ActivityResponseEvent,
+    ActivitySentEvent,
+    ErrorEvent,
+    HttpPlugin,
+    Sender,
+)
 from microsoft_teams.apps.app_events import EventManager
-from microsoft_teams.apps.app_process import ActivityProcessor
-from microsoft_teams.common.events.event_emitter import EventEmitter
+from microsoft_teams.common import EventEmitter
 
 
 class TestEventManager:
@@ -23,14 +29,9 @@ class TestEventManager:
         return MagicMock(spec=EventEmitter)
 
     @pytest.fixture
-    def mock_activity_processor(self):
-        """Create a mock ActivityProcessor."""
-        return MagicMock(spec=ActivityProcessor)
-
-    @pytest.fixture
-    def event_manager(self, mock_event_emitter, mock_activity_processor):
+    def event_manager(self, mock_event_emitter):
         """Create an EventManager instance."""
-        return EventManager(mock_event_emitter, mock_activity_processor)
+        return EventManager(mock_event_emitter)
 
     @pytest.fixture
     def mock_plugins(self):
@@ -54,18 +55,15 @@ class TestEventManager:
         mock_event_emitter.emit.assert_called_once_with("error", error_event)
 
     @pytest.mark.asyncio
-    async def test_on_activity(self, event_manager, mock_event_emitter, mock_activity_processor, mock_plugins):
+    async def test_on_activity(self, event_manager, mock_event_emitter):
         """Test the on_activity method."""
         activity_event = ActivityEvent(
             sender=Sender(), activity=MagicMock(spec=Activity), token=MagicMock(spec=TokenProtocol)
         )
 
-        await event_manager.on_activity(activity_event, mock_plugins)
+        await event_manager.on_activity(activity_event)
 
         mock_event_emitter.emit.assert_called_once_with("activity", activity_event)
-        mock_activity_processor.process_activity.assert_called_once_with(
-            plugins=mock_plugins, sender=activity_event.sender, event=activity_event
-        )
 
     @pytest.mark.asyncio
     async def test_on_activity_sent(self, event_manager, mock_event_emitter, mock_plugins):

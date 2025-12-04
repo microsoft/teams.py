@@ -4,26 +4,38 @@ Licensed under the MIT License.
 """
 # pyright: basic
 
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from microsoft_teams.api import Activity, ActivityBase, ConversationReference
-from microsoft_teams.apps import ActivityContext, Sender
+from microsoft_teams.api import (
+    Account,
+    Activity,
+    ActivityBase,
+    ConversationAccount,
+    ConversationReference,
+    InvokeResponse,
+    MessageActivity,
+    TokenProtocol,
+)
+from microsoft_teams.apps import ActivityContext, ActivityEvent, Sender
 from microsoft_teams.apps.app_events import EventManager
 from microsoft_teams.apps.app_process import ActivityProcessor
 from microsoft_teams.apps.routing.router import ActivityHandler, ActivityRouter
 from microsoft_teams.apps.token_manager import TokenManager
-from microsoft_teams.common import Client, ConsoleLogger, LocalStorage
+from microsoft_teams.common import Client, LocalStorage
 
 
 class TestActivityProcessor:
     @pytest.fixture
     def mock_logger(self):
-        return MagicMock(spec=ConsoleLogger)
+        return MagicMock()
 
     @pytest.fixture
     def mock_http_client(self):
-        return MagicMock(spec=Client)
+        http_client = MagicMock(spec=Client)
+        http_client.clone.return_value = http_client
+        return http_client
 
     @pytest.fixture
     def activity_processor(self, mock_logger, mock_http_client):
@@ -89,3 +101,94 @@ class TestActivityProcessor:
         handler_one.assert_called_once_with(context)
         handler_two.assert_called_once_with(context)
         assert response == "handler_one"
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "middleware_result, expected_result",
+        [
+            (None, InvokeResponse(status=200, body=None)),
+            ({"key": "value"}, InvokeResponse[Any](status=200, body={"key": "value"})),
+            (
+                InvokeResponse[Any](status=201, body={"custom": "response"}),
+                InvokeResponse[Any](status=201, body={"custom": "response"}),
+            ),
+        ],
+    )
+    async def test_process_activity_middleware_results(self, activity_processor, middleware_result, expected_result):
+        """Test process_activity with different middleware return values."""
+        # Setup mocks
+        mock_plugins = []
+        mock_sender = MagicMock()
+        stream = MagicMock()
+        stream.close = AsyncMock()
+        mock_sender.create_stream.return_value = stream
+
+        # Create real activity and event
+        mock_account = Account(id="user-123", name="Test User")
+        mock_conversation = ConversationAccount(id="conv-789")
+        mock_bot = Account(id="bot-456", name="Test Bot")
+        activity = MessageActivity(
+            type="message",
+            text="Test message",
+            from_=mock_account,
+            conversation=mock_conversation,
+            recipient=mock_bot,
+            id="activity-123",
+            service_url="https://service.url",
+        )
+        mock_token = MagicMock(spec=TokenProtocol)
+        mock_activity_event = ActivityEvent(activity=activity, sender=mock_sender, token=mock_token)
+
+        # Setup processor mocks
+        activity_processor.router.select_handlers = MagicMock(return_value=[])
+        activity_processor.execute_middleware_chain = AsyncMock(return_value=middleware_result)
+        activity_processor.event_manager = MagicMock()
+        activity_processor.event_manager.on_activity_response = AsyncMock()
+
+        # Act
+        result = await activity_processor.process_activity(mock_plugins, mock_sender, mock_activity_event)
+
+        # Assert
+        assert result.status == expected_result.status
+        assert result.body == expected_result.body
+
+    @pytest.mark.asyncio
+    async def test_process_activity_raises_exception(self, activity_processor):
+        """Test process_activity raises exception when middleware chain fails."""
+        # Setup mocks
+        mock_plugins = []
+        mock_sender = MagicMock()
+        stream = MagicMock()
+        stream.close = AsyncMock()
+        mock_sender.create_stream.return_value = stream
+
+        # Create real activity and event
+        mock_account = Account(id="user-123", name="Test User")
+        mock_conversation = ConversationAccount(id="conv-789")
+        mock_bot = Account(id="bot-456", name="Test Bot")
+        activity = MessageActivity(
+            type="message",
+            text="Test message",
+            from_=mock_account,
+            conversation=mock_conversation,
+            recipient=mock_bot,
+            id="activity-123",
+            service_url="https://service.url",
+        )
+        mock_token = MagicMock(spec=TokenProtocol)
+        mock_activity_event = ActivityEvent(activity=activity, sender=mock_sender, token=mock_token)
+
+        # Setup processor mocks
+        activity_processor.router.select_handlers = MagicMock(return_value=[])
+        activity_processor.execute_middleware_chain = AsyncMock()
+        test_exception = Exception("Test exception")
+        activity_processor.execute_middleware_chain.side_effect = test_exception
+        activity_processor.event_manager = AsyncMock()
+        activity_processor.event_manager.on_activity_response = AsyncMock()
+
+        # Act & Assert - expect exception to be raised
+        with pytest.raises(Exception, match="Test exception"):
+            await activity_processor.process_activity(mock_plugins, mock_sender, mock_activity_event)
+
+        # Assert error event was called
+        assert activity_processor.event_manager.on_error.called
