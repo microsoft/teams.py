@@ -7,7 +7,7 @@ from typing import List, Optional
 
 from microsoft.teams.common.http import Client
 
-from ...models import Account
+from ...models import TeamsChannelAccount
 from ..api_client_settings import ApiClientSettings
 from ..base_client import BaseClient
 
@@ -34,7 +34,7 @@ class ConversationMemberClient(BaseClient):
         super().__init__(http_client, api_client_settings)
         self.service_url = service_url
 
-    async def get(self, conversation_id: str) -> List[Account]:
+    async def get(self, conversation_id: str) -> List[TeamsChannelAccount]:
         """
         Get all members in a conversation.
 
@@ -42,12 +42,12 @@ class ConversationMemberClient(BaseClient):
             conversation_id: The ID of the conversation
 
         Returns:
-            List of Account objects representing the conversation members
+            List of TeamsChannelAccount objects representing the conversation members
         """
         response = await self.http.get(f"{self.service_url}/v3/conversations/{conversation_id}/members")
-        return [Account.model_validate(member) for member in response.json()]
+        return [TeamsChannelAccount.model_validate(member) for member in response.json()]
 
-    async def get_by_id(self, conversation_id: str, member_id: str) -> Account:
+    async def get_by_id(self, conversation_id: str, member_id: str) -> TeamsChannelAccount:
         """
         Get a specific member in a conversation.
 
@@ -56,10 +56,10 @@ class ConversationMemberClient(BaseClient):
             member_id: The ID of the member to get
 
         Returns:
-            Account object representing the conversation member
+            TeamsChannelAccount object representing the conversation member
         """
         response = await self.http.get(f"{self.service_url}/v3/conversations/{conversation_id}/members/{member_id}")
-        return Account.model_validate(response.json())
+        return TeamsChannelAccount.model_validate(response.json())
 
     async def delete(self, conversation_id: str, member_id: str) -> None:
         """

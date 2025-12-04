@@ -102,14 +102,14 @@ def mock_transport():
                 {
                     "id": "mock_member_id",
                     "name": "Mock Member",
-                    "aadObjectId": "mock_aad_id",
+                    "objectId": "mock_object_id",
                 }
             ]
         elif "/conversations/" in str(request.url) and "/members/" in str(request.url) and request.method == "GET":
             response_data = {
                 "id": "mock_member_id",
                 "name": "Mock Member",
-                "aadObjectId": "mock_aad_id",
+                "objectId": "mock_object_id",
             }
         elif "/conversations" in str(request.url) and request.method == "GET":
             response_data = {
