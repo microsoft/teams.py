@@ -5,7 +5,7 @@ Licensed under the MIT License.
 
 from typing import Optional
 
-from ..account import Account, ConversationAccount
+from ..account import ConversationAccount, TeamsChannelAccount
 from ..custom_base_model import CustomBaseModel
 from .meeting import Meeting
 
@@ -15,7 +15,7 @@ class MeetingParticipant(CustomBaseModel):
     Teams meeting participant detailing user Azure Active Directory details.
     """
 
-    user: Optional[Account] = None
+    user: Optional[TeamsChannelAccount] = None
     "The user details"
 
     meeting: Optional[Meeting] = None
