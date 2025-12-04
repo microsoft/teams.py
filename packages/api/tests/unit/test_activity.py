@@ -8,6 +8,7 @@ from datetime import datetime
 from typing import cast
 
 import pytest
+from microsoft.teams.api.activities.message import MessageActivityInput
 from microsoft.teams.api.models import (
     Account,
     ActivityInputBase,
@@ -49,6 +50,18 @@ class ConcreteTestActivity(ActivityInputBase):
 def test_activity(user: Account, bot: Account, chat: ConversationAccount) -> ConcreteTestActivity:
     """Create a test activity with required fields set."""
     activity = ConcreteTestActivity(
+        id="1",
+        from_=user,
+        conversation=chat,
+        recipient=bot,
+    )
+    return activity
+
+
+@pytest.fixture
+def message_activity(user: Account, bot: Account, chat: ConversationAccount) -> MessageActivityInput:
+    """Create a message activity for testing AI-specific features."""
+    activity = MessageActivityInput(
         id="1",
         from_=user,
         conversation=chat,
