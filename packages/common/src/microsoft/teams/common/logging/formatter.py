@@ -38,6 +38,11 @@ class ConsoleFormatter(logging.Formatter):
         name = f"{record.name}{ANSI.FOREGROUND_RESET.value}{ANSI.BOLD_RESET.value}"
 
         message = record.getMessage()
+
+        # Include exception info if present
+        if record.exc_info:
+            message += "\n" + self.formatException(record.exc_info)
+
         lines = message.split("\n")
         formatted_lines = [f"{prefix} {name} {line}" for line in lines]
         return "\n".join(formatted_lines)

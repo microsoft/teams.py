@@ -36,6 +36,7 @@ from microsoft.teams.api import (
     TokenProtocol,
 )
 from microsoft.teams.api.auth.credentials import Credentials
+from microsoft.teams.api.models.invoke_response import InvokeResponse
 from microsoft.teams.apps.http_stream import HttpStream
 from microsoft.teams.common.http import Client, ClientOptions, Token
 from microsoft.teams.common.logging import ConsoleLogger
@@ -50,7 +51,6 @@ from .plugins import (
     EventMetadata,
     LoggerDependencyOptions,
     PluginActivityResponseEvent,
-    PluginErrorEvent,
     PluginStartEvent,
     Sender,
     StreamerProtocol,
@@ -78,7 +78,7 @@ class HttpPlugin(Sender):
     credentials: Annotated[Optional[Credentials], DependencyMetadata(optional=True)]
 
     on_error_event: Annotated[Callable[[ErrorEvent], None], EventMetadata(name="error")]
-    on_activity_event: Annotated[Callable[[ActivityEvent], None], EventMetadata(name="activity")]
+    on_activity_event: Annotated[Callable[[ActivityEvent], InvokeResponse[Any]], EventMetadata(name="activity")]
 
     client: Annotated[Client, DependencyMetadata()]
 
@@ -109,9 +109,6 @@ class HttpPlugin(Sender):
         self._server: Optional[uvicorn.Server] = None
         self._on_ready_callback: Optional[Callable[[], Awaitable[None]]] = None
         self._on_stopped_callback: Optional[Callable[[], Awaitable[None]]] = None
-
-        # Storage for pending HTTP responses by activity ID
-        self.pending: Dict[str, asyncio.Future[Any]] = {}
 
         # Setup FastAPI app with lifespan
         @asynccontextmanager
@@ -238,33 +235,7 @@ class HttpPlugin(Sender):
             response_data: The response data to send back
             plugin: The plugin that sent the response
         """
-        future = self.pending.get(event.activity.id)
-        if future and not future.done():
-            future.set_result(event.response)
-
-        else:
-            self.logger.warning(f"No pending future found for activity {event.activity.id}")
-
-    async def on_error(self, event: PluginErrorEvent) -> None:
-        """
-        Handle errors from the App.
-
-        Args:
-            error: The error that occurred
-            activity_id: The ID of the activity that failed (if applicable)
-            plugin: The plugin that caused the error (if applicable)
-        """
-        activity_id = event.activity.id if event.activity else None
-        error = event.error
-        if activity_id:
-            future = self.pending.get(activity_id)
-            if future and not future.done():
-                future.set_exception(error)
-                self.logger.error(f"Activity {activity_id} failed: {error}")
-            else:
-                self.logger.warning(f"No pending future found for activity {activity_id} (error: {error})")
-        else:
-            self.logger.error(f"Plugin error: {error}")
+        self.logger.debug(f"Completing activity response for {event.activity.id}")
 
     async def send(self, activity: ActivityParams, ref: ConversationReference) -> SentActivity:
         api = ApiClient(service_url=ref.service_url, options=self.client.clone(ClientOptions(token=self.bot_token)))
@@ -279,7 +250,9 @@ class HttpPlugin(Sender):
         res = await api.conversations.activities(ref.conversation.id).create(activity)
         return SentActivity.merge(activity, res)
 
-    async def _process_activity(self, activity: Activity, activity_id: str, token: TokenProtocol) -> None:
+    async def _process_activity(
+        self, activity: Activity, activity_id: str, token: TokenProtocol
+    ) -> InvokeResponse[Any]:
         """
         Process an activity via the registered handler.
 
@@ -288,15 +261,19 @@ class HttpPlugin(Sender):
             token: The authorization token (if any)
             activity_id: The activity ID for response coordination
         """
+        result: InvokeResponse[Any]
         try:
             event = ActivityEvent(activity=activity, sender=self, token=token)
             if asyncio.iscoroutinefunction(self.on_activity_event):
-                await self.on_activity_event(event)
+                result = await self.on_activity_event(event)
             else:
-                self.on_activity_event(event)
+                result = self.on_activity_event(event)
         except Exception as error:
-            # Complete with error
-            await self.on_error(PluginErrorEvent(sender=self, error=error, activity=activity))
+            # Log with full traceback
+            self.logger.exception(str(error))
+            result = InvokeResponse(status=500)
+
+        return result
 
     async def _handle_activity_request(self, request: Request) -> Any:
         """
@@ -333,33 +310,14 @@ class HttpPlugin(Sender):
 
         self.logger.debug(f"Received activity: {activity_type} (ID: {activity_id})")
 
-        # Create Future for async response coordination
-        response_future = asyncio.get_event_loop().create_future()
-        self.pending[activity_id] = response_future
-
         try:
             activity = ActivityTypeAdapter.validate_python(body)
         except ValidationError as e:
             self.logger.error(e.errors())
             raise
 
-        # Fire activity processing via callback
-        try:
-            # Call the activity handler asynchronously
-            self.logger.debug(f"Processing activity {activity_id} via handler...")
-            asyncio.create_task(self._process_activity(activity, activity_id, token))
-        except Exception as error:
-            self.logger.error(f"Failed to start activity processing: {error}")
-            response_future.set_exception(error)
-
-        # Wait for the activity processing to complete
-        result = await response_future
-
-        # Clean up
-        if activity_id in self.pending:
-            del self.pending[activity_id]
-
-        return result
+        self.logger.debug(f"Processing activity {activity_id} via handler...")
+        return await self._process_activity(activity, activity_id, token)
 
     def _handle_activity_response(self, response: Response, result: Any) -> Union[Response, Dict[str, object]]:
         """
