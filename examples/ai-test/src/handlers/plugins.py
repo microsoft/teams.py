@@ -5,8 +5,8 @@ Licensed under the MIT License.
 
 from typing import Optional
 
-from microsoft.teams.ai.message import Message
-from microsoft.teams.ai.plugin import BaseAIPlugin
+from microsoft_teams.ai.message import Message
+from microsoft_teams.ai.plugin import BaseAIPlugin
 from pydantic import BaseModel
 
 

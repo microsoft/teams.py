@@ -16,10 +16,10 @@ from botbuilder.integration.aiohttp import (
 from botbuilder.schema import Activity, ActivityTypes
 from bots.echo_bot import EchoBot
 from config import DefaultConfig
-from microsoft.teams.api import MessageActivity
-from microsoft.teams.apps import ActivityContext, App
-from microsoft.teams.botbuilder import BotBuilderPlugin
-from microsoft.teams.devtools import DevToolsPlugin
+from microsoft_teams.api import MessageActivity
+from microsoft_teams.apps import ActivityContext, App
+from microsoft_teams.botbuilder import BotBuilderPlugin
+from microsoft_teams.devtools import DevToolsPlugin
 
 config = DefaultConfig()
 adapter = CloudAdapter(ConfigurationBotFrameworkAuthentication(config))

@@ -9,11 +9,11 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    import microsoft.teams.apps.routing.activity_route_configs as activity_config
+    import microsoft_teams.apps.routing.activity_route_configs as activity_config
 
 # Import the activity config directly without going through the package hierarchy
 activity_config_path = (
-    Path(__file__).parent.parent / "src" / "microsoft" / "teams" / "apps" / "routing" / "activity_route_configs.py"
+    Path(__file__).parent.parent / "src" / "microsoft_teams" / "apps" / "routing" / "activity_route_configs.py"
 )
 
 # Load the activity config module directly because we don't want to have a dependency on the package
@@ -28,7 +28,7 @@ if not TYPE_CHECKING:
         sys.path.insert(0, src_path)
 
     spec = importlib.util.spec_from_file_location(
-        "microsoft.teams.apps.routing.activity_route_configs", activity_config_path
+        "microsoft_teams.apps.routing.activity_route_configs", activity_config_path
     )
     assert spec is not None, f"Could not find activity_route_configs.py at {activity_config_path}"
     activity_config = importlib.util.module_from_spec(spec)
@@ -45,7 +45,7 @@ def generate_imports() -> str:
         "from abc import ABC, abstractmethod",
         "from logging import Logger",
         "from typing import Callable, Optional, overload",
-        "from microsoft.teams.api import InvokeResponse",
+        "from microsoft_teams.api import InvokeResponse",
         "from .activity_context import ActivityContext",
         "from .activity_route_configs import ACTIVITY_ROUTES",
         "from .router import ActivityRouter",
@@ -58,9 +58,9 @@ def generate_imports() -> str:
         # Use explicit input_type_name if provided, otherwise fall back to __name__
         class_name = config.input_model if isinstance(config.input_model, str) else config.input_model.__name__
         if class_name == "ActivityBase":
-            imports.add(f"from microsoft.teams.api.models import {class_name}")
+            imports.add(f"from microsoft_teams.api.models import {class_name}")
         else:
-            imports.add(f"from microsoft.teams.api.activities import {class_name}")
+            imports.add(f"from microsoft_teams.api.activities import {class_name}")
         if config.output_model or config.output_type_name:
             # Use explicit output_type_name if provided, otherwise fall back to __name__
             output_class_name = config.output_type_name
@@ -69,7 +69,7 @@ def generate_imports() -> str:
                     output_class_name = config.output_model.__name__
                 else:
                     raise ValueError(f"Output type for {config.name} must be specified in the config or as a string.")
-            imports.add(f"from microsoft.teams.api.models.invoke_response import {output_class_name}")
+            imports.add(f"from microsoft_teams.api.models.invoke_response import {output_class_name}")
 
     return "\n".join(sorted(imports))
 
@@ -190,7 +190,7 @@ def generate_activity_handlers():
     # Write to the message_handler directory in the source code
     # Use Path(__file__) to find this script's location, then navigate to the target
     script_dir = Path(__file__).parent
-    source_dir = script_dir.parent / "src" / "microsoft" / "teams" / "apps" / "routing"
+    source_dir = script_dir.parent / "src" / "microsoft_teams" / "apps" / "routing"
     output_path = source_dir / "generated_handlers.py"
 
     # Ensure the target directory exists

@@ -5,9 +5,9 @@ Licensed under the MIT License.
 # pyright: basic
 
 import pytest
-from microsoft.teams.api.clients.meeting import MeetingClient
-from microsoft.teams.api.models import MeetingInfo, MeetingParticipant
-from microsoft.teams.common.http import Client, ClientOptions
+from microsoft_teams.api.clients.meeting import MeetingClient
+from microsoft_teams.api.models import MeetingInfo, MeetingParticipant
+from microsoft_teams.common.http import Client, ClientOptions
 
 
 @pytest.mark.unit

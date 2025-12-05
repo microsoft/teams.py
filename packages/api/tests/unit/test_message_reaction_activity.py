@@ -7,8 +7,8 @@ Licensed under the MIT License.
 from datetime import datetime
 
 import pytest
-from microsoft.teams.api.activities import MessageReactionActivityInput
-from microsoft.teams.api.models import (
+from microsoft_teams.api.activities import MessageReactionActivityInput
+from microsoft_teams.api.models import (
     Account,
     MessageReaction,
 )

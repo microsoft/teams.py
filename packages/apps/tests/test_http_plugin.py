@@ -9,7 +9,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi import Request, Response
-from microsoft.teams.api import (
+from microsoft_teams.api import (
     Account,
     ConfigResponse,
     ConversationAccount,
@@ -18,8 +18,8 @@ from microsoft.teams.api import (
     MessageActivity,
     MessageActivityInput,
 )
-from microsoft.teams.apps import HttpPlugin, PluginActivityResponseEvent, PluginErrorEvent, PluginStartEvent
-from microsoft.teams.apps.events import ActivityEvent
+from microsoft_teams.apps import HttpPlugin, PluginActivityResponseEvent, PluginErrorEvent, PluginStartEvent
+from microsoft_teams.apps.events import ActivityEvent
 
 
 class TestHttpPlugin:

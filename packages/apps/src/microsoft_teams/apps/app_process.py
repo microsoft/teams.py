@@ -1,0 +1,282 @@
+"""
+Copyright (c) Microsoft Corporation. All rights reserved.
+Licensed under the MIT License.
+"""
+
+from logging import Logger
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union, cast
+
+from microsoft_teams.api import (
+    ActivityBase,
+    ActivityParams,
+    ApiClient,
+    ApiClientSettings,
+    ConversationReference,
+    InvokeResponse,
+    SentActivity,
+    TokenProtocol,
+    is_invoke_response,
+)
+from microsoft_teams.api.clients.user.params import GetUserTokenParams
+from microsoft_teams.cards import AdaptiveCard
+from microsoft_teams.common import Client, ClientOptions, LocalStorage, Storage
+
+if TYPE_CHECKING:
+    from .app_events import EventManager
+from .events import ActivityEvent, ActivityResponseEvent, ActivitySentEvent, ErrorEvent
+from .plugins import PluginActivityEvent, PluginBase, Sender
+from .routing.activity_context import ActivityContext
+from .routing.router import ActivityHandler, ActivityRouter
+from .token_manager import TokenManager
+from .utils import extract_tenant_id
+
+
+class ActivityProcessor:
+    """Provides activity processing functionality with middleware chain support."""
+
+    def __init__(
+        self,
+        router: ActivityRouter,
+        logger: Logger,
+        id: Optional[str],
+        storage: Union[Storage[str, Any], LocalStorage[Any]],
+        default_connection_name: str,
+        http_client: Client,
+        token_manager: TokenManager,
+        api_client_settings: Optional[ApiClientSettings],
+    ) -> None:
+        self.router = router
+        self.logger = logger
+        self.id = id
+        self.storage = storage
+        self.default_connection_name = default_connection_name
+        self.http_client = http_client
+        self.token_manager = token_manager
+        self.api_client_settings = api_client_settings
+
+        # This will be set after the EventManager is initialized due to
+        # a circular dependency
+        self.event_manager: Optional["EventManager"] = None
+
+    async def _build_context(
+        self,
+        activity: ActivityBase,
+        token: TokenProtocol,
+        plugins: List[PluginBase],
+        sender: Sender,
+    ) -> ActivityContext[ActivityBase]:
+        """Build the context object for activity processing.
+
+        Args:
+            activity: The validated Activity object
+
+        Returns:
+            Context object for middleware chain execution
+        """
+
+        service_url = activity.service_url or token.service_url
+        conversation_ref = ConversationReference(
+            service_url=service_url,
+            activity_id=activity.id,
+            bot=activity.recipient,
+            channel_id=activity.channel_id,
+            conversation=activity.conversation,
+            locale=activity.locale,
+            user=activity.from_,
+        )
+        api_client = ApiClient(
+            service_url,
+            self.http_client.clone(ClientOptions(token=self.token_manager.get_bot_token)),
+            self.api_client_settings,
+        )
+
+        # Check if user is signed in
+        is_signed_in = False
+        user_token: Optional[str] = None
+        try:
+            user_token_res = await api_client.users.token.get(
+                GetUserTokenParams(
+                    channel_id=activity.channel_id,
+                    user_id=activity.from_.id,
+                    connection_name=self.default_connection_name,
+                )
+            )
+
+            user_token = user_token_res.token
+            is_signed_in = True
+        except Exception:
+            # User token not available
+            self.logger.debug("No user token available")
+            pass
+
+        tenant_id = extract_tenant_id(activity)
+
+        activityCtx = ActivityContext(
+            activity,
+            self.id or "",
+            self.logger,
+            self.storage,
+            api_client,
+            user_token,
+            conversation_ref,
+            is_signed_in,
+            self.default_connection_name,
+            sender,
+            app_token=lambda: self.token_manager.get_graph_token(tenant_id),
+        )
+
+        send = activityCtx.send
+
+        async def updated_send(
+            message: str | ActivityParams | AdaptiveCard,
+            conversation_ref: Optional[ConversationReference] = None,
+        ) -> SentActivity:
+            res = await send(message, conversation_ref)
+
+            if not self.event_manager:
+                raise ValueError("EventManager was not initialized properly")
+
+            self.logger.debug("Calling on_activity_sent for plugins")
+            ref = conversation_ref or activityCtx.conversation_ref
+
+            await self.event_manager.on_activity_sent(
+                sender,
+                ActivitySentEvent(sender=sender, activity=res, conversation_ref=ref),
+                plugins=plugins,
+            )
+            return res
+
+        activityCtx.send = updated_send
+
+        async def handle_chunk(chunk_activity: SentActivity):
+            if self.event_manager:
+                await self.event_manager.on_activity_sent(
+                    sender,
+                    ActivitySentEvent(sender=sender, activity=chunk_activity, conversation_ref=conversation_ref),
+                    plugins=plugins,
+                )
+
+        async def handle_close(close_activity: SentActivity):
+            if self.event_manager:
+                await self.event_manager.on_activity_sent(
+                    sender,
+                    ActivitySentEvent(sender=sender, activity=close_activity, conversation_ref=conversation_ref),
+                    plugins=plugins,
+                )
+
+        activityCtx.stream.on_chunk(handle_chunk)
+        activityCtx.stream.on_close(handle_close)
+
+        return activityCtx
+
+    async def process_activity(
+        self, plugins: List[PluginBase], sender: Sender, event: ActivityEvent
+    ) -> InvokeResponse[Any]:
+        activityCtx = await self._build_context(event.activity, event.token, plugins, sender)
+
+        self.logger.debug(f"Received activity: {activityCtx.activity}")
+
+        # Get registered handlers for this activity type
+        handlers = self.router.select_handlers(activityCtx.activity)
+
+        def create_route(plugin: PluginBase) -> ActivityHandler:
+            async def route(ctx: ActivityContext[ActivityBase]) -> Optional[Any]:
+                await plugin.on_activity(
+                    PluginActivityEvent(
+                        sender=sender,
+                        activity=event.activity,
+                        token=event.token,
+                        conversation_ref=activityCtx.conversation_ref,
+                    )
+                )
+                await ctx.next()
+
+            return route
+
+        plugin_routes = [
+            create_route(plugin)
+            for plugin in plugins
+            if hasattr(plugin, "on_activity_event") and callable(plugin.on_activity)
+        ]
+        handlers = plugin_routes + handlers
+
+        response: InvokeResponse[Any]
+
+        if not self.event_manager:
+            raise ValueError("EventManager was not initialized properly")
+
+        try:
+            # If no registered handlers, middleware_result is set to None
+            middleware_result = await self.execute_middleware_chain(activityCtx, handlers)
+
+            await activityCtx.stream.close()
+
+            if is_invoke_response(middleware_result):
+                response = cast(InvokeResponse[Any], middleware_result)
+            else:
+                response = InvokeResponse[Any](status=200, body=middleware_result)
+
+            await self.event_manager.on_activity_response(
+                sender,
+                ActivityResponseEvent(
+                    activity=event.activity,
+                    response=response,
+                    conversation_ref=activityCtx.conversation_ref,
+                ),
+                plugins=plugins,
+            )
+        except Exception as error:
+            await self.event_manager.on_error(ErrorEvent(error=error, activity=event.activity, sender=sender), plugins)
+            raise error
+
+        self.logger.debug("Completed processing activity")
+
+        return response
+
+    async def execute_middleware_chain(
+        self, ctx: ActivityContext[ActivityBase], handlers: List[ActivityHandler]
+    ) -> Optional[Dict[str, Any]]:
+        """Execute the middleware chain for activity handlers.
+
+        Args:
+            ctx: Context object for the activity
+            handlers: List of activity handlers to execute
+
+        Returns:
+            Final response from handlers, if any
+        """
+        if len(handlers) == 0:
+            return None
+
+        # Track the final response
+        response = None
+
+        # Create the middleware chain
+        async def create_next(index: int) -> Callable[[], Any]:
+            async def next_handler():
+                nonlocal response
+                if index < len(handlers):
+                    # Set up next handler for current context
+                    if index + 1 < len(handlers):
+                        ctx.set_next(await create_next(index + 1))
+                    else:
+                        # No-op async function for last handler
+                        async def noop():
+                            pass
+
+                        ctx.set_next(noop)
+
+                    # Execute current handler and capture return value
+                    result = await handlers[index](ctx)
+
+                    # Update the response iff response hasn't already been received
+                    if result is not None:
+                        response = result
+
+            return next_handler
+
+        # Start the chain
+        first_handler = await create_next(0)
+        await first_handler()
+
+        return response

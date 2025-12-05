@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 from unittest.mock import MagicMock
 
 import pytest
-from microsoft.teams.api import (
+from microsoft_teams.api import (
     Account,
     ApiClient,
     ConversationAccount,
@@ -17,7 +17,7 @@ from microsoft.teams.api import (
     SentActivity,
     TypingActivityInput,
 )
-from microsoft.teams.apps import HttpStream
+from microsoft_teams.apps import HttpStream
 
 
 @pytest.mark.skip(reason="introduces delays in CI pipeline")

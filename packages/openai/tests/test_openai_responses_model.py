@@ -7,7 +7,7 @@ Licensed under the MIT License.
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from microsoft.teams.ai import (
+from microsoft_teams.ai import (
     Function,
     FunctionCall,
     FunctionMessage,
@@ -16,7 +16,7 @@ from microsoft.teams.ai import (
     SystemMessage,
     UserMessage,
 )
-from microsoft.teams.openai.responses_chat_model import OpenAIResponsesAIModel
+from microsoft_teams.openai.responses_chat_model import OpenAIResponsesAIModel
 from openai.types.responses import Response, ResponseFunctionToolCall
 from pydantic import BaseModel
 

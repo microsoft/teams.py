@@ -5,7 +5,7 @@ Licensed under the MIT License.
 # pyright: basic
 
 import pytest
-from microsoft.teams.api.activities import ActivityParams, MessageActivityInput, SentActivity
+from microsoft_teams.api.activities import ActivityParams, MessageActivityInput, SentActivity
 
 
 @pytest.fixture

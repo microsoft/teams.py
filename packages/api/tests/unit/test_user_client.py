@@ -6,7 +6,7 @@ Licensed under the MIT License.
 # pyright: basic
 
 import pytest
-from microsoft.teams.api import (
+from microsoft_teams.api import (
     ApiClientSettings,
     ExchangeUserTokenParams,
     GetUserAADTokenParams,
@@ -115,7 +115,7 @@ class TestUserClientHttpClientSharing:
         assert client.token.http == mock_http_client
 
     def test_http_client_update_propagates(self, mock_http_client):
-        from microsoft.teams.common.http import Client, ClientOptions
+        from microsoft_teams.common.http import Client, ClientOptions
 
         client = UserClient(mock_http_client)
         new_http_client = Client(ClientOptions(base_url="https://new.api.com"))

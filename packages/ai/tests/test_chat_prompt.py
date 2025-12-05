@@ -8,7 +8,7 @@ from typing import Any, Awaitable, Callable, Optional, cast
 from unittest.mock import Mock
 
 import pytest
-from microsoft.teams.ai import (
+from microsoft_teams.ai import (
     ChatPrompt,
     ChatSendResult,
     Function,
@@ -21,7 +21,7 @@ from microsoft.teams.ai import (
     SystemMessage,
     UserMessage,
 )
-from microsoft.teams.ai.plugin import BaseAIPlugin
+from microsoft_teams.ai.plugin import BaseAIPlugin
 from pydantic import BaseModel
 
 # pyright: basic

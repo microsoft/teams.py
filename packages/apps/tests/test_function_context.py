@@ -7,11 +7,11 @@ from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from microsoft.teams.api import ApiClient
-from microsoft.teams.api.activities.message.message import MessageActivityInput
-from microsoft.teams.api.models.conversation.conversation_reference import ConversationReference
-from microsoft.teams.apps import FunctionContext
-from microsoft.teams.cards import AdaptiveCard
+from microsoft_teams.api import ApiClient
+from microsoft_teams.api.activities.message.message import MessageActivityInput
+from microsoft_teams.api.models.conversation.conversation_reference import ConversationReference
+from microsoft_teams.apps import FunctionContext
+from microsoft_teams.cards import AdaptiveCard
 
 
 @pytest.mark.asyncio

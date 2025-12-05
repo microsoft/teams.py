@@ -6,13 +6,13 @@ Licensed under the MIT License.
 import asyncio
 from datetime import datetime
 
-from microsoft.teams.api import AdaptiveCardInvokeActivity, MessageActivity, MessageActivityInput
-from microsoft.teams.api.models.adaptive_card import (
+from microsoft_teams.api import AdaptiveCardInvokeActivity, MessageActivity, MessageActivityInput
+from microsoft_teams.api.models.adaptive_card import (
     AdaptiveCardActionMessageResponse,
 )
-from microsoft.teams.api.models.invoke_response import AdaptiveCardInvokeResponse
-from microsoft.teams.apps import ActivityContext, App
-from microsoft.teams.cards import (
+from microsoft_teams.api.models.invoke_response import AdaptiveCardInvokeResponse
+from microsoft_teams.apps import ActivityContext, App
+from microsoft_teams.cards import (
     ActionSet,
     AdaptiveCard,
     ExecuteAction,
@@ -22,7 +22,7 @@ from microsoft.teams.cards import (
     TextBlock,
     ToggleInput,
 )
-from microsoft.teams.cards.core import Choice, ChoiceSetInput, DateInput, TextInput
+from microsoft_teams.cards.core import Choice, ChoiceSetInput, DateInput, TextInput
 
 app = App()
 

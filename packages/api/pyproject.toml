@@ -4,7 +4,7 @@ version = "2.0.0a6"
 description = "API package for Microsoft Teams"
 readme = "README.md"
 repository = "https://github.com/microsoft/teams.py"
-keywords = ["microsoft", "teams", "ai", "bot", "agents"] 
+keywords = ["microsoft", "teams", "ai", "bot", "agents"]
 license = "MIT"
 authors = [
     { name = "Microsoft", email = "TeamsAISDKFeedback@microsoft.com" }
@@ -36,7 +36,7 @@ dev = [
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/microsoft"]
+packages = ["src/microsoft_teams", "src/microsoft"]
 
 [tool.hatch.build.targets.sdist]
 include = ["src"]

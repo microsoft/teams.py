@@ -5,9 +5,9 @@ Licensed under the MIT License.
 
 from unittest.mock import MagicMock
 
-from microsoft.teams.api.activities.message import MessageActivity
-from microsoft.teams.api.models import Account, ConversationAccount
-from microsoft.teams.apps.utils import extract_tenant_id
+from microsoft_teams.api.activities.message import MessageActivity
+from microsoft_teams.api.models import Account, ConversationAccount
+from microsoft_teams.apps.utils import extract_tenant_id
 
 
 class TestActivityUtils:
