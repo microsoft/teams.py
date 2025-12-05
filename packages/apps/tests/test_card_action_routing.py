@@ -7,18 +7,18 @@ Licensed under the MIT License.
 from unittest.mock import MagicMock
 
 import pytest
-from microsoft.teams.api import (
+from microsoft_teams.api import (
     Account,
     AdaptiveCardInvokeActivity,
     AdaptiveCardInvokeResponse,
     ConversationAccount,
 )
-from microsoft.teams.api.models.adaptive_card import (
+from microsoft_teams.api.models.adaptive_card import (
     AdaptiveCardActionMessageResponse,
     AdaptiveCardInvokeAction,
     AdaptiveCardInvokeValue,
 )
-from microsoft.teams.apps import ActivityContext, App
+from microsoft_teams.apps import ActivityContext, App
 
 
 class TestCardActionRouting:

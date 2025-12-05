@@ -6,7 +6,7 @@ Licensed under the MIT License.
 import json
 from typing import Any, cast
 
-from microsoft.teams.cards import (
+from microsoft_teams.cards import (
     ActionSet,
     AdaptiveCard,
     ChoiceSetInput,
@@ -19,7 +19,7 @@ from microsoft.teams.cards import (
     TextBlock,
     ToggleInput,
 )
-from microsoft.teams.cards.core import SubmitActionData as BaseSubmitActionData
+from microsoft_teams.cards.core import SubmitActionData as BaseSubmitActionData
 
 
 def test_adaptive_card_serialization():

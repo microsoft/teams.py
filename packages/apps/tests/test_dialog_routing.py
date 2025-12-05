@@ -7,7 +7,7 @@ Licensed under the MIT License.
 from unittest.mock import MagicMock
 
 import pytest
-from microsoft.teams.api import (
+from microsoft_teams.api import (
     Account,
     AdaptiveCardAttachment,
     CardTaskModuleTaskInfo,
@@ -21,8 +21,8 @@ from microsoft.teams.api import (
     TaskSubmitInvokeActivity,
     card_attachment,
 )
-from microsoft.teams.apps import ActivityContext, App
-from microsoft.teams.cards import AdaptiveCard
+from microsoft_teams.apps import ActivityContext, App
+from microsoft_teams.cards import AdaptiveCard
 
 
 class TestDialogRouting:
