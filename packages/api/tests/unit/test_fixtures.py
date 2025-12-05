@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Type
 
 import pytest
-from microsoft.teams.api.activities.invoke.sign_in import SignInFailureInvokeActivity
+from microsoft_teams.api.activities.invoke.sign_in import SignInFailureInvokeActivity
 from pydantic import BaseModel
 
 # Map fixture filenames to their expected activity types

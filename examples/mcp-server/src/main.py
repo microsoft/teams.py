@@ -6,12 +6,12 @@ Licensed under the MIT License.
 import asyncio
 from typing import Dict
 
-from microsoft.teams.ai import Function
-from microsoft.teams.api.activities.message.message import MessageActivity
-from microsoft.teams.apps import App
-from microsoft.teams.apps.routing.activity_context import ActivityContext
-from microsoft.teams.devtools import DevToolsPlugin
-from microsoft.teams.mcpplugin import McpServerPlugin
+from microsoft_teams.ai import Function
+from microsoft_teams.api.activities.message.message import MessageActivity
+from microsoft_teams.apps import App
+from microsoft_teams.apps.routing.activity_context import ActivityContext
+from microsoft_teams.devtools import DevToolsPlugin
+from microsoft_teams.mcpplugin import McpServerPlugin
 from pydantic import BaseModel
 
 # Configure MCP server with custom name (as shown in docs)

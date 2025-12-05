@@ -7,7 +7,7 @@ Licensed under the MIT License.
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from microsoft.teams.ai import (
+from microsoft_teams.ai import (
     Function,
     FunctionCall,
     ListMemory,
@@ -15,7 +15,7 @@ from microsoft.teams.ai import (
     SystemMessage,
     UserMessage,
 )
-from microsoft.teams.openai.completions_model import OpenAICompletionsAIModel
+from microsoft_teams.openai.completions_model import OpenAICompletionsAIModel
 from openai import Omit
 from openai._streaming import AsyncStream
 from openai.types.chat import (

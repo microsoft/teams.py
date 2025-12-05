@@ -1583,7 +1583,6 @@ version = "2.0.0a6"
 source = { editable = "packages/cards" }
 dependencies = [
     { name = "coverage" },
-    { name = "microsoft-teams-api" },
     { name = "pytest" },
     { name = "ruff" },
 ]
@@ -1591,7 +1590,6 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "coverage", specifier = ">=7.8.0" },
-    { name = "microsoft-teams-api", editable = "packages/api" },
     { name = "pytest", specifier = ">=8.3.5" },
     { name = "ruff", specifier = ">=0.11.5" },
 ]

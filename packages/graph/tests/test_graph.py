@@ -10,8 +10,8 @@ import jwt
 import pytest
 from azure.core.credentials import AccessToken
 from azure.core.exceptions import ClientAuthenticationError
-from microsoft.teams.graph import get_graph_client
-from microsoft.teams.graph.auth_provider import AuthProvider
+from microsoft_teams.graph import get_graph_client
+from microsoft_teams.graph.auth_provider import AuthProvider
 from msgraph.graph_service_client import GraphServiceClient
 
 

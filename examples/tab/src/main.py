@@ -7,8 +7,8 @@ import asyncio
 from pathlib import Path
 from typing import Any
 
-from microsoft.teams.apps import App, FunctionContext
-from microsoft.teams.devtools import DevToolsPlugin
+from microsoft_teams.apps import App, FunctionContext
+from microsoft_teams.devtools import DevToolsPlugin
 
 app = App(plugins=[DevToolsPlugin()])
 app.tab("test", str(Path("Web/dist").resolve()))

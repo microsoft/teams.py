@@ -7,7 +7,7 @@ Licensed under the MIT License.
 from datetime import datetime
 from typing import cast
 
-from microsoft.teams.api.activities.message import (
+from microsoft_teams.api.activities.message import (
     MessageActivity,
     MessageActivityInput,
     MessageDeleteActivity,
@@ -16,9 +16,9 @@ from microsoft.teams.api.activities.message import (
     MessageUpdateActivity,
     MessageUpdateChannelData,
 )
-from microsoft.teams.api.activities.message.message_update import MessageEventType
-from microsoft.teams.api.activities.utils import StripMentionsTextOptions
-from microsoft.teams.api.models import (
+from microsoft_teams.api.activities.message.message_update import MessageEventType
+from microsoft_teams.api.activities.utils import StripMentionsTextOptions
+from microsoft_teams.api.models import (
     Account,
     Attachment,
     ChannelData,
@@ -29,7 +29,7 @@ from microsoft.teams.api.models import (
     MessageUser,
     StreamInfoEntity,
 )
-from microsoft.teams.cards import AdaptiveCard
+from microsoft_teams.cards import AdaptiveCard
 
 
 class TestMessageActivity:

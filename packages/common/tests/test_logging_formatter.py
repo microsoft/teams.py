@@ -6,7 +6,7 @@ Licensed under the MIT License.
 import logging
 from typing import Collection, Union
 
-from microsoft.teams.common.logging import ANSI, ConsoleFormatter
+from microsoft_teams.common.logging import ANSI, ConsoleFormatter
 
 
 def create_record(

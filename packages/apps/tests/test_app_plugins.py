@@ -9,8 +9,9 @@ from typing import Annotated, Callable
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from microsoft.teams.api.models.invoke_response import InvokeResponse
-from microsoft.teams.apps import (
+from microsoft_teams.api import InvokeResponse
+from microsoft_teams.apps import (
+    ActivityEvent,
     DependencyMetadata,
     ErrorEvent,
     EventMetadata,
@@ -18,13 +19,12 @@ from microsoft.teams.apps import (
     Plugin,
     PluginBase,
 )
-from microsoft.teams.apps.app_events import EventManager
-from microsoft.teams.apps.app_plugins import PluginProcessor
-from microsoft.teams.apps.app_process import ActivityProcessor
-from microsoft.teams.apps.container import Container
-from microsoft.teams.apps.events.types import ActivityEvent
-from microsoft.teams.apps.plugins.plugin_activity_event import PluginActivityEvent
-from microsoft.teams.common import Client, EventEmitter
+from microsoft_teams.apps.app_events import EventManager
+from microsoft_teams.apps.app_plugins import PluginProcessor
+from microsoft_teams.apps.app_process import ActivityProcessor
+from microsoft_teams.apps.container import Container
+from microsoft_teams.apps.plugins.plugin_activity_event import PluginActivityEvent
+from microsoft_teams.common import Client, EventEmitter
 from typing_extensions import Any
 
 

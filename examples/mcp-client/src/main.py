@@ -8,12 +8,12 @@ import re
 from os import getenv
 
 from dotenv import find_dotenv, load_dotenv
-from microsoft.teams.ai import ChatPrompt, ListMemory
-from microsoft.teams.api import MessageActivity, MessageActivityInput, TypingActivityInput
-from microsoft.teams.apps import ActivityContext, App
-from microsoft.teams.devtools import DevToolsPlugin
-from microsoft.teams.mcpplugin import McpClientPlugin, McpClientPluginParams
-from microsoft.teams.openai import OpenAICompletionsAIModel, OpenAIResponsesAIModel
+from microsoft_teams.ai import ChatPrompt, ListMemory
+from microsoft_teams.api import MessageActivity, MessageActivityInput, TypingActivityInput
+from microsoft_teams.apps import ActivityContext, App
+from microsoft_teams.devtools import DevToolsPlugin
+from microsoft_teams.mcpplugin import McpClientPlugin, McpClientPluginParams
+from microsoft_teams.openai import OpenAICompletionsAIModel, OpenAIResponsesAIModel
 
 load_dotenv(find_dotenv(usecwd=True))
 

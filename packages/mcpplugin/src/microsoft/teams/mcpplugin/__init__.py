@@ -1,12 +1,26 @@
 """
 Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
+
+
+Backward compatibility shim for microsoft.teams.mcpplugin.
+
+DEPRECATED: This import path is deprecated and will be removed in version 2.0.0 GA.
+Please update your imports to use 'microsoft_teams.mcpplugin' instead.
 """
 
-from . import models
-from .ai_plugin import McpClientPlugin, McpClientPluginParams, McpToolDetails
-from .models import *  # noqa: F403
-from .server_plugin import McpServerPlugin
+import sys
+import warnings
 
-__all__: list[str] = ["McpClientPlugin", "McpClientPluginParams", "McpToolDetails", "McpServerPlugin"]
-__all__.extend(models.__all__)
+warnings.warn(
+    "The 'microsoft.teams.mcpplugin' namespace is deprecated and will be removed in "
+    "version 2.0.0 GA. Please update your imports to 'microsoft_teams.mcpplugin'.",
+    DeprecationWarning,
+    stacklevel=2,
+)
+
+from microsoft_teams.mcpplugin import *  # noqa: E402, F401, F403
+from microsoft_teams.mcpplugin import __all__  # noqa: E402, F401
+
+_new_module = sys.modules["microsoft_teams.mcpplugin"]
+sys.modules[__name__] = _new_module

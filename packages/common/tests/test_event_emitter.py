@@ -7,7 +7,7 @@ import asyncio
 from unittest.mock import Mock
 
 import pytest
-from microsoft.teams.common.events import EventEmitter
+from microsoft_teams.common.events import EventEmitter
 
 
 class TestEventEmitter:

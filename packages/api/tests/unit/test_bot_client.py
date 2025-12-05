@@ -5,8 +5,8 @@ Licensed under the MIT License.
 # pyright: basic
 
 import pytest
-from microsoft.teams.api import ApiClientSettings, BotClient, GetBotSignInResourceParams, GetBotSignInUrlParams
-from microsoft.teams.common.http import Client, ClientOptions
+from microsoft_teams.api import ApiClientSettings, BotClient, GetBotSignInResourceParams, GetBotSignInUrlParams
+from microsoft_teams.common.http import Client, ClientOptions
 
 
 @pytest.mark.unit

@@ -15,7 +15,7 @@ from cards import (
     create_link_unfurl_card,
     create_message_details_card,
 )
-from microsoft.teams.api import (
+from microsoft_teams.api import (
     AdaptiveCardAttachment,
     ConfigFetchInvokeActivity,
     ConfigInvokeResponse,
@@ -35,7 +35,7 @@ from microsoft.teams.api import (
     UrlTaskModuleTaskInfo,
     card_attachment,
 )
-from microsoft.teams.api.models import (
+from microsoft_teams.api.models import (
     CardAction,
     CardActionType,
     CardTaskModuleTaskInfo,
@@ -48,8 +48,8 @@ from microsoft.teams.api.models import (
     MessagingExtensionSuggestedAction,
     TaskModuleContinueResponse,
 )
-from microsoft.teams.api.models.card.thumbnail_card import ThumbnailCard
-from microsoft.teams.apps import ActivityContext, App
+from microsoft_teams.api.models.card.thumbnail_card import ThumbnailCard
+from microsoft_teams.apps import ActivityContext, App
 from typing_extensions import Any, Dict
 
 app = App()

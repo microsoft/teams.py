@@ -4,10 +4,11 @@ Licensed under the MIT License.
 """
 # pyright: basic
 
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from microsoft.teams.api import (
+from microsoft_teams.api import (
     Account,
     Activity,
     ActivityBase,
@@ -17,14 +18,12 @@ from microsoft.teams.api import (
     MessageActivity,
     TokenProtocol,
 )
-from microsoft.teams.apps import ActivityContext, Sender
-from microsoft.teams.apps.app_events import EventManager
-from microsoft.teams.apps.app_process import ActivityProcessor
-from microsoft.teams.apps.events.types import ActivityEvent
-from microsoft.teams.apps.routing.router import ActivityHandler, ActivityRouter
-from microsoft.teams.apps.token_manager import TokenManager
-from microsoft.teams.common import Client, LocalStorage
-from typing_extensions import Any
+from microsoft_teams.apps import ActivityContext, ActivityEvent, Sender
+from microsoft_teams.apps.app_events import EventManager
+from microsoft_teams.apps.app_process import ActivityProcessor
+from microsoft_teams.apps.routing.router import ActivityHandler, ActivityRouter
+from microsoft_teams.apps.token_manager import TokenManager
+from microsoft_teams.common import Client, LocalStorage
 
 
 class TestActivityProcessor:

@@ -10,7 +10,7 @@ from os import getenv
 from typing import List, Union, cast
 
 from a2a.types import AgentCapabilities, AgentCard, AgentSkill, Message, Part, Role, TextPart
-from microsoft.teams.a2a import (
+from microsoft_teams.a2a import (
     A2AClientPlugin,
     A2AMessageEvent,
     A2AMessageEventKey,
@@ -21,12 +21,12 @@ from microsoft.teams.a2a import (
     BuildMessageFromAgentMetadata,
     FunctionMetadata,
 )
-from microsoft.teams.ai import ChatPrompt, Function, ModelMessage
-from microsoft.teams.api import MessageActivity, TypingActivityInput
-from microsoft.teams.apps import ActivityContext, App, PluginBase
-from microsoft.teams.common import ConsoleLogger, ConsoleLoggerOptions
-from microsoft.teams.devtools import DevToolsPlugin
-from microsoft.teams.openai.completions_model import OpenAICompletionsAIModel
+from microsoft_teams.ai import ChatPrompt, Function, ModelMessage
+from microsoft_teams.api import MessageActivity, TypingActivityInput
+from microsoft_teams.apps import ActivityContext, App, PluginBase
+from microsoft_teams.common import ConsoleLogger, ConsoleLoggerOptions
+from microsoft_teams.devtools import DevToolsPlugin
+from microsoft_teams.openai.completions_model import OpenAICompletionsAIModel
 from pydantic import BaseModel
 
 logger = ConsoleLogger().create_logger("a2a", ConsoleLoggerOptions(level="debug"))

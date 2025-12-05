@@ -8,7 +8,7 @@ from datetime import datetime
 from typing import cast
 
 import pytest
-from microsoft.teams.api.models import (
+from microsoft_teams.api.models import (
     Account,
     ActivityInputBase,
     ChannelData,
@@ -21,7 +21,7 @@ from microsoft.teams.api.models import (
     TeamInfo,
     TenantInfo,
 )
-from microsoft.teams.api.models.entity import CitationAppearance, CitationEntity, MessageEntity
+from microsoft_teams.api.models.entity import CitationAppearance, CitationEntity, MessageEntity
 
 
 @pytest.fixture

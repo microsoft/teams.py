@@ -11,8 +11,8 @@ from botbuilder.core import ActivityHandler, TurnContext
 from botbuilder.integration.aiohttp import CloudAdapter
 from botbuilder.schema import Activity
 from fastapi import HTTPException, Request, Response
-from microsoft.teams.api import Credentials
-from microsoft.teams.botbuilder import BotBuilderPlugin
+from microsoft_teams.api import Credentials
+from microsoft_teams.botbuilder import BotBuilderPlugin
 
 
 class TestBotBuilderPlugin:
@@ -45,9 +45,9 @@ class TestBotBuilderPlugin:
         assert plugin_without_adapter.adapter is None
 
         with (
-            patch("microsoft.teams.botbuilder.botbuilder_plugin.CloudAdapter") as mock_adapter_class,
+            patch("microsoft_teams.botbuilder.botbuilder_plugin.CloudAdapter") as mock_adapter_class,
             patch(
-                "microsoft.teams.botbuilder.botbuilder_plugin.ConfigurationBotFrameworkAuthentication"
+                "microsoft_teams.botbuilder.botbuilder_plugin.ConfigurationBotFrameworkAuthentication"
             ) as mock_config_class,
         ):
             mock_adapter_class.return_value = "mock_adapter"

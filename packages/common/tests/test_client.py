@@ -5,8 +5,8 @@ Licensed under the MIT License.
 
 import httpx
 import pytest
-from microsoft.teams.common.http import Client, ClientOptions, Interceptor
-from microsoft.teams.common.http.client_token import StringLike
+from microsoft_teams.common.http import Client, ClientOptions, Interceptor
+from microsoft_teams.common.http.client_token import StringLike
 
 
 class DummyAsyncInterceptor(Interceptor):

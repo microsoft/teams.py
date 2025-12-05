@@ -7,13 +7,13 @@ from typing import Literal, cast
 from unittest.mock import MagicMock, create_autospec, patch
 
 import pytest
-from microsoft.teams.api import (
+from microsoft_teams.api import (
     ClientCredentials,
     FederatedIdentityCredentials,
     JsonWebToken,
     ManagedIdentityCredentials,
 )
-from microsoft.teams.apps.token_manager import TokenManager
+from microsoft_teams.apps.token_manager import TokenManager
 from msal import ManagedIdentityClient  # pyright: ignore[reportMissingTypeStubs]
 
 # Valid JWT-like token for testing (format: header.payload.signature)
@@ -41,7 +41,7 @@ class TestTokenManager:
         mock_msal_app.acquire_token_for_client = MagicMock(return_value={"access_token": VALID_TEST_TOKEN})
 
         with patch(
-            "microsoft.teams.apps.token_manager.ConfidentialClientApplication", return_value=mock_msal_app
+            "microsoft_teams.apps.token_manager.ConfidentialClientApplication", return_value=mock_msal_app
         ) as mock_msal_class:
             manager = TokenManager(credentials=mock_credentials)
 
@@ -82,7 +82,7 @@ class TestTokenManager:
         mock_msal_app.acquire_token_for_client = MagicMock(return_value={"access_token": VALID_TEST_TOKEN})
 
         with patch(
-            "microsoft.teams.apps.token_manager.ConfidentialClientApplication", return_value=mock_msal_app
+            "microsoft_teams.apps.token_manager.ConfidentialClientApplication", return_value=mock_msal_app
         ) as mock_msal_class:
             manager = TokenManager(credentials=mock_credentials)
 
@@ -112,7 +112,7 @@ class TestTokenManager:
         mock_msal_app.acquire_token_for_client = MagicMock(return_value={"access_token": VALID_TEST_TOKEN})
 
         with patch(
-            "microsoft.teams.apps.token_manager.ConfidentialClientApplication", return_value=mock_msal_app
+            "microsoft_teams.apps.token_manager.ConfidentialClientApplication", return_value=mock_msal_app
         ) as mock_msal_class:
             manager = TokenManager(credentials=mock_credentials)
 
@@ -146,7 +146,7 @@ class TestTokenManager:
         mock_msal_app.acquire_token_for_client = MagicMock(return_value={"access_token": VALID_TEST_TOKEN})
 
         with patch(
-            "microsoft.teams.apps.token_manager.ConfidentialClientApplication", return_value=mock_msal_app
+            "microsoft_teams.apps.token_manager.ConfidentialClientApplication", return_value=mock_msal_app
         ) as mock_msal_class:
             manager = TokenManager(credentials=mock_credentials)
 
@@ -176,7 +176,7 @@ class TestTokenManager:
         mock_msal_app.acquire_token_for_client = MagicMock(return_value={"access_token": VALID_TEST_TOKEN})
 
         with patch(
-            "microsoft.teams.apps.token_manager.ConfidentialClientApplication", return_value=mock_msal_app
+            "microsoft_teams.apps.token_manager.ConfidentialClientApplication", return_value=mock_msal_app
         ) as mock_msal_class:
             manager = TokenManager(credentials=original_credentials)
 
@@ -273,7 +273,7 @@ class TestTokenManager:
         mi_token = "mi_token_from_step_1"
         with patch.object(manager, "_acquire_managed_identity_token", return_value=mi_token):
             # Mock ConfidentialClientApplication for step 2
-            with patch("microsoft.teams.apps.token_manager.ConfidentialClientApplication") as mock_confidential_app:
+            with patch("microsoft_teams.apps.token_manager.ConfidentialClientApplication") as mock_confidential_app:
                 mock_app_instance = MagicMock()
                 mock_app_instance.acquire_token_for_client.return_value = {"access_token": VALID_TEST_TOKEN}
                 mock_confidential_app.return_value = mock_app_instance
@@ -326,7 +326,7 @@ class TestTokenManager:
         mi_token = "mi_token_from_step_1"
         with patch.object(manager, "_acquire_managed_identity_token", return_value=mi_token):
             # Mock step 2 to fail
-            with patch("microsoft.teams.apps.token_manager.ConfidentialClientApplication") as mock_confidential_app:
+            with patch("microsoft_teams.apps.token_manager.ConfidentialClientApplication") as mock_confidential_app:
                 mock_app_instance = MagicMock()
                 mock_app_instance.acquire_token_for_client.return_value = {
                     "error": "invalid_grant",
