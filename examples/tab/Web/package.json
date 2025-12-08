@@ -17,8 +17,8 @@
     "@microsoft/teams.common": "^2.0.0",
     "@microsoft/teams.graph": "^2.0.0",
     "@microsoft/teams.graph-endpoints": "^2.0.0",
-    "react": "^19.1.1",
-    "react-dom": "^19.1.1"
+    "react": "19.2.1",
+    "react-dom": "19.2.1"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.3.4",
