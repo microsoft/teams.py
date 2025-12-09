@@ -25,8 +25,8 @@ uv add microsoft-teams-openai
 ## Usage
 
 ```python
-from microsoft.teams.openai import OpenAICompletionsAIModel
-from microsoft.teams.ai import ChatPrompt
+from microsoft_teams.openai import OpenAICompletionsAIModel
+from microsoft_teams.ai import ChatPrompt
 
 model = OpenAICompletionsAIModel(api_key="your-api-key", model="gpt-4")
 prompt = ChatPrompt(model)

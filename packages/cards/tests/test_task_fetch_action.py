@@ -3,7 +3,7 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from microsoft.teams.cards import SubmitActionData, TaskFetchAction
+from microsoft_teams.cards import SubmitActionData, TaskFetchAction
 
 
 def test_invoke_action_initialization():

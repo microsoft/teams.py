@@ -3,7 +3,7 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from microsoft.teams.cards import MessageBackAction, SubmitActionData
+from microsoft_teams.cards import MessageBackAction, SubmitActionData
 
 
 def test_message_back_action_initialization():
