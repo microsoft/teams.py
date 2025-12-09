@@ -29,8 +29,8 @@ Handles activity routing, authentication, and provides Microsoft Graph integrati
 ## Basic Usage
 
 ```python
-from microsoft.teams.apps import App, ActivityContext
-from microsoft.teams.api import MessageActivity
+from microsoft_teams.apps import App, ActivityContext
+from microsoft_teams.api import MessageActivity
 
 app = App()
 

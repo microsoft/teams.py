@@ -26,8 +26,8 @@ uv add microsoft-teams-a2a
 ### A2A Server (Expose Agent)
 
 ```python
-from microsoft.teams.apps import App
-from microsoft.teams.a2a import A2APlugin, A2APluginOptions
+from microsoft_teams.apps import App
+from microsoft_teams.a2a import A2APlugin, A2APluginOptions
 from a2a.types import AgentCard, AgentCapabilities
 
 app = App()
@@ -51,9 +51,9 @@ app = App(plugins=[a2a_server])
 ### A2A Client (Use Other Agents)
 
 ```python
-from microsoft.teams.a2a import A2AClientPlugin, A2APluginUseParams
-from microsoft.teams.ai import ChatPrompt
-from microsoft.teams.openai import OpenAICompletionsAIModel
+from microsoft_teams.a2a import A2AClientPlugin, A2APluginUseParams
+from microsoft_teams.ai import ChatPrompt
+from microsoft_teams.openai import OpenAICompletionsAIModel
 
 model = OpenAICompletionsAIModel(api_key="your-api-key", model="gpt-4")
 

@@ -28,8 +28,8 @@ uv add microsoft-teams-ai
 ### ChatPrompt
 
 ```python
-from microsoft.teams.ai import ChatPrompt, Function
-from microsoft.teams.openai import OpenAICompletionsAIModel
+from microsoft_teams.ai import ChatPrompt, Function
+from microsoft_teams.openai import OpenAICompletionsAIModel
 from pydantic import BaseModel
 
 model = OpenAICompletionsAIModel(api_key="your-api-key", model="gpt-4")

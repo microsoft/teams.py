@@ -33,9 +33,9 @@ This package provides seamless access to Microsoft Graph APIs from Teams bots an
 ### Basic Usage with Teams Bot
 
 ```python
-from microsoft.teams.graph import get_graph_client
-from microsoft.teams.apps import App, ActivityContext
-from microsoft.teams.api import MessageActivity
+from microsoft_teams.graph import get_graph_client
+from microsoft_teams.apps import App, ActivityContext
+from microsoft_teams.api import MessageActivity
 
 app = App()
 
@@ -62,7 +62,7 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
 ### Token Integration
 
 ```python
-from microsoft.teams.common.http.client_token import Token
+from microsoft_teams.common.http.client_token import Token
 
 def create_token_callable(ctx: ActivityContext) -> Token:
     """Create a callable token that refreshes automatically."""

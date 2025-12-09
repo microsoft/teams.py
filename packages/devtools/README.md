@@ -28,8 +28,8 @@ uv add microsoft-teams-devtools
 ## Usage
 
 ```python
-from microsoft.teams.apps import App
-from microsoft.teams.devtools import DevToolsPlugin
+from microsoft_teams.apps import App
+from microsoft_teams.devtools import DevToolsPlugin
 
 app = App()
 app.use(DevToolsPlugin())

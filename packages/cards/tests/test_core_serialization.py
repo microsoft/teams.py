@@ -6,7 +6,7 @@ Licensed under the MIT License.
 import json
 from typing import Any, cast
 
-from microsoft.teams.cards import (
+from microsoft_teams.cards import (
     ActionSet,
     AdaptiveCard,
     ChoiceSetInput,
