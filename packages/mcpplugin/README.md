@@ -25,10 +25,10 @@ uv add microsoft-teams-mcpplugin
 ### MCP Client (Use MCP Servers)
 
 ```python
-from microsoft.teams.apps import App
-from microsoft.teams.mcpplugin import McpClientPlugin
-from microsoft.teams.ai import ChatPrompt
-from microsoft.teams.openai import OpenAICompletionsAIModel
+from microsoft_teams.apps import App
+from microsoft_teams.mcpplugin import McpClientPlugin
+from microsoft_teams.ai import ChatPrompt
+from microsoft_teams.openai import OpenAICompletionsAIModel
 
 # Create MCP client plugin
 mcp_client = McpClientPlugin()
@@ -44,9 +44,9 @@ prompt = ChatPrompt(model, plugins=[mcp_client])
 ### MCP Server (Expose Tools)
 
 ```python
-from microsoft.teams.apps import App
-from microsoft.teams.mcpplugin import McpServerPlugin
-from microsoft.teams.ai import Function
+from microsoft_teams.apps import App
+from microsoft_teams.mcpplugin import McpServerPlugin
+from microsoft_teams.ai import Function
 from pydantic import BaseModel
 
 # Create MCP server plugin

@@ -1,6 +1,6 @@
 [project]
 name = "microsoft-teams-botbuilder"
-version = "2.0.0a6"
+version = "2.0.0a8"
 description = "BotBuilder plugin for Microsoft Teams"
 authors = [{ name = "Microsoft", email = "TeamsAISDKFeedback@microsoft.com" }]
 readme = "README.md"

@@ -29,7 +29,7 @@ Provides HTTP clients, authentication, and typed models for Teams Bot Framework 
 ## Authentication
 
 ```python
-from microsoft.teams.api import ClientCredentials, TokenCredentials
+from microsoft_teams.api import ClientCredentials, TokenCredentials
 
 # Client credentials authentication
 credentials = ClientCredentials(
@@ -47,7 +47,7 @@ credentials = TokenCredentials(
 ## API Client Usage
 
 ```python
-from microsoft.teams.api import ApiClient
+from microsoft_teams.api import ApiClient
 
 # Initialize API client
 api = ApiClient("https://smba.trafficmanager.net/amer/")
@@ -64,7 +64,7 @@ token_status = await api.users.token.get_status(params)
 ## Activity Models
 
 ```python
-from microsoft.teams.api import MessageActivity, Activity, ActivityTypeAdapter
+from microsoft_teams.api import MessageActivity, Activity, ActivityTypeAdapter
 
 # Validate incoming activities
 activity = ActivityTypeAdapter.validate_python(activity_data)

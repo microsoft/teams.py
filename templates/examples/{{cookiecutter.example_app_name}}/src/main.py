@@ -5,8 +5,8 @@ Licensed under the MIT License.
 
 import asyncio
 
-from microsoft.teams.api import MessageActivity
-from microsoft.teams.apps import ActivityContext, App
+from microsoft_teams.api import MessageActivity
+from microsoft_teams.apps import ActivityContext, App
 
 app = App()
 

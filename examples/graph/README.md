@@ -93,7 +93,7 @@ python examples/graph/src/main.py
 
 ## Architecture
 
-The demo uses the `microsoft.teams.graph` package which provides:
+The demo uses the `microsoft_teams.graph` package which provides:
 
 - **Token Integration**: Uses callable tokens for exact expiration handling
 - **Automatic Token Resolution**: Seamless integration with Teams OAuth tokens
@@ -102,7 +102,7 @@ The demo uses the `microsoft.teams.graph` package which provides:
 ## Example Usage
 
 ```python
-from microsoft.teams.graph import get_graph_client
+from microsoft_teams.graph import get_graph_client
 
 # Get user's Graph client using their token
 graph = get_graph_client(ctx.user_token)
@@ -136,8 +136,8 @@ This approach provides better reliability and eliminates common token expiration
 ### Key Implementation Details
 
 ```python
-from microsoft.teams.api.clients.user.params import GetUserTokenParams
-from microsoft.teams.graph import get_graph_client
+from microsoft_teams.api.clients.user.params import GetUserTokenParams
+from microsoft_teams.graph import get_graph_client
 
 # Get token directly from Teams API
 token_params = GetUserTokenParams(
