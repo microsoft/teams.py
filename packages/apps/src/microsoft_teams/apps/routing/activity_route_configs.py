@@ -503,15 +503,15 @@ ACTIVITY_ROUTES: Dict[str, ActivityConfig] = {
         output_model=None,
         is_invoke=True,
     ),
-    # "card.action": ActivityConfig(
-    #     name="card.action",
-    #     method_name="on_card_action",
-    #     input_model="AdaptiveCardInvokeActivity",
-    #     selector=lambda activity: activity.type == "invoke"
-    #     and cast(InvokeActivity, activity).name == "adaptiveCard/action",
-    #     output_type_name="AdaptiveCardInvokeResponse",
-    #     is_invoke=True,
-    # ),
+    "card.action": ActivityConfig(
+        name="card.action",
+        method_name="on_card_action",
+        input_model="AdaptiveCardInvokeActivity",
+        selector=lambda activity: activity.type == "invoke"
+        and cast(InvokeActivity, activity).name == "adaptiveCard/action",
+        output_type_name="AdaptiveCardInvokeResponse",
+        is_invoke=True,
+    ),
     # Generic invoke handler (fallback for any invoke not matching specific aliases)
     "invoke": ActivityConfig(
         name="invoke",

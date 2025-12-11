@@ -403,77 +403,83 @@ class ActivityHandlerMixin(GeneratedActivityHandlerMixin, ABC):
         return decorator
 
     @overload
-    def on_card_action(
+    def on_card_action_execute(
         self,
     ) -> Callable[
         [InvokeHandler[AdaptiveCardInvokeActivity, AdaptiveCardInvokeResponse]],
         InvokeHandler[AdaptiveCardInvokeActivity, AdaptiveCardInvokeResponse],
     ]:
         """
-        Register a global card action handler for all card action events.
+        Register a global handler for all Action.Execute card actions.
 
         Usage:
 
-            @app.on_card_action
-            async def handle_all_actions(
+            @app.on_card_action_execute
+            async def handle_all_execute_actions(
                 ctx: ActivityContext[AdaptiveCardInvokeActivity],
             ) -> AdaptiveCardInvokeResponse:
-                return InvokeResponse(...)
+                return AdaptiveCardActionMessageResponse(...)
 
         """
         ...
 
     @overload
-    def on_card_action(
+    def on_card_action_execute(
         self,
         action_or_handler: InvokeHandler[AdaptiveCardInvokeActivity, AdaptiveCardInvokeResponse],
     ) -> InvokeHandler[AdaptiveCardInvokeActivity, AdaptiveCardInvokeResponse]:
         """
-        Register a global card action handler for all card action events.
+        Register a global handler for all Action.Execute card actions.
 
         Usage:
 
-            async def handle_all_actions(
+            async def handle_all_execute_actions(
                 ctx: ActivityContext[AdaptiveCardInvokeActivity],
             ) -> AdaptiveCardInvokeResponse:
-                return InvokeResponse(...)
-            app.on_card_action(handle_all_actions)
+                return AdaptiveCardActionMessageResponse(...)
+            app.on_card_action_execute(handle_all_execute_actions)
 
         """
         ...
 
     @overload
-    def on_card_action(
+    def on_card_action_execute(
         self, action_or_handler: str
     ) -> Callable[
         [InvokeHandler[AdaptiveCardInvokeActivity, AdaptiveCardInvokeResponse]],
         InvokeHandler[AdaptiveCardInvokeActivity, AdaptiveCardInvokeResponse],
     ]:
         """
-        Register a card action handler that matches a specific action.
+        Register a handler for Action.Execute card actions with a specific action identifier.
+
+        Only Action.Execute is supported. Action.Submit and other action types do not trigger
+        AdaptiveCardInvokeActivity in modern Teams clients.
 
         Args:
             action_or_handler: The action identifier to match against the 'action' field in activity data
 
         Usage:
 
-            @app.on_card_action("submit_basic")
+            @app.on_card_action_execute("submit_basic")
             async def handle_basic_submit(
                 ctx: ActivityContext[AdaptiveCardInvokeActivity]
             ) -> AdaptiveCardInvokeResponse:
-                return InvokeResponse(...)
+                return AdaptiveCardActionMessageResponse(...)
 
         """
         ...
 
     @overload
-    def on_card_action(
+    def on_card_action_execute(
         self,
         action_or_handler: str,
         handler: InvokeHandler[AdaptiveCardInvokeActivity, AdaptiveCardInvokeResponse],
     ) -> InvokeHandler[AdaptiveCardInvokeActivity, AdaptiveCardInvokeResponse]:
         """
-        Register a card action handler that matches a specific action.
+        Register a handler for Action.Execute card actions with a specific action identifier.
+
+        Only Action.Execute is supported. Action.Submit and other action types do not trigger
+        AdaptiveCardInvokeActivity in modern Teams clients.
 
         Args:
             action_or_handler: The action identifier to match against the 'action' field in activity data
@@ -484,13 +490,13 @@ class ActivityHandlerMixin(GeneratedActivityHandlerMixin, ABC):
             async def handle_basic_submit(
                 ctx: ActivityContext[AdaptiveCardInvokeActivity]
             ) -> AdaptiveCardInvokeResponse:
-                return InvokeResponse(...)
-            app.on_card_action("submit_basic", handle_basic_submit)
+                return AdaptiveCardActionMessageResponse(...)
+            app.on_card_action_execute("submit_basic", handle_basic_submit)
 
         """
         ...
 
-    def on_card_action(
+    def on_card_action_execute(
         self,
         action_or_handler: Union[
             str, InvokeHandler[AdaptiveCardInvokeActivity, AdaptiveCardInvokeResponse], None
@@ -498,11 +504,15 @@ class ActivityHandlerMixin(GeneratedActivityHandlerMixin, ABC):
         handler: Optional[InvokeHandler[AdaptiveCardInvokeActivity, AdaptiveCardInvokeResponse]] = None,
     ) -> InvokeHandlerUnion[AdaptiveCardInvokeActivity, AdaptiveCardInvokeResponse]:
         """
-        Register a card action handler.
+        Register a handler for Action.Execute card actions.
+
+        This handler provides action-based routing for ExecuteAction (Action.Execute) buttons.
+        Only Action.Execute is supported - Action.Submit and other action types do not trigger
+        AdaptiveCardInvokeActivity in modern Teams clients.
 
         Args:
             action_or_handler: Optional action identifier to match against the 'action' field in activity data,
-                              or a handler function to match all card action events.
+                              or a handler function to match all Action.Execute events.
             handler: The async function to call when the event matches
 
         Returns:
@@ -518,23 +528,37 @@ class ActivityHandlerMixin(GeneratedActivityHandlerMixin, ABC):
             func: InvokeHandler[AdaptiveCardInvokeActivity, AdaptiveCardInvokeResponse],
         ) -> InvokeHandler[AdaptiveCardInvokeActivity, AdaptiveCardInvokeResponse]:
             validate_handler_type(
-                self.logger, func, AdaptiveCardInvokeActivity, "on_card_action", "AdaptiveCardInvokeActivity"
+                self.logger,
+                func,
+                AdaptiveCardInvokeActivity,
+                "on_card_action_execute",
+                "AdaptiveCardInvokeActivity",
             )
 
             def selector(ctx: ActivityBase) -> bool:
                 if not isinstance(ctx, AdaptiveCardInvokeActivity):
                     return False
-                # If no action specified, match all card action events
+
+                # If no action specified, match all Action.Execute events
                 if action_or_handler is None:
+                    # Still validate it's Action.Execute for global handler
+                    if not ctx.value or not ctx.value.action:
+                        return False
+                    if ctx.value.action.type != "Action.Execute":
+                        return False
                     return True
-                # Otherwise, match specific action
+
+                # Otherwise, match specific action with Action.Execute validation
                 if not ctx.value or not ctx.value.action:
                     return False
+
+                # Extract and match action field
                 data = ctx.value.action.data
                 action = data.get("action")
                 if action is not None and not isinstance(action, str):
                     self.logger.warning(f"Expected 'action' to be a string, got {type(action).__name__}: {action}")
                     return False
+
                 return action == action_or_handler
 
             self.router.add_handler(selector, func)

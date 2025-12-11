@@ -21,8 +21,8 @@ from microsoft_teams.api.models.adaptive_card import (
 from microsoft_teams.apps import ActivityContext, App
 
 
-class TestCardActionRouting:
-    """Test cases for card action routing functionality."""
+class TestCardActionExecuteRouting:
+    """Test cases for card action execute routing functionality."""
 
     @pytest.fixture
     def mock_logger(self):
@@ -44,10 +44,10 @@ class TestCardActionRouting:
             client_secret="test-secret",
         )
 
-    def test_on_card_action_with_action_id(self, app_with_options: App) -> None:
-        """Test on_card_action with specific action matching."""
+    def test_on_card_action_execute_with_action_id(self, app_with_options: App) -> None:
+        """Test on_card_action_execute with specific action matching."""
 
-        @app_with_options.on_card_action("submit_form")
+        @app_with_options.on_card_action_execute("submit_form")
         async def handle_submit_form(ctx: ActivityContext[AdaptiveCardInvokeActivity]) -> AdaptiveCardInvokeResponse:
             return AdaptiveCardActionMessageResponse(
                 status_code=200, type="application/vnd.microsoft.activity.message", value="Form submitted"
@@ -94,10 +94,10 @@ class TestCardActionRouting:
         non_matching_handlers = app_with_options.router.select_handlers(non_matching_activity)
         assert len(non_matching_handlers) == 0
 
-    def test_on_card_action_global_handler(self, app_with_options: App) -> None:
-        """Test on_card_action without action matches all card actions."""
+    def test_on_card_action_execute_global_handler(self, app_with_options: App) -> None:
+        """Test on_card_action_execute without action matches all Action.Execute actions."""
 
-        @app_with_options.on_card_action()
+        @app_with_options.on_card_action_execute()
         async def handle_all_actions(ctx: ActivityContext[AdaptiveCardInvokeActivity]) -> AdaptiveCardInvokeResponse:
             return AdaptiveCardActionMessageResponse(
                 status_code=200, type="application/vnd.microsoft.activity.message", value="Action received"
@@ -143,16 +143,16 @@ class TestCardActionRouting:
         assert len(handlers2) == 1
         assert handlers2[0] == handle_all_actions
 
-    def test_on_card_action_multiple_specific_handlers(self, app_with_options: App) -> None:
+    def test_on_card_action_execute_multiple_specific_handlers(self, app_with_options: App) -> None:
         """Test multiple specific action handlers coexist correctly."""
 
-        @app_with_options.on_card_action("submit_form")
+        @app_with_options.on_card_action_execute("submit_form")
         async def handle_submit_form(ctx: ActivityContext[AdaptiveCardInvokeActivity]) -> AdaptiveCardInvokeResponse:
             return AdaptiveCardActionMessageResponse(
                 status_code=200, type="application/vnd.microsoft.activity.message", value="Form submitted"
             )
 
-        @app_with_options.on_card_action("save_data")
+        @app_with_options.on_card_action_execute("save_data")
         async def handle_save_data(ctx: ActivityContext[AdaptiveCardInvokeActivity]) -> AdaptiveCardInvokeResponse:
             return AdaptiveCardActionMessageResponse(
                 status_code=200, type="application/vnd.microsoft.activity.message", value="Data saved"
@@ -197,10 +197,10 @@ class TestCardActionRouting:
         assert len(save_handlers) == 1
         assert save_handlers[0] == handle_save_data
 
-    def test_on_card_action_decorator_syntax(self, app_with_options: App) -> None:
-        """Test on_card_action works with decorator syntax."""
+    def test_on_card_action_execute_decorator_syntax(self, app_with_options: App) -> None:
+        """Test on_card_action_execute works with decorator syntax."""
 
-        @app_with_options.on_card_action("test_action")
+        @app_with_options.on_card_action_execute("test_action")
         async def decorated_handler(ctx: ActivityContext[AdaptiveCardInvokeActivity]) -> AdaptiveCardInvokeResponse:
             return AdaptiveCardActionMessageResponse(
                 status_code=200, type="application/vnd.microsoft.activity.message", value="Decorated"
@@ -227,15 +227,15 @@ class TestCardActionRouting:
         assert len(handlers) == 1
         assert handlers[0] == decorated_handler
 
-    def test_on_card_action_non_decorator_syntax(self, app_with_options: App) -> None:
-        """Test on_card_action works with non-decorator syntax."""
+    def test_on_card_action_execute_non_decorator_syntax(self, app_with_options: App) -> None:
+        """Test on_card_action_execute works with non-decorator syntax."""
 
         async def handler_function(ctx: ActivityContext[AdaptiveCardInvokeActivity]) -> AdaptiveCardInvokeResponse:
             return AdaptiveCardActionMessageResponse(
                 status_code=200, type="application/vnd.microsoft.activity.message", value="Non-decorated"
             )
 
-        app_with_options.on_card_action("non_decorated_action", handler_function)
+        app_with_options.on_card_action_execute("non_decorated_action", handler_function)
 
         from_account = Account(id="user-123", name="Test User", role="user")
         recipient = Account(id="bot-456", name="Test Bot", role="bot")
@@ -258,10 +258,10 @@ class TestCardActionRouting:
         assert len(handlers) == 1
         assert handlers[0] == handler_function
 
-    def test_on_card_action_missing_action_field(self, app_with_options: App) -> None:
-        """Test on_card_action handler doesn't match when action field is missing."""
+    def test_on_card_action_execute_missing_action_field(self, app_with_options: App) -> None:
+        """Test on_card_action_execute handler doesn't match when action field is missing."""
 
-        @app_with_options.on_card_action("submit_form")
+        @app_with_options.on_card_action_execute("submit_form")
         async def handle_submit_form(ctx: ActivityContext[AdaptiveCardInvokeActivity]) -> AdaptiveCardInvokeResponse:
             return AdaptiveCardActionMessageResponse(
                 status_code=200, type="application/vnd.microsoft.activity.message", value="Form submitted"

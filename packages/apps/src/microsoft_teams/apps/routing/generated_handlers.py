@@ -15,6 +15,7 @@ from typing import Callable, Optional, overload
 
 from microsoft_teams.api.activities import (
     Activity,
+    AdaptiveCardInvokeActivity,
     CommandResultActivity,
     CommandSendActivity,
     ConfigFetchInvokeActivity,
@@ -57,6 +58,7 @@ from microsoft_teams.api.activities import (
     UninstalledActivity,
 )
 from microsoft_teams.api.models.invoke_response import (
+    AdaptiveCardInvokeResponse,
     ConfigInvokeResponse,
     MessagingExtensionActionInvokeResponse,
     MessagingExtensionInvokeResponse,
@@ -1505,6 +1507,38 @@ class GeneratedActivityHandlerMixin(ABC):
                 "SignInVerifyStateInvokeActivity",
             )
             config = ACTIVITY_ROUTES["signin.verify-state"]
+            self.router.add_handler(config.selector, func)
+            return func
+
+        if handler is not None:
+            return decorator(handler)
+        return decorator
+
+    @overload
+    def on_card_action(
+        self, handler: InvokeHandler[AdaptiveCardInvokeActivity, AdaptiveCardInvokeResponse]
+    ) -> InvokeHandler[AdaptiveCardInvokeActivity, AdaptiveCardInvokeResponse]: ...
+
+    @overload
+    def on_card_action(
+        self,
+    ) -> Callable[
+        [InvokeHandler[AdaptiveCardInvokeActivity, AdaptiveCardInvokeResponse]],
+        InvokeHandler[AdaptiveCardInvokeActivity, AdaptiveCardInvokeResponse],
+    ]: ...
+
+    def on_card_action(
+        self, handler: Optional[InvokeHandler[AdaptiveCardInvokeActivity, AdaptiveCardInvokeResponse]] = None
+    ) -> InvokeHandlerUnion[AdaptiveCardInvokeActivity, AdaptiveCardInvokeResponse]:
+        """Register a card.action activity handler."""
+
+        def decorator(
+            func: InvokeHandler[AdaptiveCardInvokeActivity, AdaptiveCardInvokeResponse],
+        ) -> InvokeHandler[AdaptiveCardInvokeActivity, AdaptiveCardInvokeResponse]:
+            validate_handler_type(
+                self.logger, func, AdaptiveCardInvokeActivity, "on_card_action", "AdaptiveCardInvokeActivity"
+            )
+            config = ACTIVITY_ROUTES["card.action"]
             self.router.add_handler(config.selector, func)
             return func
 

@@ -28,17 +28,35 @@ app = App()
 
 
 def create_basic_adaptive_card() -> AdaptiveCard:
-    """Create a basic adaptive card for testing."""
+    """Create a basic adaptive card for testing - uses ExecuteAction with specific action routing."""
     card = AdaptiveCard(
         schema="http://adaptivecards.io/schemas/adaptive-card.json",
         body=[
-            TextBlock(text="Hello world", wrap=True, weight="Bolder"),
+            TextBlock(text="Specific Action Routing", wrap=True, weight="Bolder"),
             ToggleInput(label="Notify me").with_id("notify"),
             ActionSet(
                 actions=[
                     ExecuteAction(title="Submit")
                     .with_data(SubmitActionData("submit_basic"))
                     .with_associated_inputs("auto")
+                ]
+            ),
+        ],
+    )
+    return card
+
+
+def create_generic_execute_card() -> AdaptiveCard:
+    """Create a card with ExecuteAction that uses global handler (no specific action routing)."""
+    card = AdaptiveCard(
+        schema="http://adaptivecards.io/schemas/adaptive-card.json",
+        body=[
+            TextBlock(text="Global Handler (No Action)", wrap=True, weight="Bolder"),
+            TextBlock(text="This card doesn't have a specific action handler", wrap=True),
+            ToggleInput(label="Enable feature").with_id("enabled"),
+            ActionSet(
+                actions=[
+                    ExecuteAction(title="Submit").with_data({"some_field": "some_value"}).with_associated_inputs("auto")
                 ]
             ),
         ],
@@ -168,9 +186,17 @@ def create_feedback_card() -> AdaptiveCard:
 
 @app.on_message_pattern("card")
 async def handle_card_message(ctx: ActivityContext[MessageActivity]):
-    """Handle card request messages."""
-    print(f"[CARD] Card requested by: {ctx.activity.from_}")
+    """Handle card request messages - specific action routing."""
+    print(f"[CARD] Card with specific action routing requested by: {ctx.activity.from_}")
     card = create_basic_adaptive_card()
+    await ctx.send(card)
+
+
+@app.on_message_pattern("generic")
+async def handle_generic_card_message(ctx: ActivityContext[MessageActivity]):
+    """Handle generic card request messages - global handler."""
+    print(f"[GENERIC] Card with global handler requested by: {ctx.activity.from_}")
+    card = create_generic_execute_card()
     await ctx.send(card)
 
 
@@ -243,13 +269,26 @@ async def handle_feedback_card(ctx: ActivityContext[MessageActivity]):
     await ctx.send(card)
 
 
-@app.on_card_action("submit_basic")
-async def handle_submit_basic(ctx: ActivityContext[AdaptiveCardInvokeActivity]) -> AdaptiveCardInvokeResponse:
-    """Handle basic card submission."""
+@app.on_card_action_execute
+async def handle_all_execute_actions(ctx: ActivityContext[AdaptiveCardInvokeActivity]) -> AdaptiveCardInvokeResponse:
+    """Handle all Action.Execute events without specific action routing (global handler)."""
     data = ctx.activity.value.action.data
-    print("Received submit_basic action data:", data)
+    print(f"[GLOBAL HANDLER] Received Action.Execute data: {data}")
+    await ctx.send(f"Global handler processed Action.Execute. Data: {data}")
+    return AdaptiveCardActionMessageResponse(
+        status_code=200,
+        type="application/vnd.microsoft.activity.message",
+        value="Global handler processed action",
+    )
+
+
+@app.on_card_action_execute("submit_basic")
+async def handle_submit_basic(ctx: ActivityContext[AdaptiveCardInvokeActivity]) -> AdaptiveCardInvokeResponse:
+    """Handle basic card submission - specific action routing."""
+    data = ctx.activity.value.action.data
     notify_value = data.get("notify", "false")
-    await ctx.send(f"Basic card submitted! Notify setting: {notify_value}")
+    print(f"[SPECIFIC HANDLER] Received submit_basic action. Notify: {notify_value}")
+    await ctx.send(f"Specific handler: submit_basic. Notify setting: {notify_value}")
     return AdaptiveCardActionMessageResponse(
         status_code=200,
         type="application/vnd.microsoft.activity.message",
@@ -257,7 +296,7 @@ async def handle_submit_basic(ctx: ActivityContext[AdaptiveCardInvokeActivity]) 
     )
 
 
-@app.on_card_action("submit_feedback")
+@app.on_card_action_execute("submit_feedback")
 async def handle_submit_feedback(ctx: ActivityContext[AdaptiveCardInvokeActivity]) -> AdaptiveCardInvokeResponse:
     """Handle feedback submission."""
     data = ctx.activity.value.action.data
@@ -271,7 +310,7 @@ async def handle_submit_feedback(ctx: ActivityContext[AdaptiveCardInvokeActivity
     )
 
 
-@app.on_card_action("create_task")
+@app.on_card_action_execute("create_task")
 async def handle_create_task(ctx: ActivityContext[AdaptiveCardInvokeActivity]) -> AdaptiveCardInvokeResponse:
     """Handle task creation."""
     data = ctx.activity.value.action.data
@@ -287,7 +326,7 @@ async def handle_create_task(ctx: ActivityContext[AdaptiveCardInvokeActivity]) -
     )
 
 
-@app.on_card_action("save_profile")
+@app.on_card_action_execute("save_profile")
 async def handle_save_profile(ctx: ActivityContext[AdaptiveCardInvokeActivity]) -> AdaptiveCardInvokeResponse:
     """Handle profile save."""
     data = ctx.activity.value.action.data
