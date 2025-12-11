@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 
 # Import the activity config directly without going through the package hierarchy
 activity_config_path = (
-    Path(__file__).parent.parent / "src" / "microsoft" / "teams" / "apps" / "routing" / "activity_route_configs.py"
+    Path(__file__).parent.parent / "src" / "microsoft_teams" / "apps" / "routing" / "activity_route_configs.py"
 )
 
 # Load the activity config module directly because we don't want to have a dependency on the package
@@ -190,7 +190,7 @@ def generate_activity_handlers():
     # Write to the message_handler directory in the source code
     # Use Path(__file__) to find this script's location, then navigate to the target
     script_dir = Path(__file__).parent
-    source_dir = script_dir.parent / "src" / "microsoft" / "teams" / "apps" / "routing"
+    source_dir = script_dir.parent / "src" / "microsoft_teams" / "apps" / "routing"
     output_path = source_dir / "generated_handlers.py"
 
     # Ensure the target directory exists
