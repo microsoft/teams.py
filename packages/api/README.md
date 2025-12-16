@@ -1,5 +1,5 @@
 > [!CAUTION]
-> This project is in public preview. We’ll do our best to maintain compatibility, but there may be breaking changes in upcoming releases. 
+> This project is in public preview. We’ll do our best to maintain compatibility, but there may be breaking changes in upcoming releases.
 
 # Microsoft Teams API Client
 
@@ -15,10 +15,9 @@
 Core API client library for Microsoft Teams Bot Framework integration.
 Provides HTTP clients, authentication, and typed models for Teams Bot Framework APIs.
 
-<a href="https://microsoft.github.io/teams-ai" target="_blank">
+<a href="https://microsoft.github.io/teams-sdk" target="_blank">
     <img src="https://img.shields.io/badge/📖 Getting Started-blue?style=for-the-badge" />
 </a>
-
 
 ## Features
 
@@ -30,7 +29,7 @@ Provides HTTP clients, authentication, and typed models for Teams Bot Framework 
 ## Authentication
 
 ```python
-from microsoft.teams.api import ClientCredentials, TokenCredentials
+from microsoft_teams.api import ClientCredentials, TokenCredentials
 
 # Client credentials authentication
 credentials = ClientCredentials(
@@ -48,7 +47,7 @@ credentials = TokenCredentials(
 ## API Client Usage
 
 ```python
-from microsoft.teams.api import ApiClient
+from microsoft_teams.api import ApiClient
 
 # Initialize API client
 api = ApiClient("https://smba.trafficmanager.net/amer/")
@@ -65,7 +64,7 @@ token_status = await api.users.token.get_status(params)
 ## Activity Models
 
 ```python
-from microsoft.teams.api import MessageActivity, Activity, ActivityTypeAdapter
+from microsoft_teams.api import MessageActivity, Activity, ActivityTypeAdapter
 
 # Validate incoming activities
 activity = ActivityTypeAdapter.validate_python(activity_data)

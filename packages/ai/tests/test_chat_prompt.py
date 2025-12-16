@@ -8,7 +8,7 @@ from typing import Any, Awaitable, Callable, Optional, cast
 from unittest.mock import Mock
 
 import pytest
-from microsoft.teams.ai import (
+from microsoft_teams.ai import (
     ChatPrompt,
     ChatSendResult,
     Function,
@@ -21,7 +21,7 @@ from microsoft.teams.ai import (
     SystemMessage,
     UserMessage,
 )
-from microsoft.teams.ai.plugin import BaseAIPlugin
+from microsoft_teams.ai.plugin import BaseAIPlugin
 from pydantic import BaseModel
 
 # pyright: basic
@@ -335,6 +335,61 @@ class TestChatPromptEssentials:
         # Verify both work in send
         result = await prompt.send("Test message")
         assert result.response.content == "GENERATED - Test message"
+
+    @pytest.mark.asyncio
+    async def test_function_with_no_parameters_wrapped_with_plugins(self) -> None:
+        """Test that functions with parameter_schema=None work correctly when called by the model"""
+
+        class MockModelThatCallsFunction:
+            """Mock model that simulates calling a function with no parameters"""
+
+            async def generate_text(
+                self,
+                input: Any,
+                *,
+                system: SystemMessage | None = None,
+                memory: Memory | None = None,
+                functions: dict[str, Function[BaseModel]] | None = None,
+                on_chunk: Callable[[str], Awaitable[None]] | None = None,
+            ) -> ModelMessage:
+                # Simulate model deciding to call a function
+                if functions and "no_param_func" in functions:
+                    function = functions["no_param_func"]
+
+                    # Call the function handler the way the model would
+                    # When parameter_schema is None, handler should be callable with no args
+                    handler = cast(Callable[[], str | Awaitable[str]], function.handler)
+                    result = handler()
+                    if isawaitable(result):
+                        result = await result
+
+                    return ModelMessage(
+                        content=f"Function returned: {result}",
+                        function_calls=None,
+                    )
+
+                return ModelMessage(content="No function called", function_calls=None)
+
+        plugin = MockPlugin("test_plugin")
+        handler_called = False
+
+        def handler_no_params() -> str:
+            nonlocal handler_called
+            handler_called = True
+            return "Success"
+
+        no_param_function = Function(
+            name="no_param_func",
+            description="Function with no parameters",
+            parameter_schema=None,
+            handler=handler_no_params,
+        )
+
+        prompt = ChatPrompt(MockModelThatCallsFunction(), functions=[no_param_function], plugins=[plugin])
+        result = await prompt.send("Call the function")
+
+        assert handler_called
+        assert result.response.content == "Function returned: Success"
 
 
 class MockPlugin(BaseAIPlugin):

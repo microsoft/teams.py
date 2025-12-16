@@ -8,7 +8,7 @@ from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
-from microsoft.teams.apps.routing.activity_context import ActivityContext
+from microsoft_teams.apps.routing.activity_context import ActivityContext
 
 
 class TestOptionalGraphDependencies:
@@ -44,8 +44,8 @@ class TestOptionalGraphDependencies:
 
         # Mock import error for graph module
         def mock_import(name: str, *args: Any, **kwargs: Any) -> Any:
-            if name == "microsoft.teams.graph":
-                raise ImportError("No module named 'microsoft.teams.graph'")
+            if name == "microsoft_teams.graph":
+                raise ImportError("No module named 'microsoft_teams.graph'")
             return __import__(name, *args, **kwargs)
 
         with patch("builtins.__import__", side_effect=mock_import):
@@ -59,7 +59,7 @@ class TestOptionalGraphDependencies:
 
         # Mock successful graph module import
         def mock_import(name: str, *args: Any, **kwargs: Any) -> Any:
-            if name == "microsoft.teams.graph":
+            if name == "microsoft_teams.graph":
                 # Create a mock module with get_graph_client
                 mock_module = SimpleNamespace()
                 mock_module.get_graph_client = lambda x: "MockGraphClient"  # type: ignore

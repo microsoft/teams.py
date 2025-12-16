@@ -3,7 +3,7 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from microsoft.teams.cards import SignInAction, SubmitActionData
+from microsoft_teams.cards import SignInAction, SubmitActionData
 
 
 def test_sign_in_action_initialization():

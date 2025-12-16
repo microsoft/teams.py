@@ -1,5 +1,5 @@
 > [!CAUTION]
-> This project is in public preview. We’ll do our best to maintain compatibility, but there may be breaking changes in upcoming releases. 
+> This project is in public preview. We’ll do our best to maintain compatibility, but there may be breaking changes in upcoming releases.
 
 # Microsoft Teams Cards
 
@@ -15,7 +15,7 @@
 Adaptive Cards models and specialized action types for Microsoft Teams applications.
 Provides Pydantic-based models for creating Adaptive Cards and Teams-specific actions.
 
-<a href="https://microsoft.github.io/teams-ai" target="_blank">
+<a href="https://microsoft.github.io/teams-sdk" target="_blank">
     <img src="https://img.shields.io/badge/📖 Getting Started-blue?style=for-the-badge" />
 </a>
 
@@ -27,7 +27,7 @@ Provides Pydantic-based models for creating Adaptive Cards and Teams-specific ac
 ## Basic Usage
 
 ```python
-from microsoft.teams.cards import AdaptiveCard, TextBlock, SubmitAction
+from microsoft_teams.cards import AdaptiveCard, TextBlock, SubmitAction
 
 # Create adaptive card components
 card = AdaptiveCard(
@@ -43,7 +43,7 @@ card = AdaptiveCard(
 ## Teams-Specific Actions
 
 ```python
-from microsoft.teams.cards import InvokeAction, MessageBackAction, SignInAction
+from microsoft_teams.cards import InvokeAction, MessageBackAction, SignInAction
 
 # Create Teams-specific actions
 invoke_action = InvokeAction({"action": "getData"})

@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock, MagicMock, Mock
 
 import pytest
 from httpx import HTTPStatusError, Request, Response
-from microsoft.teams.api import (
+from microsoft_teams.api import (
     ExchangeUserTokenParams,
     GetUserTokenParams,
     InvokeResponse,
@@ -15,17 +15,17 @@ from microsoft.teams.api import (
     SignInVerifyStateInvokeActivity,
     TokenExchangeInvokeResponse,
 )
-from microsoft.teams.api.models import (
+from microsoft_teams.api.models import (
     Account,
     ConversationAccount,
     SignInExchangeToken,
     SignInStateVerifyQuery,
     TokenResponse,
 )
-from microsoft.teams.apps.app_oauth import OauthHandlers
-from microsoft.teams.apps.events import ErrorEvent, SignInEvent
-from microsoft.teams.apps.routing import ActivityContext
-from microsoft.teams.common import EventEmitter
+from microsoft_teams.apps.app_oauth import OauthHandlers
+from microsoft_teams.apps.events import ErrorEvent, SignInEvent
+from microsoft_teams.apps.routing import ActivityContext
+from microsoft_teams.common import EventEmitter
 
 # pyright: basic
 

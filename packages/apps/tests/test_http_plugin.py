@@ -4,12 +4,12 @@ Licensed under the MIT License.
 """
 # pyright: basic
 
-import asyncio
 from typing import cast
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from microsoft.teams.api import (
+from fastapi import Request, Response
+from microsoft_teams.api import (
     Account,
     ConfigResponse,
     ConversationAccount,
@@ -18,7 +18,8 @@ from microsoft.teams.api import (
     MessageActivity,
     MessageActivityInput,
 )
-from microsoft.teams.apps import HttpPlugin, PluginActivityResponseEvent, PluginErrorEvent, PluginStartEvent
+from microsoft_teams.apps import HttpPlugin, PluginActivityResponseEvent, PluginErrorEvent, PluginStartEvent
+from microsoft_teams.apps.events import ActivityEvent
 
 
 class TestHttpPlugin:
@@ -32,31 +33,16 @@ class TestHttpPlugin:
     @pytest.fixture
     def plugin_with_validator(self, mock_logger):
         """Create HttpPlugin with token validator."""
-        return HttpPlugin("test-app-id", mock_logger)
+        return HttpPlugin(logger=mock_logger)
 
     @pytest.fixture
     def plugin_without_validator(self, mock_logger):
         """Create HttpPlugin without token validator."""
-        return HttpPlugin(None, mock_logger)
-
-    def test_init_with_app_id(self, mock_logger):
-        """Test HttpPlugin initialization with app ID."""
-        plugin = HttpPlugin("test-app-id", mock_logger)
-
-        assert plugin.logger == mock_logger
-        assert plugin.app is not None
-        assert plugin.pending == {}
-
-    def test_init_without_app_id(self, mock_logger):
-        """Test HttpPlugin initialization without app ID."""
-        plugin = HttpPlugin(None, mock_logger)
-
-        assert plugin.logger == mock_logger
-        assert plugin.app is not None
+        return HttpPlugin(logger=mock_logger)
 
     def test_init_with_default_logger(self):
         """Test HttpPlugin initialization with default logger."""
-        plugin = HttpPlugin("test-app-id", None)
+        plugin = HttpPlugin()
 
         assert plugin.logger is not None
 
@@ -74,12 +60,8 @@ class TestHttpPlugin:
         assert plugin_with_validator.post == plugin_with_validator.app.post
 
     @pytest.mark.asyncio
-    async def test_on_activity_response_success(self, plugin_with_validator, mock_account):
+    async def test_on_activity_response(self, plugin_without_validator, mock_account, mock_logger):
         """Test successful activity response completion."""
-        # Create a pending future
-        future = asyncio.get_event_loop().create_future()
-        plugin_with_validator.pending["test-id"] = future
-
         mock_activity = cast(
             MessageActivity,
             MessageActivityInput(type="message", text="Mock activity text", from_=mock_account, id="test-id"),
@@ -93,82 +75,21 @@ class TestHttpPlugin:
         )
 
         response_data = InvokeResponse(body=cast(ConfigResponse, {"status": "success"}), status=200)
-        await plugin_with_validator.on_activity_response(
+        await plugin_without_validator.on_activity_response(
             PluginActivityResponseEvent(
-                sender=plugin_with_validator,
+                sender=plugin_without_validator,
                 activity=mock_activity,
                 response=response_data,
                 conversation_ref=mock_reference,
             )
         )
 
-        assert future.done()
-        assert future.result() == response_data
+        mock_logger.debug.assert_called_once()
+        mock_logger.debug.assert_called_with(f"Completing activity response for {mock_activity.id}")
 
     @pytest.mark.asyncio
-    async def test_on_activity_response_no_pending(self, plugin_with_validator, mock_account):
-        """Test activity response with no pending future."""
-
-        mock_activity = cast(
-            MessageActivity,
-            MessageActivityInput(type="message", text="Mock activity text", from_=mock_account, id="random-id"),
-        )
-        response_data = InvokeResponse(body=cast(ConfigResponse, {"status": "success"}), status=200)
-        mock_reference = ConversationReference(
-            bot=Account(id="1", name="test-bot", role="bot"),
-            conversation=ConversationAccount(id="conv-789", conversation_type="personal"),
-            channel_id="msteams",
-            service_url="https://test.service.url",
-        )
-
-        # Should not raise exception
-        await plugin_with_validator.on_activity_response(
-            PluginActivityResponseEvent(
-                sender=plugin_with_validator,
-                activity=mock_activity,
-                response=response_data,
-                conversation_ref=mock_reference,
-            )
-        )
-
-    @pytest.mark.asyncio
-    async def test_on_activity_response_already_done(self, plugin_with_validator, mock_account):
-        """Test activity response when future is already done."""
-        future = asyncio.get_event_loop().create_future()
-        future.set_result("already done")
-        plugin_with_validator.pending["test-id"] = future
-
-        mock_activity = cast(
-            MessageActivity,
-            MessageActivityInput(type="message", text="Mock activity text", from_=mock_account, id="test-id"),
-        )
-        response_data = InvokeResponse(body=cast(ConfigResponse, {"status": "success"}), status=200)
-        mock_reference = ConversationReference(
-            bot=Account(id="1", name="test-bot", role="bot"),
-            conversation=ConversationAccount(id="conv-789", conversation_type="personal"),
-            channel_id="msteams",
-            service_url="https://test.service.url",
-        )
-
-        # Should not raise exception
-        await plugin_with_validator.on_activity_response(
-            PluginActivityResponseEvent(
-                sender=plugin_with_validator,
-                activity=mock_activity,
-                response=response_data,
-                conversation_ref=mock_reference,
-            )
-        )
-
-        # Future should still have original result
-        assert future.result() == "already done"
-
-    @pytest.mark.asyncio
-    async def test_on_error_with_activity_id(self, plugin_with_validator, mock_account):
+    async def test_on_error(self, plugin_with_validator, mock_account, mock_logger):
         """Test error handling with activity ID."""
-        # Create a pending future
-        future = asyncio.get_event_loop().create_future()
-        plugin_with_validator.pending["test-id"] = future
         mock_activity = cast(
             MessageActivity,
             MessageActivityInput(type="message", text="Mock activity text", from_=mock_account, id="test-id"),
@@ -178,17 +99,6 @@ class TestHttpPlugin:
         await plugin_with_validator.on_error(
             PluginErrorEvent(sender=plugin_with_validator, activity=mock_activity, error=error)
         )
-
-        assert future.done()
-        with pytest.raises(ValueError, match="Test error"):
-            future.result()
-
-    @pytest.mark.asyncio
-    async def test_on_error_no_pending_future(self, plugin_with_validator):
-        """Test error handling with no pending future."""
-        error = ValueError("Test error")
-        # Should not raise exception
-        await plugin_with_validator.on_error(PluginErrorEvent(sender=plugin_with_validator, error=error))
 
     @pytest.mark.asyncio
     async def test_on_start_success(self, plugin_with_validator):
@@ -255,22 +165,6 @@ class TestHttpPlugin:
         plugin_with_validator.activity_handler = new_handler
         assert plugin_with_validator.activity_handler == new_handler
 
-    def test_pending_futures_management(self, plugin_with_validator):
-        """Test pending futures dictionary management."""
-        # Initially empty
-        assert len(plugin_with_validator.pending) == 0
-
-        # Add futures
-        future1 = asyncio.get_event_loop().create_future()
-        future2 = asyncio.get_event_loop().create_future()
-
-        plugin_with_validator.pending["activity1"] = future1
-        plugin_with_validator.pending["activity2"] = future2
-
-        assert len(plugin_with_validator.pending) == 2
-        assert plugin_with_validator.pending["activity1"] == future1
-        assert plugin_with_validator.pending["activity2"] == future2
-
     def test_middleware_setup(self, plugin_with_validator, plugin_without_validator):
         """Test that JWT middleware is properly configured."""
         # With app_id, middleware should be added
@@ -280,7 +174,7 @@ class TestHttpPlugin:
 
     def test_logger_property(self, mock_logger):
         """Test logger property assignment."""
-        plugin = HttpPlugin("test-app-id", mock_logger)
+        plugin = HttpPlugin(logger=mock_logger)
         assert plugin.logger == mock_logger
 
     def test_app_property(self, plugin_with_validator):
@@ -288,3 +182,78 @@ class TestHttpPlugin:
         from fastapi import FastAPI
 
         assert isinstance(plugin_with_validator.app, FastAPI)
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("is_handler_async", [True, False])
+    async def test_on_activity_request_success(self, plugin_without_validator, mock_account, is_handler_async):
+        """Test on_activity_request with successful async/sync on_activity_event handler."""
+        expected_body = {"status": "success"}
+        expected_response = InvokeResponse(body=cast(ConfigResponse, expected_body), status=200)
+        mock_handler = (
+            AsyncMock(return_value=expected_response) if is_handler_async else MagicMock(return_value=expected_response)
+        )
+        plugin_without_validator.on_activity_event = mock_handler
+
+        mock_request = AsyncMock(spec=Request)
+        activity = cast(
+            MessageActivity,
+            MessageActivityInput(
+                type="message",
+                text="Test message",
+                from_=mock_account,
+                id="test-123",
+                channel_id="msteams",
+                conversation=ConversationAccount(id="conv-456", conversation_type="personal"),
+                recipient=mock_account,
+            ),
+        )
+        mock_request.json.return_value = activity.model_dump()
+        mock_request.state = MagicMock()
+        mock_request.state.validated_token = None
+
+        mock_response = MagicMock(spec=Response)
+
+        result = await plugin_without_validator.on_activity_request(mock_request, mock_response)
+
+        mock_handler.assert_called_once()
+        call_args = mock_handler.call_args[0][0]
+        assert isinstance(call_args, ActivityEvent)
+        assert call_args.sender == plugin_without_validator
+
+        assert result == expected_body
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("is_handler_async", [True, False])
+    async def test_on_activity_request_exception(self, plugin_without_validator, mock_account, is_handler_async):
+        """Test on_activity_request when handler raises exception."""
+        test_error = ValueError("Handler failed")
+        mock_handler = AsyncMock(side_effect=test_error) if is_handler_async else MagicMock(side_effect=test_error)
+        plugin_without_validator.on_activity_event = mock_handler
+
+        mock_request = AsyncMock(spec=Request)
+        activity = cast(
+            MessageActivity,
+            MessageActivityInput(
+                type="message",
+                text="Test message",
+                from_=mock_account,
+                id="test-123",
+                channel_id="msteams",
+                conversation=ConversationAccount(id="conv-456", conversation_type="personal"),
+                recipient=mock_account,
+            ),
+        )
+        mock_request.json.return_value = activity.model_dump()
+        mock_request.state = MagicMock()
+        mock_request.state.validated_token = None
+
+        mock_response = MagicMock(spec=Response)
+
+        result = await plugin_without_validator.on_activity_request(mock_request, mock_response)
+
+        mock_handler.assert_called_once()
+        # Exception is logged directly at exception site
+        plugin_without_validator.logger.exception.assert_called_once_with(str(test_error))
+
+        assert isinstance(result, Response)
+        assert result.status_code == 500

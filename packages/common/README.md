@@ -1,5 +1,5 @@
 > [!CAUTION]
-> This project is in public preview. We’ll do our best to maintain compatibility, but there may be breaking changes in upcoming releases. 
+> This project is in public preview. We’ll do our best to maintain compatibility, but there may be breaking changes in upcoming releases.
 
 # Microsoft Teams Common Utilities
 
@@ -15,7 +15,7 @@
 Shared utilities including HTTP client, logging, storage, and event handling.
 Provides common functionality used across other Teams SDK packages.
 
-<a href="https://microsoft.github.io/teams-ai" target="_blank">
+<a href="https://microsoft.github.io/teams-sdk" target="_blank">
     <img src="https://img.shields.io/badge/📖 Getting Started-blue?style=for-the-badge" />
 </a>
 
@@ -29,7 +29,7 @@ Provides common functionality used across other Teams SDK packages.
 ## HTTP Client
 
 ```python
-from microsoft.teams.common import Client, ClientOptions
+from microsoft_teams.common import Client, ClientOptions
 
 # Create HTTP client
 client = Client(ClientOptions(
@@ -45,7 +45,7 @@ data = await client.post("/messages", json={"text": "Hello"})
 ## Event System
 
 ```python
-from microsoft.teams.common import EventEmitter
+from microsoft_teams.common import EventEmitter
 
 # Create type-safe event emitter
 emitter = EventEmitter[str]()
@@ -66,7 +66,7 @@ emitter.off(subscription_id)
 ## Storage
 
 ```python
-from microsoft.teams.common import LocalStorage, ListLocalStorage
+from microsoft_teams.common import LocalStorage, ListLocalStorage
 
 # Key-value storage
 storage = LocalStorage[str]()
@@ -86,7 +86,7 @@ items = list_storage.items()
 ## Logging
 
 ```python
-from microsoft.teams.common import ConsoleLogger
+from microsoft_teams.common import ConsoleLogger
 
 # Create console logger
 logger = ConsoleLogger().create_logger("my-app")

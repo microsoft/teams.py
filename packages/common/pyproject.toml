@@ -1,15 +1,15 @@
 [project]
 name = "microsoft-teams-common"
-version = "2.0.0a4"
+version = "2.0.0a8"
 description = "Common package for Microsoft Teams"
 readme = "README.md"
 repository = "https://github.com/microsoft/teams.py"
-keywords = ["microsoft", "teams", "ai", "bot", "agents"] 
+keywords = ["microsoft", "teams", "ai", "bot", "agents"]
 license = "MIT"
 authors = [
     { name = "Microsoft", email = "TeamsAISDKFeedback@microsoft.com" }
 ]
-requires-python = ">=3.12"
+requires-python = ">=3.12,<3.14"
 dependencies = [
     "coverage>=7.8.0",
     "httpx>=0.28.1",
@@ -24,7 +24,7 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/microsoft/teams.py/tree/main/packages/common/src/microsoft/teams/common"
+Homepage = "https://github.com/microsoft/teams.py/tree/main/packages/common/src/microsoft_teams/common"
 
 
 [build-system]
@@ -32,7 +32,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/microsoft"]
+packages = ["src/microsoft_teams", "src/microsoft"]
 
 [tool.hatch.build.targets.sdist]
 include = ["src"]

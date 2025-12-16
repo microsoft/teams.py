@@ -1,0 +1,18 @@
+[project]
+name = "mcp-client"
+version = "0.1.0"
+description = "a test to test out mcp  client and server"
+readme = "README.md"
+requires-python = ">=3.12,<3.14"
+dependencies = [
+    "dotenv>=0.9.9",
+    "microsoft-teams-ai",
+    "microsoft-teams-common",
+    "microsoft-teams-openai",
+    "microsoft-teams-devtools",
+    "microsoft-teams-mcpplugin"
+]
+
+[tool.uv.sources]
+microsoft-teams-ai = { workspace = true }
+microsoft-teams-common = { workspace = true }

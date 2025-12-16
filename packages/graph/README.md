@@ -9,9 +9,9 @@
     </a>
 </p>
 
-This package provides seamless access to Microsoft Graph APIs from Teams bots and agents built with the Microsoft Teams AI SDK for Python.
+This package provides seamless access to Microsoft Graph APIs from Teams bots and agents built with the Microsoft Teams SDK for Python.
 
-<a href="https://microsoft.github.io/teams-ai" target="_blank">
+<a href="https://microsoft.github.io/teams-sdk" target="_blank">
     <img src="https://img.shields.io/badge/📖 Getting Started-blue?style=for-the-badge" />
 </a>
 
@@ -23,7 +23,7 @@ This package provides seamless access to Microsoft Graph APIs from Teams bots an
 
 ## Requirements
 
-- Teams AI Library for Python
+- Teams SDK for Python
 - Microsoft Graph SDK for Python (msgraph-sdk)
 - Azure Core library (azure-core)
 - Microsoft Teams Common library (microsoft-teams-common)
@@ -33,9 +33,9 @@ This package provides seamless access to Microsoft Graph APIs from Teams bots an
 ### Basic Usage with Teams Bot
 
 ```python
-from microsoft.teams.graph import get_graph_client
-from microsoft.teams.apps import App, ActivityContext
-from microsoft.teams.api import MessageActivity
+from microsoft_teams.graph import get_graph_client
+from microsoft_teams.apps import App, ActivityContext
+from microsoft_teams.api import MessageActivity
 
 app = App()
 
@@ -62,7 +62,7 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
 ### Token Integration
 
 ```python
-from microsoft.teams.common.http.client_token import Token
+from microsoft_teams.common.http.client_token import Token
 
 def create_token_callable(ctx: ActivityContext) -> Token:
     """Create a callable token that refreshes automatically."""

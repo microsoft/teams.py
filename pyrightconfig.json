@@ -1,10 +1,11 @@
 {
    "include": [
       "packages/**/src/**/*.py",
-      "tests/**/src/**/*.py"
+      "examples/**/src/**/*.py"
    ],
    "venv": ".venv",
    "venvPath": ".",
+   "stubPath": "stubs",
    "extraPaths": [
       "packages/api/src",
       "packages/common/src",
@@ -15,7 +16,8 @@
       "packages/ai/src",
       "packages/openai/src",
       "packages/mcpplugin/src",
-      "packages/a2aprotocol/src"
+      "packages/a2aprotocol/src",
+      "packages/botbuilder/src"
    ],
    "typeCheckingMode": "strict",
    "executionEnvironments": [
@@ -23,6 +25,16 @@
          "root": "packages/api/src",
          "reportIncompatibleVariableOverride": "none",
          "reportIncompatibleMethodOverride": "none"
+      },
+      {
+      "root": "packages/botbuilder/src",
+      "reportMissingTypeStubs": "none",
+      "reportUnknownMemberType": "none"
+      },
+      {
+         "root": "examples/botbuilder/src",
+         "reportMissingTypeStubs": "none",
+         "reportUnknownMemberType": "none"
       }
    ]
 }

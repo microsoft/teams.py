@@ -1,0 +1,15 @@
+[project]
+name = "mcp-server"
+version = "0.1.0"
+description = "a test to test out mcp server capabilities"
+readme = "README.md"
+requires-python = ">=3.12,<3.14"
+dependencies = [
+    "dotenv>=0.9.9",
+    "microsoft-teams-apps",
+    "microsoft-teams-mcpplugin",
+    "microsoft-teams-devtools"
+]
+
+[tool.uv.sources]
+microsoft-teams-apps = { workspace = true }

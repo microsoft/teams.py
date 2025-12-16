@@ -11,14 +11,14 @@ from typing import Any, Optional
 import httpx
 import pytest
 from dotenv import load_dotenv
-from microsoft.teams.api import (
+from microsoft_teams.api import (
     Account,
     ClientCredentials,
     ConversationResource,
     MessageActivityInput,
     TokenCredentials,
 )
-from microsoft.teams.common.http import Client, ClientOptions
+from microsoft_teams.common.http import Client, ClientOptions
 
 try:
     # Load .env file if it exists
@@ -102,14 +102,14 @@ def mock_transport():
                 {
                     "id": "mock_member_id",
                     "name": "Mock Member",
-                    "aadObjectId": "mock_aad_id",
+                    "objectId": "mock_object_id",
                 }
             ]
         elif "/conversations/" in str(request.url) and "/members/" in str(request.url) and request.method == "GET":
             response_data = {
                 "id": "mock_member_id",
                 "name": "Mock Member",
-                "aadObjectId": "mock_aad_id",
+                "objectId": "mock_object_id",
             }
         elif "/conversations" in str(request.url) and request.method == "GET":
             response_data = {

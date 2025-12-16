@@ -6,7 +6,7 @@ Licensed under the MIT License.
 from unittest.mock import MagicMock
 
 import pytest
-from microsoft.teams.apps.utils import RetryOptions, retry
+from microsoft_teams.apps.utils import RetryOptions, retry
 
 # pyright: basic
 

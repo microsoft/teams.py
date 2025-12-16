@@ -1,5 +1,5 @@
 > [!CAUTION]
-> This project is in public preview. We’ll do our best to maintain compatibility, but there may be breaking changes in upcoming releases. 
+> This project is in public preview. We’ll do our best to maintain compatibility, but there may be breaking changes in upcoming releases.
 
 # Microsoft Teams Apps Framework
 
@@ -15,7 +15,7 @@
 High-level framework for building Microsoft Teams applications.
 Handles activity routing, authentication, and provides Microsoft Graph integration.
 
-<a href="https://microsoft.github.io/teams-ai" target="_blank">
+<a href="https://microsoft.github.io/teams-sdk" target="_blank">
     <img src="https://img.shields.io/badge/📖 Getting Started-blue?style=for-the-badge" />
 </a>
 
@@ -29,8 +29,8 @@ Handles activity routing, authentication, and provides Microsoft Graph integrati
 ## Basic Usage
 
 ```python
-from microsoft.teams.apps import App, ActivityContext
-from microsoft.teams.api import MessageActivity
+from microsoft_teams.apps import App, ActivityContext
+from microsoft_teams.api import MessageActivity
 
 app = App()
 

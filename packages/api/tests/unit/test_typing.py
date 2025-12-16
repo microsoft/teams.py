@@ -5,8 +5,8 @@ Licensed under the MIT License.
 # pyright: basic
 
 import pytest
-from microsoft.teams.api.activities.typing import TypingActivityInput
-from microsoft.teams.api.models import Account, ConversationAccount
+from microsoft_teams.api.activities.typing import TypingActivityInput
+from microsoft_teams.api.models import Account, ConversationAccount
 
 
 @pytest.fixture
