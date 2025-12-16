@@ -60,6 +60,7 @@ class HttpStream(StreamerProtocol):
         self._result: Optional[SentActivity] = None
         self._lock = asyncio.Lock()
         self._timeout: Optional[asyncio.TimerHandle] = None
+        self._pending: Optional[asyncio.Task[None]] = None
         self._total_wait_timeout: float = 30.0
 
         self._reset_state()
@@ -107,8 +108,8 @@ class HttpStream(StreamerProtocol):
             activity = MessageActivityInput(text=activity, type="message")
         self._queue.append(activity)
 
-        if not self._timeout:
-            asyncio.create_task(self._flush())
+        if not self._pending and not self._timeout:
+            self._pending = asyncio.create_task(self._flush())
 
     def update(self, text: str) -> None:
         """
@@ -226,10 +227,11 @@ class HttpStream(StreamerProtocol):
 
             # If more queued, schedule another flush
             if self._queue and not self._timeout:
-                self._timeout = asyncio.get_running_loop().call_later(0.5, self._flush)
+                self._timeout = asyncio.get_running_loop().call_later(0.5, lambda: asyncio.create_task(self._flush()))
 
         finally:
             # Reset flushing flag so future emits can trigger another flush
+            self._pending = None
             self._lock.release()
 
     async def _send_activity(self, to_send: TypingActivityInput):
