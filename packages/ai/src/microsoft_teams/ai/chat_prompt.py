@@ -185,8 +185,6 @@ class ChatPrompt:
             on_chunk=on_chunk_fn if on_chunk else None,
         )
 
-        print("Response received from model:", response)
-
         current_response = await self._run_after_send_hooks(response)
 
         return ChatSendResult(response=current_response)
