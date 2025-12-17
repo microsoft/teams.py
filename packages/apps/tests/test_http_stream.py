@@ -19,7 +19,6 @@ from microsoft_teams.api import (
 from microsoft_teams.apps import HttpStream
 
 
-@pytest.mark.skip(reason="introduces delays in CI pipeline")
 class TestHttpStream:
     @pytest.fixture
     def mock_logger(self):
@@ -117,9 +116,9 @@ class TestHttpStream:
             stream.emit("Test message with timeout")
             await asyncio.sleep(0)
             await self._run_scheduled_flushes(scheduled)
+            assert call_count == 2
 
             result = await stream.close()
-            assert call_count > 1
             assert result is not None
 
     @pytest.mark.asyncio
@@ -142,9 +141,8 @@ class TestHttpStream:
             stream.emit("Test message with all timeouts")
             await asyncio.sleep(0)
             await self._run_scheduled_flushes(scheduled)
+            assert call_count == 5
             await stream.close()
-
-            assert call_count > 1
 
     @pytest.mark.asyncio
     async def test_stream_update_status_sends_typing_activity(
