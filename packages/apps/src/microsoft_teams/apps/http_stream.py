@@ -109,6 +109,7 @@ class HttpStream(StreamerProtocol):
         self._queue.append(activity)
 
         if not self._pending and not self._timeout:
+            # Schedule a flush immediately when no timeout is set (first emit)
             self._pending = asyncio.create_task(self._flush())
 
     def update(self, text: str) -> None:
@@ -124,7 +125,7 @@ class HttpStream(StreamerProtocol):
         """Wait until _id is set and the queue is empty, with a total timeout."""
 
         async def _poll():
-            while not self._id or self._queue:
+            while self._queue or not self._id:
                 self._logger.debug("waiting for _id to be set or queue to be empty")
                 await asyncio.sleep(0.1)
 
