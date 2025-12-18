@@ -21,7 +21,7 @@ from microsoft_teams.api import (
 from microsoft_teams.common import ConsoleLogger, EventEmitter
 
 from .plugins.streamer import StreamerEvent, StreamerProtocol
-from .utils import RetryOptions, Timeout, retry
+from .utils import RetryOptions, retry
 
 
 class HttpStream(StreamerProtocol):
@@ -29,13 +29,12 @@ class HttpStream(StreamerProtocol):
     HTTP-based streaming implementation for Microsoft Teams activities.
 
     Flow:
-    1. emit() adds activities to a queue and cancels any pending flush timeout
-    2. emit() schedules _flush() to run after 0.5 seconds via Timeout
-    3. If another emit() happens before flush executes, the timeout is cancelled and rescheduled
-    4. _flush() starts by cancelling any pending timeout, then processes up to 10 queued activities under a lock
-    5. _flush() combines text from MessageActivity and sends it as a Typing activity with streamType='streaming'
-    6. _flush() schedules another flush if more items remain in queue
-    7. close() waits for queue to empty, then sends final message with stream_type='stream_final'
+    1. emit() adds activities to a queue
+    2. _flush() processes up to 10 queued items under a lock.
+    3. Informative typing updates are sent immediately if no message started.
+    4. Message text are combined into a typing chunk.
+    5. Another flush is scheduled if more items remain.
+    6. close() waits for queue to empty, then sends final message with stream_type='stream_final'
 
     The timeout cancellation ensures only one flush operation is scheduled at a time.
     The delays between flushes is to ensure we dont hit API rate limits with Microsoft Teams.
@@ -60,9 +59,9 @@ class HttpStream(StreamerProtocol):
 
         self._result: Optional[SentActivity] = None
         self._lock = asyncio.Lock()
-        self._timeout: Optional[Timeout] = None
-        self._id_set_event = asyncio.Event()
-        self._queue_empty_event = asyncio.Event()
+        self._timeout: Optional[asyncio.TimerHandle] = None
+        self._pending: Optional[asyncio.Task[None]] = None
+        self._total_wait_timeout: float = 30.0
 
         self._reset_state()
 
@@ -104,18 +103,14 @@ class HttpStream(StreamerProtocol):
         Args:
             activity: The activity to emit.
         """
-        if self._timeout is not None:
-            self._timeout.cancel()
-            self._timeout = None
 
         if isinstance(activity, str):
             activity = MessageActivityInput(text=activity, type="message")
         self._queue.append(activity)
 
-        # Clear the queue empty event since we just added an item
-        self._queue_empty_event.clear()
-
-        self._timeout = Timeout(0.5, self._flush)
+        if not self._pending and not self._timeout:
+            # Schedule a flush immediately when no timeout is set (first emit)
+            self._pending = asyncio.create_task(self._flush())
 
     def update(self, text: str) -> None:
         """
@@ -125,6 +120,20 @@ class HttpStream(StreamerProtocol):
             text: The status text to send.
         """
         self.emit(TypingActivityInput().with_text(text).with_channel_data(ChannelData(stream_type="informative")))
+
+    async def _wait_for_id_and_queue(self):
+        """Wait until _id is set and the queue is empty, with a total timeout."""
+
+        async def _poll():
+            while self._queue or not self._id:
+                self._logger.debug("waiting for _id to be set or queue to be empty")
+                await asyncio.sleep(0.1)
+
+        try:
+            await asyncio.wait_for(_poll(), timeout=self._total_wait_timeout)
+            return True
+        except asyncio.TimeoutError:
+            return False
 
     async def close(self) -> Optional[SentActivity]:
         # wait for lock to be free
@@ -137,13 +146,10 @@ class HttpStream(StreamerProtocol):
             return None
 
         # Wait until _id is set and queue is empty
-        if not self._id:
-            self._logger.debug("waiting for ID to be set")
-            await self._id_set_event.wait()
-
-        while self._queue:
-            self._logger.debug("waiting for queue to be empty...")
-            await self._queue_empty_event.wait()
+        result = await self._wait_for_id_and_queue()
+        if not result:
+            self._logger.warning("Timeout while waiting for _id to be set and queue to be empty, cannot close stream")
+            return None
 
         if self._text == "" and self._attachments == []:
             self._logger.warning("no text or attachments to send, cannot close stream")
@@ -171,10 +177,14 @@ class HttpStream(StreamerProtocol):
         Flush the current activity queue.
         """
         # If there are no items in the queue, nothing to flush
-        async with self._lock:
+        if self._lock.locked():
+            return
+
+        await self._lock.acquire()
+
+        try:
             if not self._queue:
                 return
-
             if self._timeout is not None:
                 self._timeout.cancel()
                 self._timeout = None
@@ -216,13 +226,14 @@ class HttpStream(StreamerProtocol):
                 to_send = TypingActivityInput(text=self._text)
                 await self._send_activity(to_send)
 
-            # Signal if queue is now empty
-            if not self._queue:
-                self._queue_empty_event.set()
-
             # If more queued, schedule another flush
             if self._queue and not self._timeout:
-                self._timeout = Timeout(0.5, self._flush)
+                self._timeout = asyncio.get_running_loop().call_later(0.5, lambda: asyncio.create_task(self._flush()))
+
+        finally:
+            # Reset flushing flag so future emits can trigger another flush
+            self._pending = None
+            self._lock.release()
 
     async def _send_activity(self, to_send: TypingActivityInput):
         """
@@ -240,8 +251,6 @@ class HttpStream(StreamerProtocol):
         self._index += 1
         if self._id is None:
             self._id = res.id
-            # Signal that ID has been set
-            self._id_set_event.set()
 
     async def _send(self, to_send: Union[TypingActivityInput, MessageActivityInput]) -> SentActivity:
         """
