@@ -30,14 +30,14 @@ class ConversationOperations:
 class ActivityOperations(ConversationOperations):
     """Operations for managing activities in a conversation."""
 
-    async def create(self, activity: ActivityParams):
-        return await self._client.activities_client.create(self._conversation_id, activity)
+    async def create(self, activity: ActivityParams, is_targeted: bool = False):
+        return await self._client.activities_client.create(self._conversation_id, activity, is_targeted)
 
-    async def update(self, activity_id: str, activity: ActivityParams):
-        return await self._client.activities_client.update(self._conversation_id, activity_id, activity)
+    async def update(self, activity_id: str, activity: ActivityParams, is_targeted: bool = False):
+        return await self._client.activities_client.update(self._conversation_id, activity_id, activity, is_targeted)
 
-    async def reply(self, activity_id: str, activity: ActivityParams):
-        return await self._client.activities_client.reply(self._conversation_id, activity_id, activity)
+    async def reply(self, activity_id: str, activity: ActivityParams, is_targeted: bool = False):
+        return await self._client.activities_client.reply(self._conversation_id, activity_id, activity, is_targeted)
 
     async def delete(self, activity_id: str):
         await self._client.activities_client.delete(self._conversation_id, activity_id)

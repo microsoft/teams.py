@@ -16,7 +16,9 @@ class Sender(PluginBase):
     """A plugin that can send activities"""
 
     @abstractmethod
-    async def send(self, activity: ActivityParams, ref: ConversationReference) -> SentActivity:
+    async def send(
+        self, activity: ActivityParams, ref: ConversationReference, is_targeted: bool = False
+    ) -> SentActivity:
         """Called by the App to send an activity"""
         pass
 

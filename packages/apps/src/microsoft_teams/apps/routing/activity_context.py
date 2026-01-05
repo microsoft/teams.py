@@ -171,13 +171,15 @@ class ActivityContext(Generic[T]):
         self,
         message: str | ActivityParams | AdaptiveCard,
         conversation_ref: Optional[ConversationReference] = None,
+        is_targeted: bool = False,
     ) -> SentActivity:
         """
         Send a message to the conversation.
 
         Args:
             message: The message to send, can be a string, ActivityParams, or AdaptiveCard
-            conversation_id: Optional conversation ID to override the current conversation reference
+            conversation_ref: Optional conversation reference to override the current conversation reference
+            is_targeted: When True, sends the message privately to the recipient specified in the activity
         """
         if isinstance(message, str):
             activity = MessageActivityInput(text=message)
@@ -187,18 +189,24 @@ class ActivityContext(Generic[T]):
             activity = message
 
         ref = conversation_ref or self.conversation_ref
-        res = await self._plugin.send(activity, ref)
+        res = await self._plugin.send(activity, ref, is_targeted)
         return res
 
-    async def reply(self, input: str | ActivityParams) -> SentActivity:
-        """Send a reply to the activity."""
+    async def reply(self, input: str | ActivityParams, is_targeted: bool = False) -> SentActivity:
+        """
+        Send a reply to the activity.
+
+        Args:
+            input: The reply message, can be a string or ActivityParams
+            is_targeted: When True, sends the message privately to the recipient specified in the activity
+        """
         activity = MessageActivityInput(text=input) if isinstance(input, str) else input
         if isinstance(activity, MessageActivityInput):
             block_quote = self._build_block_quote_for_activity()
             if block_quote:
                 activity.text = f"{block_quote}\n\n{activity.text}" if activity.text else block_quote
         activity.reply_to_id = self.activity.id
-        return await self.send(activity)
+        return await self.send(activity, is_targeted=is_targeted)
 
     async def next(self) -> None:
         """Call the next middleware in the chain."""

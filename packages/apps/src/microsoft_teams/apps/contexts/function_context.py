@@ -51,9 +51,15 @@ class FunctionContext(ClientContext, Generic[T]):
     data: T
     """The function payload."""
 
-    async def send(self, activity: str | ActivityParams | AdaptiveCard) -> Optional[SentActivity]:
+    async def send(
+        self, activity: str | ActivityParams | AdaptiveCard, is_targeted: bool = False
+    ) -> Optional[SentActivity]:
         """
         Send an activity to the current conversation.
+
+        Args:
+            activity: The activity to send (string, ActivityParams, or AdaptiveCard)
+            is_targeted: When True, sends the message privately to the recipient specified in the activity
 
         Returns None if the conversation ID cannot be determined.
         """
@@ -80,7 +86,11 @@ class FunctionContext(ClientContext, Generic[T]):
         else:
             activity = activity
 
-        return await self.http.send(activity, conversation_ref)
+        # Validate recipient for targeted messages
+        if is_targeted and not activity.recipient:
+            raise ValueError("activity.recipient is required for targeted messages")
+
+        return await self.http.send(activity, conversation_ref, is_targeted)
 
     async def _resolve_conversation_id(self, activity: str | ActivityParams | AdaptiveCard) -> Optional[str]:
         """Resolve or create a conversation ID for the current user/context.

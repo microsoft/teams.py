@@ -72,13 +72,14 @@ class TestFunctionContextSend:
         result = await function_context.send("Hello world")
         assert result == "sent-activity"
 
-        sent_activity, conversation_ref = mock_http.send.call_args[0]
+        sent_activity, conversation_ref, is_targeted = mock_http.send.call_args[0]
 
         assert isinstance(sent_activity, MessageActivityInput)
         assert sent_activity.text == "Hello world"
 
         assert isinstance(conversation_ref, ConversationReference)
         assert conversation_ref.conversation.id == "conv-123"
+        assert is_targeted is False
 
     async def test_send_adaptive_card(
         self,
@@ -91,10 +92,11 @@ class TestFunctionContextSend:
         result = await function_context.send(card)
         assert result == "sent-activity"
 
-        sent_activity, conversation_ref = mock_http.send.call_args[0]
+        sent_activity, conversation_ref, is_targeted = mock_http.send.call_args[0]
 
         assert sent_activity.attachments[0].content == card
         assert conversation_ref.conversation.id == "conv-123"
+        assert is_targeted is False
 
     async def test_send_creates_conversation_if_none(
         self, function_context: FunctionContext[Any], mock_http: Any
@@ -110,6 +112,7 @@ class TestFunctionContextSend:
         assert result == "sent-new-conv"
         # Ensure conversation was created
         assert function_context.api.conversations.create.call_count == 1  # type: ignore
-        sent_activity, conversation_ref = mock_http.send.call_args[0]
+        sent_activity, conversation_ref, is_targeted = mock_http.send.call_args[0]
         assert sent_activity.text == "Hello new conversation"
         assert conversation_ref.conversation.id == "new-conv"
+        assert is_targeted is False

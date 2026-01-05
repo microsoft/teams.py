@@ -259,8 +259,17 @@ class App(ActivityHandlerMixin):
             self._events.emit("error", ErrorEvent(error, context={"method": "stop"}))
             raise
 
-    async def send(self, conversation_id: str, activity: str | ActivityParams | AdaptiveCard):
-        """Send an activity proactively."""
+    async def send(
+        self, conversation_id: str, activity: str | ActivityParams | AdaptiveCard, is_targeted: bool = False
+    ):
+        """
+        Send an activity proactively.
+
+        Args:
+            conversation_id: The ID of the conversation to send to
+            activity: The activity to send (string, ActivityParams, or AdaptiveCard)
+            is_targeted: When True, sends the message privately to the recipient specified in the activity
+        """
 
         if self.id is None:
             raise ValueError("app not started")
@@ -279,7 +288,11 @@ class App(ActivityHandlerMixin):
         else:
             activity = activity
 
-        return await self.http.send(activity, conversation_ref)
+        # Validate recipient for targeted messages
+        if is_targeted and not activity.recipient:
+            raise ValueError("activity.recipient is required for targeted messages")
+
+        return await self.http.send(activity, conversation_ref, is_targeted)
 
     def use(self, middleware: Callable[[ActivityContext[ActivityBase]], Awaitable[None]]) -> None:
         """Add middleware to run on all activities."""

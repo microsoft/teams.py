@@ -35,20 +35,24 @@ class ConversationActivityClient(BaseClient):
         super().__init__(http_client, api_client_settings)
         self.service_url = service_url
 
-    async def create(self, conversation_id: str, activity: ActivityParams) -> SentActivity:
+    async def create(self, conversation_id: str, activity: ActivityParams, is_targeted: bool = False) -> SentActivity:
         """
         Create a new activity in a conversation.
 
         Args:
             conversation_id: The ID of the conversation
             activity: The activity to create
+            is_targeted: When True, sends the message privately to the recipient specified in activity.recipient
 
         Returns:
             The created activity
         """
+        url = f"{self.service_url}/v3/conversations/{conversation_id}/activities"
+        if is_targeted:
+            url += "?isTargetedActivity=true"
 
         response = await self.http.post(
-            f"{self.service_url}/v3/conversations/{conversation_id}/activities",
+            url,
             json=activity.model_dump(by_alias=True, exclude_none=True),
         )
 
@@ -58,7 +62,9 @@ class ConversationActivityClient(BaseClient):
         id = response.json().get("id", "DO_NOT_USE_PLACEHOLDER_ID")
         return SentActivity(id=id, activity_params=activity)
 
-    async def update(self, conversation_id: str, activity_id: str, activity: ActivityParams) -> SentActivity:
+    async def update(
+        self, conversation_id: str, activity_id: str, activity: ActivityParams, is_targeted: bool = False
+    ) -> SentActivity:
         """
         Update an existing activity in a conversation.
 
@@ -66,18 +72,25 @@ class ConversationActivityClient(BaseClient):
             conversation_id: The ID of the conversation
             activity_id: The ID of the activity to update
             activity: The updated activity data
+            is_targeted: When True, sends the message privately to the recipient specified in activity.recipient
 
         Returns:
             The updated activity
         """
+        url = f"{self.service_url}/v3/conversations/{conversation_id}/activities/{activity_id}"
+        if is_targeted:
+            url += "?isTargetedActivity=true"
+
         response = await self.http.put(
-            f"{self.service_url}/v3/conversations/{conversation_id}/activities/{activity_id}",
+            url,
             json=activity.model_dump(by_alias=True),
         )
         id = response.json()["id"]
         return SentActivity(id=id, activity_params=activity)
 
-    async def reply(self, conversation_id: str, activity_id: str, activity: ActivityParams) -> SentActivity:
+    async def reply(
+        self, conversation_id: str, activity_id: str, activity: ActivityParams, is_targeted: bool = False
+    ) -> SentActivity:
         """
         Reply to an activity in a conversation.
 
@@ -85,14 +98,20 @@ class ConversationActivityClient(BaseClient):
             conversation_id: The ID of the conversation
             activity_id: The ID of the activity to reply to
             activity: The reply activity
+            is_targeted: When True, sends the message privately to the recipient specified in activity.recipient
 
         Returns:
             The created reply activity
         """
         activity_json = activity.model_dump(by_alias=True)
         activity_json["replyToId"] = activity_id
+
+        url = f"{self.service_url}/v3/conversations/{conversation_id}/activities/{activity_id}"
+        if is_targeted:
+            url += "?isTargetedActivity=true"
+
         response = await self.http.post(
-            f"{self.service_url}/v3/conversations/{conversation_id}/activities/{activity_id}",
+            url,
             json=activity_json,
         )
         id = response.json()["id"]

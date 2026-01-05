@@ -236,17 +236,27 @@ class HttpPlugin(Sender):
         """
         self.logger.debug(f"Completing activity response for {event.activity.id}")
 
-    async def send(self, activity: ActivityParams, ref: ConversationReference) -> SentActivity:
+    async def send(
+        self, activity: ActivityParams, ref: ConversationReference, is_targeted: bool = False
+    ) -> SentActivity:
         api = ApiClient(service_url=ref.service_url, options=self.client.clone(ClientOptions(token=self.bot_token)))
 
         activity.from_ = ref.bot
         activity.conversation = ref.conversation
 
+        # Validate recipient is set for targeted messages
+        if is_targeted and not activity.recipient:
+            raise ValueError("activity.recipient is required for targeted messages")
+
+        # Set conversation reference user to the activity recipient for targeted messages
+        if is_targeted:
+            ref.user = activity.recipient
+
         if hasattr(activity, "id") and activity.id:
-            res = await api.conversations.activities(ref.conversation.id).update(activity.id, activity)
+            res = await api.conversations.activities(ref.conversation.id).update(activity.id, activity, is_targeted)
             return SentActivity.merge(activity, res)
 
-        res = await api.conversations.activities(ref.conversation.id).create(activity)
+        res = await api.conversations.activities(ref.conversation.id).create(activity, is_targeted)
         return SentActivity.merge(activity, res)
 
     async def _process_activity(
