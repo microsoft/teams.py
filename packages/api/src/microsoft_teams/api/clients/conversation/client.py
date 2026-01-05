@@ -39,8 +39,8 @@ class ActivityOperations(ConversationOperations):
     async def reply(self, activity_id: str, activity: ActivityParams, is_targeted: bool = False):
         return await self._client.activities_client.reply(self._conversation_id, activity_id, activity, is_targeted)
 
-    async def delete(self, activity_id: str):
-        await self._client.activities_client.delete(self._conversation_id, activity_id)
+    async def delete(self, activity_id: str, is_targeted: bool = False):
+        await self._client.activities_client.delete(self._conversation_id, activity_id, is_targeted)
 
     async def get_members(self, activity_id: str):
         return await self._client.activities_client.get_members(self._conversation_id, activity_id)

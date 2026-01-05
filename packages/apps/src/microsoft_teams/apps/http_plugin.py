@@ -6,6 +6,7 @@ Licensed under the MIT License.
 import asyncio
 import importlib.metadata
 from contextlib import AsyncExitStack, asynccontextmanager
+from copy import copy
 from logging import Logger
 from pathlib import Path
 from types import SimpleNamespace
@@ -250,6 +251,7 @@ class HttpPlugin(Sender):
 
         # Set conversation reference user to the activity recipient for targeted messages
         if is_targeted:
+            ref = copy(ref)
             ref.user = activity.recipient
 
         if hasattr(activity, "id") and activity.id:

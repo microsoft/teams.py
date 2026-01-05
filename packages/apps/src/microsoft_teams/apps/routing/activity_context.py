@@ -188,6 +188,10 @@ class ActivityContext(Generic[T]):
         else:
             activity = message
 
+        # Validate recipient is set for targeted messages
+        if is_targeted and getattr(activity, "recipient", None) is None:
+            raise ValueError("Targeted messages require 'activity.recipient' to be set.")
+
         ref = conversation_ref or self.conversation_ref
         res = await self._plugin.send(activity, ref, is_targeted)
         return res

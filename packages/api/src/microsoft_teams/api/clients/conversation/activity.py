@@ -117,15 +117,22 @@ class ConversationActivityClient(BaseClient):
         id = response.json()["id"]
         return SentActivity(id=id, activity_params=activity)
 
-    async def delete(self, conversation_id: str, activity_id: str) -> None:
+    async def delete(
+        self, conversation_id: str, activity_id: str, is_targeted: bool = False
+    ) -> None:
         """
         Delete an activity from a conversation.
 
         Args:
             conversation_id: The ID of the conversation
             activity_id: The ID of the activity to delete
+            is_targeted: When True, deletes a targeted message privately
         """
-        await self.http.delete(f"{self.service_url}/v3/conversations/{conversation_id}/activities/{activity_id}")
+        url = f"{self.service_url}/v3/conversations/{conversation_id}/activities/{activity_id}"
+        if is_targeted:
+            url += "?isTargetedActivity=true"
+
+        await self.http.delete(url)
 
     async def get_members(self, conversation_id: str, activity_id: str) -> List[Account]:
         """

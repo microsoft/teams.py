@@ -176,72 +176,98 @@ class TestConversationActivityOperations:
         assert result is not None
 
 
+class URLCapturingTransport:
+    """Test helper to capture URLs from HTTP requests."""
+
+    def __init__(self, wrapped, captured_urls):
+        self._wrapped = wrapped
+        self._captured_urls = captured_urls
+
+    async def handle_async_request(self, request):
+        self._captured_urls.append(str(request.url))
+        return await self._wrapped.handle_async_request(request)
+
+
 @pytest.mark.unit
 @pytest.mark.asyncio
 class TestConversationActivityOperationsTargeted:
     """Unit tests for ConversationClient activity operations with targeted messages."""
 
     async def test_activity_create_targeted(self, mock_http_client, mock_activity):
-        """Test creating a targeted activity with is_targeted=True."""
+        """Test creating a targeted activity with is_targeted=True verifies URL query parameter."""
+        from microsoft_teams.api import Account
+
         service_url = "https://test.service.url"
         client = ConversationClient(service_url, mock_http_client)
-
         conversation_id = "test_conversation_id"
         activities = client.activities(conversation_id)
 
-        # Add recipient to activity
-        from microsoft_teams.api import Account
-
         mock_activity.recipient = Account(id="user-123", name="Test User", role="user")
+
+        # Capture URLs
+        captured_urls = []
+        mock_http_client.http._transport = URLCapturingTransport(
+            mock_http_client.http._transport, captured_urls
+        )
 
         result = await activities.create(mock_activity, is_targeted=True)
 
         assert result is not None
         assert result.id is not None
+        assert any("isTargetedActivity=true" in url for url in captured_urls)
 
     async def test_activity_update_targeted(self, mock_http_client, mock_activity):
-        """Test updating a targeted activity with is_targeted=True."""
+        """Test updating a targeted activity with is_targeted=True verifies URL query parameter."""
+        from microsoft_teams.api import Account
+
         service_url = "https://test.service.url"
         client = ConversationClient(service_url, mock_http_client)
-
         conversation_id = "test_conversation_id"
         activity_id = "test_activity_id"
         activities = client.activities(conversation_id)
 
-        # Add recipient to activity
-        from microsoft_teams.api import Account
-
         mock_activity.recipient = Account(id="user-123", name="Test User", role="user")
+
+        # Capture URLs
+        captured_urls = []
+        mock_http_client.http._transport = URLCapturingTransport(
+            mock_http_client.http._transport, captured_urls
+        )
 
         result = await activities.update(activity_id, mock_activity, is_targeted=True)
 
         assert result is not None
         assert result.id is not None
+        assert any("isTargetedActivity=true" in url for url in captured_urls)
 
     async def test_activity_reply_targeted(self, mock_http_client, mock_activity):
-        """Test replying with a targeted activity with is_targeted=True."""
+        """Test replying with a targeted activity with is_targeted=True verifies URL query parameter."""
+        from microsoft_teams.api import Account
+
         service_url = "https://test.service.url"
         client = ConversationClient(service_url, mock_http_client)
-
         conversation_id = "test_conversation_id"
         activity_id = "test_activity_id"
         activities = client.activities(conversation_id)
 
-        # Add recipient to activity
-        from microsoft_teams.api import Account
-
         mock_activity.recipient = Account(id="user-123", name="Test User", role="user")
+
+        # Capture URLs
+        captured_urls = []
+        mock_http_client.http._transport = URLCapturingTransport(
+            mock_http_client.http._transport, captured_urls
+        )
 
         result = await activities.reply(activity_id, mock_activity, is_targeted=True)
 
         assert result is not None
         assert result.id is not None
+        assert any("isTargetedActivity=true" in url for url in captured_urls)
 
     async def test_activity_create_not_targeted(self, mock_http_client, mock_activity):
         """Test creating a non-targeted activity with is_targeted=False."""
         service_url = "https://test.service.url"
         client = ConversationClient(service_url, mock_http_client)
-
         conversation_id = "test_conversation_id"
         activities = client.activities(conversation_id)
 
@@ -254,7 +280,6 @@ class TestConversationActivityOperationsTargeted:
         """Test creating an activity without is_targeted parameter defaults to False."""
         service_url = "https://test.service.url"
         client = ConversationClient(service_url, mock_http_client)
-
         conversation_id = "test_conversation_id"
         activities = client.activities(conversation_id)
 
@@ -262,6 +287,17 @@ class TestConversationActivityOperationsTargeted:
 
         assert result is not None
         assert result.id is not None
+
+    async def test_delete_targeted(self, mock_http_client):
+        """Test deleting an activity with is_targeted=True."""
+        service_url = "https://test.service.url"
+        client = ConversationClient(service_url, mock_http_client)
+        conversation_id = "test_conversation_id"
+        activity_id = "test_activity_id"
+        activities = client.activities(conversation_id)
+
+        # Should not raise an exception
+        await activities.delete(activity_id, is_targeted=True)
 
 
 @pytest.mark.unit
