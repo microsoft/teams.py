@@ -5,6 +5,7 @@ Licensed under the MIT License.
 # pyright: basic
 
 import pytest
+from microsoft_teams.api import Account
 from microsoft_teams.api.clients.conversation import ConversationClient
 from microsoft_teams.api.clients.conversation.params import (
     CreateConversationParams,
@@ -195,8 +196,6 @@ class TestConversationActivityOperationsTargeted:
 
     async def test_activity_create_targeted(self, mock_http_client, mock_activity):
         """Test creating a targeted activity with is_targeted=True verifies URL query parameter."""
-        from microsoft_teams.api import Account
-
         service_url = "https://test.service.url"
         client = ConversationClient(service_url, mock_http_client)
         conversation_id = "test_conversation_id"
@@ -218,8 +217,6 @@ class TestConversationActivityOperationsTargeted:
 
     async def test_activity_update_targeted(self, mock_http_client, mock_activity):
         """Test updating a targeted activity with is_targeted=True verifies URL query parameter."""
-        from microsoft_teams.api import Account
-
         service_url = "https://test.service.url"
         client = ConversationClient(service_url, mock_http_client)
         conversation_id = "test_conversation_id"
@@ -242,8 +239,6 @@ class TestConversationActivityOperationsTargeted:
 
     async def test_activity_reply_targeted(self, mock_http_client, mock_activity):
         """Test replying with a targeted activity with is_targeted=True verifies URL query parameter."""
-        from microsoft_teams.api import Account
-
         service_url = "https://test.service.url"
         client = ConversationClient(service_url, mock_http_client)
         conversation_id = "test_conversation_id"
