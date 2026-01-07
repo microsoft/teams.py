@@ -52,7 +52,7 @@ class FunctionContext(ClientContext, Generic[T]):
     """The function payload."""
 
     async def send(
-        self, activity: str | ActivityParams | AdaptiveCard, is_targeted: bool = False
+        self, activity: str | ActivityParams | AdaptiveCard, *, is_targeted: bool = False
     ) -> Optional[SentActivity]:
         """
         Send an activity to the current conversation.

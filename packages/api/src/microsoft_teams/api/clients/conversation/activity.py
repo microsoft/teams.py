@@ -35,7 +35,7 @@ class ConversationActivityClient(BaseClient):
         super().__init__(http_client, api_client_settings)
         self.service_url = service_url
 
-    async def create(self, conversation_id: str, activity: ActivityParams, is_targeted: bool = False) -> SentActivity:
+    async def create(self, conversation_id: str, activity: ActivityParams, *, is_targeted: bool = False) -> SentActivity:
         """
         Create a new activity in a conversation.
 
@@ -48,12 +48,12 @@ class ConversationActivityClient(BaseClient):
             The created activity
         """
         url = f"{self.service_url}/v3/conversations/{conversation_id}/activities"
-        if is_targeted:
-            url += "?isTargetedActivity=true"
+        params = {"isTargetedActivity": "true"} if is_targeted else None
 
         response = await self.http.post(
             url,
             json=activity.model_dump(by_alias=True, exclude_none=True),
+            params=params,
         )
 
         # Note: Typing activities (non-streaming) always produce empty responses.
@@ -63,7 +63,7 @@ class ConversationActivityClient(BaseClient):
         return SentActivity(id=id, activity_params=activity)
 
     async def update(
-        self, conversation_id: str, activity_id: str, activity: ActivityParams, is_targeted: bool = False
+        self, conversation_id: str, activity_id: str, activity: ActivityParams, *, is_targeted: bool = False
     ) -> SentActivity:
         """
         Update an existing activity in a conversation.
@@ -78,18 +78,18 @@ class ConversationActivityClient(BaseClient):
             The updated activity
         """
         url = f"{self.service_url}/v3/conversations/{conversation_id}/activities/{activity_id}"
-        if is_targeted:
-            url += "?isTargetedActivity=true"
+        params = {"isTargetedActivity": "true"} if is_targeted else None
 
         response = await self.http.put(
             url,
             json=activity.model_dump(by_alias=True),
+            params=params,
         )
         id = response.json()["id"]
         return SentActivity(id=id, activity_params=activity)
 
     async def reply(
-        self, conversation_id: str, activity_id: str, activity: ActivityParams, is_targeted: bool = False
+        self, conversation_id: str, activity_id: str, activity: ActivityParams, *, is_targeted: bool = False
     ) -> SentActivity:
         """
         Reply to an activity in a conversation.
@@ -107,18 +107,18 @@ class ConversationActivityClient(BaseClient):
         activity_json["replyToId"] = activity_id
 
         url = f"{self.service_url}/v3/conversations/{conversation_id}/activities/{activity_id}"
-        if is_targeted:
-            url += "?isTargetedActivity=true"
+        params = {"isTargetedActivity": "true"} if is_targeted else None
 
         response = await self.http.post(
             url,
             json=activity_json,
+            params=params,
         )
         id = response.json()["id"]
         return SentActivity(id=id, activity_params=activity)
 
     async def delete(
-        self, conversation_id: str, activity_id: str, is_targeted: bool = False
+        self, conversation_id: str, activity_id: str, *, is_targeted: bool = False
     ) -> None:
         """
         Delete an activity from a conversation.
@@ -129,10 +129,9 @@ class ConversationActivityClient(BaseClient):
             is_targeted: When True, deletes a targeted message privately
         """
         url = f"{self.service_url}/v3/conversations/{conversation_id}/activities/{activity_id}"
-        if is_targeted:
-            url += "?isTargetedActivity=true"
+        params = {"isTargetedActivity": "true"} if is_targeted else None
 
-        await self.http.delete(url)
+        await self.http.delete(url, params=params)
 
     async def get_members(self, conversation_id: str, activity_id: str) -> List[Account]:
         """
