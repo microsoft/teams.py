@@ -35,7 +35,9 @@ class ConversationActivityClient(BaseClient):
         super().__init__(http_client, api_client_settings)
         self.service_url = service_url
 
-    async def create(self, conversation_id: str, activity: ActivityParams, *, is_targeted: bool = False) -> SentActivity:
+    async def create(
+        self, conversation_id: str, activity: ActivityParams, *, is_targeted: bool = False
+    ) -> SentActivity:
         """
         Create a new activity in a conversation.
 

@@ -34,10 +34,14 @@ class ActivityOperations(ConversationOperations):
         return await self._client.activities_client.create(self._conversation_id, activity, is_targeted=is_targeted)
 
     async def update(self, activity_id: str, activity: ActivityParams, is_targeted: bool = False):
-        return await self._client.activities_client.update(self._conversation_id, activity_id, activity, is_targeted=is_targeted)
+        return await self._client.activities_client.update(
+            self._conversation_id, activity_id, activity, is_targeted=is_targeted
+        )
 
     async def reply(self, activity_id: str, activity: ActivityParams, is_targeted: bool = False):
-        return await self._client.activities_client.reply(self._conversation_id, activity_id, activity, is_targeted=is_targeted)
+        return await self._client.activities_client.reply(
+            self._conversation_id, activity_id, activity, is_targeted=is_targeted
+        )
 
     async def delete(self, activity_id: str, is_targeted: bool = False):
         await self._client.activities_client.delete(self._conversation_id, activity_id, is_targeted=is_targeted)
