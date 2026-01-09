@@ -130,9 +130,9 @@ class ActivityProcessor:
         async def updated_send(
             message: str | ActivityParams | AdaptiveCard,
             conversation_ref: Optional[ConversationReference] = None,
-            is_targeted: bool = False,
+            targeted_recipient_id: Optional[str] = None,
         ) -> SentActivity:
-            res = await send(message, conversation_ref, is_targeted)
+            res = await send(message, conversation_ref, targeted_recipient_id)
 
             if not self.event_manager:
                 raise ValueError("EventManager was not initialized properly")

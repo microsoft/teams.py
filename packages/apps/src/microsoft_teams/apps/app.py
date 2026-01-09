@@ -260,7 +260,10 @@ class App(ActivityHandlerMixin):
             raise
 
     async def send(
-        self, conversation_id: str, activity: str | ActivityParams | AdaptiveCard, is_targeted: bool = False
+        self,
+        conversation_id: str,
+        activity: str | ActivityParams | AdaptiveCard,
+        targeted_recipient_id: Optional[str] = None,
     ):
         """
         Send an activity proactively.
@@ -268,7 +271,7 @@ class App(ActivityHandlerMixin):
         Args:
             conversation_id: The ID of the conversation to send to
             activity: The activity to send (string, ActivityParams, or AdaptiveCard)
-            is_targeted: When True, sends the message privately to the recipient specified in the activity
+            targeted_recipient_id: When provided, sends the message privately to the specified recipient ID
         """
 
         if self.id is None:
@@ -288,9 +291,10 @@ class App(ActivityHandlerMixin):
         else:
             activity = activity
 
-        # Validate recipient for targeted messages
-        if is_targeted and not activity.recipient:
-            raise ValueError("activity.recipient is required for targeted messages")
+        # Handle targeted messages
+        is_targeted = targeted_recipient_id is not None
+        if is_targeted:
+            activity.recipient = Account(id=targeted_recipient_id)
 
         return await self.http.send(activity, conversation_ref, is_targeted)
 

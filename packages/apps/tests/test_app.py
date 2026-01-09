@@ -166,6 +166,35 @@ class TestApp:
             await app_with_options.stop()
             assert not app_with_options.is_running
 
+    # Proactive Send Testing
+
+    @pytest.mark.asyncio
+    async def test_send_with_targeted_recipient_id(self, app_with_options: App) -> None:
+        """Test proactive send with targeted_recipient_id sets recipient and is_targeted flag."""
+        app_with_options.http.send = AsyncMock(return_value=MagicMock(id="sent-123"))
+
+        await app_with_options.send("conv-123", "Private message", targeted_recipient_id="user-456")
+
+        sent_activity, conversation_ref, is_targeted = app_with_options.http.send.call_args[0]
+
+        assert sent_activity.text == "Private message"
+        assert sent_activity.recipient is not None
+        assert sent_activity.recipient.id == "user-456"
+        assert is_targeted is True
+
+    @pytest.mark.asyncio
+    async def test_send_without_targeted_recipient_id(self, app_with_options: App) -> None:
+        """Test proactive send without targeted_recipient_id does not set recipient."""
+        app_with_options.http.send = AsyncMock(return_value=MagicMock(id="sent-123"))
+
+        await app_with_options.send("conv-123", "Public message")
+
+        sent_activity, conversation_ref, is_targeted = app_with_options.http.send.call_args[0]
+
+        assert sent_activity.text == "Public message"
+        assert sent_activity.recipient is None
+        assert is_targeted is False
+
     # Event Testing - Focus on functional behavior
 
     @pytest.mark.asyncio

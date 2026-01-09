@@ -10,6 +10,7 @@ from logging import Logger
 from typing import TYPE_CHECKING, Any, Awaitable, Callable, Generic, Optional, TypeVar, cast
 
 from microsoft_teams.api import (
+    Account,
     ActivityBase,
     ActivityParams,
     ApiClient,
@@ -171,7 +172,7 @@ class ActivityContext(Generic[T]):
         self,
         message: str | ActivityParams | AdaptiveCard,
         conversation_ref: Optional[ConversationReference] = None,
-        is_targeted: bool = False,
+        targeted_recipient_id: Optional[str] = None,
     ) -> SentActivity:
         """
         Send a message to the conversation.
@@ -179,7 +180,7 @@ class ActivityContext(Generic[T]):
         Args:
             message: The message to send, can be a string, ActivityParams, or AdaptiveCard
             conversation_ref: Optional conversation reference to override the current conversation reference
-            is_targeted: When True, sends the message privately to the recipient specified in the activity
+            targeted_recipient_id: When provided, sends the message privately to the specified recipient ID
         """
         if isinstance(message, str):
             activity = MessageActivityInput(text=message)
@@ -188,21 +189,22 @@ class ActivityContext(Generic[T]):
         else:
             activity = message
 
-        # Validate recipient is set for targeted messages
-        if is_targeted and getattr(activity, "recipient", None) is None:
-            raise ValueError("Targeted messages require 'activity.recipient' to be set.")
+        # Handle targeted messages
+        is_targeted = targeted_recipient_id is not None
+        if is_targeted:
+            activity.recipient = Account(id=targeted_recipient_id)
 
         ref = conversation_ref or self.conversation_ref
         res = await self._plugin.send(activity, ref, is_targeted)
         return res
 
-    async def reply(self, input: str | ActivityParams, is_targeted: bool = False) -> SentActivity:
+    async def reply(self, input: str | ActivityParams, targeted_recipient_id: Optional[str] = None) -> SentActivity:
         """
         Send a reply to the activity.
 
         Args:
             input: The reply message, can be a string or ActivityParams
-            is_targeted: When True, sends the message privately to the recipient specified in the activity
+            targeted_recipient_id: When provided, sends the message privately to the specified recipient ID
         """
         activity = MessageActivityInput(text=input) if isinstance(input, str) else input
         if isinstance(activity, MessageActivityInput):
@@ -210,7 +212,7 @@ class ActivityContext(Generic[T]):
             if block_quote:
                 activity.text = f"{block_quote}\n\n{activity.text}" if activity.text else block_quote
         activity.reply_to_id = self.activity.id
-        return await self.send(activity, is_targeted=is_targeted)
+        return await self.send(activity, targeted_recipient_id=targeted_recipient_id)
 
     async def next(self) -> None:
         """Call the next middleware in the chain."""

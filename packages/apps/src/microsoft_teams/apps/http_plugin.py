@@ -6,7 +6,6 @@ Licensed under the MIT License.
 import asyncio
 import importlib.metadata
 from contextlib import AsyncExitStack, asynccontextmanager
-from copy import copy
 from logging import Logger
 from pathlib import Path
 from types import SimpleNamespace
@@ -244,15 +243,6 @@ class HttpPlugin(Sender):
 
         activity.from_ = ref.bot
         activity.conversation = ref.conversation
-
-        # Validate recipient is set for targeted messages
-        if is_targeted and not activity.recipient:
-            raise ValueError("activity.recipient is required for targeted messages")
-
-        # Set conversation reference user to the activity recipient for targeted messages
-        if is_targeted:
-            ref = copy(ref)
-            ref.user = activity.recipient
 
         if hasattr(activity, "id") and activity.id:
             res = await api.conversations.activities(ref.conversation.id).update(activity.id, activity, is_targeted)

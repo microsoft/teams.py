@@ -52,14 +52,14 @@ class FunctionContext(ClientContext, Generic[T]):
     """The function payload."""
 
     async def send(
-        self, activity: str | ActivityParams | AdaptiveCard, *, is_targeted: bool = False
+        self, activity: str | ActivityParams | AdaptiveCard, *, targeted_recipient_id: Optional[str] = None
     ) -> Optional[SentActivity]:
         """
         Send an activity to the current conversation.
 
         Args:
             activity: The activity to send (string, ActivityParams, or AdaptiveCard)
-            is_targeted: When True, sends the message privately to the recipient specified in the activity
+            targeted_recipient_id: When provided, sends the message privately to the specified recipient ID
 
         Returns None if the conversation ID cannot be determined.
         """
@@ -86,9 +86,10 @@ class FunctionContext(ClientContext, Generic[T]):
         else:
             activity = activity
 
-        # Validate recipient for targeted messages
-        if is_targeted and not activity.recipient:
-            raise ValueError("activity.recipient is required for targeted messages")
+        # Handle targeted messages
+        is_targeted = targeted_recipient_id is not None
+        if is_targeted:
+            activity.recipient = Account(id=targeted_recipient_id)
 
         return await self.http.send(activity, conversation_ref, is_targeted)
 

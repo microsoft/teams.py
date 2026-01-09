@@ -50,12 +50,14 @@ class ConversationActivityClient(BaseClient):
             The created activity
         """
         url = f"{self.service_url}/v3/conversations/{conversation_id}/activities"
-        params = {"isTargetedActivity": "true"} if is_targeted else None
+        params: dict[str, str] = {}
+        if is_targeted:
+            params["isTargetedActivity"] = "true"
 
         response = await self.http.post(
             url,
             json=activity.model_dump(by_alias=True, exclude_none=True),
-            params=params,
+            params=params or None,
         )
 
         # Note: Typing activities (non-streaming) always produce empty responses.
@@ -80,12 +82,14 @@ class ConversationActivityClient(BaseClient):
             The updated activity
         """
         url = f"{self.service_url}/v3/conversations/{conversation_id}/activities/{activity_id}"
-        params = {"isTargetedActivity": "true"} if is_targeted else None
+        params: dict[str, str] = {}
+        if is_targeted:
+            params["isTargetedActivity"] = "true"
 
         response = await self.http.put(
             url,
             json=activity.model_dump(by_alias=True),
-            params=params,
+            params=params or None,
         )
         id = response.json()["id"]
         return SentActivity(id=id, activity_params=activity)
@@ -109,12 +113,14 @@ class ConversationActivityClient(BaseClient):
         activity_json["replyToId"] = activity_id
 
         url = f"{self.service_url}/v3/conversations/{conversation_id}/activities/{activity_id}"
-        params = {"isTargetedActivity": "true"} if is_targeted else None
+        params: dict[str, str] = {}
+        if is_targeted:
+            params["isTargetedActivity"] = "true"
 
         response = await self.http.post(
             url,
             json=activity_json,
-            params=params,
+            params=params or None,
         )
         id = response.json()["id"]
         return SentActivity(id=id, activity_params=activity)
@@ -131,9 +137,11 @@ class ConversationActivityClient(BaseClient):
             is_targeted: When True, deletes a targeted message privately
         """
         url = f"{self.service_url}/v3/conversations/{conversation_id}/activities/{activity_id}"
-        params = {"isTargetedActivity": "true"} if is_targeted else None
+        params: dict[str, str] = {}
+        if is_targeted:
+            params["isTargetedActivity"] = "true"
 
-        await self.http.delete(url, params=params)
+        await self.http.delete(url, params=params or None)
 
     async def get_members(self, conversation_id: str, activity_id: str) -> List[Account]:
         """

@@ -116,3 +116,38 @@ class TestFunctionContextSend:
         assert sent_activity.text == "Hello new conversation"
         assert conversation_ref.conversation.id == "new-conv"
         assert is_targeted is False
+
+    async def test_send_with_targeted_recipient_id(
+        self,
+        function_context: FunctionContext[Any],
+        mock_http: Any,
+    ) -> None:
+        """Test sending a targeted message sets recipient and is_targeted flag."""
+
+        result = await function_context.send("Private message", targeted_recipient_id="user-123")
+        assert result == "sent-activity"
+
+        sent_activity, conversation_ref, is_targeted = mock_http.send.call_args[0]
+
+        assert isinstance(sent_activity, MessageActivityInput)
+        assert sent_activity.text == "Private message"
+        assert sent_activity.recipient is not None
+        assert sent_activity.recipient.id == "user-123"
+        assert is_targeted is True
+
+    async def test_send_without_targeted_recipient_id(
+        self,
+        function_context: FunctionContext[Any],
+        mock_http: Any,
+    ) -> None:
+        """Test sending a non-targeted message does not set recipient."""
+
+        result = await function_context.send("Public message")
+        assert result == "sent-activity"
+
+        sent_activity, conversation_ref, is_targeted = mock_http.send.call_args[0]
+
+        assert isinstance(sent_activity, MessageActivityInput)
+        assert sent_activity.text == "Public message"
+        assert sent_activity.recipient is None
+        assert is_targeted is False
