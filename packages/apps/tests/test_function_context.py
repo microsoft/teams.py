@@ -72,7 +72,8 @@ class TestFunctionContextSend:
         result = await function_context.send("Hello world")
         assert result == "sent-activity"
 
-        sent_activity, conversation_ref, is_targeted = mock_http.send.call_args[0]
+        sent_activity, conversation_ref = mock_http.send.call_args[0]
+        is_targeted = mock_http.send.call_args[1]["is_targeted"]
 
         assert isinstance(sent_activity, MessageActivityInput)
         assert sent_activity.text == "Hello world"
@@ -92,7 +93,8 @@ class TestFunctionContextSend:
         result = await function_context.send(card)
         assert result == "sent-activity"
 
-        sent_activity, conversation_ref, is_targeted = mock_http.send.call_args[0]
+        sent_activity, conversation_ref = mock_http.send.call_args[0]
+        is_targeted = mock_http.send.call_args[1]["is_targeted"]
 
         assert sent_activity.attachments[0].content == card
         assert conversation_ref.conversation.id == "conv-123"
@@ -112,7 +114,8 @@ class TestFunctionContextSend:
         assert result == "sent-new-conv"
         # Ensure conversation was created
         assert function_context.api.conversations.create.call_count == 1  # type: ignore
-        sent_activity, conversation_ref, is_targeted = mock_http.send.call_args[0]
+        sent_activity, conversation_ref = mock_http.send.call_args[0]
+        is_targeted = mock_http.send.call_args[1]["is_targeted"]
         assert sent_activity.text == "Hello new conversation"
         assert conversation_ref.conversation.id == "new-conv"
         assert is_targeted is False
@@ -127,7 +130,8 @@ class TestFunctionContextSend:
         result = await function_context.send("Private message", targeted_recipient_id="user-123")
         assert result == "sent-activity"
 
-        sent_activity, conversation_ref, is_targeted = mock_http.send.call_args[0]
+        sent_activity, conversation_ref = mock_http.send.call_args[0]
+        is_targeted = mock_http.send.call_args[1]["is_targeted"]
 
         assert isinstance(sent_activity, MessageActivityInput)
         assert sent_activity.text == "Private message"
@@ -145,7 +149,8 @@ class TestFunctionContextSend:
         result = await function_context.send("Public message")
         assert result == "sent-activity"
 
-        sent_activity, conversation_ref, is_targeted = mock_http.send.call_args[0]
+        sent_activity, conversation_ref = mock_http.send.call_args[0]
+        is_targeted = mock_http.send.call_args[1]["is_targeted"]
 
         assert isinstance(sent_activity, MessageActivityInput)
         assert sent_activity.text == "Public message"

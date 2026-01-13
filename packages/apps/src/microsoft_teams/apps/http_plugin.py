@@ -237,7 +237,7 @@ class HttpPlugin(Sender):
         self.logger.debug(f"Completing activity response for {event.activity.id}")
 
     async def send(
-        self, activity: ActivityParams, ref: ConversationReference, is_targeted: bool = False
+        self, activity: ActivityParams, ref: ConversationReference, *, is_targeted: bool = False
     ) -> SentActivity:
         api = ApiClient(service_url=ref.service_url, options=self.client.clone(ClientOptions(token=self.bot_token)))
 
@@ -245,10 +245,12 @@ class HttpPlugin(Sender):
         activity.conversation = ref.conversation
 
         if hasattr(activity, "id") and activity.id:
-            res = await api.conversations.activities(ref.conversation.id).update(activity.id, activity, is_targeted)
+            res = await api.conversations.activities(ref.conversation.id).update(
+                activity.id, activity, is_targeted=is_targeted
+            )
             return SentActivity.merge(activity, res)
 
-        res = await api.conversations.activities(ref.conversation.id).create(activity, is_targeted)
+        res = await api.conversations.activities(ref.conversation.id).create(activity, is_targeted=is_targeted)
         return SentActivity.merge(activity, res)
 
     async def _process_activity(

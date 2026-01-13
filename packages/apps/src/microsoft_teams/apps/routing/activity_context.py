@@ -172,6 +172,7 @@ class ActivityContext(Generic[T]):
         self,
         message: str | ActivityParams | AdaptiveCard,
         conversation_ref: Optional[ConversationReference] = None,
+        *,
         targeted_recipient_id: Optional[str] = None,
     ) -> SentActivity:
         """
@@ -195,10 +196,10 @@ class ActivityContext(Generic[T]):
             activity.recipient = Account(id=targeted_recipient_id)
 
         ref = conversation_ref or self.conversation_ref
-        res = await self._plugin.send(activity, ref, is_targeted)
+        res = await self._plugin.send(activity, ref, is_targeted=is_targeted)
         return res
 
-    async def reply(self, input: str | ActivityParams, targeted_recipient_id: Optional[str] = None) -> SentActivity:
+    async def reply(self, input: str | ActivityParams, *, targeted_recipient_id: Optional[str] = None) -> SentActivity:
         """
         Send a reply to the activity.
 

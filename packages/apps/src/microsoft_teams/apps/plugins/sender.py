@@ -17,7 +17,7 @@ class Sender(PluginBase):
 
     @abstractmethod
     async def send(
-        self, activity: ActivityParams, ref: ConversationReference, is_targeted: bool = False
+        self, activity: ActivityParams, ref: ConversationReference, *, is_targeted: bool = False
     ) -> SentActivity:
         """Called by the App to send an activity"""
         pass

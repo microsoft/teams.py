@@ -175,7 +175,8 @@ class TestApp:
 
         await app_with_options.send("conv-123", "Private message", targeted_recipient_id="user-456")
 
-        sent_activity, conversation_ref, is_targeted = app_with_options.http.send.call_args[0]
+        sent_activity, conversation_ref = app_with_options.http.send.call_args[0]
+        is_targeted = app_with_options.http.send.call_args[1]["is_targeted"]
 
         assert sent_activity.text == "Private message"
         assert sent_activity.recipient is not None
@@ -189,7 +190,8 @@ class TestApp:
 
         await app_with_options.send("conv-123", "Public message")
 
-        sent_activity, conversation_ref, is_targeted = app_with_options.http.send.call_args[0]
+        sent_activity, conversation_ref = app_with_options.http.send.call_args[0]
+        is_targeted = app_with_options.http.send.call_args[1]["is_targeted"]
 
         assert sent_activity.text == "Public message"
         assert sent_activity.recipient is None

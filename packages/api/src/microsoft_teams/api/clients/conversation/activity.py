@@ -3,7 +3,7 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from typing import List, Optional
+from typing import Any, List, Optional
 
 from microsoft_teams.common.http import Client
 
@@ -50,7 +50,7 @@ class ConversationActivityClient(BaseClient):
             The created activity
         """
         url = f"{self.service_url}/v3/conversations/{conversation_id}/activities"
-        params: dict[str, str] = {}
+        params: dict[str, Any] = {}
         if is_targeted:
             params["isTargetedActivity"] = "true"
 
@@ -82,7 +82,7 @@ class ConversationActivityClient(BaseClient):
             The updated activity
         """
         url = f"{self.service_url}/v3/conversations/{conversation_id}/activities/{activity_id}"
-        params: dict[str, str] = {}
+        params: dict[str, Any] = {}
         if is_targeted:
             params["isTargetedActivity"] = "true"
 
@@ -113,7 +113,7 @@ class ConversationActivityClient(BaseClient):
         activity_json["replyToId"] = activity_id
 
         url = f"{self.service_url}/v3/conversations/{conversation_id}/activities/{activity_id}"
-        params: dict[str, str] = {}
+        params: dict[str, Any] = {}
         if is_targeted:
             params["isTargetedActivity"] = "true"
 
@@ -125,9 +125,7 @@ class ConversationActivityClient(BaseClient):
         id = response.json()["id"]
         return SentActivity(id=id, activity_params=activity)
 
-    async def delete(
-        self, conversation_id: str, activity_id: str, *, is_targeted: bool = False
-    ) -> None:
+    async def delete(self, conversation_id: str, activity_id: str, *, is_targeted: bool = False) -> None:
         """
         Delete an activity from a conversation.
 
@@ -137,7 +135,7 @@ class ConversationActivityClient(BaseClient):
             is_targeted: When True, deletes a targeted message privately
         """
         url = f"{self.service_url}/v3/conversations/{conversation_id}/activities/{activity_id}"
-        params: dict[str, str] = {}
+        params: dict[str, Any] = {}
         if is_targeted:
             params["isTargetedActivity"] = "true"
 

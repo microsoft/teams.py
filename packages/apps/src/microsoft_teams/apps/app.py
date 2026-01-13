@@ -292,11 +292,10 @@ class App(ActivityHandlerMixin):
             activity = activity
 
         # Handle targeted messages
-        is_targeted = targeted_recipient_id is not None
-        if is_targeted:
+        if targeted_recipient_id:
             activity.recipient = Account(id=targeted_recipient_id)
 
-        return await self.http.send(activity, conversation_ref, is_targeted)
+        return await self.http.send(activity, conversation_ref, is_targeted=targeted_recipient_id is not None)
 
     def use(self, middleware: Callable[[ActivityContext[ActivityBase]], Awaitable[None]]) -> None:
         """Add middleware to run on all activities."""

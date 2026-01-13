@@ -205,9 +205,7 @@ class TestConversationActivityOperationsTargeted:
 
         # Capture URLs
         captured_urls = []
-        mock_http_client.http._transport = URLCapturingTransport(
-            mock_http_client.http._transport, captured_urls
-        )
+        mock_http_client.http._transport = URLCapturingTransport(mock_http_client.http._transport, captured_urls)
 
         result = await activities.create(mock_activity, is_targeted=True)
 
@@ -227,9 +225,7 @@ class TestConversationActivityOperationsTargeted:
 
         # Capture URLs
         captured_urls = []
-        mock_http_client.http._transport = URLCapturingTransport(
-            mock_http_client.http._transport, captured_urls
-        )
+        mock_http_client.http._transport = URLCapturingTransport(mock_http_client.http._transport, captured_urls)
 
         result = await activities.update(activity_id, mock_activity, is_targeted=True)
 
@@ -249,9 +245,7 @@ class TestConversationActivityOperationsTargeted:
 
         # Capture URLs
         captured_urls = []
-        mock_http_client.http._transport = URLCapturingTransport(
-            mock_http_client.http._transport, captured_urls
-        )
+        mock_http_client.http._transport = URLCapturingTransport(mock_http_client.http._transport, captured_urls)
 
         result = await activities.reply(activity_id, mock_activity, is_targeted=True)
 

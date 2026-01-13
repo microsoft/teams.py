@@ -226,9 +226,9 @@ class DevToolsPlugin(Sender):
             del self.pending[event.activity.id]
 
     async def send(
-        self, activity: ActivityParams, ref: ConversationReference, is_targeted: bool = False
+        self, activity: ActivityParams, ref: ConversationReference, *, is_targeted: bool = False
     ) -> SentActivity:
-        return await self.http.send(activity, ref, is_targeted)
+        return await self.http.send(activity, ref, is_targeted=is_targeted)
 
     def create_stream(self, ref: ConversationReference) -> StreamerProtocol:
         return self.http.create_stream(ref)

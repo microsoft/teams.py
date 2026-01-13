@@ -87,11 +87,15 @@ class FunctionContext(ClientContext, Generic[T]):
             activity = activity
 
         # Handle targeted messages
-        is_targeted = targeted_recipient_id is not None
-        if is_targeted:
+        if targeted_recipient_id:
+            if activity.recipient and activity.recipient.id != targeted_recipient_id:
+                raise ValueError(
+                    f"Activity recipient ID '{activity.recipient.id}' does not match "
+                    f"targeted_recipient_id '{targeted_recipient_id}'"
+                )
             activity.recipient = Account(id=targeted_recipient_id)
 
-        return await self.http.send(activity, conversation_ref, is_targeted)
+        return await self.http.send(activity, conversation_ref, is_targeted=targeted_recipient_id is not None)
 
     async def _resolve_conversation_id(self, activity: str | ActivityParams | AdaptiveCard) -> Optional[str]:
         """Resolve or create a conversation ID for the current user/context.
