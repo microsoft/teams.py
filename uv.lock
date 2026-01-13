@@ -32,6 +32,7 @@ members = [
     "oauth",
     "stream",
     "tab",
+    "targeted-messages",
 ]
 
 [manifest.dependency-groups]
@@ -2705,6 +2706,25 @@ requires-dist = [
     { name = "microsoft-teams-api", editable = "packages/api" },
     { name = "microsoft-teams-apps", editable = "packages/apps" },
     { name = "microsoft-teams-devtools", editable = "packages/devtools" },
+]
+
+[[package]]
+name = "targeted-messages"
+version = "0.1.0"
+source = { virtual = "examples/targeted-messages" }
+dependencies = [
+    { name = "microsoft-teams-api" },
+    { name = "microsoft-teams-apps" },
+    { name = "microsoft-teams-devtools" },
+    { name = "python-dotenv" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "microsoft-teams-api", editable = "packages/api" },
+    { name = "microsoft-teams-apps", editable = "packages/apps" },
+    { name = "microsoft-teams-devtools", editable = "packages/devtools" },
+    { name = "python-dotenv", specifier = ">=1.0.0" },
 ]
 
 [[package]]

@@ -1,0 +1,14 @@
+[project]
+name = "targeted-messages"
+version = "0.1.0"
+description = "Targeted messages example - demonstrates sending private messages to specific users"
+readme = "README.md"
+requires-python = ">=3.12,<3.14"
+dependencies = [
+    "microsoft-teams-apps",
+    "microsoft-teams-api",
+    "microsoft-teams-devtools"
+]
+
+[tool.uv.sources]
+microsoft-teams-apps = { workspace = true }

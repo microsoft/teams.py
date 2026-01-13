@@ -57,7 +57,7 @@ class ConversationActivityClient(BaseClient):
         response = await self.http.post(
             url,
             json=activity.model_dump(by_alias=True, exclude_none=True),
-            params=params or None,
+            params=params,
         )
 
         # Note: Typing activities (non-streaming) always produce empty responses.
@@ -89,7 +89,7 @@ class ConversationActivityClient(BaseClient):
         response = await self.http.put(
             url,
             json=activity.model_dump(by_alias=True),
-            params=params or None,
+            params=params,
         )
         id = response.json()["id"]
         return SentActivity(id=id, activity_params=activity)
@@ -120,7 +120,7 @@ class ConversationActivityClient(BaseClient):
         response = await self.http.post(
             url,
             json=activity_json,
-            params=params or None,
+            params=params,
         )
         id = response.json()["id"]
         return SentActivity(id=id, activity_params=activity)
@@ -139,7 +139,7 @@ class ConversationActivityClient(BaseClient):
         if is_targeted:
             params["isTargetedActivity"] = "true"
 
-        await self.http.delete(url, params=params or None)
+        await self.http.delete(url, params=params)
 
     async def get_members(self, conversation_id: str, activity_id: str) -> List[Account]:
         """
