@@ -13,9 +13,8 @@ import re
 
 from microsoft_teams.api import MessageActivity, MessageActivityInput
 from microsoft_teams.apps import ActivityContext, App
-from microsoft_teams.devtools import DevToolsPlugin
 
-app = App(plugins=[DevToolsPlugin()])
+app = App()
 
 
 @app.on_message_pattern(re.compile(r"^targeted-update$", re.IGNORECASE))
