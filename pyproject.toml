@@ -25,6 +25,9 @@ dev = [
     "ruff>=0.11.13",
     "pyright>=1.1.404",
     "cookiecutter>=2.6.0",
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+    "pytest-cov>=6.0.0",
 ]
 
 [tool.ruff]
@@ -51,6 +54,34 @@ fmt = "ruff format"
 lint = "ruff check"
 check = ["fmt", "lint"]
 test = "pytest"
+test-cov = "pytest --cov=packages --cov-report=term-missing --cov-report=html"
+test-cov-xml = "pytest --cov=packages --cov-report=xml"
+
+[tool.coverage.run]
+source = ["packages"]
+omit = [
+    "*/tests/*",
+    "*/test_*.py",
+    "*/__pycache__/*",
+    "*/venv/*",
+    "*/.venv/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "@abstractmethod",
+]
+precision = 2
+show_missing = true
+
+[tool.coverage.html]
+directory = "htmlcov"
 
 [tool.hatch.build.targets.wheel]
 packages = ["packages/*"]
