@@ -5,10 +5,10 @@ on:
     types: [opened, synchronize, ready_for_review, reopened]
     # Optional: Only run on specific file changes
     # paths:
-    #   - "src/**/*.ts"
-    #   - "src/**/*.tsx"
-    #   - "src/**/*.js"
-    #   - "src/**/*.jsx"
+    #   - "packages/**/*.py"
+    #   - "tests/**/*.py"
+    #   - "scripts/**/*.py"
+    #   - "pyproject.toml"
 
 jobs:
   claude-review:
