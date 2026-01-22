@@ -10,19 +10,19 @@ from ...models import ActivityBase, CustomBaseModel
 
 
 class MeetingEndEventValue(CustomBaseModel):
-    id: str
+    Id: str
     """The meeting's Id, encoded as a BASE64 string."""
 
-    meeting_type: str
+    MeetingType: str
     """Type of the meeting"""
 
-    join_url: str
+    JoinUrl: str
     """URL to join the meeting"""
 
-    title: str
+    Title: str
     """Title of the meeting."""
 
-    end_time: datetime
+    EndTime: datetime
     """Timestamp for meeting end, in UTC."""
 
 

@@ -14,27 +14,27 @@ class MeetingStartEventValue(CustomBaseModel):
     The value associated with a meeting start event in Microsoft Teams.
     """
 
-    id: str
+    Id: str
     """
     The meeting's Id, encoded as a BASE64 string.
     """
 
-    meeting_type: str
+    MeetingType: str
     """
     Type of the meeting
     """
 
-    join_url: str
+    JoinUrl: str
     """
     URL to join the meeting
     """
 
-    title: str
+    Title: str
     """
     The title of the meeting
     """
 
-    start_time: datetime
+    StartTime: datetime
     """
     Timestamp for meeting start, in UTC.
     """
