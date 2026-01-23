@@ -60,7 +60,7 @@ async def handle_meeting_end(ctx: ActivityContext[MeetingEndEventActivity]):
 async def handle_meeting_participant_join(ctx: ActivityContext[MeetingParticipantJoinEventActivity]):
     meeting_data = ctx.activity.value
     member = meeting_data.members[0].user.name
-    role = meeting_data.members[0].meeting.role
+    role = meeting_data.members[0].meeting.role if hasattr(meeting_data.members[0].meeting, "role") else "a participant"
 
     card = AdaptiveCard(
         body=[

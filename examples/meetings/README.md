@@ -8,7 +8,7 @@ There are a few requirements in the Teams app manifest (manifest.json) to suppor
 
 1) The `scopes` section must include `team`, and `groupChat`:
 
-```csharp
+```json
  "bots": [
         {
             "botId": "",
@@ -24,7 +24,7 @@ There are a few requirements in the Teams app manifest (manifest.json) to suppor
 
 2) In the authorization section, make sure to specify the following resource-specific permissions:
 
-```csharp
+```json
  "authorization":{
         "permissions":{
             "resourceSpecific":[
