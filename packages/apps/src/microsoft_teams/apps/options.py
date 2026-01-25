@@ -50,6 +50,14 @@ class AppOptions(TypedDict, total=False):
     api_client_settings: Optional[ApiClientSettings]
     """API client settings used for overriding."""
 
+    # Service URL
+    service_url: Optional[str]
+    """
+    Base Service URL for BotBackend.
+    Uses environment variable SERVICE_URL if not provided
+    and defaults to https://smba.trafficmanager.net/teams
+    """
+
 
 @dataclass
 class InternalAppOptions:
@@ -81,6 +89,12 @@ class InternalAppOptions:
     """
     logger: Optional[Logger] = None
     storage: Optional[Storage[str, Any]] = None
+    service_url: Optional[str] = None
+    """
+    Base Service URL for BotBackend.
+    Uses environment variable SERVICE_URL if not provided
+    and defaults to https://smba.trafficmanager.net/teams
+    """
 
     @classmethod
     def from_typeddict(cls, options: AppOptions) -> "InternalAppOptions":
