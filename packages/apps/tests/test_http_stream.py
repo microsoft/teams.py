@@ -141,7 +141,7 @@ class TestHttpStream:
             stream.emit("Test message with all timeouts")
             await asyncio.sleep(0)
             await self._run_scheduled_flushes(scheduled)
-            assert call_count == 5
+            assert call_count == 8
             await stream.close()
 
     @pytest.mark.asyncio

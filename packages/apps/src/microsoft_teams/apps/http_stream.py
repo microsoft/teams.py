@@ -8,7 +8,6 @@ from collections import deque
 from logging import Logger
 from typing import Awaitable, Callable, List, Optional, Union
 
-from httpx import HTTPStatusError
 from microsoft_teams.api import (
     ApiClient,
     Attachment,
@@ -221,37 +220,12 @@ class HttpStream(StreamerProtocol):
 
             # Send informative updates immediately
             for typing_update in informative_updates:
-                try:
-                    await self._send_activity(typing_update)
-                except HTTPStatusError as err:
-                    if err.response.status_code == 429:
-                        self._logger.debug("Rate limited while sending informative update, will retry on next flush")
-                        # Put the update back in the queue to retry later
-                        self._queue.appendleft(typing_update)
-                    else:
-                        self._logger.error(
-                            f"HTTP error {err.response.status_code} while sending informative update", exc_info=err
-                        )
-                except Exception as err:
-                    self._logger.error("Failed to send informative update", exc_info=err)
+                await self._send_activity(typing_update)
 
             # Send the combined text chunk
             if self._text:
                 to_send = TypingActivityInput(text=self._text)
-                try:
-                    await self._send_activity(to_send)
-                except HTTPStatusError as err:
-                    if err.response.status_code == 429:
-                        self._logger.debug("Rate limited while sending text chunk, will retry on next flush")
-                        # Put the text back to be sent on next flush
-                        self._queue.appendleft(MessageActivityInput(text=self._text))
-                        self._text = ""
-                    else:
-                        self._logger.error(
-                            f"HTTP error {err.response.status_code} while sending text chunk", exc_info=err
-                        )
-                except Exception as err:
-                    self._logger.error("Failed to send text chunk", exc_info=err)
+                await self._send_activity(to_send)
 
             # If more queued, schedule another flush
             if self._queue and not self._timeout:
@@ -276,7 +250,10 @@ class HttpStream(StreamerProtocol):
             to_send = to_send.with_id(self._id)
         to_send = to_send.add_stream_update(self._index)
 
-        res = await retry(lambda: self._send(to_send), options=RetryOptions(logger=self._logger))
+        res = await retry(
+            lambda: self._send(to_send),
+            options=RetryOptions(logger=self._logger, max_delay=4.0, jitter_type="none", max_attempts=8),
+        )
         self._events.emit("chunk", res)
         self._index += 1
         if self._id is None:
