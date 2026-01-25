@@ -8,6 +8,7 @@ from collections import deque
 from logging import Logger
 from typing import Awaitable, Callable, List, Optional, Union
 
+from httpx import HTTPStatusError
 from microsoft_teams.api import (
     ApiClient,
     Attachment,
@@ -62,6 +63,7 @@ class HttpStream(StreamerProtocol):
         self._timeout: Optional[asyncio.TimerHandle] = None
         self._pending: Optional[asyncio.Task[None]] = None
         self._total_wait_timeout: float = 30.0
+        self._state_changed = asyncio.Event()
 
         self._reset_state()
 
@@ -126,8 +128,8 @@ class HttpStream(StreamerProtocol):
 
         async def _poll():
             while self._queue or not self._id:
-                self._logger.debug("waiting for _id to be set or queue to be empty")
-                await asyncio.sleep(0.1)
+                await self._state_changed.wait()
+                self._state_changed.clear()
 
         try:
             await asyncio.wait_for(_poll(), timeout=self._total_wait_timeout)
@@ -219,16 +221,44 @@ class HttpStream(StreamerProtocol):
 
             # Send informative updates immediately
             for typing_update in informative_updates:
-                await self._send_activity(typing_update)
+                try:
+                    await self._send_activity(typing_update)
+                except HTTPStatusError as err:
+                    if err.response.status_code == 429:
+                        self._logger.debug("Rate limited while sending informative update, will retry on next flush")
+                        # Put the update back in the queue to retry later
+                        self._queue.appendleft(typing_update)
+                    else:
+                        self._logger.error(
+                            f"HTTP error {err.response.status_code} while sending informative update", exc_info=err
+                        )
+                except Exception as err:
+                    self._logger.error("Failed to send informative update", exc_info=err)
 
             # Send the combined text chunk
             if self._text:
                 to_send = TypingActivityInput(text=self._text)
-                await self._send_activity(to_send)
+                try:
+                    await self._send_activity(to_send)
+                except HTTPStatusError as err:
+                    if err.response.status_code == 429:
+                        self._logger.debug("Rate limited while sending text chunk, will retry on next flush")
+                        # Put the text back to be sent on next flush
+                        self._queue.appendleft(MessageActivityInput(text=self._text))
+                        self._text = ""
+                    else:
+                        self._logger.error(
+                            f"HTTP error {err.response.status_code} while sending text chunk", exc_info=err
+                        )
+                except Exception as err:
+                    self._logger.error("Failed to send text chunk", exc_info=err)
 
             # If more queued, schedule another flush
             if self._queue and not self._timeout:
                 self._timeout = asyncio.get_running_loop().call_later(0.5, lambda: asyncio.create_task(self._flush()))
+
+            # Notify that queue state has changed
+            self._state_changed.set()
 
         finally:
             # Reset flushing flag so future emits can trigger another flush
@@ -251,6 +281,7 @@ class HttpStream(StreamerProtocol):
         self._index += 1
         if self._id is None:
             self._id = res.id
+            self._state_changed.set()  # Notify that _id has been set
 
     async def _send(self, to_send: Union[TypingActivityInput, MessageActivityInput]) -> SentActivity:
         """
