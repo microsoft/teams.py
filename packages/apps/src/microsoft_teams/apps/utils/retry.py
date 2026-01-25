@@ -106,9 +106,5 @@ async def retry(factory: Callable[[], Awaitable[T]], options: Optional[RetryOpti
                     _internal_logger=logger,  # Pass the existing logger to avoid nested children
                 ),
             )
-        # Log 429 rate limit errors at debug level since they're expected and handled gracefully
-        if isinstance(err, HTTPStatusError) and err.response.status_code == 429:
-            logger.debug("Final attempt failed due to rate limiting (429).", exc_info=err)
-        else:
-            logger.error("Final attempt failed.", exc_info=err)
+        logger.error("Final attempt failed.", exc_info=err)
         raise
