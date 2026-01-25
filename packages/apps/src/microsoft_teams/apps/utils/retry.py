@@ -8,7 +8,6 @@ import random
 from logging import Logger
 from typing import Awaitable, Callable, Literal, Optional, TypeVar
 
-from httpx import HTTPStatusError
 from microsoft_teams.common import ConsoleLogger
 
 T = TypeVar("T")
