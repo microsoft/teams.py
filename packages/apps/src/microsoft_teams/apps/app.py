@@ -98,8 +98,12 @@ class App(ActivityHandlerMixin):
         self.container.set_provider("storage", providers.Object(self.storage))
         self.container.set_provider(self.http_client.__class__.__name__, providers.Factory(lambda: self.http_client))
 
+        service_url = (
+            self.options.service_url or os.getenv("SERVICE_URL") or "https://smba.trafficmanager.net/teams"
+        ).rstrip("/")
+
         self.api = ApiClient(
-            "https://smba.trafficmanager.net/teams",
+            service_url,
             self.http_client.clone(ClientOptions(token=self._get_bot_token)),
             self.options.api_client_settings,
         )

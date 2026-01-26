@@ -5,6 +5,7 @@ Licensed under the MIT License.
 # pyright: basic
 
 import asyncio
+import os
 from typing import Optional
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -663,3 +664,89 @@ class TestApp:
         # Should use ClientCredentials, not ManagedIdentityCredentials
         assert type(app.credentials).__name__ == "ClientCredentials"
         assert app.credentials.client_id == "test-client-id"
+
+    def test_service_url_default(self, mock_logger, mock_storage):
+        """Test that app uses default service URL when no configuration provided."""
+        options = AppOptions(
+            logger=mock_logger,
+            storage=mock_storage,
+            client_id="test-client-id",
+            client_secret="test-client-secret",
+        )
+
+        with patch.dict("os.environ", {}, clear=False):
+            # Ensure SERVICE_URL is not in environment
+            if "SERVICE_URL" in os.environ:
+                del os.environ["SERVICE_URL"]
+
+            app = App(**options)
+            assert app.api.service_url == "https://smba.trafficmanager.net/teams"
+
+    def test_service_url_from_environment(self, mock_logger, mock_storage):
+        """Test that app uses service URL from environment variable."""
+        options = AppOptions(
+            logger=mock_logger,
+            storage=mock_storage,
+            client_id="test-client-id",
+            client_secret="test-client-secret",
+        )
+
+        with patch.dict("os.environ", {"SERVICE_URL": "https://custom.service.url/teams"}, clear=False):
+            app = App(**options)
+            assert app.api.service_url == "https://custom.service.url/teams"
+
+    def test_service_url_from_options(self, mock_logger, mock_storage):
+        """Test that app uses service URL from options when provided."""
+        options = AppOptions(
+            logger=mock_logger,
+            storage=mock_storage,
+            client_id="test-client-id",
+            client_secret="test-client-secret",
+            service_url="https://options.service.url/teams",
+        )
+
+        with patch.dict("os.environ", {"SERVICE_URL": "https://env.service.url/teams"}, clear=False):
+            app = App(**options)
+            # Options should take precedence over environment
+            assert app.api.service_url == "https://options.service.url/teams"
+
+    def test_service_url_priority(self, mock_logger, mock_storage):
+        """Test that service URL prioritizes options > env > default."""
+        # Test 1: Default when neither option nor env provided
+        options1 = AppOptions(
+            logger=mock_logger,
+            storage=mock_storage,
+            client_id="test-client-id",
+            client_secret="test-client-secret",
+        )
+
+        with patch.dict("os.environ", {}, clear=False):
+            if "SERVICE_URL" in os.environ:
+                del os.environ["SERVICE_URL"]
+            app1 = App(**options1)
+            assert app1.api.service_url == "https://smba.trafficmanager.net/teams"
+
+        # Test 2: Environment when provided but option not set
+        options2 = AppOptions(
+            logger=mock_logger,
+            storage=mock_storage,
+            client_id="test-client-id",
+            client_secret="test-client-secret",
+        )
+
+        with patch.dict("os.environ", {"SERVICE_URL": "https://env.service.url/teams"}, clear=False):
+            app2 = App(**options2)
+            assert app2.api.service_url == "https://env.service.url/teams"
+
+        # Test 3: Options when both option and env provided
+        options3 = AppOptions(
+            logger=mock_logger,
+            storage=mock_storage,
+            client_id="test-client-id",
+            client_secret="test-client-secret",
+            service_url="https://options.service.url/teams",
+        )
+
+        with patch.dict("os.environ", {"SERVICE_URL": "https://env.service.url/teams"}, clear=False):
+            app3 = App(**options3)
+            assert app3.api.service_url == "https://options.service.url/teams"
