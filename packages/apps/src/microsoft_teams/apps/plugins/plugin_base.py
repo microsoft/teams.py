@@ -3,15 +3,11 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from microsoft_teams.api.activities import ActivityParams, SentActivity
-from microsoft_teams.api.models.conversation import ConversationReference
-
 from .plugin_activity_event import PluginActivityEvent
 from .plugin_activity_response_event import PluginActivityResponseEvent
 from .plugin_activity_sent_event import PluginActivitySentEvent
 from .plugin_error_event import PluginErrorEvent
 from .plugin_start_event import PluginStartEvent
-from .streamer import StreamerProtocol
 
 
 class PluginBase:
@@ -43,12 +39,4 @@ class PluginBase:
 
     async def on_activity_response(self, event: PluginActivityResponseEvent) -> None:
         """Called by the App when an activity response is sent."""
-        ...
-
-    async def send(self, activity: ActivityParams, ref: ConversationReference) -> SentActivity:
-        """Called by the App to send an activity"""
-        ...
-
-    def create_stream(self, ref: ConversationReference) -> StreamerProtocol:
-        """Called by the App to create a new activity stream"""
         ...
