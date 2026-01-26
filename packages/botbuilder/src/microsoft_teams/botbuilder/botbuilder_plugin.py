@@ -16,6 +16,7 @@ from microsoft_teams.apps import (
     LoggerDependencyOptions,
     Plugin,
 )
+from microsoft_teams.apps.events import CoreActivity
 from microsoft_teams.apps.http_plugin import HttpPluginOptions
 
 from botbuilder.core import (
@@ -92,13 +93,13 @@ class BotBuilderPlugin(HttpPlugin):
 
             self.logger.debug("BotBuilder plugin initialized successfully")
 
-    async def on_activity_request(self, request: Request, response: Response) -> Any:
+    async def on_activity_request(self, core_activity: CoreActivity, request: Request, response: Response) -> Any:
         """
         Handles an incoming activity.
 
         Overrides the base HTTP plugin behavior to:
         1. Process the activity using the Bot Framework adapter/handler.
-        2. Then pass the request to the Teams plugin pipeline (_handle_activity_request).
+        2. Then pass the request to the parent Teams plugin pipeline.
 
         Returns the final HTTP response.
         """
@@ -106,9 +107,9 @@ class BotBuilderPlugin(HttpPlugin):
             raise RuntimeError("plugin not registered")
 
         try:
-            # Parse activity data
-            body = await request.json()
-            activity_bf = cast(Activity, Activity().deserialize(body))
+            # Parse activity data from core_activity
+            activity_dict = core_activity.model_dump(by_alias=True, exclude_none=True)
+            activity_bf = cast(Activity, Activity().deserialize(activity_dict))
 
             # A POST request must contain an Activity
             if not activity_bf.type:
@@ -126,9 +127,8 @@ class BotBuilderPlugin(HttpPlugin):
             auth_header = request.headers["Authorization"] if "Authorization" in request.headers else ""
             await self.adapter.process_activity(auth_header, activity_bf, logic)
 
-            # Call HTTP plugin to handle activity request
-            result = await self._handle_activity_request(request)
-            return self._handle_activity_response(response, result)
+            # Call parent's on_activity_request to handle Teams processing
+            return await super().on_activity_request(core_activity, request, response)
 
         except HTTPException as http_err:
             self.logger.error(f"HTTP error processing activity: {http_err}", exc_info=True)

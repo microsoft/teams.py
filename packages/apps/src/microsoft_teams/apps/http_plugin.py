@@ -225,17 +225,17 @@ class HttpPlugin(PluginBase):
         """
         self.logger.debug(f"Completing activity response for {event.activity.id}")
 
-    async def _process_activity(self, body: CoreActivity, token: TokenProtocol) -> InvokeResponse[Any]:
+    async def _process_activity(self, core_activity: CoreActivity, token: TokenProtocol) -> InvokeResponse[Any]:
         """
         Process an activity via the registered handler.
 
         Args:
-            body: The activity body payload
+            core_activity: The core activity payload
             token: The authorization token (if any)
         """
         result: InvokeResponse[Any]
         try:
-            event = ActivityEvent(body=body, token=token)
+            event = ActivityEvent(body=core_activity, token=token)
             if asyncio.iscoroutinefunction(self.on_activity_event):
                 result = await self.on_activity_event(event)
             else:
@@ -282,7 +282,7 @@ class HttpPlugin(PluginBase):
         self.logger.debug("Returning empty body")
         return response
 
-    async def on_activity_request(self, body: CoreActivity, request: Request, response: Response) -> Any:
+    async def on_activity_request(self, core_activity: CoreActivity, request: Request, response: Response) -> Any:
         """Handle incoming Teams activity."""
         # Get validated token from middleware (if present - will be missing if skip_auth is True)
         if hasattr(request.state, "validated_token") and request.state.validated_token:
@@ -294,21 +294,21 @@ class HttpPlugin(PluginBase):
                     app_id="",
                     app_display_name="",
                     tenant_id="",
-                    service_url=body.service_url or "",
+                    service_url=core_activity.service_url or "",
                     from_="azure",
                     from_id="",
                     is_expired=lambda: False,
                 ),
             )
 
-        activity_type = body.type or "unknown"
-        activity_id = body.id or "unknown"
+        activity_type = core_activity.type or "unknown"
+        activity_id = core_activity.id or "unknown"
 
         self.logger.debug(f"Received activity: {activity_type} (ID: {activity_id})")
         self.logger.debug(f"Processing activity {activity_id} via handler...")
 
         # Process the activity
-        result = await self._process_activity(body, token)
+        result = await self._process_activity(core_activity, token)
         return self._handle_activity_response(response, result)
 
     def _setup_routes(self) -> None:
