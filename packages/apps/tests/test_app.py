@@ -179,24 +179,15 @@ class TestApp:
             activity_events.append(event)
             event_received.set()
 
-        from_account = Account(id="bot-123", name="Test Bot", role="bot")
-        recipient = Account(id="user-456", name="Test User", role="user")
-        conversation = ConversationAccount(id="conv-789", conversation_type="personal")
+        from microsoft_teams.apps.events import CoreActivity
 
-        activity = MessageActivity(
+        core_activity = CoreActivity(
             type="message",
             id="test-activity-id",
-            text="Hello, world!",
-            from_=from_account,
-            recipient=recipient,
-            conversation=conversation,
-            channel_id="msteams",
         )
 
-        plugin = app_with_activity_handler.http
-
         await app_with_activity_handler.event_manager.on_activity(
-            ActivityEvent(activity=activity, sender=plugin, token=FakeToken())
+            ActivityEvent(body=core_activity, token=FakeToken())
         )
 
         # Wait for the async event handler to complete
@@ -205,12 +196,9 @@ class TestApp:
         # Verify event was emitted
         assert len(activity_events) == 1
         assert isinstance(activity_events[0], ActivityEvent)
-        # The event contains the parsed output model, not the input model
-        assert activity_events[0].activity.id == activity.id
-        assert activity_events[0].activity.type == activity.type
-        # Check text only if it's a MessageActivity
-        if hasattr(activity_events[0].activity, "text"):
-            assert activity_events[0].activity.text == activity.text
+        # The event contains the core activity
+        assert activity_events[0].body.id == core_activity.id
+        assert activity_events[0].body.type == core_activity.type
 
     @pytest.mark.asyncio
     async def test_multiple_event_handlers(self, app_with_options: App) -> None:
@@ -236,22 +224,15 @@ class TestApp:
             if received_count == 2:
                 both_received.set()
 
-        from_account = Account(id="bot-123", name="Test Bot", role="bot")
-        recipient = Account(id="user-456", name="Test User", role="user")
-        conversation = ConversationAccount(id="conv-789", conversation_type="personal")
+        from microsoft_teams.apps.events import CoreActivity
 
-        activity = MessageActivity(
+        core_activity = CoreActivity(
             type="message",
             id="test-activity-id",
-            text="Hello, world!",
-            from_=from_account,
-            recipient=recipient,
-            conversation=conversation,
-            channel_id="msteams",
         )
 
         await app_with_options.event_manager.on_activity(
-            ActivityEvent(activity=activity, sender=app_with_options.http, token=FakeToken())
+            ActivityEvent(body=core_activity, token=FakeToken())
         )
 
         # Wait for both async event handlers to complete
@@ -260,8 +241,8 @@ class TestApp:
         # Both handlers should have received the event
         assert len(activity_events_1) == 1
         assert len(activity_events_2) == 1
-        assert activity_events_1[0].activity == activity
-        assert activity_events_2[0].activity == activity
+        assert activity_events_1[0].body == core_activity
+        assert activity_events_2[0].body == core_activity
 
     # Generated Handler Tests
 
