@@ -49,7 +49,7 @@ class TestFunctionContextSend:
             id="bot-123",
             name="Test Bot",
             api=mock_api,
-            http=mock_http,
+            activity_sender=mock_http,
             log=mock_logger,
             data={"some": "payload"},
             app_session_id="dummy-session",

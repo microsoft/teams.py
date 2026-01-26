@@ -77,7 +77,7 @@ class TestHttpPlugin:
         response_data = InvokeResponse(body=cast(ConfigResponse, {"status": "success"}), status=200)
         await plugin_without_validator.on_activity_response(
             PluginActivityResponseEvent(
-                sender=plugin_without_validator,
+                
                 activity=mock_activity,
                 response=response_data,
                 conversation_ref=mock_reference,
@@ -97,7 +97,7 @@ class TestHttpPlugin:
 
         error = ValueError("Test error")
         await plugin_with_validator.on_error(
-            PluginErrorEvent(sender=plugin_with_validator, activity=mock_activity, error=error)
+            PluginErrorEvent(activity=mock_activity, error=error)
         )
 
     @pytest.mark.asyncio
@@ -207,18 +207,22 @@ class TestHttpPlugin:
                 recipient=mock_account,
             ),
         )
+        from microsoft_teams.apps.events import CoreActivity
+
         mock_request.json.return_value = activity.model_dump()
         mock_request.state = MagicMock()
         mock_request.state.validated_token = None
 
         mock_response = MagicMock(spec=Response)
 
-        result = await plugin_without_validator.on_activity_request(mock_request, mock_response)
+        # Convert activity to CoreActivity
+        core_activity = CoreActivity(**activity.model_dump())
+
+        result = await plugin_without_validator.on_activity_request(core_activity, mock_request, mock_response)
 
         mock_handler.assert_called_once()
         call_args = mock_handler.call_args[0][0]
         assert isinstance(call_args, ActivityEvent)
-        assert call_args.sender == plugin_without_validator
 
         assert result == expected_body
 
@@ -243,13 +247,18 @@ class TestHttpPlugin:
                 recipient=mock_account,
             ),
         )
+        from microsoft_teams.apps.events import CoreActivity
+
         mock_request.json.return_value = activity.model_dump()
         mock_request.state = MagicMock()
         mock_request.state.validated_token = None
 
         mock_response = MagicMock(spec=Response)
 
-        result = await plugin_without_validator.on_activity_request(mock_request, mock_response)
+        # Convert activity to CoreActivity
+        core_activity = CoreActivity(**activity.model_dump())
+
+        result = await plugin_without_validator.on_activity_request(core_activity, mock_request, mock_response)
 
         mock_handler.assert_called_once()
         # Exception is logged directly at exception site
