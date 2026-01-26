@@ -16,21 +16,38 @@ from microsoft_teams.api import (
     TokenProtocol,
     TokenResponse,
 )
+from pydantic import BaseModel, ConfigDict
 
-from ..plugins import PluginBase, Sender
 from ..routing import ActivityContext
+
+
+class CoreActivity(BaseModel):
+    """
+    Core activity fields that all transports need to know about.
+    Extensible for protocol-specific fields via extra="allow".
+    """
+
+    model_config = ConfigDict(extra="allow")
+
+    service_url: Optional[str] = None
+    """Service URL for routing"""
+
+    id: Optional[str] = None
+    """Activity ID for correlation"""
+
+    type: Optional[str] = None
+    """Activity type for basic routing"""
 
 
 @dataclass
 class ActivityEvent:
     """Event emitted when an activity is processed."""
 
-    activity: Activity
-    sender: Sender
+    body: CoreActivity
     token: TokenProtocol
 
     def __repr__(self) -> str:
-        return f"ActivityEvent(activity={self.activity}, token={self.token}, sender={self.sender})"
+        return f"ActivityEvent(body={self.body}, token={self.token})"
 
 
 @dataclass
@@ -40,29 +57,24 @@ class ErrorEvent:
     error: Exception
     context: Optional[Dict[str, Any]] = None
     activity: Optional[Activity] = None
-    sender: Optional[PluginBase] = None
 
     def __post_init__(self) -> None:
         if self.context is None:
             self.context = {}
 
     def __repr__(self) -> str:
-        return f"ErrorEvent(error={self.error}, context={self.context}, activity={self.activity}, sender={self.sender})"
+        return f"ErrorEvent(error={self.error}, context={self.context}, activity={self.activity})"
 
 
 @dataclass
 class ActivitySentEvent:
-    """Event emitted by a plugin when an activity is sent."""
+    """Event emitted when an activity is sent."""
 
-    sender: Sender
     activity: SentActivity
     conversation_ref: ConversationReference
 
     def __repr__(self) -> str:
-        return (
-            f"ActivitySentEvent(sender={self.sender}, activity={self.activity}, "
-            + f"conversation_ref={self.conversation_ref})"
-        )
+        return f"ActivitySentEvent(activity={self.activity}, conversation_ref={self.conversation_ref})"
 
 
 @dataclass

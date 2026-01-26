@@ -29,6 +29,7 @@ from microsoft_teams.api import (
 from microsoft_teams.cards import AdaptiveCard
 from microsoft_teams.common import Client, ClientOptions, ConsoleLogger, EventEmitter, LocalStorage
 
+from .activity_sender import ActivitySender
 from .app_events import EventManager
 from .app_oauth import OauthHandlers
 from .app_plugins import PluginProcessor
@@ -123,6 +124,11 @@ class App(ActivityHandlerMixin):
         self._port: Optional[int] = None
         self._running = False
 
+        # initialize ActivitySender for sending activities
+        self.activity_sender = ActivitySender(
+            self.http_client.clone(ClientOptions(token=self._get_bot_token)), self.log
+        )
+
         # initialize all event, activity, and plugin processors
         self.activity_processor = ActivityProcessor(
             self._router,
@@ -133,6 +139,7 @@ class App(ActivityHandlerMixin):
             self.http_client,
             self._token_manager,
             self.options.api_client_settings,
+            self.activity_sender,
         )
         self.event_manager = EventManager(self._events)
         self.activity_processor.event_manager = self.event_manager
@@ -279,7 +286,7 @@ class App(ActivityHandlerMixin):
         else:
             activity = activity
 
-        return await self.http.send(activity, conversation_ref)
+        return await self.activity_sender.send(activity, conversation_ref)
 
     def use(self, middleware: Callable[[ActivityContext[ActivityBase]], Awaitable[None]]) -> None:
         """Add middleware to run on all activities."""
@@ -471,7 +478,7 @@ class App(ActivityHandlerMixin):
                     ctx = FunctionContext(
                         id=self.id,
                         api=self.api,
-                        http=self.http,
+                        activity_sender=self.activity_sender,
                         log=self.log,
                         data=await r.json(),
                         **r.state.context.__dict__,

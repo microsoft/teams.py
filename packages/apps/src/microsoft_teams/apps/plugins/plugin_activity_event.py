@@ -3,12 +3,9 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from typing import TYPE_CHECKING, NamedTuple, Optional
+from typing import NamedTuple
 
 from microsoft_teams.api import Activity, ConversationReference, TokenProtocol
-
-if TYPE_CHECKING:
-    from .sender import Sender
 
 
 class PluginActivityEvent(NamedTuple):
@@ -22,6 +19,3 @@ class PluginActivityEvent(NamedTuple):
 
     conversation_ref: ConversationReference
     """The conversation reference for the activity"""
-
-    sender: Optional["Sender"] = None
-    """The sender"""

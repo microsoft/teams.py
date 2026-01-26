@@ -21,7 +21,7 @@ from microsoft_teams.api import (
 )
 from microsoft_teams.cards import AdaptiveCard
 
-from ..http_plugin import HttpPlugin
+from ..activity_sender import ActivitySender
 from .client_context import ClientContext
 
 T = TypeVar("T")
@@ -42,8 +42,8 @@ class FunctionContext(ClientContext, Generic[T]):
     api: ApiClient
     """The API client instance for conversation client."""
 
-    http: HttpPlugin
-    """The HTTP plugin instance for sending messages."""
+    activity_sender: ActivitySender
+    """The activity sender instance for sending messages."""
 
     log: Logger
     """The app logger instance."""
@@ -80,7 +80,7 @@ class FunctionContext(ClientContext, Generic[T]):
         else:
             activity = activity
 
-        return await self.http.send(activity, conversation_ref)
+        return await self.activity_sender.send(activity, conversation_ref)
 
     async def _resolve_conversation_id(self, activity: str | ActivityParams | AdaptiveCard) -> Optional[str]:
         """Resolve or create a conversation ID for the current user/context.

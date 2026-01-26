@@ -16,9 +16,10 @@ import uvicorn
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.routing import APIRouter
 from fastapi.staticfiles import StaticFiles
-from microsoft_teams.api import Activity, ActivityParams, ConversationReference, SentActivity, TokenProtocol
+from microsoft_teams.api import Activity, TokenProtocol
 from microsoft_teams.apps import (
     ActivityEvent,
+    CoreActivity,
     DependencyMetadata,
     ErrorEvent,
     EventMetadata,
@@ -28,10 +29,9 @@ from microsoft_teams.apps import (
     PluginActivityEvent,
     PluginActivityResponseEvent,
     PluginActivitySentEvent,
+    PluginBase,
     PluginErrorEvent,
     PluginStartEvent,
-    Sender,
-    StreamerProtocol,
 )
 
 from .event import DevToolsActivityEvent, DevToolsActivityReceivedEvent, DevToolsActivitySentEvent
@@ -46,7 +46,7 @@ version = importlib.metadata.version("microsoft-teams-devtools")
     version=version,
     description="set of tools to make development of Teams apps faster and simpler",
 )
-class DevToolsPlugin(Sender):
+class DevToolsPlugin(PluginBase):
     logger: Annotated[Logger, LoggerDependencyOptions()]
     id: Annotated[Optional[TokenProtocol], DependencyMetadata(optional=True)]
     http: Annotated[HttpPlugin, DependencyMetadata()]
@@ -128,7 +128,10 @@ class DevToolsPlugin(Sender):
                 response_future = asyncio.get_event_loop().create_future()
                 self.pending[activity.id] = response_future
                 try:
-                    result = self.on_activity_event(ActivityEvent(token=token, activity=activity, sender=self.http))
+                    # Convert Activity to CoreActivity
+                    activity_dict = activity.model_dump(by_alias=True, exclude_none=True)
+                    core_activity = CoreActivity.model_validate(activity_dict)
+                    result = self.on_activity_event(ActivityEvent(body=core_activity, token=token))
                     # If the handler is a coroutine, schedule it
                     if asyncio.iscoroutine(result):
                         asyncio.create_task(result)
@@ -224,12 +227,6 @@ class DevToolsPlugin(Sender):
         if promise is not None:
             promise.set_result(event.response)
             del self.pending[event.activity.id]
-
-    async def send(self, activity: ActivityParams, ref: ConversationReference) -> SentActivity:
-        return await self.http.send(activity, ref)
-
-    def create_stream(self, ref: ConversationReference) -> StreamerProtocol:
-        return self.http.create_stream(ref)
 
     async def emit_activity_to_sockets(self, event: DevToolsActivityEvent):
         data = event.model_dump(mode="json", exclude_none=True)
