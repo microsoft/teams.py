@@ -22,17 +22,17 @@ app = App()
 @app.on_meeting_start
 async def handle_meeting_start(ctx: ActivityContext[MeetingStartEventActivity]):
     meeting_data = ctx.activity.value
-    start_time = meeting_data.StartTime.strftime("%c")
+    start_time = meeting_data.start_time.strftime("%c")
 
     card = AdaptiveCard(
         body=[
             TextBlock(
-                text=f"'{meeting_data.Title}' has started at {start_time}.",
+                text=f"'{meeting_data.title}' has started at {start_time}.",
                 wrap=True,
                 weight="Bolder",
             )
         ],
-        actions=[OpenUrlAction(url=meeting_data.JoinUrl, title="Join the meeting")],
+        actions=[OpenUrlAction(url=meeting_data.join_url, title="Join the meeting")],
     )
 
     await ctx.send(card)
@@ -41,12 +41,11 @@ async def handle_meeting_start(ctx: ActivityContext[MeetingStartEventActivity]):
 @app.on_meeting_end
 async def handle_meeting_end(ctx: ActivityContext[MeetingEndEventActivity]):
     meeting_data = ctx.activity.value
-    end_time = meeting_data.EndTime.strftime("%c")
-
+    end_time = meeting_data.end_time.strftime("%c")
     card = AdaptiveCard(
         body=[
             TextBlock(
-                text=f"'{meeting_data.Title}' has ended at {end_time}.",
+                text=f"'{meeting_data.title}' has ended at {end_time}.",
                 wrap=True,
                 weight="Bolder",
             )
@@ -96,7 +95,7 @@ async def handle_meeting_participant_leave(ctx: ActivityContext[MeetingParticipa
 @app.on_message
 async def handle_message(ctx: ActivityContext[MessageActivity]):
     await ctx.reply(TypingActivityInput())
-    await ctx.send(f'you said "{ctx.activity.text}"')
+    await ctx.send("Welcome to the meetings sample! This app will notify you for meeting events.")
 
 
 if __name__ == "__main__":

@@ -6,6 +6,8 @@ Licensed under the MIT License.
 from datetime import datetime
 from typing import Literal
 
+from pydantic import Field
+
 from ...models import ActivityBase, CustomBaseModel
 
 
@@ -14,27 +16,27 @@ class MeetingStartEventValue(CustomBaseModel):
     The value associated with a meeting start event in Microsoft Teams.
     """
 
-    Id: str
+    id: str = Field(alias="Id")
     """
     The meeting's Id, encoded as a BASE64 string.
     """
 
-    MeetingType: str
+    meeting_type: str = Field(alias="MeetingType")
     """
     Type of the meeting
     """
 
-    JoinUrl: str
+    join_url: str = Field(alias="JoinUrl")
     """
-    URL to join the meeting
+    URL to join the meetng
     """
 
-    Title: str
+    title: str = Field(alias="Title")
     """
     The title of the meeting
     """
 
-    StartTime: datetime
+    start_time: datetime = Field(alias="StartTime")
     """
     Timestamp for meeting start, in UTC.
     """
