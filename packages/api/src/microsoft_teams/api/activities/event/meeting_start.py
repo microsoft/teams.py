@@ -28,7 +28,7 @@ class MeetingStartEventValue(CustomBaseModel):
 
     join_url: str = Field(alias="JoinUrl")
     """
-    URL to join the meetng
+    URL to join the meeting
     """
 
     title: str = Field(alias="Title")
