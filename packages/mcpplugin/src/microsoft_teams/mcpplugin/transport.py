@@ -31,9 +31,13 @@ async def create_streamable_http_transport(
             else:
                 resolved_headers[key] = str(value)
 
-    http_client = httpx.AsyncClient(headers=resolved_headers) if resolved_headers else None
-    async with streamable_http_client(url, http_client=http_client) as (read_stream, write_stream, _):
-        yield read_stream, write_stream
+    if resolved_headers:
+        async with httpx.AsyncClient(headers=resolved_headers) as http_client:
+            async with streamable_http_client(url, http_client=http_client) as (read_stream, write_stream, _):
+                yield read_stream, write_stream
+    else:
+        async with streamable_http_client(url) as (read_stream, write_stream, _):
+            yield read_stream, write_stream
 
 
 @asynccontextmanager
