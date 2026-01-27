@@ -62,6 +62,7 @@ class HttpStream(StreamerProtocol):
         self._timeout: Optional[asyncio.TimerHandle] = None
         self._pending: Optional[asyncio.Task[None]] = None
         self._total_wait_timeout: float = 30.0
+        self._state_changed = asyncio.Event()
 
         self._reset_state()
 
@@ -126,8 +127,8 @@ class HttpStream(StreamerProtocol):
 
         async def _poll():
             while self._queue or not self._id:
-                self._logger.debug("waiting for _id to be set or queue to be empty")
-                await asyncio.sleep(0.1)
+                await self._state_changed.wait()
+                self._state_changed.clear()
 
         try:
             await asyncio.wait_for(_poll(), timeout=self._total_wait_timeout)
@@ -230,6 +231,9 @@ class HttpStream(StreamerProtocol):
             if self._queue and not self._timeout:
                 self._timeout = asyncio.get_running_loop().call_later(0.5, lambda: asyncio.create_task(self._flush()))
 
+            # Notify that queue state has changed
+            self._state_changed.set()
+
         finally:
             # Reset flushing flag so future emits can trigger another flush
             self._pending = None
@@ -246,11 +250,15 @@ class HttpStream(StreamerProtocol):
             to_send = to_send.with_id(self._id)
         to_send = to_send.add_stream_update(self._index)
 
-        res = await retry(lambda: self._send(to_send), options=RetryOptions(logger=self._logger))
+        res = await retry(
+            lambda: self._send(to_send),
+            options=RetryOptions(logger=self._logger, max_delay=4.0, jitter_type="none", max_attempts=8),
+        )
         self._events.emit("chunk", res)
         self._index += 1
         if self._id is None:
             self._id = res.id
+            self._state_changed.set()  # Notify that _id has been set
 
     async def _send(self, to_send: Union[TypingActivityInput, MessageActivityInput]) -> SentActivity:
         """
