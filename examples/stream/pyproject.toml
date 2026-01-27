@@ -3,7 +3,7 @@ name = "stream"
 version = "0.1.0"
 description = "Streaming test app that emits messages on install"
 readme = "README.md"
-requires-python = ">=3.12,<3.14"
+requires-python = ">=3.12,<3.15"
 dependencies = [
     "dotenv>=0.9.9",
     "microsoft-teams-apps",

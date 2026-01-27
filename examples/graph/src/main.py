@@ -209,5 +209,5 @@ async def handle_error_event(event: ErrorEvent):
 
 if __name__ == "__main__":
     logger.info("Starting Teams Graph Demo Bot...")
-    port = int(os.getenv("PORT", "3979"))  # Default to 3979 if not set
+    port = int(os.getenv("PORT", "3978"))  # Default to 3978 if not set
     asyncio.run(app.start(port))

@@ -7,8 +7,9 @@ import asyncio
 from contextlib import asynccontextmanager
 from typing import Awaitable, Callable, Dict, Mapping, Optional, Union
 
+import httpx
 from mcp.client.sse import sse_client
-from mcp.client.streamable_http import streamablehttp_client
+from mcp.client.streamable_http import streamable_http_client
 
 ValueOrFactory = Union[str, Callable[[], Union[str, Awaitable[str]]]]
 
@@ -30,8 +31,13 @@ async def create_streamable_http_transport(
             else:
                 resolved_headers[key] = str(value)
 
-    async with streamablehttp_client(url, headers=resolved_headers) as (read_stream, write_stream, _):
-        yield read_stream, write_stream
+    if resolved_headers:
+        async with httpx.AsyncClient(headers=resolved_headers) as http_client:
+            async with streamable_http_client(url, http_client=http_client) as (read_stream, write_stream, _):
+                yield read_stream, write_stream
+    else:
+        async with streamable_http_client(url) as (read_stream, write_stream, _):
+            yield read_stream, write_stream
 
 
 @asynccontextmanager

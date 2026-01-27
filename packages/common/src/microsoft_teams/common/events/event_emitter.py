@@ -4,6 +4,7 @@ Licensed under the MIT License.
 """
 
 import asyncio
+import inspect
 import logging
 from typing import Any, Awaitable, Callable, Dict, Generic, List, Optional, Protocol, TypedDict, TypeVar, Union
 
@@ -104,7 +105,7 @@ class EventEmitter(EventEmitterProtocol[EventTypeT]):
             Subscription ID for removing the handler later
         """
 
-        if asyncio.iscoroutinefunction(handler):
+        if inspect.iscoroutinefunction(handler):
 
             async def once_wrapper(value: Any) -> None:  # pyright: ignore[reportRedeclaration]
                 self.off(subscription_id)
@@ -163,7 +164,7 @@ class EventEmitter(EventEmitterProtocol[EventTypeT]):
             try:
                 handler = subscription["handler"]
 
-                if asyncio.iscoroutinefunction(handler):
+                if inspect.iscoroutinefunction(handler):
                     awaitables.append(handler(value))
                 else:
                     handler(value)

@@ -4,7 +4,7 @@ version = "{{cookiecutter.version}}"
 description = "{{cookiecutter.project_short_description}}"
 authors = [{ name = "Microsoft", email = "TeamsAISDKFeedback@microsoft.com" }]
 readme = "README.md"
-requires-python = ">=3.12,<3.14"
+requires-python = ">=3.12,<3.15"
 repository = "https://github.com/microsoft/teams.py"
 keywords = ["microsoft", "teams", "ai", "bot", "agents"]
 license = "MIT"
