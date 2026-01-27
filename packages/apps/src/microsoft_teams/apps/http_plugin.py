@@ -3,8 +3,8 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-import asyncio
 import importlib.metadata
+import inspect
 from contextlib import AsyncExitStack, asynccontextmanager
 from logging import Logger
 from pathlib import Path
@@ -263,7 +263,7 @@ class HttpPlugin(Sender):
         result: InvokeResponse[Any]
         try:
             event = ActivityEvent(activity=activity, sender=self, token=token)
-            if asyncio.iscoroutinefunction(self.on_activity_event):
+            if inspect.iscoroutinefunction(self.on_activity_event):
                 result = await self.on_activity_event(event)
             else:
                 result = self.on_activity_event(event)

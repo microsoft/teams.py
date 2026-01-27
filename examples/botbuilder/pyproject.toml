@@ -3,7 +3,7 @@ name = "botbuilder"
 version = "0.1.0"
 description = "Botbuilder sample"
 readme = "README.md"
-requires-python = ">=3.12,<3.14"
+requires-python = ">=3.12,<3.15"
 dependencies = [
     "dotenv>=0.9.9",
     "botbuilder-core>=4.14.0",
