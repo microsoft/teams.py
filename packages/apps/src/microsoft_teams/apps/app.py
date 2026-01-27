@@ -29,6 +29,7 @@ from microsoft_teams.api import (
 from microsoft_teams.cards import AdaptiveCard
 from microsoft_teams.common import Client, ClientOptions, ConsoleLogger, EventEmitter, LocalStorage
 
+from .activity_sender import ActivitySender
 from .app_events import EventManager
 from .app_oauth import OauthHandlers
 from .app_plugins import PluginProcessor
@@ -126,6 +127,12 @@ class App(ActivityHandlerMixin):
 
         self._port: Optional[int] = None
         self._running = False
+        self._initialized = False
+
+        # initialize ActivitySender for sending activities
+        self.activity_sender = ActivitySender(
+            self.http_client.clone(ClientOptions(token=self._get_bot_token)), self.log
+        )
 
         # initialize all event, activity, and plugin processors
         self.activity_processor = ActivityProcessor(
@@ -137,6 +144,7 @@ class App(ActivityHandlerMixin):
             self.http_client,
             self._token_manager,
             self.options.api_client_settings,
+            self.activity_sender,
         )
         self.event_manager = EventManager(self._events)
         self.activity_processor.event_manager = self.event_manager
@@ -191,6 +199,32 @@ class App(ActivityHandlerMixin):
             return None
         return self.credentials.client_id
 
+    async def initialize(self) -> None:
+        """
+        Initialize the Teams application without starting the HTTP server.
+
+        This method sets up credentials, token manager, activity sender, and plugins,
+        allowing you to use app.send() for proactive messaging without running a server.
+        """
+        if self._initialized:
+            self.log.warning("App is already initialized")
+            return
+
+        try:
+            for plugin in self.plugins:
+                # Inject the dependencies
+                self._plugin_processor.inject(plugin)
+                if hasattr(plugin, "on_init") and callable(plugin.on_init):
+                    await plugin.on_init()
+
+            self._initialized = True
+            self.log.info("Teams app initialized successfully (without HTTP server)")
+
+        except Exception as error:
+            self.log.error(f"Failed to initialize app: {error}")
+            self._events.emit("error", ErrorEvent(error, context={"method": "initialize"}))
+            raise
+
     async def start(self, port: Optional[int] = None) -> None:
         """
         Start the Teams application and begin serving HTTP requests.
@@ -208,11 +242,9 @@ class App(ActivityHandlerMixin):
         self._port = port or int(os.getenv("PORT", "3978"))
 
         try:
-            for plugin in self.plugins:
-                # Inject the dependencies
-                self._plugin_processor.inject(plugin)
-                if hasattr(plugin, "on_init") and callable(plugin.on_init):
-                    await plugin.on_init()
+            # Initialize the app if not already initialized
+            if not self._initialized:
+                await self.initialize()
 
             # Set callback and start HTTP plugin
             async def on_http_ready() -> None:
@@ -266,8 +298,11 @@ class App(ActivityHandlerMixin):
     async def send(self, conversation_id: str, activity: str | ActivityParams | AdaptiveCard):
         """Send an activity proactively."""
 
+        if not self._initialized:
+            raise ValueError("app not initialized - call app.initialize() or app.start() first")
+
         if self.id is None:
-            raise ValueError("app not started")
+            raise ValueError("app credentials not configured")
 
         conversation_ref = ConversationReference(
             channel_id="msteams",
@@ -283,7 +318,7 @@ class App(ActivityHandlerMixin):
         else:
             activity = activity
 
-        return await self.http.send(activity, conversation_ref)
+        return await self.activity_sender.send(activity, conversation_ref)
 
     def use(self, middleware: Callable[[ActivityContext[ActivityBase]], Awaitable[None]]) -> None:
         """Add middleware to run on all activities."""
@@ -475,7 +510,7 @@ class App(ActivityHandlerMixin):
                     ctx = FunctionContext(
                         id=self.id,
                         api=self.api,
-                        http=self.http,
+                        activity_sender=self.activity_sender,
                         log=self.log,
                         data=await r.json(),
                         **r.state.context.__dict__,

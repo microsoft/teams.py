@@ -68,6 +68,8 @@ class TestBotBuilderPlugin:
             "conversation": {"id": "conv1"},
             "serviceUrl": "https://service.url",
         }
+        from microsoft_teams.apps.events import CoreActivity
+
         request = AsyncMock(spec=Request)
         request.json.return_value = activity_data
         request.headers = {"Authorization": "Bearer token"}
@@ -83,7 +85,10 @@ class TestBotBuilderPlugin:
 
         plugin_with_adapter.adapter.process_activity = AsyncMock(side_effect=fake_process_activity)
 
-        await plugin_with_adapter.on_activity_request(request, response)
+        # Convert activity_data to CoreActivity
+        core_activity = CoreActivity(**activity_data)
+
+        await plugin_with_adapter.on_activity_request(core_activity, request, response)
 
         # Ensure adapter.process_activity called with correct auth and activity
         plugin_with_adapter.adapter.process_activity.assert_called_once()
@@ -98,6 +103,8 @@ class TestBotBuilderPlugin:
     async def test_on_activity_request_raises_http_exception_on_adapter_error(
         self, plugin_with_adapter: BotBuilderPlugin
     ):
+        from microsoft_teams.apps.events import CoreActivity
+
         activity_data = {"type": "message", "id": "activity-id"}
         request = AsyncMock(spec=Request)
         request.json.return_value = activity_data
@@ -108,6 +115,9 @@ class TestBotBuilderPlugin:
 
         plugin_with_adapter.adapter.process_activity = AsyncMock(side_effect=Exception("fail"))
 
+        # Convert activity_data to CoreActivity
+        core_activity = CoreActivity(**activity_data)
+
         with pytest.raises(HTTPException) as exc:
-            await plugin_with_adapter.on_activity_request(request, response)
+            await plugin_with_adapter.on_activity_request(core_activity, request, response)
         assert exc.value.status_code == 500
