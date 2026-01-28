@@ -776,3 +776,57 @@ class TestMessageActivityIntegration:
 
         for activity, expected_type in activities:
             assert activity.type == expected_type
+
+
+class TestWithTargetedRecipient:
+    """Test with_targeted_recipient functionality"""
+
+    def test_with_targeted_recipient_true_sets_is_targeted(self):
+        """Test that calling with True sets is_targeted without setting recipient"""
+        activity = MessageActivityInput(text="hello").with_targeted_recipient(True)
+
+        assert activity.is_targeted is True
+        assert activity.recipient is None
+
+    def test_with_targeted_recipient_string_sets_recipient(self):
+        """Test that calling with a string sets both is_targeted and recipient"""
+        activity = MessageActivityInput(text="hello").with_targeted_recipient("user-123")
+
+        assert activity.is_targeted is True
+        assert activity.recipient is not None
+        assert activity.recipient.id == "user-123"
+        assert activity.recipient.name == ""
+        assert activity.recipient.role == "user"
+
+    def test_with_targeted_recipient_is_chainable(self):
+        """Test that with_targeted_recipient is chainable with other methods"""
+        activity = (
+            MessageActivityInput(text="hello")
+            .with_importance(Importance.HIGH)
+            .with_targeted_recipient("user-456")
+            .with_delivery_mode("notification")
+        )
+
+        assert activity.text == "hello"
+        assert activity.importance == Importance.HIGH
+        assert activity.delivery_mode == "notification"
+        assert activity.is_targeted is True
+        assert activity.recipient is not None
+        assert activity.recipient.id == "user-456"
+
+    def test_is_targeted_property_preserved_in_model_dump(self):
+        """Test that is_targeted is properly serialized"""
+        activity = MessageActivityInput(text="test").with_targeted_recipient("user-789")
+
+        data = activity.model_dump(by_alias=True, exclude_none=True)
+
+        assert data["isTargeted"] is True
+        assert data["recipient"]["id"] == "user-789"
+
+    def test_with_targeted_recipient_true_does_not_override_existing_recipient(self):
+        """Test that with_targeted_recipient(True) doesn't set recipient"""
+        activity = MessageActivityInput(text="hello").with_targeted_recipient(True)
+
+        # Recipient should not be set when using True
+        assert activity.is_targeted is True
+        assert activity.recipient is None

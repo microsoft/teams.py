@@ -45,6 +45,18 @@ class ActivityOperations(ConversationOperations):
     async def get_members(self, activity_id: str):
         return await self._client.activities_client.get_members(self._conversation_id, activity_id)
 
+    async def create_targeted(self, activity: ActivityParams):
+        """Create a new targeted activity visible only to the specified recipient."""
+        return await self._client.activities_client.create_targeted(self._conversation_id, activity)
+
+    async def update_targeted(self, activity_id: str, activity: ActivityParams):
+        """Update an existing targeted activity."""
+        return await self._client.activities_client.update_targeted(self._conversation_id, activity_id, activity)
+
+    async def delete_targeted(self, activity_id: str):
+        """Delete a targeted activity."""
+        await self._client.activities_client.delete_targeted(self._conversation_id, activity_id)
+
 
 class MemberOperations(ConversationOperations):
     """Operations for managing members in a conversation."""

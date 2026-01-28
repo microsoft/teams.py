@@ -123,3 +123,54 @@ class ConversationActivityClient(BaseClient):
             f"{self.service_url}/v3/conversations/{conversation_id}/activities/{activity_id}/members"
         )
         return [Account.model_validate(member) for member in response.json()]
+
+    async def create_targeted(self, conversation_id: str, activity: ActivityParams) -> SentActivity:
+        """
+        Create a new targeted activity in a conversation.
+
+        Targeted activities are only visible to the specified recipient.
+
+        Args:
+            conversation_id: The ID of the conversation
+            activity: The activity to create
+
+        Returns:
+            The created activity
+        """
+        response = await self.http.post(
+            f"{self.service_url}/v3/conversations/{conversation_id}/activities?isTargetedActivity=true",
+            json=activity.model_dump(by_alias=True, exclude_none=True),
+        )
+        id = response.json().get("id", "DO_NOT_USE_PLACEHOLDER_ID")
+        return SentActivity(id=id, activity_params=activity)
+
+    async def update_targeted(self, conversation_id: str, activity_id: str, activity: ActivityParams) -> SentActivity:
+        """
+        Update an existing targeted activity in a conversation.
+
+        Args:
+            conversation_id: The ID of the conversation
+            activity_id: The ID of the activity to update
+            activity: The updated activity data
+
+        Returns:
+            The updated activity
+        """
+        response = await self.http.put(
+            f"{self.service_url}/v3/conversations/{conversation_id}/activities/{activity_id}?isTargetedActivity=true",
+            json=activity.model_dump(by_alias=True),
+        )
+        id = response.json()["id"]
+        return SentActivity(id=id, activity_params=activity)
+
+    async def delete_targeted(self, conversation_id: str, activity_id: str) -> None:
+        """
+        Delete a targeted activity from a conversation.
+
+        Args:
+            conversation_id: The ID of the conversation
+            activity_id: The ID of the activity to delete
+        """
+        await self.http.delete(
+            f"{self.service_url}/v3/conversations/{conversation_id}/activities/{activity_id}?isTargetedActivity=true"
+        )

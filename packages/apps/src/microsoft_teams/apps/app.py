@@ -283,6 +283,13 @@ class App(ActivityHandlerMixin):
         else:
             activity = activity
 
+        # Validate targeted messages in proactive context
+        if isinstance(activity, MessageActivityInput) and activity.is_targeted and not activity.recipient:
+            raise ValueError(
+                "Targeted messages sent proactively must specify an explicit recipient ID "
+                "using with_targeted_recipient(recipient_id)"
+            )
+
         return await self.http.send(activity, conversation_ref)
 
     def use(self, middleware: Callable[[ActivityContext[ActivityBase]], Awaitable[None]]) -> None:
