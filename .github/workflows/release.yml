@@ -18,9 +18,9 @@ jobs:
   build:
     name: Build and Publish
     runs-on: ubuntu-latest
-    environment:
-      # Create this environment in the GitHub repository under Settings -> Environments
-      name: release
+    # environment:
+    #   # Create this environment in the GitHub repository under Settings -> Environments
+    #   name: release
     permissions:
       actions: read
       contents: read
