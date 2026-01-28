@@ -824,9 +824,13 @@ class TestWithTargetedRecipient:
         assert data["recipient"]["id"] == "user-789"
 
     def test_with_targeted_recipient_true_does_not_override_existing_recipient(self):
-        """Test that with_targeted_recipient(True) doesn't set recipient"""
-        activity = MessageActivityInput(text="hello").with_targeted_recipient(True)
+        """Test that with_targeted_recipient(True) doesn't override an existing recipient"""
+        existing_recipient = Account(id="existing-user", name="Existing User", role="user")
+        activity = MessageActivityInput(text="hello", recipient=existing_recipient).with_targeted_recipient(True)
 
-        # Recipient should not be set when using True
+        # Recipient should be preserved when using True
         assert activity.is_targeted is True
-        assert activity.recipient is None
+        assert activity.recipient is not None
+        assert activity.recipient.id == "existing-user"
+        assert activity.recipient.name == "Existing User"
+        assert activity.recipient.role == "user"
