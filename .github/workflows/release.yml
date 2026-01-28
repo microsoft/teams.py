@@ -48,20 +48,11 @@ jobs:
 
       - name: Build packages
         run: |
-          uv build --all-packages
+          # Build only a2a for testing trusted publishing
+          uv build --package microsoft-teams-a2a
 
       - name: Publish to PyPI
-        run: |
-          shopt -s extglob  # Enable extended globbing
-          if [ -z "$EXCLUDE_PACKAGE_FOLDERS" ]; then
-            echo "No packages to exclude"
-            echo "Publishing files:"
-            ls -1 dist/*
-            uv publish --trusted-publishing always dist/*
-          else
-            EXCLUDE_PATTERN="@($(echo $EXCLUDE_PACKAGE_FOLDERS | sed 's/ /|/g' | sed 's/\([^ ]*\)/microsoft_teams_\1*/g'))"
-            echo "Excluding pattern: ${EXCLUDE_PATTERN}"
-            echo "Publishing files:"
-            ls -1 dist/!(${EXCLUDE_PATTERN})
-            uv publish --trusted-publishing always dist/!(${EXCLUDE_PATTERN})
-          fi
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist/
+          verbose: true
