@@ -216,7 +216,12 @@ def mock_http_client(mock_transport):
 
 @pytest.fixture
 def request_capture():
-    """Fixture to capture HTTP request details for testing."""
+    """Fixture to capture HTTP request details for testing.
+
+    Returns:
+        A Client instance with an attached `_capture` attribute containing the RequestCapture helper.
+        Access captured requests via `client._capture.last_request` or `client._capture.requests`.
+    """
 
     class RequestCapture:
         """Helper class to capture request details."""
@@ -317,7 +322,7 @@ def request_capture():
     transport = httpx.MockTransport(capture.handler)
     client = Client(ClientOptions(base_url="https://mock.api.com"))
     client.http._transport = transport
-    client._request_capture = capture  # type: ignore[attr-defined]  # Attach for easy access
+    client._capture = capture  # type: ignore[attr-defined]  # Attach for test access
     return client
 
 

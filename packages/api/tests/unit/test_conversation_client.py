@@ -4,6 +4,8 @@ Licensed under the MIT License.
 """
 # pyright: basic
 
+import json
+
 import pytest
 from microsoft_teams.api.clients.conversation import ConversationClient
 from microsoft_teams.api.clients.conversation.params import (
@@ -53,7 +55,7 @@ class TestConversationClient:
         assert response.continuation_token is not None
 
         # Validate request details
-        last_request = request_capture._request_capture.last_request
+        last_request = request_capture._capture.last_request
         assert last_request.method == "GET"
         assert str(last_request.url) == "https://test.service.url/v3/conversations?continuationToken=test_token"
 
@@ -70,7 +72,7 @@ class TestConversationClient:
         assert isinstance(response.conversations, list)
 
         # Validate request details
-        last_request = request_capture._request_capture.last_request
+        last_request = request_capture._capture.last_request
         assert last_request.method == "GET"
         assert str(last_request.url) == "https://test.service.url/v3/conversations"
 
@@ -98,12 +100,11 @@ class TestConversationClient:
         assert response.service_url is not None
 
         # Validate request details
-        last_request = request_capture._request_capture.last_request
+        last_request = request_capture._capture.last_request
         assert last_request.method == "POST"
         assert str(last_request.url) == "https://test.service.url/v3/conversations"
 
         # Validate request payload
-        import json
 
         payload = json.loads(last_request.content.decode("utf-8"))
         assert payload["isGroup"] is True
@@ -160,12 +161,11 @@ class TestConversationActivityOperations:
         assert result.id is not None
 
         # Validate request details
-        last_request = request_capture._request_capture.last_request
+        last_request = request_capture._capture.last_request
         assert last_request.method == "POST"
         assert str(last_request.url) == f"https://test.service.url/v3/conversations/{conversation_id}/activities"
 
         # Validate request payload
-        import json
 
         payload = json.loads(last_request.content.decode("utf-8"))
         assert payload["type"] == "message"
@@ -188,7 +188,7 @@ class TestConversationActivityOperations:
         assert result.id is not None
 
         # Validate request details
-        last_request = request_capture._request_capture.last_request
+        last_request = request_capture._capture.last_request
         assert last_request.method == "PUT"
         assert (
             str(last_request.url)
@@ -196,7 +196,6 @@ class TestConversationActivityOperations:
         )
 
         # Validate request payload
-        import json
 
         payload = json.loads(last_request.content.decode("utf-8"))
         assert payload["type"] == "message"
@@ -218,7 +217,7 @@ class TestConversationActivityOperations:
         assert result.id is not None
 
         # Validate request details
-        last_request = request_capture._request_capture.last_request
+        last_request = request_capture._capture.last_request
         assert last_request.method == "POST"
         assert (
             str(last_request.url)
@@ -226,7 +225,6 @@ class TestConversationActivityOperations:
         )
 
         # Validate request payload
-        import json
 
         payload = json.loads(last_request.content.decode("utf-8"))
         assert payload["type"] == "message"
@@ -246,7 +244,7 @@ class TestConversationActivityOperations:
         await activities.delete(activity_id)
 
         # Validate request details
-        last_request = request_capture._request_capture.last_request
+        last_request = request_capture._capture.last_request
         assert last_request.method == "DELETE"
         assert (
             str(last_request.url)
@@ -269,7 +267,7 @@ class TestConversationActivityOperations:
         assert len(result) > 0
 
         # Validate request details
-        last_request = request_capture._request_capture.last_request
+        last_request = request_capture._capture.last_request
         assert last_request.method == "GET"
         assert (
             str(last_request.url)
@@ -301,7 +299,7 @@ class TestConversationMemberOperations:
         assert result[0].object_id == "mock_object_id"
 
         # Validate request details
-        last_request = request_capture._request_capture.last_request
+        last_request = request_capture._capture.last_request
         assert last_request.method == "GET"
         assert str(last_request.url) == f"https://test.service.url/v3/conversations/{conversation_id}/members"
 
@@ -324,7 +322,7 @@ class TestConversationMemberOperations:
         assert result.object_id == "mock_object_id"
 
         # Validate request details
-        last_request = request_capture._request_capture.last_request
+        last_request = request_capture._capture.last_request
         assert last_request.method == "GET"
         assert (
             str(last_request.url) == f"https://test.service.url/v3/conversations/{conversation_id}/members/{member_id}"
@@ -343,7 +341,7 @@ class TestConversationMemberOperations:
         await members.delete(member_id)
 
         # Validate request details
-        last_request = request_capture._request_capture.last_request
+        last_request = request_capture._capture.last_request
         assert last_request.method == "DELETE"
         assert (
             str(last_request.url) == f"https://test.service.url/v3/conversations/{conversation_id}/members/{member_id}"
