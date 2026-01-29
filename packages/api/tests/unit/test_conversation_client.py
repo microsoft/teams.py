@@ -254,3 +254,46 @@ class TestConversationClientHttpClientSharing:
 
         assert client.activities_client.http == new_http_client
         assert client.members_client.http == new_http_client
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+class TestTargetedActivityOperations:
+    """Unit tests for targeted activity operations."""
+
+    async def test_activity_create_targeted(self, mock_http_client, mock_activity):
+        """Test creating a targeted activity."""
+        service_url = "https://test.service.url"
+        client = ConversationClient(service_url, mock_http_client)
+
+        conversation_id = "test_conversation_id"
+        activities = client.activities(conversation_id)
+
+        result = await activities.create_targeted(mock_activity)
+
+        assert result is not None
+
+    async def test_activity_update_targeted(self, mock_http_client, mock_activity):
+        """Test updating a targeted activity."""
+        service_url = "https://test.service.url"
+        client = ConversationClient(service_url, mock_http_client)
+
+        conversation_id = "test_conversation_id"
+        activity_id = "test_activity_id"
+        activities = client.activities(conversation_id)
+
+        result = await activities.update_targeted(activity_id, mock_activity)
+
+        assert result is not None
+
+    async def test_activity_delete_targeted(self, mock_http_client):
+        """Test deleting a targeted activity."""
+        service_url = "https://test.service.url"
+        client = ConversationClient(service_url, mock_http_client)
+
+        conversation_id = "test_conversation_id"
+        activity_id = "test_activity_id"
+        activities = client.activities(conversation_id)
+
+        # Should not raise an exception
+        await activities.delete_targeted(activity_id)

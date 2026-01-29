@@ -34,6 +34,7 @@ from microsoft_teams.api import (
     ConversationReference,
     Credentials,
     InvokeResponse,
+    MessageActivityInput,
     SentActivity,
     TokenProtocol,
 )
@@ -242,11 +243,20 @@ class HttpPlugin(Sender):
         activity.from_ = ref.bot
         activity.conversation = ref.conversation
 
+        # Check if this is a targeted message
+        is_targeted = isinstance(activity, MessageActivityInput) and activity.is_targeted is True
+
         if hasattr(activity, "id") and activity.id:
-            res = await api.conversations.activities(ref.conversation.id).update(activity.id, activity)
+            if is_targeted:
+                res = await api.conversations.activities(ref.conversation.id).update_targeted(activity.id, activity)
+            else:
+                res = await api.conversations.activities(ref.conversation.id).update(activity.id, activity)
             return SentActivity.merge(activity, res)
 
-        res = await api.conversations.activities(ref.conversation.id).create(activity)
+        if is_targeted:
+            res = await api.conversations.activities(ref.conversation.id).create_targeted(activity)
+        else:
+            res = await api.conversations.activities(ref.conversation.id).create(activity)
         return SentActivity.merge(activity, res)
 
     async def _process_activity(

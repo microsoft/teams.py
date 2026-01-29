@@ -776,3 +776,20 @@ class TestMessageActivityIntegration:
 
         for activity, expected_type in activities:
             assert activity.type == expected_type
+
+    def test_with_targeted_recipient_true_sets_is_targeted(self):
+        """Test that calling with True sets is_targeted without setting recipient"""
+        activity = MessageActivityInput(text="hello").with_targeted_recipient(True)
+
+        assert activity.is_targeted is True
+        assert activity.recipient is None
+
+    def test_with_targeted_recipient_string_sets_recipient(self):
+        """Test that calling with a string sets both is_targeted and recipient"""
+        activity = MessageActivityInput(text="hello").with_targeted_recipient("user-123")
+
+        assert activity.is_targeted is True
+        assert activity.recipient is not None
+        assert activity.recipient.id == "user-123"
+        assert activity.recipient.name == ""
+        assert activity.recipient.role == "user"

@@ -750,3 +750,62 @@ class TestApp:
         with patch.dict("os.environ", {"SERVICE_URL": "https://env.service.url/teams"}, clear=False):
             app3 = App(**options3)
             assert app3.api.service_url == "https://options.service.url/teams"
+
+    # Tests for App.send() proactive targeted message validation
+
+    @pytest.mark.asyncio
+    async def test_proactive_targeted_without_recipient_raises_error(self, mock_logger, mock_storage) -> None:
+        """
+        Test that sending a targeted message proactively without an explicit
+        recipient raises a ValueError.
+        """
+        from microsoft_teams.api import MessageActivityInput, SentActivity
+
+        options = AppOptions(
+            logger=mock_logger,
+            storage=mock_storage,
+            client_id="test-client-id",
+            client_secret="test-secret",
+        )
+        app = App(**options)
+        app._running = True
+        app.http.send = AsyncMock(
+            return_value=SentActivity(id="sent-activity-id", activity_params=MessageActivityInput(text="sent"))
+        )
+
+        # Create a targeted message without explicit recipient
+        activity = MessageActivityInput(text="Hello").with_targeted_recipient(True)
+
+        with pytest.raises(
+            ValueError, match="Targeted messages sent proactively must specify an explicit recipient ID"
+        ):
+            await app.send("conv-123", activity)
+
+    @pytest.mark.asyncio
+    async def test_proactive_targeted_with_explicit_recipient_succeeds(self, mock_logger, mock_storage) -> None:
+        """
+        Test that sending a targeted message proactively with an explicit
+        recipient ID succeeds.
+        """
+        from microsoft_teams.api import MessageActivityInput, SentActivity
+
+        options = AppOptions(
+            logger=mock_logger,
+            storage=mock_storage,
+            client_id="test-client-id",
+            client_secret="test-secret",
+        )
+        app = App(**options)
+        app._running = True
+        app.http.send = AsyncMock(
+            return_value=SentActivity(id="sent-activity-id", activity_params=MessageActivityInput(text="sent"))
+        )
+
+        # Create a targeted message with explicit recipient
+        activity = MessageActivityInput(text="Hello").with_targeted_recipient("user-456")
+
+        # Should not raise - explicit recipient provided
+        result = await app.send("conv-123", activity)
+
+        app.http.send.assert_called_once()
+        assert result.id == "sent-activity-id"
