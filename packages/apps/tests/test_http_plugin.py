@@ -258,14 +258,11 @@ class TestHttpPlugin:
         assert isinstance(result, Response)
         assert result.status_code == 500
 
-
-@pytest.mark.asyncio
-class TestHttpPluginSendTargeted:
-    """Test cases for HttpPlugin.send() with targeted messages."""
+    # Tests for HttpPlugin.send() with targeted messages
 
     @pytest.fixture
-    def plugin(self):
-        """Create HttpPlugin for testing."""
+    def plugin_for_send(self):
+        """Create HttpPlugin for send testing."""
         plugin = HttpPlugin(logger=MagicMock())
         plugin.client = MagicMock()
         plugin.client.clone = MagicMock(return_value=MagicMock())
@@ -288,7 +285,8 @@ class TestHttpPluginSendTargeted:
 
         return SentActivity(id=activity_id, activity_params=activity)
 
-    async def test_send_non_targeted_message_calls_create(self, plugin, conversation_ref):
+    @pytest.mark.asyncio
+    async def test_send_non_targeted_message_calls_create(self, plugin_for_send, conversation_ref):
         """Test that non-targeted messages use the regular create method."""
         activity = MessageActivityInput(text="Hello")
 
@@ -300,12 +298,13 @@ class TestHttpPluginSendTargeted:
             mock_api.conversations.activities.return_value = mock_activities
             mock_api_client.return_value = mock_api
 
-            await plugin.send(activity, conversation_ref)
+            await plugin_for_send.send(activity, conversation_ref)
 
             mock_activities.create.assert_called_once_with(activity)
             mock_activities.create_targeted.assert_not_called()
 
-    async def test_send_targeted_message_calls_create_targeted(self, plugin, conversation_ref):
+    @pytest.mark.asyncio
+    async def test_send_targeted_message_calls_create_targeted(self, plugin_for_send, conversation_ref):
         """Test that targeted messages use the create_targeted method."""
         activity = MessageActivityInput(text="Hello").with_targeted_recipient(True)
 
@@ -317,12 +316,13 @@ class TestHttpPluginSendTargeted:
             mock_api.conversations.activities.return_value = mock_activities
             mock_api_client.return_value = mock_api
 
-            await plugin.send(activity, conversation_ref)
+            await plugin_for_send.send(activity, conversation_ref)
 
             mock_activities.create_targeted.assert_called_once_with(activity)
             mock_activities.create.assert_not_called()
 
-    async def test_update_non_targeted_message_calls_update(self, plugin, conversation_ref):
+    @pytest.mark.asyncio
+    async def test_update_non_targeted_message_calls_update(self, plugin_for_send, conversation_ref):
         """Test that non-targeted message updates use the regular update method."""
         activity = MessageActivityInput(text="Updated message")
         activity.id = "existing-msg-id"
@@ -335,12 +335,13 @@ class TestHttpPluginSendTargeted:
             mock_api.conversations.activities.return_value = mock_activities
             mock_api_client.return_value = mock_api
 
-            await plugin.send(activity, conversation_ref)
+            await plugin_for_send.send(activity, conversation_ref)
 
             mock_activities.update.assert_called_once_with("existing-msg-id", activity)
             mock_activities.update_targeted.assert_not_called()
 
-    async def test_update_targeted_message_calls_update_targeted(self, plugin, conversation_ref):
+    @pytest.mark.asyncio
+    async def test_update_targeted_message_calls_update_targeted(self, plugin_for_send, conversation_ref):
         """Test that targeted message updates use the update_targeted method."""
         activity = MessageActivityInput(text="Updated targeted message")
         activity.id = "existing-msg-id"
@@ -356,7 +357,7 @@ class TestHttpPluginSendTargeted:
             mock_api.conversations.activities.return_value = mock_activities
             mock_api_client.return_value = mock_api
 
-            await plugin.send(activity, conversation_ref)
+            await plugin_for_send.send(activity, conversation_ref)
 
             mock_activities.update_targeted.assert_called_once_with("existing-msg-id", activity)
             mock_activities.update.assert_not_called()

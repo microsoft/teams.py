@@ -34,6 +34,7 @@ from microsoft_teams.api import (
     ConversationReference,
     Credentials,
     InvokeResponse,
+    MessageActivityInput,
     SentActivity,
     TokenProtocol,
 )
@@ -243,7 +244,7 @@ class HttpPlugin(Sender):
         activity.conversation = ref.conversation
 
         # Check if this is a targeted message
-        is_targeted = getattr(activity, "is_targeted", None) is True
+        is_targeted = isinstance(activity, MessageActivityInput) and activity.is_targeted is True
 
         if hasattr(activity, "id") and activity.id:
             if is_targeted:

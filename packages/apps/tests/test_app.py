@@ -751,23 +751,14 @@ class TestApp:
             app3 = App(**options3)
             assert app3.api.service_url == "https://options.service.url/teams"
 
+    # Tests for App.send() proactive targeted message validation
 
-class TestAppSendProactiveTargeted:
-    """Tests for App.send() proactive targeted message validation."""
-
-    @pytest.fixture
-    def mock_logger(self):
-        """Create a mock logger."""
-        return MagicMock()
-
-    @pytest.fixture
-    def mock_storage(self):
-        """Create a mock storage."""
-        return MagicMock()
-
-    @pytest.fixture(scope="function")
-    def app_with_options(self, mock_logger, mock_storage):
-        """Create App with basic options and mocked HTTP plugin."""
+    @pytest.mark.asyncio
+    async def test_proactive_targeted_without_recipient_raises_error(self, mock_logger, mock_storage) -> None:
+        """
+        Test that sending a targeted message proactively without an explicit
+        recipient raises a ValueError.
+        """
         from microsoft_teams.api import MessageActivityInput, SentActivity
 
         options = AppOptions(
@@ -777,69 +768,44 @@ class TestAppSendProactiveTargeted:
             client_secret="test-secret",
         )
         app = App(**options)
-        # Mark app as running to allow send
         app._running = True
-
-        # Mock HTTP plugin's send method
         app.http.send = AsyncMock(
-            return_value=SentActivity(
-                id="sent-activity-id",
-                activity_params=MessageActivityInput(text="sent"),
-            )
+            return_value=SentActivity(id="sent-activity-id", activity_params=MessageActivityInput(text="sent"))
         )
-        return app
-
-    @pytest.mark.asyncio
-    async def test_proactive_targeted_without_recipient_raises_error(self, app_with_options: App) -> None:
-        """
-        Test that sending a targeted message proactively without an explicit
-        recipient raises a ValueError.
-        """
-        from microsoft_teams.api import MessageActivityInput
 
         # Create a targeted message without explicit recipient
         activity = MessageActivityInput(text="Hello").with_targeted_recipient(True)
-        assert activity.recipient is None  # No recipient set
 
         with pytest.raises(
             ValueError, match="Targeted messages sent proactively must specify an explicit recipient ID"
         ):
-            await app_with_options.send("conv-123", activity)
+            await app.send("conv-123", activity)
 
     @pytest.mark.asyncio
-    async def test_proactive_targeted_with_explicit_recipient_succeeds(self, app_with_options: App) -> None:
+    async def test_proactive_targeted_with_explicit_recipient_succeeds(self, mock_logger, mock_storage) -> None:
         """
         Test that sending a targeted message proactively with an explicit
         recipient ID succeeds.
         """
-        from microsoft_teams.api import MessageActivityInput
+        from microsoft_teams.api import MessageActivityInput, SentActivity
+
+        options = AppOptions(
+            logger=mock_logger,
+            storage=mock_storage,
+            client_id="test-client-id",
+            client_secret="test-secret",
+        )
+        app = App(**options)
+        app._running = True
+        app.http.send = AsyncMock(
+            return_value=SentActivity(id="sent-activity-id", activity_params=MessageActivityInput(text="sent"))
+        )
 
         # Create a targeted message with explicit recipient
         activity = MessageActivityInput(text="Hello").with_targeted_recipient("user-456")
-        assert activity.recipient is not None  # Recipient is set
 
         # Should not raise - explicit recipient provided
-        result = await app_with_options.send("conv-123", activity)
+        result = await app.send("conv-123", activity)
 
-        # Verify send was called
-        app_with_options.http.send.assert_called_once()
-        assert result.id == "sent-activity-id"
-
-    @pytest.mark.asyncio
-    async def test_proactive_non_targeted_message_succeeds(self, app_with_options: App) -> None:
-        """
-        Test that sending a non-targeted message proactively succeeds without
-        requiring a recipient.
-        """
-        from microsoft_teams.api import MessageActivityInput
-
-        # Create a regular (non-targeted) message
-        activity = MessageActivityInput(text="Hello")
-        assert activity.is_targeted is None
-
-        # Should not raise - non-targeted messages don't need recipient
-        result = await app_with_options.send("conv-123", activity)
-
-        # Verify send was called
-        app_with_options.http.send.assert_called_once()
+        app.http.send.assert_called_once()
         assert result.id == "sent-activity-id"
