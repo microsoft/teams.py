@@ -19,6 +19,12 @@ Supports OpenAI and OpenAI-compatible APIs for chat completions and embeddings.
 ## Installation
 
 ```bash
+pip install microsoft-teams-openai
+```
+
+Or if using uv:
+
+```bash
 uv add microsoft-teams-openai
 ```
 
