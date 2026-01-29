@@ -22,6 +22,12 @@ Developer tools for locally testing and debugging Teams applications. Streamline
 ## Installation
 
 ```bash
+pip install microsoft-teams-devtools
+```
+
+Or if using uv:
+
+```bash
 uv add microsoft-teams-devtools
 ```
 
