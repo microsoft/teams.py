@@ -1,6 +1,6 @@
 [project]
 name = "microsoft-teams-mcpplugin"
-version = "2.0.0a9"
+dynamic = ["version"]
 description = "library for handling mcp with teams sdk"
 authors = [{ name = "Microsoft", email = "TeamsAISDKFeedback@microsoft.com" }]
 readme = "README.md"
@@ -20,8 +20,12 @@ dependencies = [
 external = true
 
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
+
+[tool.hatch.version]
+source = "vcs"
+raw-options = { root = "../.." }
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/microsoft_teams", "src/microsoft"]

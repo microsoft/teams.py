@@ -1,6 +1,6 @@
 [project]
 name = "microsoft-teams-devtools"
-version = "2.0.0a9"
+dynamic = ["version"]
 description = "Local tool to streamline testing and development"
 authors = [{ name = "Microsoft", email = "TeamsAISDKFeedback@microsoft.com" }]
 readme = "README.md"
@@ -25,8 +25,12 @@ Homepage = "https://github.com/microsoft/teams.py/tree/main/packages/devtools/sr
 
 
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
+
+[tool.hatch.version]
+source = "vcs"
+raw-options = { root = "../.." }
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/microsoft_teams", "src/microsoft"]
