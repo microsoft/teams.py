@@ -51,6 +51,7 @@ fmt = "ruff format"
 lint = "ruff check"
 check = ["fmt", "lint"]
 test = "pytest"
+generate-activity-handlers = "python packages/apps/scripts/generate_handlers.py"
 
 [tool.hatch.build.targets.wheel]
 packages = ["packages/*"]

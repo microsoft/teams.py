@@ -17,6 +17,12 @@ Enables Teams bots to both expose tools as MCP servers and use MCP servers as cl
 ## Installation
 
 ```bash
+pip install microsoft-teams-mcpplugin
+```
+
+Or if using uv:
+
+```bash
 uv add microsoft-teams-mcpplugin
 ```
 
