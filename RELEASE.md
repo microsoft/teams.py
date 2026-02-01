@@ -10,17 +10,25 @@ dotnet tool install -g nbgv
 
 ## Version Lifecycle
 
-| Branch | version.json | Produces |
-|--------|--------------|----------|
-| `main` | `2.0.0-alpha.{height}` (offset: 10) | `2.0.0a10`, `2.0.0a11`, ... |
-| `release/v2.0.0-beta` | `2.0.0-beta.{height}` | `2.0.0b1`, `2.0.0b2`, ... |
-| `release/v2.0.0` | `2.0.0` | `2.0.0` |
+| Stage | Branch | Produces |
+|-------|--------|----------|
+| Alpha | `main` | `2.0.0a10`, `2.0.0a11`, ... |
+| Beta | `release/v2.0.0` | `2.0.0b1`, `2.0.0b2`, ... |
+| Stable | `release/v2.0.0` | `2.0.0` |
 
 ## Creating a Release
 
-1. Create branch from main (e.g., `release/v2.0.0-beta`)
-2. Update `version.json` with the appropriate version format
-3. Push and trigger the [release pipeline](https://dev.azure.com/DomoreexpGithub/Github_Pipelines/_build?definitionId=49&_a=summary)
+Use `nbgv prepare-release` to create a release branch:
+
+```bash
+nbgv prepare-release [tag]
+```
+
+This will:
+1. Create a release branch with the specified prerelease tag (or stable if omitted)
+2. Bump main to the next alpha version
+
+Then push and trigger the [release pipeline](https://dev.azure.com/DomoreexpGithub/Github_Pipelines/_build?definitionId=49&_a=summary).
 
 ## Publishing a New Package
 
