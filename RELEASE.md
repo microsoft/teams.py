@@ -8,24 +8,45 @@ This project uses [Nerdbank.GitVersioning](https://github.com/dotnet/Nerdbank.Gi
 dotnet tool install -g nbgv
 ```
 
-## Version Lifecycle
+## Branch Strategy
 
-| Stage | Branch | Produces |
-|-------|--------|----------|
-| Alpha | `main` | `2.0.0a10`, `2.0.0a11`, ... |
-| Beta | `release/v2.0.0` | `2.0.0b1`, `2.0.0b2`, ... |
-| Stable | `release/v2.0.0` | `2.0.0` |
+| Branch | Versions | Published |
+|--------|----------|-----------|
+| `main` | `2.0.0.dev1`, `2.0.0.dev2`, ... | No |
+| `alpha/v2.0.0` | `2.0.0a10`, `2.0.0a11`, ... | Yes |
+| `release/v2.0.0` | `2.0.0` | Yes |
 
-## Creating a Release
+## Workflow
 
-Use `nbgv prepare-release` to create a release branch:
+Development happens on `main`. When ready to release, merge via PR:
 
-```bash
-nbgv prepare-release [tag]
+```
+main → alpha/v2.0.0 → release/v2.0.0
 ```
 
-This will:
-1. Create a release branch with the specified prerelease tag (or stable if omitted)
-2. Bump main to the next alpha version
+Each merge increments the version automatically.
 
-Then push and trigger the [release pipeline](https://dev.azure.com/DomoreexpGithub/Github_Pipelines/_build?definitionId=49&_a=summary)
+## Creating a New Alpha Branch
+
+When starting a new version (e.g., 2.1.0):
+
+1. Create `alpha/v2.1.0` from `main`
+2. Update its `version.json`:
+   ```json
+   {
+     "version": "2.1.0-alpha.{height}",
+     "versionHeightOffset": 1
+   }
+   ```
+3. Set up branch protection (require PRs)
+
+## Publishing
+
+1. Open PR: `main` → `alpha/v2.0.0`
+2. Merge PR (version auto-increments)
+3. Trigger the [release pipeline](https://dev.azure.com/DomoreexpGithub/Github_Pipelines/_build?definitionId=49&_a=summary)
+
+## Publishing a New Package
+
+1. Go to [PyPI publishing](https://pypi.org/manage/account/publishing/)
+2. Add: owner `microsoft`, repo `teams.py`, workflow `release.yml`, environment `release`
