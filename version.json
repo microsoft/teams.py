@@ -10,7 +10,8 @@
     "versionIncrement": "build"
   },
   "pathFilters": [
-    "./packages/*/src"
+    "./packages/*/src",
+    "./packages/*/pyproject.toml"
   ],
   "_comment": "Release branch version.json templates are documented in RELEASE.md"
 }
