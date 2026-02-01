@@ -39,6 +39,7 @@ members = [
 [manifest.dependency-groups]
 dev = [
     { name = "cookiecutter", specifier = ">=2.6.0" },
+    { name = "nbgv-python", specifier = ">=0.1.8" },
     { name = "poethepoet", specifier = ">=0.35.0" },
     { name = "pre-commit", specifier = ">=4.2.0" },
     { name = "pyright", specifier = ">=1.1.404" },
@@ -2242,6 +2243,18 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/ba/8f/0a60e501584145588be1af5cc829265701ba3c35a64aec8e07cbb71d39bb/multidict-6.7.0-cp314-cp314t-win_amd64.whl", hash = "sha256:09929cab6fcb68122776d575e03c6cc64ee0b8fca48d17e135474b042ce515cd", size = 53507, upload-time = "2025-10-06T14:51:53.672Z" },
     { url = "https://files.pythonhosted.org/packages/7f/ae/3148b988a9c6239903e786eac19c889fab607c31d6efa7fb2147e5680f23/multidict-6.7.0-cp314-cp314t-win_arm64.whl", hash = "sha256:cc41db090ed742f32bd2d2c721861725e6109681eddf835d0a82bd3a5c382827", size = 44804, upload-time = "2025-10-06T14:51:55.415Z" },
     { url = "https://files.pythonhosted.org/packages/b7/da/7d22601b625e241d4f23ef1ebff8acfc60da633c9e7e7922e24d10f592b3/multidict-6.7.0-py3-none-any.whl", hash = "sha256:394fc5c42a333c9ffc3e421a4c85e08580d990e08b99f6bf35b4132114c5dcb3", size = 12317, upload-time = "2025-10-06T14:52:29.272Z" },
+]
+
+[[package]]
+name = "nbgv-python"
+version = "2.0.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "packaging" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/6e/80/06f595b825833bb8f81ae69ac0796a5ad3ee80e69da980dc43543fe511c8/nbgv_python-2.0.0.tar.gz", hash = "sha256:1f5ba964119cbf0e5e63e6f1a71859a718669a8719f042b782f273dcdc04a74c", size = 29395, upload-time = "2025-12-19T06:37:51.544Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/52/80/8f2f87f1d9a98ad713be38100407c9037f3e358bed9e8cdfdf9673249cb2/nbgv_python-2.0.0-py3-none-any.whl", hash = "sha256:0d8fcd968c10aa301096c04954d797d73fd42539a18ba72fc98351ebe626944d", size = 18725, upload-time = "2025-12-19T06:37:49.994Z" },
 ]
 
 [[package]]

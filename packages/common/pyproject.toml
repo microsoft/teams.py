@@ -28,12 +28,11 @@ Homepage = "https://github.com/microsoft/teams.py/tree/main/packages/common/src/
 
 
 [build-system]
-requires = ["hatchling", "hatch-vcs"]
+requires = ["hatchling", "nbgv-python"]
 build-backend = "hatchling.build"
 
 [tool.hatch.version]
-source = "vcs"
-raw-options = { root = "../.." }
+source = "nbgv"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/microsoft_teams", "src/microsoft"]
