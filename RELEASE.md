@@ -28,9 +28,4 @@ This will:
 1. Create a release branch with the specified prerelease tag (or stable if omitted)
 2. Bump main to the next alpha version
 
-Then push and trigger the [release pipeline](https://dev.azure.com/DomoreexpGithub/Github_Pipelines/_build?definitionId=49&_a=summary).
-
-## Publishing a New Package
-
-1. Go to [PyPI publishing](https://pypi.org/manage/account/publishing/)
-2. Add: owner `microsoft`, repo `teams.py`, workflow `release.yml`, environment `release`
+Then push and trigger the [release pipeline](https://dev.azure.com/DomoreexpGithub/Github_Pipelines/_build?definitionId=49&_a=summary)
