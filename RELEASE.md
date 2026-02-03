@@ -45,8 +45,3 @@ When starting a new version (e.g., 2.1.0):
 1. Open PR: `main` → `alpha/v2.0.0`
 2. Merge PR (version auto-increments)
 3. Trigger the [release pipeline](https://dev.azure.com/DomoreexpGithub/Github_Pipelines/_build?definitionId=49&_a=summary)
-
-## Publishing a New Package
-
-1. Go to [PyPI publishing](https://pypi.org/manage/account/publishing/)
-2. Add: owner `microsoft`, repo `teams.py`, workflow `release.yml`, environment `release`
