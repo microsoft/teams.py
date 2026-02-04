@@ -5,8 +5,8 @@ Licensed under the MIT License.
 
 import base64
 import json
+import logging
 from dataclasses import dataclass
-from logging import Logger
 from typing import TYPE_CHECKING, Any, Awaitable, Callable, Generic, Optional, TypeVar, cast
 
 from microsoft_teams.api import (
@@ -45,6 +45,8 @@ T = TypeVar("T", bound=ActivityBase, contravariant=True)
 
 SendCallable = Callable[[str | ActivityParams | AdaptiveCard], Awaitable[SentActivity]]
 
+logger = logging.getLogger(__name__)
+
 
 def _get_graph_client(token: Token):
     """Lazy import and call get_graph_client when needed."""
@@ -54,8 +56,7 @@ def _get_graph_client(token: Token):
         return get_graph_client(token)
     except ImportError as exc:
         raise ImportError(
-            "Graph functionality not available. "
-            "Install with 'pip install microsoft-teams-apps[graph]'"
+            "Graph functionality not available. Install with 'pip install microsoft-teams-apps[graph]'"
         ) from exc
 
 
@@ -88,7 +89,6 @@ class ActivityContext(Generic[T]):
         self,
         activity: T,
         app_id: str,
-        logger: Logger,
         storage: Storage[str, Any],
         api: ApiClient,
         user_token: Optional[str],

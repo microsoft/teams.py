@@ -8,9 +8,9 @@ import inspect
 import logging
 from typing import Any, Awaitable, Callable, Dict, Generic, List, Optional, Protocol, TypedDict, TypeVar, Union
 
-from ..logging import ConsoleLogger
-
 EventTypeT = TypeVar("EventTypeT", bound=str, contravariant=True)
+
+logger = logging.getLogger(__name__)
 
 EventHandler = Union[
     Callable[[Any], None],  # Sync handler
@@ -43,16 +43,6 @@ class EventEmitterProtocol(Protocol, Generic[EventTypeT]):
         """Emit an event synchronously."""
 
 
-class EventEmitterOptions(TypedDict, total=False):
-    """
-    Options for EventEmitter configuration.
-
-    :param logger: Custom logger instance to use for logging events
-    """
-
-    logger: logging.Logger
-
-
 class EventEmitter(EventEmitterProtocol[EventTypeT]):
     """
     Event emitter implementation inspired by TypeScript/Node.js EventEmitter.
@@ -61,16 +51,9 @@ class EventEmitter(EventEmitterProtocol[EventTypeT]):
     Thread-safe for single-threaded use cases.
     """
 
-    def __init__(self, options: Optional[EventEmitterOptions] = None) -> None:
+    def __init__(self) -> None:
         self._index = -1
         self._subscriptions: Dict[str, List[Subscription]] = {}
-
-        # Use provided logger or create default console logger
-        logger = options.get("logger") if options else None
-        if logger:
-            self._logger = logger.getChild("microsoft_teams.common.events.EventEmitter")
-        else:
-            self._logger = ConsoleLogger().create_logger("microsoft_teams.common.events.EventEmitter")
 
     def on(self, event: EventTypeT, handler: EventHandler) -> int:
         """
@@ -90,7 +73,7 @@ class EventEmitter(EventEmitterProtocol[EventTypeT]):
 
         self._subscriptions[event].append({"id": subscription_id, "handler": handler})
 
-        self._logger.debug("Registered handler for event '%s' with id %d", event, subscription_id)
+        logger.debug("Registered handler for event '%s' with id %d", event, subscription_id)
         return subscription_id
 
     def once(self, event: EventTypeT, handler: EventHandler) -> int:
@@ -123,7 +106,7 @@ class EventEmitter(EventEmitterProtocol[EventTypeT]):
 
         self._subscriptions[event].append({"id": subscription_id, "handler": once_wrapper})
 
-        self._logger.debug("Registered one-time handler for event '%s' with id %d", event, subscription_id)
+        logger.debug("Registered one-time handler for event '%s' with id %d", event, subscription_id)
         return subscription_id
 
     def off(self, subscription_id: int) -> None:
@@ -137,7 +120,7 @@ class EventEmitter(EventEmitterProtocol[EventTypeT]):
             for i, subscription in enumerate(subscriptions):
                 if subscription["id"] == subscription_id:
                     subscriptions.pop(i)
-                    self._logger.debug("Removed handler with id %d from event '%s'", subscription_id, event_name)
+                    logger.debug("Removed handler with id %d from event '%s'", subscription_id, event_name)
                     if not subscriptions:
                         del self._subscriptions[event_name]
                     return
@@ -156,7 +139,7 @@ class EventEmitter(EventEmitterProtocol[EventTypeT]):
             return
 
         handler_count = len(self._subscriptions[event])
-        self._logger.debug("Emitting event '%s' to %d handler(s)", event, handler_count)
+        logger.debug("Emitting event '%s' to %d handler(s)", event, handler_count)
 
         awaitables: list[Awaitable[None]] = []
 
@@ -170,17 +153,17 @@ class EventEmitter(EventEmitterProtocol[EventTypeT]):
                     handler(value)
             except Exception as e:
                 # Continue executing other handlers even if one fails
-                self._logger.error("Handler failed for event '%s': %s", event, e)
+                logger.error("Handler failed for event '%s': %s", event, e)
 
         # Handle awaitables if any exist
         if awaitables:
-            self._logger.debug("Running %d async handler(s) for event '%s'", len(awaitables), event)
+            logger.debug("Running %d async handler(s) for event '%s'", len(awaitables), event)
 
             async def run_async_handlers() -> None:
                 results = await asyncio.gather(*awaitables, return_exceptions=True)
                 for i, result in enumerate(results):
                     if isinstance(result, Exception):
-                        self._logger.error("Async handler %d failed for event '%s': %s", i, event, result)
+                        logger.error("Async handler %d failed for event '%s': %s", i, event, result)
 
             try:
                 # Try to get the current event loop
@@ -223,11 +206,11 @@ class EventEmitter(EventEmitterProtocol[EventTypeT]):
         if event is None:
             total_handlers = sum(len(handlers) for handlers in self._subscriptions.values())
             self._subscriptions.clear()
-            self._logger.debug("Removed all %d handler(s) from all events", total_handlers)
+            logger.debug("Removed all %d handler(s) from all events", total_handlers)
         elif event in self._subscriptions:
             handler_count = len(self._subscriptions[event])
             del self._subscriptions[event]
-            self._logger.debug("Removed all %d handler(s) from event '%s'", handler_count, event)
+            logger.debug("Removed all %d handler(s) from event '%s'", handler_count, event)
 
     def _get_next_id(self) -> int:
         """Get next unique subscription ID."""

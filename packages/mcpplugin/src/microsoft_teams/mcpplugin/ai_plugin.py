@@ -13,13 +13,14 @@ from mcp import ClientSession
 from mcp.types import TextContent
 from microsoft_teams.ai.function import Function
 from microsoft_teams.ai.plugin import BaseAIPlugin
-from microsoft_teams.common.logging import ConsoleLogger
 from pydantic import BaseModel
 
 from .models import McpCachedValue, McpClientPluginParams, McpToolDetails
 from .transport import create_transport
 
 REFETCH_TIMEOUT_MS = 24 * 60 * 60 * 1000  # 1 day
+
+logger = logging.getLogger(__name__)
 
 
 class McpClientPlugin(BaseAIPlugin):
@@ -36,7 +37,6 @@ class McpClientPlugin(BaseAIPlugin):
         name: str = "mcp_client",
         version: str = "0.0.0",
         cache: Optional[Dict[str, McpCachedValue]] = None,
-        logger: Optional[logging.Logger] = None,
         refetch_timeout_ms: int = REFETCH_TIMEOUT_MS,  # 1 day
     ):
         """
@@ -46,14 +46,12 @@ class McpClientPlugin(BaseAIPlugin):
             name: Plugin identifier
             version: Plugin version
             cache: Optional cache for storing fetched tools
-            logger: Optional logger instance
             refetch_timeout_ms: How long to cache tools before refetching (default: 1 day)
         """
         super().__init__(name)
 
         self._version = version
         self._cache: Dict[str, McpCachedValue] = cache or {}
-        self._logger = logger.getChild(self.name) if logger else ConsoleLogger().create_logger(self.name)
         self._refetch_timeout_ms = refetch_timeout_ms
 
         # If cache is provided, update last_fetched for entries with tools
@@ -180,7 +178,7 @@ class McpClientPlugin(BaseAIPlugin):
             for i, (url, params) in enumerate(fetch_needed):
                 result = results[i]
                 if isinstance(result, Exception):
-                    self._logger.error(f"Failed to fetch tools from {url}: {result}")
+                    logger.error(f"Failed to fetch tools from {url}: {result}")
                     if not params.skip_if_unavailable:
                         raise result
                 elif isinstance(result, list):
@@ -191,7 +189,7 @@ class McpClientPlugin(BaseAIPlugin):
                     self._cache[url].last_fetched = current_time
                     self._cache[url].transport = params.transport
 
-                    self._logger.debug(f"Cached {len(result)} tools for {url}")
+                    logger.debug(f"Cached {len(result)} tools for {url}")
 
     def _create_function_from_tool(
         self, url: str, tool: McpToolDetails, plugin_params: McpClientPluginParams
@@ -224,12 +222,12 @@ class McpClientPlugin(BaseAIPlugin):
                 Exception: If tool execution fails
             """
             try:
-                self._logger.debug(f"Making call to {url} tool-name={tool_name}")
+                logger.debug(f"Making call to {url} tool-name={tool_name}")
                 result = await self._call_mcp_tool(url, tool_name, params.model_dump(), plugin_params)
-                self._logger.debug(f"Successfully received result for mcp call {result}")
+                logger.debug(f"Successfully received result for mcp call {result}")
                 return str(result)
             except Exception as e:
-                self._logger.error(f"Error calling tool {tool_name} on {url}: {e}")
+                logger.error(f"Error calling tool {tool_name} on {url}: {e}")
                 raise
 
         return Function(
@@ -269,7 +267,7 @@ class McpClientPlugin(BaseAIPlugin):
                         )
                     )
 
-                self._logger.debug(f"Got {len(tools)} tools for {url}")
+                logger.debug(f"Got {len(tools)} tools for {url}")
                 return tools
 
     async def _call_mcp_tool(
@@ -314,7 +312,7 @@ class McpClientPlugin(BaseAIPlugin):
                                 try:
                                     contents.append(json.dumps(item, default=str, ensure_ascii=False))
                                 except (TypeError, ValueError) as e:
-                                    self._logger.warning(f"Failed to serialize content item: {e}")
+                                    logger.warning(f"Failed to serialize content item: {e}")
                                     contents.append(str(item))
                         return contents
 

@@ -4,7 +4,7 @@ Licensed under the MIT License.
 """
 
 import importlib.metadata
-from logging import Logger
+import logging
 from types import SimpleNamespace
 from typing import Annotated, Any, Optional, Unpack, cast
 
@@ -13,7 +13,6 @@ from microsoft_teams.api import Credentials
 from microsoft_teams.apps import (
     DependencyMetadata,
     HttpPlugin,
-    LoggerDependencyOptions,
     Plugin,
 )
 from microsoft_teams.apps.http_plugin import HttpPluginOptions
@@ -29,6 +28,8 @@ from botbuilder.integration.aiohttp import (
 from botbuilder.schema import Activity
 
 version = importlib.metadata.version("microsoft-teams-botbuilder")
+
+logger = logging.getLogger(__name__)
 
 # Constants for app types
 SINGLE_TENANT = "singletenant"
@@ -49,7 +50,6 @@ class BotBuilderPlugin(HttpPlugin):
     """
 
     # Dependency injections
-    logger: Annotated[Logger, LoggerDependencyOptions()]
     credentials: Annotated[Optional[Credentials], DependencyMetadata(optional=True)]
 
     def __init__(self, **options: Unpack[BotBuilderPluginOptions]):
@@ -90,7 +90,7 @@ class BotBuilderPlugin(HttpPlugin):
             bot_framework_auth = ConfigurationBotFrameworkAuthentication(configuration=config)
             self.adapter = CloudAdapter(bot_framework_auth)
 
-            self.logger.debug("BotBuilder plugin initialized successfully")
+            logger.debug("BotBuilder plugin initialized successfully")
 
     async def on_activity_request(self, request: Request, response: Response) -> Any:
         """
@@ -131,8 +131,8 @@ class BotBuilderPlugin(HttpPlugin):
             return self._handle_activity_response(response, result)
 
         except HTTPException as http_err:
-            self.logger.error(f"HTTP error processing activity: {http_err}", exc_info=True)
+            logger.error(f"HTTP error processing activity: {http_err}", exc_info=True)
             raise
         except Exception as err:
-            self.logger.error(f"Error processing activity: {err}", exc_info=True)
+            logger.error(f"Error processing activity: {err}", exc_info=True)
             raise HTTPException(status_code=500, detail=str(err)) from err

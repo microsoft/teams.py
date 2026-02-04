@@ -11,12 +11,12 @@ def test_old_import_shows_deprecation_warning():
     with warnings.catch_warnings(record=True) as w:
         warnings.simplefilter("always")
 
-        from microsoft.teams.common import ConsoleLogger
+        from microsoft.teams.common import Client
 
         assert len(w) >= 1
         assert any(issubclass(warning.category, DeprecationWarning) for warning in w)
         assert "deprecated" in str(w[0].message).lower()
-        assert ConsoleLogger is not None
+        assert Client is not None
 
 
 def test_new_import_no_warning():
@@ -24,20 +24,23 @@ def test_new_import_no_warning():
     with warnings.catch_warnings(record=True) as w:
         warnings.simplefilter("always")
 
-        from microsoft_teams.common import ConsoleLogger
+        from microsoft_teams.common import Client
 
         # No warnings expected
         assert len(w) == 0
-        assert ConsoleLogger is not None
+        assert Client is not None
 
 
 def test_both_namespaces_same_class():
     """Old and new imports reference the same class"""
-    from microsoft.teams.common import ConsoleLogger as OldLogger
-    from microsoft_teams.common import ConsoleLogger as NewLogger
+    with warnings.catch_warnings(record=True):
+        warnings.simplefilter("always")
 
-    assert OldLogger is NewLogger
-    assert id(OldLogger) == id(NewLogger)
+        from microsoft.teams.common import Client as OldClient
+        from microsoft_teams.common import Client as NewClient
+
+        assert OldClient is NewClient
+        assert id(OldClient) == id(NewClient)
 
 
 def test_new_import_from_submodule():

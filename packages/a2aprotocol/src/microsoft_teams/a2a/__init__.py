@@ -3,9 +3,13 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
+import logging
+
 from . import chat_prompt, server
 from .chat_prompt import *  # noqa: F403
 from .server import *  # noqa: F401, F403
+
+logging.getLogger(__name__).addHandler(logging.NullHandler())
 
 # Combine all exports from submodules
 __all__: list[str] = []
