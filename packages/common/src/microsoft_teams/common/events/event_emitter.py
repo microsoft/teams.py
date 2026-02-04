@@ -43,6 +43,15 @@ class EventEmitterProtocol(Protocol, Generic[EventTypeT]):
         """Emit an event synchronously."""
 
 
+class EventEmitterOptions(TypedDict, total=False):
+    """
+    Options for EventEmitter configuration.
+    :param logger: Custom logger instance to use for logging events
+    """
+
+    logger: logging.Logger
+
+
 class EventEmitter(EventEmitterProtocol[EventTypeT]):
     """
     Event emitter implementation inspired by TypeScript/Node.js EventEmitter.
