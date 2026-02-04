@@ -4,8 +4,8 @@ Licensed under the MIT License.
 """
 
 import asyncio
+import logging
 import os
-from logging import Logger
 from typing import Any, Optional
 
 from microsoft_teams.api import (
@@ -25,10 +25,11 @@ from microsoft_teams.api import (
 from microsoft_teams.apps import ActivityContext, App
 from microsoft_teams.apps.events.types import ErrorEvent
 from microsoft_teams.cards import AdaptiveCard, SubmitAction, SubmitActionData, TaskFetchSubmitActionData, TextBlock
-from microsoft_teams.common.logging import ConsoleLogger
 
-logger_instance = ConsoleLogger()
-logger: Logger = logger_instance.create_logger("@apps/dialogs")
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+
+logger = logging.getLogger(__name__)
+
 
 if not os.getenv("BOT_ENDPOINT"):
     logger.warning("No remote endpoint detected. Using webpages for dialog will not work as expected")

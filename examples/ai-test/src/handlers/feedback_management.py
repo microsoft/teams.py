@@ -11,6 +11,8 @@ from typing import Any, Dict, List
 from microsoft_teams.api.activities.invoke.message.submit_action import MessageSubmitActionInvokeActivity
 from microsoft_teams.apps import ActivityContext
 
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+
 
 @dataclass
 class StoredFeedback:
