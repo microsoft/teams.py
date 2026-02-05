@@ -1,6 +1,6 @@
 [project]
 name = "microsoft-teams-botbuilder"
-version = "2.0.0a9"
+dynamic = ["version"]
 description = "BotBuilder plugin for Microsoft Teams"
 authors = [{ name = "Microsoft", email = "TeamsAISDKFeedback@microsoft.com" }]
 readme = "README.md"
@@ -21,8 +21,11 @@ Homepage = "https://github.com/microsoft/teams.py/tree/main/packages/botbuilder/
 
 
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling", "nbgv-python"]
 build-backend = "hatchling.build"
+
+[tool.hatch.version]
+source = "nbgv"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/microsoft_teams", "src/microsoft"]

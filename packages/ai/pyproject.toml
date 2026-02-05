@@ -1,6 +1,6 @@
 [project]
 name = "microsoft-teams-ai"
-version = "2.0.0a9"
+dynamic = ["version"]
 description = "package to handle interacting with ai or llms"
 authors = [{ name = "Microsoft", email = "TeamsAISDKFeedback@microsoft.com" }]
 readme = "README.md"
@@ -13,8 +13,11 @@ dependencies = [
 ]
 
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling", "nbgv-python"]
 build-backend = "hatchling.build"
+
+[tool.hatch.version]
+source = "nbgv"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/microsoft_teams", "src/microsoft"]

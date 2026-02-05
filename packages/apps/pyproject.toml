@@ -1,6 +1,6 @@
 [project]
 name = "microsoft-teams-apps"
-version = "2.0.0a9"
+dynamic = ["version"]
 description = "The app package for a Microsoft Teams agent"
 authors = [{ name = "Microsoft", email = "TeamsAISDKFeedback@microsoft.com" }]
 readme = "README.md"
@@ -34,8 +34,11 @@ test = [
 ]
 
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling", "nbgv-python"]
 build-backend = "hatchling.build"
+
+[tool.hatch.version]
+source = "nbgv"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/microsoft_teams", "src/microsoft"]

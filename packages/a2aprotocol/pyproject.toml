@@ -1,6 +1,6 @@
 [project]
 name = "microsoft-teams-a2a"
-version = "2.0.0a9"
+dynamic = ["version"]
 description = "plugin that enables your teams agent to be used as an a2a agent"
 authors = [{ name = "Microsoft", email = "TeamsAISDKFeedback@microsoft.com" }]
 readme = "README.md"
@@ -21,8 +21,11 @@ external = true
 
 
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling", "nbgv-python"]
 build-backend = "hatchling.build"
+
+[tool.hatch.version]
+source = "nbgv"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/microsoft_teams", "src/microsoft"]

@@ -1,40 +1,47 @@
-# Release steps
+# Release Process
 
-1. Run `uv run scripts/release.py <bump_type>`. See [Bump types](#bump-types) for available options.
-2. This should bump all the versions for the packages and also created a release branch.
-3. Create a PR and get it merged.
-4. Now go to https://github.com/microsoft/teams.py/releases/new and create a new release.
-5. This will automatically kick off a release workflow that needs to be aproved.
-6. Once approved, the release will be published to PyPI.
+This project uses [Nerdbank.GitVersioning](https://github.com/dotnet/Nerdbank.GitVersioning) for automatic version management.
 
-# Publishing a brand new package
+## Prerequisites
 
-If you are about to publish a brand new package, you will need to set it up on pypi before you publish it.
-> [!NOTE]
-> If you have a package that is not ready for publishing, then you can add `classifiers = ["Private :: Do Not Upload"]` in the `[project]` section of your pyproject.toml file. [Ref](https://docs.astral.sh/uv/guides/package/#preparing-your-project-for-packaging)
+```bash
+dotnet tool install -g nbgv
+```
 
-1. Go to [pypi publishing](https://pypi.org/manage/account/publishing/). (Make sure you have access)
-2. Go to the bottom in the Github tab.
-3. Add your package information.
-    - Project name - this needs to match the project name in your pyproject.toml file exactly.
-    - Owner: `microsoft`
-    - Repository: `teams.py`
-    - Workflow name: `release.yml` 
-    - Environment name: `release`
-4. Make sure you remove the private classifier if it's present.
-5. Go through the above steps.
+## Branch Strategy
 
-# Appendix
+| Branch | Versions | Published |
+|--------|----------|-----------|
+| `main` | `2.0.0.dev1`, `2.0.0.dev2`, ... | No |
+| `alpha/v2.0.0` | `2.0.0a10`, `2.0.0a11`, ... | Yes |
+| `release/v2.0.0` | `2.0.0` | Yes |
 
-## Bump types
-| Bump Type | Description                                   | Example Change            |
-|-----------|-----------------------------------------------|--------------------------|
-| major     | Increment major version                       | `1.0.0` → `2.0.0`        |
-| minor     | Increment minor version                       | `1.0.0` → `1.1.0`        |
-| patch     | Increment patch version                       | `1.0.0` → `1.0.1`        |
-| stable    | Remove pre-release suffix                     | `1.0.0a1` → `1.0.0`      |
-| alpha     | Add/increment alpha pre-release               | `1.0.0` → `1.0.0a1`      |
-| beta      | Add/increment beta pre-release                | `1.0.0` → `1.0.0b1`      |
-| rc        | Add/increment release candidate               | `1.0.0` → `1.0.0rc1`     |
-| post      | Add/increment post-release                    | `1.0.0` → `1.0.0.post1`  |
-| dev       | Add/increment dev release                     | `1.0.0` → `1.0.0.dev1`   |
+## Workflow
+
+Development happens on `main`. When ready to release, merge via PR:
+
+```
+main → alpha/v2.0.0 → release/v2.0.0
+```
+
+Each merge increments the version automatically.
+
+## Creating a New Alpha Branch
+
+When starting a new version (e.g., 2.1.0):
+
+1. Create `alpha/v2.1.0` from `main`
+2. Update its `version.json`:
+   ```json
+   {
+     "version": "2.1.0-alpha.{height}",
+     "versionHeightOffset": 1
+   }
+   ```
+3. Set up branch protection (require PRs)
+
+## Publishing
+
+1. Open PR: `main` → `alpha/v2.0.0`
+2. Merge PR (version auto-increments)
+3. Trigger the [release pipeline](https://dev.azure.com/DomoreexpGithub/Github_Pipelines/_build?definitionId=49&_a=summary)
