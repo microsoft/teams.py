@@ -64,7 +64,7 @@ class TestConversationClient:
 
     @pytest.mark.asyncio
     async def test_create_conversation(self, mock_http_client, mock_account, mock_activity):
-        """Test creating a conversation."""
+        """Test creating a conversation with an activity."""
         service_url = "https://test.service.url"
         client = ConversationClient(service_url, mock_http_client)
 
@@ -82,6 +82,26 @@ class TestConversationClient:
 
         assert response.id is not None
         assert response.activity_id is not None
+        assert response.service_url is not None
+
+    @pytest.mark.asyncio
+    async def test_create_conversation_without_activity(self, mock_http_client, mock_account):
+        """Test creating a conversation without an activity."""
+        service_url = "https://test.service.url"
+        client = ConversationClient(service_url, mock_http_client)
+
+        params = CreateConversationParams(
+            is_group=True,
+            bot=mock_account,
+            members=[mock_account],
+            topic_name="Test Conversation",
+            tenant_id="test_tenant_id",
+        )
+
+        response = await client.create(params)
+
+        assert response.id is not None
+        assert response.activity_id is None
         assert response.service_url is not None
 
     def test_activities_operations(self, mock_http_client):

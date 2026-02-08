@@ -3,6 +3,8 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
+from typing import Optional
+
 from ..custom_base_model import CustomBaseModel
 
 
@@ -14,7 +16,7 @@ class ConversationResource(CustomBaseModel):
     id: str
     "Id of the resource"
 
-    activity_id: str
+    activity_id: Optional[str] = None
     "ID of the Activity (if sent)"
 
     service_url: str

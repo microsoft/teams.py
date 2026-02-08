@@ -4,6 +4,7 @@ Licensed under the MIT License.
 """
 # pyright: basic
 
+import json
 import os
 from pathlib import Path
 from typing import Any, Optional
@@ -11,13 +12,9 @@ from typing import Any, Optional
 import httpx
 import pytest
 from dotenv import load_dotenv
-from microsoft_teams.api import (
-    Account,
-    ClientCredentials,
-    ConversationResource,
-    MessageActivityInput,
-    TokenCredentials,
-)
+from microsoft_teams.api import (Account, ClientCredentials,
+                                 ConversationResource, MessageActivityInput,
+                                 TokenCredentials)
 from microsoft_teams.common.http import Client, ClientOptions
 
 try:
@@ -123,12 +120,21 @@ def mock_transport():
                 "continuationToken": "mock_continuation_token",
             }
         elif "/conversations" in str(request.url) and request.method == "POST":
+            # Parse request body to check if activity is present
+            try:
+                body = json.loads(request.content.decode("utf-8"))
+                has_activity = "activity" in body and body["activity"] is not None
+            except (json.JSONDecodeError, AttributeError):
+                has_activity = False
+
             response_data = {
                 "id": "mock_conversation_id",
-                "type": "message",
-                "activityId": "mock_activity_id",
                 "serviceUrl": "https://mock.service.url",
             }
+            # Only include activityId if an activity was sent
+            if has_activity:
+                response_data["activityId"] = "mock_activity_id"
+                response_data["type"] = "message"
         elif "/activities" in str(request.url):
             if request.method == "POST":
                 response_data = {
