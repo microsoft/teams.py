@@ -12,9 +12,13 @@ from typing import Any, Optional
 import httpx
 import pytest
 from dotenv import load_dotenv
-from microsoft_teams.api import (Account, ClientCredentials,
-                                 ConversationResource, MessageActivityInput,
-                                 TokenCredentials)
+from microsoft_teams.api import (
+    Account,
+    ClientCredentials,
+    ConversationResource,
+    MessageActivityInput,
+    TokenCredentials,
+)
 from microsoft_teams.common.http import Client, ClientOptions
 
 try:
