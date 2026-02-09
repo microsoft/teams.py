@@ -265,11 +265,31 @@ def mock_activity():
 
 @pytest.fixture
 def mock_conversation_resource():
-    """Create a mock conversation resource for testing."""
+    """Create a mock conversation resource with activity and service_url for testing."""
     return ConversationResource(
         id="mock_conversation_id",
         activity_id="mock_activity_id",
         service_url="https://mock.service.url",
+    )
+
+
+@pytest.fixture
+def mock_conversation_resource_without_activity():
+    """Create a mock conversation resource without activity for testing."""
+    return ConversationResource(
+        id="mock_conversation_id",
+        activity_id=None,
+        service_url="https://mock.service.url",
+    )
+
+
+@pytest.fixture
+def mock_conversation_resource_minimal():
+    """Create a minimal mock conversation resource with only required fields."""
+    return ConversationResource(
+        id="mock_conversation_id",
+        activity_id=None,
+        service_url=None,
     )
 
 

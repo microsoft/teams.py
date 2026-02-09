@@ -19,5 +19,5 @@ class ConversationResource(CustomBaseModel):
     activity_id: Optional[str] = None
     "ID of the Activity (if sent)"
 
-    service_url: str
+    service_url: Optional[str] = None
     "Service endpoint where operations concerning the conversation may be performed"

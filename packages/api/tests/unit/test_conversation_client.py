@@ -10,7 +10,7 @@ from microsoft_teams.api.clients.conversation.params import (
     CreateConversationParams,
     GetConversationsParams,
 )
-from microsoft_teams.api.models import TeamsChannelAccount
+from microsoft_teams.api.models import ConversationResource, TeamsChannelAccount
 from microsoft_teams.common.http import Client, ClientOptions
 
 
@@ -103,6 +103,45 @@ class TestConversationClient:
         assert response.id is not None
         assert response.activity_id is None
         assert response.service_url is not None
+
+    @pytest.mark.asyncio
+    async def test_conversation_resource_optional_fields(self):
+        """Test that ConversationResource correctly handles optional fields using model_validate."""
+        # Test with all fields (simulates API response with activity)
+        resource_full = ConversationResource.model_validate({
+            "id": "test_id",
+            "activityId": "test_activity",
+            "serviceUrl": "https://test.url",
+        })
+        assert resource_full.id == "test_id"
+        assert resource_full.activity_id == "test_activity"
+        assert resource_full.service_url == "https://test.url"
+
+        # Test without activity_id (simulates API response without activity)
+        resource_no_activity = ConversationResource.model_validate({
+            "id": "test_id",
+            "serviceUrl": "https://test.url",
+        })
+        assert resource_no_activity.id == "test_id"
+        assert resource_no_activity.activity_id is None
+        assert resource_no_activity.service_url == "https://test.url"
+
+        # Test without service_url (edge case)
+        resource_no_service = ConversationResource.model_validate({
+            "id": "test_id",
+            "activityId": "test_activity",
+        })
+        assert resource_no_service.id == "test_id"
+        assert resource_no_service.activity_id == "test_activity"
+        assert resource_no_service.service_url is None
+
+        # Test with only required field (minimal response)
+        resource_minimal = ConversationResource.model_validate({
+            "id": "test_id",
+        })
+        assert resource_minimal.id == "test_id"
+        assert resource_minimal.activity_id is None
+        assert resource_minimal.service_url is None
 
     def test_activities_operations(self, mock_http_client):
         """Test activities operations object creation."""
