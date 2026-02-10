@@ -54,8 +54,7 @@ def _get_graph_client(token: Token):
         return get_graph_client(token)
     except ImportError as exc:
         raise ImportError(
-            "Graph functionality not available. "
-            "Install with 'pip install microsoft-teams-apps[graph]'"
+            "Graph functionality not available. Install with 'pip install microsoft-teams-apps[graph]'"
         ) from exc
 
 

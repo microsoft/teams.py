@@ -32,8 +32,9 @@ class TestMeetingClient:
         client = MeetingClient(service_url, mock_http_client)
         meeting_id = "test_meeting_id"
         participant_id = "test_participant_id"
+        tenant_id = "tenant-id"
 
-        result = await client.get_participant(meeting_id, participant_id)
+        result = await client.get_participant(meeting_id, participant_id, tenant_id)
 
         assert isinstance(result, MeetingParticipant)
 
