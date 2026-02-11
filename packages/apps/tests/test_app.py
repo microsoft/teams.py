@@ -778,7 +778,7 @@ class TestApp:
         activity.is_targeted = True  # Set is_targeted without recipient
 
         with pytest.raises(
-            ValueError, match="Targeted messages sent proactively must specify an explicit recipient ID"
+            ValueError, match="Targeted messages sent proactively must specify an explicit recipient account"
         ):
             await app.send("conv-123", activity)
 
