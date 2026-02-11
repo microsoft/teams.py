@@ -131,7 +131,7 @@ class TestActivityContextSendTargeted:
 
         # Create a regular (non-targeted) message
         activity = MessageActivityInput(text="Hello")
-        assert activity.is_targeted is None
+        assert activity.is_targeted is False
         assert activity.recipient is None
 
         await ctx.send(activity)
