@@ -10,7 +10,6 @@ from microsoft_teams.api import MessageActivity
 from microsoft_teams.apps import ActivityContext, App, SignInEvent
 from microsoft_teams.apps.events.types import ErrorEvent
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 app = App()

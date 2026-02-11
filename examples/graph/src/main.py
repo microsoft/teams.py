@@ -15,8 +15,6 @@ from msgraph.generated.users.item.messages.messages_request_builder import (  # 
     MessagesRequestBuilder,
 )
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-
 logger = logging.getLogger(__name__)
 
 app_options = AppOptions(default_connection_name=os.getenv("CONNECTION_NAME", "graph"))
