@@ -778,11 +778,11 @@ class TestMessageActivityIntegration:
             assert activity.type == expected_type
 
     def test_with_recipient_defaults_to_not_targeted(self):
-        """Test that with_recipient without is_targeted flag defaults to non-targeted"""
+        """Test that with_recipient without is_targeted flag leaves is_targeted unchanged"""
         account = Account(id="user-123", name="Test User", role="user")
         activity = MessageActivityInput(text="hello").with_recipient(account)
 
-        assert activity.is_targeted is False
+        assert activity.is_targeted is None
         assert activity.recipient is not None
         assert activity.recipient.id == "user-123"
 

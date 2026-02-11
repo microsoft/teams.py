@@ -11,7 +11,7 @@ in the conversation won't see them.
 
 import asyncio
 
-from microsoft_teams.api import Account, MessageActivity, MessageActivityInput
+from microsoft_teams.api import MessageActivity, MessageActivityInput
 from microsoft_teams.api.activities.typing import TypingActivityInput
 from microsoft_teams.apps import ActivityContext, App
 from microsoft_teams.devtools import DevToolsPlugin

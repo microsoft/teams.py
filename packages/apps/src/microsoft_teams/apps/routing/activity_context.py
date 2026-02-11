@@ -184,6 +184,14 @@ class ActivityContext(Generic[T]):
         else:
             activity = message
 
+        # Validate targeted activities to ensure a recipient is provided.
+        # This prevents sending invalid targeted messages that would result in 4xx errors.
+        if getattr(activity, "is_targeted", False) and getattr(activity, "recipient", None) is None:
+            raise ValueError(
+                "Targeted activities must include a recipient. "
+                "Use with_recipient(Account(...), is_targeted=True) when sending a targeted activity."
+            )
+
         ref = conversation_ref or self.conversation_ref
         res = await self._plugin.send(activity, ref)
         return res
