@@ -104,44 +104,45 @@ class TestConversationClient:
         assert response.activity_id is None
         assert response.service_url is not None
 
-    @pytest.mark.asyncio
-    async def test_conversation_resource_optional_fields(self):
-        """Test that ConversationResource correctly handles optional fields using model_validate."""
-        # Test with all fields (simulates API response with activity)
-        resource_full = ConversationResource.model_validate({
+    async def test_conversation_resource_with_all_fields(self):
+        """Test that ConversationResource correctly handles all fields present."""
+        resource = ConversationResource.model_validate({
             "id": "test_id",
             "activityId": "test_activity",
             "serviceUrl": "https://test.url",
         })
-        assert resource_full.id == "test_id"
-        assert resource_full.activity_id == "test_activity"
-        assert resource_full.service_url == "https://test.url"
+        assert resource.id == "test_id"
+        assert resource.activity_id == "test_activity"
+        assert resource.service_url == "https://test.url"
 
-        # Test without activity_id (simulates API response without activity)
-        resource_no_activity = ConversationResource.model_validate({
+    async def test_conversation_resource_without_activity_id(self):
+        """Test that ConversationResource handles missing activityId."""
+        resource = ConversationResource.model_validate({
             "id": "test_id",
             "serviceUrl": "https://test.url",
         })
-        assert resource_no_activity.id == "test_id"
-        assert resource_no_activity.activity_id is None
-        assert resource_no_activity.service_url == "https://test.url"
+        assert resource.id == "test_id"
+        assert resource.activity_id is None
+        assert resource.service_url == "https://test.url"
 
-        # Test without service_url (edge case)
-        resource_no_service = ConversationResource.model_validate({
+    async def test_conversation_resource_without_service_url(self):
+        """Test that ConversationResource handles missing serviceUrl."""
+        resource = ConversationResource.model_validate({
             "id": "test_id",
             "activityId": "test_activity",
         })
-        assert resource_no_service.id == "test_id"
-        assert resource_no_service.activity_id == "test_activity"
-        assert resource_no_service.service_url is None
+        assert resource.id == "test_id"
+        assert resource.activity_id == "test_activity"
+        assert resource.service_url is None
 
-        # Test with only required field (minimal response)
-        resource_minimal = ConversationResource.model_validate({
+    async def test_conversation_resource_with_only_required_fields(self):
+        """Test that ConversationResource handles only the required id field."""
+        resource = ConversationResource.model_validate({
             "id": "test_id",
         })
-        assert resource_minimal.id == "test_id"
-        assert resource_minimal.activity_id is None
-        assert resource_minimal.service_url is None
+        assert resource.id == "test_id"
+        assert resource.activity_id is None
+        assert resource.service_url is None
 
     def test_activities_operations(self, mock_http_client):
         """Test activities operations object creation."""
