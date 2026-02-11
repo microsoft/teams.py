@@ -48,17 +48,17 @@ class TestActivityContextSendTargeted:
         )
 
     @pytest.mark.asyncio
-    async def test_targeted_create_sets_recipient_to_incoming_sender(self) -> None:
+    async def test_targeted_message_with_explicit_recipient(self) -> None:
         """
-        When sending a targeted message (is_targeted=True, no id), the recipient
-        should be set to the incoming activity's sender (from_).
+        When sending a targeted message with an explicit recipient set,
+        the recipient should be passed through correctly.
         """
         incoming_sender = Account(id="user-123", name="Test User")
         ctx = self._create_activity_context(from_account=incoming_sender)
 
-        # Create a targeted message without recipient or id (this is a create)
-        activity = MessageActivityInput(text="Hello").with_targeted_recipient(True)
-        assert activity.recipient is None  # Initially no recipient
+        # Create a targeted message with recipient explicitly set
+        activity = MessageActivityInput(text="Hello").with_recipient(incoming_sender, is_targeted=True)
+        assert activity.recipient is not None
         assert activity.id is None  # No id means create, not update
 
         await ctx.send(activity)
@@ -69,22 +69,20 @@ class TestActivityContextSendTargeted:
         # Get the activity that was passed to send
         sent_activity = ctx._plugin.send.call_args[0][0]
 
-        # Verify recipient was set to the incoming sender
+        # Verify recipient was preserved
         assert sent_activity.recipient == incoming_sender
 
     @pytest.mark.asyncio
-    async def test_targeted_update_does_not_modify_recipient(self) -> None:
+    async def test_targeted_update_preserves_recipient(self) -> None:
         """
-        When updating a targeted message (is_targeted=True, id is set), the recipient
-        should not be modified because recipient cannot be changed on updates.
+        When updating a targeted message, the recipient should be preserved.
         """
         incoming_sender = Account(id="user-123", name="Test User")
         ctx = self._create_activity_context(from_account=incoming_sender)
 
         # Create a targeted message update (has id set)
-        activity = MessageActivityInput(text="Updated text").with_targeted_recipient(True)
+        activity = MessageActivityInput(text="Updated text").with_recipient(incoming_sender, is_targeted=True)
         activity.id = "existing-activity-id"  # This makes it an update
-        assert activity.recipient is None
 
         await ctx.send(activity)
 
@@ -94,22 +92,22 @@ class TestActivityContextSendTargeted:
         # Get the activity that was passed to send
         sent_activity = ctx._plugin.send.call_args[0][0]
 
-        # Verify recipient was NOT set for updates
-        assert sent_activity.recipient is None
+        # Verify recipient was preserved
+        assert sent_activity.recipient == incoming_sender
 
     @pytest.mark.asyncio
-    async def test_targeted_create_does_not_override_explicit_recipient(self) -> None:
+    async def test_targeted_with_different_recipient(self) -> None:
         """
-        When sending a targeted message with an explicit recipient already set,
+        When sending a targeted message with a different recipient,
         the recipient should not be overridden.
         """
         incoming_sender = Account(id="user-123", name="Test User")
-        explicit_recipient = Account(id="other-user-456", name="Other User")
+        explicit_recipient = Account(id="other-user-456", name="Other User", role="user")
         ctx = self._create_activity_context(from_account=incoming_sender)
 
         # Create a targeted message with explicit recipient
-        activity = MessageActivityInput(text="Hello").with_targeted_recipient(explicit_recipient.id)
-        assert activity.recipient is not None  # Recipient was set by with_targeted_recipient
+        activity = MessageActivityInput(text="Hello").with_recipient(explicit_recipient, is_targeted=True)
+        assert activity.recipient is not None
 
         await ctx.send(activity)
 
@@ -119,7 +117,7 @@ class TestActivityContextSendTargeted:
         # Get the activity that was passed to send
         sent_activity = ctx._plugin.send.call_args[0][0]
 
-        # Verify recipient was NOT overridden - should still be the explicit recipient
+        # Verify recipient was preserved
         assert sent_activity.recipient is not None
         assert sent_activity.recipient.id == explicit_recipient.id
 

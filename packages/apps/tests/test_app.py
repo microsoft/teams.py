@@ -774,7 +774,8 @@ class TestApp:
         )
 
         # Create a targeted message without explicit recipient
-        activity = MessageActivityInput(text="Hello").with_targeted_recipient(True)
+        activity = MessageActivityInput(text="Hello")
+        activity.is_targeted = True  # Set is_targeted without recipient
 
         with pytest.raises(
             ValueError, match="Targeted messages sent proactively must specify an explicit recipient ID"
@@ -787,7 +788,7 @@ class TestApp:
         Test that sending a targeted message proactively with an explicit
         recipient ID succeeds.
         """
-        from microsoft_teams.api import MessageActivityInput, SentActivity
+        from microsoft_teams.api import MessageActivityInput, SentActivity, Account
 
         options = AppOptions(
             logger=mock_logger,
@@ -802,7 +803,8 @@ class TestApp:
         )
 
         # Create a targeted message with explicit recipient
-        activity = MessageActivityInput(text="Hello").with_targeted_recipient("user-456")
+        recipient = Account(id="user-456", name="Test User", role="user")
+        activity = MessageActivityInput(text="Hello").with_recipient(recipient, is_targeted=True)
 
         # Should not raise - explicit recipient provided
         result = await app.send("conv-123", activity)

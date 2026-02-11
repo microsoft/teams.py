@@ -75,9 +75,6 @@ class _MessageBase(CustomBaseModel):
     value: Optional[Any] = None
     """A value that is associated with the activity."""
 
-    is_targeted: Optional[bool] = None
-    """Indicates if this is a targeted message visible only to a specific recipient."""
-
 
 class MessageActivity(_MessageBase, ActivityBase):
     """Output model for received message activities with required fields and read-only properties."""
@@ -400,23 +397,15 @@ class MessageActivityInput(_MessageBase, ActivityInputBase):
 
         return self.add_entity(stream_entity)
 
-    def with_targeted_recipient(self, recipient_or_flag: Literal[True] | str) -> Self:
+    def with_recipient(self, value: Account, is_targeted: bool = False) -> Self:
         """
-        Mark this message as a targeted message visible only to a specific recipient.
-
+        Set the recipient.
+        
         Args:
-            recipient_or_flag: If True, the recipient will be inferred from the incoming
-                               activity context. If a string, it specifies the explicit
-                               recipient ID.
-
+            value: The recipient account
+            is_targeted: If True, marks this as a targeted message visible only to this recipient
+        
         Returns:
             Self for method chaining
-
-        Remarks:
-            When using True, this must be sent within an activity context (not proactively).
-            For proactive sends, you must provide an explicit recipient ID.
         """
-        self.is_targeted = True
-        if isinstance(recipient_or_flag, str):
-            self.recipient = Account(id=recipient_or_flag, name="", role="user")
-        return self
+        return super().with_recipient(value, is_targeted)

@@ -184,16 +184,6 @@ class ActivityContext(Generic[T]):
         else:
             activity = message
 
-        # For targeted send, set the recipient if not already set.
-        # For targeted update (activity.id exists), we don't update recipient since recipient cannot be changed.
-        if (
-            isinstance(activity, MessageActivityInput)
-            and activity.is_targeted
-            and not activity.id
-            and not activity.recipient
-        ):
-            activity.recipient = self.activity.from_
-
         ref = conversation_ref or self.conversation_ref
         res = await self._plugin.send(activity, ref)
         return res

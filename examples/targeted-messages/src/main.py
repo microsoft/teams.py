@@ -11,7 +11,7 @@ in the conversation won't see them.
 
 import asyncio
 
-from microsoft_teams.api import MessageActivity, MessageActivityInput
+from microsoft_teams.api import Account, MessageActivity, MessageActivityInput
 from microsoft_teams.api.activities.typing import TypingActivityInput
 from microsoft_teams.apps import ActivityContext, App
 from microsoft_teams.devtools import DevToolsPlugin
@@ -32,7 +32,7 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
     if "test send" in text:
         targeted_message = MessageActivityInput(
             text="🔒 [SEND] Targeted message - only YOU can see this!"
-        ).with_targeted_recipient(True)
+        ).with_recipient(ctx.activity.from_, is_targeted=True)
 
         result = await ctx.send(targeted_message)
         print(f"Targeted SEND result: {result}")
@@ -44,7 +44,7 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
     if "test reply" in text:
         targeted_reply = MessageActivityInput(
             text="🔒 [REPLY] Targeted reply - only YOU can see this!"
-        ).with_targeted_recipient(True)
+        ).with_recipient(ctx.activity.from_, is_targeted=True)
 
         result = await ctx.reply(targeted_reply)
         print(f"Targeted REPLY result: {result}")
@@ -57,7 +57,7 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
         # First send a targeted message
         targeted_message = MessageActivityInput(
             text="🔒 [UPDATE] Original targeted message..."
-        ).with_targeted_recipient(True)
+        ).with_recipient(ctx.activity.from_, is_targeted=True)
 
         result = await ctx.send(targeted_message)
         print(f"Initial targeted message ID: {result.id}")
@@ -89,7 +89,7 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
         # First send a targeted message
         targeted_message = MessageActivityInput(
             text="🔒 [DELETE] This targeted message will be DELETED in 5 seconds..."
-        ).with_targeted_recipient(True)
+        ).with_recipient(ctx.activity.from_, is_targeted=True)
 
         result = await ctx.send(targeted_message)
         print(f"Targeted message to delete, ID: {result.id}")
