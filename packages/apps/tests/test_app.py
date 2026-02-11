@@ -788,7 +788,7 @@ class TestApp:
         Test that sending a targeted message proactively with an explicit
         recipient ID succeeds.
         """
-        from microsoft_teams.api import MessageActivityInput, SentActivity, Account
+        from microsoft_teams.api import Account, MessageActivityInput, SentActivity
 
         options = AppOptions(
             logger=mock_logger,

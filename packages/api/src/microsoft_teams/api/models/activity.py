@@ -155,11 +155,11 @@ class ActivityInput(_ActivityBase):
     def with_recipient(self, value: Account, is_targeted: bool = False) -> Self:
         """
         Set the recipient.
-        
+
         Args:
             value: The recipient account
             is_targeted: If True, marks this as a targeted message visible only to this recipient
-        
+
         Returns:
             Self for method chaining
         """
