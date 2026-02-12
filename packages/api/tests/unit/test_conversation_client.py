@@ -104,7 +104,7 @@ class TestConversationClient:
         assert response.activity_id is None
         assert response.service_url is not None
 
-    async def test_conversation_resource_with_all_fields(self):
+    def test_conversation_resource_with_all_fields(self):
         """Test that ConversationResource correctly handles all fields present."""
         resource = ConversationResource.model_validate({
             "id": "test_id",
@@ -115,7 +115,7 @@ class TestConversationClient:
         assert resource.activity_id == "test_activity"
         assert resource.service_url == "https://test.url"
 
-    async def test_conversation_resource_without_activity_id(self):
+    def test_conversation_resource_without_activity_id(self):
         """Test that ConversationResource handles missing activityId."""
         resource = ConversationResource.model_validate({
             "id": "test_id",
@@ -125,7 +125,7 @@ class TestConversationClient:
         assert resource.activity_id is None
         assert resource.service_url == "https://test.url"
 
-    async def test_conversation_resource_without_service_url(self):
+    def test_conversation_resource_without_service_url(self):
         """Test that ConversationResource handles missing serviceUrl."""
         resource = ConversationResource.model_validate({
             "id": "test_id",
@@ -135,7 +135,7 @@ class TestConversationClient:
         assert resource.activity_id == "test_activity"
         assert resource.service_url is None
 
-    async def test_conversation_resource_with_only_required_fields(self):
+    def test_conversation_resource_with_only_required_fields(self):
         """Test that ConversationResource handles only the required id field."""
         resource = ConversationResource.model_validate({
             "id": "test_id",
