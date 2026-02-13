@@ -4,6 +4,7 @@ Licensed under the MIT License.
 """
 # pyright: basic
 
+import json
 import os
 from pathlib import Path
 from typing import Any, Optional
@@ -123,12 +124,21 @@ def mock_transport():
                 "continuationToken": "mock_continuation_token",
             }
         elif "/conversations" in str(request.url) and request.method == "POST":
+            # Parse request body to check if activity is present
+            try:
+                body = json.loads(request.content.decode("utf-8"))
+                has_activity = "activity" in body and body["activity"] is not None
+            except (json.JSONDecodeError, AttributeError):
+                has_activity = False
+
             response_data = {
                 "id": "mock_conversation_id",
-                "type": "message",
-                "activityId": "mock_activity_id",
                 "serviceUrl": "https://mock.service.url",
             }
+            # Only include activityId if an activity was sent
+            if has_activity:
+                response_data["activityId"] = "mock_activity_id"
+                response_data["type"] = "message"
         elif "/activities" in str(request.url):
             if request.method == "POST":
                 response_data = {
@@ -255,11 +265,31 @@ def mock_activity():
 
 @pytest.fixture
 def mock_conversation_resource():
-    """Create a mock conversation resource for testing."""
+    """Create a mock conversation resource with activity and service_url for testing."""
     return ConversationResource(
         id="mock_conversation_id",
         activity_id="mock_activity_id",
         service_url="https://mock.service.url",
+    )
+
+
+@pytest.fixture
+def mock_conversation_resource_without_activity():
+    """Create a mock conversation resource without activity for testing."""
+    return ConversationResource(
+        id="mock_conversation_id",
+        activity_id=None,
+        service_url="https://mock.service.url",
+    )
+
+
+@pytest.fixture
+def mock_conversation_resource_minimal():
+    """Create a minimal mock conversation resource with only required fields."""
+    return ConversationResource(
+        id="mock_conversation_id",
+        activity_id=None,
+        service_url=None,
     )
 
 

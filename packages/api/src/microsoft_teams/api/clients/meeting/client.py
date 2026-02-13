@@ -45,16 +45,19 @@ class MeetingClient(BaseClient):
         response = await self.http.get(f"{self.service_url}/v1/meetings/{id}")
         return MeetingInfo.model_validate(response.json())
 
-    async def get_participant(self, meeting_id: str, id: str) -> MeetingParticipant:
+    async def get_participant(self, meeting_id: str, id: str, tenant_id: str) -> MeetingParticipant:
         """
         Get meeting participant information.
 
         Args:
             meeting_id: The meeting ID.
             id: The participant ID.
+            tenant_id: The tenant ID.
 
         Returns:
             The meeting participant information.
         """
-        response = await self.http.get(f"{self.service_url}/v1/meetings/{meeting_id}/participants/{id}")
+
+        url = f"{self.service_url}/v1/meetings/{meeting_id}/participants/{id}?tenantId={tenant_id}"
+        response = await self.http.get(url)
         return MeetingParticipant.model_validate(response.json())
