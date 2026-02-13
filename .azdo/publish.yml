@@ -18,7 +18,7 @@ parameters:
   - Public
 
 variables:
-  ExcludePackageFolders: 'devtools'  # Space-separated list of package folder names to exclude
+  ExcludePackageFolders: 'devtools'  # Space-separated list of distribution name fragments to exclude (matched as microsoft_teams_<value>*)
 
 resources:
   repositories:
