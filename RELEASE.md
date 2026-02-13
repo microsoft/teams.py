@@ -100,7 +100,7 @@ The [publish pipeline](https://dev.azure.com/DomoreexpGithub/Github_Pipelines/_b
 3. Select the branch to build from (e.g., `alpha/v2.0.0`)
 4. Choose a **Publish Type**:
    - **Internal** — publishes unsigned packages to the Azure Artifacts `TeamsSDKPreviews` feed. No approval required. Packages are available immediately.
-   - **Public** — signs packages via ESRP and publishes to PyPI. The publish stage waits for approval via the `teams-py-publish` ADO environment before proceeding.
+   - **Public** — signs packages via ESRP and publishes to PyPI. The publish stage waits for approval via the `teams-sdk-publish` ADO environment before proceeding.
 5. Pipeline runs: Build > Test > Publish
 
 #### Installing Published Packages
@@ -111,9 +111,9 @@ pip install microsoft-teams-ai==2.0.0a11
 
 ## Approvers
 
-The `teams-py-publish` environment in Azure DevOps controls who can approve public releases. To modify approvers:
+The `teams-sdk-publish` environment in Azure DevOps controls who can approve public releases. To modify approvers:
 
 1. Go to **Pipelines** > **Environments** in ADO
-2. Select **teams-py-publish**
+2. Select **teams-sdk-publish**
 3. Click the **three dots** menu > **Approvals and checks**
 4. Add/remove approvers as needed

@@ -232,7 +232,7 @@ extends:
         jobs:
         - deployment: publish
           displayName: 'Publish to PyPI via ESRP'
-          environment: 'teams-py-publish'
+          environment: 'teams-sdk-publish'
           pool:
             name: 1ES-Teams-Windows-2022-DomoreexpGithub
             os: windows
