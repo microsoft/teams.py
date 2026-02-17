@@ -6,7 +6,6 @@ Licensed under the MIT License.
 
 import pytest
 from microsoft_teams.api.clients.reaction import ReactionClient
-from microsoft_teams.common.http import ClientOptions
 
 
 @pytest.mark.unit
