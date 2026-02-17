@@ -126,11 +126,9 @@ extends:
               Write-Host "Running tests..."
               $publishType = '${{ parameters.publishType }}'
               if ($publishType -eq 'Internal') {
-                $indexUrl = "https://build:$($env:SYSTEM_ACCESSTOKEN)@pkgs.dev.azure.com/DomoreexpGithub/Github_Pipelines/_packaging/TeamsSDKPreviews/pypi/simple/"
-                uv pip install --index-url $indexUrl pytest pytest-asyncio
-              } else {
-                uv pip install pytest pytest-asyncio
+                $env:UV_INDEX_URL = "https://build:$($env:SYSTEM_ACCESSTOKEN)@pkgs.dev.azure.com/DomoreexpGithub/Github_Pipelines/_packaging/TeamsSDKPreviews/pypi/simple/"
               }
+              uv pip install pytest pytest-asyncio
               .venv\Scripts\Activate.ps1
               pytest packages --junitxml=test-results.xml
           env:
