@@ -1,0 +1,15 @@
+[project]
+name = "reactions"
+version = "0.1.0"
+description = "Message reactions example"
+readme = "README.md"
+requires-python = ">=3.12,<3.15"
+dependencies = [
+    "dotenv>=0.9.9",
+    "microsoft-teams-apps",
+    "microsoft-teams-api",
+    "microsoft-teams-devtools"
+]
+
+[tool.uv.sources]
+microsoft-teams-apps = { workspace = true }
