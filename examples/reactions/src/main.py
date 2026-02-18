@@ -18,18 +18,6 @@ from microsoft_teams.devtools import DevToolsPlugin
 
 app = App(plugins=[DevToolsPlugin()])
 
-# Mapping of reaction names to their display names
-REACTION_TYPES = {
-    "like": "👍 Like",
-    "heart": "❤️ Heart",
-    "laugh": "😂 Laugh",
-    "surprised": "😮 Surprised",
-    "sad": "😢 Sad",
-    "angry": "😠 Angry",
-    "plusone": "➕ Plus one",
-}
-
-
 @app.on_message
 async def handle_message(ctx: ActivityContext[MessageActivity]):
     """Handle message activities."""
@@ -45,30 +33,14 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
     if text.startswith("react "):
         reaction_type = text[6:].strip()
 
-        # Validate reaction type
-        if reaction_type not in REACTION_TYPES:
-            await ctx.reply(
-                f"❌ Unknown reaction type: `{reaction_type}`\n\n"
-                f"**Supported types:**\n" + "\n".join([f"- `{k}` - {v}" for k, v in REACTION_TYPES.items()])
-            )
-            return
+        await ctx.api.reactions.add(
+            conversation_id=conversation_id,
+            activity_id=activity_id,
+            reaction_type=reaction_type,
+        )
 
-        try:
-            # Add the reaction using the ReactionClient
-            await ctx.api.reactions.add(
-                conversation_id=conversation_id,
-                activity_id=activity_id,
-                reaction_type=reaction_type,
-            )
-
-            await ctx.reply(f"✅ Added {REACTION_TYPES[reaction_type]} reaction to your message!")
-            print(f"[REACTION] Added '{reaction_type}' to activity {activity_id}")
-
-        except Exception as err:
-            await ctx.reply(f"❌ Failed to add reaction: {err}")
-            print(f"[ERROR] Failed to add reaction: {err}")
-
-        return
+        await ctx.reply(f"✅ Added {reaction_type} reaction to your message!")
+        print(f"[REACTION] Added '{reaction_type}' to activity {activity_id}")
 
     # ============================================
     # Remove Reaction
@@ -76,30 +48,14 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
     if text.startswith("unreact "):
         reaction_type = text[8:].strip()
 
-        # Validate reaction type
-        if reaction_type not in REACTION_TYPES:
-            await ctx.reply(
-                f"❌ Unknown reaction type: `{reaction_type}`\n\n"
-                f"**Supported types:**\n" + "\n".join([f"- `{k}` - {v}" for k, v in REACTION_TYPES.items()])
-            )
-            return
+        await ctx.api.reactions.delete(
+            conversation_id=conversation_id,
+            activity_id=activity_id,
+            reaction_type=reaction_type,
+        )
 
-        try:
-            # Remove the reaction using the ReactionClient
-            await ctx.api.reactions.delete(
-                conversation_id=conversation_id,
-                activity_id=activity_id,
-                reaction_type=reaction_type,
-            )
-
-            await ctx.reply(f"✅ Removed {REACTION_TYPES[reaction_type]} reaction from your message!")
-            print(f"[REACTION] Removed '{reaction_type}' from activity {activity_id}")
-
-        except Exception as err:
-            await ctx.reply(f"❌ Failed to remove reaction: {err}")
-            print(f"[ERROR] Failed to remove reaction: {err}")
-
-        return
+        await ctx.reply(f"✅ Removed {reaction_type} reaction from your message!")
+        print(f"[REACTION] Removed '{reaction_type}' from activity {activity_id}")
 
     # ============================================
     # Help / Default
