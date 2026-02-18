@@ -18,6 +18,7 @@ from microsoft_teams.devtools import DevToolsPlugin
 
 app = App(plugins=[DevToolsPlugin()])
 
+
 @app.on_message
 async def handle_message(ctx: ActivityContext[MessageActivity]):
     """Handle message activities."""
@@ -66,9 +67,6 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
             "**Commands:**\n"
             "- `react <type>` - Add a reaction to your message\n"
             "- `unreact <type>` - Remove a reaction from your message\n\n"
-            "**Supported reaction types:**\n"
-            + "\n".join([f"- `{k}` - {v}" for k, v in REACTION_TYPES.items()])
-            + "\n\n**Example:**\n"
             "- `react like` - Adds a 👍 to your message\n"
             "- `unreact like` - Removes the 👍 from your message"
         )
