@@ -786,7 +786,7 @@ class TestApp:
     async def test_proactive_targeted_with_explicit_recipient_succeeds(self, mock_logger, mock_storage) -> None:
         """
         Test that sending a targeted message proactively with an explicit
-        recipient ID succeeds.
+        recipient account succeeds.
         """
         from microsoft_teams.api import Account, MessageActivityInput, SentActivity
 
