@@ -5,10 +5,9 @@ Licensed under the MIT License.
 
 import asyncio
 
-from microsoft_teams.api import MessageActivity, MessageActivityInput
+from microsoft_teams.api import Account, MessageActivity, MessageActivityInput
 from microsoft_teams.api.activities.typing import TypingActivityInput
 from microsoft_teams.apps import ActivityContext, App
-from microsoft_teams.devtools import DevToolsPlugin
 
 """
 Example: Targeted Messages
@@ -18,7 +17,7 @@ Targeted messages are only visible to a specific recipient - other participants
 in the conversation won't see them.
 """
 
-app = App(plugins=[DevToolsPlugin()])
+app = App()
 
 
 @app.on_message
@@ -32,12 +31,17 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
     # Test targeted SEND (create)
     # ============================================
     if "test send" in text:
-        targeted_message = MessageActivityInput(
-            text="🔒 [SEND] Targeted message - only YOU can see this!"
-        ).with_recipient(ctx.activity.from_, is_targeted=True)
+        members = await ctx.api.conversations.members(ctx.activity.conversation.id).get_all()
 
-        result = await ctx.send(targeted_message)
-        print(f"Targeted SEND result: {result}")
+        for member in members:
+            print(f"Member: {member.name} - {member.id}")
+
+            targeted_message = MessageActivityInput(
+                text="🔒 [SEND] This is a targeted message - only YOU can see this!"
+            ).with_recipient(Account(id=member.id, name=member.name, role="user"), is_targeted=True)
+
+            result = await ctx.send(targeted_message)
+        print("[SEND] Sent targeted message")
         return
 
     # ============================================

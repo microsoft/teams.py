@@ -3278,7 +3278,6 @@ dependencies = [
     { name = "dotenv" },
     { name = "microsoft-teams-api" },
     { name = "microsoft-teams-apps" },
-    { name = "microsoft-teams-devtools" },
 ]
 
 [package.metadata]
@@ -3286,7 +3285,6 @@ requires-dist = [
     { name = "dotenv", specifier = ">=0.9.9" },
     { name = "microsoft-teams-api", editable = "packages/api" },
     { name = "microsoft-teams-apps", editable = "packages/apps" },
-    { name = "microsoft-teams-devtools", editable = "packages/devtools" },
 ]
 
 [[package]]
