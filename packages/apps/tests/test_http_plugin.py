@@ -306,7 +306,9 @@ class TestHttpPlugin:
     @pytest.mark.asyncio
     async def test_send_targeted_message_calls_create_targeted(self, plugin_for_send, conversation_ref):
         """Test that targeted messages use the create_targeted method."""
-        activity = MessageActivityInput(text="Hello").with_targeted_recipient(True)
+
+        recipient = Account(id="user-123", name="Test User", role="user")
+        activity = MessageActivityInput(text="Hello").with_recipient(recipient, is_targeted=True)
 
         mock_activities = MagicMock()
         mock_activities.create_targeted = AsyncMock(return_value=self._create_sent_activity(activity))
