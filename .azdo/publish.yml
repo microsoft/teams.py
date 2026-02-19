@@ -84,6 +84,7 @@ extends:
             Write-Host "Getting version from nbgv..."
             $version = (nbgv get-version -v SemVer2).Trim()
             Write-Host "Version from nbgv: $version"
+            Write-Host "##vso[task.setvariable variable=CUSTOM_VERSION]$version"
 
             # If version contains '-' it's a prerelease, use 'next' tag; otherwise 'latest'
             if ($version -match '-') {
@@ -94,6 +95,14 @@ extends:
               Write-Host "##vso[task.setvariable variable=PyPITag]latest"
             }
           displayName: 'Get version from nbgv'
+          env:
+            PublicRelease: 'true'
+
+        - task: onebranch.pipeline.version@1
+          displayName: 'Set pipeline version'
+          inputs:
+            system: 'Custom'
+            customVersion: '$(CUSTOM_VERSION)'
 
         - task: PowerShell@2
           displayName: 'Install dependencies'
