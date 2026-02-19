@@ -100,8 +100,10 @@ The [publish pipeline](https://dev.azure.com/DomoreexpGithub/Github_Pipelines/_b
 3. Select the branch to build from (e.g., `alpha/v2.0.0`)
 4. Choose a **Publish Type**:
    - **Internal** — publishes unsigned packages to the Azure Artifacts `TeamsSDKPreviews` feed. No approval required. Packages are available immediately.
-   - **Public** — signs packages via ESRP and publishes to PyPI. The publish stage waits for approval via the `teams-sdk-publish` ADO environment before proceeding.
+   - **Public** — signs packages via ESRP and publishes to PyPI. Requires approval via the `teams-sdk-publish` ADO environment before the ESRP release proceeds.
 5. Pipeline runs: Build > Test > Publish
+
+> **Note:** The `devtools` package is excluded from publishing. The pipeline filters out packages matching the `ExcludePackageFolders` variable. Prerelease versions are tagged `next` on PyPI; stable versions are tagged `latest`.
 
 #### Installing Published Packages
 
