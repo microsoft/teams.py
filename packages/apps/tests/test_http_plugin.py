@@ -6,7 +6,6 @@ Licensed under the MIT License.
 
 from typing import cast
 from unittest.mock import AsyncMock, MagicMock, patch
-from microsoft_teams.api import Account
 
 import pytest
 from fastapi import Request, Response
@@ -307,7 +306,6 @@ class TestHttpPlugin:
     @pytest.mark.asyncio
     async def test_send_targeted_message_calls_create_targeted(self, plugin_for_send, conversation_ref):
         """Test that targeted messages use the create_targeted method."""
-        
 
         recipient = Account(id="user-123", name="Test User", role="user")
         activity = MessageActivityInput(text="Hello").with_recipient(recipient, is_targeted=True)

@@ -186,7 +186,11 @@ class ActivityContext(Generic[T]):
 
         # Validate targeted activities to ensure a recipient is provided.
         # This prevents sending invalid targeted messages that would result in 4xx errors.
-        if getattr(activity, "is_targeted", False) and getattr(activity, "recipient", None) is None:
+        if (
+            isinstance(activity, MessageActivityInput)
+            and getattr(activity, "is_targeted", True)
+            and getattr(activity, "recipient", None) is None
+        ):
             raise ValueError(
                 "Targeted activities must include a recipient. "
                 "Use with_recipient(Account(...), is_targeted=True) when sending a targeted activity."

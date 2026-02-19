@@ -1,12 +1,6 @@
 """
 Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
-
-Example: Targeted Messages
-
-A bot that demonstrates targeted (ephemeral) messages in Microsoft Teams.
-Targeted messages are only visible to a specific recipient - other participants
-in the conversation won't see them.
 """
 
 import asyncio
@@ -15,6 +9,14 @@ from microsoft_teams.api import MessageActivity, MessageActivityInput
 from microsoft_teams.api.activities.typing import TypingActivityInput
 from microsoft_teams.apps import ActivityContext, App
 from microsoft_teams.devtools import DevToolsPlugin
+
+"""
+Example: Targeted Messages
+
+A bot that demonstrates targeted (ephemeral) messages in Microsoft Teams.
+Targeted messages are only visible to a specific recipient - other participants
+in the conversation won't see them.
+"""
 
 app = App(plugins=[DevToolsPlugin()])
 
@@ -42,9 +44,9 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
     # Test targeted REPLY
     # ============================================
     if "test reply" in text:
-        targeted_reply = MessageActivityInput(
-            text="🔒 [REPLY] Targeted reply - only YOU can see this!"
-        ).with_recipient(ctx.activity.from_, is_targeted=True)
+        targeted_reply = MessageActivityInput(text="🔒 [REPLY] Targeted reply - only YOU can see this!").with_recipient(
+            ctx.activity.from_, is_targeted=True
+        )
 
         result = await ctx.reply(targeted_reply)
         print(f"Targeted REPLY result: {result}")
@@ -55,9 +57,9 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
     # ============================================
     if "test update" in text:
         # First send a targeted message
-        targeted_message = MessageActivityInput(
-            text="🔒 [UPDATE] Original targeted message..."
-        ).with_recipient(ctx.activity.from_, is_targeted=True)
+        targeted_message = MessageActivityInput(text="🔒 [UPDATE] Original targeted message...").with_recipient(
+            ctx.activity.from_, is_targeted=True
+        )
 
         result = await ctx.send(targeted_message)
         print(f"Initial targeted message ID: {result.id}")
