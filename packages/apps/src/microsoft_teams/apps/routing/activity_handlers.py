@@ -4,7 +4,6 @@ Licensed under the MIT License.
 """
 
 from abc import ABC, abstractmethod
-from logging import Logger
 from typing import Awaitable, Callable, Optional, Pattern, Union, overload
 
 from microsoft_teams.api import (
@@ -25,12 +24,6 @@ class ActivityHandlerMixin(GeneratedActivityHandlerMixin, ABC):
     @abstractmethod
     def router(self) -> ActivityRouter:
         """The activity router instance. Must be implemented by the concrete class."""
-        pass
-
-    @property
-    @abstractmethod
-    def logger(self) -> Logger:
-        """The logger instance used by the app."""
         pass
 
     @overload
@@ -102,7 +95,7 @@ class ActivityHandlerMixin(GeneratedActivityHandlerMixin, ABC):
         def decorator(
             func: Callable[[ActivityContext[MessageActivity]], Awaitable[None]],
         ) -> Callable[[ActivityContext[MessageActivity]], Awaitable[None]]:
-            validate_handler_type(self.logger, func, MessageActivity, "on_message", "MessageActivity")
+            validate_handler_type(func, MessageActivity, "on_message", "MessageActivity")
 
             def selector(ctx: ActivityBase) -> bool:
                 if not isinstance(ctx, MessageActivity):

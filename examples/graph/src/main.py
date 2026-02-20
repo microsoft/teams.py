@@ -39,7 +39,7 @@ async def get_authenticated_graph_client(ctx: ActivityContext[MessageActivity]):
         return get_graph_client(ctx.user_token)
 
     except Exception as e:
-        ctx.logger.error(f"Failed to create Graph client: {e}")
+        logger.error(f"Failed to create Graph client: {e}")
         await ctx.send("🔐 Failed to create authenticated client. Please try signing in again.")
         await ctx.sign_in()
         return None
@@ -90,12 +90,12 @@ async def handle_profile_command(ctx: ActivityContext[MessageActivity]):
             await ctx.send("❌ Could not retrieve your profile information.")
 
     except ClientAuthenticationError as e:
-        ctx.logger.error(f"Authentication error: {e}")
+        logger.error(f"Authentication error: {e}")
         await ctx.send("🔐 Authentication failed. Please try signing in again.")
         await ctx.sign_in()
 
     except Exception as e:
-        ctx.logger.error(f"Error getting profile: {e}")
+        logger.error(f"Error getting profile: {e}")
         await ctx.send(f"❌ Failed to get your profile: {str(e)}")
 
 
@@ -138,11 +138,11 @@ async def handle_emails_command(ctx: ActivityContext[MessageActivity]):
             await ctx.send("📪 No recent emails found.")
 
     except ClientAuthenticationError as e:
-        ctx.logger.error(f"Authentication error: {e}")
+        logger.error(f"Authentication error: {e}")
         await ctx.send("🔐 Authentication failed. You may need additional permissions to read emails.")
 
     except Exception as e:
-        ctx.logger.error(f"Error getting emails: {e}")
+        logger.error(f"Error getting emails: {e}")
         await ctx.send(f"❌ Failed to get your emails: {str(e)}")
 
 

@@ -5,6 +5,7 @@ Licensed under the MIT License.
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from logging import Logger
 from typing import Generic, Optional, TypeVar
@@ -26,6 +27,8 @@ from .client_context import ClientContext
 
 T = TypeVar("T")
 
+logger = logging.getLogger(__name__)
+
 
 @dataclass(kw_only=True)
 class FunctionContext(ClientContext, Generic[T]):
@@ -46,7 +49,13 @@ class FunctionContext(ClientContext, Generic[T]):
     """The HTTP plugin instance for sending messages."""
 
     log: Logger
-    """The app logger instance."""
+    """
+    The app logger instance.
+
+    DEPRECATED:
+    This method of setting the logger is deprecated and will be removed in version 2.0.0 GA.
+    Please update your imports to use the standard Python logging library instead.
+    """
 
     data: T
     """The function payload."""
@@ -63,7 +72,7 @@ class FunctionContext(ClientContext, Generic[T]):
         conversation_id = await self._resolve_conversation_id(activity)
 
         if not conversation_id:
-            self.log.warning("Cannot send activity: conversation ID could not be resolved")
+            logger.warning("Cannot send activity: conversation ID could not be resolved")
             return None
 
         conversation_ref = ConversationReference(
@@ -107,12 +116,12 @@ class FunctionContext(ClientContext, Generic[T]):
                     self._resolved_conversation_id, self.user_id
                 )
                 if not member:
-                    self.log.warning(
+                    logger.warning(
                         f"User {self.user_id} is not a member of conversation {self._resolved_conversation_id}"
                     )
                     self._resolved_conversation_id = None
             except Exception as e:
-                self.log.error(f"Failed to get conversation member: {e}")
+                logger.error(f"Failed to get conversation member: {e}")
                 self._resolved_conversation_id = None
 
         else:
@@ -129,7 +138,7 @@ class FunctionContext(ClientContext, Generic[T]):
                 conversation = await self.api.conversations.create(conversation_params)
                 self._resolved_conversation_id = conversation.id
             except Exception as e:
-                self.log.error(f"Failed to create conversation: {e}")
+                logger.error(f"Failed to create conversation: {e}")
                 self._resolved_conversation_id = None
 
         return self._resolved_conversation_id

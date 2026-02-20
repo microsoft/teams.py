@@ -20,7 +20,6 @@ from microsoft_teams.api.auth.credentials import (
     ManagedIdentityCredentials,
     TokenCredentials,
 )
-from microsoft_teams.common import ConsoleLogger
 from msal import (
     ConfidentialClientApplication,
     ManagedIdentityClient,
@@ -34,6 +33,8 @@ DEFAULT_TENANT_FOR_BOT_TOKEN = "botframework.com"
 DEFAULT_TENANT_FOR_GRAPH_TOKEN = "common"
 DEFAULT_TOKEN_AUTHORITY = "https://login.microsoftonline.com/{tenant_id}"
 
+logger = logging.getLogger(__name__)
+
 
 class TokenManager:
     """Manages authentication tokens for the Teams application."""
@@ -41,15 +42,8 @@ class TokenManager:
     def __init__(
         self,
         credentials: Optional[Credentials],
-        logger: Optional[logging.Logger] = None,
     ):
         self._credentials = credentials
-
-        if not logger:
-            self._logger = ConsoleLogger().create_logger("TokenManager")
-        else:
-            self._logger = logger.getChild("TokenManager")
-
         self._confidential_clients_by_tenant: dict[str, ConfidentialClientApplication] = {}
         self._managed_identity_client: Optional[ManagedIdentityClient] = None
 
@@ -80,7 +74,7 @@ class TokenManager:
         credentials = self._credentials
         if self._credentials is None:
             if caller_name:
-                self._logger.debug(f"No credentials provided for {caller_name}")
+                logger.debug(f"No credentials provided for {caller_name}")
             return None
         if isinstance(credentials, ClientCredentials):
             return await self._get_token_with_client_credentials(credentials, scope, tenant_id)
@@ -159,7 +153,7 @@ class TokenManager:
         )
 
         if not mi_token_res.get("access_token"):
-            self._logger.error("FIC Step 1 failed: Could not acquire MI token")
+            logger.error("FIC Step 1 failed: Could not acquire MI token")
             error = mi_token_res.get("error", ValueError("Error retrieving MI token"))
             if not isinstance(error, BaseException):
                 error = ValueError(error)
@@ -190,15 +184,15 @@ class TokenManager:
             return JsonWebToken(access_token)
         else:
             error_msg = f"{error_prefix}: " if error_prefix else ""
-            self._logger.error(f"{error_msg}Could not acquire access token")
-            self._logger.debug(f"TokenRes: {token_res}")
+            logger.error(f"{error_msg}Could not acquire access token")
+            logger.debug(f"TokenRes: {token_res}")
 
             error = token_res.get("error", "Error retrieving token")
             if not isinstance(error, BaseException):
                 error = ValueError(error)
 
             error_description = token_res.get("error_description", "Error retrieving token from MSAL")
-            self._logger.error(error_description)
+            logger.error(error_description)
             raise error
 
     def _get_confidential_client(self, credentials: ClientCredentials, tenant_id: str) -> ConfidentialClientApplication:
