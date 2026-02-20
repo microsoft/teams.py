@@ -64,7 +64,7 @@ extends:
             version: '8.x'
 
         - task: PowerShell@2
-          displayName: 'Install uv and nbgv'
+          displayName: 'Install uv, nbgv and set cloud build version'
           inputs:
             targetType: inline
             script: |
@@ -79,6 +79,9 @@ extends:
               dotnet tool install -g nbgv
               Write-Host "##vso[task.prependpath]$env:USERPROFILE\.dotnet\tools"
               nbgv --version
+
+              # Set cloud build number and variables (resolves detached HEAD in ADO)
+              nbgv cloud
 
         - powershell: |
             Write-Host "Getting version from nbgv..."
