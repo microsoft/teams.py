@@ -206,6 +206,10 @@ def mock_transport():
                 "channelCount": 5,
                 "memberCount": 15,
             }
+        elif "/reactions/" in str(request.url):
+            # Handle reaction endpoints - both PUT (add) and DELETE (remove)
+            # These endpoints typically return 200 with empty response or minimal response
+            response_data = {"ok": True}
 
         return httpx.Response(
             status_code=200,
