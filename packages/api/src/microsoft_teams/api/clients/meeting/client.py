@@ -34,7 +34,7 @@ class MeetingClient(BaseClient):
 
     async def get_by_id(self, id: str) -> MeetingInfo:
         """
-        Get meeting information by ID.
+        Retrieves meeting information including details, organizer, and conversation.
 
         Args:
             id: The meeting ID.
@@ -47,15 +47,15 @@ class MeetingClient(BaseClient):
 
     async def get_participant(self, meeting_id: str, id: str, tenant_id: str) -> MeetingParticipant:
         """
-        Get meeting participant information.
+        Retrieves information about a specific participant in a meeting.
 
         Args:
             meeting_id: The meeting ID.
-            id: The participant ID.
-            tenant_id: The tenant ID.
+            id: The user AAD object ID.
+            tenant_id: The tenant ID of the meeting and user.
 
         Returns:
-            The meeting participant information.
+            MeetingParticipant: The meeting participant information.
         """
 
         url = f"{self.service_url}/v1/meetings/{meeting_id}/participants/{id}?tenantId={tenant_id}"

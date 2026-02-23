@@ -175,7 +175,7 @@ class ActivityContext(Generic[T]):
 
         Args:
             message: The message to send, can be a string, ActivityParams, or AdaptiveCard
-            conversation_id: Optional conversation ID to override the current conversation reference
+            conversation_ref: Optional conversation reference to override the current conversation reference
         """
         if isinstance(message, str):
             activity = MessageActivityInput(text=message)
@@ -185,7 +185,7 @@ class ActivityContext(Generic[T]):
             activity = message
 
         # For targeted send, set the recipient if not already set.
-        # For targeted update (activity.id exists), we don't update recipient since recipient cannot be changed.
+        # For targeted update (activity.id exists), we dont update recipient since recipient cannot be changed.
         if (
             isinstance(activity, MessageActivityInput)
             and activity.is_targeted

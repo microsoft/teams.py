@@ -1870,6 +1870,7 @@ dependencies = [
     { name = "microsoft-teams-api" },
     { name = "microsoft-teams-common" },
     { name = "msal" },
+    { name = "pydantic-settings" },
     { name = "pyjwt", extra = ["crypto"] },
     { name = "python-dotenv" },
     { name = "uvicorn" },
@@ -1896,6 +1897,7 @@ requires-dist = [
     { name = "microsoft-teams-common", editable = "packages/common" },
     { name = "microsoft-teams-graph", marker = "extra == 'graph'", editable = "packages/graph" },
     { name = "msal", specifier = ">=1.33.0" },
+    { name = "pydantic-settings", specifier = ">=2.11.0" },
     { name = "pyjwt", extras = ["crypto"], specifier = ">=2.10.0" },
     { name = "python-dotenv", specifier = ">=1.0.0" },
     { name = "uvicorn", specifier = ">=0.34.3" },
@@ -3276,7 +3278,6 @@ dependencies = [
     { name = "dotenv" },
     { name = "microsoft-teams-api" },
     { name = "microsoft-teams-apps" },
-    { name = "microsoft-teams-devtools" },
 ]
 
 [package.metadata]
@@ -3284,7 +3285,6 @@ requires-dist = [
     { name = "dotenv", specifier = ">=0.9.9" },
     { name = "microsoft-teams-api", editable = "packages/api" },
     { name = "microsoft-teams-apps", editable = "packages/apps" },
-    { name = "microsoft-teams-devtools", editable = "packages/devtools" },
 ]
 
 [[package]]
