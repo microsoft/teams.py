@@ -84,6 +84,7 @@ extends:
             Write-Host "Getting version from nbgv..."
             $version = (nbgv get-version -v SemVer2).Trim()
             Write-Host "Version from nbgv: $version"
+            Write-Host "##vso[task.setvariable variable=VersionNumber]$version"
 
             # If version contains '-' it's a prerelease, use 'next' tag; otherwise 'latest'
             if ($version -match '-') {
@@ -94,6 +95,8 @@ extends:
               Write-Host "##vso[task.setvariable variable=PyPITag]latest"
             }
           displayName: 'Get version from nbgv'
+          env:
+            PublicRelease: 'true'
 
         - task: PowerShell@2
           displayName: 'Install dependencies'
@@ -108,9 +111,9 @@ extends:
               # Conditionally use internal feed
               $publishType = '${{ parameters.publishType }}'
               if ($publishType -eq 'Internal') {
-                $indexUrl = "https://build:$($env:SYSTEM_ACCESSTOKEN)@pkgs.dev.azure.com/DomoreexpGithub/Github_Pipelines/_packaging/TeamsSDKPreviews/pypi/simple/"
+                $env:UV_INDEX_URL = "https://build:$($env:SYSTEM_ACCESSTOKEN)@pkgs.dev.azure.com/DomoreexpGithub/Github_Pipelines/_packaging/TeamsSDKPreviews/pypi/simple/"
                 Write-Host "Using authenticated Azure Artifacts feed"
-                uv pip install --index-url $indexUrl -e packages/common -e packages/api -e packages/cards -e packages/apps -e packages/botbuilder -e packages/graph -e packages/ai -e packages/openai -e packages/mcpplugin -e packages/a2aprotocol -e packages/devtools
+                uv pip install -e packages/common -e packages/api -e packages/cards -e packages/apps -e packages/botbuilder -e packages/graph -e packages/ai -e packages/openai -e packages/mcpplugin -e packages/a2aprotocol -e packages/devtools
               } else {
                 Write-Host "Using public PyPI"
                 uv pip install -e packages/common -e packages/api -e packages/cards -e packages/apps -e packages/botbuilder -e packages/graph -e packages/ai -e packages/openai -e packages/mcpplugin -e packages/a2aprotocol -e packages/devtools
@@ -124,9 +127,15 @@ extends:
             targetType: inline
             script: |
               Write-Host "Running tests..."
+              $publishType = '${{ parameters.publishType }}'
+              if ($publishType -eq 'Internal') {
+                $env:UV_INDEX_URL = "https://build:$($env:SYSTEM_ACCESSTOKEN)@pkgs.dev.azure.com/DomoreexpGithub/Github_Pipelines/_packaging/TeamsSDKPreviews/pypi/simple/"
+              }
               uv pip install pytest pytest-asyncio
               .venv\Scripts\Activate.ps1
               pytest packages --junitxml=test-results.xml
+          env:
+            SYSTEM_ACCESSTOKEN: $(System.AccessToken)
           continueOnError: false
 
         - task: PublishTestResults@2
@@ -163,7 +172,7 @@ extends:
             $excludeFolders = "$(ExcludePackageFolders)" -split '\s+'
             $excludePatterns = $excludeFolders | Where-Object { $_ } | ForEach-Object { "microsoft_teams_$_*" }
 
-            Get-ChildItem -Path dist -File | ForEach-Object {
+            Get-ChildItem -Path dist -File | Where-Object { $_.Name -ne '.gitignore' } | ForEach-Object {
               $fileName = $_.Name
               $shouldExclude = $false
 
@@ -185,81 +194,35 @@ extends:
             Get-ChildItem ./out
           displayName: 'Copy packages to output (excluding private packages)'
 
-    # Publish to internal PyPI feed (Azure Artifacts)
-    - ${{ if eq(parameters.publishType, 'Internal') }}:
-      - stage: publish_internal
-        displayName: 'Publish to Internal Feed'
-        dependsOn: build
-        jobs:
-        - job: publish
-          displayName: 'Publish to Internal Feed'
-          pool:
-            name: 1ES-Teams-Windows-2022-DomoreexpGithub
-            os: windows
-          variables:
-            ob_outputDirectory: '$(Build.SourcesDirectory)/out'
-            ob_git_fetchDepth: -1
-          steps:
-          - download: current
-            artifact: build_test
+        # Publish to internal PyPI feed (Azure Artifacts)
+        - task: PowerShell@2
+          displayName: 'Publish packages to internal PyPI feed'
+          condition: and(succeeded(), eq('${{ parameters.publishType }}', 'Internal'))
+          inputs:
+            targetType: inline
+            script: |
+              $feedUrl = "https://pkgs.dev.azure.com/DomoreexpGithub/Github_Pipelines/_packaging/TeamsSDKPreviews/pypi/upload/"
+              Write-Host "Publishing packages to internal feed..."
+              uv publish --publish-url $feedUrl --token $env:SYSTEM_ACCESSTOKEN ./out/*
+          env:
+            SYSTEM_ACCESSTOKEN: $(System.AccessToken)
 
-          - task: PowerShell@2
-            displayName: 'Install uv'
-            inputs:
-              targetType: inline
-              script: |
-                irm https://astral.sh/uv/install.ps1 | iex
-                $env:Path = "$env:USERPROFILE\.local\bin;$env:Path"
-                Write-Host "##vso[task.prependpath]$env:USERPROFILE\.local\bin"
-                uv --version
-
-          - task: PowerShell@2
-            displayName: 'Publish packages to internal PyPI feed'
-            inputs:
-              targetType: inline
-              script: |
-                $feedUrl = "https://pkgs.dev.azure.com/DomoreexpGithub/Github_Pipelines/_packaging/TeamsSDKPreviews/pypi/upload/"
-                Write-Host "Publishing packages to internal feed..."
-                uv publish --publish-url $feedUrl --token $env:SYSTEM_ACCESSTOKEN $(Pipeline.Workspace)/build_test/*
-            env:
-              SYSTEM_ACCESSTOKEN: $(System.AccessToken)
-
-    # Publish to PyPI via ESRP
-    - ${{ if eq(parameters.publishType, 'Public') }}:
-      - stage: publish_pypi
-        displayName: 'Publish to PyPI via ESRP'
-        dependsOn: build
-        jobs:
-        - deployment: publish
-          displayName: 'Publish to PyPI via ESRP'
-          environment: 'teams-sdk-publish'
-          pool:
-            name: 1ES-Teams-Windows-2022-DomoreexpGithub
-            os: windows
-          variables:
-            ob_outputDirectory: '$(Build.SourcesDirectory)/out'
-            ob_git_fetchDepth: -1
-          strategy:
-            runOnce:
-              deploy:
-                steps:
-                - download: current
-                  artifact: build_test
-
-                - task: EsrpRelease@10
-                  displayName: 'Publish packages to PyPI via ESRP'
-                  inputs:
-                    connectedservicename: 'TeamsESRP-Release-PyPI'
-                    usemanagedidentity: true
-                    keyvaultname: 'esrp-teams'
-                    signcertname: '82a83c86-86a3-4739-8da4-fc19d60794ed'
-                    clientid: '82a83c86-86a3-4739-8da4-fc19d60794ed'
-                    intent: 'packagedistribution'
-                    contenttype: 'PyPI'
-                    contentsource: 'Folder'
-                    folderlocation: '$(Pipeline.Workspace)/build_test'
-                    waitforreleasecompletion: true
-                    serviceendpointurl: 'https://api.esrp.microsoft.com'
-                    mainpublisher: 'ESRPRELPACMAN'
-                    domaintenantid: '975f013f-7f24-47e8-a7d3-abc4752bf346'
-                    productState: $(PyPITag)
+        # Publish to PyPI via ESRP
+        - task: EsrpRelease@10
+          displayName: 'Publish packages to PyPI via ESRP'
+          condition: and(succeeded(), eq('${{ parameters.publishType }}', 'Public'))
+          inputs:
+            connectedservicename: 'TeamsESRP-Release-PyPI'
+            usemanagedidentity: true
+            keyvaultname: 'esrp-teams'
+            signcertname: '82a83c86-86a3-4739-8da4-fc19d60794ed'
+            clientid: '82a83c86-86a3-4739-8da4-fc19d60794ed'
+            intent: 'packagedistribution'
+            contenttype: 'PyPI'
+            contentsource: 'Folder'
+            folderlocation: '$(Build.SourcesDirectory)/out'
+            waitforreleasecompletion: true
+            serviceendpointurl: 'https://api.esrp.microsoft.com'
+            mainpublisher: 'ESRPRELPACMAN'
+            domaintenantid: '975f013f-7f24-47e8-a7d3-abc4752bf346'
+            productState: $(PyPITag)

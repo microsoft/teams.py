@@ -106,40 +106,48 @@ class TestConversationClient:
 
     def test_conversation_resource_with_all_fields(self):
         """Test that ConversationResource correctly handles all fields present."""
-        resource = ConversationResource.model_validate({
-            "id": "test_id",
-            "activityId": "test_activity",
-            "serviceUrl": "https://test.url",
-        })
+        resource = ConversationResource.model_validate(
+            {
+                "id": "test_id",
+                "activityId": "test_activity",
+                "serviceUrl": "https://test.url",
+            }
+        )
         assert resource.id == "test_id"
         assert resource.activity_id == "test_activity"
         assert resource.service_url == "https://test.url"
 
     def test_conversation_resource_without_activity_id(self):
         """Test that ConversationResource handles missing activityId."""
-        resource = ConversationResource.model_validate({
-            "id": "test_id",
-            "serviceUrl": "https://test.url",
-        })
+        resource = ConversationResource.model_validate(
+            {
+                "id": "test_id",
+                "serviceUrl": "https://test.url",
+            }
+        )
         assert resource.id == "test_id"
         assert resource.activity_id is None
         assert resource.service_url == "https://test.url"
 
     def test_conversation_resource_without_service_url(self):
         """Test that ConversationResource handles missing serviceUrl."""
-        resource = ConversationResource.model_validate({
-            "id": "test_id",
-            "activityId": "test_activity",
-        })
+        resource = ConversationResource.model_validate(
+            {
+                "id": "test_id",
+                "activityId": "test_activity",
+            }
+        )
         assert resource.id == "test_id"
         assert resource.activity_id == "test_activity"
         assert resource.service_url is None
 
     def test_conversation_resource_with_only_required_fields(self):
         """Test that ConversationResource handles only the required id field."""
-        resource = ConversationResource.model_validate({
-            "id": "test_id",
-        })
+        resource = ConversationResource.model_validate(
+            {
+                "id": "test_id",
+            }
+        )
         assert resource.id == "test_id"
         assert resource.activity_id is None
         assert resource.service_url is None
