@@ -5,6 +5,8 @@ Licensed under the MIT License.
 
 from typing import List, Literal, Optional, Self
 
+from typing_extensions import deprecated
+
 from ...models import ActivityBase, ActivityInputBase, MessageReaction
 from ...models.custom_base_model import CustomBaseModel
 
@@ -28,6 +30,7 @@ class MessageReactionActivity(_MessageReactionBase, ActivityBase):
 class MessageReactionActivityInput(_MessageReactionBase, ActivityInputBase):
     """Input model for creating message reaction activities with builder methods."""
 
+    @deprecated("MessageReactionActivityInput is deprecated and will be removed in a future release. ")
     def add_reaction(self, reaction: MessageReaction) -> Self:
         """
         Add a message reaction to the added reactions list.
@@ -44,6 +47,7 @@ class MessageReactionActivityInput(_MessageReactionBase, ActivityInputBase):
         self.reactions_added.append(reaction)
         return self
 
+    @deprecated("MessageReactionActivityInput is deprecated and will be removed in a future release.")
     def remove_reaction(self, reaction: MessageReaction) -> Self:
         """
         Remove a message reaction and add it to the removed reactions list.

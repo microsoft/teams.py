@@ -1,12 +1,6 @@
 """
 Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
-
-Example: Message Reactions
-
-A bot that demonstrates adding and removing reactions to messages in Microsoft Teams.
-This example shows how to use the ReactionClient to programmatically add and remove
-reactions (like, heart, laugh, etc.) on messages.
 """
 
 import asyncio
@@ -14,9 +8,16 @@ import asyncio
 from microsoft_teams.api import MessageActivity
 from microsoft_teams.api.activities.typing import TypingActivityInput
 from microsoft_teams.apps import ActivityContext, App
-from microsoft_teams.devtools import DevToolsPlugin
 
-app = App(plugins=[DevToolsPlugin()])
+"""
+Example: Message Reactions
+
+A bot that demonstrates adding and removing reactions to messages in Microsoft Teams.
+This example shows how to use the ReactionClient to programmatically add and remove
+reactions (like, heart, laugh, etc.) on messages.
+"""
+
+app = App()
 
 
 @app.on_message
