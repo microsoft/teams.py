@@ -10,6 +10,7 @@ from microsoft_teams.api import (
     ExchangeUserTokenParams,
     GetUserTokenParams,
     InvokeResponse,
+    SignInFailureInvokeActivity,
     SignInTokenExchangeInvokeActivity,
     SignInVerifyStateInvokeActivity,
     TokenExchangeInvokeResponse,
@@ -80,6 +81,45 @@ class OauthHandlers:
                         failure_detail=str(e) or "unable to exchange token...",
                     ),
                 )
+        finally:
+            await next_handler()
+
+    async def sign_in_failure(
+        self, ctx: ActivityContext[SignInFailureInvokeActivity]
+    ) -> Optional[InvokeResponse[None]]:
+        """
+        Default handler for signin/failure invoke activities.
+
+        Teams sends a signin/failure invoke when SSO token exchange fails
+        (e.g., due to a misconfigured Entra app registration). This handler
+        logs the failure details and emits an error event so developers are
+        notified rather than having the failure silently swallowed.
+
+        Common failure code:
+            - ``resourcematchfailed``: The token exchange resource URI on the
+              OAuthCard does not match the Application ID URI configured in
+              the Entra app registration's "Expose an API" section.
+        """
+        activity = ctx.activity
+        next_handler = ctx.next
+        try:
+            failure = activity.value
+            ctx.logger.warning(
+                f"Sign-in failed for user {activity.from_.id} in "
+                f"conversation {activity.conversation.id}: "
+                f"{failure.code} — {failure.message}. "
+                f"If the code is 'resourcematchfailed', verify that your Entra app "
+                f"registration has 'Expose an API' configured with the correct "
+                f"Application ID URI matching your OAuth connection's Token Exchange URL."
+            )
+            self.event_emitter.emit(
+                "error",
+                ErrorEvent(
+                    error=Exception(f"Sign-in failure: {failure.code} — {failure.message}"),
+                    context={"activity": activity},
+                ),
+            )
+            return InvokeResponse(status=200)
         finally:
             await next_handler()
 
