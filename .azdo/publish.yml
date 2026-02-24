@@ -18,7 +18,9 @@ parameters:
   - Public
 
 variables:
-  ExcludePackageFolders: 'devtools'  # Space-separated list of distribution name fragments to exclude (matched as microsoft_teams_<value>*)
+- group: TeamsSDK-Release
+- name: ExcludePackageFolders
+  value: 'devtools'  # Space-separated list of distribution name fragments to exclude (matched as microsoft_teams_<value>*)
 
 resources:
   repositories:
@@ -111,16 +113,10 @@ extends:
               python --version
               # Create venv
               uv venv --python $pythonPath
-              # Conditionally use internal feed
-              $publishType = '${{ parameters.publishType }}'
-              if ($publishType -eq 'Internal') {
-                $env:UV_INDEX_URL = "https://build:$($env:SYSTEM_ACCESSTOKEN)@pkgs.dev.azure.com/DomoreexpGithub/Github_Pipelines/_packaging/TeamsSDKPreviews/pypi/simple/"
-                Write-Host "Using authenticated Azure Artifacts feed"
-                uv pip install -e packages/common -e packages/api -e packages/cards -e packages/apps -e packages/botbuilder -e packages/graph -e packages/ai -e packages/openai -e packages/mcpplugin -e packages/a2aprotocol -e packages/devtools
-              } else {
-                Write-Host "Using public PyPI"
-                uv pip install -e packages/common -e packages/api -e packages/cards -e packages/apps -e packages/botbuilder -e packages/graph -e packages/ai -e packages/openai -e packages/mcpplugin -e packages/a2aprotocol -e packages/devtools
-              }
+              # Always use internal feed for dependency resolution (avoids firewall issues on 1ES pool)
+              $env:UV_INDEX_URL = "https://build:$($env:SYSTEM_ACCESSTOKEN)@pkgs.dev.azure.com/DomoreexpGithub/Github_Pipelines/_packaging/TeamsSDKPreviews/pypi/simple/"
+              Write-Host "Using authenticated Azure Artifacts feed"
+              uv pip install -e packages/common -e packages/api -e packages/cards -e packages/apps -e packages/botbuilder -e packages/graph -e packages/ai -e packages/openai -e packages/mcpplugin -e packages/a2aprotocol -e packages/devtools
           env:
             SYSTEM_ACCESSTOKEN: $(System.AccessToken)
 
@@ -130,10 +126,8 @@ extends:
             targetType: inline
             script: |
               Write-Host "Running tests..."
-              $publishType = '${{ parameters.publishType }}'
-              if ($publishType -eq 'Internal') {
-                $env:UV_INDEX_URL = "https://build:$($env:SYSTEM_ACCESSTOKEN)@pkgs.dev.azure.com/DomoreexpGithub/Github_Pipelines/_packaging/TeamsSDKPreviews/pypi/simple/"
-              }
+              # Always use internal feed for dependency resolution (avoids firewall issues on 1ES pool)
+              $env:UV_INDEX_URL = "https://build:$($env:SYSTEM_ACCESSTOKEN)@pkgs.dev.azure.com/DomoreexpGithub/Github_Pipelines/_packaging/TeamsSDKPreviews/pypi/simple/"
               uv pip install pytest pytest-asyncio
               .venv\Scripts\Activate.ps1
               pytest packages --junitxml=test-results.xml
@@ -155,16 +149,11 @@ extends:
             targetType: inline
             script: |
               $pythonPath = (Get-Command python).Source
-              # Conditionally use internal feed for build dependencies (hatchling, etc.)
-              $publishType = '${{ parameters.publishType }}'
-              if ($publishType -eq 'Internal') {
-                $indexUrl = "https://build:$($env:SYSTEM_ACCESSTOKEN)@pkgs.dev.azure.com/DomoreexpGithub/Github_Pipelines/_packaging/TeamsSDKPreviews/pypi/simple/"
-                $env:PIP_INDEX_URL = $indexUrl
-                $env:UV_INDEX_URL = $indexUrl
-                Write-Host "Using authenticated Azure Artifacts feed for build"
-              } else {
-                Write-Host "Using public PyPI for build"
-              }
+              # Always use internal feed for build dependencies (avoids firewall issues on 1ES pool)
+              $indexUrl = "https://build:$($env:SYSTEM_ACCESSTOKEN)@pkgs.dev.azure.com/DomoreexpGithub/Github_Pipelines/_packaging/TeamsSDKPreviews/pypi/simple/"
+              $env:PIP_INDEX_URL = $indexUrl
+              $env:UV_INDEX_URL = $indexUrl
+              Write-Host "Using authenticated Azure Artifacts feed for build"
               Write-Host "Building packages (version determined by nbgv)..."
               uv build --all-packages --python $pythonPath
           env:
@@ -226,6 +215,8 @@ extends:
             folderlocation: '$(Build.SourcesDirectory)/out'
             waitforreleasecompletion: true
             serviceendpointurl: 'https://api.esrp.microsoft.com'
+            owners: $(Release.Owners)
+            approvers: $(Release.Approvers)
             mainpublisher: 'ESRPRELPACMAN'
             domaintenantid: '975f013f-7f24-47e8-a7d3-abc4752bf346'
             productState: $(PyPITag)
