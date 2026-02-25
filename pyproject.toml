@@ -25,6 +25,8 @@ dev = [
     "ruff>=0.11.13",
     "pyright>=1.1.404",
     "cookiecutter>=2.6.0",
+]
+release = [
     "nbgv-python>=0.1.8",
 ]
 
