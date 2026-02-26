@@ -43,6 +43,8 @@ extends:
         pool:
           name: 1ES-Teams-Windows-2022-DomoreexpGithub
           os: windows
+        templateContext:
+          isReleaseJob: true
         variables:
           ob_outputDirectory: '$(Build.SourcesDirectory)/out'
           ob_git_fetchTags: true
