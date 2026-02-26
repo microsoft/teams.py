@@ -18,3 +18,4 @@ class CardActionType(str, Enum):
     DOWNLOAD_FILE = "downloadFile"
     SIGN_IN = "signin"
     CALL = "call"
+    INVOKE = "invoke"
