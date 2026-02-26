@@ -55,17 +55,23 @@ extends:
         - checkout: self
           displayName: 'Checkout'
           fetchDepth: 0
+          target:
+            container: host
 
         - task: UsePythonVersion@0
           displayName: 'Use Python 3.13'
           inputs:
             versionSpec: '3.13'
+          target:
+            container: host
 
         - task: UseDotNet@2
           displayName: 'Use .NET SDK'
           inputs:
             packageType: 'sdk'
             version: '8.x'
+          target:
+            container: host
 
         - task: PowerShell@2
           displayName: 'Install uv, nbgv and set cloud build version'
@@ -86,6 +92,8 @@ extends:
 
               # Set cloud build number and variables (resolves detached HEAD in ADO)
               nbgv cloud
+          target:
+            container: host
 
         - powershell: |
             Write-Host "Getting version from nbgv..."
@@ -104,6 +112,8 @@ extends:
           displayName: 'Get version from nbgv'
           env:
             PublicRelease: 'true'
+          target:
+            container: host
 
         - task: PowerShell@2
           displayName: 'Install dependencies'
@@ -121,6 +131,8 @@ extends:
               uv pip install -e packages/common -e packages/api -e packages/cards -e packages/apps -e packages/botbuilder -e packages/graph -e packages/ai -e packages/openai -e packages/mcpplugin -e packages/a2aprotocol -e packages/devtools
           env:
             SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+          target:
+            container: host
 
         - task: PowerShell@2
           displayName: 'Run tests'
@@ -136,6 +148,8 @@ extends:
           env:
             SYSTEM_ACCESSTOKEN: $(System.AccessToken)
           continueOnError: false
+          target:
+            container: host
 
         - task: PublishTestResults@2
           displayName: 'Publish Test Results'
@@ -144,6 +158,8 @@ extends:
             testResultsFormat: 'JUnit'
             testResultsFiles: '**/test-results.xml'
             mergeTestResults: true
+          target:
+            container: host
 
         - task: PowerShell@2
           displayName: 'Build packages'
@@ -160,6 +176,8 @@ extends:
               uv build --all-packages --python $pythonPath
           env:
             SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+          target:
+            container: host
 
         - powershell: |
             New-Item -ItemType Directory -Force -Path ./out
@@ -187,6 +205,8 @@ extends:
             Write-Host "`nFiles to publish:"
             Get-ChildItem ./out
           displayName: 'Copy packages to output (excluding private packages)'
+          target:
+            container: host
 
         # Publish to internal PyPI feed (Azure Artifacts)
         - task: PowerShell@2
@@ -200,6 +220,8 @@ extends:
               uv publish --publish-url $feedUrl --token $env:SYSTEM_ACCESSTOKEN ./out/*
           env:
             SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+          target:
+            container: host
 
         # Publish to PyPI via ESRP
         - task: EsrpRelease@10
@@ -222,3 +244,6 @@ extends:
             mainpublisher: 'ESRPRELPACMAN'
             domaintenantid: '975f013f-7f24-47e8-a7d3-abc4752bf346'
             productState: $(PyPITag)
+            releasetitle: 'teams.py $(VersionNumber)'
+          target:
+            container: host
