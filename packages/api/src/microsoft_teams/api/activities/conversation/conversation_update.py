@@ -54,8 +54,7 @@ class _ConversationUpdateBase(CustomBaseModel):
 class ConversationUpdateActivity(_ConversationUpdateBase, ActivityBase):
     """Output model for received conversation update activities with required fields and read-only properties."""
 
-    channel_data: ConversationChannelData  # pyright: ignore [reportGeneralTypeIssues, reportIncompatibleVariableOverride]
-    """Channel data with event type information."""
+    pass
 
 
 class ConversationUpdateActivityInput(_ConversationUpdateBase, ActivityInputBase):
