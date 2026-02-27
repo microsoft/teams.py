@@ -247,13 +247,3 @@ extends:
             releasetitle: 'teams.py $(VersionNumber)'
           target:
             container: host
-
-        - powershell: |
-            Write-Host "ESRP Release Details:"
-            Write-Host "$env:ESRP_RELEASE_DETAILS"
-          env:
-            ESRP_RELEASE_DETAILS: $(ESRP_RELEASE_DETAILS)
-          displayName: 'Print ESRP Release Details'
-          condition: eq('${{ parameters.publishType }}', 'Public')
-          target:
-            container: host
