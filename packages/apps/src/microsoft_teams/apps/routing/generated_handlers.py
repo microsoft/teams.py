@@ -49,6 +49,7 @@ from microsoft_teams.api.activities import (
     MessageSubmitActionInvokeActivity,
     MessageUpdateActivity,
     ReadReceiptEventActivity,
+    SignInFailureInvokeActivity,
     SignInTokenExchangeInvokeActivity,
     SignInVerifyStateInvokeActivity,
     TabFetchInvokeActivity,
@@ -1574,6 +1575,43 @@ class GeneratedActivityHandlerMixin(ABC):
                 "SignInVerifyStateInvokeActivity",
             )
             config = ACTIVITY_ROUTES["signin.verify-state"]
+            self.router.add_handler(config.selector, func)
+            return func
+
+        if handler is not None:
+            return decorator(handler)
+        return decorator
+
+    @overload
+    def on_signin_failure(
+        self, handler: VoidInvokeHandler[SignInFailureInvokeActivity]
+    ) -> VoidInvokeHandler[SignInFailureInvokeActivity]: ...
+
+    @overload
+    def on_signin_failure(
+        self,
+    ) -> Callable[[VoidInvokeHandler[SignInFailureInvokeActivity]], VoidInvokeHandler[SignInFailureInvokeActivity]]: ...
+
+    def on_signin_failure(
+        self, handler: Optional[VoidInvokeHandler[SignInFailureInvokeActivity]] = None
+    ) -> VoidInvokeHandlerUnion[SignInFailureInvokeActivity]:
+        """Register a signin.failure activity handler.
+
+        Handles signin/failure invoke activities sent by Teams when a sign-in
+        operation fails (e.g., SSO token exchange resource mismatch).
+        """
+
+        def decorator(
+            func: VoidInvokeHandler[SignInFailureInvokeActivity],
+        ) -> VoidInvokeHandler[SignInFailureInvokeActivity]:
+            validate_handler_type(
+                self.logger,
+                func,
+                SignInFailureInvokeActivity,
+                "on_signin_failure",
+                "SignInFailureInvokeActivity",
+            )
+            config = ACTIVITY_ROUTES["signin.failure"]
             self.router.add_handler(config.selector, func)
             return func
 
