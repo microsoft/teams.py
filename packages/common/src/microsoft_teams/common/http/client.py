@@ -13,14 +13,13 @@ import httpx
 from httpx._models import Request, Response
 from httpx._types import QueryParamTypes, RequestContent, RequestData, RequestFiles
 
-from ..logging import ConsoleLogger
 from .client_token import Token, resolve_token
 from .interceptor import Interceptor, InterceptorRequestContext, InterceptorResponseContext
 
-console_logger = ConsoleLogger()
+logger = logging.getLogger(__name__)
 
 
-def _wrap_response_json(response: httpx.Response, logger: logging.Logger) -> None:
+def _wrap_response_json(response: httpx.Response) -> None:
     """
     Wrap the response.json method to handle JSONDecodeError gracefully.
 
@@ -52,7 +51,6 @@ class ClientOptions:
         base_url: The base URL for all requests.
         headers: Default headers to include with every request.
         timeout: Default request timeout in seconds.
-        logger: Logger instance for request/response/error logging.
         token: Default authorization token (string, string-like, or callable).
         interceptors: List of interceptors for request/response middleware.
     """
@@ -60,7 +58,6 @@ class ClientOptions:
     base_url: Optional[str] = None
     headers: Dict[str, str] = field(default_factory=dict[str, str])
     timeout: Optional[float] = None
-    logger: Optional[logging.Logger] = None
     token: Optional[Token] = None
     interceptors: Optional[List[Interceptor]] = field(default_factory=list[Interceptor])
 
@@ -84,12 +81,9 @@ class Client:
             options = ClientOptions()
 
         self._options = options
-        self._logger = options.logger or console_logger.create_logger("http-client")
         self._token = options.token
-
-        # Configure httpx logging to match our logger's level
         httpx_logger = logging.getLogger("httpx")
-        httpx_logger.setLevel(self._logger.level)
+        httpx_logger.setLevel(logger.level)
 
         # Maintain interceptors as a separate instance attribute (do not mutate options)
         self._interceptors = list(options.interceptors or [])
@@ -143,7 +137,7 @@ class Client:
         req_headers = await self._prepare_headers(headers, token)
         response = await self.http.get(url, headers=req_headers, params=params, **kwargs)
         response.raise_for_status()
-        _wrap_response_json(response, self._logger)
+        _wrap_response_json(response)
         return response
 
     async def post(
@@ -188,7 +182,7 @@ class Client:
             **kwargs,
         )
         response.raise_for_status()
-        _wrap_response_json(response, self._logger)
+        _wrap_response_json(response)
         return response
 
     async def put(
@@ -233,7 +227,7 @@ class Client:
             **kwargs,
         )
         response.raise_for_status()
-        _wrap_response_json(response, self._logger)
+        _wrap_response_json(response)
         return response
 
     async def patch(
@@ -278,7 +272,7 @@ class Client:
             **kwargs,
         )
         response.raise_for_status()
-        _wrap_response_json(response, self._logger)
+        _wrap_response_json(response)
         return response
 
     async def delete(
@@ -306,7 +300,7 @@ class Client:
         req_headers = await self._prepare_headers(headers, token)
         response = await self.http.delete(url, headers=req_headers, params=params, **kwargs)
         response.raise_for_status()
-        _wrap_response_json(response, self._logger)
+        _wrap_response_json(response)
         return response
 
     async def request(
@@ -354,7 +348,7 @@ class Client:
             **kwargs,
         )
         response.raise_for_status()
-        _wrap_response_json(response, self._logger)
+        _wrap_response_json(response)
         return response
 
     async def _resolve_token(self, token: Optional[Token]) -> Optional[str]:
@@ -392,7 +386,7 @@ class Client:
 
                 def _make_request_wrapper(h: Interceptor) -> Callable[[Request], Awaitable[None]]:
                     async def wrapper(request: Request) -> None:
-                        ctx = InterceptorRequestContext(request, self._logger)
+                        ctx = InterceptorRequestContext(request, logger)
                         result = h.request(ctx)
                         if inspect.isawaitable(result):
                             await result
@@ -404,7 +398,7 @@ class Client:
 
                 def _make_response_wrapper(h: Interceptor) -> Callable[[Response], Awaitable[None]]:
                     async def wrapper(response: Response) -> None:
-                        ctx = InterceptorResponseContext(response, self._logger)
+                        ctx = InterceptorResponseContext(response, logger)
                         result = h.response(ctx)
                         if inspect.isawaitable(result):
                             await result
@@ -429,7 +423,6 @@ class Client:
             base_url=overrides.base_url if overrides.base_url is not None else self._options.base_url,
             headers={**self._options.headers, **(overrides.headers or {})},
             timeout=overrides.timeout if overrides.timeout is not None else self._options.timeout,
-            logger=overrides.logger if overrides.logger is not None else self._options.logger,
             token=overrides.token if overrides.token is not None else self._options.token,
             interceptors=list(overrides.interceptors)
             if overrides.interceptors is not None

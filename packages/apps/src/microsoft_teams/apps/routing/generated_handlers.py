@@ -10,7 +10,6 @@ uv run generate-activity-handlers
 """
 
 from abc import ABC, abstractmethod
-from logging import Logger
 from typing import Callable, Optional, overload
 
 from microsoft_teams.api.activities import (
@@ -91,12 +90,6 @@ class GeneratedActivityHandlerMixin(ABC):
         """The activity router instance. Must be implemented by the concrete class."""
         pass
 
-    @property
-    @abstractmethod
-    def logger(self) -> Logger:
-        """The logger instance used by the app."""
-        pass
-
     @overload
     def on_message(self, handler: BasicHandler[MessageActivity]) -> BasicHandler[MessageActivity]: ...
 
@@ -107,7 +100,7 @@ class GeneratedActivityHandlerMixin(ABC):
         """Register a message activity handler."""
 
         def decorator(func: BasicHandler[MessageActivity]) -> BasicHandler[MessageActivity]:
-            validate_handler_type(self.logger, func, MessageActivity, "on_message", "MessageActivity")
+            validate_handler_type(func, MessageActivity, "on_message", "MessageActivity")
             config = ACTIVITY_ROUTES["message"]
             self.router.add_handler(config.selector, func)
             return func
@@ -132,9 +125,7 @@ class GeneratedActivityHandlerMixin(ABC):
         """Register a message_delete activity handler."""
 
         def decorator(func: BasicHandler[MessageDeleteActivity]) -> BasicHandler[MessageDeleteActivity]:
-            validate_handler_type(
-                self.logger, func, MessageDeleteActivity, "on_message_delete", "MessageDeleteActivity"
-            )
+            validate_handler_type(func, MessageDeleteActivity, "on_message_delete", "MessageDeleteActivity")
             config = ACTIVITY_ROUTES["message_delete"]
             self.router.add_handler(config.selector, func)
             return func
@@ -159,9 +150,7 @@ class GeneratedActivityHandlerMixin(ABC):
         """Register a soft_delete_message activity handler."""
 
         def decorator(func: BasicHandler[MessageDeleteActivity]) -> BasicHandler[MessageDeleteActivity]:
-            validate_handler_type(
-                self.logger, func, MessageDeleteActivity, "on_soft_delete_message", "MessageDeleteActivity"
-            )
+            validate_handler_type(func, MessageDeleteActivity, "on_soft_delete_message", "MessageDeleteActivity")
             config = ACTIVITY_ROUTES["soft_delete_message"]
             self.router.add_handler(config.selector, func)
             return func
@@ -186,9 +175,7 @@ class GeneratedActivityHandlerMixin(ABC):
         """Register a message_reaction activity handler."""
 
         def decorator(func: BasicHandler[MessageReactionActivity]) -> BasicHandler[MessageReactionActivity]:
-            validate_handler_type(
-                self.logger, func, MessageReactionActivity, "on_message_reaction", "MessageReactionActivity"
-            )
+            validate_handler_type(func, MessageReactionActivity, "on_message_reaction", "MessageReactionActivity")
             config = ACTIVITY_ROUTES["message_reaction"]
             self.router.add_handler(config.selector, func)
             return func
@@ -213,9 +200,7 @@ class GeneratedActivityHandlerMixin(ABC):
         """Register a message_update activity handler."""
 
         def decorator(func: BasicHandler[MessageUpdateActivity]) -> BasicHandler[MessageUpdateActivity]:
-            validate_handler_type(
-                self.logger, func, MessageUpdateActivity, "on_message_update", "MessageUpdateActivity"
-            )
+            validate_handler_type(func, MessageUpdateActivity, "on_message_update", "MessageUpdateActivity")
             config = ACTIVITY_ROUTES["message_update"]
             self.router.add_handler(config.selector, func)
             return func
@@ -240,9 +225,7 @@ class GeneratedActivityHandlerMixin(ABC):
         """Register a undelete_message activity handler."""
 
         def decorator(func: BasicHandler[MessageUpdateActivity]) -> BasicHandler[MessageUpdateActivity]:
-            validate_handler_type(
-                self.logger, func, MessageUpdateActivity, "on_undelete_message", "MessageUpdateActivity"
-            )
+            validate_handler_type(func, MessageUpdateActivity, "on_undelete_message", "MessageUpdateActivity")
             config = ACTIVITY_ROUTES["undelete_message"]
             self.router.add_handler(config.selector, func)
             return func
@@ -265,7 +248,7 @@ class GeneratedActivityHandlerMixin(ABC):
         """Register a edit_message activity handler."""
 
         def decorator(func: BasicHandler[MessageUpdateActivity]) -> BasicHandler[MessageUpdateActivity]:
-            validate_handler_type(self.logger, func, MessageUpdateActivity, "on_edit_message", "MessageUpdateActivity")
+            validate_handler_type(func, MessageUpdateActivity, "on_edit_message", "MessageUpdateActivity")
             config = ACTIVITY_ROUTES["edit_message"]
             self.router.add_handler(config.selector, func)
             return func
@@ -286,7 +269,7 @@ class GeneratedActivityHandlerMixin(ABC):
         """Register a command activity handler."""
 
         def decorator(func: BasicHandler[CommandSendActivity]) -> BasicHandler[CommandSendActivity]:
-            validate_handler_type(self.logger, func, CommandSendActivity, "on_command", "CommandSendActivity")
+            validate_handler_type(func, CommandSendActivity, "on_command", "CommandSendActivity")
             config = ACTIVITY_ROUTES["command"]
             self.router.add_handler(config.selector, func)
             return func
@@ -311,9 +294,7 @@ class GeneratedActivityHandlerMixin(ABC):
         """Register a command_result activity handler."""
 
         def decorator(func: BasicHandler[CommandResultActivity]) -> BasicHandler[CommandResultActivity]:
-            validate_handler_type(
-                self.logger, func, CommandResultActivity, "on_command_result", "CommandResultActivity"
-            )
+            validate_handler_type(func, CommandResultActivity, "on_command_result", "CommandResultActivity")
             config = ACTIVITY_ROUTES["command_result"]
             self.router.add_handler(config.selector, func)
             return func
@@ -339,7 +320,7 @@ class GeneratedActivityHandlerMixin(ABC):
 
         def decorator(func: BasicHandler[ConversationUpdateActivity]) -> BasicHandler[ConversationUpdateActivity]:
             validate_handler_type(
-                self.logger, func, ConversationUpdateActivity, "on_conversation_update", "ConversationUpdateActivity"
+                func, ConversationUpdateActivity, "on_conversation_update", "ConversationUpdateActivity"
             )
             config = ACTIVITY_ROUTES["conversation_update"]
             self.router.add_handler(config.selector, func)
@@ -365,9 +346,7 @@ class GeneratedActivityHandlerMixin(ABC):
         """Register a channel_created activity handler."""
 
         def decorator(func: BasicHandler[ConversationUpdateActivity]) -> BasicHandler[ConversationUpdateActivity]:
-            validate_handler_type(
-                self.logger, func, ConversationUpdateActivity, "on_channel_created", "ConversationUpdateActivity"
-            )
+            validate_handler_type(func, ConversationUpdateActivity, "on_channel_created", "ConversationUpdateActivity")
             config = ACTIVITY_ROUTES["channel_created"]
             self.router.add_handler(config.selector, func)
             return func
@@ -392,9 +371,7 @@ class GeneratedActivityHandlerMixin(ABC):
         """Register a channel_deleted activity handler."""
 
         def decorator(func: BasicHandler[ConversationUpdateActivity]) -> BasicHandler[ConversationUpdateActivity]:
-            validate_handler_type(
-                self.logger, func, ConversationUpdateActivity, "on_channel_deleted", "ConversationUpdateActivity"
-            )
+            validate_handler_type(func, ConversationUpdateActivity, "on_channel_deleted", "ConversationUpdateActivity")
             config = ACTIVITY_ROUTES["channel_deleted"]
             self.router.add_handler(config.selector, func)
             return func
@@ -419,9 +396,7 @@ class GeneratedActivityHandlerMixin(ABC):
         """Register a channel_renamed activity handler."""
 
         def decorator(func: BasicHandler[ConversationUpdateActivity]) -> BasicHandler[ConversationUpdateActivity]:
-            validate_handler_type(
-                self.logger, func, ConversationUpdateActivity, "on_channel_renamed", "ConversationUpdateActivity"
-            )
+            validate_handler_type(func, ConversationUpdateActivity, "on_channel_renamed", "ConversationUpdateActivity")
             config = ACTIVITY_ROUTES["channel_renamed"]
             self.router.add_handler(config.selector, func)
             return func
@@ -446,9 +421,7 @@ class GeneratedActivityHandlerMixin(ABC):
         """Register a channel_restored activity handler."""
 
         def decorator(func: BasicHandler[ConversationUpdateActivity]) -> BasicHandler[ConversationUpdateActivity]:
-            validate_handler_type(
-                self.logger, func, ConversationUpdateActivity, "on_channel_restored", "ConversationUpdateActivity"
-            )
+            validate_handler_type(func, ConversationUpdateActivity, "on_channel_restored", "ConversationUpdateActivity")
             config = ACTIVITY_ROUTES["channel_restored"]
             self.router.add_handler(config.selector, func)
             return func
@@ -473,9 +446,7 @@ class GeneratedActivityHandlerMixin(ABC):
         """Register a team_archived activity handler."""
 
         def decorator(func: BasicHandler[ConversationUpdateActivity]) -> BasicHandler[ConversationUpdateActivity]:
-            validate_handler_type(
-                self.logger, func, ConversationUpdateActivity, "on_team_archived", "ConversationUpdateActivity"
-            )
+            validate_handler_type(func, ConversationUpdateActivity, "on_team_archived", "ConversationUpdateActivity")
             config = ACTIVITY_ROUTES["team_archived"]
             self.router.add_handler(config.selector, func)
             return func
@@ -500,9 +471,7 @@ class GeneratedActivityHandlerMixin(ABC):
         """Register a team_deleted activity handler."""
 
         def decorator(func: BasicHandler[ConversationUpdateActivity]) -> BasicHandler[ConversationUpdateActivity]:
-            validate_handler_type(
-                self.logger, func, ConversationUpdateActivity, "on_team_deleted", "ConversationUpdateActivity"
-            )
+            validate_handler_type(func, ConversationUpdateActivity, "on_team_deleted", "ConversationUpdateActivity")
             config = ACTIVITY_ROUTES["team_deleted"]
             self.router.add_handler(config.selector, func)
             return func
@@ -528,7 +497,7 @@ class GeneratedActivityHandlerMixin(ABC):
 
         def decorator(func: BasicHandler[ConversationUpdateActivity]) -> BasicHandler[ConversationUpdateActivity]:
             validate_handler_type(
-                self.logger, func, ConversationUpdateActivity, "on_team_hard_deleted", "ConversationUpdateActivity"
+                func, ConversationUpdateActivity, "on_team_hard_deleted", "ConversationUpdateActivity"
             )
             config = ACTIVITY_ROUTES["team_hard_deleted"]
             self.router.add_handler(config.selector, func)
@@ -554,9 +523,7 @@ class GeneratedActivityHandlerMixin(ABC):
         """Register a team_renamed activity handler."""
 
         def decorator(func: BasicHandler[ConversationUpdateActivity]) -> BasicHandler[ConversationUpdateActivity]:
-            validate_handler_type(
-                self.logger, func, ConversationUpdateActivity, "on_team_renamed", "ConversationUpdateActivity"
-            )
+            validate_handler_type(func, ConversationUpdateActivity, "on_team_renamed", "ConversationUpdateActivity")
             config = ACTIVITY_ROUTES["team_renamed"]
             self.router.add_handler(config.selector, func)
             return func
@@ -581,9 +548,7 @@ class GeneratedActivityHandlerMixin(ABC):
         """Register a team_restored activity handler."""
 
         def decorator(func: BasicHandler[ConversationUpdateActivity]) -> BasicHandler[ConversationUpdateActivity]:
-            validate_handler_type(
-                self.logger, func, ConversationUpdateActivity, "on_team_restored", "ConversationUpdateActivity"
-            )
+            validate_handler_type(func, ConversationUpdateActivity, "on_team_restored", "ConversationUpdateActivity")
             config = ACTIVITY_ROUTES["team_restored"]
             self.router.add_handler(config.selector, func)
             return func
@@ -608,9 +573,7 @@ class GeneratedActivityHandlerMixin(ABC):
         """Register a team_unarchived activity handler."""
 
         def decorator(func: BasicHandler[ConversationUpdateActivity]) -> BasicHandler[ConversationUpdateActivity]:
-            validate_handler_type(
-                self.logger, func, ConversationUpdateActivity, "on_team_unarchived", "ConversationUpdateActivity"
-            )
+            validate_handler_type(func, ConversationUpdateActivity, "on_team_unarchived", "ConversationUpdateActivity")
             config = ACTIVITY_ROUTES["team_unarchived"]
             self.router.add_handler(config.selector, func)
             return func
@@ -636,7 +599,7 @@ class GeneratedActivityHandlerMixin(ABC):
 
         def decorator(func: BasicHandler[EndOfConversationActivity]) -> BasicHandler[EndOfConversationActivity]:
             validate_handler_type(
-                self.logger, func, EndOfConversationActivity, "on_end_of_conversation", "EndOfConversationActivity"
+                func, EndOfConversationActivity, "on_end_of_conversation", "EndOfConversationActivity"
             )
             config = ACTIVITY_ROUTES["end_of_conversation"]
             self.router.add_handler(config.selector, func)
@@ -656,7 +619,7 @@ class GeneratedActivityHandlerMixin(ABC):
         """Register a event activity handler."""
 
         def decorator(func: BasicHandler[EventActivity]) -> BasicHandler[EventActivity]:
-            validate_handler_type(self.logger, func, EventActivity, "on_event", "EventActivity")
+            validate_handler_type(func, EventActivity, "on_event", "EventActivity")
             config = ACTIVITY_ROUTES["event"]
             self.router.add_handler(config.selector, func)
             return func
@@ -681,9 +644,7 @@ class GeneratedActivityHandlerMixin(ABC):
         """Register a read_receipt activity handler."""
 
         def decorator(func: BasicHandler[ReadReceiptEventActivity]) -> BasicHandler[ReadReceiptEventActivity]:
-            validate_handler_type(
-                self.logger, func, ReadReceiptEventActivity, "on_read_receipt", "ReadReceiptEventActivity"
-            )
+            validate_handler_type(func, ReadReceiptEventActivity, "on_read_receipt", "ReadReceiptEventActivity")
             config = ACTIVITY_ROUTES["read_receipt"]
             self.router.add_handler(config.selector, func)
             return func
@@ -708,9 +669,7 @@ class GeneratedActivityHandlerMixin(ABC):
         """Register a meeting_start activity handler."""
 
         def decorator(func: BasicHandler[MeetingStartEventActivity]) -> BasicHandler[MeetingStartEventActivity]:
-            validate_handler_type(
-                self.logger, func, MeetingStartEventActivity, "on_meeting_start", "MeetingStartEventActivity"
-            )
+            validate_handler_type(func, MeetingStartEventActivity, "on_meeting_start", "MeetingStartEventActivity")
             config = ACTIVITY_ROUTES["meeting_start"]
             self.router.add_handler(config.selector, func)
             return func
@@ -735,9 +694,7 @@ class GeneratedActivityHandlerMixin(ABC):
         """Register a meeting_end activity handler."""
 
         def decorator(func: BasicHandler[MeetingEndEventActivity]) -> BasicHandler[MeetingEndEventActivity]:
-            validate_handler_type(
-                self.logger, func, MeetingEndEventActivity, "on_meeting_end", "MeetingEndEventActivity"
-            )
+            validate_handler_type(func, MeetingEndEventActivity, "on_meeting_end", "MeetingEndEventActivity")
             config = ACTIVITY_ROUTES["meeting_end"]
             self.router.add_handler(config.selector, func)
             return func
@@ -767,7 +724,6 @@ class GeneratedActivityHandlerMixin(ABC):
             func: BasicHandler[MeetingParticipantJoinEventActivity],
         ) -> BasicHandler[MeetingParticipantJoinEventActivity]:
             validate_handler_type(
-                self.logger,
                 func,
                 MeetingParticipantJoinEventActivity,
                 "on_meeting_participant_join",
@@ -802,7 +758,6 @@ class GeneratedActivityHandlerMixin(ABC):
             func: BasicHandler[MeetingParticipantLeaveEventActivity],
         ) -> BasicHandler[MeetingParticipantLeaveEventActivity]:
             validate_handler_type(
-                self.logger,
                 func,
                 MeetingParticipantLeaveEventActivity,
                 "on_meeting_participant_leave",
@@ -837,9 +792,7 @@ class GeneratedActivityHandlerMixin(ABC):
         def decorator(
             func: InvokeHandler[ConfigFetchInvokeActivity, ConfigInvokeResponse],
         ) -> InvokeHandler[ConfigFetchInvokeActivity, ConfigInvokeResponse]:
-            validate_handler_type(
-                self.logger, func, ConfigFetchInvokeActivity, "on_config_open", "ConfigFetchInvokeActivity"
-            )
+            validate_handler_type(func, ConfigFetchInvokeActivity, "on_config_open", "ConfigFetchInvokeActivity")
             config = ACTIVITY_ROUTES["config.open"]
             self.router.add_handler(config.selector, func)
             return func
@@ -869,9 +822,7 @@ class GeneratedActivityHandlerMixin(ABC):
         def decorator(
             func: InvokeHandler[ConfigSubmitInvokeActivity, ConfigInvokeResponse],
         ) -> InvokeHandler[ConfigSubmitInvokeActivity, ConfigInvokeResponse]:
-            validate_handler_type(
-                self.logger, func, ConfigSubmitInvokeActivity, "on_config_submit", "ConfigSubmitInvokeActivity"
-            )
+            validate_handler_type(func, ConfigSubmitInvokeActivity, "on_config_submit", "ConfigSubmitInvokeActivity")
             config = ACTIVITY_ROUTES["config.submit"]
             self.router.add_handler(config.selector, func)
             return func
@@ -898,9 +849,7 @@ class GeneratedActivityHandlerMixin(ABC):
         def decorator(
             func: VoidInvokeHandler[FileConsentInvokeActivity],
         ) -> VoidInvokeHandler[FileConsentInvokeActivity]:
-            validate_handler_type(
-                self.logger, func, FileConsentInvokeActivity, "on_file_consent", "FileConsentInvokeActivity"
-            )
+            validate_handler_type(func, FileConsentInvokeActivity, "on_file_consent", "FileConsentInvokeActivity")
             config = ACTIVITY_ROUTES["file.consent"]
             self.router.add_handler(config.selector, func)
             return func
@@ -928,7 +877,7 @@ class GeneratedActivityHandlerMixin(ABC):
             func: VoidInvokeHandler[ExecuteActionInvokeActivity],
         ) -> VoidInvokeHandler[ExecuteActionInvokeActivity]:
             validate_handler_type(
-                self.logger, func, ExecuteActionInvokeActivity, "on_message_execute", "ExecuteActionInvokeActivity"
+                func, ExecuteActionInvokeActivity, "on_message_execute", "ExecuteActionInvokeActivity"
             )
             config = ACTIVITY_ROUTES["message.execute"]
             self.router.add_handler(config.selector, func)
@@ -963,7 +912,6 @@ class GeneratedActivityHandlerMixin(ABC):
             func: InvokeHandler[MessageExtensionQueryLinkInvokeActivity, MessagingExtensionInvokeResponse],
         ) -> InvokeHandler[MessageExtensionQueryLinkInvokeActivity, MessagingExtensionInvokeResponse]:
             validate_handler_type(
-                self.logger,
                 func,
                 MessageExtensionQueryLinkInvokeActivity,
                 "on_message_ext_query_link",
@@ -1002,7 +950,6 @@ class GeneratedActivityHandlerMixin(ABC):
             func: InvokeHandler[MessageExtensionAnonQueryLinkInvokeActivity, MessagingExtensionInvokeResponse],
         ) -> InvokeHandler[MessageExtensionAnonQueryLinkInvokeActivity, MessagingExtensionInvokeResponse]:
             validate_handler_type(
-                self.logger,
                 func,
                 MessageExtensionAnonQueryLinkInvokeActivity,
                 "on_message_ext_anon_query_link",
@@ -1039,11 +986,7 @@ class GeneratedActivityHandlerMixin(ABC):
             func: InvokeHandler[MessageExtensionQueryInvokeActivity, MessagingExtensionInvokeResponse],
         ) -> InvokeHandler[MessageExtensionQueryInvokeActivity, MessagingExtensionInvokeResponse]:
             validate_handler_type(
-                self.logger,
-                func,
-                MessageExtensionQueryInvokeActivity,
-                "on_message_ext_query",
-                "MessageExtensionQueryInvokeActivity",
+                func, MessageExtensionQueryInvokeActivity, "on_message_ext_query", "MessageExtensionQueryInvokeActivity"
             )
             config = ACTIVITY_ROUTES["message.ext.query"]
             self.router.add_handler(config.selector, func)
@@ -1078,7 +1021,6 @@ class GeneratedActivityHandlerMixin(ABC):
             func: InvokeHandler[MessageExtensionSelectItemInvokeActivity, MessagingExtensionInvokeResponse],
         ) -> InvokeHandler[MessageExtensionSelectItemInvokeActivity, MessagingExtensionInvokeResponse]:
             validate_handler_type(
-                self.logger,
                 func,
                 MessageExtensionSelectItemInvokeActivity,
                 "on_message_ext_select_item",
@@ -1117,7 +1059,6 @@ class GeneratedActivityHandlerMixin(ABC):
             func: InvokeHandler[MessageExtensionSubmitActionInvokeActivity, MessagingExtensionActionInvokeResponse],
         ) -> InvokeHandler[MessageExtensionSubmitActionInvokeActivity, MessagingExtensionActionInvokeResponse]:
             validate_handler_type(
-                self.logger,
                 func,
                 MessageExtensionSubmitActionInvokeActivity,
                 "on_message_ext_submit",
@@ -1156,7 +1097,6 @@ class GeneratedActivityHandlerMixin(ABC):
             func: InvokeHandler[MessageExtensionFetchTaskInvokeActivity, MessagingExtensionActionInvokeResponse],
         ) -> InvokeHandler[MessageExtensionFetchTaskInvokeActivity, MessagingExtensionActionInvokeResponse]:
             validate_handler_type(
-                self.logger,
                 func,
                 MessageExtensionFetchTaskInvokeActivity,
                 "on_message_ext_open",
@@ -1195,7 +1135,6 @@ class GeneratedActivityHandlerMixin(ABC):
             func: InvokeHandler[MessageExtensionQuerySettingUrlInvokeActivity, MessagingExtensionInvokeResponse],
         ) -> InvokeHandler[MessageExtensionQuerySettingUrlInvokeActivity, MessagingExtensionInvokeResponse]:
             validate_handler_type(
-                self.logger,
                 func,
                 MessageExtensionQuerySettingUrlInvokeActivity,
                 "on_message_ext_query_settings_url",
@@ -1234,7 +1173,6 @@ class GeneratedActivityHandlerMixin(ABC):
             func: InvokeHandler[MessageExtensionSettingInvokeActivity, MessagingExtensionInvokeResponse],
         ) -> InvokeHandler[MessageExtensionSettingInvokeActivity, MessagingExtensionInvokeResponse]:
             validate_handler_type(
-                self.logger,
                 func,
                 MessageExtensionSettingInvokeActivity,
                 "on_message_ext_setting",
@@ -1270,7 +1208,6 @@ class GeneratedActivityHandlerMixin(ABC):
             func: VoidInvokeHandler[MessageExtensionCardButtonClickedInvokeActivity],
         ) -> VoidInvokeHandler[MessageExtensionCardButtonClickedInvokeActivity]:
             validate_handler_type(
-                self.logger,
                 func,
                 MessageExtensionCardButtonClickedInvokeActivity,
                 "on_message_ext_card_button_clicked",
@@ -1305,9 +1242,7 @@ class GeneratedActivityHandlerMixin(ABC):
         def decorator(
             func: InvokeHandler[TaskFetchInvokeActivity, TaskModuleInvokeResponse],
         ) -> InvokeHandler[TaskFetchInvokeActivity, TaskModuleInvokeResponse]:
-            validate_handler_type(
-                self.logger, func, TaskFetchInvokeActivity, "on_dialog_open", "TaskFetchInvokeActivity"
-            )
+            validate_handler_type(func, TaskFetchInvokeActivity, "on_dialog_open", "TaskFetchInvokeActivity")
             config = ACTIVITY_ROUTES["dialog.open"]
             self.router.add_handler(config.selector, func)
             return func
@@ -1337,9 +1272,7 @@ class GeneratedActivityHandlerMixin(ABC):
         def decorator(
             func: InvokeHandler[TaskSubmitInvokeActivity, TaskModuleInvokeResponse],
         ) -> InvokeHandler[TaskSubmitInvokeActivity, TaskModuleInvokeResponse]:
-            validate_handler_type(
-                self.logger, func, TaskSubmitInvokeActivity, "on_dialog_submit", "TaskSubmitInvokeActivity"
-            )
+            validate_handler_type(func, TaskSubmitInvokeActivity, "on_dialog_submit", "TaskSubmitInvokeActivity")
             config = ACTIVITY_ROUTES["dialog.submit"]
             self.router.add_handler(config.selector, func)
             return func
@@ -1369,7 +1302,7 @@ class GeneratedActivityHandlerMixin(ABC):
         def decorator(
             func: InvokeHandler[TabFetchInvokeActivity, TabInvokeResponse],
         ) -> InvokeHandler[TabFetchInvokeActivity, TabInvokeResponse]:
-            validate_handler_type(self.logger, func, TabFetchInvokeActivity, "on_tab_open", "TabFetchInvokeActivity")
+            validate_handler_type(func, TabFetchInvokeActivity, "on_tab_open", "TabFetchInvokeActivity")
             config = ACTIVITY_ROUTES["tab.open"]
             self.router.add_handler(config.selector, func)
             return func
@@ -1399,9 +1332,7 @@ class GeneratedActivityHandlerMixin(ABC):
         def decorator(
             func: InvokeHandler[TabSubmitInvokeActivity, TabInvokeResponse],
         ) -> InvokeHandler[TabSubmitInvokeActivity, TabInvokeResponse]:
-            validate_handler_type(
-                self.logger, func, TabSubmitInvokeActivity, "on_tab_submit", "TabSubmitInvokeActivity"
-            )
+            validate_handler_type(func, TabSubmitInvokeActivity, "on_tab_submit", "TabSubmitInvokeActivity")
             config = ACTIVITY_ROUTES["tab.submit"]
             self.router.add_handler(config.selector, func)
             return func
@@ -1431,11 +1362,7 @@ class GeneratedActivityHandlerMixin(ABC):
             func: VoidInvokeHandler[MessageSubmitActionInvokeActivity],
         ) -> VoidInvokeHandler[MessageSubmitActionInvokeActivity]:
             validate_handler_type(
-                self.logger,
-                func,
-                MessageSubmitActionInvokeActivity,
-                "on_message_submit",
-                "MessageSubmitActionInvokeActivity",
+                func, MessageSubmitActionInvokeActivity, "on_message_submit", "MessageSubmitActionInvokeActivity"
             )
             config = ACTIVITY_ROUTES["message.submit"]
             self.router.add_handler(config.selector, func)
@@ -1466,7 +1393,6 @@ class GeneratedActivityHandlerMixin(ABC):
             func: VoidInvokeHandler[MessageSubmitActionInvokeActivity],
         ) -> VoidInvokeHandler[MessageSubmitActionInvokeActivity]:
             validate_handler_type(
-                self.logger,
                 func,
                 MessageSubmitActionInvokeActivity,
                 "on_message_submit_feedback",
@@ -1498,9 +1424,7 @@ class GeneratedActivityHandlerMixin(ABC):
         def decorator(
             func: VoidInvokeHandler[HandoffActionInvokeActivity],
         ) -> VoidInvokeHandler[HandoffActionInvokeActivity]:
-            validate_handler_type(
-                self.logger, func, HandoffActionInvokeActivity, "on_handoff_action", "HandoffActionInvokeActivity"
-            )
+            validate_handler_type(func, HandoffActionInvokeActivity, "on_handoff_action", "HandoffActionInvokeActivity")
             config = ACTIVITY_ROUTES["handoff.action"]
             self.router.add_handler(config.selector, func)
             return func
@@ -1532,11 +1456,7 @@ class GeneratedActivityHandlerMixin(ABC):
             func: InvokeHandler[SignInTokenExchangeInvokeActivity, TokenExchangeInvokeResponseType],
         ) -> InvokeHandler[SignInTokenExchangeInvokeActivity, TokenExchangeInvokeResponseType]:
             validate_handler_type(
-                self.logger,
-                func,
-                SignInTokenExchangeInvokeActivity,
-                "on_signin_token_exchange",
-                "SignInTokenExchangeInvokeActivity",
+                func, SignInTokenExchangeInvokeActivity, "on_signin_token_exchange", "SignInTokenExchangeInvokeActivity"
             )
             config = ACTIVITY_ROUTES["signin.token-exchange"]
             self.router.add_handler(config.selector, func)
@@ -1567,11 +1487,7 @@ class GeneratedActivityHandlerMixin(ABC):
             func: VoidInvokeHandler[SignInVerifyStateInvokeActivity],
         ) -> VoidInvokeHandler[SignInVerifyStateInvokeActivity]:
             validate_handler_type(
-                self.logger,
-                func,
-                SignInVerifyStateInvokeActivity,
-                "on_signin_verify_state",
-                "SignInVerifyStateInvokeActivity",
+                func, SignInVerifyStateInvokeActivity, "on_signin_verify_state", "SignInVerifyStateInvokeActivity"
             )
             config = ACTIVITY_ROUTES["signin.verify-state"]
             self.router.add_handler(config.selector, func)
@@ -1602,9 +1518,7 @@ class GeneratedActivityHandlerMixin(ABC):
         def decorator(
             func: InvokeHandler[AdaptiveCardInvokeActivity, AdaptiveCardInvokeResponse],
         ) -> InvokeHandler[AdaptiveCardInvokeActivity, AdaptiveCardInvokeResponse]:
-            validate_handler_type(
-                self.logger, func, AdaptiveCardInvokeActivity, "on_card_action", "AdaptiveCardInvokeActivity"
-            )
+            validate_handler_type(func, AdaptiveCardInvokeActivity, "on_card_action", "AdaptiveCardInvokeActivity")
             config = ACTIVITY_ROUTES["card.action"]
             self.router.add_handler(config.selector, func)
             return func
@@ -1623,7 +1537,7 @@ class GeneratedActivityHandlerMixin(ABC):
         """Register a invoke activity handler."""
 
         def decorator(func: BasicHandler[InvokeActivity]) -> BasicHandler[InvokeActivity]:
-            validate_handler_type(self.logger, func, InvokeActivity, "on_invoke", "InvokeActivity")
+            validate_handler_type(func, InvokeActivity, "on_invoke", "InvokeActivity")
             config = ACTIVITY_ROUTES["invoke"]
             self.router.add_handler(config.selector, func)
             return func
@@ -1648,9 +1562,7 @@ class GeneratedActivityHandlerMixin(ABC):
         """Register a installation_update activity handler."""
 
         def decorator(func: BasicHandler[InstallUpdateActivity]) -> BasicHandler[InstallUpdateActivity]:
-            validate_handler_type(
-                self.logger, func, InstallUpdateActivity, "on_installation_update", "InstallUpdateActivity"
-            )
+            validate_handler_type(func, InstallUpdateActivity, "on_installation_update", "InstallUpdateActivity")
             config = ACTIVITY_ROUTES["installation_update"]
             self.router.add_handler(config.selector, func)
             return func
@@ -1671,7 +1583,7 @@ class GeneratedActivityHandlerMixin(ABC):
         """Register a install.add activity handler."""
 
         def decorator(func: BasicHandler[InstalledActivity]) -> BasicHandler[InstalledActivity]:
-            validate_handler_type(self.logger, func, InstalledActivity, "on_install_add", "InstalledActivity")
+            validate_handler_type(func, InstalledActivity, "on_install_add", "InstalledActivity")
             config = ACTIVITY_ROUTES["install.add"]
             self.router.add_handler(config.selector, func)
             return func
@@ -1692,7 +1604,7 @@ class GeneratedActivityHandlerMixin(ABC):
         """Register a install.remove activity handler."""
 
         def decorator(func: BasicHandler[UninstalledActivity]) -> BasicHandler[UninstalledActivity]:
-            validate_handler_type(self.logger, func, UninstalledActivity, "on_install_remove", "UninstalledActivity")
+            validate_handler_type(func, UninstalledActivity, "on_install_remove", "UninstalledActivity")
             config = ACTIVITY_ROUTES["install.remove"]
             self.router.add_handler(config.selector, func)
             return func
@@ -1711,7 +1623,7 @@ class GeneratedActivityHandlerMixin(ABC):
         """Register a typing activity handler."""
 
         def decorator(func: BasicHandler[TypingActivity]) -> BasicHandler[TypingActivity]:
-            validate_handler_type(self.logger, func, TypingActivity, "on_typing", "TypingActivity")
+            validate_handler_type(func, TypingActivity, "on_typing", "TypingActivity")
             config = ACTIVITY_ROUTES["typing"]
             self.router.add_handler(config.selector, func)
             return func
@@ -1730,7 +1642,7 @@ class GeneratedActivityHandlerMixin(ABC):
         """Register a trace activity handler."""
 
         def decorator(func: BasicHandler[TraceActivity]) -> BasicHandler[TraceActivity]:
-            validate_handler_type(self.logger, func, TraceActivity, "on_trace", "TraceActivity")
+            validate_handler_type(func, TraceActivity, "on_trace", "TraceActivity")
             config = ACTIVITY_ROUTES["trace"]
             self.router.add_handler(config.selector, func)
             return func
@@ -1749,7 +1661,7 @@ class GeneratedActivityHandlerMixin(ABC):
         """Register a handoff activity handler."""
 
         def decorator(func: BasicHandler[HandoffActivity]) -> BasicHandler[HandoffActivity]:
-            validate_handler_type(self.logger, func, HandoffActivity, "on_handoff", "HandoffActivity")
+            validate_handler_type(func, HandoffActivity, "on_handoff", "HandoffActivity")
             config = ACTIVITY_ROUTES["handoff"]
             self.router.add_handler(config.selector, func)
             return func
@@ -1768,7 +1680,7 @@ class GeneratedActivityHandlerMixin(ABC):
         """Register a activity activity handler."""
 
         def decorator(func: BasicHandler[Activity]) -> BasicHandler[Activity]:
-            validate_handler_type(self.logger, func, Activity, "on_activity", "Activity")
+            validate_handler_type(func, Activity, "on_activity", "Activity")
             config = ACTIVITY_ROUTES["activity"]
             self.router.add_handler(config.selector, func)
             return func

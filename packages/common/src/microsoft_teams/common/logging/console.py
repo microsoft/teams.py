@@ -15,6 +15,9 @@ class ConsoleLoggerOptions(TypedDict, total=False):
     """
     ConsoleLoggerOptions is a dictionary that contains the options for the ConsoleLogger.
 
+    DEPRECATED: This class is deprecated and will be removed in version 2.0.0 GA.
+        please update your imports to use the standard Python logging library instead.
+
     :param level: The level of the logger (error, warn, info, debug)
     :param pattern: The pattern of the logger (e.g. "my_module.*")
     """
@@ -26,6 +29,9 @@ class ConsoleLoggerOptions(TypedDict, total=False):
 class ConsoleLogger:
     """
     ConsoleLogger is a class that creates a logger for the console.
+
+    DEPRECATED: This class is deprecated and will be removed in version 2.0.0 GA.
+        please update your imports to use the standard Python logging library instead.
     """
 
     _levels = {"error": logging.ERROR, "warn": logging.WARNING, "info": logging.INFO, "debug": logging.DEBUG}

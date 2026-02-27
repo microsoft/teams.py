@@ -3,7 +3,7 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from logging import Logger
+import logging
 from typing import Any, Awaitable, Callable, Dict, List, Optional
 
 from fastapi import HTTPException, Request, Response
@@ -11,8 +11,10 @@ from fastapi import HTTPException, Request, Response
 from ..contexts import ClientContext
 from .token_validator import TokenValidator
 
+logger = logging.getLogger(__name__)
 
-def require_fields(fields: Dict[str, Optional[Any]], context: str, logger: Logger) -> None:
+
+def require_fields(fields: Dict[str, Optional[Any]], context: str) -> None:
     missing: List[str] = [name for name, value in fields.items() if not value]
     if missing:
         message = f"Missing or invalid fields in {context}: {', '.join(missing)}"
@@ -20,12 +22,11 @@ def require_fields(fields: Dict[str, Optional[Any]], context: str, logger: Logge
         raise HTTPException(status_code=401, detail=message)
 
 
-def remote_function_jwt_validation(logger: Logger, entra_token_validator: Optional[TokenValidator]):
+def remote_function_jwt_validation(entra_token_validator: Optional[TokenValidator]):
     """
     Middleware to validate JWT for remote function calls.
     Args:
         entra_token_validator: TokenValidator instance for Entra ID tokens
-        logger: Logger instance
 
     Returns:
         Middleware function that can be added to FastAPI app
@@ -45,7 +46,6 @@ def remote_function_jwt_validation(logger: Logger, entra_token_validator: Option
                 "Authorization (Bearer token)": auth_token,
             },
             "header",
-            logger,
         )
 
         if not entra_token_validator:
@@ -58,7 +58,6 @@ def remote_function_jwt_validation(logger: Logger, entra_token_validator: Option
         require_fields(
             {"oid": token_payload.get("oid"), "tid": token_payload.get("tid"), "name": token_payload.get("name")},
             "token payload",
-            logger,
         )
 
         # Build context

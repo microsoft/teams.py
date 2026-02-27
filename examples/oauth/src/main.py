@@ -4,10 +4,13 @@ Licensed under the MIT License.
 """
 
 import asyncio
+import logging
 
 from microsoft_teams.api import MessageActivity
 from microsoft_teams.apps import ActivityContext, App, SignInEvent
 from microsoft_teams.apps.events.types import ErrorEvent
+
+logger = logging.getLogger(__name__)
 
 app = App()
 
@@ -18,7 +21,7 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
     print(f"[GENERATED onMessage] Message received: {ctx.activity.text}")
     print(f"[GENERATED onMessage] From: {ctx.activity.from_}")
 
-    ctx.logger.info("User requested sign-in.")
+    logger.info("User requested sign-in.")
     if ctx.is_signed_in:
         await ctx.send("You are already signed in. Logging you out.")
         await ctx.sign_out()

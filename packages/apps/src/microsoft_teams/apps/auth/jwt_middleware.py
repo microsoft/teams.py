@@ -3,7 +3,7 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from logging import Logger
+import logging
 from typing import Awaitable, Callable
 
 import jwt
@@ -12,10 +12,11 @@ from microsoft_teams.api.auth.json_web_token import JsonWebToken
 
 from .token_validator import TokenValidator
 
+logger = logging.getLogger(__name__)
+
 
 def create_jwt_validation_middleware(
     app_id: str,
-    logger: Logger,
     paths: list[str],
 ):
     """
@@ -23,14 +24,13 @@ def create_jwt_validation_middleware(
 
     Args:
         app_id: Bot's Microsoft App ID for audience validation
-        logger: Logger instance
         paths: List of paths to validate
 
     Returns:
         Middleware function that can be added to FastAPI app
     """
     # Create service token validator
-    token_validator = TokenValidator.for_service(app_id, logger)
+    token_validator = TokenValidator.for_service(app_id)
 
     async def middleware(request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
         """JWT validation middleware function."""
