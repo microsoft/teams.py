@@ -250,7 +250,9 @@ extends:
 
         - powershell: |
             Write-Host "ESRP Release Details:"
-            Write-Host "$(ESRP_RELEASE_DETAILS)"
+            Write-Host "$env:ESRP_RELEASE_DETAILS"
+          env:
+            ESRP_RELEASE_DETAILS: $(ESRP_RELEASE_DETAILS)
           displayName: 'Print ESRP Release Details'
           condition: eq('${{ parameters.publishType }}', 'Public')
           target:
