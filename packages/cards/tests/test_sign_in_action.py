@@ -3,11 +3,12 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from microsoft_teams.cards import SignInAction, SubmitActionData
+from microsoft_teams.cards import SignInAction
+from microsoft_teams.cards.core import SubmitActionData as BaseSubmitActionData
 
 
 def test_sign_in_action_initialization():
     action = SignInAction(value="Test Value")
-    assert isinstance(action.data, SubmitActionData)
+    assert isinstance(action.data, BaseSubmitActionData)
     assert action.data.ms_teams is not None
     assert action.data.ms_teams["value"] == "Test Value"
