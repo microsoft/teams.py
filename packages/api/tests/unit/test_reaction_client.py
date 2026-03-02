@@ -4,6 +4,8 @@ Licensed under the MIT License.
 """
 # pyright: basic
 
+from unittest.mock import AsyncMock, patch
+
 import pytest
 from microsoft_teams.api.clients.reaction import ReactionClient
 
@@ -38,10 +40,13 @@ class TestReactionClient:
         activity_id = "test_activity_id"
         reaction_type = "like"
 
-        await client.add(conversation_id, activity_id, reaction_type)
+        with patch.object(mock_http_client, "put", new_callable=AsyncMock) as mock_put:
+            await client.add(conversation_id, activity_id, reaction_type)
 
-        # Verify the request was made to the correct URL
-        # The mock transport will handle the request
+        expected_url = (
+            f"{service_url}/v3/conversations/{conversation_id}/activities/{activity_id}/reactions/{reaction_type}"
+        )
+        mock_put.assert_called_once_with(expected_url)
 
     @pytest.mark.asyncio
     async def test_add_heart_reaction(self, mock_http_client):
@@ -53,7 +58,13 @@ class TestReactionClient:
         activity_id = "test_activity_id"
         reaction_type = "heart"
 
-        await client.add(conversation_id, activity_id, reaction_type)
+        with patch.object(mock_http_client, "put", new_callable=AsyncMock) as mock_put:
+            await client.add(conversation_id, activity_id, reaction_type)
+
+        expected_url = (
+            f"{service_url}/v3/conversations/{conversation_id}/activities/{activity_id}/reactions/{reaction_type}"
+        )
+        mock_put.assert_called_once_with(expected_url)
 
     @pytest.mark.asyncio
     async def test_delete_reaction(self, mock_http_client):
@@ -65,9 +76,13 @@ class TestReactionClient:
         activity_id = "test_activity_id"
         reaction_type = "like"
 
-        await client.delete(conversation_id, activity_id, reaction_type)
+        with patch.object(mock_http_client, "delete", new_callable=AsyncMock) as mock_delete:
+            await client.delete(conversation_id, activity_id, reaction_type)
 
-        # Verify the request was made to the correct URL
+        expected_url = (
+            f"{service_url}/v3/conversations/{conversation_id}/activities/{activity_id}/reactions/{reaction_type}"
+        )
+        mock_delete.assert_called_once_with(expected_url)
 
     @pytest.mark.asyncio
     async def test_delete_laugh_reaction(self, mock_http_client):
@@ -79,4 +94,10 @@ class TestReactionClient:
         activity_id = "test_activity_id"
         reaction_type = "laugh"
 
-        await client.delete(conversation_id, activity_id, reaction_type)
+        with patch.object(mock_http_client, "delete", new_callable=AsyncMock) as mock_delete:
+            await client.delete(conversation_id, activity_id, reaction_type)
+
+        expected_url = (
+            f"{service_url}/v3/conversations/{conversation_id}/activities/{activity_id}/reactions/{reaction_type}"
+        )
+        mock_delete.assert_called_once_with(expected_url)

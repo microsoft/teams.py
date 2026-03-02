@@ -43,6 +43,7 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
 
         await ctx.reply(f"✅ Added {reaction_type} reaction to your message!")
         print(f"[REACTION] Added '{reaction_type}' to activity {activity_id}")
+        return
 
     # ============================================
     # Remove Reaction
@@ -58,6 +59,7 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
 
         await ctx.reply(f"✅ Removed {reaction_type} reaction from your message!")
         print(f"[REACTION] Removed '{reaction_type}' from activity {activity_id}")
+        return
 
     # ============================================
     # Help / Default

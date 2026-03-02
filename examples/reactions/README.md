@@ -44,7 +44,11 @@ The reactions are added/removed using the Bot Framework v3 API:
 
 ```bash
 cd examples/reactions
-uv run python src/main.py
+
+# Activate venv
+.venv\Scripts\activate
+
+python src/main.py
 ```
 
 ## Environment Variables
