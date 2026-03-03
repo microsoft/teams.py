@@ -10,7 +10,7 @@ class ApplicationIdentityType(str, Enum):
     """Enum for application identity types."""
 
     AAD_APPLICATION = "aadApplication"
-    BOT = "BOT"
+    BOT = "bot"
     TENANT_BOT = "tenantBot"
     OFFICE_365_CONNECTOR = "office365Connector"
     WEBHOOK = "webhook"
