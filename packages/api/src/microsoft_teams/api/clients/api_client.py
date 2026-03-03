@@ -13,6 +13,7 @@ from .base_client import BaseClient
 from .bot import BotClient
 from .conversation import ConversationClient
 from .meeting import MeetingClient
+from .reaction import ReactionClient
 from .team import TeamClient
 from .user import UserClient
 
@@ -42,6 +43,7 @@ class ApiClient(BaseClient):
         self.conversations = ConversationClient(service_url, self._http, self._api_client_settings)
         self.teams = TeamClient(service_url, self._http, self._api_client_settings)
         self.meetings = MeetingClient(service_url, self._http, self._api_client_settings)
+        self.reactions = ReactionClient(service_url, self._http, self._api_client_settings)
 
     @property
     def http(self) -> HttpClient:
@@ -56,4 +58,5 @@ class ApiClient(BaseClient):
         self.users.http = value
         self.teams.http = value
         self.meetings.http = value
+        self.reactions.http = value
         self._http = value
