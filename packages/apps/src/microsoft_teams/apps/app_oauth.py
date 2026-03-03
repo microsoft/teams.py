@@ -119,7 +119,7 @@ class OauthHandlers:
                     context={"activity": activity},
                 ),
             )
-            return InvokeResponse(status=200)
+            return None
         finally:
             await next_handler()
 
