@@ -398,14 +398,13 @@ class TestOauthHandlers:
         assert error_event.context["activity"] == failure_activity
 
     @pytest.mark.asyncio
-    async def test_sign_in_failure_returns_200(self, oauth_handlers, mock_context, failure_activity):
-        """Test that sign_in_failure returns 200 status."""
+    async def test_sign_in_failure_returns_none(self, oauth_handlers, mock_context, failure_activity):
+        """Test that sign_in_failure returns None (process_activity wraps into 200)."""
         mock_context.activity = failure_activity
 
         result = await oauth_handlers.sign_in_failure(mock_context)
 
-        assert isinstance(result, InvokeResponse)
-        assert result.status == 200
+        assert result is None
 
     @pytest.mark.asyncio
     async def test_sign_in_failure_calls_next(self, oauth_handlers, mock_context, failure_activity):
