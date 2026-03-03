@@ -25,11 +25,8 @@ dependencies = [
 Homepage = "https://github.com/microsoft/teams.py/tree/main/packages/api/src/microsoft/teams/api"
 
 [build-system]
-requires = ["hatchling", "nbgv-python"]
+requires = ["hatchling"]
 build-backend = "hatchling.build"
-
-[tool.hatch.version]
-source = "nbgv"
 
 [dependency-groups]
 dev = [
