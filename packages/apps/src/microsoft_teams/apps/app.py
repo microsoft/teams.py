@@ -234,7 +234,13 @@ class App(ActivityHandlerMixin):
 
         except (asyncio.CancelledError, KeyboardInterrupt):
             self.log.info("Teams app shutting down")
-            await self.stop()
+            try:
+                for plugin in reversed(self.plugins):
+                    if hasattr(plugin, "on_stop") and callable(plugin.on_stop):
+                        await plugin.on_stop()
+            finally:
+                self._running = False
+                self._events.emit("stop", StopEvent())
 
         except Exception as error:
             self._running = False
