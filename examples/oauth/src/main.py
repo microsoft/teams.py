@@ -6,6 +6,7 @@ Licensed under the MIT License.
 import asyncio
 
 from microsoft_teams.api import MessageActivity
+from microsoft_teams.api.activities.invoke.sign_in import SignInFailureInvokeActivity
 from microsoft_teams.apps import ActivityContext, App, SignInEvent
 from microsoft_teams.apps.events.types import ErrorEvent
 
@@ -30,6 +31,14 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
 async def handle_sign_in(event: SignInEvent):
     """Handle sign-in events."""
     await event.activity_ctx.send("You are now signed in!")
+
+
+@app.on_signin_failure()
+async def handle_signin_failure(ctx: ActivityContext[SignInFailureInvokeActivity]):
+    """Handle sign-in failure events."""
+    failure = ctx.activity.value
+    print(f"Sign-in failed: {failure.code} - {failure.message}")
+    await ctx.send("Sign-in failed. Please contact your admin.")
 
 
 @app.event("error")

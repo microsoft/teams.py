@@ -152,6 +152,7 @@ class App(ActivityHandlerMixin):
         )
         self.on_signin_token_exchange(oauth_handlers.sign_in_token_exchange)
         self.on_signin_verify_state(oauth_handlers.sign_in_verify_state)
+        self.on_signin_failure(oauth_handlers.sign_in_failure)
 
         self.entra_token_validator: Optional[TokenValidator] = None
         if self.credentials and hasattr(self.credentials, "client_id"):
