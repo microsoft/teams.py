@@ -42,7 +42,10 @@ class MeetingParticipantEventActivity(ActivityBase, CustomBaseModel):
     Represents a meeting participant event activity in Microsoft Teams.
     """
 
-    type: Literal["event"] = "event"  #
+    type: Literal["event"] = "event"
+
+    id: Optional[str] = None
+    """Contains an ID that uniquely identifies the activity on the channel. Optional for meeting participant events."""
 
     value: MeetingParticipantEventValue
     """

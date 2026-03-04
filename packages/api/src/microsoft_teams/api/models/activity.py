@@ -94,6 +94,9 @@ class ActivityInput(_ActivityBase):
     recipient: Optional[Account] = None
     """Identifies the recipient of the message."""
 
+    is_targeted: Optional[bool] = None
+    """Indicates if this is a targeted message visible only to a specific recipient."""
+
     @property
     def channel(self) -> Optional[ChannelInfo]:
         """Information about the channel in which the message was sent."""
@@ -149,9 +152,22 @@ class ActivityInput(_ActivityBase):
         self.relates_to = value
         return self
 
-    def with_recipient(self, value: Account) -> Self:
-        """Set the recipient."""
+    def with_recipient(self, value: Account, is_targeted: Optional[bool] = None) -> Self:
+        """
+        Set the recipient.
+
+        Args:
+            value: The recipient account
+            is_targeted: If True, marks this as a targeted message visible only to this
+                recipient. If False, explicitly clears targeting. If None (the default),
+                the existing is_targeted value is left unchanged.
+
+        Returns:
+            Self for method chaining
+        """
         self.recipient = value
+        if is_targeted is not None:
+            self.is_targeted = is_targeted
         return self
 
     def with_service_url(self, value: str) -> Self:

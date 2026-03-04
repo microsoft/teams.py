@@ -126,7 +126,8 @@ class DevToolsPlugin(Sender):
 
             async def process(token: TokenProtocol, activity: Activity):
                 response_future = asyncio.get_event_loop().create_future()
-                self.pending[activity.id] = response_future
+                if activity.id:
+                    self.pending[activity.id] = response_future
                 try:
                     result = self.on_activity_event(ActivityEvent(token=token, activity=activity, sender=self.http))
                     # If the handler is a coroutine, schedule it
@@ -136,7 +137,7 @@ class DevToolsPlugin(Sender):
                     response_future.set_exception(error)
                 finally:
                     result = await response_future
-                    if activity.id in self.pending:
+                    if activity.id and activity.id in self.pending:
                         del self.pending[activity.id]
                 return result
 
@@ -220,10 +221,11 @@ class DevToolsPlugin(Sender):
         await self.emit_activity_to_sockets(activity)
 
     async def on_activity_response(self, event: PluginActivityResponseEvent):
-        promise = self.pending.get(event.activity.id, None)
-        if promise is not None:
-            promise.set_result(event.response)
-            del self.pending[event.activity.id]
+        if event.activity.id:
+            promise = self.pending.get(event.activity.id, None)
+            if promise is not None:
+                promise.set_result(event.response)
+                del self.pending[event.activity.id]
 
     async def send(self, activity: ActivityParams, ref: ConversationReference) -> SentActivity:
         return await self.http.send(activity, ref)

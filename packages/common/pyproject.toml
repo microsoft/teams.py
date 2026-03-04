@@ -1,6 +1,6 @@
 [project]
 name = "microsoft-teams-common"
-version = "2.0.0a9"
+dynamic = ["version"]
 description = "Common package for Microsoft Teams"
 readme = "README.md"
 repository = "https://github.com/microsoft/teams.py"
@@ -28,8 +28,11 @@ Homepage = "https://github.com/microsoft/teams.py/tree/main/packages/common/src/
 
 
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling", "nbgv-python"]
 build-backend = "hatchling.build"
+
+[tool.hatch.version]
+source = "nbgv"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/microsoft_teams", "src/microsoft"]

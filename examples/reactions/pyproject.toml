@@ -1,7 +1,7 @@
 [project]
-name = "targeted-messages"
+name = "reactions"
 version = "0.1.0"
-description = "Targeted messages example - demonstrates ephemeral messages visible only to specific recipients"
+description = "Message reactions example"
 readme = "README.md"
 requires-python = ">=3.12,<3.15"
 dependencies = [

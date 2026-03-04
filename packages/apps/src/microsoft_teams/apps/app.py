@@ -150,6 +150,7 @@ class App(ActivityHandlerMixin):
         )
         self.on_signin_token_exchange(oauth_handlers.sign_in_token_exchange)
         self.on_signin_verify_state(oauth_handlers.sign_in_verify_state)
+        self.on_signin_failure(oauth_handlers.sign_in_failure)
 
         self.entra_token_validator: Optional[TokenValidator] = None
         if self.credentials and hasattr(self.credentials, "client_id"):
@@ -279,8 +280,8 @@ class App(ActivityHandlerMixin):
         # Validate targeted messages in proactive context
         if isinstance(activity, MessageActivityInput) and activity.is_targeted and not activity.recipient:
             raise ValueError(
-                "Targeted messages sent proactively must specify an explicit recipient ID "
-                "using with_targeted_recipient(recipient_id)"
+                "Targeted messages sent proactively must specify an explicit recipient account. "
+                "Use with_recipient(Account(...), is_targeted=True) with an explicit recipient account."
             )
 
         return await self.http.send(activity, conversation_ref)

@@ -1,40 +1,121 @@
-# Release steps
+# Release Process
 
-1. Run `uv run scripts/release.py <bump_type>`. See [Bump types](#bump-types) for available options.
-2. This should bump all the versions for the packages and also created a release branch.
-3. Create a PR and get it merged.
-4. Now go to https://github.com/microsoft/teams.py/releases/new and create a new release.
-5. This will automatically kick off a release workflow that needs to be aproved.
-6. Once approved, the release will be published to PyPI.
+This document describes how to release packages for the Teams SDK for Python. It assumes you have required entitlements in Azure DevOps for triggering releases.
 
-# Publishing a brand new package
+This project uses [Nerdbank.GitVersioning](https://github.com/dotnet/Nerdbank.GitVersioning) for automatic version management.
 
-If you are about to publish a brand new package, you will need to set it up on pypi before you publish it.
-> [!NOTE]
-> If you have a package that is not ready for publishing, then you can add `classifiers = ["Private :: Do Not Upload"]` in the `[project]` section of your pyproject.toml file. [Ref](https://docs.astral.sh/uv/guides/package/#preparing-your-project-for-packaging)
+## Prerequisites
 
-1. Go to [pypi publishing](https://pypi.org/manage/account/publishing/). (Make sure you have access)
-2. Go to the bottom in the Github tab.
-3. Add your package information.
-    - Project name - this needs to match the project name in your pyproject.toml file exactly.
-    - Owner: `microsoft`
-    - Repository: `teams.py`
-    - Workflow name: `release.yml` 
-    - Environment name: `release`
-4. Make sure you remove the private classifier if it's present.
-5. Go through the above steps.
+```bash
+dotnet tool install -g nbgv
+```
 
-# Appendix
+## Branch Strategy
 
-## Bump types
-| Bump Type | Description                                   | Example Change            |
-|-----------|-----------------------------------------------|--------------------------|
-| major     | Increment major version                       | `1.0.0` → `2.0.0`        |
-| minor     | Increment minor version                       | `1.0.0` → `1.1.0`        |
-| patch     | Increment patch version                       | `1.0.0` → `1.0.1`        |
-| stable    | Remove pre-release suffix                     | `1.0.0a1` → `1.0.0`      |
-| alpha     | Add/increment alpha pre-release               | `1.0.0` → `1.0.0a1`      |
-| beta      | Add/increment beta pre-release                | `1.0.0` → `1.0.0b1`      |
-| rc        | Add/increment release candidate               | `1.0.0` → `1.0.0rc1`     |
-| post      | Add/increment post-release                    | `1.0.0` → `1.0.0.post1`  |
-| dev       | Add/increment dev release                     | `1.0.0` → `1.0.0.dev1`   |
+| Branch | Versions | Published |
+|--------|----------|-----------|
+| `main` | `2.0.0.dev1`, `2.0.0.dev2`, ... | No |
+| `alpha/v2.0.0` | `2.0.0a10`, `2.0.0a11`, ... | Yes |
+| `release/v2.0.0` | `2.0.0` | Yes |
+
+## Workflow
+
+Development happens on `main`. When ready to release, merge via PR:
+
+```
+main → alpha/v2.0.0 → release/v2.0.0
+```
+
+Each merge increments the version automatically.
+
+## Versioning
+
+Versions are managed by **Nerdbank.GitVersioning** via [version.json](version.json).
+
+### Current Configuration (`main`)
+
+```json
+{
+  "version": "2.0.0-dev.{height}",
+  "versionHeightOffset": 1
+}
+```
+
+Builds on `main` produce dev versions like `2.0.0.dev1`, `2.0.0.dev2`, etc. These are not published.
+
+### Alpha Branch (`alpha/v2.0.0`)
+
+```json
+{
+  "version": "2.0.0-alpha.{height}",
+  "versionHeightOffset": 10
+}
+```
+
+Builds on `alpha/v2.0.0` produce alpha versions like `2.0.0a10`, `2.0.0a11`, etc. These are published.
+
+### Example Package Names
+
+| Branch | Package Name |
+|--------|--------------|
+| `alpha/v2.0.0` | `microsoft_teams_ai-2.0.0a11.tar.gz` |
+| `release/v2.0.0` | `microsoft_teams_ai-2.0.0.tar.gz` |
+
+> **Note:** Running the pipeline on a branch not in `publicReleaseRefSpec` (e.g., a feature branch) produces versions with the commit hash appended, like `2.0.0a11.dev5+g1a2b3c4`. This is expected and useful for testing.
+
+### Producing a Stable Release
+
+To produce a stable release (e.g., `2.0.0` without any suffix):
+
+1. Create a `release/v2.0.0` branch from `alpha/v2.0.0`
+2. Update its `version.json`:
+   ```json
+   {
+     "version": "2.0.0",
+     "versionHeightOffset": 1
+   }
+   ```
+3. Run the publish pipeline with **Public** to release to PyPI
+
+## Creating a New Alpha Branch
+
+When starting a new version (e.g., 2.1.0):
+
+1. Create `alpha/v2.1.0` from `main`
+2. Update its `version.json`:
+   ```json
+   {
+     "version": "2.1.0-alpha.{height}",
+     "versionHeightOffset": 1
+   }
+   ```
+3. Set up branch protection (require PRs)
+
+## Publishing
+
+The [publish pipeline](https://dev.azure.com/DomoreexpGithub/Github_Pipelines/_build?definitionId=49&_a=summary) (`.azdo/publish.yml`) is manually triggered and requires selecting a **Publish Type**: `Internal` or `Public`.
+
+1. Go to **Pipelines** > **teams.py** in ADO
+2. Click **Run pipeline**
+3. Select the branch to build from (e.g., `alpha/v2.0.0`)
+4. Choose a **Publish Type**:
+   - **Internal** — publishes unsigned packages to the Azure Artifacts `TeamsSDKPreviews` feed. No approval required. Packages are available immediately.
+   - **Public** — signs packages via ESRP and publishes to PyPI. Requires approval via the `teams-sdk-publish` ADO environment before the ESRP release proceeds.
+5. Pipeline runs: Build > Test > Publish
+
+> **Note:** The `devtools` package is excluded from publishing. The pipeline filters out packages matching the `ExcludePackageFolders` variable. Prerelease versions are tagged `next` on PyPI; stable versions are tagged `latest`.
+
+#### Installing Published Packages
+
+```bash
+pip install microsoft-teams-ai==2.0.0a11
+```
+
+## Approvers
+
+The `teams-sdk-publish` environment in Azure DevOps controls who can approve public releases. To modify approvers:
+
+1. Go to **Pipelines** > **Environments** in ADO
+2. Select **teams-sdk-publish**
+3. Click the **three dots** menu > **Approvals and checks**
+4. Add/remove approvers as needed

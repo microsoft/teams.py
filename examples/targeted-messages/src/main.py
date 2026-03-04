@@ -1,7 +1,15 @@
 """
 Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
+"""
 
+import asyncio
+
+from microsoft_teams.api import Account, MessageActivity, MessageActivityInput
+from microsoft_teams.api.activities.typing import TypingActivityInput
+from microsoft_teams.apps import ActivityContext, App
+
+"""
 Example: Targeted Messages
 
 A bot that demonstrates targeted (ephemeral) messages in Microsoft Teams.
@@ -9,14 +17,7 @@ Targeted messages are only visible to a specific recipient - other participants
 in the conversation won't see them.
 """
 
-import asyncio
-
-from microsoft_teams.api import MessageActivity, MessageActivityInput
-from microsoft_teams.api.activities.typing import TypingActivityInput
-from microsoft_teams.apps import ActivityContext, App
-from microsoft_teams.devtools import DevToolsPlugin
-
-app = App(plugins=[DevToolsPlugin()])
+app = App()
 
 
 @app.on_message
@@ -30,21 +31,26 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
     # Test targeted SEND (create)
     # ============================================
     if "test send" in text:
-        targeted_message = MessageActivityInput(
-            text="🔒 [SEND] Targeted message - only YOU can see this!"
-        ).with_targeted_recipient(True)
+        members = await ctx.api.conversations.members(ctx.activity.conversation.id).get_all()
 
-        result = await ctx.send(targeted_message)
-        print(f"Targeted SEND result: {result}")
+        for member in members:
+            print(f"Member: {member.name} - {member.id}")
+
+            targeted_message = MessageActivityInput(
+                text="🔒 [SEND] This is a targeted message - only YOU can see this!"
+            ).with_recipient(Account(id=member.id, name=member.name, role="user"), is_targeted=True)
+
+            result = await ctx.send(targeted_message)
+        print("[SEND] Sent targeted message")
         return
 
     # ============================================
     # Test targeted REPLY
     # ============================================
     if "test reply" in text:
-        targeted_reply = MessageActivityInput(
-            text="🔒 [REPLY] Targeted reply - only YOU can see this!"
-        ).with_targeted_recipient(True)
+        targeted_reply = MessageActivityInput(text="🔒 [REPLY] Targeted reply - only YOU can see this!").with_recipient(
+            ctx.activity.from_, is_targeted=True
+        )
 
         result = await ctx.reply(targeted_reply)
         print(f"Targeted REPLY result: {result}")
@@ -55,9 +61,9 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
     # ============================================
     if "test update" in text:
         # First send a targeted message
-        targeted_message = MessageActivityInput(
-            text="🔒 [UPDATE] Original targeted message..."
-        ).with_targeted_recipient(True)
+        targeted_message = MessageActivityInput(text="🔒 [UPDATE] Original targeted message...").with_recipient(
+            ctx.activity.from_, is_targeted=True
+        )
 
         result = await ctx.send(targeted_message)
         print(f"Initial targeted message ID: {result.id}")
@@ -89,7 +95,7 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
         # First send a targeted message
         targeted_message = MessageActivityInput(
             text="🔒 [DELETE] This targeted message will be DELETED in 5 seconds..."
-        ).with_targeted_recipient(True)
+        ).with_recipient(ctx.activity.from_, is_targeted=True)
 
         result = await ctx.send(targeted_message)
         print(f"Targeted message to delete, ID: {result.id}")
