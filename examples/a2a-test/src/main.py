@@ -4,6 +4,7 @@ Licensed under the MIT License.
 """
 
 import asyncio
+import logging
 import re
 import uuid
 from os import getenv
@@ -24,13 +25,14 @@ from microsoft_teams.a2a import (
 from microsoft_teams.ai import ChatPrompt, Function, ModelMessage
 from microsoft_teams.api import MessageActivity, TypingActivityInput
 from microsoft_teams.apps import ActivityContext, App, PluginBase
-from microsoft_teams.common import ConsoleLogger, ConsoleLoggerOptions
 from microsoft_teams.devtools import DevToolsPlugin
 from microsoft_teams.openai.completions_model import OpenAICompletionsAIModel
 from pydantic import BaseModel
 
-logger = ConsoleLogger().create_logger("a2a", ConsoleLoggerOptions(level="debug"))
 PORT = getenv("PORT", "4000")
+
+logging.basicConfig(level=logging.DEBUG, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+logger = logging.getLogger(__name__)
 
 
 # Setup AI
@@ -146,7 +148,7 @@ class LocationParams(BaseModel):
 
 # Setup the A2A Server Plugin
 plugins: List[PluginBase] = [A2APlugin(A2APluginOptions(agent_card=agent_card)), DevToolsPlugin()]
-app = App(logger=logger, plugins=plugins)
+app = App(plugins=plugins)
 
 
 # A2A Server Event Handler

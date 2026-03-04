@@ -2,7 +2,6 @@ import React from 'react';
 import * as teamsJs from '@microsoft/teams-js';
 import * as client from '@microsoft/teams.client';
 import * as endpoints from '@microsoft/teams.graph-endpoints';
-import { ConsoleLogger } from '@microsoft/teams.common';
 
 import './App.css';
 
@@ -17,7 +16,6 @@ export default function App() {
       try {
           // initialize the app and prompt for Graph scope consent, if not already granted
           const app = new client.App(clientId, {
-            logger: new ConsoleLogger('@examples/tab', { level: 'debug' }),
               msalOptions: {
               prewarmScopes: [
                 'https://graph.microsoft.com/User.Read',
@@ -28,7 +26,7 @@ export default function App() {
           });
 
           await app.start();
-          app.log.info('app started');
+          console.info('app started');
           setApp(app);
         } catch (err) {
           console.error(err);
