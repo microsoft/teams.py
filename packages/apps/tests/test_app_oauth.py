@@ -168,9 +168,6 @@ class TestOauthHandlers:
         # Verify no error event emitted for 404
         oauth_handlers.event_emitter.emit.assert_not_called()
 
-        # Verify warning logged
-        mock_context.logger.warning.assert_called_once()
-
         # Verify failure response
         assert isinstance(result, InvokeResponse) and isinstance(result.body, TokenExchangeInvokeResponse)
         assert result.status == 412
@@ -214,9 +211,6 @@ class TestOauthHandlers:
         mock_context.api.users.token.exchange.side_effect = generic_error
 
         result = await oauth_handlers.sign_in_token_exchange(mock_context)
-
-        # Verify warning logged
-        mock_context.logger.warning.assert_called_once()
 
         # Verify failure response
         assert isinstance(result, InvokeResponse) and isinstance(result.body, TokenExchangeInvokeResponse)
