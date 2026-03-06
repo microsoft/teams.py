@@ -60,16 +60,16 @@ class OauthHandlers:
                 self.event_emitter.emit("sign_in", SignInEvent(activity_ctx=ctx, token_response=token))
                 return None
             except Exception as e:
-                ctx.logger.error(
-                    f"Error exchanging token for user {activity.from_.id} in "
-                    f"conversation {activity.conversation.id}: {e}"
-                )
                 if isinstance(e, HTTPStatusError):
                     status = e.response.status_code
                     if status not in (404, 400, 412):
+                        ctx.logger.error(
+                            f"Error exchanging token for user {activity.from_.id} in "
+                            f"conversation {activity.conversation.id}: {e}"
+                        )
                         self.event_emitter.emit("error", ErrorEvent(error=e, context={"activity": activity}))
                         return InvokeResponse(status=status or 500)
-                ctx.logger.warning(
+                ctx.logger.info(
                     f"Unable to exchange token for user {activity.from_.id} in "
                     f"conversation {activity.conversation.id}: {e}"
                 )
