@@ -212,6 +212,11 @@ class TestOauthHandlers:
 
         result = await oauth_handlers.sign_in_token_exchange(mock_context)
 
+        # Verify error event emitted for non-HTTP exceptions
+        oauth_handlers.event_emitter.emit.assert_called_once_with(
+            "error", ErrorEvent(error=generic_error, context={"activity": token_exchange_activity})
+        )
+
         # Verify failure response
         assert isinstance(result, InvokeResponse) and isinstance(result.body, TokenExchangeInvokeResponse)
         assert result.status == 412
