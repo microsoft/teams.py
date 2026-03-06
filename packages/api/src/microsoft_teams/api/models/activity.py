@@ -100,7 +100,7 @@ class ActivityInput(_ActivityBase):
     """Indicates if this is a targeted message visible only to a specific recipient.
 
     .. warning:: Preview
-        This field is in preview and may change or be removed in future versions.
+        This field is in preview and may change in the future.
         Diagnostic: TEAMS0002
     """
 

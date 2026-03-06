@@ -135,7 +135,7 @@ class ConversationActivityClient(BaseClient):
         Targeted activities are only visible to the specified recipient.
 
         .. warning:: Preview
-            This API is in preview and may change or be removed in future versions.
+            This API is in preview and may change in the future.
             Diagnostic: TEAMS0002
 
         Args:
@@ -158,7 +158,7 @@ class ConversationActivityClient(BaseClient):
         Update an existing targeted activity in a conversation.
 
         .. warning:: Preview
-            This API is in preview and may change or be removed in future versions.
+            This API is in preview and may change in the future.
             Diagnostic: TEAMS0002
 
         Args:
@@ -182,7 +182,7 @@ class ConversationActivityClient(BaseClient):
         Delete a targeted activity from a conversation.
 
         .. warning:: Preview
-            This API is in preview and may change or be removed in future versions.
+            This API is in preview and may change in the future.
             Diagnostic: TEAMS0002
 
         Args:
