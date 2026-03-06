@@ -5,6 +5,7 @@ Licensed under the MIT License.
 
 from typing import Optional
 
+from microsoft_teams.common.experimental import experimental
 from microsoft_teams.common.http import Client
 
 from ...models.message import MessageReactionType
@@ -12,9 +13,14 @@ from ..api_client_settings import ApiClientSettings
 from ..base_client import BaseClient
 
 
+@experimental("TEAMS0001")
 class ReactionClient(BaseClient):
     """
     Client for working with app message reactions for a given conversation/activity.
+
+    .. warning:: Preview
+        This API is in preview and may change in the future.
+        Diagnostic: TEAMS0001
     """
 
     def __init__(

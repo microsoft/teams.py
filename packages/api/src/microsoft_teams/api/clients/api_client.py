@@ -43,7 +43,14 @@ class ApiClient(BaseClient):
         self.conversations = ConversationClient(service_url, self._http, self._api_client_settings)
         self.teams = TeamClient(service_url, self._http, self._api_client_settings)
         self.meetings = MeetingClient(service_url, self._http, self._api_client_settings)
-        self.reactions = ReactionClient(service_url, self._http, self._api_client_settings)
+        self._reactions: Optional[ReactionClient] = None
+
+    @property
+    def reactions(self) -> ReactionClient:
+        """Get the reactions client (preview). Lazily instantiated to avoid warnings for non-users."""
+        if self._reactions is None:
+            self._reactions = ReactionClient(self.service_url, self._http, self._api_client_settings)
+        return self._reactions
 
     @property
     def http(self) -> HttpClient:
@@ -58,5 +65,6 @@ class ApiClient(BaseClient):
         self.users.http = value
         self.teams.http = value
         self.meetings.http = value
-        self.reactions.http = value
+        if self._reactions is not None:
+            self._reactions.http = value
         self._http = value

@@ -3,6 +3,7 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
+import warnings
 from datetime import datetime
 from typing import Any, List, Optional, Self
 
@@ -24,6 +25,7 @@ from microsoft_teams.api.models.entity.citation_entity import (
 from microsoft_teams.api.models.entity.entity import Entity
 from microsoft_teams.api.models.entity.message_entity import MessageEntity
 from microsoft_teams.api.models.meetings.meeting_info import MeetingInfo
+from microsoft_teams.common.experimental import ExperimentalWarning
 
 from .custom_base_model import CustomBaseModel
 
@@ -95,7 +97,12 @@ class ActivityInput(_ActivityBase):
     """Identifies the recipient of the message."""
 
     is_targeted: Optional[bool] = None
-    """Indicates if this is a targeted message visible only to a specific recipient."""
+    """Indicates if this is a targeted message visible only to a specific recipient.
+
+    .. warning:: Preview
+        This field is in preview and may change in the future.
+        Diagnostic: TEAMS0002
+    """
 
     @property
     def channel(self) -> Optional[ChannelInfo]:
@@ -162,11 +169,21 @@ class ActivityInput(_ActivityBase):
                 recipient. If False, explicitly clears targeting. If None (the default),
                 the existing is_targeted value is left unchanged.
 
+                .. warning:: Preview
+                    The ``is_targeted`` parameter is in preview and may change or be
+                    removed in future versions. Diagnostic: TEAMS0002
+
         Returns:
             Self for method chaining
         """
         self.recipient = value
         if is_targeted is not None:
+            warnings.warn(
+                "The is_targeted parameter of with_recipient is in preview and may change "
+                "or be removed in future versions. Diagnostic: TEAMS0002",
+                ExperimentalWarning,
+                stacklevel=2,
+            )
             self.is_targeted = is_targeted
         return self
 
