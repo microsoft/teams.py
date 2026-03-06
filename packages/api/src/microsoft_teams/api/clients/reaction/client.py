@@ -19,7 +19,7 @@ class ReactionClient(BaseClient):
     Client for working with app message reactions for a given conversation/activity.
 
     .. warning:: Preview
-        This API is in preview and may change or be removed in future versions.
+        This API is in preview and may change in the future.
         Diagnostic: TEAMS0001
     """
 
