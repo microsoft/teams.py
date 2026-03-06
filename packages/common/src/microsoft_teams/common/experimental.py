@@ -1,0 +1,77 @@
+"""
+Copyright (c) Microsoft Corporation. All rights reserved.
+Licensed under the MIT License.
+"""
+
+import functools
+import inspect
+import warnings
+from typing import Optional
+
+
+class ExperimentalWarning(FutureWarning):
+    """Warning category for Teams SDK preview APIs.
+
+    Preview APIs may change or be removed in future versions.
+    """
+
+    pass
+
+
+def experimental(diagnostic: str, *, message: Optional[str] = None):
+    """Mark a class or function as a preview API.
+
+    Emits an ExperimentalWarning when the decorated class is instantiated
+    or the decorated function is called.
+
+    Args:
+        diagnostic: The diagnostic code (e.g., "TEAMS0001") for granular opt-in.
+        message: Optional custom warning message. If not provided, a default message is used.
+
+    Usage::
+
+        @experimental("TEAMS0001")
+        class ReactionClient:
+            ...
+
+        @experimental("TEAMS0002", message="Targeted messages are in preview.")
+        async def create_targeted(...):
+            ...
+    """
+
+    def decorator(obj):
+        name = getattr(obj, "__qualname__", getattr(obj, "__name__", str(obj)))
+        warn_msg = message or (
+            f"{name} is in preview and may change or be removed in future versions. "
+            f"Diagnostic: {diagnostic}"
+        )
+
+        if isinstance(obj, type):
+            original_init = obj.__init__
+
+            @functools.wraps(original_init)
+            def new_init(self, *args, **kwargs):
+                warnings.warn(warn_msg, ExperimentalWarning, stacklevel=2)
+                original_init(self, *args, **kwargs)
+
+            obj.__init__ = new_init
+            return obj
+        else:
+
+            @functools.wraps(obj)
+            def wrapper(*args, **kwargs):
+                warnings.warn(warn_msg, ExperimentalWarning, stacklevel=2)
+                return obj(*args, **kwargs)
+
+            # Preserve async nature
+            if inspect.iscoroutinefunction(obj):
+
+                @functools.wraps(obj)
+                async def async_wrapper(*args, **kwargs):
+                    warnings.warn(warn_msg, ExperimentalWarning, stacklevel=2)
+                    return await obj(*args, **kwargs)
+
+                return async_wrapper
+            return wrapper
+
+    return decorator
