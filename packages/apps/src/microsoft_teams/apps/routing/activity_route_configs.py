@@ -108,6 +108,7 @@ ACTIVITY_ROUTES: Dict[str, ActivityConfig] = {
         method_name="on_soft_delete_message",
         input_model=MessageDeleteActivity,
         selector=lambda activity: isinstance(activity, MessageDeleteActivity)
+        and activity.channel_data is not None
         and activity.channel_data.event_type == "softDeleteMessage",
         output_model=None,
     ),
@@ -130,6 +131,7 @@ ACTIVITY_ROUTES: Dict[str, ActivityConfig] = {
         method_name="on_undelete_message",
         input_model=MessageUpdateActivity,
         selector=lambda activity: isinstance(activity, MessageUpdateActivity)
+        and activity.channel_data is not None
         and activity.channel_data.event_type == "undeleteMessage",
         output_model=None,
     ),
@@ -138,6 +140,7 @@ ACTIVITY_ROUTES: Dict[str, ActivityConfig] = {
         method_name="on_edit_message",
         input_model=MessageUpdateActivity,
         selector=lambda activity: isinstance(activity, MessageUpdateActivity)
+        and activity.channel_data is not None
         and activity.channel_data.event_type == "editMessage",
         output_model=None,
     ),
@@ -169,6 +172,7 @@ ACTIVITY_ROUTES: Dict[str, ActivityConfig] = {
         method_name="on_channel_created",
         input_model=ConversationUpdateActivity,
         selector=lambda activity: isinstance(activity, ConversationUpdateActivity)
+        and activity.channel_data is not None
         and activity.channel_data.event_type == "channelCreated",
         output_model=None,
     ),
@@ -177,6 +181,7 @@ ACTIVITY_ROUTES: Dict[str, ActivityConfig] = {
         method_name="on_channel_deleted",
         input_model=ConversationUpdateActivity,
         selector=lambda activity: isinstance(activity, ConversationUpdateActivity)
+        and activity.channel_data is not None
         and activity.channel_data.event_type == "channelDeleted",
         output_model=None,
     ),
@@ -185,6 +190,7 @@ ACTIVITY_ROUTES: Dict[str, ActivityConfig] = {
         method_name="on_channel_renamed",
         input_model=ConversationUpdateActivity,
         selector=lambda activity: isinstance(activity, ConversationUpdateActivity)
+        and activity.channel_data is not None
         and activity.channel_data.event_type == "channelRenamed",
         output_model=None,
     ),
@@ -193,6 +199,7 @@ ACTIVITY_ROUTES: Dict[str, ActivityConfig] = {
         method_name="on_channel_restored",
         input_model=ConversationUpdateActivity,
         selector=lambda activity: isinstance(activity, ConversationUpdateActivity)
+        and activity.channel_data is not None
         and activity.channel_data.event_type == "channelRestored",
         output_model=None,
     ),
@@ -201,6 +208,7 @@ ACTIVITY_ROUTES: Dict[str, ActivityConfig] = {
         method_name="on_team_archived",
         input_model=ConversationUpdateActivity,
         selector=lambda activity: isinstance(activity, ConversationUpdateActivity)
+        and activity.channel_data is not None
         and activity.channel_data.event_type == "teamArchived",
         output_model=None,
     ),
@@ -209,6 +217,7 @@ ACTIVITY_ROUTES: Dict[str, ActivityConfig] = {
         method_name="on_team_deleted",
         input_model=ConversationUpdateActivity,
         selector=lambda activity: isinstance(activity, ConversationUpdateActivity)
+        and activity.channel_data is not None
         and activity.channel_data.event_type == "teamDeleted",
         output_model=None,
     ),
@@ -217,6 +226,7 @@ ACTIVITY_ROUTES: Dict[str, ActivityConfig] = {
         method_name="on_team_hard_deleted",
         input_model=ConversationUpdateActivity,
         selector=lambda activity: isinstance(activity, ConversationUpdateActivity)
+        and activity.channel_data is not None
         and activity.channel_data.event_type == "teamHardDeleted",
         output_model=None,
     ),
@@ -225,6 +235,7 @@ ACTIVITY_ROUTES: Dict[str, ActivityConfig] = {
         method_name="on_team_renamed",
         input_model=ConversationUpdateActivity,
         selector=lambda activity: isinstance(activity, ConversationUpdateActivity)
+        and activity.channel_data is not None
         and activity.channel_data.event_type == "teamRenamed",
         output_model=None,
     ),
@@ -233,6 +244,7 @@ ACTIVITY_ROUTES: Dict[str, ActivityConfig] = {
         method_name="on_team_restored",
         input_model=ConversationUpdateActivity,
         selector=lambda activity: isinstance(activity, ConversationUpdateActivity)
+        and activity.channel_data is not None
         and activity.channel_data.event_type == "teamRestored",
         output_model=None,
     ),
@@ -241,6 +253,7 @@ ACTIVITY_ROUTES: Dict[str, ActivityConfig] = {
         method_name="on_team_unarchived",
         input_model=ConversationUpdateActivity,
         selector=lambda activity: isinstance(activity, ConversationUpdateActivity)
+        and activity.channel_data is not None
         and activity.channel_data.event_type == "teamUnarchived",
         output_model=None,
     ),
