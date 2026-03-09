@@ -226,6 +226,7 @@ class TestApp:
             mock_logger.info.assert_any_call("Teams app shutting down")
 
             assert plugin_two.stop_called, "plugin two on_stop was called."
+            assert not app.is_running, "App should not be running after cancellation"
 
     # Event Testing - Focus on functional behavior
 
