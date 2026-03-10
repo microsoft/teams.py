@@ -29,7 +29,7 @@ pyright                    # Run type checker
 
 - **Formatter/Linter**: Ruff — line length 120, rules: E, F, W, B, Q, I, ASYNC
 - **Type checker**: Pyright
-- **Test framework**: pytest + pytest-asyncio (ruff bans unittest)
+- **Test framework**: pytest + pytest-asyncio (Ruff bans importing the unittest test framework; unittest.mock is allowed and used)
 
 ## Architecture
 
