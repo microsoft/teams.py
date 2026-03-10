@@ -41,7 +41,7 @@ async def handle_signin_failure(ctx: ActivityContext[SignInFailureInvokeActivity
     """Handle sign-in failure events."""
     failure = ctx.activity.value
     print(f"Sign-in failed: {failure.code} - {failure.message}")
-    await ctx.send("Sign-in failed. Please contact your admin.")
+    await ctx.send("Sign-in failed.")
 
 
 @app.event("error")
