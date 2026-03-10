@@ -628,8 +628,8 @@ class AdaptiveCard(CardElement):
     ac_schema: Optional[str] = Field(default=None, alias="schema")
     """ A URL to the Adaptive Card schema the card is authored against. """
 
-    version: Optional[Version] = None
-    """ The Adaptive Card schema version the card is authored against. """
+    version: Optional[Version] = "1.5"
+    """ The Adaptive Card schema version the card is authored against. Defaults to '1.5'. The version field is required for Adaptive Cards to render on Teams mobile clients. """
 
     fallback_text: Optional[str] = None
     """ The text that should be displayed if the client is not able to render the card. """

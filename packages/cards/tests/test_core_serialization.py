@@ -171,6 +171,26 @@ def test_single_object_fallback_serialization():
     assert parsed["fallback"]["title"] == "Fallback Submit"
 
 
+def test_adaptive_card_defaults_version_to_1_5():
+    """Test AdaptiveCard defaults version to '1.5'."""
+    card = AdaptiveCard(body=[])
+    assert card.version == "1.5"
+
+
+def test_adaptive_card_includes_version_in_serialized_json():
+    """Test AdaptiveCard includes version in serialized JSON."""
+    card = AdaptiveCard(body=[TextBlock(text="Hello")])
+    json_str = card.model_dump_json(exclude_none=True, by_alias=True)
+    parsed = json.loads(json_str)
+    assert parsed["version"] == "1.5"
+
+
+def test_adaptive_card_allows_overriding_version():
+    """Test AdaptiveCard allows overriding the default version."""
+    card = AdaptiveCard(version="1.4", body=[])
+    assert card.version == "1.4"
+
+
 def test_ms_teams_serializes_to_msteams():
     """Test that ms_teams field serializes to 'msteams' instead of 'msTeams'."""
     # Test AdaptiveCard.ms_teams serialization
