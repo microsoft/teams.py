@@ -101,7 +101,7 @@ class ActivityInput(_ActivityBase):
 
     .. warning:: Preview
         This field is in preview and may change in the future.
-        Diagnostic: TEAMS0002
+        Diagnostic: ExperimentalTeamsTargeted
     """
 
     @property
@@ -171,7 +171,7 @@ class ActivityInput(_ActivityBase):
 
                 .. warning:: Preview
                     The ``is_targeted`` parameter is in preview and may change or be
-                    removed in future versions. Diagnostic: TEAMS0002
+                    removed in future versions. Diagnostic: ExperimentalTeamsTargeted
 
         Returns:
             Self for method chaining
@@ -180,7 +180,7 @@ class ActivityInput(_ActivityBase):
         if is_targeted is not None:
             warnings.warn(
                 "The is_targeted parameter of with_recipient is in preview and may change "
-                "or be removed in future versions. Diagnostic: TEAMS0002",
+                "or be removed in future versions. Diagnostic: ExperimentalTeamsTargeted",
                 ExperimentalWarning,
                 stacklevel=2,
             )

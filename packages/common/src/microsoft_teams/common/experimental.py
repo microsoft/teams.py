@@ -27,16 +27,16 @@ def experimental(diagnostic: str, *, message: Optional[str] = None) -> Callable[
     or the decorated function is called.
 
     Args:
-        diagnostic: The diagnostic code (e.g., "TEAMS0001") for granular opt-in.
+        diagnostic: The diagnostic code (e.g., "ExperimentalTeamsReactions") for granular opt-in.
         message: Optional custom warning message. If not provided, a default message is used.
 
     Usage::
 
-        @experimental("TEAMS0001")
+        @experimental("ExperimentalTeamsReactions")
         class ReactionClient:
             ...
 
-        @experimental("TEAMS0002", message="Targeted messages are in preview.")
+        @experimental("ExperimentalTeamsTargeted", message="Targeted messages are in preview.")
         async def create_targeted(...):
             ...
     """

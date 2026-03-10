@@ -13,14 +13,14 @@ from ..api_client_settings import ApiClientSettings
 from ..base_client import BaseClient
 
 
-@experimental("TEAMS0001")
+@experimental("ExperimentalTeamsReactions")
 class ReactionClient(BaseClient):
     """
     Client for working with app message reactions for a given conversation/activity.
 
     .. warning:: Preview
         This API is in preview and may change in the future.
-        Diagnostic: TEAMS0001
+        Diagnostic: ExperimentalTeamsReactions
     """
 
     def __init__(

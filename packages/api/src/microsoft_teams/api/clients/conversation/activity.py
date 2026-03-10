@@ -127,7 +127,7 @@ class ConversationActivityClient(BaseClient):
         )
         return [Account.model_validate(member) for member in response.json()]
 
-    @experimental("TEAMS0002")
+    @experimental("ExperimentalTeamsTargeted")
     async def create_targeted(self, conversation_id: str, activity: ActivityParams) -> SentActivity:
         """
         Create a new targeted activity in a conversation.
@@ -136,7 +136,7 @@ class ConversationActivityClient(BaseClient):
 
         .. warning:: Preview
             This API is in preview and may change in the future.
-            Diagnostic: TEAMS0002
+            Diagnostic: ExperimentalTeamsTargeted
 
         Args:
             conversation_id: The ID of the conversation
@@ -152,14 +152,14 @@ class ConversationActivityClient(BaseClient):
         id = response.json().get("id", _PLACEHOLDER_ACTIVITY_ID)
         return SentActivity(id=id, activity_params=activity)
 
-    @experimental("TEAMS0002")
+    @experimental("ExperimentalTeamsTargeted")
     async def update_targeted(self, conversation_id: str, activity_id: str, activity: ActivityParams) -> SentActivity:
         """
         Update an existing targeted activity in a conversation.
 
         .. warning:: Preview
             This API is in preview and may change in the future.
-            Diagnostic: TEAMS0002
+            Diagnostic: ExperimentalTeamsTargeted
 
         Args:
             conversation_id: The ID of the conversation
@@ -176,14 +176,14 @@ class ConversationActivityClient(BaseClient):
         id = response.json()["id"]
         return SentActivity(id=id, activity_params=activity)
 
-    @experimental("TEAMS0002")
+    @experimental("ExperimentalTeamsTargeted")
     async def delete_targeted(self, conversation_id: str, activity_id: str) -> None:
         """
         Delete a targeted activity from a conversation.
 
         .. warning:: Preview
             This API is in preview and may change in the future.
-            Diagnostic: TEAMS0002
+            Diagnostic: ExperimentalTeamsTargeted
 
         Args:
             conversation_id: The ID of the conversation
