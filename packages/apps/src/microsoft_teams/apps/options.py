@@ -40,7 +40,7 @@ class AppOptions(TypedDict, total=False):
     logger: Optional[Logger]
     """
     DEPRECATED:
-    This method of setting the logger is deprecated and will be removed in version 2.0.0 GA."
+    This method of setting the logger is deprecated and will be removed in version 2.0.0 GA.
     Please update your imports to use the standard Python logging library instead.
     """
     storage: Optional[Storage[str, Any]]
