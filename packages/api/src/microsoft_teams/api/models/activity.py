@@ -177,14 +177,14 @@ class ActivityInput(_ActivityBase):
             Self for method chaining
         """
         self.recipient = value
-        if is_targeted is not None:
+        self.is_targeted = is_targeted
+        if is_targeted is True:
             warnings.warn(
                 "The is_targeted parameter of with_recipient is in preview and may change "
                 "or be removed in future versions. Diagnostic: ExperimentalTeamsTargeted",
                 ExperimentalWarning,
                 stacklevel=2,
             )
-            self.is_targeted = is_targeted
         return self
 
     def with_service_url(self, value: str) -> Self:
