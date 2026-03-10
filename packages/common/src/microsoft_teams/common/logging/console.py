@@ -5,6 +5,7 @@ Licensed under the MIT License.
 
 import logging
 import os
+import warnings
 from typing import Optional, TypedDict
 
 from .filter import ConsoleFilter
@@ -35,6 +36,14 @@ class ConsoleLogger:
     """
 
     _levels = {"error": logging.ERROR, "warn": logging.WARNING, "info": logging.INFO, "debug": logging.DEBUG}
+
+    def __init__(self) -> None:
+        warnings.warn(
+            "ConsoleLogger is deprecated and will be removed in version 2.0.0 GA. "
+            "Use standard Python logging (logging.getLogger(__name__)) instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
 
     def create_logger(self, name: str, options: Optional[ConsoleLoggerOptions] = None) -> logging.Logger:
         """

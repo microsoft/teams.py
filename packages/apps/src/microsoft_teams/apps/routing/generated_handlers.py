@@ -1511,22 +1511,12 @@ class GeneratedActivityHandlerMixin(ABC):
     def on_signin_failure(
         self, handler: Optional[VoidInvokeHandler[SignInFailureInvokeActivity]] = None
     ) -> VoidInvokeHandlerUnion[SignInFailureInvokeActivity]:
-        """Register a signin.failure activity handler.
-
-        Handles signin/failure invoke activities sent by Teams when a sign-in
-        operation fails (e.g., SSO token exchange resource mismatch).
-        """
+        """Register a signin.failure activity handler."""
 
         def decorator(
             func: VoidInvokeHandler[SignInFailureInvokeActivity],
         ) -> VoidInvokeHandler[SignInFailureInvokeActivity]:
-            validate_handler_type(
-                self.logger,
-                func,
-                SignInFailureInvokeActivity,
-                "on_signin_failure",
-                "SignInFailureInvokeActivity",
-            )
+            validate_handler_type(func, SignInFailureInvokeActivity, "on_signin_failure", "SignInFailureInvokeActivity")
             config = ACTIVITY_ROUTES["signin.failure"]
             self.router.add_handler(config.selector, func)
             return func
