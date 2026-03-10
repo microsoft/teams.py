@@ -10,11 +10,17 @@ import os
 from azure.core.exceptions import ClientAuthenticationError
 from microsoft_teams.api import MessageActivity
 from microsoft_teams.apps import ActivityContext, App, AppOptions, ErrorEvent, SignInEvent
+from microsoft_teams.common import ConsoleFormatter
 from microsoft_teams.graph import get_graph_client
 from msgraph.generated.users.item.messages.messages_request_builder import (  # type: ignore
     MessagesRequestBuilder,
 )
 
+# Setup logging
+logging.getLogger().setLevel(logging.DEBUG)
+stream_handler = logging.StreamHandler()
+stream_handler.setFormatter(ConsoleFormatter())
+logging.getLogger().addHandler(stream_handler)
 logger = logging.getLogger(__name__)
 
 app_options = AppOptions(default_connection_name=os.getenv("CONNECTION_NAME", "graph"))

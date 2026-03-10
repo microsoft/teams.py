@@ -25,13 +25,18 @@ from microsoft_teams.a2a import (
 from microsoft_teams.ai import ChatPrompt, Function, ModelMessage
 from microsoft_teams.api import MessageActivity, TypingActivityInput
 from microsoft_teams.apps import ActivityContext, App, PluginBase
+from microsoft_teams.common import ConsoleFormatter
 from microsoft_teams.devtools import DevToolsPlugin
 from microsoft_teams.openai.completions_model import OpenAICompletionsAIModel
 from pydantic import BaseModel
 
 PORT = getenv("PORT", "4000")
 
-logging.basicConfig(level=logging.DEBUG, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+# Setup logging
+logging.getLogger().setLevel(logging.DEBUG)
+stream_handler = logging.StreamHandler()
+stream_handler.setFormatter(ConsoleFormatter())
+logging.getLogger().addHandler(stream_handler)
 logger = logging.getLogger(__name__)
 
 

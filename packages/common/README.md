@@ -91,59 +91,20 @@ The SDK uses Python's standard `logging` module. The library doesn't configure l
 import logging
 
 # Configure logging once at application startup
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
+logging.getLogger().setLevel(logging.DEBUG)
+stream_handler = logging.StreamHandler()
+stream_handler.setFormatter(ConsoleFormatter())
+logging.getLogger().addHandler(stream_handler)
 
 # Use module-level loggers in your code
 logger = logging.getLogger(__name__)
 logger.info("Application started")
 ```
 
-**Custom Formatting**
+**Custom Filtering**
 
-The SDK provides optional formatters and filters if you want colored console output:
-
-```python
-import logging
-from microsoft_teams.common.logging import ConsoleFormatter, ConsoleFilter
-
-# Create handler with custom formatter
-handler = logging.StreamHandler()
-handler.setFormatter(ConsoleFormatter())
-handler.addFilter(ConsoleFilter("microsoft_teams.*"))  # Filter by pattern
-
-# Configure root logger
-logging.root.addHandler(handler)
-logging.root.setLevel(logging.DEBUG)
-```
-
-**Advanced Configuration**
-
-For production, use `dictConfig` for greater control:
+The SDK provides optional filtering as well:
 
 ```python
-import logging.config
-
-logging.config.dictConfig({
-    "version": 1,
-    "formatters": {
-        "default": {
-            "format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-        }
-    },
-    "handlers": {
-        "console": {
-            "class": "logging.StreamHandler",
-            "formatter": "default"
-        }
-    },
-    "loggers": {
-        "microsoft_teams": {
-            "level": "DEBUG",
-            "handlers": ["console"]
-        }
-    }
-})
+stream_handler.addFilter(ConsoleFilter("microsoft_teams.*"))
 ```

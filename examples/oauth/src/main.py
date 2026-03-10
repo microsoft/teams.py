@@ -10,7 +10,13 @@ from microsoft_teams.api import MessageActivity
 from microsoft_teams.api.activities.invoke.sign_in import SignInFailureInvokeActivity
 from microsoft_teams.apps import ActivityContext, App, SignInEvent
 from microsoft_teams.apps.events.types import ErrorEvent
+from microsoft_teams.common import ConsoleFormatter
 
+# Setup logging
+logging.getLogger().setLevel(logging.DEBUG)
+stream_handler = logging.StreamHandler()
+stream_handler.setFormatter(ConsoleFormatter())
+logging.getLogger().addHandler(stream_handler)
 logger = logging.getLogger(__name__)
 
 app = App()

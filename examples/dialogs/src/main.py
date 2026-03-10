@@ -25,7 +25,13 @@ from microsoft_teams.api import (
 from microsoft_teams.apps import ActivityContext, App
 from microsoft_teams.apps.events.types import ErrorEvent
 from microsoft_teams.cards import AdaptiveCard, SubmitAction, SubmitActionData, TaskFetchSubmitActionData, TextBlock
+from microsoft_teams.common import ConsoleFormatter
 
+# Setup logging
+logging.getLogger().setLevel(logging.DEBUG)
+stream_handler = logging.StreamHandler()
+stream_handler.setFormatter(ConsoleFormatter())
+logging.getLogger().addHandler(stream_handler)
 logger = logging.getLogger(__name__)
 
 
