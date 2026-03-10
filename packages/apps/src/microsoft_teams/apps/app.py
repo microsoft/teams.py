@@ -11,7 +11,6 @@ from typing import Any, Awaitable, Callable, List, Optional, TypeVar, Union, Unp
 
 from dependency_injector import providers
 from dotenv import find_dotenv, load_dotenv
-from fastapi import Request
 from microsoft_teams.api import (
     Account,
     ActivityBase,
@@ -35,7 +34,7 @@ from .app_oauth import OauthHandlers
 from .app_plugins import PluginProcessor
 from .app_process import ActivityProcessor
 from .auth import TokenValidator
-from .auth.remote_function_jwt_middleware import remote_function_jwt_validation
+from .auth.remote_function_jwt_middleware import validate_remote_function_request
 from .container import Container
 from .contexts.function_context import FunctionContext
 from .events import (
@@ -46,9 +45,10 @@ from .events import (
     get_event_type_from_signature,
     is_registered_event,
 )
-from .http_plugin import HttpPlugin
+from .http import FastAPIAdapter, HttpServer
+from .http.adapter import HttpRequest, HttpResponse
 from .options import AppOptions, InternalAppOptions
-from .plugins import PluginBase, PluginStartEvent, get_metadata
+from .plugins import PluginBase, PluginStartEvent
 from .routing import ActivityHandlerMixin, ActivityRouter
 from .routing.activity_context import ActivityContext
 from .token_manager import TokenManager
@@ -111,22 +111,13 @@ class App(ActivityHandlerMixin):
 
         plugins: List[PluginBase] = list(self.options.plugins)
 
-        http_plugin = None
-        for i, plugin in enumerate(plugins):
-            meta = get_metadata(type(plugin))
-            if meta.name == "http":
-                http_plugin = plugin
-                plugins.pop(i)
-                break
-
-        if not http_plugin:
-            http_plugin = HttpPlugin(logger=self.log, skip_auth=self.options.skip_auth)
-
-        plugins.insert(0, http_plugin)
-        self.http = cast(HttpPlugin, http_plugin)
+        # Create HttpServer (not a plugin — owned directly by App)
+        adapter = self.options.http_server_adapter or FastAPIAdapter()
+        self.server = HttpServer(adapter, self.log)
+        self.container.set_provider("HttpServer", providers.Object(self.server))
+        self.container.set_provider("server", providers.Object(self.server))
 
         self._port: Optional[int] = None
-        self._running = False
         self._initialized = False
 
         # initialize ActivitySender for sending activities
@@ -174,11 +165,6 @@ class App(ActivityHandlerMixin):
         return self._port
 
     @property
-    def is_running(self) -> bool:
-        """Whether the app is currently running."""
-        return self._running
-
-    @property
     def logger(self) -> Logger:
         """The logger instance used by the app."""
         return self.log
@@ -212,11 +198,15 @@ class App(ActivityHandlerMixin):
             return
 
         try:
+            # Initialize plugins first (they may register routes, e.g. BotBuilder's /api/messages)
             for plugin in self.plugins:
-                # Inject the dependencies
                 self._plugin_processor.inject(plugin)
                 if hasattr(plugin, "on_init") and callable(plugin.on_init):
                     await plugin.on_init()
+
+            # Initialize HttpServer (JWT validation + default /api/messages route)
+            self.server.on_request = self._process_activity_event
+            self.server.initialize(credentials=self.credentials, skip_auth=self.options.skip_auth)
 
             self._initialized = True
             self.log.info("Teams app initialized successfully")
@@ -225,6 +215,11 @@ class App(ActivityHandlerMixin):
             self.log.error(f"Failed to initialize app: {error}")
             self._events.emit("error", ErrorEvent(error, context={"method": "initialize"}))
             raise
+
+    async def _process_activity_event(self, event: Any) -> Any:
+        """Process an activity event through the app pipeline. Used as HttpServer.on_request callback."""
+        await self.event_manager.on_activity(event)
+        return await self.activity_processor.process_activity(self.plugins, event)
 
     async def start(self, port: Optional[int] = None) -> None:
         """
@@ -236,10 +231,6 @@ class App(ActivityHandlerMixin):
         Args:
             port: Port to listen on (defaults to PORT env var or 3978)
         """
-        if self._running:
-            self.log.warning("App is already running")
-            return
-
         self._port = port or int(os.getenv("PORT", "3978"))
 
         try:
@@ -247,21 +238,18 @@ class App(ActivityHandlerMixin):
             if not self._initialized:
                 await self.initialize()
 
-            # Set callback and start HTTP plugin
-            async def on_http_ready() -> None:
-                self.log.info("Teams app started successfully")
-                assert self._port is not None, "Port must be set before emitting start event"
-                self._events.emit("start", StartEvent(port=self._port))
-                self._running = True
-
-            self.http.on_ready_callback = on_http_ready
-
+            # Start plugins and HTTP server concurrently (both may block with serve())
             tasks: List[Awaitable[Any]] = []
             event = PluginStartEvent(port=self._port)
             for plugin in self.plugins:
                 is_callable = hasattr(plugin, "on_start") and callable(plugin.on_start)
                 if is_callable:
                     tasks.append(plugin.on_start(event))
+
+            self.log.info("Teams app started successfully")
+            self._events.emit("start", StartEvent(port=self._port))
+
+            tasks.append(self.server.start(self._port))
             await asyncio.gather(*tasks)
 
         except (asyncio.CancelledError, KeyboardInterrupt):
@@ -273,27 +261,24 @@ class App(ActivityHandlerMixin):
                 self._events.emit("stop", StopEvent())
 
         except Exception as error:
-            self._running = False
             self.log.error(f"Failed to start app: {error}")
             self._events.emit("error", ErrorEvent(error, context={"method": "start", "port": self._port}))
             raise
 
     async def stop(self) -> None:
         """Stop the Teams application."""
-        if not self._running:
-            return
-
         try:
-            # Set callback and stop HTTP plugin first
-            async def on_http_stopped() -> None:
-                # Stop all other plugins after HTTP is stopped
-                await self._stop_plugins(exclude_http=True)
-                self._running = False
-                self.log.info("Teams app stopped")
-                self._events.emit("stop", StopEvent())
+            # Stop HTTP server first
+            await self.server.stop()
 
-            self.http.on_stopped_callback = on_http_stopped
-            await self.http.on_stop()
+            # Stop all plugins
+            for plugin in reversed(self.plugins):
+                is_callable = hasattr(plugin, "on_stop") and callable(plugin.on_stop)
+                if is_callable:
+                    await plugin.on_stop()
+
+            self.log.info("Teams app stopped")
+            self._events.emit("stop", StopEvent())
 
         except Exception as error:
             self.log.error(f"Failed to stop app: {error}")
@@ -479,7 +464,7 @@ class App(ActivityHandlerMixin):
             app.page("customform", os.path.join(os.path.dirname(__file__), "views", "customform"), "/tabs/dialog-form")
             ```
         """
-        self.http.mount(name, dir_path, page_path=page_path)
+        self.server.serve_static(page_path or f"/{name}", dir_path)
 
     def tab(self, name: str, path: str) -> None:
         """
@@ -515,23 +500,25 @@ class App(ActivityHandlerMixin):
             endpoint_name = name_or_func if isinstance(name_or_func, str) else func.__name__.replace("_", "-")
             self.logger.debug("Generated endpoint name for function '%s': %s", func.__name__, endpoint_name)
 
-            async def endpoint(req: Request):
-                middleware = remote_function_jwt_validation(self.log, self.entra_token_validator)
+            async def handler(request: HttpRequest) -> HttpResponse:
+                client_context, error = await validate_remote_function_request(
+                    request["headers"], self.log, self.entra_token_validator
+                )
+                if error or not client_context:
+                    return HttpResponse(status=401, body={"detail": error or "unauthorized"})
 
-                async def call_next(r: Request) -> Any:
-                    ctx = FunctionContext(
-                        id=self.id,
-                        api=self.api,
-                        activity_sender=self.activity_sender,
-                        log=self.log,
-                        data=await r.json(),
-                        **r.state.context.__dict__,
-                    )
-                    return await func(ctx)
+                ctx = FunctionContext(
+                    id=self.id,
+                    api=self.api,
+                    activity_sender=self.activity_sender,
+                    log=self.log,
+                    data=request["body"],
+                    **client_context.__dict__,
+                )
+                result = await func(ctx)
+                return HttpResponse(status=200, body=result)
 
-                return await middleware(req, call_next)
-
-            self.http.post(f"/api/functions/{endpoint_name}")(endpoint)
+            self.server.register_route("POST", f"/api/functions/{endpoint_name}", handler)
             return func
 
         # Direct decoration: @app.func

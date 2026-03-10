@@ -6,18 +6,19 @@ Licensed under the MIT License.
 import importlib.metadata
 from logging import Logger
 from types import SimpleNamespace
-from typing import Annotated, Any, Optional, Unpack, cast
+from typing import Annotated, Any, Callable, Optional, TypedDict, Unpack, cast
 
-from fastapi import HTTPException, Request, Response
-from microsoft_teams.api import Credentials
+from microsoft_teams.api import Credentials, InvokeResponse
 from microsoft_teams.apps import (
     DependencyMetadata,
-    HttpPlugin,
+    EventMetadata,
+    HttpServer,
     LoggerDependencyOptions,
     Plugin,
+    PluginBase,
 )
-from microsoft_teams.apps.events import CoreActivity
-from microsoft_teams.apps.http_plugin import HttpPluginOptions
+from microsoft_teams.apps.events import ActivityEvent, CoreActivity, ErrorEvent
+from microsoft_teams.apps.http import HttpRequest, HttpResponse
 
 from botbuilder.core import (
     ActivityHandler,
@@ -36,15 +37,15 @@ SINGLE_TENANT = "singletenant"
 MULTI_TENANT = "multitenant"
 
 
-class BotBuilderPluginOptions(HttpPluginOptions, total=False):
+class BotBuilderPluginOptions(TypedDict, total=False):
     """Options for configuring the BotBuilder plugin."""
 
     handler: ActivityHandler
     adapter: CloudAdapter
 
 
-@Plugin(name="http", version=version, description="BotBuilder plugin for Microsoft Bot Framework integration")
-class BotBuilderPlugin(HttpPlugin):
+@Plugin(name="botbuilder", version=version, description="BotBuilder plugin for Microsoft Bot Framework integration")
+class BotBuilderPlugin(PluginBase):
     """
     BotBuilder plugin that provides Microsoft Bot Framework integration.
     """
@@ -52,6 +53,10 @@ class BotBuilderPlugin(HttpPlugin):
     # Dependency injections
     logger: Annotated[Logger, LoggerDependencyOptions()]
     credentials: Annotated[Optional[Credentials], DependencyMetadata(optional=True)]
+    server: Annotated[HttpServer, DependencyMetadata()]
+
+    on_error_event: Annotated[Callable[[ErrorEvent], None], EventMetadata(name="error")]
+    on_activity_event: Annotated[Callable[[ActivityEvent], InvokeResponse[Any]], EventMetadata(name="activity")]
 
     def __init__(self, **options: Unpack[BotBuilderPluginOptions]):
         """
@@ -60,16 +65,12 @@ class BotBuilderPlugin(HttpPlugin):
         Args:
             options: Configuration options for the plugin
         """
-
+        super().__init__()
         self.handler: Optional[ActivityHandler] = options.get("handler")
         self.adapter: Optional[CloudAdapter] = options.get("adapter")
 
-        super().__init__(**options)
-
     async def on_init(self) -> None:
         """Initialize the plugin when the app starts."""
-        await super().on_init()
-
         if not self.adapter:
             # Extract credentials for Bot Framework authentication
             client_id: Optional[str] = None
@@ -93,46 +94,73 @@ class BotBuilderPlugin(HttpPlugin):
 
             self.logger.debug("BotBuilder plugin initialized successfully")
 
-    async def on_activity_request(self, core_activity: CoreActivity, request: Request, response: Response) -> Any:
+        # Register the activity route via HttpServer
+        self.server.register_route("POST", "/api/messages", self._handle_activity)
+
+    async def _handle_activity(self, request: HttpRequest) -> HttpResponse:
         """
-        Handles an incoming activity.
+        Pure handler for POST /api/messages.
 
-        Overrides the base HTTP plugin behavior to:
-        1. Process the activity using the Bot Framework adapter/handler.
-        2. Then pass the request to the parent Teams plugin pipeline.
-
-        Returns the final HTTP response.
+        Processes via Bot Framework, then passes to the Teams pipeline.
         """
         if not self.adapter:
             raise RuntimeError("plugin not registered")
 
+        body = request["body"]
+        headers = request["headers"]
+
         try:
-            # Parse activity data from core_activity
-            activity_dict = core_activity.model_dump(by_alias=True, exclude_none=True)
-            activity_bf = cast(Activity, Activity().deserialize(activity_dict))
+            # Parse activity from body
+            activity_bf = cast(Activity, Activity().deserialize(body))
 
-            # A POST request must contain an Activity
             if not activity_bf.type:
-                raise HTTPException(status_code=400, detail="Missing activity type")
+                return HttpResponse(status=400, body={"detail": "Missing activity type"})
 
-            async def logic(turn_context: TurnContext):
+            async def logic(turn_context: TurnContext) -> None:
                 if not turn_context.activity.id:
                     return
-
                 # Handle activity with botframework handler
                 if self.handler:
                     await self.handler.on_turn(turn_context)
 
             # Grab the auth header from the inbound request
-            auth_header = request.headers["Authorization"] if "Authorization" in request.headers else ""
+            auth_header = headers.get("authorization") or headers.get("Authorization") or ""
             await self.adapter.process_activity(auth_header, activity_bf, logic)
 
-            # Call parent's on_activity_request to handle Teams processing
-            return await super().on_activity_request(core_activity, request, response)
+            # Process through Teams pipeline
+            core_activity = CoreActivity.model_validate(body)
+            token = cast(
+                Any,
+                SimpleNamespace(
+                    app_id="",
+                    app_display_name="",
+                    tenant_id="",
+                    service_url=core_activity.service_url or "",
+                    from_="azure",
+                    from_id="",
+                    is_expired=lambda: False,
+                ),
+            )
 
-        except HTTPException as http_err:
-            self.logger.error(f"HTTP error processing activity: {http_err}", exc_info=True)
-            raise
+            result = await self.on_activity_event(ActivityEvent(body=core_activity, token=token))
+
+            # Format response
+            status_code = 200
+            resp_body: Any = None
+            if hasattr(result, "model_dump"):
+                resp_dict = result.model_dump(exclude_none=True)
+            elif isinstance(result, dict):
+                resp_dict = result
+            else:
+                resp_dict = {}
+
+            if "status" in resp_dict:
+                status_code = resp_dict.get("status", 200)
+            if "body" in resp_dict:
+                resp_body = resp_dict.get("body")
+
+            return HttpResponse(status=status_code, body=resp_body)
+
         except Exception as err:
             self.logger.error(f"Error processing activity: {err}", exc_info=True)
-            raise HTTPException(status_code=500, detail=str(err)) from err
+            return HttpResponse(status=500, body={"detail": str(err)})
