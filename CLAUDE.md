@@ -9,7 +9,7 @@ Microsoft Teams Python SDK — a UV workspace with multiple packages providing A
 ## Development Setup
 
 ### Prerequisites
-- UV >= 0.4.27
+- UV >= 0.9.8
 - Python >= 3.12
 
 ### Commands
