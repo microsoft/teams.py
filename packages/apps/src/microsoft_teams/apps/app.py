@@ -235,9 +235,7 @@ class App(ActivityHandlerMixin):
         except (asyncio.CancelledError, KeyboardInterrupt):
             self.log.info("Teams app shutting down")
             try:
-                for plugin in reversed(self.plugins):
-                    if hasattr(plugin, "on_stop") and callable(plugin.on_stop):
-                        await plugin.on_stop()
+                await self._stop_plugins()
             finally:
                 self._running = False
                 self._events.emit("stop", StopEvent())
@@ -257,11 +255,7 @@ class App(ActivityHandlerMixin):
             # Set callback and stop HTTP plugin first
             async def on_http_stopped() -> None:
                 # Stop all other plugins after HTTP is stopped
-                for plugin in reversed(self.plugins):
-                    is_callable = hasattr(plugin, "on_stop") and callable(plugin.on_stop)
-                    if plugin is not self.http and is_callable:
-                        await plugin.on_stop()
-
+                await self._stop_plugins(exclude_http=True)
                 self._running = False
                 self.log.info("Teams app stopped")
                 self._events.emit("stop", StopEvent())
@@ -511,6 +505,13 @@ class App(ActivityHandlerMixin):
 
         # Named decoration: @app.func("name")
         return decorator
+
+    async def _stop_plugins(self, exclude_http: bool = False) -> None:
+        for plugin in reversed(self.plugins):
+            if exclude_http and plugin is self.http:
+                continue
+            if hasattr(plugin, "on_stop") and callable(plugin.on_stop):
+                await plugin.on_stop()
 
     async def _get_bot_token(self):
         return await self._token_manager.get_bot_token()
