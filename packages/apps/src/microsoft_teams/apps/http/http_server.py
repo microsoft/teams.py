@@ -145,7 +145,7 @@ class HttpServer:
 
         resp_dict: Optional[Dict[str, Any]] = None
         if isinstance(result, dict):
-            resp_dict = result
+            resp_dict = cast(Dict[str, Any], result)
         elif isinstance(result, BaseModel):
             resp_dict = result.model_dump(exclude_none=True)
 

@@ -6,7 +6,7 @@ Licensed under the MIT License.
 import importlib.metadata
 from logging import Logger
 from types import SimpleNamespace
-from typing import Annotated, Any, Callable, Optional, TypedDict, Unpack, cast
+from typing import Annotated, Any, Callable, Dict, Optional, TypedDict, Unpack, cast
 
 from microsoft_teams.api import Credentials, InvokeResponse
 from microsoft_teams.apps import (
@@ -142,20 +142,20 @@ class BotBuilderPlugin(PluginBase):
                 ),
             )
 
-            result = await self.on_activity_event(ActivityEvent(body=core_activity, token=token))
+            event_result = self.on_activity_event(ActivityEvent(body=core_activity, token=token))
+            result: Any = await cast(Any, event_result)
 
             # Format response
-            status_code = 200
+            status_code: int = 200
             resp_body: Any = None
-            if hasattr(result, "model_dump"):
-                resp_dict = result.model_dump(exclude_none=True)
+            resp_dict: Dict[str, Any] = {}
+            if result is not None and hasattr(result, "model_dump"):
+                resp_dict = cast(Dict[str, Any], result.model_dump(exclude_none=True))
             elif isinstance(result, dict):
-                resp_dict = result
-            else:
-                resp_dict = {}
+                resp_dict = cast(Dict[str, Any], result)
 
             if "status" in resp_dict:
-                status_code = resp_dict.get("status", 200)
+                status_code = int(resp_dict.get("status", 200))
             if "body" in resp_dict:
                 resp_body = resp_dict.get("body")
 
