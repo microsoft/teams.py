@@ -248,9 +248,7 @@ class TestApp:
             id="test-activity-id",
         )
 
-        await app_with_activity_handler.event_manager.on_activity(
-            ActivityEvent(body=core_activity, token=FakeToken())
-        )
+        await app_with_activity_handler.event_manager.on_activity(ActivityEvent(body=core_activity, token=FakeToken()))
 
         # Wait for the async event handler to complete
         await asyncio.wait_for(event_received.wait(), timeout=1.0)
@@ -293,9 +291,7 @@ class TestApp:
             id="test-activity-id",
         )
 
-        await app_with_options.event_manager.on_activity(
-            ActivityEvent(body=core_activity, token=FakeToken())
-        )
+        await app_with_options.event_manager.on_activity(ActivityEvent(body=core_activity, token=FakeToken()))
 
         # Wait for both async event handlers to complete
         await asyncio.wait_for(both_received.wait(), timeout=1.0)
@@ -810,8 +806,8 @@ class TestApp:
             client_secret="test-secret",
         )
         app = App(**options)
-        app._running = True
-        app.http.send = AsyncMock(
+        app._initialized = True
+        app.activity_sender.send = AsyncMock(
             return_value=SentActivity(id="sent-activity-id", activity_params=MessageActivityInput(text="sent"))
         )
 
@@ -839,8 +835,8 @@ class TestApp:
             client_secret="test-secret",
         )
         app = App(**options)
-        app._running = True
-        app.http.send = AsyncMock(
+        app._initialized = True
+        app.activity_sender.send = AsyncMock(
             return_value=SentActivity(id="sent-activity-id", activity_params=MessageActivityInput(text="sent"))
         )
 
@@ -851,5 +847,5 @@ class TestApp:
         # Should not raise - explicit recipient provided
         result = await app.send("conv-123", activity)
 
-        app.http.send.assert_called_once()
+        app.activity_sender.send.assert_called_once()
         assert result.id == "sent-activity-id"

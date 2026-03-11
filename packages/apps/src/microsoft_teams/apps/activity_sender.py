@@ -10,6 +10,7 @@ from microsoft_teams.api import (
     ActivityParams,
     ApiClient,
     ConversationReference,
+    MessageActivityInput,
     SentActivity,
 )
 from microsoft_teams.common import Client, ConsoleLogger
@@ -53,12 +54,22 @@ class ActivitySender:
         activity.from_ = ref.bot
         activity.conversation = ref.conversation
 
-        # Decide create vs update
+        # Check if this is a targeted message
+        is_targeted = isinstance(activity, MessageActivityInput) and activity.is_targeted is True
+        activities = api.conversations.activities(ref.conversation.id)
+
+        # Decide create vs update, targeted vs non-targeted
         if hasattr(activity, "id") and activity.id:
-            res = await api.conversations.activities(ref.conversation.id).update(activity.id, activity)
+            if is_targeted:
+                res = await activities.update_targeted(activity.id, activity)
+            else:
+                res = await activities.update(activity.id, activity)
             return SentActivity.merge(activity, res)
 
-        res = await api.conversations.activities(ref.conversation.id).create(activity)
+        if is_targeted:
+            res = await activities.create_targeted(activity)
+        else:
+            res = await activities.create(activity)
         return SentActivity.merge(activity, res)
 
     def create_stream(self, ref: ConversationReference) -> StreamerProtocol:
