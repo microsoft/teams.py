@@ -219,7 +219,7 @@ class App(ActivityHandlerMixin):
                     await plugin.on_init()
 
             self._initialized = True
-            self.log.info("Teams app initialized successfully (without HTTP server)")
+            self.log.info("Teams app initialized successfully")
 
         except Exception as error:
             self.log.error(f"Failed to initialize app: {error}")
