@@ -88,10 +88,10 @@ class ConversationClient(BaseClient):
             api_client_settings: Optional API client settings.
         """
         super().__init__(options, api_client_settings)
-        self.service_url = service_url
+        self.service_url = service_url.rstrip("/")
 
-        self._activities_client = ConversationActivityClient(service_url, self.http, self._api_client_settings)
-        self._members_client = ConversationMemberClient(service_url, self.http, self._api_client_settings)
+        self._activities_client = ConversationActivityClient(self.service_url, self.http, self._api_client_settings)
+        self._members_client = ConversationMemberClient(self.service_url, self.http, self._api_client_settings)
 
     @property
     def http(self) -> Client:

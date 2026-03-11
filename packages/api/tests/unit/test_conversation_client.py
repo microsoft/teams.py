@@ -28,6 +28,15 @@ class TestConversationClient:
         assert client.activities_client is not None
         assert client.members_client is not None
 
+    def test_conversation_client_strips_trailing_slash(self, mock_http_client):
+        """Test ConversationClient strips trailing slash from service_url."""
+        service_url = "https://test.service.url/"
+        client = ConversationClient(service_url, mock_http_client)
+
+        assert client.service_url == "https://test.service.url"
+        assert client.activities_client.service_url == "https://test.service.url"
+        assert client.members_client.service_url == "https://test.service.url"
+
     def test_conversation_client_initialization_with_options(self):
         """Test ConversationClient initialization with ClientOptions."""
 

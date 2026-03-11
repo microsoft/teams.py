@@ -30,7 +30,7 @@ class MeetingClient(BaseClient):
             api_client_settings: Optional API client settings.
         """
         super().__init__(options, api_client_settings)
-        self.service_url = service_url
+        self.service_url = service_url.rstrip("/")
 
     async def get_by_id(self, id: str) -> MeetingInfo:
         """

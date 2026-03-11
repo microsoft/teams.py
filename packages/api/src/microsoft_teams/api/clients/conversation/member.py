@@ -32,7 +32,7 @@ class ConversationMemberClient(BaseClient):
             api_client_settings: Optional API client settings.
         """
         super().__init__(http_client, api_client_settings)
-        self.service_url = service_url
+        self.service_url = service_url.rstrip("/")
 
     async def get(self, conversation_id: str) -> List[TeamsChannelAccount]:
         """
