@@ -103,14 +103,14 @@ def mock_transport():
                 {
                     "id": "mock_member_id",
                     "name": "Mock Member",
-                    "objectId": "mock_object_id",
+                    "aadObjectId": "mock_aad_object_id",
                 }
             ]
         elif "/conversations/" in str(request.url) and "/members/" in str(request.url) and request.method == "GET":
             response_data = {
                 "id": "mock_member_id",
                 "name": "Mock Member",
-                "objectId": "mock_object_id",
+                "aadObjectId": "mock_aad_object_id",
             }
         elif "/conversations" in str(request.url) and request.method == "GET":
             response_data = {
@@ -206,6 +206,10 @@ def mock_transport():
                 "channelCount": 5,
                 "memberCount": 15,
             }
+        elif "/reactions/" in str(request.url):
+            # Handle reaction endpoints - both PUT (add) and DELETE (remove)
+            # These endpoints typically return 200 with empty response or minimal response
+            response_data = {"ok": True}
 
         return httpx.Response(
             status_code=200,

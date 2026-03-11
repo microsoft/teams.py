@@ -44,6 +44,7 @@ from microsoft_teams.api import (
     MessagingExtensionActionInvokeResponse,
     MessagingExtensionInvokeResponse,
     ReadReceiptEventActivity,
+    SignInFailureInvokeActivity,
     SignInTokenExchangeInvokeActivity,
     SignInVerifyStateInvokeActivity,
     TabFetchInvokeActivity,
@@ -501,6 +502,14 @@ ACTIVITY_ROUTES: Dict[str, ActivityConfig] = {
         input_model=SignInVerifyStateInvokeActivity,
         selector=lambda activity: activity.type == "invoke"
         and cast(InvokeActivity, activity).name == "signin/verifyState",
+        output_model=None,
+        is_invoke=True,
+    ),
+    "signin.failure": ActivityConfig(
+        name="signin.failure",
+        method_name="on_signin_failure",
+        input_model=SignInFailureInvokeActivity,
+        selector=lambda activity: activity.type == "invoke" and cast(InvokeActivity, activity).name == "signin/failure",
         output_model=None,
         is_invoke=True,
     ),

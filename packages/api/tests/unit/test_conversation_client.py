@@ -264,7 +264,7 @@ class TestConversationMemberOperations:
         assert isinstance(result[0], TeamsChannelAccount)
         assert result[0].id == "mock_member_id"
         assert result[0].name == "Mock Member"
-        assert result[0].object_id == "mock_object_id"
+        assert result[0].aad_object_id == "mock_aad_object_id"
 
     async def test_member_get(self, mock_http_client):
         """Test getting a specific member returns TeamsChannelAccount instance."""
@@ -281,7 +281,7 @@ class TestConversationMemberOperations:
         assert isinstance(result, TeamsChannelAccount)
         assert result.id == "mock_member_id"
         assert result.name == "Mock Member"
-        assert result.object_id == "mock_object_id"
+        assert result.aad_object_id == "mock_aad_object_id"
 
     async def test_member_delete(self, mock_http_client):
         """Test deleting a member."""

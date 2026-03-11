@@ -52,7 +52,7 @@ class TeamsChannelAccount(CustomBaseModel):
     """
     Display-friendly name of the user or bot.
     """
-    object_id: Optional[str] = None
+    aad_object_id: Optional[str] = None
     """
     The user's Object ID in Azure Active Directory (AAD).
     """

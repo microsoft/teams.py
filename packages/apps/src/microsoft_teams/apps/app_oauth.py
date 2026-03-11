@@ -10,6 +10,7 @@ from microsoft_teams.api import (
     ExchangeUserTokenParams,
     GetUserTokenParams,
     InvokeResponse,
+    SignInFailureInvokeActivity,
     SignInTokenExchangeInvokeActivity,
     SignInVerifyStateInvokeActivity,
     TokenExchangeInvokeResponse,
@@ -59,19 +60,25 @@ class OauthHandlers:
                 self.event_emitter.emit("sign_in", SignInEvent(activity_ctx=ctx, token_response=token))
                 return None
             except Exception as e:
-                ctx.logger.error(
-                    f"Error exchanging token for user {activity.from_.id} in "
-                    f"conversation {activity.conversation.id}: {e}"
-                )
                 if isinstance(e, HTTPStatusError):
                     status = e.response.status_code
                     if status not in (404, 400, 412):
+                        log.error(
+                            f"Error exchanging token for user {activity.from_.id} in "
+                            f"conversation {activity.conversation.id}: {e}"
+                        )
                         self.event_emitter.emit("error", ErrorEvent(error=e, context={"activity": activity}))
                         return InvokeResponse(status=status or 500)
-                ctx.logger.warning(
-                    f"Unable to exchange token for user {activity.from_.id} in "
-                    f"conversation {activity.conversation.id}: {e}"
-                )
+                    log.info(
+                        f"Unable to exchange token for user {activity.from_.id} in "
+                        f"conversation {activity.conversation.id}: {e}"
+                    )
+                else:
+                    log.error(
+                        f"Unable to exchange token for user {activity.from_.id} in "
+                        f"conversation {activity.conversation.id}: {e}"
+                    )
+                    self.event_emitter.emit("error", ErrorEvent(error=e, context={"activity": activity}))
                 return InvokeResponse(
                     status=412,
                     body=TokenExchangeInvokeResponse(
@@ -80,6 +87,57 @@ class OauthHandlers:
                         failure_detail=str(e) or "unable to exchange token...",
                     ),
                 )
+        finally:
+            await next_handler()
+
+    async def sign_in_failure(
+        self, ctx: ActivityContext[SignInFailureInvokeActivity]
+    ) -> Optional[InvokeResponse[None]]:
+        """
+        Default handler for signin/failure invoke activities.
+
+        Teams sends a signin/failure invoke when SSO token exchange fails
+        (e.g., due to a misconfigured Entra app registration). This handler
+        logs the failure details and emits an error event so developers are
+        notified rather than having the failure silently swallowed.
+
+        Known failure codes (sent by the Teams client):
+            - ``installappfailed``: Failed to install the app in the user's personal
+              scope (non-silent).
+            - ``authrequestfailed``: The SSO auth request failed after app installation
+              (non-silent).
+            - ``installedappnotfound``: The bot app is not installed for the user or group chat.
+            - ``invokeerror``: A generic error occurred during the SSO invoke flow.
+            - ``resourcematchfailed``: The token exchange resource URI on the OAuthCard does
+              not match the Application ID URI in the Entra app registration's
+              "Expose an API" section.
+            - ``oauthcardnotvalid``: The bot's OAuthCard could not be parsed.
+            - ``tokenmissing``: AAD token acquisition failed.
+            - ``userconsentrequired``: The user needs to consent (handled via OAuth card
+              fallback, does not typically reach the bot).
+            - ``interactionrequired``: User interaction is required (handled via OAuth card
+              fallback, does not typically reach the bot).
+        """
+        activity = ctx.activity
+        next_handler = ctx.next
+        try:
+            failure = activity.value
+            ctx.logger.warning(
+                f"Sign-in failed for user {activity.from_.id} in "
+                f"conversation {activity.conversation.id}: "
+                f"{failure.code} — {failure.message}. "
+                f"If the code is 'resourcematchfailed', verify that your Entra app "
+                f"registration has 'Expose an API' configured with the correct "
+                f"Application ID URI matching your OAuth connection's Token Exchange URL."
+            )
+            self.event_emitter.emit(
+                "error",
+                ErrorEvent(
+                    error=Exception(f"Sign-in failure: {failure.code} — {failure.message}"),
+                    context={"activity": activity},
+                ),
+            )
+            return None
         finally:
             await next_handler()
 
