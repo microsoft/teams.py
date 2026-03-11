@@ -21,7 +21,7 @@ from microsoft_teams.api import (
     TokenProtocol,
     TypingActivity,
 )
-from microsoft_teams.apps import ActivityContext, ActivityEvent, App, AppOptions
+from microsoft_teams.apps import ActivityContext, ActivityEvent, App, AppOptions, Plugin, PluginBase, PluginStartEvent
 
 
 class FakeToken(TokenProtocol):
@@ -166,6 +166,67 @@ class TestApp:
         with patch.object(app_with_options.http, "on_stop", new_callable=AsyncMock, side_effect=mock_on_stop):
             await app_with_options.stop()
             assert not app_with_options.is_running
+
+    @pytest.mark.asyncio
+    async def test_app_start_with_multiple_plugins_cancelled(self, mock_logger, mock_storage):
+        @Plugin(name="PluginTwo", version="1.0", description="plugin")
+        class PluginTwo(PluginBase):
+            def __init__(self):
+                super().__init__()
+                self.stop_called = False
+
+            async def on_start(self, event: PluginStartEvent) -> None:  # noqa: D102
+                pass
+
+            async def on_stop(self) -> None:  # noqa: D102
+                self.stop_called = True
+
+        plugin_two = PluginTwo()
+
+        options = AppOptions(
+            logger=mock_logger,
+            storage=mock_storage,
+            client_id="test-client-id",
+            client_secret="test-secret",
+            plugins=[plugin_two],
+        )
+        app = App(**options)
+
+        mock_stream = MagicMock()
+        mock_stream.events = MagicMock()
+        mock_stream.events.on = MagicMock()
+        mock_stream.close = AsyncMock()
+        app.http.create_stream = MagicMock(return_value=mock_stream)
+
+        block = asyncio.Event()
+
+        async def mock_on_start_blocking(event):
+            if app.http.on_ready_callback:
+                await app.http.on_ready_callback()
+            await block.wait()
+
+        with patch.object(app.http, "on_start", new_callable=AsyncMock, side_effect=mock_on_start_blocking):
+            app.http.on_stop = AsyncMock()
+
+            start_task = asyncio.create_task(app.start(3978))
+
+            for _ in range(50):
+                await asyncio.sleep(0.01)
+                if app.is_running:
+                    break
+
+            assert app.is_running, "App should be running before cancellation"
+
+            start_task.cancel()
+            try:
+                await start_task
+            except asyncio.CancelledError:
+                pass
+
+            mock_logger.info.assert_any_call("Teams app shutting down")
+
+            assert plugin_two.stop_called, "plugin two on_stop was called."
+            assert not app.is_running, "App should not be running after cancellation"
 
     # Event Testing - Focus on functional behavior
 
