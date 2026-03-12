@@ -115,7 +115,6 @@ class App(ActivityHandlerMixin):
         adapter = self.options.http_server_adapter or FastAPIAdapter()
         self.server = HttpServer(adapter, self.log)
         self.container.set_provider("HttpServer", providers.Object(self.server))
-        self.container.set_provider("server", providers.Object(self.server))
 
         self._port: Optional[int] = None
         self._initialized = False

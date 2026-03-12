@@ -124,19 +124,12 @@ class HttpServer:
 
     async def _process_activity(self, core_activity: CoreActivity, token: TokenProtocol) -> InvokeResponse[Any]:
         """Process an activity via the registered on_request callback."""
-        result: InvokeResponse[Any]
-        try:
-            event = ActivityEvent(body=core_activity, token=token)
-            if self._on_request:
-                result = await self._on_request(event)
-            else:
-                self._logger.warning("No on_request handler registered")
-                result = InvokeResponse(status=500)
-        except Exception as error:
-            self._logger.exception(str(error))
-            result = InvokeResponse(status=500)
+        event = ActivityEvent(body=core_activity, token=token)
+        if self._on_request:
+            return await self._on_request(event)
 
-        return result
+        self._logger.warning("No on_request handler registered")
+        return InvokeResponse(status=500)
 
     def _format_response(self, result: Any) -> HttpResponse:
         """Format an InvokeResponse into an HttpResponse."""

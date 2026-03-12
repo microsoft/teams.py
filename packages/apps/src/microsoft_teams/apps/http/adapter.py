@@ -24,6 +24,13 @@ class HttpRouteHandler(Protocol):
 
 @runtime_checkable
 class HttpServerAdapter(Protocol):
+    """Protocol for framework-specific HTTP server adapters.
+
+    Implement this adapter to plug in any HTTP framework (FastAPI, Starlette, Flask, etc.).
+    The SDK calls these methods with framework-agnostic ``HttpRequest``/``HttpResponse``
+    objects so the adapter can translate to/from the underlying framework.
+    """
+
     def register_route(self, method: HttpMethod, path: str, handler: HttpRouteHandler) -> None:
         """Register a route handler. Required."""
         ...

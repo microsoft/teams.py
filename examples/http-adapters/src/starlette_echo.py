@@ -14,6 +14,7 @@ Licensed under the MIT License.
 #     python src/starlette_echo.py
 
 import asyncio
+import re
 
 from microsoft_teams.api import MessageActivity
 from microsoft_teams.apps import ActivityContext, App
@@ -37,7 +38,19 @@ adapter.app.add_route("/health", health)
 app = App(http_server_adapter=adapter)
 
 
-# 4. Handle incoming messages
+# 4. Handle incoming messages — streaming demo
+@app.on_message_pattern(re.compile(r"^stream\b", re.IGNORECASE))
+async def handle_stream(ctx: ActivityContext[MessageActivity]):
+    ctx.stream.update("Starting stream...")
+    await asyncio.sleep(0.5)
+
+    words = "Hello from the Starlette adapter! This message is being streamed word by word.".split()
+    for word in words:
+        await asyncio.sleep(0.3)
+        ctx.stream.emit(word + " ")
+
+
+# 5. Echo fallback
 @app.on_message
 async def handle_message(ctx: ActivityContext[MessageActivity]):
     await ctx.send(f"[Starlette] You said: '{ctx.activity.text}'")

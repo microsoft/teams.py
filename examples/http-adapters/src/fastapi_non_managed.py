@@ -1,26 +1,27 @@
 """
 Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
-
-Non-Managed FastAPI Server
-==========================
-Teams echo bot where YOU manage the server lifecycle.
-
-This demonstrates the "non-managed" pattern — you create your own FastAPI app
-with your own routes, wrap it in a FastAPIAdapter, call app.initialize() to
-register the Teams routes, then start uvicorn yourself.
-
-This is ideal when:
-- You have an existing FastAPI app and want to add Teams bot support
-- You need full control over server configuration (TLS, workers, middleware)
-- You're deploying to a platform that manages the server (e.g. Azure Functions)
-
-Run:
-    python src/fastapi_non_managed.py
 """
+
+# Non-Managed FastAPI Server
+# ==========================
+# Teams echo bot where YOU manage the server lifecycle.
+#
+# This demonstrates the "non-managed" pattern — you create your own FastAPI app
+# with your own routes, wrap it in a FastAPIAdapter, call app.initialize() to
+# register the Teams routes, then start uvicorn yourself.
+#
+# This is ideal when:
+# - You have an existing FastAPI app and want to add Teams bot support
+# - You need full control over server configuration (TLS, workers, middleware)
+# - You're deploying to a platform that manages the server (e.g. Azure Functions)
+#
+# Run:
+#     python src/fastapi_non_managed.py
 
 import asyncio
 import os
+import re
 
 import uvicorn
 from fastapi import FastAPI
@@ -62,7 +63,19 @@ adapter = FastAPIAdapter(app=my_fastapi)
 app = App(http_server_adapter=adapter)
 
 
-# 4. Handle incoming messages
+# 4. Handle incoming messages — streaming demo
+@app.on_message_pattern(re.compile(r"^stream\b", re.IGNORECASE))
+async def handle_stream(ctx: ActivityContext[MessageActivity]):
+    ctx.stream.update("Starting stream...")
+    await asyncio.sleep(0.5)
+
+    words = "Hello from the FastAPI adapter! This message is being streamed word by word.".split()
+    for word in words:
+        await asyncio.sleep(0.3)
+        ctx.stream.emit(word + " ")
+
+
+# 5. Echo fallback
 @app.on_message
 async def handle_message(ctx: ActivityContext[MessageActivity]):
     await ctx.send(f"[FastAPI non-managed] You said: '{ctx.activity.text}'")

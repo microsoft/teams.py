@@ -51,7 +51,8 @@ class FastAPIAdapter:
                 return JSONResponse(content=resp_body, status_code=status)
             return Response(status_code=status)
 
-        assert method == "POST", f"Unsupported HTTP method: {method}"
+        if method != "POST":
+            raise ValueError(f"Unsupported HTTP method: {method}")
         self._fastapi.post(path)(fastapi_handler)
 
     def serve_static(self, path: str, directory: str) -> None:
