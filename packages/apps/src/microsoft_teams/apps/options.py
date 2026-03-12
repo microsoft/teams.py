@@ -3,6 +3,7 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
+import warnings
 from dataclasses import dataclass, field
 from logging import Logger
 from typing import Any, Awaitable, Callable, List, Optional, TypedDict, Union, cast
@@ -108,6 +109,13 @@ class InternalAppOptions:
             InternalAppOptions with proper defaults and non-nullable required fields
         """
         kwargs: dict[str, Any] = {k: v for k, v in options.items() if v is not None}
+        if "logger" in kwargs:
+            warnings.warn(
+                "The 'logger' option is deprecated and will be removed in version 2.0.0 GA. "
+                "Use standard Python logging (logging.getLogger(__name__)) instead.",
+                DeprecationWarning,
+                stacklevel=3,
+            )
         return cls(**kwargs)
 
 

@@ -137,18 +137,15 @@ class TestOauthHandlers:
     async def test_sign_in_token_exchange_connection_name_warning(
         self, oauth_handlers, mock_context, token_exchange_activity, mock_token_response
     ):
-        """Test token exchange with different connection name logs warning."""
+        """Test token exchange with different connection name."""
         token_exchange_activity.value.connection_name = "different-connection"
         mock_context.activity = token_exchange_activity
         mock_context.api.users.token.exchange.return_value = mock_token_response
 
         await oauth_handlers.sign_in_token_exchange(mock_context)
 
-        # Verify warning was logged
-        mock_context.logger.warning.assert_called_once()
-        warning_msg = mock_context.logger.warning.call_args[0][0]
-        assert "different-connection" in warning_msg
-        assert "test-connection" in warning_msg
+        # Exchange still succeeds despite connection name mismatch
+        mock_context.api.users.token.exchange.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_sign_in_token_exchange_http_error_404(self, oauth_handlers, mock_context, token_exchange_activity):
@@ -193,9 +190,6 @@ class TestOauthHandlers:
         oauth_handlers.event_emitter.emit.assert_called_once_with(
             "error", ErrorEvent(error=http_error, context={"activity": token_exchange_activity})
         )
-
-        # Verify error logged
-        mock_context.logger.error.assert_called_once()
 
         # Verify error response
         assert isinstance(result, InvokeResponse)
@@ -246,9 +240,6 @@ class TestOauthHandlers:
             "sign_in", SignInEvent(activity_ctx=mock_context, token_response=mock_token_response)
         )
 
-        # Verify debug logs
-        assert mock_context.logger.debug.call_count == 2
-
         # Verify response
         assert result is None
 
@@ -262,11 +253,6 @@ class TestOauthHandlers:
         mock_context.activity = verify_state_activity
 
         result = await oauth_handlers.sign_in_verify_state(mock_context)
-
-        # Verify warning logged
-        mock_context.logger.warning.assert_called_once()
-        warning_msg = mock_context.logger.warning.call_args[0][0]
-        assert "Auth state not present" in warning_msg
 
         # Verify no API call
         mock_context.api.users.token.get.assert_not_called()
@@ -298,9 +284,6 @@ class TestOauthHandlers:
             "error", ErrorEvent(error=http_error, context={"activity": verify_state_activity})
         )
 
-        # Verify error logged
-        mock_context.logger.error.assert_called_once()
-
         # Verify error response
         assert isinstance(result, InvokeResponse) and result.body is None
         assert result.status == 500
@@ -320,9 +303,6 @@ class TestOauthHandlers:
 
         result = await oauth_handlers.sign_in_verify_state(mock_context)
 
-        # Verify error logged
-        mock_context.logger.error.assert_called_once()
-
         # Verify 412 response
         assert isinstance(result, InvokeResponse) and result.body is None
         assert result.status == 412
@@ -335,9 +315,6 @@ class TestOauthHandlers:
         mock_context.api.users.token.get.side_effect = generic_error
 
         result = await oauth_handlers.sign_in_verify_state(mock_context)
-
-        # Verify error logged
-        mock_context.logger.error.assert_called_once()
 
         # Verify 412 response
         assert isinstance(result, InvokeResponse) and result.body is None
@@ -464,7 +441,6 @@ class TestSignInFailureMiddlewareChain:
 
         return ActivityProcessor(
             router=router,
-            logger=MagicMock(),
             id="bot-456",
             storage=LocalStorage(),
             default_connection_name="graph",
@@ -479,7 +455,6 @@ class TestSignInFailureMiddlewareChain:
         return ActivityContext(
             activity=activity,
             app_id="bot-456",
-            logger=MagicMock(),
             storage=MagicMock(),
             api=MagicMock(),
             user_token=None,

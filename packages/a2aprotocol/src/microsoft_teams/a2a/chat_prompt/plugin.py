@@ -3,18 +3,17 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
+import logging
 import re
 import uuid
 from dataclasses import asdict
 from functools import partial
-from logging import Logger
 from typing import Any, Dict, List, Optional, Union, Unpack, cast
 
 from httpx import AsyncClient
 from microsoft_teams.ai import Function as ChatFunction
 from microsoft_teams.ai import SystemMessage
 from microsoft_teams.ai.plugin import BaseAIPlugin
-from microsoft_teams.common.logging.console import ConsoleLogger
 from pydantic import BaseModel
 
 from a2a.client import ClientFactory
@@ -39,6 +38,8 @@ from .types import (
     InternalA2AClientPluginOptions,
 )
 
+logger = logging.getLogger(__name__)
+
 
 class A2AClientMessageParams(BaseModel):
     message: str
@@ -46,7 +47,6 @@ class A2AClientMessageParams(BaseModel):
 
 
 class A2AClientPlugin(BaseAIPlugin):
-    log: Logger
     _agent_configs: Dict[str, AgentConfig] = {}
     _clients: Dict[str, AgentClientInfo] = {}
 
@@ -63,7 +63,6 @@ class A2AClientPlugin(BaseAIPlugin):
         self._build_prompt = self.options.build_prompt
         self._build_message_for_agent = self.options.build_message_for_agent
         self._build_message_from_agent_response = self.options.build_message_from_agent_response
-        self.log = self.options.logger if self.options.logger else ConsoleLogger().create_logger(name="a2a:client")
 
     def on_use_plugin(self, args: A2APluginUseParams):
         # just store the config, defer client creation to on_build_functions
@@ -102,7 +101,7 @@ class A2AClientPlugin(BaseAIPlugin):
             self._clients.update({key: client_info})
             return card
         except Exception as e:
-            self.log.error(f"Error creating client or fetching agent card for {key}: {e}")
+            logger.error(f"Error creating client or fetching agent card for {key}: {e}")
             return None
 
     def _default_function_metadata(self, card: AgentCard) -> FunctionMetadata:
@@ -143,7 +142,7 @@ class A2AClientPlugin(BaseAIPlugin):
             try:
                 agent_card = await self._get_agent_card(key, config)
                 if not agent_card:
-                    self.log.warning(f"Could not retrieve agent card for {key}, continuing to next agent.")
+                    logger.warning(f"Could not retrieve agent card for {key}, continuing to next agent.")
                     # skip if we couldn't get the agent card
                     continue
 
@@ -183,7 +182,7 @@ class A2AClientPlugin(BaseAIPlugin):
                         if not client_info:
                             raise ValueError(f"Client not found for agent {key}")
 
-                        self.log.debug(f"Calling agent {agent_card.name} with {message.model_dump_json()}")
+                        logger.debug(f"Calling agent {agent_card.name} with {message.model_dump_json()}")
 
                         last_message: Optional[Message] = None
                         async for event in client_info.client.send_message(message):
@@ -194,7 +193,7 @@ class A2AClientPlugin(BaseAIPlugin):
                                 last_message = event
 
                         if last_message is not None:
-                            self.log.debug(f"Got response from {agent_card.name}")
+                            logger.debug(f"Got response from {agent_card.name}")
                             # use custom response builder if provided, otherwise use default
                             metadata = BuildMessageFromAgentMetadata(
                                 card=agent_card, response=last_message, original_input=agent_message
@@ -209,7 +208,7 @@ class A2AClientPlugin(BaseAIPlugin):
                                 )
                             )
                     except Exception as e:
-                        self.log.error(e)
+                        logger.error(e)
                         raise e
 
                 message_handler_with_args = partial(message_handler, config=config, agent_card=agent_card, key=key)
@@ -222,9 +221,9 @@ class A2AClientPlugin(BaseAIPlugin):
                         handler=message_handler_with_args,
                     )
                 )
-                self.log.debug(f"Added function in ChatPrompt to call {agent_card.name}")
+                logger.debug(f"Added function in ChatPrompt to call {agent_card.name}")
             except Exception as e:
-                self.log.info(f"Failed to build function for agent {key}: {e}")
+                logger.info(f"Failed to build function for agent {key}: {e}")
                 # Continue with other agents even if one fails
 
         functions = functions + all_functions
@@ -247,7 +246,7 @@ class A2AClientPlugin(BaseAIPlugin):
                             )
                         )
             except Exception as e:
-                self.log.info(f"Failed to get agent card for {key}: {e}")
+                logger.info(f"Failed to get agent card for {key}: {e}")
 
         # use custom build_prompt if provided, otherwise use default
         if self._build_prompt:

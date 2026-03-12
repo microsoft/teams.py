@@ -3,6 +3,8 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
+import logging
+
 from . import auth, contexts, events, plugins
 from .app import App
 from .auth import *  # noqa: F403
@@ -13,6 +15,8 @@ from .http_stream import HttpStream
 from .options import AppOptions
 from .plugins import *  # noqa: F401, F403
 from .routing import ActivityContext
+
+logging.getLogger(__name__).addHandler(logging.NullHandler())
 
 # Combine all exports from submodules
 __all__: list[str] = ["App", "AppOptions", "HttpPlugin", "HttpStream", "ActivityContext"]

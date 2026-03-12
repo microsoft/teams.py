@@ -18,13 +18,14 @@ from microsoft_teams.apps import (
     PluginBase,
     PluginStartEvent,
 )
-from microsoft_teams.common.logging import ConsoleLogger
 from pydantic import BaseModel
 
 try:
     version = importlib.metadata.version("microsoft-teams-mcpplugin")
 except importlib.metadata.PackageNotFoundError:
     version = "0.0.1-alpha.1"
+
+logger = logging.getLogger(__name__)
 
 P = TypeVar("P", bound=BaseModel)
 
@@ -42,19 +43,17 @@ class McpServerPlugin(PluginBase):
     # Dependency injection
     http: Annotated[HttpPlugin, DependencyMetadata()]
 
-    def __init__(self, name: str = "teams-mcp-server", path: str = "/mcp", logger: logging.Logger | None = None):
+    def __init__(self, name: str = "teams-mcp-server", path: str = "/mcp"):
         """
         Initialize the MCP server plugin.
 
         Args:
             name: The name of the MCP server for identification
             path: The HTTP path to mount the MCP server on (default: /mcp)
-            logger: Optional logger instance for debugging
         """
         self.mcp_server = FastMCP(name)
         self.path = path
         self._mounted = False
-        self.logger = logger or ConsoleLogger().create_logger("mcp-server")
 
     @property
     def server(self) -> FastMCP:
@@ -127,7 +126,7 @@ class McpServerPlugin(PluginBase):
                         return await result
                     return result
                 except Exception as e:
-                    self.logger.error(f"Function execution failed for '{function.name}': {e}")
+                    logger.error(f"Function execution failed for '{function.name}': {e}")
                     raise
 
             function_tool = FunctionTool(
@@ -135,11 +134,11 @@ class McpServerPlugin(PluginBase):
             )
             self.mcp_server.add_tool(function_tool)
 
-            self.logger.debug(f"Registered AI function '{function.name}' as MCP tool")
+            logger.debug(f"Registered AI function '{function.name}' as MCP tool")
 
             return self
         except Exception as e:
-            self.logger.error(f"Failed to register function '{function.name}' as MCP tool: {e}")
+            logger.error(f"Failed to register function '{function.name}' as MCP tool: {e}")
             raise
 
     async def on_start(self, event: PluginStartEvent) -> None:
@@ -154,7 +153,7 @@ class McpServerPlugin(PluginBase):
         """
 
         if self._mounted:
-            self.logger.warning("MCP server already mounted")
+            logger.warning("MCP server already mounted")
             return
 
         try:
@@ -165,9 +164,9 @@ class McpServerPlugin(PluginBase):
 
             self._mounted = True
 
-            self.logger.info(f"MCP server mounted at {self.path}")
+            logger.info(f"MCP server mounted at {self.path}")
         except Exception as e:
-            self.logger.error(f"Failed to mount MCP server: {e}")
+            logger.error(f"Failed to mount MCP server: {e}")
             raise
 
     async def on_stop(self) -> None:
@@ -177,5 +176,5 @@ class McpServerPlugin(PluginBase):
         Performs graceful shutdown of the MCP server and cleans up resources.
         """
         if self._mounted:
-            self.logger.info("MCP server shutting down")
+            logger.info("MCP server shutting down")
             self._mounted = False

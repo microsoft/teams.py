@@ -5,6 +5,7 @@ Licensed under the MIT License.
 
 import logging
 import os
+import warnings
 from typing import Optional, TypedDict
 
 from .filter import ConsoleFilter
@@ -14,6 +15,9 @@ from .formatter import ConsoleFormatter
 class ConsoleLoggerOptions(TypedDict, total=False):
     """
     ConsoleLoggerOptions is a dictionary that contains the options for the ConsoleLogger.
+
+    DEPRECATED: This class is deprecated and will be removed in version 2.0.0 GA.
+        please update your imports to use the standard Python logging library instead.
 
     :param level: The level of the logger (error, warn, info, debug)
     :param pattern: The pattern of the logger (e.g. "my_module.*")
@@ -26,9 +30,20 @@ class ConsoleLoggerOptions(TypedDict, total=False):
 class ConsoleLogger:
     """
     ConsoleLogger is a class that creates a logger for the console.
+
+    DEPRECATED: This class is deprecated and will be removed in version 2.0.0 GA.
+        please update your imports to use the standard Python logging library instead.
     """
 
     _levels = {"error": logging.ERROR, "warn": logging.WARNING, "info": logging.INFO, "debug": logging.DEBUG}
+
+    def __init__(self) -> None:
+        warnings.warn(
+            "ConsoleLogger is deprecated and will be removed in version 2.0.0 GA. "
+            "Use standard Python logging (logging.getLogger(__name__)) instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
 
     def create_logger(self, name: str, options: Optional[ConsoleLoggerOptions] = None) -> logging.Logger:
         """

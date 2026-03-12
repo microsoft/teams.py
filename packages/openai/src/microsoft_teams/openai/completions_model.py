@@ -5,6 +5,7 @@ Licensed under the MIT License.
 
 import inspect
 import json
+import logging
 from dataclasses import dataclass
 from typing import Any, Awaitable, Callable, TypedDict, cast
 
@@ -40,6 +41,8 @@ from openai.types.chat import (
 )
 
 from .function_utils import get_function_schema, parse_function_arguments
+
+logger = logging.getLogger(__name__)
 
 
 class _ToolCallData(TypedDict):
@@ -102,7 +105,7 @@ class OpenAICompletionsAIModel(OpenAIBaseModel, AIModel):
 
         # Get conversation history from memory (make a copy to avoid modifying memory's internal state)
         messages = list(await memory.get_all())
-        self.logger.debug(f"Retrieved {len(messages)} messages from memory, {len(function_results)} function results")
+        logger.debug(f"Retrieved {len(messages)} messages from memory, {len(function_results)} function results")
 
         # Push current input to memory
         await memory.push(input)
@@ -121,12 +124,12 @@ class OpenAICompletionsAIModel(OpenAIBaseModel, AIModel):
 
         # Convert messages to OpenAI format
         openai_messages = self._convert_messages(input_to_send, system, messages)
-        self.logger.debug(f"Converted to {len(openai_messages)} OpenAI messages")
+        logger.debug(f"Converted to {len(openai_messages)} OpenAI messages")
 
         # Convert functions to OpenAI tools format if provided
         tools = self._convert_functions(functions) if functions else omit
 
-        self.logger.debug(f"Making Chat Completions API call (streaming: {bool(on_chunk)})")
+        logger.debug(f"Making Chat Completions API call (streaming: {bool(on_chunk)})")
 
         # Make OpenAI API call (with streaming if on_chunk provided)
         response = await self._client.chat.completions.create(
@@ -141,14 +144,12 @@ class OpenAICompletionsAIModel(OpenAIBaseModel, AIModel):
 
         # If response has function calls, recursively execute them
         if model_response.function_calls:
-            self.logger.debug(
-                f"Response has {len(model_response.function_calls)} function calls, executing recursively"
-            )
+            logger.debug(f"Response has {len(model_response.function_calls)} function calls, executing recursively")
             return await self.generate_text(model_response, system=system, memory=memory, functions=functions)
 
         # Push response to memory (only if not recursing)
         await memory.push(model_response)
-        self.logger.debug("Chat Completions conversation completed, returning response")
+        logger.debug("Chat Completions conversation completed, returning response")
 
         return model_response
 
@@ -160,7 +161,7 @@ class OpenAICompletionsAIModel(OpenAIBaseModel, AIModel):
 
         if isinstance(input, ModelMessage) and input.function_calls:
             # Execute any pending function calls
-            self.logger.debug(f"Executing {len(input.function_calls)} function calls")
+            logger.debug(f"Executing {len(input.function_calls)} function calls")
             for call in input.function_calls:
                 if functions and call.name in functions:
                     function = functions[call.name]
@@ -183,7 +184,7 @@ class OpenAICompletionsAIModel(OpenAIBaseModel, AIModel):
                         # Create function result message
                         function_results.append(FunctionMessage(content=fn_res, function_id=call.id))
                     except Exception as e:
-                        self.logger.error(e)
+                        logger.error(e)
                         # Handle function execution errors
                         function_results.append(
                             FunctionMessage(content=f"Function execution failed: {str(e)}", function_id=call.id)

@@ -3,17 +3,18 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
+import logging
 from dataclasses import dataclass, field
-from logging import Logger
 from os import getenv
 from typing import Literal
 
 from dotenv import find_dotenv, load_dotenv
-from microsoft_teams.common.logging import ConsoleLogger
 
 from openai import AsyncAzureOpenAI, AsyncOpenAI
 
 load_dotenv(find_dotenv(usecwd=True))
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -45,9 +46,6 @@ class OpenAIBaseModel:
     # Azure OpenAI options
     azure_endpoint: str | None = None  # Azure OpenAI endpoint URL
     api_version: str | None = None  # Azure OpenAI API version
-    logger: Logger = field(
-        default_factory=lambda: ConsoleLogger().create_logger(name="OpenAI-Model")
-    )  # Logger instance
     _client: AsyncOpenAI = field(init=False)  # Internal client instance
     _model: str = field(init=False)  # Resolved model name
 

@@ -26,25 +26,14 @@ class TestHttpPlugin:
     """Test cases for HttpPlugin public interface."""
 
     @pytest.fixture
-    def mock_logger(self):
-        """Create a mock logger."""
-        return MagicMock()
-
-    @pytest.fixture
-    def plugin_with_validator(self, mock_logger):
+    def plugin_with_validator(self):
         """Create HttpPlugin with token validator."""
-        return HttpPlugin(logger=mock_logger)
+        return HttpPlugin()
 
     @pytest.fixture
-    def plugin_without_validator(self, mock_logger):
+    def plugin_without_validator(self):
         """Create HttpPlugin without token validator."""
-        return HttpPlugin(logger=mock_logger)
-
-    def test_init_with_default_logger(self):
-        """Test HttpPlugin initialization with default logger."""
-        plugin = HttpPlugin()
-
-        assert plugin.logger is not None
+        return HttpPlugin()
 
     def test_fastapi_methods_exposed(self, plugin_with_validator):
         """Test that FastAPI methods are properly exposed."""
@@ -60,7 +49,7 @@ class TestHttpPlugin:
         assert plugin_with_validator.post == plugin_with_validator.app.post
 
     @pytest.mark.asyncio
-    async def test_on_activity_response(self, plugin_without_validator, mock_account, mock_logger):
+    async def test_on_activity_response(self, plugin_without_validator, mock_account):
         """Test successful activity response completion."""
         mock_activity = cast(
             MessageActivity,
@@ -84,11 +73,8 @@ class TestHttpPlugin:
             )
         )
 
-        mock_logger.debug.assert_called_once()
-        mock_logger.debug.assert_called_with(f"Completing activity response for {mock_activity.id}")
-
     @pytest.mark.asyncio
-    async def test_on_error(self, plugin_with_validator, mock_account, mock_logger):
+    async def test_on_error(self, plugin_with_validator, mock_account):
         """Test error handling with activity ID."""
         mock_activity = cast(
             MessageActivity,
@@ -172,11 +158,6 @@ class TestHttpPlugin:
         # Without app_id, no middleware but app still exists
         assert plugin_without_validator.app is not None
 
-    def test_logger_property(self, mock_logger):
-        """Test logger property assignment."""
-        plugin = HttpPlugin(logger=mock_logger)
-        assert plugin.logger == mock_logger
-
     def test_app_property(self, plugin_with_validator):
         """Test FastAPI app property."""
         from fastapi import FastAPI
@@ -252,8 +233,6 @@ class TestHttpPlugin:
         result = await plugin_without_validator.on_activity_request(mock_request, mock_response)
 
         mock_handler.assert_called_once()
-        # Exception is logged directly at exception site
-        plugin_without_validator.logger.exception.assert_called_once_with(str(test_error))
 
         assert isinstance(result, Response)
         assert result.status_code == 500
@@ -263,7 +242,7 @@ class TestHttpPlugin:
     @pytest.fixture
     def plugin_for_send(self):
         """Create HttpPlugin for send testing."""
-        plugin = HttpPlugin(logger=MagicMock())
+        plugin = HttpPlugin()
         plugin.client = MagicMock()
         plugin.client.clone = MagicMock(return_value=MagicMock())
         plugin.bot_token = MagicMock()

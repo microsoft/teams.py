@@ -3,6 +3,8 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
+import logging
+
 import pytest
 from microsoft_teams.api import (
     Account,
@@ -30,6 +32,18 @@ def reset_environment():
     yield
     os.environ.clear()
     os.environ.update(original_env)
+
+
+@pytest.fixture(autouse=True)
+def configure_logging():
+    """Configure logging for tests to ensure DEBUG logs are captured."""
+    # Set the microsoft_teams logger to DEBUG level so caplog can capture DEBUG logs
+    logger = logging.getLogger("microsoft_teams")
+    original_level = logger.level
+    logger.setLevel(logging.DEBUG)
+    yield
+    # Restore original level after test
+    logger.setLevel(original_level)
 
 
 @pytest.fixture

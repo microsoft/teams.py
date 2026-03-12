@@ -4,13 +4,13 @@ Licensed under the MIT License.
 """
 
 import asyncio
+import logging
 import random
-from logging import Logger
 from typing import Awaitable, Callable, Literal, Optional, TypeVar
 
-from microsoft_teams.common import ConsoleLogger
-
 T = TypeVar("T")
+
+logger = logging.getLogger(__name__)
 
 # Type alias for jitter types using string literals
 JitterType = Literal["none", "full", "equal", "decorrelated"]
@@ -23,21 +23,13 @@ class RetryOptions:
         delay: float = 0.5,  # in seconds
         max_delay: float = 30.0,  # maximum delay cap
         jitter_type: JitterType = "full",
-        logger: Optional[Logger] = None,
         previous_delay: Optional[float] = None,  # Internal use for decorrelated jitter
         attempt_number: int = 1,  # Internal use to track current attempt number
-        _internal_logger: Optional[Logger] = None,  # Internal use to pass existing child logger
     ):
         self.max_attempts = max_attempts
         self.delay = delay
         self.max_delay = max_delay
         self.jitter_type: JitterType = jitter_type
-        # Use existing internal logger if provided, otherwise create child logger
-        self.logger = (
-            _internal_logger
-            if _internal_logger
-            else (logger.getChild("@teams/retry") if logger else ConsoleLogger().create_logger("@teams/retry"))
-        )
         self.previous_delay = previous_delay
         self.attempt_number = attempt_number
 
@@ -68,7 +60,6 @@ async def retry(factory: Callable[[], Awaitable[T]], options: Optional[RetryOpti
     base_delay = options.delay
     max_delay = options.max_delay
     jitter_type: JitterType = options.jitter_type
-    logger = options.logger
     previous_delay = options.previous_delay
     attempt_number = options.attempt_number
 
@@ -102,7 +93,6 @@ async def retry(factory: Callable[[], Awaitable[T]], options: Optional[RetryOpti
                     jitter_type=jitter_type,
                     previous_delay=jittered_delay,  # Pass current delay for decorrelated jitter
                     attempt_number=attempt_number + 1,  # Increment attempt number
-                    _internal_logger=logger,  # Pass the existing logger to avoid nested children
                 ),
             )
         logger.error("Final attempt failed.", exc_info=err)

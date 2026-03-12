@@ -101,6 +101,11 @@ class BotTokenDependencyOptions(DependencyMetadata):
 
 @dataclass
 class LoggerDependencyOptions(DependencyMetadata):
+    """
+    DEPRECATED: This dataclass is deprecated and will be removed in version 2.0.0 GA.
+       please update your imports to use the standard Python logging library instead.
+    """
+
     name = "logger"
     optional = False
 

@@ -85,9 +85,26 @@ items = list_storage.items()
 
 ## Logging
 
-```python
-from microsoft_teams.common import ConsoleLogger
+The SDK uses Python's standard `logging` module. The library doesn't configure logging - your application should.
 
-# Create console logger
-logger = ConsoleLogger().create_logger("my-app")
+```python
+import logging
+
+# Configure logging once at application startup
+logging.getLogger().setLevel(logging.DEBUG)
+stream_handler = logging.StreamHandler()
+stream_handler.setFormatter(ConsoleFormatter())
+logging.getLogger().addHandler(stream_handler)
+
+# Use module-level loggers in your code
+logger = logging.getLogger(__name__)
+logger.info("Application started")
+```
+
+**Custom Filtering**
+
+The SDK provides optional filtering as well:
+
+```python
+stream_handler.addFilter(ConsoleFilter("microsoft_teams.*"))
 ```
