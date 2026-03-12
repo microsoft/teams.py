@@ -3,7 +3,8 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from typing import Any, Callable, Dict, Optional
+from contextlib import AsyncExitStack, asynccontextmanager
+from typing import Any, Callable, Dict, List, Optional
 
 import uvicorn
 from fastapi import FastAPI, Request, Response
@@ -16,14 +17,30 @@ from .adapter import HttpMethod, HttpRequest, HttpResponse, HttpRouteHandler
 class FastAPIAdapter:
     """Default HttpServerAdapter implementation wrapping FastAPI + uvicorn."""
 
+    lifespans: List[Any]
+
     def __init__(
         self,
         app: Optional[FastAPI] = None,
         server_factory: Optional[Callable[[FastAPI], uvicorn.Server]] = None,
     ):
+        self.lifespans = []
         self._fastapi = app or FastAPI()
         self._server: Optional[uvicorn.Server] = None
         self._server_factory = server_factory
+
+        # Replace the FastAPI app's lifespan with one that chains plugin lifespans
+        original_lifespan = self._fastapi.router.lifespan_context
+
+        @asynccontextmanager
+        async def combined_lifespan(app: Any):
+            async with AsyncExitStack() as stack:
+                for lifespan in self.lifespans:
+                    await stack.enter_async_context(lifespan(app))
+                await stack.enter_async_context(original_lifespan(app))
+                yield
+
+        self._fastapi.router.lifespan_context = combined_lifespan
 
         if server_factory:
             self._server = server_factory(self._fastapi)

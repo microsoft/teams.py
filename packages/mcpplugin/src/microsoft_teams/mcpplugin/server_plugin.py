@@ -145,7 +145,7 @@ class McpServerPlugin(PluginBase):
 
     async def on_start(self, event: PluginStartEvent) -> None:
         """
-        Start the plugin - mount MCP server on HTTP plugin.
+        Start the plugin - mount MCP server on HTTP server.
 
         Args:
             event: Plugin start event containing application context
@@ -165,6 +165,7 @@ class McpServerPlugin(PluginBase):
 
             # We mount the mcp server as a separate app at self.path
             mcp_http_app = self.mcp_server.http_app(path=self.path, transport="http")
+            adapter.lifespans.append(mcp_http_app.lifespan)
             adapter.app.mount("/", mcp_http_app)
 
             self._mounted = True
