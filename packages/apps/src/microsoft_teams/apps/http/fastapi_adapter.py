@@ -3,6 +3,7 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
+import warnings
 from contextlib import AsyncExitStack, asynccontextmanager
 from typing import Any, Callable, Dict, List, Optional
 
@@ -10,6 +11,7 @@ import uvicorn
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.types import ASGIApp, Lifespan
 
 from .adapter import HttpMethod, HttpRequest, HttpResponse, HttpRouteHandler
 
@@ -17,7 +19,7 @@ from .adapter import HttpMethod, HttpRequest, HttpResponse, HttpRouteHandler
 class FastAPIAdapter:
     """Default HttpServerAdapter implementation wrapping FastAPI + uvicorn."""
 
-    lifespans: List[Any]
+    lifespans: List[Lifespan[ASGIApp]]
 
     def __init__(
         self,
@@ -33,7 +35,7 @@ class FastAPIAdapter:
         original_lifespan = self._fastapi.router.lifespan_context
 
         @asynccontextmanager
-        async def combined_lifespan(app: Any):
+        async def combined_lifespan(app: ASGIApp):
             async with AsyncExitStack() as stack:
                 for lifespan in self.lifespans:
                     await stack.enter_async_context(lifespan(app))
@@ -81,7 +83,11 @@ class FastAPIAdapter:
         """Start the uvicorn server. Blocks until stopped."""
         if self._server:
             if self._server.config.port != port:
-                pass  # User's factory takes precedence
+                warnings.warn(
+                    f"server_factory configured port {self._server.config.port}, "
+                    f"but app.start() requested port {port}. Using server_factory port.",
+                    stacklevel=2,
+                )
         else:
             config = uvicorn.Config(app=self._fastapi, host="0.0.0.0", port=port, log_level="info")
             self._server = uvicorn.Server(config)

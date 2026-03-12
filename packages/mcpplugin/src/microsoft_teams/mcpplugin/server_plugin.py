@@ -165,7 +165,7 @@ class McpServerPlugin(PluginBase):
 
             # We mount the mcp server as a separate app at self.path
             mcp_http_app = self.mcp_server.http_app(path=self.path, transport="http")
-            adapter.lifespans.append(mcp_http_app.lifespan)
+            adapter.lifespans.append(mcp_http_app.lifespan)  # pyright: ignore[reportArgumentType]
             adapter.app.mount("/", mcp_http_app)
 
             self._mounted = True
