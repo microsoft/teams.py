@@ -35,7 +35,7 @@ if not os.getenv("BOT_ENDPOINT"):
 
 app = App(client_id=os.getenv("BOT_ID"), client_secret=os.getenv("BOT_PASSWORD"))
 
-app.page("customform", os.path.join(os.path.dirname(__file__), "views", "customform"), "/tabs/dialog-formm")
+app.page("customform", os.path.join(os.path.dirname(__file__), "views", "customform"), "/tabs/dialog-form")
 
 
 @app.on_message
@@ -121,7 +121,7 @@ async def handle_dialog_open(ctx: ActivityContext[TaskFetchInvokeActivity]):
                 task=TaskModuleContinueResponse(
                     value=UrlTaskModuleTaskInfo(
                         title="Webpage Dialog",
-                        url=f"{os.getenv('BOT_ENDPOINT', 'http://localhost:3978')}/tabs/dialog-formm",
+                        url=f"{os.getenv('BOT_ENDPOINT', 'http://localhost:3978')}/tabs/dialog-form",
                         width=1000,
                         height=800,
                     )
