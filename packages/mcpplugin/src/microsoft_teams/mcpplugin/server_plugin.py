@@ -14,7 +14,7 @@ from microsoft_teams.ai import Function, FunctionHandler
 from microsoft_teams.apps import (
     DependencyMetadata,
     FastAPIAdapter,
-    HttpServer,
+    HttpServerAdapter,
     Plugin,
     PluginBase,
     PluginStartEvent,
@@ -41,7 +41,7 @@ class McpServerPlugin(PluginBase):
     """
 
     # Dependency injection
-    http_server: Annotated[HttpServer, DependencyMetadata()]
+    http_server_adapter: Annotated[HttpServerAdapter, DependencyMetadata()]
 
     def __init__(self, name: str = "teams-mcp-server", path: str = "/mcp", logger: logging.Logger | None = None):
         """
@@ -159,14 +159,13 @@ class McpServerPlugin(PluginBase):
             return
 
         try:
-            adapter = self.http_server.adapter
-            if not isinstance(adapter, FastAPIAdapter):
+            if not isinstance(self.http_server_adapter, FastAPIAdapter):
                 raise RuntimeError("McpServerPlugin requires FastAPIAdapter. Custom adapters are not supported.")
 
             # We mount the mcp server as a separate app at self.path
             mcp_http_app = self.mcp_server.http_app(path=self.path, transport="http")
-            adapter.lifespans.append(mcp_http_app.lifespan)  # pyright: ignore[reportArgumentType]
-            adapter.app.mount("/", mcp_http_app)
+            self.http_server_adapter.lifespans.append(mcp_http_app.lifespan)  # pyright: ignore[reportArgumentType]
+            self.http_server_adapter.app.mount("/", mcp_http_app)
 
             self._mounted = True
 

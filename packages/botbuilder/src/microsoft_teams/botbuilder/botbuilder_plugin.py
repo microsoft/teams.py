@@ -12,7 +12,7 @@ from microsoft_teams.api import Credentials, InvokeResponse
 from microsoft_teams.apps import (
     DependencyMetadata,
     EventMetadata,
-    HttpServer,
+    HttpServerAdapter,
     LoggerDependencyOptions,
     Plugin,
     PluginBase,
@@ -53,7 +53,7 @@ class BotBuilderPlugin(PluginBase):
     # Dependency injections
     logger: Annotated[Logger, LoggerDependencyOptions()]
     credentials: Annotated[Optional[Credentials], DependencyMetadata(optional=True)]
-    server: Annotated[HttpServer, DependencyMetadata()]
+    http_server_adapter: Annotated[HttpServerAdapter, DependencyMetadata()]
 
     on_error_event: Annotated[Callable[[ErrorEvent], None], EventMetadata(name="error")]
     on_activity_event: Annotated[Callable[[ActivityEvent], InvokeResponse[Any]], EventMetadata(name="activity")]
@@ -94,8 +94,8 @@ class BotBuilderPlugin(PluginBase):
 
             self.logger.debug("BotBuilder plugin initialized successfully")
 
-        # Register the activity route via HttpServer
-        self.server.register_route("POST", "/api/messages", self._handle_activity)
+        # Register the activity route via adapter
+        self.http_server_adapter.register_route("POST", "/api/messages", self._handle_activity)
 
     async def _handle_activity(self, request: HttpRequest) -> HttpResponse:
         """

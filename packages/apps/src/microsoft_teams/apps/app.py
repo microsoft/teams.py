@@ -114,7 +114,8 @@ class App(ActivityHandlerMixin):
         # Create HttpServer (not a plugin — owned directly by App)
         adapter = self.options.http_server_adapter or FastAPIAdapter()
         self.server = HttpServer(adapter, self.log)
-        self.container.set_provider("HttpServer", providers.Object(self.server))
+        # Expose the adapter directly to plugins (they don't need the full HttpServer)
+        self.container.set_provider("HttpServerAdapter", providers.Object(self.server.adapter))
 
         self._port: Optional[int] = None
         self._initialized = False

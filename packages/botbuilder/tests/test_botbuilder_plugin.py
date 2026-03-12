@@ -11,8 +11,7 @@ from botbuilder.core import ActivityHandler, TurnContext
 from botbuilder.integration.aiohttp import CloudAdapter
 from botbuilder.schema import Activity
 from microsoft_teams.api import Credentials, InvokeResponse
-from microsoft_teams.apps.http import HttpServer
-from microsoft_teams.apps.http.adapter import HttpRequest
+from microsoft_teams.apps.http.adapter import HttpRequest, HttpServerAdapter
 from microsoft_teams.botbuilder import BotBuilderPlugin
 
 
@@ -30,7 +29,7 @@ class TestBotBuilderPlugin:
         plugin.credentials.client_id = "abc"
         plugin.credentials.client_secret = "secret"
         plugin.credentials.tenant_id = "tenant-123"
-        plugin.server = MagicMock(spec=HttpServer)
+        plugin.http_server_adapter = MagicMock(spec=HttpServerAdapter)
         plugin.logger = MagicMock()
         return plugin
 
@@ -40,7 +39,7 @@ class TestBotBuilderPlugin:
         plugin = BotBuilderPlugin(adapter=adapter)
         handler = AsyncMock(spec=ActivityHandler)
         plugin.handler = handler
-        plugin.server = MagicMock(spec=HttpServer)
+        plugin.http_server_adapter = MagicMock(spec=HttpServerAdapter)
         plugin.logger = MagicMock()
 
         # Set up the on_activity_event handler
@@ -64,9 +63,9 @@ class TestBotBuilderPlugin:
             mock_adapter_class.assert_called_once()
             assert plugin_without_adapter.adapter == "mock_adapter"
 
-        # Should have registered route via server
-        plugin_without_adapter.server.register_route.assert_called_once()
-        call_args = plugin_without_adapter.server.register_route.call_args
+        # Should have registered route via adapter
+        plugin_without_adapter.http_server_adapter.register_route.assert_called_once()
+        call_args = plugin_without_adapter.http_server_adapter.register_route.call_args
         assert call_args[0][0] == "POST"
         assert call_args[0][1] == "/api/messages"
 
