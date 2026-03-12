@@ -527,10 +527,8 @@ class App(ActivityHandlerMixin):
         # Named decoration: @app.func("name")
         return decorator
 
-    async def _stop_plugins(self, exclude_http: bool = False) -> None:
+    async def _stop_plugins(self) -> None:
         for plugin in reversed(self.plugins):
-            if exclude_http and plugin is self.http:
-                continue
             if hasattr(plugin, "on_stop") and callable(plugin.on_stop):
                 await plugin.on_stop()
 

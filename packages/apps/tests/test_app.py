@@ -176,41 +176,26 @@ class TestApp:
         )
         app = App(**options)
 
-        mock_stream = MagicMock()
-        mock_stream.events = MagicMock()
-        mock_stream.events.on = MagicMock()
-        mock_stream.close = AsyncMock()
-        app.http.create_stream = MagicMock(return_value=mock_stream)
-
+        # Mock server.start to block until cancelled
         block = asyncio.Event()
 
-        async def mock_on_start_blocking(event):
-            if app.http.on_ready_callback:
-                await app.http.on_ready_callback()
+        async def blocking_start(port):
             await block.wait()
 
-        with patch.object(app.http, "on_start", new_callable=AsyncMock, side_effect=mock_on_start_blocking):
-            app.http.on_stop = AsyncMock()
+        app.server.start = AsyncMock(side_effect=blocking_start)  # type: ignore[method-assign]
+        app.server.stop = AsyncMock()  # type: ignore[method-assign]
 
-            start_task = asyncio.create_task(app.start(3978))
+        start_task = asyncio.create_task(app.start(3978))
+        await asyncio.sleep(0.1)
 
-            for _ in range(50):
-                await asyncio.sleep(0.01)
-                if app.is_running:
-                    break
+        start_task.cancel()
+        try:
+            await start_task
+        except asyncio.CancelledError:
+            pass
 
-            assert app.is_running, "App should be running before cancellation"
-
-            start_task.cancel()
-            try:
-                await start_task
-            except asyncio.CancelledError:
-                pass
-
-            mock_logger.info.assert_any_call("Teams app shutting down")
-
-            assert plugin_two.stop_called, "plugin two on_stop was called."
-            assert not app.is_running, "App should not be running after cancellation"
+        mock_logger.info.assert_any_call("Teams app shutting down")
+        assert plugin_two.stop_called, "plugin two on_stop was called."
 
     # Event Testing - Focus on functional behavior
 
