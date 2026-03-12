@@ -5,7 +5,9 @@ Licensed under the MIT License.
 # pyright: basic
 
 import asyncio
+import importlib.metadata
 import os
+import re
 from typing import Optional
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -17,11 +19,14 @@ from microsoft_teams.api import (
     InvokeActivity,
     ManagedIdentityCredentials,
     MessageActivity,
+    MessageActivityInput,
+    SentActivity,
     TokenCredentials,
     TokenProtocol,
     TypingActivity,
 )
 from microsoft_teams.apps import ActivityContext, ActivityEvent, App, AppOptions, Plugin, PluginBase, PluginStartEvent
+from microsoft_teams.apps.events import CoreActivity
 
 
 class FakeToken(TokenProtocol):
@@ -241,8 +246,6 @@ class TestApp:
             activity_events.append(event)
             event_received.set()
 
-        from microsoft_teams.apps.events import CoreActivity
-
         core_activity = CoreActivity(
             type="message",
             id="test-activity-id",
@@ -283,8 +286,6 @@ class TestApp:
             received_count += 1
             if received_count == 2:
                 both_received.set()
-
-        from microsoft_teams.apps.events import CoreActivity
 
         core_activity = CoreActivity(
             type="message",
@@ -462,7 +463,6 @@ class TestApp:
 
     def test_on_message_pattern_regex_match(self, app_with_options: App) -> None:
         """Test on_message_pattern with regex pattern matching."""
-        import re
 
         @app_with_options.on_message_pattern(re.compile(r"hello \w+"))
         async def handle_hello_pattern(ctx: ActivityContext[MessageActivity]) -> None:
@@ -572,8 +572,6 @@ class TestApp:
 
     def test_user_agent_format(self, app_with_options: App):
         """Test that USER_AGENT follows the expected format teams.py[apps]/{version}."""
-        import importlib.metadata
-
         version = importlib.metadata.version("microsoft-teams-apps")
         expected_user_agent = f"teams.py[apps]/{version}"
 
@@ -797,8 +795,6 @@ class TestApp:
         Test that sending a targeted message proactively without an explicit
         recipient raises a ValueError.
         """
-        from microsoft_teams.api import MessageActivityInput, SentActivity
-
         options = AppOptions(
             logger=mock_logger,
             storage=mock_storage,
@@ -826,8 +822,6 @@ class TestApp:
         Test that sending a targeted message proactively with an explicit
         recipient account succeeds.
         """
-        from microsoft_teams.api import Account, MessageActivityInput, SentActivity
-
         options = AppOptions(
             logger=mock_logger,
             storage=mock_storage,

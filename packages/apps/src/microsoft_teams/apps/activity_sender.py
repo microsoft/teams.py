@@ -4,7 +4,7 @@ Licensed under the MIT License.
 """
 
 from logging import Logger
-from typing import Optional
+from typing import Optional, cast
 
 from microsoft_teams.api import (
     ActivityParams,
@@ -54,16 +54,16 @@ class ActivitySender:
         activity.from_ = ref.bot
         activity.conversation = ref.conversation
 
-        # Check if this is a targeted message
         is_targeted = isinstance(activity, MessageActivityInput) and activity.is_targeted is True
+        is_update = hasattr(activity, "id") and activity.id
         activities = api.conversations.activities(ref.conversation.id)
 
-        # Decide create vs update, targeted vs non-targeted
-        if hasattr(activity, "id") and activity.id:
+        if is_update:
+            activity_id = cast(str, activity.id)
             if is_targeted:
-                res = await activities.update_targeted(activity.id, activity)
+                res = await activities.update_targeted(activity_id, activity)
             else:
-                res = await activities.update(activity.id, activity)
+                res = await activities.update(activity_id, activity)
             return SentActivity.merge(activity, res)
 
         if is_targeted:

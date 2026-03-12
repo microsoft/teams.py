@@ -12,6 +12,7 @@ from botbuilder.integration.aiohttp import CloudAdapter
 from botbuilder.schema import Activity
 from fastapi import HTTPException, Request, Response
 from microsoft_teams.api import Credentials
+from microsoft_teams.apps.events import CoreActivity
 from microsoft_teams.botbuilder import BotBuilderPlugin
 
 
@@ -68,8 +69,6 @@ class TestBotBuilderPlugin:
             "conversation": {"id": "conv1"},
             "serviceUrl": "https://service.url",
         }
-        from microsoft_teams.apps.events import CoreActivity
-
         request = AsyncMock(spec=Request)
         request.json.return_value = activity_data
         request.headers = {"Authorization": "Bearer token"}
@@ -103,8 +102,6 @@ class TestBotBuilderPlugin:
     async def test_on_activity_request_raises_http_exception_on_adapter_error(
         self, plugin_with_adapter: BotBuilderPlugin
     ):
-        from microsoft_teams.apps.events import CoreActivity
-
         activity_data = {"type": "message", "id": "activity-id"}
         request = AsyncMock(spec=Request)
         request.json.return_value = activity_data

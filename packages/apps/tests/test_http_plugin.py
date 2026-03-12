@@ -8,7 +8,7 @@ from typing import cast
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from fastapi import Request, Response
+from fastapi import FastAPI, Request, Response
 from microsoft_teams.api import (
     Account,
     ConfigResponse,
@@ -19,7 +19,7 @@ from microsoft_teams.api import (
     MessageActivityInput,
 )
 from microsoft_teams.apps import HttpPlugin, PluginActivityResponseEvent, PluginErrorEvent, PluginStartEvent
-from microsoft_teams.apps.events import ActivityEvent
+from microsoft_teams.apps.events import ActivityEvent, CoreActivity
 
 
 class TestHttpPlugin:
@@ -176,8 +176,6 @@ class TestHttpPlugin:
 
     def test_app_property(self, plugin_with_validator):
         """Test FastAPI app property."""
-        from fastapi import FastAPI
-
         assert isinstance(plugin_with_validator.app, FastAPI)
 
     @pytest.mark.asyncio
@@ -204,7 +202,6 @@ class TestHttpPlugin:
                 recipient=mock_account,
             ),
         )
-        from microsoft_teams.apps.events import CoreActivity
 
         mock_request.json.return_value = activity.model_dump()
         mock_request.state = MagicMock()
@@ -244,7 +241,6 @@ class TestHttpPlugin:
                 recipient=mock_account,
             ),
         )
-        from microsoft_teams.apps.events import CoreActivity
 
         mock_request.json.return_value = activity.model_dump()
         mock_request.state = MagicMock()
