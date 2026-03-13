@@ -5,7 +5,9 @@ Licensed under the MIT License.
 # pyright: basic
 
 import asyncio
+import importlib.metadata
 import os
+import re
 from typing import Optional
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -17,11 +19,14 @@ from microsoft_teams.api import (
     InvokeActivity,
     ManagedIdentityCredentials,
     MessageActivity,
+    MessageActivityInput,
+    SentActivity,
     TokenCredentials,
     TokenProtocol,
     TypingActivity,
 )
 from microsoft_teams.apps import ActivityContext, ActivityEvent, App, AppOptions, Plugin, PluginBase, PluginStartEvent
+from microsoft_teams.apps.events import CoreActivity
 
 
 class FakeToken(TokenProtocol):
@@ -241,25 +246,12 @@ class TestApp:
             activity_events.append(event)
             event_received.set()
 
-        from_account = Account(id="bot-123", name="Test Bot", role="bot")
-        recipient = Account(id="user-456", name="Test User", role="user")
-        conversation = ConversationAccount(id="conv-789", conversation_type="personal")
-
-        activity = MessageActivity(
+        core_activity = CoreActivity(
             type="message",
             id="test-activity-id",
-            text="Hello, world!",
-            from_=from_account,
-            recipient=recipient,
-            conversation=conversation,
-            channel_id="msteams",
         )
 
-        plugin = app_with_activity_handler.http
-
-        await app_with_activity_handler.event_manager.on_activity(
-            ActivityEvent(activity=activity, sender=plugin, token=FakeToken())
-        )
+        await app_with_activity_handler.event_manager.on_activity(ActivityEvent(body=core_activity, token=FakeToken()))
 
         # Wait for the async event handler to complete
         await asyncio.wait_for(event_received.wait(), timeout=1.0)
@@ -267,12 +259,9 @@ class TestApp:
         # Verify event was emitted
         assert len(activity_events) == 1
         assert isinstance(activity_events[0], ActivityEvent)
-        # The event contains the parsed output model, not the input model
-        assert activity_events[0].activity.id == activity.id
-        assert activity_events[0].activity.type == activity.type
-        # Check text only if it's a MessageActivity
-        if hasattr(activity_events[0].activity, "text"):
-            assert activity_events[0].activity.text == activity.text
+        # The event contains the core activity
+        assert activity_events[0].body.id == core_activity.id
+        assert activity_events[0].body.type == core_activity.type
 
     @pytest.mark.asyncio
     async def test_multiple_event_handlers(self, app_with_options: App) -> None:
@@ -298,23 +287,12 @@ class TestApp:
             if received_count == 2:
                 both_received.set()
 
-        from_account = Account(id="bot-123", name="Test Bot", role="bot")
-        recipient = Account(id="user-456", name="Test User", role="user")
-        conversation = ConversationAccount(id="conv-789", conversation_type="personal")
-
-        activity = MessageActivity(
+        core_activity = CoreActivity(
             type="message",
             id="test-activity-id",
-            text="Hello, world!",
-            from_=from_account,
-            recipient=recipient,
-            conversation=conversation,
-            channel_id="msteams",
         )
 
-        await app_with_options.event_manager.on_activity(
-            ActivityEvent(activity=activity, sender=app_with_options.http, token=FakeToken())
-        )
+        await app_with_options.event_manager.on_activity(ActivityEvent(body=core_activity, token=FakeToken()))
 
         # Wait for both async event handlers to complete
         await asyncio.wait_for(both_received.wait(), timeout=1.0)
@@ -322,8 +300,8 @@ class TestApp:
         # Both handlers should have received the event
         assert len(activity_events_1) == 1
         assert len(activity_events_2) == 1
-        assert activity_events_1[0].activity == activity
-        assert activity_events_2[0].activity == activity
+        assert activity_events_1[0].body == core_activity
+        assert activity_events_2[0].body == core_activity
 
     # Generated Handler Tests
 
@@ -485,7 +463,6 @@ class TestApp:
 
     def test_on_message_pattern_regex_match(self, app_with_options: App) -> None:
         """Test on_message_pattern with regex pattern matching."""
-        import re
 
         @app_with_options.on_message_pattern(re.compile(r"hello \w+"))
         async def handle_hello_pattern(ctx: ActivityContext[MessageActivity]) -> None:
@@ -595,8 +572,6 @@ class TestApp:
 
     def test_user_agent_format(self, app_with_options: App):
         """Test that USER_AGENT follows the expected format teams.py[apps]/{version}."""
-        import importlib.metadata
-
         version = importlib.metadata.version("microsoft-teams-apps")
         expected_user_agent = f"teams.py[apps]/{version}"
 
@@ -820,8 +795,6 @@ class TestApp:
         Test that sending a targeted message proactively without an explicit
         recipient raises a ValueError.
         """
-        from microsoft_teams.api import MessageActivityInput, SentActivity
-
         options = AppOptions(
             logger=mock_logger,
             storage=mock_storage,
@@ -829,8 +802,8 @@ class TestApp:
             client_secret="test-secret",
         )
         app = App(**options)
-        app._running = True
-        app.http.send = AsyncMock(
+        app._initialized = True
+        app.activity_sender.send = AsyncMock(
             return_value=SentActivity(id="sent-activity-id", activity_params=MessageActivityInput(text="sent"))
         )
 
@@ -849,8 +822,6 @@ class TestApp:
         Test that sending a targeted message proactively with an explicit
         recipient account succeeds.
         """
-        from microsoft_teams.api import Account, MessageActivityInput, SentActivity
-
         options = AppOptions(
             logger=mock_logger,
             storage=mock_storage,
@@ -858,8 +829,8 @@ class TestApp:
             client_secret="test-secret",
         )
         app = App(**options)
-        app._running = True
-        app.http.send = AsyncMock(
+        app._initialized = True
+        app.activity_sender.send = AsyncMock(
             return_value=SentActivity(id="sent-activity-id", activity_params=MessageActivityInput(text="sent"))
         )
 
@@ -870,5 +841,5 @@ class TestApp:
         # Should not raise - explicit recipient provided
         result = await app.send("conv-123", activity)
 
-        app.http.send.assert_called_once()
+        app.activity_sender.send.assert_called_once()
         assert result.id == "sent-activity-id"

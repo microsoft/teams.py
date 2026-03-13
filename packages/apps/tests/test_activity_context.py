@@ -18,18 +18,18 @@ class TestActivityContextSendTargeted:
         self,
         from_account: Account,
     ) -> ActivityContext[Any]:
-        """Create an ActivityContext for testing with a mock sender."""
+        """Create an ActivityContext for testing with a mock activity sender."""
         mock_activity = MagicMock()
         mock_activity.from_ = from_account
 
-        mock_sender = MagicMock()
-        mock_sender.send = AsyncMock(
+        mock_activity_sender = MagicMock()
+        mock_activity_sender.send = AsyncMock(
             return_value=SentActivity(
                 id="sent-activity-id",
                 activity_params=MessageActivityInput(text="sent"),
             )
         )
-        mock_sender.create_stream = MagicMock(return_value=MagicMock())
+        mock_activity_sender.create_stream = MagicMock(return_value=MagicMock())
 
         mock_conversation_ref = MagicMock()
 
@@ -43,7 +43,7 @@ class TestActivityContextSendTargeted:
             conversation_ref=mock_conversation_ref,
             is_signed_in=False,
             connection_name="test-connection",
-            sender=mock_sender,
+            activity_sender=mock_activity_sender,
             app_token=MagicMock(),
         )
 
@@ -64,10 +64,10 @@ class TestActivityContextSendTargeted:
         await ctx.send(activity)
 
         # Verify send was called
-        ctx._plugin.send.assert_called_once()
+        ctx._activity_sender.send.assert_called_once()
 
         # Get the activity that was passed to send
-        sent_activity = ctx._plugin.send.call_args[0][0]
+        sent_activity = ctx._activity_sender.send.call_args[0][0]
 
         # Verify recipient was preserved
         assert sent_activity.recipient == incoming_sender
@@ -87,10 +87,10 @@ class TestActivityContextSendTargeted:
         await ctx.send(activity)
 
         # Verify send was called
-        ctx._plugin.send.assert_called_once()
+        ctx._activity_sender.send.assert_called_once()
 
         # Get the activity that was passed to send
-        sent_activity = ctx._plugin.send.call_args[0][0]
+        sent_activity = ctx._activity_sender.send.call_args[0][0]
 
         # Verify recipient was preserved
         assert sent_activity.recipient == incoming_sender
@@ -112,10 +112,10 @@ class TestActivityContextSendTargeted:
         await ctx.send(activity)
 
         # Verify send was called
-        ctx._plugin.send.assert_called_once()
+        ctx._activity_sender.send.assert_called_once()
 
         # Get the activity that was passed to send
-        sent_activity = ctx._plugin.send.call_args[0][0]
+        sent_activity = ctx._activity_sender.send.call_args[0][0]
 
         # Verify recipient was preserved
         assert sent_activity.recipient is not None
@@ -137,10 +137,10 @@ class TestActivityContextSendTargeted:
         await ctx.send(activity)
 
         # Verify send was called
-        ctx._plugin.send.assert_called_once()
+        ctx._activity_sender.send.assert_called_once()
 
         # Get the activity that was passed to send
-        sent_activity = ctx._plugin.send.call_args[0][0]
+        sent_activity = ctx._activity_sender.send.call_args[0][0]
 
         # Verify recipient was NOT set for non-targeted messages
         assert sent_activity.recipient is None

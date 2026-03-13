@@ -17,10 +17,8 @@ from .events import ActivityEvent, ErrorEvent, EventType, is_registered_event
 from .plugins import (
     DependencyMetadata,
     EventMetadata,
-    PluginActivityEvent,
     PluginBase,
     PluginErrorEvent,
-    Sender,
     get_metadata,
 )
 
@@ -104,19 +102,15 @@ class PluginProcessor:
 
             async def error_handler(event: PluginErrorEvent) -> None:
                 activity = cast(Activity, event.activity)
-                await self.event_manager.on_error(
-                    ErrorEvent(error=event.error, activity=activity, sender=plugin), self.plugins
-                )
+                await self.event_manager.on_error(ErrorEvent(error=event.error, activity=activity), self.plugins)
 
             setattr(plugin, field_name, error_handler)
         elif meta.name == "activity":
             self.logger.debug("Injecting the activity event")
 
-            async def activity_handler(event: PluginActivityEvent) -> InvokeResponse[Any]:
-                sender = cast(Sender, plugin)
-                activity_event = ActivityEvent(activity=event.activity, sender=sender, token=event.token)
-                await self.event_manager.on_activity(activity_event)
-                return await self.activity_processor.process_activity(self.plugins, sender, activity_event)
+            async def activity_handler(event: ActivityEvent) -> InvokeResponse[Any]:
+                await self.event_manager.on_activity(event)
+                return await self.activity_processor.process_activity(self.plugins, event)
 
             setattr(plugin, field_name, activity_handler)
         elif meta.name == "custom":

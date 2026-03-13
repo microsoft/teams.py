@@ -12,6 +12,7 @@ from botbuilder.integration.aiohttp import CloudAdapter
 from botbuilder.schema import Activity
 from fastapi import HTTPException, Request, Response
 from microsoft_teams.api import Credentials
+from microsoft_teams.apps.events import CoreActivity
 from microsoft_teams.botbuilder import BotBuilderPlugin
 
 
@@ -83,7 +84,10 @@ class TestBotBuilderPlugin:
 
         plugin_with_adapter.adapter.process_activity = AsyncMock(side_effect=fake_process_activity)
 
-        await plugin_with_adapter.on_activity_request(request, response)
+        # Convert activity_data to CoreActivity
+        core_activity = CoreActivity(**activity_data)
+
+        await plugin_with_adapter.on_activity_request(core_activity, request, response)
 
         # Ensure adapter.process_activity called with correct auth and activity
         plugin_with_adapter.adapter.process_activity.assert_called_once()
@@ -108,6 +112,9 @@ class TestBotBuilderPlugin:
 
         plugin_with_adapter.adapter.process_activity = AsyncMock(side_effect=Exception("fail"))
 
+        # Convert activity_data to CoreActivity
+        core_activity = CoreActivity(**activity_data)
+
         with pytest.raises(HTTPException) as exc:
-            await plugin_with_adapter.on_activity_request(request, response)
+            await plugin_with_adapter.on_activity_request(core_activity, request, response)
         assert exc.value.status_code == 500
