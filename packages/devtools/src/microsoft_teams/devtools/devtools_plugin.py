@@ -23,7 +23,6 @@ from microsoft_teams.apps import (
     DependencyMetadata,
     ErrorEvent,
     EventMetadata,
-    HttpPlugin,
     LoggerDependencyOptions,
     Plugin,
     PluginActivityEvent,
@@ -49,7 +48,6 @@ version = importlib.metadata.version("microsoft-teams-devtools")
 class DevToolsPlugin(PluginBase):
     logger: Annotated[Logger, LoggerDependencyOptions()]
     id: Annotated[Optional[TokenProtocol], DependencyMetadata(optional=True)]
-    http: Annotated[HttpPlugin, DependencyMetadata()]
 
     on_error_event: Annotated[Callable[[ErrorEvent], None], EventMetadata(name="error")]
     on_activity_event: Annotated[Callable[[ActivityEvent], None], EventMetadata(name="activity")]

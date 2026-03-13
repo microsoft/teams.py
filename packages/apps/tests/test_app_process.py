@@ -136,7 +136,7 @@ class TestActivityProcessor:
                 "conversation": {"id": "conv-789"},
                 "recipient": {"id": "bot-456", "name": "Test Bot"},
                 "channelId": "msteams",
-            }
+            },
         )
         mock_token = MagicMock(spec=TokenProtocol)
         mock_token.service_url = "https://service.url"
@@ -172,7 +172,7 @@ class TestActivityProcessor:
                 "conversation": {"id": "conv-789"},
                 "recipient": {"id": "bot-456", "name": "Test Bot"},
                 "channelId": "msteams",
-            }
+            },
         )
         mock_token = MagicMock(spec=TokenProtocol)
         mock_token.service_url = "https://service.url"

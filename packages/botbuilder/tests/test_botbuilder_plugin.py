@@ -10,9 +10,8 @@ import pytest
 from botbuilder.core import ActivityHandler, TurnContext
 from botbuilder.integration.aiohttp import CloudAdapter
 from botbuilder.schema import Activity
-from fastapi import HTTPException, Request, Response
-from microsoft_teams.api import Credentials
-from microsoft_teams.apps.events import CoreActivity
+from microsoft_teams.api import Credentials, InvokeResponse
+from microsoft_teams.apps.http.adapter import HttpRequest, HttpServerAdapter
 from microsoft_teams.botbuilder import BotBuilderPlugin
 
 
@@ -25,20 +24,26 @@ class TestBotBuilderPlugin:
 
     @pytest.fixture
     def plugin_without_adapter(self):
-        plugin = BotBuilderPlugin(skip_auth=True)
+        plugin = BotBuilderPlugin()
         plugin.credentials = MagicMock(spec=Credentials)
         plugin.credentials.client_id = "abc"
         plugin.credentials.client_secret = "secret"
         plugin.credentials.tenant_id = "tenant-123"
+        plugin.http_server_adapter = MagicMock(spec=HttpServerAdapter)
+        plugin.logger = MagicMock()
         return plugin
 
     @pytest.fixture
     def plugin_with_adapter(self) -> BotBuilderPlugin:
         adapter = MagicMock(spec=CloudAdapter)
-        plugin = BotBuilderPlugin(adapter=adapter, skip_auth=True)
-        plugin._handle_activity_request = AsyncMock(return_value="fake_result")  # pyright: ignore[reportPrivateUsage]
+        plugin = BotBuilderPlugin(adapter=adapter)
         handler = AsyncMock(spec=ActivityHandler)
         plugin.handler = handler
+        plugin.http_server_adapter = MagicMock(spec=HttpServerAdapter)
+        plugin.logger = MagicMock()
+
+        # Set up the on_activity_event handler
+        plugin.on_activity_event = AsyncMock(return_value=InvokeResponse(status=200))
         return plugin
 
     @pytest.mark.asyncio
@@ -58,9 +63,15 @@ class TestBotBuilderPlugin:
             mock_adapter_class.assert_called_once()
             assert plugin_without_adapter.adapter == "mock_adapter"
 
+        # Should have registered route via adapter
+        plugin_without_adapter.http_server_adapter.register_route.assert_called_once()
+        call_args = plugin_without_adapter.http_server_adapter.register_route.call_args
+        assert call_args[0][0] == "POST"
+        assert call_args[0][1] == "/api/messages"
+
     @pytest.mark.asyncio
-    async def test_on_activity_request_calls_adapter_and_handler(self, plugin_with_adapter: BotBuilderPlugin):
-        # Mock request and response
+    async def test_handle_activity_calls_adapter_and_handler(self, plugin_with_adapter: BotBuilderPlugin):
+        """Test that _handle_activity calls adapter and handler."""
         activity_data = {
             "type": "message",
             "id": "activity-id",
@@ -69,25 +80,20 @@ class TestBotBuilderPlugin:
             "conversation": {"id": "conv1"},
             "serviceUrl": "https://service.url",
         }
-        request = AsyncMock(spec=Request)
-        request.json.return_value = activity_data
-        request.headers = {"Authorization": "Bearer token"}
 
-        response = MagicMock(spec=Response)
+        request = HttpRequest(
+            body=activity_data,
+            headers={"Authorization": "Bearer token"},
+        )
 
         # Mock adapter.process_activity to call logic with a mock TurnContext
-        async def fake_process_activity(auth_header, activity, logic):  # type: ignore
-            print("Inside fake_process_activity")
+        async def fake_process_activity(auth_header, activity, logic):
             await logic(MagicMock(spec=TurnContext))
 
         assert plugin_with_adapter.adapter is not None
-
         plugin_with_adapter.adapter.process_activity = AsyncMock(side_effect=fake_process_activity)
 
-        # Convert activity_data to CoreActivity
-        core_activity = CoreActivity(**activity_data)
-
-        await plugin_with_adapter.on_activity_request(core_activity, request, response)
+        result = await plugin_with_adapter._handle_activity(request)
 
         # Ensure adapter.process_activity called with correct auth and activity
         plugin_with_adapter.adapter.process_activity.assert_called_once()
@@ -96,25 +102,25 @@ class TestBotBuilderPlugin:
         assert isinstance(called_activity, Activity)
 
         # Ensure handler called via TurnContext
-        plugin_with_adapter.handler.on_turn.assert_awaited()  # type: ignore
+        plugin_with_adapter.handler.on_turn.assert_awaited()
+
+        # Should return a valid HttpResponse
+        assert result["status"] == 200
 
     @pytest.mark.asyncio
-    async def test_on_activity_request_raises_http_exception_on_adapter_error(
-        self, plugin_with_adapter: BotBuilderPlugin
-    ):
+    async def test_handle_activity_returns_error_on_adapter_error(self, plugin_with_adapter: BotBuilderPlugin):
+        """Test that _handle_activity returns 500 on adapter error."""
         activity_data = {"type": "message", "id": "activity-id"}
-        request = AsyncMock(spec=Request)
-        request.json.return_value = activity_data
-        request.headers = {}
 
-        response = MagicMock(spec=Response)
+        request = HttpRequest(
+            body=activity_data,
+            headers={},
+        )
+
         assert plugin_with_adapter.adapter is not None
-
         plugin_with_adapter.adapter.process_activity = AsyncMock(side_effect=Exception("fail"))
 
-        # Convert activity_data to CoreActivity
-        core_activity = CoreActivity(**activity_data)
+        result = await plugin_with_adapter._handle_activity(request)
 
-        with pytest.raises(HTTPException) as exc:
-            await plugin_with_adapter.on_activity_request(core_activity, request, response)
-        assert exc.value.status_code == 500
+        assert result["status"] == 500
+        assert result["body"]["detail"] == "fail"

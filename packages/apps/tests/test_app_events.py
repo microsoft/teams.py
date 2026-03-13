@@ -13,7 +13,7 @@ from microsoft_teams.apps import (
     ActivityResponseEvent,
     ActivitySentEvent,
     ErrorEvent,
-    HttpPlugin,
+    PluginBase,
 )
 from microsoft_teams.apps.app_events import EventManager
 from microsoft_teams.apps.events import CoreActivity
@@ -35,12 +35,12 @@ class TestEventManager:
 
     @pytest.fixture
     def mock_plugins(self):
-        plugin = MagicMock(spec=HttpPlugin)
+        plugin = MagicMock(spec=PluginBase)
         plugin.on_error_event = AsyncMock()
         plugin.on_error = AsyncMock()
         plugin.on_activity_sent = AsyncMock()
         plugin.on_activity_response = AsyncMock()
-        plugin_two = MagicMock(spec=HttpPlugin)
+        plugin_two = MagicMock(spec=PluginBase)
         return [plugin, plugin_two]
 
     @pytest.mark.asyncio

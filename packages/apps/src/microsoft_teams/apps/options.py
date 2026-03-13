@@ -3,6 +3,8 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 from logging import Logger
 from typing import Any, Awaitable, Callable, List, Optional, TypedDict, Union, cast
@@ -11,6 +13,7 @@ from microsoft_teams.api import ApiClientSettings
 from microsoft_teams.common import Storage
 from typing_extensions import Unpack
 
+from .http.adapter import HttpServerAdapter
 from .plugins import PluginBase
 
 
@@ -41,6 +44,10 @@ class AppOptions(TypedDict, total=False):
     storage: Optional[Storage[str, Any]]
     plugins: Optional[List[PluginBase]]
     skip_auth: Optional[bool]
+
+    # HTTP adapter
+    http_server_adapter: Optional[HttpServerAdapter]
+    """Custom HTTP server adapter. Defaults to FastAPIAdapter if not provided."""
 
     # OAuth
     default_connection_name: Optional[str]
@@ -95,6 +102,8 @@ class InternalAppOptions:
     Uses environment variable SERVICE_URL if not provided
     and defaults to https://smba.trafficmanager.net/teams
     """
+    http_server_adapter: Optional[HttpServerAdapter] = None
+    """Custom HTTP server adapter. Defaults to FastAPIAdapter if not provided."""
 
     @classmethod
     def from_typeddict(cls, options: AppOptions) -> "InternalAppOptions":

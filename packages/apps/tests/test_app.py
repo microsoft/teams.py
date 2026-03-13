@@ -99,20 +99,17 @@ class TestApp:
             client_secret="test-secret",
         )
 
-    def _mock_http_plugin(self, app: App) -> App:
-        """Helper to mock the HTTP plugin's create_stream and close methods."""
-        mock_stream = MagicMock()
-        mock_stream.events = MagicMock()
-        mock_stream.events.on = MagicMock()
-        mock_stream.close = AsyncMock()
-        app.http.create_stream = MagicMock(return_value=mock_stream)
+    def _mock_http_server(self, app: App) -> App:
+        """Helper to mock the HTTP server methods."""
+        app.server.start = AsyncMock()  # type: ignore[method-assign]
+        app.server.stop = AsyncMock()  # type: ignore[method-assign]
         return app
 
     @pytest.fixture(scope="function")
     def app_with_options(self, basic_options):
         """Create App with basic options."""
         app = App(**basic_options)
-        return self._mock_http_plugin(app)
+        return self._mock_http_server(app)
 
     @pytest.fixture(scope="function")
     def app_with_activity_handler(self, mock_logger, mock_storage, mock_activity_handler):
@@ -126,51 +123,33 @@ class TestApp:
         )
         app = App(**options)
         app.on_activity(mock_activity_handler)
-        return self._mock_http_plugin(app)
+        return self._mock_http_server(app)
 
     def test_app_starts_successfully(self, basic_options):
         """Test that app can be created and initialized."""
         app = App(**basic_options)
 
-        # Basic functional test - app should be created and not running
-        assert not app.is_running
+        # Basic functional test - app should be created
         assert app.port is None
 
     @pytest.mark.asyncio
     async def test_app_lifecycle_start_stop(self, app_with_options):
         """Test basic app lifecycle: start and stop."""
 
-        # Mock the underlying HTTP server to avoid actual server startup
-        async def mock_on_start(event):
-            # Simulate the HTTP plugin calling the ready callback
-            if app_with_options.http.on_ready_callback:
-                await app_with_options.http.on_ready_callback()
+        # Test start — server.start is already mocked by _mock_http_server
+        start_task = asyncio.create_task(app_with_options.start(3978))
+        await asyncio.sleep(0.1)
 
-        with patch.object(app_with_options.http, "on_start", new_callable=AsyncMock, side_effect=mock_on_start):
-            # Test start
-            start_task = asyncio.create_task(app_with_options.start(3978))
-            await asyncio.sleep(0.1)
+        assert app_with_options.port == 3978
 
-            # App should be running and have correct port
-            assert app_with_options.is_running
-            assert app_with_options.port == 3978
-
-            start_task.cancel()
-            try:
-                await start_task
-            except asyncio.CancelledError:
-                pass
+        start_task.cancel()
+        try:
+            await start_task
+        except asyncio.CancelledError:
+            pass
 
         # Test stop
-        app_with_options._running = True
-
-        async def mock_on_stop():
-            if app_with_options.http.on_stopped_callback:
-                await app_with_options.http.on_stopped_callback()
-
-        with patch.object(app_with_options.http, "on_stop", new_callable=AsyncMock, side_effect=mock_on_stop):
-            await app_with_options.stop()
-            assert not app_with_options.is_running
+        await app_with_options.stop()
 
     @pytest.mark.asyncio
     async def test_app_start_with_multiple_plugins_cancelled(self, mock_logger, mock_storage):
@@ -197,41 +176,26 @@ class TestApp:
         )
         app = App(**options)
 
-        mock_stream = MagicMock()
-        mock_stream.events = MagicMock()
-        mock_stream.events.on = MagicMock()
-        mock_stream.close = AsyncMock()
-        app.http.create_stream = MagicMock(return_value=mock_stream)
-
+        # Mock server.start to block until cancelled
         block = asyncio.Event()
 
-        async def mock_on_start_blocking(event):
-            if app.http.on_ready_callback:
-                await app.http.on_ready_callback()
+        async def blocking_start(port):
             await block.wait()
 
-        with patch.object(app.http, "on_start", new_callable=AsyncMock, side_effect=mock_on_start_blocking):
-            app.http.on_stop = AsyncMock()
+        app.server.start = AsyncMock(side_effect=blocking_start)  # type: ignore[method-assign]
+        app.server.stop = AsyncMock()  # type: ignore[method-assign]
 
-            start_task = asyncio.create_task(app.start(3978))
+        start_task = asyncio.create_task(app.start(3978))
+        await asyncio.sleep(0.1)
 
-            for _ in range(50):
-                await asyncio.sleep(0.01)
-                if app.is_running:
-                    break
+        start_task.cancel()
+        try:
+            await start_task
+        except asyncio.CancelledError:
+            pass
 
-            assert app.is_running, "App should be running before cancellation"
-
-            start_task.cancel()
-            try:
-                await start_task
-            except asyncio.CancelledError:
-                pass
-
-            mock_logger.info.assert_any_call("Teams app shutting down")
-
-            assert plugin_two.stop_called, "plugin two on_stop was called."
-            assert not app.is_running, "App should not be running after cancellation"
+        mock_logger.info.assert_any_call("Teams app shutting down")
+        assert plugin_two.stop_called, "plugin two on_stop was called."
 
     # Event Testing - Focus on functional behavior
 
@@ -557,9 +521,9 @@ class TestApp:
     @pytest.mark.asyncio
     async def test_func_decorator_registration(self, app_with_options: App):
         """Simple test that @app.func registers a function."""
-        app_with_options.http.post = MagicMock()
+        mock_register = MagicMock()
+        app_with_options.server.register_route = mock_register  # type: ignore[method-assign]
 
-        # Dummy request to simulate a call
         async def dummy_func(ctx):
             return "called"
 
@@ -567,8 +531,10 @@ class TestApp:
         assert decorated == dummy_func
 
         # Extract the endpoint path it was registered to
-        endpoint_path = app_with_options.http.post.call_args[0][0]
-        assert endpoint_path == f"/api/functions/{dummy_func.__name__.replace('_', '-')}"
+        mock_register.assert_called_once()
+        method, path, handler = mock_register.call_args[0]
+        assert method == "POST"
+        assert path == f"/api/functions/{dummy_func.__name__.replace('_', '-')}"
 
     def test_user_agent_format(self, app_with_options: App):
         """Test that USER_AGENT follows the expected format teams.py[apps]/{version}."""
