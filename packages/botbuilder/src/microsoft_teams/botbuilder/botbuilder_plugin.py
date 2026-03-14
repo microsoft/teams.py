@@ -6,18 +6,16 @@ Licensed under the MIT License.
 import importlib.metadata
 from logging import Logger
 from types import SimpleNamespace
-from typing import Annotated, Any, Callable, Dict, Optional, TypedDict, Unpack, cast
+from typing import Annotated, Optional, TypedDict, Unpack, cast
 
-from microsoft_teams.api import Credentials, InvokeResponse
+from microsoft_teams.api import Credentials
 from microsoft_teams.apps import (
     DependencyMetadata,
-    EventMetadata,
-    HttpServerAdapter,
+    HttpServer,
     LoggerDependencyOptions,
     Plugin,
     PluginBase,
 )
-from microsoft_teams.apps.events import ActivityEvent, CoreActivity, ErrorEvent
 from microsoft_teams.apps.http import HttpRequest, HttpResponse
 
 from botbuilder.core import (
@@ -53,10 +51,7 @@ class BotBuilderPlugin(PluginBase):
     # Dependency injections
     logger: Annotated[Logger, LoggerDependencyOptions()]
     credentials: Annotated[Optional[Credentials], DependencyMetadata(optional=True)]
-    http_server_adapter: Annotated[HttpServerAdapter, DependencyMetadata()]
-
-    on_error_event: Annotated[Callable[[ErrorEvent], None], EventMetadata(name="error")]
-    on_activity_event: Annotated[Callable[[ActivityEvent], InvokeResponse[Any]], EventMetadata(name="activity")]
+    http_server: Annotated[HttpServer, DependencyMetadata()]
 
     def __init__(self, **options: Unpack[BotBuilderPluginOptions]):
         """
@@ -94,14 +89,15 @@ class BotBuilderPlugin(PluginBase):
 
             self.logger.debug("BotBuilder plugin initialized successfully")
 
-        # Register the activity route via adapter
-        self.http_server_adapter.register_route("POST", "/api/messages", self._handle_activity)
+        # Register the activity route via adapter (bypasses HttpServer's default /api/messages)
+        self.http_server.adapter.register_route("POST", "/api/messages", self._handle_activity)
 
     async def _handle_activity(self, request: HttpRequest) -> HttpResponse:
         """
-        Pure handler for POST /api/messages.
+        Handler for POST /api/messages.
 
-        Processes via Bot Framework, then passes to the Teams pipeline.
+        Runs Bot Framework CloudAdapter auth + handler first,
+        then routes through HttpServer.handle_request for SDK-level JWT validation and pipeline.
         """
         if not self.adapter:
             raise RuntimeError("plugin not registered")
@@ -127,39 +123,8 @@ class BotBuilderPlugin(PluginBase):
             auth_header = headers.get("authorization") or headers.get("Authorization") or ""
             await self.adapter.process_activity(auth_header, activity_bf, logic)
 
-            # Process through Teams pipeline
-            core_activity = CoreActivity.model_validate(body)
-            token = cast(
-                Any,
-                SimpleNamespace(
-                    app_id="",
-                    app_display_name="",
-                    tenant_id="",
-                    service_url=core_activity.service_url or "",
-                    from_="azure",
-                    from_id="",
-                    is_expired=lambda: False,
-                ),
-            )
-
-            event_result = self.on_activity_event(ActivityEvent(body=core_activity, token=token))
-            result: Any = await cast(Any, event_result)
-
-            # Format response
-            status_code: int = 200
-            resp_body: Any = None
-            resp_dict: Dict[str, Any] = {}
-            if result is not None and hasattr(result, "model_dump"):
-                resp_dict = cast(Dict[str, Any], result.model_dump(exclude_none=True))
-            elif isinstance(result, dict):
-                resp_dict = cast(Dict[str, Any], result)
-
-            if "status" in resp_dict:
-                status_code = int(resp_dict.get("status", 200))
-            if "body" in resp_dict:
-                resp_body = resp_dict.get("body")
-
-            return HttpResponse(status=status_code, body=resp_body)
+            # Route through HttpServer for SDK auth + Teams pipeline
+            return await self.http_server.handle_request(request)
 
         except Exception as err:
             self.logger.error(f"Error processing activity: {err}", exc_info=True)

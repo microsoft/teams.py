@@ -10,7 +10,7 @@ from microsoft_teams.apps import (
     DependencyMetadata,
     EventMetadata,
     FastAPIAdapter,
-    HttpServerAdapter,
+    HttpServer,
     LoggerDependencyOptions,
     Plugin,
     PluginBase,
@@ -31,7 +31,7 @@ from .logging_middleware import LoggingMiddleware
 @Plugin(name="a2a", version="0.3.7", description="A2A Server Plugin")
 class A2APlugin(PluginBase):
     logger: Annotated[Logger, LoggerDependencyOptions()]
-    http_server_adapter: Annotated[HttpServerAdapter, DependencyMetadata()]
+    http_server: Annotated[HttpServer, DependencyMetadata()]
 
     emit: Annotated[Callable[[str, A2AMessageEvent], Awaitable[None]], EventMetadata(name="custom")]
 
@@ -77,9 +77,10 @@ class A2APlugin(PluginBase):
         self.logger.info(f"A2A agent set up at {self.agent_card_path}")
         self.logger.info(f"A2A agent listening at {self.path}")
 
-        if not isinstance(self.http_server_adapter, FastAPIAdapter):
+        adapter = self.http_server.adapter
+        if not isinstance(adapter, FastAPIAdapter):
             raise RuntimeError("A2APlugin requires FastAPIAdapter. Custom adapters are not supported.")
-        self.http_server_adapter.app.mount(self.path, self.app)
+        adapter.app.mount(self.path, self.app)
 
     def _setup_executor(self) -> AgentExecutor:
         return CustomAgentExecutor(self.emit)

@@ -13,7 +13,7 @@ from pydantic import BaseModel
 
 from ..auth import TokenValidator
 from ..events import ActivityEvent, CoreActivity
-from .adapter import HttpMethod, HttpRequest, HttpResponse, HttpRouteHandler, HttpServerAdapter
+from .adapter import HttpRequest, HttpResponse, HttpServerAdapter
 
 
 class HttpServer:
@@ -68,11 +68,11 @@ class HttpServer:
             self._token_validator = TokenValidator.for_service(app_id, self._logger)
             self._logger.debug("JWT validation enabled for /api/messages")
 
-        self._adapter.register_route("POST", "/api/messages", self._handle_activity)
+        self._adapter.register_route("POST", "/api/messages", self.handle_request)
         self._initialized = True
 
-    async def _handle_activity(self, request: HttpRequest) -> HttpResponse:
-        """Handle incoming activity on POST /api/messages."""
+    async def handle_request(self, request: HttpRequest) -> HttpResponse:
+        """Handle incoming activity request. Public so plugins (e.g. BotBuilder) can route through SDK auth."""
         try:
             body = request["body"]
             headers = request["headers"]
@@ -151,21 +151,3 @@ class HttpServer:
         if body is not None:
             return HttpResponse(status=status_code, body=body)
         return HttpResponse(status=status_code, body=None)
-
-    def register_route(self, method: HttpMethod, path: str, handler: HttpRouteHandler) -> None:
-        """Delegate route registration to the adapter."""
-        self._adapter.register_route(method, path, handler)
-
-    def serve_static(self, path: str, directory: str) -> None:
-        """Delegate static file serving to the adapter."""
-        self._adapter.serve_static(path, directory)
-
-    async def start(self, port: int) -> None:
-        """Start the HTTP server. Blocks until stopped."""
-        self._logger.info(f"Starting HTTP server on port {port}")
-        await self._adapter.start(port)
-
-    async def stop(self) -> None:
-        """Stop the HTTP server."""
-        self._logger.info("Stopping HTTP server")
-        await self._adapter.stop()

@@ -82,7 +82,7 @@ class TestHttpServer:
             headers={},
         )
 
-        result = await server._handle_activity(request)
+        result = await server.handle_request(request)
 
         assert result["status"] == 200
         assert result["body"] == expected_body
@@ -102,7 +102,7 @@ class TestHttpServer:
             headers={},
         )
 
-        result = await server._handle_activity(request)
+        result = await server.handle_request(request)
 
         assert result["status"] == 500
         mock_logger.exception.assert_called_once()
@@ -117,36 +117,10 @@ class TestHttpServer:
             headers={},
         )
 
-        result = await server._handle_activity(request)
+        result = await server.handle_request(request)
 
         assert result["status"] == 500
         mock_logger.warning.assert_called()
-
-    @pytest.mark.asyncio
-    async def test_start(self, server, mock_adapter):
-        """Test server start delegates to adapter."""
-        await server.start(3978)
-        mock_adapter.start.assert_called_once_with(3978)
-
-    @pytest.mark.asyncio
-    async def test_stop(self, server, mock_adapter):
-        """Test server stop delegates to adapter."""
-        await server.stop()
-        mock_adapter.stop.assert_called_once()
-
-    def test_register_route_delegates(self, server, mock_adapter):
-        """Test register_route delegates to adapter."""
-
-        async def handler(req):
-            return HttpResponse(status=200, body=None)
-
-        server.register_route("POST", "/custom", handler)
-        mock_adapter.register_route.assert_called_once_with("POST", "/custom", handler)
-
-    def test_serve_static_delegates(self, server, mock_adapter):
-        """Test serve_static delegates to adapter."""
-        server.serve_static("/static", "/path/to/dir")
-        mock_adapter.serve_static.assert_called_once_with("/static", "/path/to/dir")
 
 
 class TestFastAPIAdapter:
