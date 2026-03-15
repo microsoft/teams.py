@@ -26,6 +26,9 @@ class AppOptions(TypedDict, total=False):
     """The client secret. If provided with client_id, uses ClientCredentials auth."""
     tenant_id: Optional[str]
     """The tenant ID. Required for single-tenant apps."""
+    application_id_uri: Optional[str]
+    """Application ID URI from the Azure portal. Used for user authentication.
+    Matches webApplicationInfo.resource in the app manifest."""
     # Custom token provider function
     token: Optional[Callable[[Union[str, list[str]], Optional[str]], Union[str, Awaitable[str]]]]
     """Custom token provider function. If provided with client_id (no client_secret), uses TokenCredentials."""
@@ -85,6 +88,9 @@ class InternalAppOptions:
     """The client secret. If provided with client_id, uses ClientCredentials auth."""
     tenant_id: Optional[str] = None
     """The tenant ID. Required for single-tenant apps."""
+    application_id_uri: Optional[str] = None
+    """Application ID URI from the Azure portal. Used for user authentication.
+    Matches webApplicationInfo.resource in the app manifest."""
     token: Optional[Callable[[Union[str, list[str]], Optional[str]], Union[str, Awaitable[str]]]] = None
     """Custom token provider function. If provided with client_id (no client_secret), uses TokenCredentials."""
     managed_identity_client_id: Optional[str] = None
