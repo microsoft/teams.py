@@ -335,6 +335,22 @@ class TestTokenValidator:
             with pytest.raises(jwt.InvalidTokenError):
                 await validator_entra.validate_token(token)
 
+    def test_for_entra_with_application_id_uri(self):
+        """Check that applicationIdUri is included in valid audiences."""
+        validator = TokenValidator.for_entra(
+            app_id="test-app-id",
+            tenant_id="test-tenant-id",
+            application_id_uri="api://my-app.contoso.com/test-app-id",
+        )
+        options = validator.options
+        assert "api://my-app.contoso.com/test-app-id" in options.valid_audiences
+
+    def test_for_entra_without_application_id_uri(self):
+        """Check that audiences are default when applicationIdUri is not provided."""
+        validator = TokenValidator.for_entra(app_id="test-app-id", tenant_id="test-tenant-id")
+        options = validator.options
+        assert options.valid_audiences == ["test-app-id", "api://test-app-id", "api://botid-test-app-id"]
+
     @pytest.mark.asyncio
     async def test_validate_entra_token_invalid_audience(self, validator_entra, mock_signing_key):
         """Fail validation for invalid audience."""

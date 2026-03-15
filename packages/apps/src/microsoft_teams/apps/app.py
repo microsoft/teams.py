@@ -155,7 +155,10 @@ class App(ActivityHandlerMixin):
         self.entra_token_validator: Optional[TokenValidator] = None
         if self.credentials and hasattr(self.credentials, "client_id"):
             self.entra_token_validator = TokenValidator.for_entra(
-                self.credentials.client_id, self.credentials.tenant_id, logger=self.log
+                self.credentials.client_id,
+                self.credentials.tenant_id,
+                application_id_uri=self.options.application_id_uri,
+                logger=self.log,
             )
 
     @property

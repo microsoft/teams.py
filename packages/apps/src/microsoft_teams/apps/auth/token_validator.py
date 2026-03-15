@@ -70,7 +70,12 @@ class TokenValidator:
 
     @classmethod
     def for_entra(
-        cls, app_id: str, tenant_id: Optional[str], scope: Optional[str] = None, logger: Optional[Logger] = None
+        cls,
+        app_id: str,
+        tenant_id: Optional[str],
+        scope: Optional[str] = None,
+        application_id_uri: Optional[str] = None,
+        logger: Optional[Logger] = None,
     ) -> "TokenValidator":
         """Create a validator for Entra ID tokens.
 
@@ -78,6 +83,8 @@ class TokenValidator:
             app_id: The app's Microsoft App ID (used for audience validation)
             tenant_id: The Azure AD tenant ID
             scope: Optional scope that must be present in the token
+            application_id_uri: Optional Application ID URI from Azure portal.
+                Matches webApplicationInfo.resource in the app manifest.
             logger: Optional logger instance
 
         """
@@ -86,9 +93,12 @@ class TokenValidator:
         if tenant_id:
             valid_issuers.append(f"https://login.microsoftonline.com/{tenant_id}/v2.0")
         tenant_id = tenant_id or "common"
+        valid_audiences = [app_id, f"api://{app_id}", f"api://botid-{app_id}"]
+        if application_id_uri:
+            valid_audiences.append(application_id_uri)
         options = JwtValidationOptions(
             valid_issuers=valid_issuers,
-            valid_audiences=[app_id, f"api://{app_id}", f"api://botid-{app_id}"],
+            valid_audiences=valid_audiences,
             jwks_uri=f"https://login.microsoftonline.com/{tenant_id}/discovery/v2.0/keys",
             scope=scope,
         )
