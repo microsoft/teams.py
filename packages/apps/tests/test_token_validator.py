@@ -60,7 +60,11 @@ class TestTokenValidator:
 
         assert validator.logger is not None
         assert validator.options.valid_issuers == ["https://api.botframework.com"]
-        assert validator.options.valid_audiences == ["test-app-id", "api://test-app-id"]
+        assert validator.options.valid_audiences == [
+            "test-app-id",
+            "api://test-app-id",
+            "api://botid-test-app-id",
+        ]
         assert validator.options.jwks_uri == "https://login.botframework.com/v1/.well-known/keys"
 
     def test_init_with_custom_logger(self):
@@ -69,7 +73,11 @@ class TestTokenValidator:
         validator = TokenValidator.for_service("test-app-id", mock_logger)
 
         assert validator.options.valid_issuers == ["https://api.botframework.com"]
-        assert validator.options.valid_audiences == ["test-app-id", "api://test-app-id"]
+        assert validator.options.valid_audiences == [
+            "test-app-id",
+            "api://test-app-id",
+            "api://botid-test-app-id",
+        ]
         assert validator.options.jwks_uri == "https://login.botframework.com/v1/.well-known/keys"
         assert validator.logger == mock_logger
 
@@ -139,6 +147,35 @@ class TestTokenValidator:
         ):
             with pytest.raises(jwt.InvalidTokenError):
                 await validator.validate_token(token)
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "audience",
+        [
+            "test-app-id",
+            "api://test-app-id",
+            "api://botid-test-app-id",
+        ],
+        ids=["app_id", "api://app_id", "api://botid-app_id"],
+    )
+    async def test_validate_token_accepts_all_audience_formats(self, mock_signing_key, audience):
+        """Test that all three audience formats are accepted."""
+        validator = TokenValidator.for_service("test-app-id")
+        token = "valid.jwt.token"
+        payload = {
+            "iss": "https://api.botframework.com",
+            "aud": audience,
+            "serviceurl": "https://smba.trafficmanager.net/teams",
+            "exp": 9999999999,
+            "iat": 1000000000,
+        }
+
+        with (
+            patch("jwt.PyJWKClient", return_value=mock_signing_key),
+            patch("jwt.decode", return_value=payload),
+        ):
+            result = await validator.validate_token(token)
+            assert result["aud"] == audience
 
     @pytest.mark.asyncio
     async def test_validate_token_invalid_audience(self, validator, mock_signing_key):
@@ -241,7 +278,7 @@ class TestTokenValidator:
         """Check Entra-specific initialization."""
         options = validator_entra.options
         assert options.valid_issuers == ["https://login.microsoftonline.com/test-tenant-id/v2.0"]
-        assert options.valid_audiences == ["test-app-id", "api://test-app-id"]
+        assert options.valid_audiences == ["test-app-id", "api://test-app-id", "api://botid-test-app-id"]
         assert options.jwks_uri == "https://login.microsoftonline.com/test-tenant-id/discovery/v2.0/keys"
         assert options.scope == "user.read"
 

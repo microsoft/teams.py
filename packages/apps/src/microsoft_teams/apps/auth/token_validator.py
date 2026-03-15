@@ -62,7 +62,7 @@ class TokenValidator:
 
         options = JwtValidationOptions(
             valid_issuers=["https://api.botframework.com"],
-            valid_audiences=[app_id, f"api://{app_id}"],
+            valid_audiences=[app_id, f"api://{app_id}", f"api://botid-{app_id}"],
             jwks_uri="https://login.botframework.com/v1/.well-known/keys",
             service_url=service_url,
         )
@@ -88,7 +88,7 @@ class TokenValidator:
         tenant_id = tenant_id or "common"
         options = JwtValidationOptions(
             valid_issuers=valid_issuers,
-            valid_audiences=[app_id, f"api://{app_id}"],
+            valid_audiences=[app_id, f"api://{app_id}", f"api://botid-{app_id}"],
             jwks_uri=f"https://login.microsoftonline.com/{tenant_id}/discovery/v2.0/keys",
             scope=scope,
         )
