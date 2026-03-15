@@ -10,8 +10,9 @@ import pytest
 from botbuilder.core import ActivityHandler, TurnContext
 from botbuilder.integration.aiohttp import CloudAdapter
 from botbuilder.schema import Activity
-from microsoft_teams.api import Credentials, InvokeResponse
-from microsoft_teams.apps.http.adapter import HttpRequest, HttpServerAdapter
+from microsoft_teams.api import Credentials
+from microsoft_teams.apps.http import HttpRequest, HttpResponse
+from microsoft_teams.apps.http.http_server import HttpServer
 from microsoft_teams.botbuilder import BotBuilderPlugin
 
 
@@ -23,27 +24,31 @@ class TestBotBuilderPlugin:
         return MagicMock()
 
     @pytest.fixture
-    def plugin_without_adapter(self):
+    def mock_http_server(self):
+        server = MagicMock(spec=HttpServer)
+        server.adapter = MagicMock()
+        server.handle_request = AsyncMock(return_value=HttpResponse(status=200, body=None))
+        return server
+
+    @pytest.fixture
+    def plugin_without_adapter(self, mock_http_server):
         plugin = BotBuilderPlugin()
         plugin.credentials = MagicMock(spec=Credentials)
         plugin.credentials.client_id = "abc"
         plugin.credentials.client_secret = "secret"
         plugin.credentials.tenant_id = "tenant-123"
-        plugin.http_server_adapter = MagicMock(spec=HttpServerAdapter)
+        plugin.http_server = mock_http_server
         plugin.logger = MagicMock()
         return plugin
 
     @pytest.fixture
-    def plugin_with_adapter(self) -> BotBuilderPlugin:
+    def plugin_with_adapter(self, mock_http_server) -> BotBuilderPlugin:
         adapter = MagicMock(spec=CloudAdapter)
         plugin = BotBuilderPlugin(adapter=adapter)
         handler = AsyncMock(spec=ActivityHandler)
         plugin.handler = handler
-        plugin.http_server_adapter = MagicMock(spec=HttpServerAdapter)
+        plugin.http_server = mock_http_server
         plugin.logger = MagicMock()
-
-        # Set up the on_activity_event handler
-        plugin.on_activity_event = AsyncMock(return_value=InvokeResponse(status=200))
         return plugin
 
     @pytest.mark.asyncio
@@ -63,9 +68,9 @@ class TestBotBuilderPlugin:
             mock_adapter_class.assert_called_once()
             assert plugin_without_adapter.adapter == "mock_adapter"
 
-        # Should have registered route via adapter
-        plugin_without_adapter.http_server_adapter.register_route.assert_called_once()
-        call_args = plugin_without_adapter.http_server_adapter.register_route.call_args
+        # Should have registered route via http_server.adapter
+        plugin_without_adapter.http_server.adapter.register_route.assert_called_once()
+        call_args = plugin_without_adapter.http_server.adapter.register_route.call_args
         assert call_args[0][0] == "POST"
         assert call_args[0][1] == "/api/messages"
 
@@ -103,6 +108,9 @@ class TestBotBuilderPlugin:
 
         # Ensure handler called via TurnContext
         plugin_with_adapter.handler.on_turn.assert_awaited()
+
+        # Should have routed through HttpServer.handle_request
+        plugin_with_adapter.http_server.handle_request.assert_awaited_once_with(request)
 
         # Should return a valid HttpResponse
         assert result["status"] == 200

@@ -101,8 +101,8 @@ class TestApp:
 
     def _mock_http_server(self, app: App) -> App:
         """Helper to mock the HTTP server methods."""
-        app.server.start = AsyncMock()  # type: ignore[method-assign]
-        app.server.stop = AsyncMock()  # type: ignore[method-assign]
+        app.server.adapter.start = AsyncMock()  # type: ignore[method-assign]
+        app.server.adapter.stop = AsyncMock()  # type: ignore[method-assign]
         return app
 
     @pytest.fixture(scope="function")
@@ -136,7 +136,7 @@ class TestApp:
     async def test_app_lifecycle_start_stop(self, app_with_options):
         """Test basic app lifecycle: start and stop."""
 
-        # Test start — server.start is already mocked by _mock_http_server
+        # Test start — server.adapter.start is already mocked by _mock_http_server
         start_task = asyncio.create_task(app_with_options.start(3978))
         await asyncio.sleep(0.1)
 
@@ -182,8 +182,8 @@ class TestApp:
         async def blocking_start(port):
             await block.wait()
 
-        app.server.start = AsyncMock(side_effect=blocking_start)  # type: ignore[method-assign]
-        app.server.stop = AsyncMock()  # type: ignore[method-assign]
+        app.server.adapter.start = AsyncMock(side_effect=blocking_start)  # type: ignore[method-assign]
+        app.server.adapter.stop = AsyncMock()  # type: ignore[method-assign]
 
         start_task = asyncio.create_task(app.start(3978))
         await asyncio.sleep(0.1)
@@ -522,7 +522,7 @@ class TestApp:
     async def test_func_decorator_registration(self, app_with_options: App):
         """Simple test that @app.func registers a function."""
         mock_register = MagicMock()
-        app_with_options.server.register_route = mock_register  # type: ignore[method-assign]
+        app_with_options.server.adapter.register_route = mock_register  # type: ignore[method-assign]
 
         async def dummy_func(ctx):
             return "called"

@@ -114,7 +114,7 @@ class App(ActivityHandlerMixin):
         # Create HttpServer (not a plugin — owned directly by App)
         adapter = self.options.http_server_adapter or FastAPIAdapter()
         self.server = HttpServer(adapter, self.log)
-        self.container.set_provider("HttpServerAdapter", providers.Object(self.server.adapter))
+        self.container.set_provider("HttpServer", providers.Object(self.server))
 
         self._port: Optional[int] = None
         self._initialized = False
@@ -248,7 +248,7 @@ class App(ActivityHandlerMixin):
             self.log.info("Teams app started successfully")
             self._events.emit("start", StartEvent(port=self._port))
 
-            tasks.append(self.server.start(self._port))
+            tasks.append(self.server.adapter.start(self._port))
             await asyncio.gather(*tasks)
 
         except (asyncio.CancelledError, KeyboardInterrupt):
@@ -268,7 +268,7 @@ class App(ActivityHandlerMixin):
         """Stop the Teams application."""
         try:
             # Stop HTTP server first
-            await self.server.stop()
+            await self.server.adapter.stop()
 
             # Stop all plugins
             for plugin in reversed(self.plugins):
@@ -463,7 +463,7 @@ class App(ActivityHandlerMixin):
             app.page("customform", os.path.join(os.path.dirname(__file__), "views", "customform"), "/tabs/dialog-form")
             ```
         """
-        self.server.serve_static(page_path or f"/{name}", dir_path)
+        self.server.adapter.serve_static(page_path or f"/{name}", dir_path)
 
     def tab(self, name: str, path: str) -> None:
         """
@@ -517,7 +517,7 @@ class App(ActivityHandlerMixin):
                 result = await func(ctx)
                 return HttpResponse(status=200, body=result)
 
-            self.server.register_route("POST", f"/api/functions/{endpoint_name}", handler)
+            self.server.adapter.register_route("POST", f"/api/functions/{endpoint_name}", handler)
             return func
 
         # Direct decoration: @app.func
