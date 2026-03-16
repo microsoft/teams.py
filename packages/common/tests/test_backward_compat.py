@@ -69,6 +69,8 @@ def test_deprecation_warning_message_content():
     with warnings.catch_warnings(record=True) as w:
         warnings.simplefilter("always")
 
+        from microsoft.teams.common import Client  # noqa: F401
+
         assert len(w) >= 1, f"Expected deprecation warning, got {len(w)} warnings"
         warning_msg = str(w[0].message)
 
