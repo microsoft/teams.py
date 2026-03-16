@@ -69,8 +69,6 @@ def test_deprecation_warning_message_content():
     with warnings.catch_warnings(record=True) as w:
         warnings.simplefilter("always")
 
-        from microsoft.teams.common import ConsoleLogger  # noqa: F401
-
         assert len(w) >= 1, f"Expected deprecation warning, got {len(w)} warnings"
         warning_msg = str(w[0].message)
 
@@ -89,9 +87,8 @@ def test_deprecation_warning_message_content():
 
 def test_old_namespace_exports_all():
     """Old namespace exports all classes from new namespace"""
-    from microsoft.teams.common import Client, ConsoleLogger, EventEmitter
+    from microsoft.teams.common import Client, EventEmitter
 
     # All exports should work
-    assert ConsoleLogger is not None
     assert Client is not None
     assert EventEmitter is not None

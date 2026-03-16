@@ -3,9 +3,7 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-import warnings
 from dataclasses import dataclass, field
-from logging import Logger
 from typing import Any, Awaitable, Callable, List, Optional, TypedDict, Union, cast
 
 from microsoft_teams.api import ApiClientSettings
@@ -38,7 +36,6 @@ class AppOptions(TypedDict, total=False):
     """
 
     # Infrastructure
-    logger: Optional[Logger]
     storage: Optional[Storage[str, Any]]
     plugins: Optional[List[PluginBase]]
     skip_auth: Optional[bool]
@@ -88,7 +85,6 @@ class InternalAppOptions:
     If set to a different client ID than client_id, triggers Federated Identity Credentials with user-assigned MI.
     If not set or equals client_id, uses direct managed identity (no federation).
     """
-    logger: Optional[Logger] = None
     storage: Optional[Storage[str, Any]] = None
     service_url: Optional[str] = None
     """
@@ -96,27 +92,6 @@ class InternalAppOptions:
     Uses environment variable SERVICE_URL if not provided
     and defaults to https://smba.trafficmanager.net/teams
     """
-
-    @classmethod
-    def from_typeddict(cls, options: AppOptions) -> "InternalAppOptions":
-        """
-        Create InternalAppOptions from AppOptions TypedDict with defaults applied.
-
-        Args:
-            options: AppOptions TypedDict (potentially with None values)
-
-        Returns:
-            InternalAppOptions with proper defaults and non-nullable required fields
-        """
-        kwargs: dict[str, Any] = {k: v for k, v in options.items() if v is not None}
-        if "logger" in kwargs:
-            warnings.warn(
-                "The 'logger' option is deprecated and will be removed in version 2.0.0 GA. "
-                "Use standard Python logging (logging.getLogger(__name__)) instead.",
-                DeprecationWarning,
-                stacklevel=3,
-            )
-        return cls(**kwargs)
 
 
 def merge_app_options_with_defaults(**options: Unpack[AppOptions]) -> AppOptions:

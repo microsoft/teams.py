@@ -6,9 +6,7 @@ Licensed under the MIT License.
 from __future__ import annotations
 
 import logging
-import warnings
 from dataclasses import dataclass
-from logging import Logger
 from typing import Generic, Optional, TypeVar
 
 from microsoft_teams.api import (
@@ -49,27 +47,8 @@ class FunctionContext(ClientContext, Generic[T]):
     http: HttpPlugin
     """The HTTP plugin instance for sending messages."""
 
-    log: Logger
-    """
-    The app logger instance.
-
-    DEPRECATED:
-    This method of setting the logger is deprecated and will be removed in version 2.0.0 GA.
-    Please update your imports to use the standard Python logging library instead.
-    """
-
     data: T
     """The function payload."""
-
-    def __getattribute__(self, name: str) -> object:
-        if name == "log":
-            warnings.warn(
-                "FunctionContext.log is deprecated and will be removed in version 2.0.0 GA. "
-                "Use standard Python logging (logging.getLogger(__name__)) instead.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
-        return super().__getattribute__(name)
 
     async def send(self, activity: str | ActivityParams | AdaptiveCard) -> Optional[SentActivity]:
         """
