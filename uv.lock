@@ -15,6 +15,7 @@ members = [
     "dialogs",
     "echo",
     "graph",
+    "http-adapters",
     "mcp-client",
     "mcp-server",
     "meetings",
@@ -31,6 +32,7 @@ members = [
     "microsoft-teams-mcpplugin",
     "microsoft-teams-openai",
     "oauth",
+    "proactive-messaging",
     "reactions",
     "stream",
     "tab",
@@ -1169,6 +1171,29 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/2c/48/71de9ed269fdae9c8057e5a4c0aa7402e8bb16f2c6e90b3aa53327b113f8/hpack-4.1.0.tar.gz", hash = "sha256:ec5eca154f7056aa06f196a557655c5b009b382873ac8d1e66e79e87535f1dca", size = 51276, upload-time = "2025-01-22T21:44:58.347Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/07/c6/80c95b1b2b94682a72cbdbfb85b81ae2daffa4291fbfa1b1464502ede10d/hpack-4.1.0-py3-none-any.whl", hash = "sha256:157ac792668d995c657d93111f46b4535ed114f0c9c8d672271bbec7eae1b496", size = 34357, upload-time = "2025-01-22T21:44:56.92Z" },
+]
+
+[[package]]
+name = "http-adapters"
+version = "0.1.0"
+source = { virtual = "examples/http-adapters" }
+dependencies = [
+    { name = "dotenv" },
+    { name = "httptools" },
+    { name = "microsoft-teams-api" },
+    { name = "microsoft-teams-apps" },
+    { name = "starlette" },
+    { name = "uvicorn" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "dotenv", specifier = ">=0.9.9" },
+    { name = "httptools" },
+    { name = "microsoft-teams-api", editable = "packages/api" },
+    { name = "microsoft-teams-apps", editable = "packages/apps" },
+    { name = "starlette" },
+    { name = "uvicorn" },
 ]
 
 [[package]]
@@ -2445,6 +2470,21 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/ff/29/7cf5bbc236333876e4b41f56e06857a87937ce4bf91e117a6991a2dbb02a/pre_commit-4.3.0.tar.gz", hash = "sha256:499fe450cc9d42e9d58e606262795ecb64dd05438943c62b66f6a8673da30b16", size = 193792, upload-time = "2025-08-09T18:56:14.651Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/5b/a5/987a405322d78a73b66e39e4a90e4ef156fd7141bf71df987e50717c321b/pre_commit-4.3.0-py2.py3-none-any.whl", hash = "sha256:2b0747ad7e6e967169136edffee14c16e148a778a54e4f967921aa1ebf2308d8", size = 220965, upload-time = "2025-08-09T18:56:13.192Z" },
+]
+
+[[package]]
+name = "proactive-messaging"
+version = "0.1.0"
+source = { virtual = "examples/proactive-messaging" }
+dependencies = [
+    { name = "dotenv" },
+    { name = "microsoft-teams-apps" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "dotenv", specifier = ">=0.9.9" },
+    { name = "microsoft-teams-apps", editable = "packages/apps" },
 ]
 
 [[package]]

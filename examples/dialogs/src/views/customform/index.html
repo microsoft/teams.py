@@ -3,7 +3,7 @@
 <head>
   <title>Microsoft Teams Task Module Demo</title>
   <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css">
-  <script src="https://statics.teams.cdn.office.net/sdk/v1.11.0/js/MicrosoftTeams.min.js"></script>
+  <script src="https://res.cdn.office.net/teams-js/2.31.1/js/MicrosoftTeams.min.js"></script>
   <style>
     body { margin: 0; padding: 10px; }
     .form-group { margin-bottom: 10px; }
@@ -25,17 +25,21 @@
   </div>
 
   <script>
-    microsoftTeams.initialize();
-    
-    document.getElementById('customForm').addEventListener('submit', function(event) {
-      event.preventDefault();
-      let formData = {
-        name: document.getElementById('name').value,
-        email: document.getElementById('email').value,
-        submissiondialogtype: 'webpage_dialog'
-      };
-      microsoftTeams.tasks.submitTask(formData);
-    });
+    async function init() {
+      await microsoftTeams.app.initialize();
+
+      document.getElementById('customForm').addEventListener('submit', function(event) {
+        event.preventDefault();
+        let formData = {
+          name: document.getElementById('name').value,
+          email: document.getElementById('email').value,
+          submissiondialogtype: 'webpage_dialog'
+        };
+        microsoftTeams.dialog.url.submit(formData);
+      });
+    }
+
+    init();
   </script>
 </body>
 </html>

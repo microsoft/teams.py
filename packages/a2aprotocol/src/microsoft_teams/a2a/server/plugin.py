@@ -9,7 +9,8 @@ from typing import Annotated, Any, Awaitable, Callable, List, Optional
 from microsoft_teams.apps import (
     DependencyMetadata,
     EventMetadata,
-    HttpPlugin,
+    FastAPIAdapter,
+    HttpServer,
     Plugin,
     PluginBase,
 )
@@ -30,7 +31,7 @@ logger = logging.getLogger(__name__)
 
 @Plugin(name="a2a", version="0.3.7", description="A2A Server Plugin")
 class A2APlugin(PluginBase):
-    http: Annotated[HttpPlugin, DependencyMetadata()]
+    http_server: Annotated[HttpServer, DependencyMetadata()]
 
     emit: Annotated[Callable[[str, A2AMessageEvent], Awaitable[None]], EventMetadata(name="custom")]
 
@@ -76,7 +77,10 @@ class A2APlugin(PluginBase):
         logger.info(f"A2A agent set up at {self.agent_card_path}")
         logger.info(f"A2A agent listening at {self.path}")
 
-        self.http.app.mount(self.path, self.app)
+        adapter = self.http_server.adapter
+        if not isinstance(adapter, FastAPIAdapter):
+            raise RuntimeError("A2APlugin requires FastAPIAdapter. Custom adapters are not supported.")
+        adapter.app.mount(self.path, self.app)
 
     def _setup_executor(self) -> AgentExecutor:
         return CustomAgentExecutor(self.emit)
