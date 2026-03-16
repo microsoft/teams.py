@@ -142,7 +142,7 @@ class DevToolsPlugin(PluginBase):
                         del self.pending[activity.id]
                 return result
 
-            router.include_router(get_router(RouteContext(port=self._port, log=logger, process=process)))
+            router.include_router(get_router(RouteContext(port=self._port, process=process)))
             self.app.include_router(router)
 
             config = uvicorn.Config(app=self.app, host="0.0.0.0", port=self._port, log_level="info")
