@@ -3,7 +3,6 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-import logging
 from typing import Any, Awaitable, Callable, TypeVar, Union
 
 from httpx import Request, Response
@@ -13,15 +12,13 @@ D = TypeVar("D")
 
 
 class InterceptorRequestContext:
-    def __init__(self, request: Request, log: logging.Logger):
+    def __init__(self, request: Request):
         self.request = request
-        self.log = log
 
 
 class InterceptorResponseContext:
-    def __init__(self, response: Response, log: logging.Logger):
+    def __init__(self, response: Response):
         self.response = response
-        self.log = log
 
 
 RequestInterceptor = Callable[[InterceptorRequestContext], Union[Any, Awaitable[Any]]]

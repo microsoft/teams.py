@@ -4,7 +4,6 @@ Licensed under the MIT License.
 """
 # pyright: basic
 
-from logging import Logger
 from typing import Annotated, Callable
 from unittest.mock import AsyncMock, MagicMock
 
@@ -29,10 +28,6 @@ from typing_extensions import Any
 
 class TestPluginProcessor:
     """Test cases for PluginProcessor class."""
-
-    @pytest.fixture
-    def mock_logger(self):
-        return MagicMock(spec=Logger)
 
     @pytest.fixture
     def container(self):
