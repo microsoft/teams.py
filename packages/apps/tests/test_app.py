@@ -145,7 +145,7 @@ class TestApp:
         await app_with_options.stop()
 
     @pytest.mark.asyncio
-    async def test_app_start_with_multiple_plugins_cancelled(self, mock_logger, mock_storage):
+    async def test_app_start_with_multiple_plugins_cancelled(self, mock_storage):
         @Plugin(name="PluginTwo", version="1.0", description="plugin")
         class PluginTwo(PluginBase):
             def __init__(self):
@@ -161,7 +161,6 @@ class TestApp:
         plugin_two = PluginTwo()
 
         options = AppOptions(
-            logger=mock_logger,
             storage=mock_storage,
             client_id="test-client-id",
             client_secret="test-secret",
@@ -187,7 +186,6 @@ class TestApp:
         except asyncio.CancelledError:
             pass
 
-        mock_logger.info.assert_any_call("Teams app shutting down")
         assert plugin_two.stop_called, "plugin two on_stop was called."
 
     # Event Testing - Focus on functional behavior

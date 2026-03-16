@@ -386,7 +386,7 @@ class Client:
 
                 def _make_request_wrapper(h: Interceptor) -> Callable[[Request], Awaitable[None]]:
                     async def wrapper(request: Request) -> None:
-                        ctx = InterceptorRequestContext(request, logger)
+                        ctx = InterceptorRequestContext(request)
                         result = h.request(ctx)
                         if inspect.isawaitable(result):
                             await result
@@ -398,7 +398,7 @@ class Client:
 
                 def _make_response_wrapper(h: Interceptor) -> Callable[[Response], Awaitable[None]]:
                     async def wrapper(response: Response) -> None:
-                        ctx = InterceptorResponseContext(response, logger)
+                        ctx = InterceptorResponseContext(response)
                         result = h.response(ctx)
                         if inspect.isawaitable(result):
                             await result

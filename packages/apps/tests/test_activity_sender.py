@@ -24,7 +24,7 @@ class TestActivitySender:
     def sender(self):
         """Create an ActivitySender for testing."""
         mock_client = MagicMock()
-        return ActivitySender(client=mock_client, logger=MagicMock())
+        return ActivitySender(client=mock_client)
 
     @pytest.fixture
     def conversation_ref(self):
