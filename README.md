@@ -105,6 +105,7 @@ cookiecutter templates/test -o tests
 - [`@examples/ai-test`](./examples/ai-test/README.md)
 - [`@examples/stream`](./examples/stream/README.md)
 - [`@examples/oauth`](./examples/oauth/README.md)
+- [`@examples/meetings`](./examples/meetings/README.md)
 
 ## Links
 

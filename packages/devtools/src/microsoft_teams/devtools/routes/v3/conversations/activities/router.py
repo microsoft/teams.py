@@ -15,7 +15,7 @@ def get_router(context: RouteContext):
     # Define the POST route
     @router.post("")
     async def create_endpoint(request: Request, response: Response):  # type: ignore
-        updated_context = RouteContext(port=context.port, log=context.log.getChild("create"), process=context.process)
+        updated_context = RouteContext(port=context.port, process=context.process)
         handler = await create(updated_context)
         return await handler(request, response)
 

@@ -10,7 +10,8 @@ from ..custom_base_model import CustomBaseModel
 
 class Meeting(CustomBaseModel):
     """
-    Meeting details.
+    A participant's meeting-specific details, including their
+    role and current presence status within the meeting.
     """
 
     role: Optional[str] = None

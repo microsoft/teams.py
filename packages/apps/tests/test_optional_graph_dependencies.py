@@ -18,24 +18,23 @@ class TestOptionalGraphDependencies:
         """Create a minimal ActivityContext for testing."""
         # Create mock objects for all required parameters
         mock_activity = MagicMock()
-        mock_logger = MagicMock()
         mock_storage = MagicMock()
         mock_api = MagicMock()
         mock_conversation_ref = MagicMock()
-        mock_sender = MagicMock()
+        mock_activity_sender = MagicMock()
+        mock_activity_sender.create_stream.return_value = MagicMock()
         mock_app_token = MagicMock()  # Provide an app token for graph access
 
         return ActivityContext(
             activity=mock_activity,
             app_id="test-app-id",
-            logger=mock_logger,
             storage=mock_storage,
             api=mock_api,
             user_token=None,
             conversation_ref=mock_conversation_ref,
             is_signed_in=False,
             connection_name="test-connection",
-            sender=mock_sender,
+            activity_sender=mock_activity_sender,
             app_token=mock_app_token,  # This is needed for app_graph to work
         )
 
@@ -76,14 +75,13 @@ class TestOptionalGraphDependencies:
         activity_context = ActivityContext(
             activity=MagicMock(),
             app_id="test-app-id",
-            logger=MagicMock(),
             storage=MagicMock(),
             api=MagicMock(),
             user_token=MagicMock(),  # Has token but not signed in
             conversation_ref=MagicMock(),
             is_signed_in=False,  # Not signed in
             connection_name="test-connection",
-            sender=MagicMock(),
+            activity_sender=MagicMock(),
             app_token=None,
         )
 
@@ -96,14 +94,13 @@ class TestOptionalGraphDependencies:
         activity_context = ActivityContext(
             activity=MagicMock(),
             app_id="test-app-id",
-            logger=MagicMock(),
             storage=MagicMock(),
             api=MagicMock(),
             user_token=None,  # No token
             conversation_ref=MagicMock(),
             is_signed_in=True,  # Signed in but no token
             connection_name="test-connection",
-            sender=MagicMock(),
+            activity_sender=MagicMock(),
             app_token=None,
         )
 
@@ -116,14 +113,13 @@ class TestOptionalGraphDependencies:
         activity_context = ActivityContext(
             activity=MagicMock(),
             app_id="test-app-id",
-            logger=MagicMock(),
             storage=MagicMock(),
             api=MagicMock(),
             user_token=None,
             conversation_ref=MagicMock(),
             is_signed_in=False,
             connection_name="test-connection",
-            sender=MagicMock(),
+            activity_sender=MagicMock(),
             app_token=None,  # No app token
         )
 

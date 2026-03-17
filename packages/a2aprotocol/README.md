@@ -18,6 +18,12 @@ Enables Teams agents to communicate and collaborate with other AI agents using s
 ## Installation
 
 ```bash
+pip install microsoft-teams-a2a
+```
+
+Or if using uv:
+
+```bash
 uv add microsoft-teams-a2a
 ```
 

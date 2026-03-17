@@ -4,7 +4,6 @@ Licensed under the MIT License.
 """
 
 from dataclasses import dataclass, field
-from logging import Logger
 from typing import Any, Callable, List, Optional, TypedDict, Union
 
 from a2a.client import Client
@@ -62,8 +61,6 @@ class A2AClientPluginOptions(TypedDict, total=False):
     "Optional function to customize the message format sent to each agent."
     build_message_from_agent_response: Optional[BuildMessageFromAgentResponse]
     "Optional function to customize how agent responses are processed into strings."
-    logger: Optional[Logger]
-    "The associated logger"
 
 
 @dataclass
@@ -75,7 +72,6 @@ class InternalA2AClientPluginOptions:
     build_prompt: Optional[BuildPrompt] = None
     build_message_for_agent: Optional[BuildMessageForAgent] = None
     build_message_from_agent_response: Optional[BuildMessageFromAgentResponse] = None
-    logger: Optional[Logger] = None
 
     @classmethod
     def from_typed_dict(cls, options: A2AClientPluginOptions) -> "InternalA2AClientPluginOptions":

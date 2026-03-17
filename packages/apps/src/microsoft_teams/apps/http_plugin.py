@@ -3,10 +3,10 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-import asyncio
 import importlib.metadata
+import inspect
+import logging
 from contextlib import AsyncExitStack, asynccontextmanager
-from logging import Logger
 from pathlib import Path
 from types import SimpleNamespace
 from typing import (
@@ -27,68 +27,54 @@ import uvicorn
 from fastapi import FastAPI, Request, Response
 from fastapi.staticfiles import StaticFiles
 from microsoft_teams.api import (
-    Activity,
-    ActivityParams,
-    ActivityTypeAdapter,
-    ApiClient,
-    ConversationReference,
     Credentials,
     InvokeResponse,
-    SentActivity,
     TokenProtocol,
 )
-from microsoft_teams.apps.http_stream import HttpStream
-from microsoft_teams.common import Client, ClientOptions, ConsoleLogger, Token
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel
 from starlette.applications import Starlette
 from starlette.types import Lifespan
 
 from .auth import create_jwt_validation_middleware
-from .events import ActivityEvent, ErrorEvent
+from .events import ActivityEvent, CoreActivity, ErrorEvent
 from .plugins import (
     DependencyMetadata,
     EventMetadata,
-    LoggerDependencyOptions,
     PluginActivityResponseEvent,
+    PluginBase,
     PluginStartEvent,
-    Sender,
-    StreamerProtocol,
 )
 from .plugins.metadata import Plugin
 
 version = importlib.metadata.version("microsoft-teams-apps")
 
+logger = logging.getLogger(__name__)
+
 
 class HttpPluginOptions(TypedDict, total=False):
     """Options for configuring the HTTP plugin."""
 
-    logger: Logger
     skip_auth: bool
     server_factory: Callable[[FastAPI], uvicorn.Server]
 
 
-@Plugin(name="http", version=version, description="the default plugin for sending/receiving activities")
-class HttpPlugin(Sender):
+@Plugin(name="http", version=version, description="the default plugin for receiving activities via HTTP")
+class HttpPlugin(PluginBase):
     """
     Basic HTTP plugin that provides a FastAPI server for Teams activities.
+    Handles HTTP server setup, routing, and authentication.
     """
 
-    logger: Annotated[Logger, LoggerDependencyOptions()]
     credentials: Annotated[Optional[Credentials], DependencyMetadata(optional=True)]
 
     on_error_event: Annotated[Callable[[ErrorEvent], None], EventMetadata(name="error")]
     on_activity_event: Annotated[Callable[[ActivityEvent], InvokeResponse[Any]], EventMetadata(name="activity")]
-
-    client: Annotated[Client, DependencyMetadata()]
-
-    bot_token: Annotated[Optional[Callable[[], Token]], DependencyMetadata(optional=True)]
 
     lifespans: list[Lifespan[Starlette]] = []
 
     def __init__(self, **options: Unpack[HttpPluginOptions]):
         """
         Args:
-            logger: Optional logger.
             skip_auth: Whether to skip JWT validation.
             server_factory: Optional function that takes an ASGI app
                 and returns a configured `uvicorn.Server`.
@@ -102,7 +88,6 @@ class HttpPlugin(Sender):
                 ```
         """
         super().__init__()
-        self.logger = options.get("logger") or ConsoleLogger().create_logger("@teams/http-plugin")
         self._port: Optional[int] = None
         self._skip_auth: bool = options.get("skip_auth", False)
         self._server: Optional[uvicorn.Server] = None
@@ -113,12 +98,12 @@ class HttpPlugin(Sender):
         @asynccontextmanager
         async def default_lifespan(_app: Starlette) -> AsyncGenerator[None, None]:
             # Startup
-            self.logger.info(f"listening on port {self._port} 🚀")
+            logger.info(f"listening on port {self._port} 🚀")
             if self._on_ready_callback:
                 await self._on_ready_callback()
             yield
             # Shutdown
-            self.logger.info("Server shutting down")
+            logger.info("Server shutting down")
             if self._on_stopped_callback:
                 await self._on_stopped_callback()
 
@@ -182,9 +167,7 @@ class HttpPlugin(Sender):
         # Add JWT validation middleware
         app_id = getattr(self.credentials, "client_id", None)
         if app_id and not self._skip_auth:
-            jwt_middleware = create_jwt_validation_middleware(
-                app_id=app_id, logger=self.logger, paths=["/api/messages"]
-            )
+            jwt_middleware = create_jwt_validation_middleware(app_id=app_id, paths=["/api/messages"])
             self.app.middleware("http")(jwt_middleware)
 
     async def on_start(self, event: PluginStartEvent) -> None:
@@ -193,7 +176,7 @@ class HttpPlugin(Sender):
 
         try:
             if self._server and self._server.config.port != self._port:
-                self.logger.warning(
+                logger.warning(
                     "Using port configured by server factory: %d, but plugin start event has port %d.",
                     self._server.config.port,
                     self._port,
@@ -203,23 +186,23 @@ class HttpPlugin(Sender):
                 config = uvicorn.Config(app=self.app, host="0.0.0.0", port=self._port, log_level="info")
                 self._server = uvicorn.Server(config)
 
-            self.logger.info("Starting HTTP server on port %d", self._port)
+            logger.info("Starting HTTP server on port %d", self._port)
 
             # The lifespan handler will call the callback when the server is ready
             await self._server.serve()
 
         except OSError as error:
             # Handle port in use, permission errors, etc.
-            self.logger.error("Server startup failed: %s", error)
+            logger.error("Server startup failed: %s", error)
             raise
         except Exception as error:
-            self.logger.error("Failed to start server: %s", error)
+            logger.error("Failed to start server: %s", error)
             raise
 
     async def on_stop(self) -> None:
         """Stop the HTTP server."""
         if self._server:
-            self.logger.info("Stopping HTTP server")
+            logger.info("Stopping HTTP server")
             self._server.should_exit = True
 
     async def on_activity_response(self, event: PluginActivityResponseEvent) -> None:
@@ -234,89 +217,29 @@ class HttpPlugin(Sender):
             response_data: The response data to send back
             plugin: The plugin that sent the response
         """
-        self.logger.debug(f"Completing activity response for {event.activity.id}")
+        logger.debug(f"Completing activity response for {event.activity.id}")
 
-    async def send(self, activity: ActivityParams, ref: ConversationReference) -> SentActivity:
-        api = ApiClient(service_url=ref.service_url, options=self.client.clone(ClientOptions(token=self.bot_token)))
-
-        activity.from_ = ref.bot
-        activity.conversation = ref.conversation
-
-        if hasattr(activity, "id") and activity.id:
-            res = await api.conversations.activities(ref.conversation.id).update(activity.id, activity)
-            return SentActivity.merge(activity, res)
-
-        res = await api.conversations.activities(ref.conversation.id).create(activity)
-        return SentActivity.merge(activity, res)
-
-    async def _process_activity(
-        self, activity: Activity, activity_id: str, token: TokenProtocol
-    ) -> InvokeResponse[Any]:
+    async def _process_activity(self, core_activity: CoreActivity, token: TokenProtocol) -> InvokeResponse[Any]:
         """
         Process an activity via the registered handler.
 
         Args:
-            activity: The Teams activity data
+            core_activity: The core activity payload
             token: The authorization token (if any)
-            activity_id: The activity ID for response coordination
         """
         result: InvokeResponse[Any]
         try:
-            event = ActivityEvent(activity=activity, sender=self, token=token)
-            if asyncio.iscoroutinefunction(self.on_activity_event):
+            event = ActivityEvent(body=core_activity, token=token)
+            if inspect.iscoroutinefunction(self.on_activity_event):
                 result = await self.on_activity_event(event)
             else:
                 result = self.on_activity_event(event)
         except Exception as error:
             # Log with full traceback
-            self.logger.exception(str(error))
+            logger.exception(str(error))
             result = InvokeResponse(status=500)
 
         return result
-
-    async def _handle_activity_request(self, request: Request) -> Any:
-        """
-        Process the activity request and coordinate response.
-
-        Args:
-            request: The FastAPI request object (token is in request.state.validated_token)
-
-        Returns:
-            The activity processing result
-        """
-        # Parse activity data
-        body = await request.json()
-
-        # Get validated token from middleware (if present - will be missing if skip_auth is True)
-        if hasattr(request.state, "validated_token") and request.state.validated_token:
-            token = request.state.validated_token
-        else:
-            token = cast(
-                TokenProtocol,
-                SimpleNamespace(
-                    app_id="",
-                    app_display_name="",
-                    tenant_id="",
-                    service_url=body.get("serviceUrl", ""),
-                    from_="azure",
-                    from_id="",
-                    is_expired=lambda: False,
-                ),
-            )
-
-        activity_type = body.get("type", "unknown")
-        activity_id = body.get("id", "unknown")
-
-        self.logger.debug(f"Received activity: {activity_type} (ID: {activity_id})")
-
-        try:
-            activity = ActivityTypeAdapter.validate_python(body)
-        except ValidationError as e:
-            self.logger.error(e.errors())
-            raise
-
-        self.logger.debug(f"Processing activity {activity_id} via handler...")
-        return await self._process_activity(activity, activity_id, token)
 
     def _handle_activity_response(self, response: Response, result: Any) -> Union[Response, Dict[str, object]]:
         """
@@ -348,15 +271,38 @@ class HttpPlugin(Sender):
             response.status_code = status_code
 
         if body is not None:
-            self.logger.debug(f"Returning body {body}")
+            logger.debug(f"Returning body {body}")
             return body
-        self.logger.debug("Returning empty body")
+        logger.debug("Returning empty body")
         return response
 
-    async def on_activity_request(self, request: Request, response: Response) -> Any:
+    async def on_activity_request(self, core_activity: CoreActivity, request: Request, response: Response) -> Any:
         """Handle incoming Teams activity."""
-        # Process the activity (token validation handled by middleware)
-        result = await self._handle_activity_request(request)
+        # Get validated token from middleware (if present - will be missing if skip_auth is True)
+        if hasattr(request.state, "validated_token") and request.state.validated_token:
+            token = request.state.validated_token
+        else:
+            token = cast(
+                TokenProtocol,
+                SimpleNamespace(
+                    app_id="",
+                    app_display_name="",
+                    tenant_id="",
+                    service_url=core_activity.service_url or "",
+                    from_="azure",
+                    from_id="",
+                    is_expired=lambda: False,
+                ),
+            )
+
+        activity_type = core_activity.type or "unknown"
+        activity_id = core_activity.id or "unknown"
+
+        logger.debug(f"Received activity: {activity_type} (ID: {activity_id})")
+        logger.debug(f"Processing activity {activity_id} via handler...")
+
+        # Process the activity
+        result = await self._process_activity(core_activity, token)
         return self._handle_activity_response(response, result)
 
     def _setup_routes(self) -> None:
@@ -369,13 +315,6 @@ class HttpPlugin(Sender):
             return {"status": "healthy", "port": self._port}
 
         self.app.get("/")(health_check)
-
-    def create_stream(self, ref: ConversationReference) -> StreamerProtocol:
-        """Create a new streaming instance."""
-
-        api = ApiClient(ref.service_url, self.client.clone(ClientOptions(token=self.bot_token)))
-
-        return HttpStream(api, ref, self.logger)
 
     def mount(self, name: str, dir_path: Path | str, page_path: Optional[str] = None) -> None:
         """

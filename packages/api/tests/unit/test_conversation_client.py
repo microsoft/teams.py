@@ -10,7 +10,7 @@ from microsoft_teams.api.clients.conversation.params import (
     CreateConversationParams,
     GetConversationsParams,
 )
-from microsoft_teams.api.models import TeamsChannelAccount
+from microsoft_teams.api.models import ConversationResource, TeamsChannelAccount
 from microsoft_teams.common.http import Client, ClientOptions
 
 
@@ -64,7 +64,7 @@ class TestConversationClient:
 
     @pytest.mark.asyncio
     async def test_create_conversation(self, mock_http_client, mock_account, mock_activity):
-        """Test creating a conversation."""
+        """Test creating a conversation with an activity."""
         service_url = "https://test.service.url"
         client = ConversationClient(service_url, mock_http_client)
 
@@ -83,6 +83,74 @@ class TestConversationClient:
         assert response.id is not None
         assert response.activity_id is not None
         assert response.service_url is not None
+
+    @pytest.mark.asyncio
+    async def test_create_conversation_without_activity(self, mock_http_client, mock_account):
+        """Test creating a conversation without an activity."""
+        service_url = "https://test.service.url"
+        client = ConversationClient(service_url, mock_http_client)
+
+        params = CreateConversationParams(
+            is_group=True,
+            bot=mock_account,
+            members=[mock_account],
+            topic_name="Test Conversation",
+            tenant_id="test_tenant_id",
+        )
+
+        response = await client.create(params)
+
+        assert response.id is not None
+        assert response.activity_id is None
+        assert response.service_url is not None
+
+    def test_conversation_resource_with_all_fields(self):
+        """Test that ConversationResource correctly handles all fields present."""
+        resource = ConversationResource.model_validate(
+            {
+                "id": "test_id",
+                "activityId": "test_activity",
+                "serviceUrl": "https://test.url",
+            }
+        )
+        assert resource.id == "test_id"
+        assert resource.activity_id == "test_activity"
+        assert resource.service_url == "https://test.url"
+
+    def test_conversation_resource_without_activity_id(self):
+        """Test that ConversationResource handles missing activityId."""
+        resource = ConversationResource.model_validate(
+            {
+                "id": "test_id",
+                "serviceUrl": "https://test.url",
+            }
+        )
+        assert resource.id == "test_id"
+        assert resource.activity_id is None
+        assert resource.service_url == "https://test.url"
+
+    def test_conversation_resource_without_service_url(self):
+        """Test that ConversationResource handles missing serviceUrl."""
+        resource = ConversationResource.model_validate(
+            {
+                "id": "test_id",
+                "activityId": "test_activity",
+            }
+        )
+        assert resource.id == "test_id"
+        assert resource.activity_id == "test_activity"
+        assert resource.service_url is None
+
+    def test_conversation_resource_with_only_required_fields(self):
+        """Test that ConversationResource handles only the required id field."""
+        resource = ConversationResource.model_validate(
+            {
+                "id": "test_id",
+            }
+        )
+        assert resource.id == "test_id"
+        assert resource.activity_id is None
+        assert resource.service_url is None
 
     def test_activities_operations(self, mock_http_client):
         """Test activities operations object creation."""
@@ -196,7 +264,7 @@ class TestConversationMemberOperations:
         assert isinstance(result[0], TeamsChannelAccount)
         assert result[0].id == "mock_member_id"
         assert result[0].name == "Mock Member"
-        assert result[0].object_id == "mock_object_id"
+        assert result[0].aad_object_id == "mock_aad_object_id"
 
     async def test_member_get(self, mock_http_client):
         """Test getting a specific member returns TeamsChannelAccount instance."""
@@ -213,7 +281,7 @@ class TestConversationMemberOperations:
         assert isinstance(result, TeamsChannelAccount)
         assert result.id == "mock_member_id"
         assert result.name == "Mock Member"
-        assert result.object_id == "mock_object_id"
+        assert result.aad_object_id == "mock_aad_object_id"
 
     async def test_member_delete(self, mock_http_client):
         """Test deleting a member."""
@@ -254,3 +322,46 @@ class TestConversationClientHttpClientSharing:
 
         assert client.activities_client.http == new_http_client
         assert client.members_client.http == new_http_client
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+class TestTargetedActivityOperations:
+    """Unit tests for targeted activity operations."""
+
+    async def test_activity_create_targeted(self, mock_http_client, mock_activity):
+        """Test creating a targeted activity."""
+        service_url = "https://test.service.url"
+        client = ConversationClient(service_url, mock_http_client)
+
+        conversation_id = "test_conversation_id"
+        activities = client.activities(conversation_id)
+
+        result = await activities.create_targeted(mock_activity)
+
+        assert result is not None
+
+    async def test_activity_update_targeted(self, mock_http_client, mock_activity):
+        """Test updating a targeted activity."""
+        service_url = "https://test.service.url"
+        client = ConversationClient(service_url, mock_http_client)
+
+        conversation_id = "test_conversation_id"
+        activity_id = "test_activity_id"
+        activities = client.activities(conversation_id)
+
+        result = await activities.update_targeted(activity_id, mock_activity)
+
+        assert result is not None
+
+    async def test_activity_delete_targeted(self, mock_http_client):
+        """Test deleting a targeted activity."""
+        service_url = "https://test.service.url"
+        client = ConversationClient(service_url, mock_http_client)
+
+        conversation_id = "test_conversation_id"
+        activity_id = "test_activity_id"
+        activities = client.activities(conversation_id)
+
+        # Should not raise an exception
+        await activities.delete_targeted(activity_id)

@@ -34,7 +34,6 @@ coverage.xml
 
 ref/
 py.typed
-CLAUDE.md
 
 .env.claude/
 .claude/

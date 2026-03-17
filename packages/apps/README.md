@@ -64,11 +64,13 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
 Microsoft Graph functionality requires additional dependencies:
 
 ```bash
-# Recommended: Using uv
-uv add microsoft-teams-apps[graph]
-
-# Alternative: Using pip
 pip install microsoft-teams-apps[graph]
+```
+
+Or if using uv:
+
+```bash
+uv add microsoft-teams-apps[graph]
 ```
 
 If Graph dependencies are not installed, `user_graph` and `app_graph` will raise an `ImportError` when accessed. If the user is not signed in or tokens are unavailable, they will raise `ValueError`.

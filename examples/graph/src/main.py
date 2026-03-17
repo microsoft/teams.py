@@ -10,11 +10,17 @@ import os
 from azure.core.exceptions import ClientAuthenticationError
 from microsoft_teams.api import MessageActivity
 from microsoft_teams.apps import ActivityContext, App, AppOptions, ErrorEvent, SignInEvent
+from microsoft_teams.common import ConsoleFormatter
 from microsoft_teams.graph import get_graph_client
 from msgraph.generated.users.item.messages.messages_request_builder import (  # type: ignore
     MessagesRequestBuilder,
 )
 
+# Setup logging
+logging.getLogger().setLevel(logging.DEBUG)
+stream_handler = logging.StreamHandler()
+stream_handler.setFormatter(ConsoleFormatter())
+logging.getLogger().addHandler(stream_handler)
 logger = logging.getLogger(__name__)
 
 app_options = AppOptions(default_connection_name=os.getenv("CONNECTION_NAME", "graph"))
@@ -39,7 +45,7 @@ async def get_authenticated_graph_client(ctx: ActivityContext[MessageActivity]):
         return get_graph_client(ctx.user_token)
 
     except Exception as e:
-        ctx.logger.error(f"Failed to create Graph client: {e}")
+        logger.error(f"Failed to create Graph client: {e}")
         await ctx.send("🔐 Failed to create authenticated client. Please try signing in again.")
         await ctx.sign_in()
         return None
@@ -90,12 +96,12 @@ async def handle_profile_command(ctx: ActivityContext[MessageActivity]):
             await ctx.send("❌ Could not retrieve your profile information.")
 
     except ClientAuthenticationError as e:
-        ctx.logger.error(f"Authentication error: {e}")
+        logger.error(f"Authentication error: {e}")
         await ctx.send("🔐 Authentication failed. Please try signing in again.")
         await ctx.sign_in()
 
     except Exception as e:
-        ctx.logger.error(f"Error getting profile: {e}")
+        logger.error(f"Error getting profile: {e}")
         await ctx.send(f"❌ Failed to get your profile: {str(e)}")
 
 
@@ -138,11 +144,11 @@ async def handle_emails_command(ctx: ActivityContext[MessageActivity]):
             await ctx.send("📪 No recent emails found.")
 
     except ClientAuthenticationError as e:
-        ctx.logger.error(f"Authentication error: {e}")
+        logger.error(f"Authentication error: {e}")
         await ctx.send("🔐 Authentication failed. You may need additional permissions to read emails.")
 
     except Exception as e:
-        ctx.logger.error(f"Error getting emails: {e}")
+        logger.error(f"Error getting emails: {e}")
         await ctx.send(f"❌ Failed to get your emails: {str(e)}")
 
 
@@ -209,5 +215,5 @@ async def handle_error_event(event: ErrorEvent):
 
 if __name__ == "__main__":
     logger.info("Starting Teams Graph Demo Bot...")
-    port = int(os.getenv("PORT", "3979"))  # Default to 3979 if not set
+    port = int(os.getenv("PORT", "3978"))  # Default to 3978 if not set
     asyncio.run(app.start(port))

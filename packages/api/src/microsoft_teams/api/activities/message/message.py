@@ -396,3 +396,18 @@ class MessageActivityInput(_MessageBase, ActivityInputBase):
         stream_entity = StreamInfoEntity(type="streaminfo", stream_id=self.id, stream_type="final")
 
         return self.add_entity(stream_entity)
+
+    def with_recipient(self, value: Account, is_targeted: Optional[bool] = None) -> Self:
+        """
+        Set the recipient.
+
+        Args:
+            value: The recipient account
+            is_targeted: If True, marks this as a targeted message visible only to this
+                recipient. If False, explicitly clears targeting. If None (the default),
+                the existing is_targeted value is left unchanged.
+
+        Returns:
+            Self for method chaining
+        """
+        return super().with_recipient(value, is_targeted)

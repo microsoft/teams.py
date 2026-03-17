@@ -776,3 +776,33 @@ class TestMessageActivityIntegration:
 
         for activity, expected_type in activities:
             assert activity.type == expected_type
+
+    def test_with_recipient_defaults_to_not_targeted(self):
+        """Test that with_recipient without is_targeted flag leaves is_targeted unchanged"""
+        account = Account(id="user-123", name="Test User", role="user")
+        activity = MessageActivityInput(text="hello").with_recipient(account)
+
+        assert activity.is_targeted is None
+        assert activity.recipient is not None
+        assert activity.recipient.id == "user-123"
+
+    def test_with_recipient_sets_is_targeted_and_recipient(self):
+        """Test that calling with_recipient with is_targeted=True sets both properties"""
+        account = Account(id="user-123", name="Test User", role="user")
+        activity = MessageActivityInput(text="hello").with_recipient(account, is_targeted=True)
+
+        assert activity.is_targeted is True
+        assert activity.recipient is not None
+        assert activity.recipient.id == "user-123"
+        assert activity.recipient.name == "Test User"
+        assert activity.recipient.role == "user"
+
+    def test_with_recipient_maintains_fluent_chaining(self):
+        """Test that with_recipient maintains fluent API chaining"""
+        account = Account(id="user-123", name="Test User", role="user")
+        activity = MessageActivityInput(text="hello").with_recipient(account, is_targeted=True).add_text(" world")
+
+        assert activity.text == "hello world"
+        assert activity.is_targeted is True
+        assert activity.recipient is not None
+        assert activity.recipient.id == "user-123"

@@ -3,14 +3,16 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
+from __future__ import annotations
+
 from dataclasses import dataclass, field
-from logging import Logger
 from typing import Any, Awaitable, Callable, List, Optional, TypedDict, Union, cast
 
 from microsoft_teams.api import ApiClientSettings
 from microsoft_teams.common import Storage
 from typing_extensions import Unpack
 
+from .http.adapter import HttpServerAdapter
 from .plugins import PluginBase
 
 
@@ -37,10 +39,13 @@ class AppOptions(TypedDict, total=False):
     """
 
     # Infrastructure
-    logger: Optional[Logger]
     storage: Optional[Storage[str, Any]]
     plugins: Optional[List[PluginBase]]
     skip_auth: Optional[bool]
+
+    # HTTP adapter
+    http_server_adapter: Optional[HttpServerAdapter]
+    """Custom HTTP server adapter. Defaults to FastAPIAdapter if not provided."""
 
     # OAuth
     default_connection_name: Optional[str]
@@ -49,6 +54,14 @@ class AppOptions(TypedDict, total=False):
     # API Client Settings
     api_client_settings: Optional[ApiClientSettings]
     """API client settings used for overriding."""
+
+    # Service URL
+    service_url: Optional[str]
+    """
+    Base Service URL for BotBackend.
+    Uses environment variable SERVICE_URL if not provided
+    and defaults to https://smba.trafficmanager.net/teams
+    """
 
 
 @dataclass
@@ -79,8 +92,15 @@ class InternalAppOptions:
     If set to a different client ID than client_id, triggers Federated Identity Credentials with user-assigned MI.
     If not set or equals client_id, uses direct managed identity (no federation).
     """
-    logger: Optional[Logger] = None
     storage: Optional[Storage[str, Any]] = None
+    service_url: Optional[str] = None
+    """
+    Base Service URL for BotBackend.
+    Uses environment variable SERVICE_URL if not provided
+    and defaults to https://smba.trafficmanager.net/teams
+    """
+    http_server_adapter: Optional[HttpServerAdapter] = None
+    """Custom HTTP server adapter. Defaults to FastAPIAdapter if not provided."""
 
     @classmethod
     def from_typeddict(cls, options: AppOptions) -> "InternalAppOptions":

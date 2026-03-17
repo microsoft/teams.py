@@ -20,6 +20,12 @@ Provides prompt management, action planning, and model integration for building 
 ## Installation
 
 ```bash
+pip install microsoft-teams-ai
+```
+
+Or if using uv:
+
+```bash
 uv add microsoft-teams-ai
 ```
 
