@@ -151,7 +151,9 @@ def create_profile_card_input_validation() -> AdaptiveCard:
             TextInput(id="location").with_label("Location"),
             ActionSet(
                 actions=[
-                    ExecuteAction(title="Save").with_data(SubmitActionData().with_data({"action": "save_profile"})).with_associated_inputs("auto")
+                    ExecuteAction(title="Save")
+                    .with_data(SubmitData("save_profile"))
+                    .with_associated_inputs("auto")
                 ]
             ),
         ],
