@@ -22,6 +22,14 @@ class SerializableObject(BaseModel):
         if field == "from_":
             return "from"
 
+        # Handle ms_teams field which should deserialize from msteams
+        if field == "ms_teams":
+            return "msteams"
+
+        # Handle choices_data field which should deserialize from choices.data
+        if field == "choices_data":
+            return "choices.data"
+
         # All other fields are converted to camelCase
         return to_camel(field)
 
@@ -36,6 +44,14 @@ class SerializableObject(BaseModel):
         # Handles from field which is a duplicate reserved internal name
         if field == "from_":
             return "from"
+
+        # Handle ms_teams field which should serialize to msteams
+        if field == "ms_teams":
+            return "msteams"
+
+        # Handle choices_data field which should serialize to choices.data
+        if field == "choices_data":
+            return "choices.data"
 
         # All other fields are converted to camelCase
         return to_camel(field)
@@ -255,7 +271,7 @@ class BackgroundImage(SerializableObject):
 
 
 class SubmitActionData(SerializableObject):
-    """Represents the data of an Action.Submit."""
+    """Represents the data of an Action.Submit. This model can include arbitrary data"""
 
     key: Optional[str] = None
     """ Defines an optional key for the object. Keys are seldom needed, but in some scenarios, specifying keys can help maintain visual state in the host application. """
@@ -276,6 +292,11 @@ class SubmitActionData(SerializableObject):
 
     def with_ms_teams(self, value: Dict[str, Any]) -> Self:
         self.ms_teams = value
+        return self
+
+    def with_data(self, value: Dict[str, Any]) -> Self:
+        for k, v in value.items():
+            setattr(self, k, v)
         return self
 
 
