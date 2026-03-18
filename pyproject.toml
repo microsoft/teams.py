@@ -62,6 +62,7 @@ check = ["fmt", "lint"]
 test = "pytest"
 generate-activity-handlers = "python packages/apps/scripts/generate_handlers.py"
 test-cov = "pytest --cov=packages --cov-report=term-missing --cov-report=html"
+test-cov-ci = "pytest --cov=packages --cov-report=term-missing"
 test-cov-xml = "pytest --cov=packages --cov-report=xml"
 
 [tool.coverage.run]
