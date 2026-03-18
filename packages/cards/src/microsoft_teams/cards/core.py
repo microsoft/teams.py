@@ -746,7 +746,7 @@ class AdaptiveCard(CardElement):
     rtl: Optional[bool] = None
     """ Controls if the content of the card is to be rendered left-to-right or right-to-left. """
 
-    ac_schema: Optional[str] = Field(None, alias="schema")
+    ac_schema: Optional[str] = Field(default=None, alias="schema")
     """ A URL to the Adaptive Card schema the card is authored against. """
 
     version: Optional[Version] = "1.5"

@@ -4,7 +4,7 @@ Licensed under the MIT License.
 """
 
 import warnings
-from typing import Optional
+from typing import Any, Dict, Optional, Union
 
 from ..core import MessageBackSubmitActionData, SubmitAction, SubmitActionData
 
@@ -13,7 +13,7 @@ class MessageBackAction(SubmitAction):
     """This class is deprecated. Please use MessageBackSubmitActionData instead.
     This will be removed in a future version of the SDK."""
 
-    def __init__(self, text: str, value: str, display_text: Optional[str] = None):
+    def __init__(self, text: str, value: Union[str, Dict[str, Any]], display_text: Optional[str] = None):
         warnings.warn(
             "MessageBackAction is deprecated. Use MessageBackSubmitActionData instead. "
             "This will be removed in a future version of the SDK.",
@@ -21,7 +21,8 @@ class MessageBackAction(SubmitAction):
             stacklevel=2,
         )
         super().__init__()
-        action_data = MessageBackSubmitActionData().with_value(value).with_text(text)
+        action_value = {"value": value} if isinstance(value, str) else value
+        action_data = MessageBackSubmitActionData().with_value(action_value).with_text(text)
 
         if display_text:
             action_data = action_data.with_display_text(display_text)
