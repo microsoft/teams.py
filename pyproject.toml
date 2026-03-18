@@ -90,6 +90,7 @@ show_missing = true
 
 [tool.coverage.html]
 directory = "htmlcov"
+title = "Teams Python SDK Coverage Report"
 
 [tool.hatch.build.targets.wheel]
 packages = ["packages/*"]
