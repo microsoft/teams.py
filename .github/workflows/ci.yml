@@ -80,10 +80,3 @@ jobs:
         run: |
           source .venv/bin/activate
           pytest packages --cov=packages --cov-report=term-missing
-        if: matrix.python-version != '3.14'
-
-      - name: Run Tests (no coverage)
-        run: |
-          source .venv/bin/activate
-          pytest packages
-        if: matrix.python-version == '3.14'
