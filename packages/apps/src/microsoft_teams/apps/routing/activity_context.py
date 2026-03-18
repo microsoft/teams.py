@@ -32,6 +32,7 @@ from microsoft_teams.api.models.attachment.card_attachment import (
     OAuthCardAttachment,
     card_attachment,
 )
+from microsoft_teams.api.models.entity import QuotedReplyData, QuotedReplyEntity
 from microsoft_teams.api.models.oauth import OAuthCard
 from microsoft_teams.cards import AdaptiveCard
 from microsoft_teams.common import Storage
@@ -193,11 +194,40 @@ class ActivityContext(Generic[T]):
         To send without quoting, use :meth:`send`.
         """
         activity = MessageActivityInput(text=input) if isinstance(input, str) else input
-        if isinstance(activity, MessageActivityInput):
-            block_quote = self._build_block_quote_for_activity()
-            if block_quote:
-                activity.text = f"{block_quote}\n\n{activity.text}" if activity.text else block_quote
         activity.reply_to_id = self.activity.id
+        if isinstance(activity, MessageActivityInput) and self.activity.id:
+            placeholder = f'<quoted messageId="{self.activity.id}"/>'
+            if not activity.entities:
+                activity.entities = []
+            activity.entities.append(
+                QuotedReplyEntity(
+                    quoted_reply=QuotedReplyData(message_id=self.activity.id)
+                )
+            )
+            text = (activity.text or "").strip()
+            activity.text = f"{placeholder} {text}" if text else placeholder
+        return await self.send(activity)
+
+    async def quote_reply(self, message_id: str, input: str | ActivityParams) -> SentActivity:
+        """
+        Send a reply quoting a specific message by ID.
+
+        Args:
+            message_id: The ID of the message to quote
+            input: The message to send, can be a string or ActivityParams
+
+        Returns:
+            The sent activity
+        """
+        activity = MessageActivityInput(text=input) if isinstance(input, str) else input
+        placeholder = f'<quoted messageId="{message_id}"/>'
+        if not activity.entities:
+            activity.entities = []
+        activity.entities.append(
+            QuotedReplyEntity(quoted_reply=QuotedReplyData(message_id=message_id))
+        )
+        text = (activity.text or "").strip()
+        activity.text = f"{placeholder} {text}" if text else placeholder
         return await self.send(activity)
 
     async def next(self) -> None:
@@ -208,31 +238,6 @@ class ActivityContext(Generic[T]):
     def set_next(self, handler: Callable[[], Awaitable[None]]) -> None:
         """Set the next handler in the middleware chain."""
         self._next_handler = handler
-
-    def _build_block_quote_for_activity(self) -> Optional[str]:
-        if self.activity.type == "message" and hasattr(self.activity, "text"):
-            activity = cast(MessageActivityInput, self.activity)
-            max_length = 120
-            text = activity.text or ""
-            truncated_text = f"{text[:max_length]}..." if len(text) > max_length else text
-
-            activity_id = activity.id
-            from_id = activity.from_.id if activity.from_ else ""
-            from_name = activity.from_.name if activity.from_ else ""
-
-            return (
-                f'<blockquote itemscope="" itemtype="http://schema.skype.com/Reply" itemid="{activity_id}">'
-                f'<strong itemprop="mri" itemid="{from_id}">{from_name}</strong>'
-                f'<span itemprop="time" itemid="{activity_id}"></span>'
-                f'<p itemprop="preview">{truncated_text}</p>'
-                f"</blockquote>"
-            )
-        else:
-            self.logger.debug(
-                "Skipping building blockquote for activity type: %s",
-                type(self.activity).__name__,
-            )
-        return None
 
     async def sign_in(self, options: Optional[SignInOptions] = None) -> Optional[str]:
         """

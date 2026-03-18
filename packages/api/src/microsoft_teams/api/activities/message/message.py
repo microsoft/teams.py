@@ -18,6 +18,8 @@ from ...models import (
     CustomBaseModel,
     DeliveryMode,
     MentionEntity,
+    QuotedReplyData,
+    QuotedReplyEntity,
     StreamInfoEntity,
     SuggestedActions,
     TextFormat,
@@ -71,6 +73,15 @@ class MessageActivity(_MessageBase, ActivityBase):
 
     text: str = ""  # pyright: ignore [reportGeneralTypeIssues, reportIncompatibleVariableOverride]
     """The text content of the message."""
+
+    def get_quoted_messages(self) -> list[QuotedReplyEntity]:
+        """
+        Get all quoted reply entities from the message.
+
+        Returns:
+            List of quoted reply entities, empty if none
+        """
+        return [e for e in (self.entities or []) if isinstance(e, QuotedReplyEntity)]
 
     def is_recipient_mentioned(self) -> bool:
         """
@@ -412,6 +423,27 @@ class MessageActivityInput(_MessageBase, ActivityInputBase):
             self.channel_data = ChannelData()
         self.channel_data.feedback_loop = FeedbackLoop(type=mode)
         self.channel_data.feedback_loop_enabled = None
+
+    def add_quoted_reply(self, message_id: str, response: str | None = None) -> Self:
+        """
+        Add a quotedReply entity for the given message ID and append a placeholder to text.
+        If response is provided, it is appended after the placeholder.
+
+        Args:
+            message_id: The IC3 message ID of the message to quote
+            response: Optional response text to append after the placeholder
+
+        Returns:
+            Self for method chaining
+        """
+        if not self.entities:
+            self.entities = []
+        self.entities.append(
+            QuotedReplyEntity(quoted_reply=QuotedReplyData(message_id=message_id))
+        )
+        self.add_text(f'<quoted messageId="{message_id}"/>')
+        if response:
+            self.add_text(f" {response}")
         return self
 
     def with_recipient(self, value: Account, is_targeted: Optional[bool] = None) -> Self:
