@@ -66,6 +66,7 @@ test-cov-xml = "pytest --cov=packages --cov-report=xml"
 
 [tool.coverage.run]
 source = ["packages"]
+branch = true
 omit = [
     "*/tests/*",
     "*/test_*.py",
