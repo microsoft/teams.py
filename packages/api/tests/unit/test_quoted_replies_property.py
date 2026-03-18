@@ -93,11 +93,7 @@ class TestMessageActivityInputAddQuotedReply:
     def test_add_quoted_reply_grouped(self):
         from microsoft_teams.api.activities.message import MessageActivityInput
 
-        msg = (
-            MessageActivityInput()
-            .add_quoted_reply("msg-1")
-            .add_quoted_reply("msg-2", "response to both")
-        )
+        msg = MessageActivityInput().add_quoted_reply("msg-1").add_quoted_reply("msg-2", "response to both")
         assert msg.text == '<quoted messageId="msg-1"/><quoted messageId="msg-2"/> response to both'
 
     def test_add_quoted_reply_chainable_with_add_text(self):

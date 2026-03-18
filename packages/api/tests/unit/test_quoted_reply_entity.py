@@ -61,15 +61,17 @@ class TestQuotedReplyData:
 
     def test_deserialization_from_camel_case(self):
         """Test that QuotedReplyData deserializes from camelCase"""
-        data = QuotedReplyData.model_validate({
-            "messageId": "msg-123",
-            "senderId": "user-456",
-            "senderName": "Test User",
-            "preview": "Hello world",
-            "time": "2024-01-01T12:00:00Z",
-            "isReplyDeleted": False,
-            "validatedMessageReference": True,
-        })
+        data = QuotedReplyData.model_validate(
+            {
+                "messageId": "msg-123",
+                "senderId": "user-456",
+                "senderName": "Test User",
+                "preview": "Hello world",
+                "time": "2024-01-01T12:00:00Z",
+                "isReplyDeleted": False,
+                "validatedMessageReference": True,
+            }
+        )
         assert data.message_id == "msg-123"
         assert data.sender_id == "user-456"
         assert data.sender_name == "Test User"
@@ -83,17 +85,13 @@ class TestQuotedReplyEntity:
 
     def test_creation_with_defaults(self):
         """Test creating QuotedReplyEntity with default type"""
-        entity = QuotedReplyEntity(
-            quoted_reply=QuotedReplyData(message_id="msg-123")
-        )
+        entity = QuotedReplyEntity(quoted_reply=QuotedReplyData(message_id="msg-123"))
         assert entity.type == "quotedReply"
         assert entity.quoted_reply.message_id == "msg-123"
 
     def test_serialization_camel_case(self):
         """Test that QuotedReplyEntity serializes to camelCase"""
-        entity = QuotedReplyEntity(
-            quoted_reply=QuotedReplyData(message_id="msg-123", sender_name="Alice")
-        )
+        entity = QuotedReplyEntity(quoted_reply=QuotedReplyData(message_id="msg-123", sender_name="Alice"))
         serialized = entity.model_dump(by_alias=True, exclude_none=True)
         assert serialized["type"] == "quotedReply"
         assert "quotedReply" in serialized
@@ -102,14 +100,16 @@ class TestQuotedReplyEntity:
 
     def test_deserialization_from_camel_case(self):
         """Test that QuotedReplyEntity deserializes from camelCase"""
-        entity = QuotedReplyEntity.model_validate({
-            "type": "quotedReply",
-            "quotedReply": {
-                "messageId": "msg-123",
-                "senderId": "user-456",
-                "senderName": "Test User",
-            },
-        })
+        entity = QuotedReplyEntity.model_validate(
+            {
+                "type": "quotedReply",
+                "quotedReply": {
+                    "messageId": "msg-123",
+                    "senderId": "user-456",
+                    "senderName": "Test User",
+                },
+            }
+        )
         assert entity.type == "quotedReply"
         assert entity.quoted_reply.message_id == "msg-123"
         assert entity.quoted_reply.sender_id == "user-456"
@@ -137,4 +137,6 @@ class TestQuotedReplyEntity:
         assert deserialized.quoted_reply.preview == original.quoted_reply.preview
         assert deserialized.quoted_reply.time == original.quoted_reply.time
         assert deserialized.quoted_reply.is_reply_deleted == original.quoted_reply.is_reply_deleted
-        assert deserialized.quoted_reply.validated_message_reference == original.quoted_reply.validated_message_reference
+        assert (
+            deserialized.quoted_reply.validated_message_reference == original.quoted_reply.validated_message_reference
+        )

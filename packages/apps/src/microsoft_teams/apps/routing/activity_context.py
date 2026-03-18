@@ -199,11 +199,7 @@ class ActivityContext(Generic[T]):
             placeholder = f'<quoted messageId="{self.activity.id}"/>'
             if not activity.entities:
                 activity.entities = []
-            activity.entities.append(
-                QuotedReplyEntity(
-                    quoted_reply=QuotedReplyData(message_id=self.activity.id)
-                )
-            )
+            activity.entities.append(QuotedReplyEntity(quoted_reply=QuotedReplyData(message_id=self.activity.id)))
             text = (activity.text or "").strip()
             activity.text = f"{placeholder} {text}" if text else placeholder
         return await self.send(activity)
@@ -223,9 +219,7 @@ class ActivityContext(Generic[T]):
         placeholder = f'<quoted messageId="{message_id}"/>'
         if not activity.entities:
             activity.entities = []
-        activity.entities.append(
-            QuotedReplyEntity(quoted_reply=QuotedReplyData(message_id=message_id))
-        )
+        activity.entities.append(QuotedReplyEntity(quoted_reply=QuotedReplyData(message_id=message_id)))
         text = (activity.text or "").strip()
         activity.text = f"{placeholder} {text}" if text else placeholder
         return await self.send(activity)
