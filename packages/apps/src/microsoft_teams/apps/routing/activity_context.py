@@ -194,7 +194,6 @@ class ActivityContext(Generic[T]):
         To send without quoting, use :meth:`send`.
         """
         activity = MessageActivityInput(text=input) if isinstance(input, str) else input
-        activity.reply_to_id = self.activity.id
         if isinstance(activity, MessageActivityInput) and self.activity.id:
             placeholder = f'<quoted messageId="{self.activity.id}"/>'
             if not activity.entities:
@@ -214,6 +213,10 @@ class ActivityContext(Generic[T]):
 
         Returns:
             The sent activity
+
+        .. warning:: Preview
+            This API is in preview and may change in the future.
+            Diagnostic: ExperimentalTeamsQuotedReplies
         """
         activity = MessageActivityInput(text=input) if isinstance(input, str) else input
         placeholder = f'<quoted messageId="{message_id}"/>'

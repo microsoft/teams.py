@@ -60,7 +60,6 @@ class TestActivityContextReply:
         await ctx.reply("Thanks!")
 
         sent_activity = ctx._activity_sender.send.call_args[0][0]
-        assert sent_activity.reply_to_id == "msg-abc"
         assert sent_activity.entities is not None
         assert len(sent_activity.entities) == 1
         entity = sent_activity.entities[0]
@@ -131,7 +130,6 @@ class TestActivityContextReply:
 
         sent_activity = ctx._activity_sender.send.call_args[0][0]
         assert sent_activity.text == '<quoted messageId="msg-abc"/> Hello world'
-        assert sent_activity.reply_to_id == "msg-abc"
 
 
 class TestActivityContextQuoteReply:
