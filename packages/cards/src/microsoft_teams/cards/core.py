@@ -3,7 +3,7 @@
 
 from typing import Any, Dict, List, Literal, Optional, Self, Union
 
-from pydantic import AliasGenerator, BaseModel, ConfigDict, Field
+from pydantic import AliasGenerator, BaseModel, ConfigDict, Field, SerializeAsAny
 from pydantic.alias_generators import to_camel
 
 
@@ -335,7 +335,7 @@ class ExecuteAction(Action):
     is_enabled: Optional[bool] = True
     """ Controls the enabled state of the action. A disabled action cannot be clicked. If the action is represented as a button, the button's style will reflect this state. """
 
-    menu_actions: Optional[List[Action]] = None
+    menu_actions: Optional[List[SerializeAsAny[Action]]] = None
     """ The actions to display in the overflow menu of a Split action button. """
 
     themed_icon_urls: Optional[List[ThemedUrl]] = None
@@ -353,7 +353,7 @@ class ExecuteAction(Action):
     verb: Optional[str] = None
     """ The verb of the action. """
 
-    fallback: Optional[Union[Action, FallbackAction]] = None
+    fallback: Optional[Union[SerializeAsAny[Action], FallbackAction]] = None
     """ An alternate action to render if the type of this one is unsupported or if the host application doesn't support all the capabilities specified in the requires property. """
 
     def with_key(self, value: str) -> Self:
@@ -731,7 +731,7 @@ class AdaptiveCard(CardElement):
     style: Optional[ContainerStyle] = None
     """ The style of the container. Container styles control the colors of the background, border and text inside the container, in such a way that contrast requirements are always met. """
 
-    layouts: Optional[List[ContainerLayout]] = None
+    layouts: Optional[List[SerializeAsAny[ContainerLayout]]] = None
     """ The layouts associated with the container. The container can dynamically switch from one layout to another as the card's width changes. See [Container layouts](topic:container-layouts) for more details. """
 
     min_height: Optional[str] = None
@@ -779,13 +779,13 @@ class AdaptiveCard(CardElement):
     grid_area: Optional[str] = None
     """ The area of a Layout.AreaGrid layout in which an element should be displayed. """
 
-    fallback: Optional[Union[CardElement, FallbackElement]] = None
+    fallback: Optional[Union[SerializeAsAny[CardElement], FallbackElement]] = None
     """ An alternate element to render if the type of this one is unsupported or if the host application doesn't support all the capabilities specified in the requires property. """
 
-    body: Optional[List[CardElement]] = None
+    body: Optional[List[SerializeAsAny[CardElement]]] = None
     """ The body of the card, comprised of a list of elements displayed according to the layouts property. If the layouts property is not specified, a Layout.Stack is used. """
 
-    actions: Optional[List[Action]] = None
+    actions: Optional[List[SerializeAsAny[Action]]] = None
     """ The card level actions, which always appear at the bottom of the card. """
 
     def with_key(self, value: str) -> Self:
@@ -928,7 +928,7 @@ class InsertImageAction(Action):
     is_enabled: Optional[bool] = True
     """ Controls the enabled state of the action. A disabled action cannot be clicked. If the action is represented as a button, the button's style will reflect this state. """
 
-    menu_actions: Optional[List[Action]] = None
+    menu_actions: Optional[List[SerializeAsAny[Action]]] = None
     """ The actions to display in the overflow menu of a Split action button. """
 
     themed_icon_urls: Optional[List[ThemedUrl]] = None
@@ -943,7 +943,7 @@ class InsertImageAction(Action):
     insert_position: Optional[ImageInsertPosition] = "Selection"
     """ The position at which to insert the image. """
 
-    fallback: Optional[Union[Action, FallbackAction]] = None
+    fallback: Optional[Union[SerializeAsAny[Action], FallbackAction]] = None
     """ An alternate action to render if the type of this one is unsupported or if the host application doesn't support all the capabilities specified in the requires property. """
 
     def with_key(self, value: str) -> Self:
@@ -1042,7 +1042,7 @@ class OpenUrlAction(Action):
     is_enabled: Optional[bool] = True
     """ Controls the enabled state of the action. A disabled action cannot be clicked. If the action is represented as a button, the button's style will reflect this state. """
 
-    menu_actions: Optional[List[Action]] = None
+    menu_actions: Optional[List[SerializeAsAny[Action]]] = None
     """ The actions to display in the overflow menu of a Split action button. """
 
     themed_icon_urls: Optional[List[ThemedUrl]] = None
@@ -1051,7 +1051,7 @@ class OpenUrlAction(Action):
     url: Optional[str] = None
     """ The URL to open. """
 
-    fallback: Optional[Union[Action, FallbackAction]] = None
+    fallback: Optional[Union[SerializeAsAny[Action], FallbackAction]] = None
     """ An alternate action to render if the type of this one is unsupported or if the host application doesn't support all the capabilities specified in the requires property. """
 
     def with_key(self, value: str) -> Self:
@@ -1142,7 +1142,7 @@ class OpenUrlDialogAction(Action):
     is_enabled: Optional[bool] = True
     """ Controls the enabled state of the action. A disabled action cannot be clicked. If the action is represented as a button, the button's style will reflect this state. """
 
-    menu_actions: Optional[List[Action]] = None
+    menu_actions: Optional[List[SerializeAsAny[Action]]] = None
     """ The actions to display in the overflow menu of a Split action button. """
 
     themed_icon_urls: Optional[List[ThemedUrl]] = None
@@ -1160,7 +1160,7 @@ class OpenUrlDialogAction(Action):
     url: Optional[str] = None
     """ The URL to open. """
 
-    fallback: Optional[Union[Action, FallbackAction]] = None
+    fallback: Optional[Union[SerializeAsAny[Action], FallbackAction]] = None
     """ An alternate action to render if the type of this one is unsupported or if the host application doesn't support all the capabilities specified in the requires property. """
 
     def with_key(self, value: str) -> Self:
@@ -1263,7 +1263,7 @@ class ResetInputsAction(Action):
     is_enabled: Optional[bool] = True
     """ Controls the enabled state of the action. A disabled action cannot be clicked. If the action is represented as a button, the button's style will reflect this state. """
 
-    menu_actions: Optional[List[Action]] = None
+    menu_actions: Optional[List[SerializeAsAny[Action]]] = None
     """ The actions to display in the overflow menu of a Split action button. """
 
     themed_icon_urls: Optional[List[ThemedUrl]] = None
@@ -1272,7 +1272,7 @@ class ResetInputsAction(Action):
     target_input_ids: Optional[List[str]] = None
     """ The Ids of the inputs that should be reset. """
 
-    fallback: Optional[Union[Action, FallbackAction]] = None
+    fallback: Optional[Union[SerializeAsAny[Action], FallbackAction]] = None
     """ An alternate action to render if the type of this one is unsupported or if the host application doesn't support all the capabilities specified in the requires property. """
 
     def with_key(self, value: str) -> Self:
@@ -1399,7 +1399,7 @@ class SubmitAction(Action):
     is_enabled: Optional[bool] = True
     """ Controls the enabled state of the action. A disabled action cannot be clicked. If the action is represented as a button, the button's style will reflect this state. """
 
-    menu_actions: Optional[List[Action]] = None
+    menu_actions: Optional[List[SerializeAsAny[Action]]] = None
     """ The actions to display in the overflow menu of a Split action button. """
 
     themed_icon_urls: Optional[List[ThemedUrl]] = None
@@ -1420,7 +1420,7 @@ class SubmitAction(Action):
     ms_teams: Optional[TeamsSubmitActionProperties] = None
     """ Teams-specific metadata associated with the action. Equivalent to `msteams`. """
 
-    fallback: Optional[Union[Action, FallbackAction]] = None
+    fallback: Optional[Union[SerializeAsAny[Action], FallbackAction]] = None
     """ An alternate action to render if the type of this one is unsupported or if the host application doesn't support all the capabilities specified in the requires property. """
 
     def with_key(self, value: str) -> Self:
@@ -1545,7 +1545,7 @@ class ToggleVisibilityAction(Action):
     is_enabled: Optional[bool] = True
     """ Controls the enabled state of the action. A disabled action cannot be clicked. If the action is represented as a button, the button's style will reflect this state. """
 
-    menu_actions: Optional[List[Action]] = None
+    menu_actions: Optional[List[SerializeAsAny[Action]]] = None
     """ The actions to display in the overflow menu of a Split action button. """
 
     themed_icon_urls: Optional[List[ThemedUrl]] = None
@@ -1554,7 +1554,7 @@ class ToggleVisibilityAction(Action):
     target_elements: Optional[Union[List[str], List[TargetElement]]] = None
     """ The Ids of the elements to toggle the visibility of. """
 
-    fallback: Optional[Union[Action, FallbackAction]] = None
+    fallback: Optional[Union[SerializeAsAny[Action], FallbackAction]] = None
     """ An alternate action to render if the type of this one is unsupported or if the host application doesn't support all the capabilities specified in the requires property. """
 
     def with_key(self, value: str) -> Self:
@@ -1645,13 +1645,13 @@ class ShowCardAction(Action):
     is_enabled: Optional[bool] = True
     """ Controls the enabled state of the action. A disabled action cannot be clicked. If the action is represented as a button, the button's style will reflect this state. """
 
-    menu_actions: Optional[List[Action]] = None
+    menu_actions: Optional[List[SerializeAsAny[Action]]] = None
     """ The actions to display in the overflow menu of a Split action button. """
 
     themed_icon_urls: Optional[List[ThemedUrl]] = None
     """ A set of theme-specific icon URLs. """
 
-    fallback: Optional[Union[Action, FallbackAction]] = None
+    fallback: Optional[Union[SerializeAsAny[Action], FallbackAction]] = None
     """ An alternate action to render if the type of this one is unsupported or if the host application doesn't support all the capabilities specified in the requires property. """
 
     card: Optional[AdaptiveCard] = None
@@ -1760,7 +1760,7 @@ class PopoverAction(Action):
     max_popover_width: Optional[str] = None
     """ The maximum width of the popover in pixels, in the `<number>px` format """
 
-    fallback: Optional[Union[Action, FallbackAction]] = None
+    fallback: Optional[Union[SerializeAsAny[Action], FallbackAction]] = None
     """ An alternate action to render if the type of this one is unsupported or if the host application doesn't support all the capabilities specified in the requires property. """
 
     def with_key(self, value: str) -> Self:
@@ -1866,10 +1866,10 @@ class ActionSet(CardElement):
     grid_area: Optional[str] = None
     """ The area of a Layout.AreaGrid layout in which an element should be displayed. """
 
-    fallback: Optional[Union[CardElement, FallbackElement]] = None
+    fallback: Optional[Union[SerializeAsAny[CardElement], FallbackElement]] = None
     """ An alternate element to render if the type of this one is unsupported or if the host application doesn't support all the capabilities specified in the requires property. """
 
-    actions: Optional[List[Action]] = None
+    actions: Optional[List[SerializeAsAny[Action]]] = None
     """ The actions in the set. """
 
     def with_key(self, value: str) -> Self:
@@ -1980,7 +1980,7 @@ class Container(CardElement):
     rounded_corners: Optional[bool] = None
     """ Controls if the container should have rounded corners. """
 
-    layouts: Optional[List[ContainerLayout]] = None
+    layouts: Optional[List[SerializeAsAny[ContainerLayout]]] = None
     """ The layouts associated with the container. The container can dynamically switch from one layout to another as the card's width changes. See [Container layouts](topic:container-layouts) for more details. """
 
     bleed: Optional[bool] = None
@@ -2004,10 +2004,10 @@ class Container(CardElement):
     grid_area: Optional[str] = None
     """ The area of a Layout.AreaGrid layout in which an element should be displayed. """
 
-    fallback: Optional[Union[CardElement, FallbackElement]] = None
+    fallback: Optional[Union[SerializeAsAny[CardElement], FallbackElement]] = None
     """ An alternate element to render if the type of this one is unsupported or if the host application doesn't support all the capabilities specified in the requires property. """
 
-    items: Optional[List[CardElement]] = None
+    items: Optional[List[SerializeAsAny[CardElement]]] = None
     """ The elements in the container. """
 
     def with_key(self, value: str) -> Self:
@@ -2355,7 +2355,7 @@ class Column(CardElement):
     rounded_corners: Optional[bool] = None
     """ Controls if the container should have rounded corners. """
 
-    layouts: Optional[List[ContainerLayout]] = None
+    layouts: Optional[List[SerializeAsAny[ContainerLayout]]] = None
     """ The layouts associated with the container. The container can dynamically switch from one layout to another as the card's width changes. See [Container layouts](topic:container-layouts) for more details. """
 
     bleed: Optional[bool] = None
@@ -2382,10 +2382,10 @@ class Column(CardElement):
     grid_area: Optional[str] = None
     """ The area of a Layout.AreaGrid layout in which an element should be displayed. """
 
-    fallback: Optional[Union[CardElement, FallbackElement]] = None
+    fallback: Optional[Union[SerializeAsAny[CardElement], FallbackElement]] = None
     """ An alternate element to render if the type of this one is unsupported or if the host application doesn't support all the capabilities specified in the requires property. """
 
-    items: Optional[List[CardElement]] = None
+    items: Optional[List[SerializeAsAny[CardElement]]] = None
     """ The elements in the column. """
 
     def with_key(self, value: str) -> Self:
@@ -2556,7 +2556,7 @@ class ColumnSet(CardElement):
     grid_area: Optional[str] = None
     """ The area of a Layout.AreaGrid layout in which an element should be displayed. """
 
-    fallback: Optional[Union[CardElement, FallbackElement]] = None
+    fallback: Optional[Union[SerializeAsAny[CardElement], FallbackElement]] = None
     """ An alternate element to render if the type of this one is unsupported or if the host application doesn't support all the capabilities specified in the requires property. """
 
     columns: Optional[List[Column]] = None
@@ -2755,7 +2755,7 @@ class Media(CardElement):
     grid_area: Optional[str] = None
     """ The area of a Layout.AreaGrid layout in which an element should be displayed. """
 
-    fallback: Optional[Union[CardElement, FallbackElement]] = None
+    fallback: Optional[Union[SerializeAsAny[CardElement], FallbackElement]] = None
     """ An alternate element to render if the type of this one is unsupported or if the host application doesn't support all the capabilities specified in the requires property. """
 
     def with_key(self, value: str) -> Self:
@@ -2868,10 +2868,10 @@ class RichTextBlock(CardElement):
     grid_area: Optional[str] = None
     """ The area of a Layout.AreaGrid layout in which an element should be displayed. """
 
-    fallback: Optional[Union[CardElement, FallbackElement]] = None
+    fallback: Optional[Union[SerializeAsAny[CardElement], FallbackElement]] = None
     """ An alternate element to render if the type of this one is unsupported or if the host application doesn't support all the capabilities specified in the requires property. """
 
-    inlines: Optional[Union[List[CardElement], List[str]]] = None
+    inlines: Optional[Union[List[SerializeAsAny[CardElement]], List[str]]] = None
     """ The inlines making up the rich text block. """
 
     def with_key(self, value: str) -> Self:
@@ -3009,7 +3009,7 @@ class TableCell(CardElement):
     style: Optional[ContainerStyle] = None
     """ The style of the container. Container styles control the colors of the background, border and text inside the container, in such a way that contrast requirements are always met. """
 
-    layouts: Optional[List[ContainerLayout]] = None
+    layouts: Optional[List[SerializeAsAny[ContainerLayout]]] = None
     """ The layouts associated with the container. The container can dynamically switch from one layout to another as the card's width changes. See [Container layouts](topic:container-layouts) for more details. """
 
     bleed: Optional[bool] = None
@@ -3033,10 +3033,10 @@ class TableCell(CardElement):
     grid_area: Optional[str] = None
     """ The area of a Layout.AreaGrid layout in which an element should be displayed. """
 
-    fallback: Optional[Union[CardElement, FallbackElement]] = None
+    fallback: Optional[Union[SerializeAsAny[CardElement], FallbackElement]] = None
     """ An alternate element to render if the type of this one is unsupported or if the host application doesn't support all the capabilities specified in the requires property. """
 
-    items: Optional[List[CardElement]] = None
+    items: Optional[List[SerializeAsAny[CardElement]]] = None
     """ The items (elements) in the cell. """
 
     def with_key(self, value: str) -> Self:
@@ -3185,7 +3185,7 @@ class TableRow(CardElement):
     grid_area: Optional[str] = None
     """ The area of a Layout.AreaGrid layout in which an element should be displayed. """
 
-    fallback: Optional[Union[CardElement, FallbackElement]] = None
+    fallback: Optional[Union[SerializeAsAny[CardElement], FallbackElement]] = None
     """ An alternate element to render if the type of this one is unsupported or if the host application doesn't support all the capabilities specified in the requires property. """
 
     cells: Optional[List[TableCell]] = None
@@ -3340,7 +3340,7 @@ class Table(CardElement):
     grid_area: Optional[str] = None
     """ The area of a Layout.AreaGrid layout in which an element should be displayed. """
 
-    fallback: Optional[Union[CardElement, FallbackElement]] = None
+    fallback: Optional[Union[SerializeAsAny[CardElement], FallbackElement]] = None
     """ An alternate element to render if the type of this one is unsupported or if the host application doesn't support all the capabilities specified in the requires property. """
 
     rows: Optional[List[TableRow]] = None
@@ -3515,7 +3515,7 @@ class TextBlock(CardElement):
     grid_area: Optional[str] = None
     """ The area of a Layout.AreaGrid layout in which an element should be displayed. """
 
-    fallback: Optional[Union[CardElement, FallbackElement]] = None
+    fallback: Optional[Union[SerializeAsAny[CardElement], FallbackElement]] = None
     """ An alternate element to render if the type of this one is unsupported or if the host application doesn't support all the capabilities specified in the requires property. """
 
     def with_key(self, value: str) -> Self:
@@ -3678,7 +3678,7 @@ class FactSet(CardElement):
     grid_area: Optional[str] = None
     """ The area of a Layout.AreaGrid layout in which an element should be displayed. """
 
-    fallback: Optional[Union[CardElement, FallbackElement]] = None
+    fallback: Optional[Union[SerializeAsAny[CardElement], FallbackElement]] = None
     """ An alternate element to render if the type of this one is unsupported or if the host application doesn't support all the capabilities specified in the requires property. """
 
     def with_key(self, value: str) -> Self:
@@ -3836,7 +3836,7 @@ class Image(CardElement):
     grid_area: Optional[str] = None
     """ The area of a Layout.AreaGrid layout in which an element should be displayed. """
 
-    fallback: Optional[Union[CardElement, FallbackElement]] = None
+    fallback: Optional[Union[SerializeAsAny[CardElement], FallbackElement]] = None
     """ An alternate element to render if the type of this one is unsupported or if the host application doesn't support all the capabilities specified in the requires property. """
 
     def with_key(self, value: str) -> Self:
@@ -3996,7 +3996,7 @@ class ImageSet(CardElement):
     grid_area: Optional[str] = None
     """ The area of a Layout.AreaGrid layout in which an element should be displayed. """
 
-    fallback: Optional[Union[CardElement, FallbackElement]] = None
+    fallback: Optional[Union[SerializeAsAny[CardElement], FallbackElement]] = None
     """ An alternate element to render if the type of this one is unsupported or if the host application doesn't support all the capabilities specified in the requires property. """
 
     def with_key(self, value: str) -> Self:
@@ -4134,7 +4134,7 @@ A label should **always** be provided to ensure the best user experience especia
     grid_area: Optional[str] = None
     """ The area of a Layout.AreaGrid layout in which an element should be displayed. """
 
-    fallback: Optional[Union[CardElement, FallbackElement]] = None
+    fallback: Optional[Union[SerializeAsAny[CardElement], FallbackElement]] = None
     """ An alternate element to render if the type of this one is unsupported or if the host application doesn't support all the capabilities specified in the requires property. """
 
     def with_key(self, value: str) -> Self:
@@ -4295,7 +4295,7 @@ A label should **always** be provided to ensure the best user experience especia
     grid_area: Optional[str] = None
     """ The area of a Layout.AreaGrid layout in which an element should be displayed. """
 
-    fallback: Optional[Union[CardElement, FallbackElement]] = None
+    fallback: Optional[Union[SerializeAsAny[CardElement], FallbackElement]] = None
     """ An alternate element to render if the type of this one is unsupported or if the host application doesn't support all the capabilities specified in the requires property. """
 
     def with_key(self, value: str) -> Self:
@@ -4444,7 +4444,7 @@ A label should **always** be provided to ensure the best user experience especia
     grid_area: Optional[str] = None
     """ The area of a Layout.AreaGrid layout in which an element should be displayed. """
 
-    fallback: Optional[Union[CardElement, FallbackElement]] = None
+    fallback: Optional[Union[SerializeAsAny[CardElement], FallbackElement]] = None
     """ An alternate element to render if the type of this one is unsupported or if the host application doesn't support all the capabilities specified in the requires property. """
 
     def with_key(self, value: str) -> Self:
@@ -4593,7 +4593,7 @@ A label should **always** be provided to ensure the best user experience especia
     grid_area: Optional[str] = None
     """ The area of a Layout.AreaGrid layout in which an element should be displayed. """
 
-    fallback: Optional[Union[CardElement, FallbackElement]] = None
+    fallback: Optional[Union[SerializeAsAny[CardElement], FallbackElement]] = None
     """ An alternate element to render if the type of this one is unsupported or if the host application doesn't support all the capabilities specified in the requires property. """
 
     def with_key(self, value: str) -> Self:
@@ -4748,7 +4748,7 @@ A label should **always** be provided to ensure the best user experience especia
     grid_area: Optional[str] = None
     """ The area of a Layout.AreaGrid layout in which an element should be displayed. """
 
-    fallback: Optional[Union[CardElement, FallbackElement]] = None
+    fallback: Optional[Union[SerializeAsAny[CardElement], FallbackElement]] = None
     """ An alternate element to render if the type of this one is unsupported or if the host application doesn't support all the capabilities specified in the requires property. """
 
     def with_key(self, value: str) -> Self:
@@ -4987,7 +4987,7 @@ A label should **always** be provided to ensure the best user experience especia
     grid_area: Optional[str] = None
     """ The area of a Layout.AreaGrid layout in which an element should be displayed. """
 
-    fallback: Optional[Union[CardElement, FallbackElement]] = None
+    fallback: Optional[Union[SerializeAsAny[CardElement], FallbackElement]] = None
     """ An alternate element to render if the type of this one is unsupported or if the host application doesn't support all the capabilities specified in the requires property. """
 
     def with_key(self, value: str) -> Self:
@@ -5159,7 +5159,7 @@ A label should **always** be provided to ensure the best user experience especia
     grid_area: Optional[str] = None
     """ The area of a Layout.AreaGrid layout in which an element should be displayed. """
 
-    fallback: Optional[Union[CardElement, FallbackElement]] = None
+    fallback: Optional[Union[SerializeAsAny[CardElement], FallbackElement]] = None
     """ An alternate element to render if the type of this one is unsupported or if the host application doesn't support all the capabilities specified in the requires property. """
 
     def with_key(self, value: str) -> Self:
@@ -5307,7 +5307,7 @@ class Rating(CardElement):
     grid_area: Optional[str] = None
     """ The area of a Layout.AreaGrid layout in which an element should be displayed. """
 
-    fallback: Optional[Union[CardElement, FallbackElement]] = None
+    fallback: Optional[Union[SerializeAsAny[CardElement], FallbackElement]] = None
     """ An alternate element to render if the type of this one is unsupported or if the host application doesn't support all the capabilities specified in the requires property. """
 
     def with_key(self, value: str) -> Self:
@@ -5483,7 +5483,7 @@ class CompoundButton(CardElement):
     grid_area: Optional[str] = None
     """ The area of a Layout.AreaGrid layout in which an element should be displayed. """
 
-    fallback: Optional[Union[CardElement, FallbackElement]] = None
+    fallback: Optional[Union[SerializeAsAny[CardElement], FallbackElement]] = None
     """ An alternate element to render if the type of this one is unsupported or if the host application doesn't support all the capabilities specified in the requires property. """
 
     def with_key(self, value: str) -> Self:
@@ -5613,7 +5613,7 @@ class Icon(CardElement):
     grid_area: Optional[str] = None
     """ The area of a Layout.AreaGrid layout in which an element should be displayed. """
 
-    fallback: Optional[Union[CardElement, FallbackElement]] = None
+    fallback: Optional[Union[SerializeAsAny[CardElement], FallbackElement]] = None
     """ An alternate element to render if the type of this one is unsupported or if the host application doesn't support all the capabilities specified in the requires property. """
 
     def with_key(self, value: str) -> Self:
@@ -5727,7 +5727,7 @@ class CarouselPage(CardElement):
     rounded_corners: Optional[bool] = None
     """ Controls if the container should have rounded corners. """
 
-    layouts: Optional[List[ContainerLayout]] = None
+    layouts: Optional[List[SerializeAsAny[ContainerLayout]]] = None
     """ The layouts associated with the container. The container can dynamically switch from one layout to another as the card's width changes. See [Container layouts](topic:container-layouts) for more details. """
 
     min_height: Optional[str] = None
@@ -5748,10 +5748,10 @@ class CarouselPage(CardElement):
     grid_area: Optional[str] = None
     """ The area of a Layout.AreaGrid layout in which an element should be displayed. """
 
-    fallback: Optional[Union[CardElement, FallbackElement]] = None
+    fallback: Optional[Union[SerializeAsAny[CardElement], FallbackElement]] = None
     """ An alternate element to render if the type of this one is unsupported or if the host application doesn't support all the capabilities specified in the requires property. """
 
-    items: Optional[List[CardElement]] = None
+    items: Optional[List[SerializeAsAny[CardElement]]] = None
     """ The elements in the page. """
 
     def with_key(self, value: str) -> Self:
@@ -5887,7 +5887,7 @@ class Carousel(CardElement):
     grid_area: Optional[str] = None
     """ The area of a Layout.AreaGrid layout in which an element should be displayed. """
 
-    fallback: Optional[Union[CardElement, FallbackElement]] = None
+    fallback: Optional[Union[SerializeAsAny[CardElement], FallbackElement]] = None
     """ An alternate element to render if the type of this one is unsupported or if the host application doesn't support all the capabilities specified in the requires property. """
 
     pages: Optional[List[CarouselPage]] = None
@@ -6024,7 +6024,7 @@ class Badge(CardElement):
     grid_area: Optional[str] = None
     """ The area of a Layout.AreaGrid layout in which an element should be displayed. """
 
-    fallback: Optional[Union[CardElement, FallbackElement]] = None
+    fallback: Optional[Union[SerializeAsAny[CardElement], FallbackElement]] = None
     """ An alternate element to render if the type of this one is unsupported or if the host application doesn't support all the capabilities specified in the requires property. """
 
     def with_key(self, value: str) -> Self:
@@ -6163,7 +6163,7 @@ class ProgressRing(CardElement):
     grid_area: Optional[str] = None
     """ The area of a Layout.AreaGrid layout in which an element should be displayed. """
 
-    fallback: Optional[Union[CardElement, FallbackElement]] = None
+    fallback: Optional[Union[SerializeAsAny[CardElement], FallbackElement]] = None
     """ An alternate element to render if the type of this one is unsupported or if the host application doesn't support all the capabilities specified in the requires property. """
 
     def with_key(self, value: str) -> Self:
@@ -6282,7 +6282,7 @@ class ProgressBar(CardElement):
     grid_area: Optional[str] = None
     """ The area of a Layout.AreaGrid layout in which an element should be displayed. """
 
-    fallback: Optional[Union[CardElement, FallbackElement]] = None
+    fallback: Optional[Union[SerializeAsAny[CardElement], FallbackElement]] = None
     """ An alternate element to render if the type of this one is unsupported or if the host application doesn't support all the capabilities specified in the requires property. """
 
     def with_key(self, value: str) -> Self:
@@ -6454,7 +6454,7 @@ class DonutChart(CardElement):
     grid_area: Optional[str] = None
     """ The area of a Layout.AreaGrid layout in which an element should be displayed. """
 
-    fallback: Optional[Union[CardElement, FallbackElement]] = None
+    fallback: Optional[Union[SerializeAsAny[CardElement], FallbackElement]] = None
     """ An alternate element to render if the type of this one is unsupported or if the host application doesn't support all the capabilities specified in the requires property. """
 
     def with_key(self, value: str) -> Self:
@@ -6622,7 +6622,7 @@ class PieChart(CardElement):
     grid_area: Optional[str] = None
     """ The area of a Layout.AreaGrid layout in which an element should be displayed. """
 
-    fallback: Optional[Union[CardElement, FallbackElement]] = None
+    fallback: Optional[Union[SerializeAsAny[CardElement], FallbackElement]] = None
     """ An alternate element to render if the type of this one is unsupported or if the host application doesn't support all the capabilities specified in the requires property. """
 
     def with_key(self, value: str) -> Self:
@@ -6862,7 +6862,7 @@ class GroupedVerticalBarChart(CardElement):
     grid_area: Optional[str] = None
     """ The area of a Layout.AreaGrid layout in which an element should be displayed. """
 
-    fallback: Optional[Union[CardElement, FallbackElement]] = None
+    fallback: Optional[Union[SerializeAsAny[CardElement], FallbackElement]] = None
     """ An alternate element to render if the type of this one is unsupported or if the host application doesn't support all the capabilities specified in the requires property. """
 
     def with_key(self, value: str) -> Self:
@@ -7080,7 +7080,7 @@ class VerticalBarChart(CardElement):
     grid_area: Optional[str] = None
     """ The area of a Layout.AreaGrid layout in which an element should be displayed. """
 
-    fallback: Optional[Union[CardElement, FallbackElement]] = None
+    fallback: Optional[Union[SerializeAsAny[CardElement], FallbackElement]] = None
     """ An alternate element to render if the type of this one is unsupported or if the host application doesn't support all the capabilities specified in the requires property. """
 
     def with_key(self, value: str) -> Self:
@@ -7288,7 +7288,7 @@ class HorizontalBarChart(CardElement):
     grid_area: Optional[str] = None
     """ The area of a Layout.AreaGrid layout in which an element should be displayed. """
 
-    fallback: Optional[Union[CardElement, FallbackElement]] = None
+    fallback: Optional[Union[SerializeAsAny[CardElement], FallbackElement]] = None
     """ An alternate element to render if the type of this one is unsupported or if the host application doesn't support all the capabilities specified in the requires property. """
 
     def with_key(self, value: str) -> Self:
@@ -7510,7 +7510,7 @@ class StackedHorizontalBarChart(CardElement):
     grid_area: Optional[str] = None
     """ The area of a Layout.AreaGrid layout in which an element should be displayed. """
 
-    fallback: Optional[Union[CardElement, FallbackElement]] = None
+    fallback: Optional[Union[SerializeAsAny[CardElement], FallbackElement]] = None
     """ An alternate element to render if the type of this one is unsupported or if the host application doesn't support all the capabilities specified in the requires property. """
 
     def with_key(self, value: str) -> Self:
@@ -7738,7 +7738,7 @@ class LineChart(CardElement):
     grid_area: Optional[str] = None
     """ The area of a Layout.AreaGrid layout in which an element should be displayed. """
 
-    fallback: Optional[Union[CardElement, FallbackElement]] = None
+    fallback: Optional[Union[SerializeAsAny[CardElement], FallbackElement]] = None
     """ An alternate element to render if the type of this one is unsupported or if the host application doesn't support all the capabilities specified in the requires property. """
 
     def with_key(self, value: str) -> Self:
@@ -7954,7 +7954,7 @@ class GaugeChart(CardElement):
     grid_area: Optional[str] = None
     """ The area of a Layout.AreaGrid layout in which an element should be displayed. """
 
-    fallback: Optional[Union[CardElement, FallbackElement]] = None
+    fallback: Optional[Union[SerializeAsAny[CardElement], FallbackElement]] = None
     """ An alternate element to render if the type of this one is unsupported or if the host application doesn't support all the capabilities specified in the requires property. """
 
     def with_key(self, value: str) -> Self:
@@ -8117,7 +8117,7 @@ class CodeBlock(CardElement):
     grid_area: Optional[str] = None
     """ The area of a Layout.AreaGrid layout in which an element should be displayed. """
 
-    fallback: Optional[Union[CardElement, FallbackElement]] = None
+    fallback: Optional[Union[SerializeAsAny[CardElement], FallbackElement]] = None
     """ An alternate element to render if the type of this one is unsupported or if the host application doesn't support all the capabilities specified in the requires property. """
 
     def with_key(self, value: str) -> Self:
@@ -8279,7 +8279,7 @@ class ComUserMicrosoftGraphComponent(CardElement):
     grid_area: Optional[str] = None
     """ The area of a Layout.AreaGrid layout in which an element should be displayed. """
 
-    fallback: Optional[Union[CardElement, FallbackElement]] = None
+    fallback: Optional[Union[SerializeAsAny[CardElement], FallbackElement]] = None
     """ An alternate element to render if the type of this one is unsupported or if the host application doesn't support all the capabilities specified in the requires property. """
 
     def with_key(self, value: str) -> Self:
@@ -8419,7 +8419,7 @@ class ComUsersMicrosoftGraphComponent(CardElement):
     grid_area: Optional[str] = None
     """ The area of a Layout.AreaGrid layout in which an element should be displayed. """
 
-    fallback: Optional[Union[CardElement, FallbackElement]] = None
+    fallback: Optional[Union[SerializeAsAny[CardElement], FallbackElement]] = None
     """ An alternate element to render if the type of this one is unsupported or if the host application doesn't support all the capabilities specified in the requires property. """
 
     def with_key(self, value: str) -> Self:
@@ -8577,7 +8577,7 @@ class ComResourceMicrosoftGraphComponent(CardElement):
     grid_area: Optional[str] = None
     """ The area of a Layout.AreaGrid layout in which an element should be displayed. """
 
-    fallback: Optional[Union[CardElement, FallbackElement]] = None
+    fallback: Optional[Union[SerializeAsAny[CardElement], FallbackElement]] = None
     """ An alternate element to render if the type of this one is unsupported or if the host application doesn't support all the capabilities specified in the requires property. """
 
     def with_key(self, value: str) -> Self:
@@ -8717,7 +8717,7 @@ class ComFileMicrosoftGraphComponent(CardElement):
     grid_area: Optional[str] = None
     """ The area of a Layout.AreaGrid layout in which an element should be displayed. """
 
-    fallback: Optional[Union[CardElement, FallbackElement]] = None
+    fallback: Optional[Union[SerializeAsAny[CardElement], FallbackElement]] = None
     """ An alternate element to render if the type of this one is unsupported or if the host application doesn't support all the capabilities specified in the requires property. """
 
     def with_key(self, value: str) -> Self:
@@ -8966,7 +8966,7 @@ class ComEventMicrosoftGraphComponent(CardElement):
     grid_area: Optional[str] = None
     """ The area of a Layout.AreaGrid layout in which an element should be displayed. """
 
-    fallback: Optional[Union[CardElement, FallbackElement]] = None
+    fallback: Optional[Union[SerializeAsAny[CardElement], FallbackElement]] = None
     """ An alternate element to render if the type of this one is unsupported or if the host application doesn't support all the capabilities specified in the requires property. """
 
     def with_key(self, value: str) -> Self:
@@ -9083,7 +9083,7 @@ class TextRun(CardElement):
     grid_area: Optional[str] = None
     """ The area of a Layout.AreaGrid layout in which an element should be displayed. """
 
-    fallback: Optional[Union[CardElement, FallbackElement]] = None
+    fallback: Optional[Union[SerializeAsAny[CardElement], FallbackElement]] = None
     """ An alternate element to render if the type of this one is unsupported or if the host application doesn't support all the capabilities specified in the requires property. """
 
     def with_key(self, value: str) -> Self:
@@ -9198,7 +9198,7 @@ class IconRun(CardElement):
     grid_area: Optional[str] = None
     """ The area of a Layout.AreaGrid layout in which an element should be displayed. """
 
-    fallback: Optional[Union[CardElement, FallbackElement]] = None
+    fallback: Optional[Union[SerializeAsAny[CardElement], FallbackElement]] = None
     """ An alternate element to render if the type of this one is unsupported or if the host application doesn't support all the capabilities specified in the requires property. """
 
     def with_key(self, value: str) -> Self:
@@ -9289,7 +9289,7 @@ class ImageRun(CardElement):
     grid_area: Optional[str] = None
     """ The area of a Layout.AreaGrid layout in which an element should be displayed. """
 
-    fallback: Optional[Union[CardElement, FallbackElement]] = None
+    fallback: Optional[Union[SerializeAsAny[CardElement], FallbackElement]] = None
     """ An alternate element to render if the type of this one is unsupported or if the host application doesn't support all the capabilities specified in the requires property. """
 
     def with_key(self, value: str) -> Self:
