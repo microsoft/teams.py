@@ -69,7 +69,10 @@ class TestActivityContextSendTargeted:
         sent_activity = ctx._activity_sender.send.call_args[0][0]
 
         # Verify recipient was preserved
-        assert sent_activity.recipient == incoming_sender
+        assert sent_activity.recipient is not None
+        assert sent_activity.recipient.id == incoming_sender.id
+        assert sent_activity.recipient.name == incoming_sender.name
+        assert sent_activity.recipient.is_targeted is True
 
     @pytest.mark.asyncio
     async def test_targeted_update_preserves_recipient(self) -> None:
@@ -92,7 +95,10 @@ class TestActivityContextSendTargeted:
         sent_activity = ctx._activity_sender.send.call_args[0][0]
 
         # Verify recipient was preserved
-        assert sent_activity.recipient == incoming_sender
+        assert sent_activity.recipient is not None
+        assert sent_activity.recipient.id == incoming_sender.id
+        assert sent_activity.recipient.name == incoming_sender.name
+        assert sent_activity.recipient.is_targeted is True
 
     @pytest.mark.asyncio
     async def test_targeted_with_different_recipient(self) -> None:
