@@ -392,6 +392,83 @@ class TestChatPromptEssentials:
         assert result.response.content == "Function returned: Success"
 
 
+class TestBaseAIPlugin:
+    """Direct unit tests for BaseAIPlugin covering its missing lines."""
+
+    def test_name_property_returns_name_passed_to_init(self) -> None:
+        """Test that the name property returns the name supplied to __init__."""
+        plugin = BaseAIPlugin("my_plugin")
+        assert plugin.name == "my_plugin"
+
+    @pytest.mark.asyncio
+    async def test_on_before_function_call_runs_without_error_and_returns_none(self) -> None:
+        """Test that on_before_function_call completes without error and implicitly returns None."""
+        plugin = BaseAIPlugin("test")
+        result = await plugin.on_before_function_call("my_function")
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_on_before_function_call_with_args_returns_none(self) -> None:
+        """Test on_before_function_call with args argument returns None."""
+
+        class TestModel(BaseModel):
+            value: str
+
+        plugin = BaseAIPlugin("test")
+        result = await plugin.on_before_function_call("my_function", TestModel(value="x"))
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_on_after_function_call_returns_result_unchanged(self) -> None:
+        """Test that on_after_function_call returns the result string unchanged."""
+        plugin = BaseAIPlugin("test")
+        result = await plugin.on_after_function_call("my_function", "the_result")
+        assert result == "the_result"
+
+    @pytest.mark.asyncio
+    async def test_on_before_send_returns_input_unchanged(self) -> None:
+        """Test that on_before_send returns the input message unchanged."""
+        plugin = BaseAIPlugin("test")
+        msg = UserMessage(content="hello")
+        result = await plugin.on_before_send(msg)
+        assert result is msg
+
+    @pytest.mark.asyncio
+    async def test_on_after_send_returns_response_unchanged(self) -> None:
+        """Test that on_after_send returns the response message unchanged."""
+        plugin = BaseAIPlugin("test")
+        response = ModelMessage(content="world", function_calls=None)
+        result = await plugin.on_after_send(response)
+        assert result is response
+
+    @pytest.mark.asyncio
+    async def test_on_build_functions_returns_functions_unchanged(self) -> None:
+        """Test that on_build_functions returns the function list unchanged."""
+
+        def handler(params: BaseModel) -> str:
+            return "ok"
+
+        plugin = BaseAIPlugin("test")
+        functions = [Function("f", "desc", BaseModel, handler)]
+        result = await plugin.on_build_functions(functions)
+        assert result is functions
+
+    @pytest.mark.asyncio
+    async def test_on_build_instructions_returns_instructions_unchanged(self) -> None:
+        """Test that on_build_instructions returns the system message unchanged."""
+        plugin = BaseAIPlugin("test")
+        instructions = SystemMessage(content="Be helpful.")
+        result = await plugin.on_build_instructions(instructions)
+        assert result is instructions
+
+    @pytest.mark.asyncio
+    async def test_on_build_instructions_with_none_returns_none(self) -> None:
+        """Test that on_build_instructions returns None when passed None."""
+        plugin = BaseAIPlugin("test")
+        result = await plugin.on_build_instructions(None)
+        assert result is None
+
+
 class MockPlugin(BaseAIPlugin):
     """Mock plugin for testing that tracks all hook calls"""
 
