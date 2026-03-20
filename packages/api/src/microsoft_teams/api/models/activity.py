@@ -167,8 +167,9 @@ class ActivityInput(_ActivityBase):
         Returns:
             Self for method chaining
         """
-        self.recipient = value
-        self.recipient.is_targeted = True if is_targeted is True else None
+        recipient = value.model_copy()
+        recipient.is_targeted = True if is_targeted is True else None
+        self.recipient = recipient
         if is_targeted is True:
             warnings.warn(
                 "The is_targeted parameter of with_recipient is in preview and may change "

@@ -812,7 +812,7 @@ class TestMessageActivityIntegration:
         account = Account(id="user-123", name="Test User", role="user")
         activity = MessageActivityInput(text="targeted message").with_recipient(account, is_targeted=True)
 
-        payload = activity.model_dump_json()
+        data = activity.model_dump(by_alias=True, exclude_none=True)
 
-        assert '"recipient":' in payload
-        assert '"isTargeted":true' in payload
+        assert "recipient" in data
+        assert data["recipient"]["isTargeted"] is True
