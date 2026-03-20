@@ -778,12 +778,12 @@ class TestMessageActivityIntegration:
             assert activity.type == expected_type
 
     def test_with_recipient_defaults_to_not_targeted(self):
-        """Test that with_recipient without is_targeted flag leaves is_targeted unchanged"""
+        """Test that with_recipient without is_targeted clears recipient-targeting."""
         account = Account(id="user-123", name="Test User", role="user")
         activity = MessageActivityInput(text="hello").with_recipient(account)
 
-        assert activity.is_targeted is None
         assert activity.recipient is not None
+        assert activity.recipient.is_targeted is None
         assert activity.recipient.id == "user-123"
 
     def test_with_recipient_sets_is_targeted_and_recipient(self):
@@ -791,8 +791,8 @@ class TestMessageActivityIntegration:
         account = Account(id="user-123", name="Test User", role="user")
         activity = MessageActivityInput(text="hello").with_recipient(account, is_targeted=True)
 
-        assert activity.is_targeted is True
         assert activity.recipient is not None
+        assert activity.recipient.is_targeted is True
         assert activity.recipient.id == "user-123"
         assert activity.recipient.name == "Test User"
         assert activity.recipient.role == "user"
@@ -803,6 +803,16 @@ class TestMessageActivityIntegration:
         activity = MessageActivityInput(text="hello").with_recipient(account, is_targeted=True).add_text(" world")
 
         assert activity.text == "hello world"
-        assert activity.is_targeted is True
         assert activity.recipient is not None
+        assert activity.recipient.is_targeted is True
         assert activity.recipient.id == "user-123"
+
+    def test_with_recipient_targeted_serializes_on_recipient(self):
+        """Test that targeted routing serializes as recipient.isTargeted in payload JSON."""
+        account = Account(id="user-123", name="Test User", role="user")
+        activity = MessageActivityInput(text="targeted message").with_recipient(account, is_targeted=True)
+
+        payload = activity.model_dump_json()
+
+        assert '"recipient":' in payload
+        assert '"isTargeted":true' in payload

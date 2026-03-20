@@ -54,7 +54,11 @@ class ActivitySender:
         activity.from_ = ref.bot
         activity.conversation = ref.conversation
 
-        is_targeted = isinstance(activity, MessageActivityInput) and activity.is_targeted is True
+        is_targeted = (
+            isinstance(activity, MessageActivityInput)
+            and activity.recipient is not None
+            and activity.recipient.is_targeted is True
+        )
         is_update = hasattr(activity, "id") and activity.id
         activities = api.conversations.activities(ref.conversation.id)
 

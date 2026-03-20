@@ -737,32 +737,6 @@ class TestApp:
     # Tests for App.send() proactive targeted message validation
 
     @pytest.mark.asyncio
-    async def test_proactive_targeted_without_recipient_raises_error(self, mock_storage) -> None:
-        """
-        Test that sending a targeted message proactively without an explicit
-        recipient raises a ValueError.
-        """
-        options = AppOptions(
-            storage=mock_storage,
-            client_id="test-client-id",
-            client_secret="test-secret",
-        )
-        app = App(**options)
-        app._initialized = True
-        app.activity_sender.send = AsyncMock(
-            return_value=SentActivity(id="sent-activity-id", activity_params=MessageActivityInput(text="sent"))
-        )
-
-        # Create a targeted message without explicit recipient
-        activity = MessageActivityInput(text="Hello")
-        activity.is_targeted = True  # Set is_targeted without recipient
-
-        with pytest.raises(
-            ValueError, match="Targeted messages sent proactively must specify an explicit recipient account"
-        ):
-            await app.send("conv-123", activity)
-
-    @pytest.mark.asyncio
     async def test_proactive_targeted_with_explicit_recipient_succeeds(self, mock_storage) -> None:
         """
         Test that sending a targeted message proactively with an explicit
