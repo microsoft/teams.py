@@ -5,8 +5,8 @@ Licensed under the MIT License.
 
 import base64
 import json
+import logging
 from dataclasses import dataclass
-from logging import Logger
 from typing import TYPE_CHECKING, Any, Awaitable, Callable, Generic, Optional, TypeVar, cast
 
 from microsoft_teams.api import (
@@ -36,14 +36,13 @@ from microsoft_teams.cards import AdaptiveCard
 from microsoft_teams.common import Storage
 from microsoft_teams.common.http.client_token import Token
 
+from ..activity_sender import ActivitySender
+
 if TYPE_CHECKING:
     from msgraph.graph_service_client import GraphServiceClient
 
-from ..plugins import Sender
-
 T = TypeVar("T", bound=ActivityBase, contravariant=True)
-
-SendCallable = Callable[[str | ActivityParams | AdaptiveCard], Awaitable[SentActivity]]
+logger = logging.getLogger(__name__)
 
 
 def _get_graph_client(token: Token):
@@ -87,14 +86,13 @@ class ActivityContext(Generic[T]):
         self,
         activity: T,
         app_id: str,
-        logger: Logger,
         storage: Storage[str, Any],
         api: ApiClient,
         user_token: Optional[str],
         conversation_ref: ConversationReference,
         is_signed_in: bool,
         connection_name: str,
-        sender: Sender,
+        activity_sender: ActivitySender,
         app_token: Token,
     ):
         self.activity = activity
@@ -106,9 +104,9 @@ class ActivityContext(Generic[T]):
         self.user_token = user_token
         self.connection_name = connection_name
         self.is_signed_in = is_signed_in
-        self._plugin = sender
+        self._activity_sender = activity_sender
         self._app_token = app_token
-        self.stream = self._plugin.create_stream(self.conversation_ref)
+        self.stream = activity_sender.create_stream(conversation_ref)
 
         self._next_handler: Optional[Callable[[], Awaitable[None]]] = None
 
@@ -195,7 +193,7 @@ class ActivityContext(Generic[T]):
             activity.recipient = self.activity.from_
 
         ref = conversation_ref or self.conversation_ref
-        res = await self._plugin.send(activity, ref)
+        res = await self._activity_sender.send(activity, ref)
         return res
 
     async def reply(self, input: str | ActivityParams) -> SentActivity:

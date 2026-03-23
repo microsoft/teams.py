@@ -4,7 +4,6 @@ Licensed under the MIT License.
 """
 
 from dataclasses import dataclass
-from logging import Logger
 from typing import Any, Awaitable, Callable
 
 from microsoft_teams.api import Activity, InvokeResponse, TokenProtocol
@@ -13,5 +12,4 @@ from microsoft_teams.api import Activity, InvokeResponse, TokenProtocol
 @dataclass
 class RouteContext:
     port: int
-    log: Logger
     process: Callable[[TokenProtocol, Activity], Awaitable[InvokeResponse[Any]]]

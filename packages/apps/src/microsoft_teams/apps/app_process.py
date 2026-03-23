@@ -3,12 +3,13 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from logging import Logger
+import logging
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union, cast
 
 from microsoft_teams.api import (
     ActivityBase,
     ActivityParams,
+    ActivityTypeAdapter,
     ApiClient,
     ApiClientSettings,
     ConversationReference,
@@ -23,12 +24,16 @@ from microsoft_teams.common import Client, ClientOptions, LocalStorage, Storage
 
 if TYPE_CHECKING:
     from .app_events import EventManager
+
+from .activity_sender import ActivitySender
 from .events import ActivityEvent, ActivityResponseEvent, ActivitySentEvent, ErrorEvent
-from .plugins import PluginActivityEvent, PluginBase, Sender
+from .plugins import PluginActivityEvent, PluginBase
 from .routing.activity_context import ActivityContext
 from .routing.router import ActivityHandler, ActivityRouter
 from .token_manager import TokenManager
 from .utils import extract_tenant_id
+
+logger = logging.getLogger(__name__)
 
 
 class ActivityProcessor:
@@ -37,22 +42,22 @@ class ActivityProcessor:
     def __init__(
         self,
         router: ActivityRouter,
-        logger: Logger,
         id: Optional[str],
         storage: Union[Storage[str, Any], LocalStorage[Any]],
         default_connection_name: str,
         http_client: Client,
         token_manager: TokenManager,
         api_client_settings: Optional[ApiClientSettings],
+        activity_sender: ActivitySender,
     ) -> None:
         self.router = router
-        self.logger = logger
         self.id = id
         self.storage = storage
         self.default_connection_name = default_connection_name
         self.http_client = http_client
         self.token_manager = token_manager
         self.api_client_settings = api_client_settings
+        self.activity_sender = activity_sender
 
         # This will be set after the EventManager is initialized due to
         # a circular dependency
@@ -63,7 +68,6 @@ class ActivityProcessor:
         activity: ActivityBase,
         token: TokenProtocol,
         plugins: List[PluginBase],
-        sender: Sender,
     ) -> ActivityContext[ActivityBase]:
         """Build the context object for activity processing.
 
@@ -106,7 +110,7 @@ class ActivityProcessor:
             is_signed_in = True
         except Exception:
             # User token not available
-            self.logger.debug("No user token available")
+            logger.debug("No user token available")
             pass
 
         tenant_id = extract_tenant_id(activity)
@@ -114,14 +118,13 @@ class ActivityProcessor:
         activityCtx = ActivityContext(
             activity,
             self.id or "",
-            self.logger,
             self.storage,
             api_client,
             user_token,
             conversation_ref,
             is_signed_in,
             self.default_connection_name,
-            sender,
+            activity_sender=self.activity_sender,
             app_token=lambda: self.token_manager.get_graph_token(tenant_id),
         )
 
@@ -136,12 +139,11 @@ class ActivityProcessor:
             if not self.event_manager:
                 raise ValueError("EventManager was not initialized properly")
 
-            self.logger.debug("Calling on_activity_sent for plugins")
+            logger.debug("Calling on_activity_sent for plugins")
             ref = conversation_ref or activityCtx.conversation_ref
 
             await self.event_manager.on_activity_sent(
-                sender,
-                ActivitySentEvent(sender=sender, activity=res, conversation_ref=ref),
+                ActivitySentEvent(activity=res, conversation_ref=ref),
                 plugins=plugins,
             )
             return res
@@ -151,16 +153,14 @@ class ActivityProcessor:
         async def handle_chunk(chunk_activity: SentActivity):
             if self.event_manager:
                 await self.event_manager.on_activity_sent(
-                    sender,
-                    ActivitySentEvent(sender=sender, activity=chunk_activity, conversation_ref=conversation_ref),
+                    ActivitySentEvent(activity=chunk_activity, conversation_ref=conversation_ref),
                     plugins=plugins,
                 )
 
         async def handle_close(close_activity: SentActivity):
             if self.event_manager:
                 await self.event_manager.on_activity_sent(
-                    sender,
-                    ActivitySentEvent(sender=sender, activity=close_activity, conversation_ref=conversation_ref),
+                    ActivitySentEvent(activity=close_activity, conversation_ref=conversation_ref),
                     plugins=plugins,
                 )
 
@@ -169,12 +169,13 @@ class ActivityProcessor:
 
         return activityCtx
 
-    async def process_activity(
-        self, plugins: List[PluginBase], sender: Sender, event: ActivityEvent
-    ) -> InvokeResponse[Any]:
-        activityCtx = await self._build_context(event.activity, event.token, plugins, sender)
+    async def process_activity(self, plugins: List[PluginBase], event: ActivityEvent) -> InvokeResponse[Any]:
+        activity_dict = event.body.model_dump(by_alias=True, exclude_none=True)
+        activity = ActivityTypeAdapter.validate_python(activity_dict)
 
-        self.logger.debug(f"Received activity: {activityCtx.activity}")
+        activityCtx = await self._build_context(activity, event.token, plugins)
+
+        logger.debug(f"Received activity: {activityCtx.activity}")
 
         # Get registered handlers for this activity type
         handlers = self.router.select_handlers(activityCtx.activity)
@@ -183,8 +184,7 @@ class ActivityProcessor:
             async def route(ctx: ActivityContext[ActivityBase]) -> Optional[Any]:
                 await plugin.on_activity(
                     PluginActivityEvent(
-                        sender=sender,
-                        activity=event.activity,
+                        activity=activity,
                         token=event.token,
                         conversation_ref=activityCtx.conversation_ref,
                     )
@@ -217,19 +217,18 @@ class ActivityProcessor:
                 response = InvokeResponse[Any](status=200, body=middleware_result)
 
             await self.event_manager.on_activity_response(
-                sender,
                 ActivityResponseEvent(
-                    activity=event.activity,
+                    activity=activity,
                     response=response,
                     conversation_ref=activityCtx.conversation_ref,
                 ),
                 plugins=plugins,
             )
         except Exception as error:
-            await self.event_manager.on_error(ErrorEvent(error=error, activity=event.activity, sender=sender), plugins)
+            await self.event_manager.on_error(ErrorEvent(error=error, activity=activity), plugins)
             raise error
 
-        self.logger.debug("Completed processing activity")
+        logger.debug("Completed processing activity")
 
         return response
 

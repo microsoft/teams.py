@@ -25,9 +25,12 @@ from microsoft_teams.api.models import (
     TokenResponse,
 )
 from microsoft_teams.apps.app_oauth import OauthHandlers
+from microsoft_teams.apps.app_process import ActivityProcessor
 from microsoft_teams.apps.events import ErrorEvent, SignInEvent
 from microsoft_teams.apps.routing import ActivityContext
-from microsoft_teams.common import EventEmitter
+from microsoft_teams.apps.routing.activity_route_configs import ACTIVITY_ROUTES
+from microsoft_teams.apps.routing.router import ActivityRouter
+from microsoft_teams.common import EventEmitter, LocalStorage
 
 # pyright: basic
 
@@ -137,18 +140,15 @@ class TestOauthHandlers:
     async def test_sign_in_token_exchange_connection_name_warning(
         self, oauth_handlers, mock_context, token_exchange_activity, mock_token_response
     ):
-        """Test token exchange with different connection name logs warning."""
+        """Test token exchange with different connection name."""
         token_exchange_activity.value.connection_name = "different-connection"
         mock_context.activity = token_exchange_activity
         mock_context.api.users.token.exchange.return_value = mock_token_response
 
         await oauth_handlers.sign_in_token_exchange(mock_context)
 
-        # Verify warning was logged
-        mock_context.logger.warning.assert_called_once()
-        warning_msg = mock_context.logger.warning.call_args[0][0]
-        assert "different-connection" in warning_msg
-        assert "test-connection" in warning_msg
+        # Exchange still succeeds despite connection name mismatch
+        mock_context.api.users.token.exchange.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_sign_in_token_exchange_http_error_404(self, oauth_handlers, mock_context, token_exchange_activity):
@@ -193,9 +193,6 @@ class TestOauthHandlers:
         oauth_handlers.event_emitter.emit.assert_called_once_with(
             "error", ErrorEvent(error=http_error, context={"activity": token_exchange_activity})
         )
-
-        # Verify error logged
-        mock_context.logger.error.assert_called_once()
 
         # Verify error response
         assert isinstance(result, InvokeResponse)
@@ -246,9 +243,6 @@ class TestOauthHandlers:
             "sign_in", SignInEvent(activity_ctx=mock_context, token_response=mock_token_response)
         )
 
-        # Verify debug logs
-        assert mock_context.logger.debug.call_count == 2
-
         # Verify response
         assert result is None
 
@@ -262,11 +256,6 @@ class TestOauthHandlers:
         mock_context.activity = verify_state_activity
 
         result = await oauth_handlers.sign_in_verify_state(mock_context)
-
-        # Verify warning logged
-        mock_context.logger.warning.assert_called_once()
-        warning_msg = mock_context.logger.warning.call_args[0][0]
-        assert "Auth state not present" in warning_msg
 
         # Verify no API call
         mock_context.api.users.token.get.assert_not_called()
@@ -298,9 +287,6 @@ class TestOauthHandlers:
             "error", ErrorEvent(error=http_error, context={"activity": verify_state_activity})
         )
 
-        # Verify error logged
-        mock_context.logger.error.assert_called_once()
-
         # Verify error response
         assert isinstance(result, InvokeResponse) and result.body is None
         assert result.status == 500
@@ -320,9 +306,6 @@ class TestOauthHandlers:
 
         result = await oauth_handlers.sign_in_verify_state(mock_context)
 
-        # Verify error logged
-        mock_context.logger.error.assert_called_once()
-
         # Verify 412 response
         assert isinstance(result, InvokeResponse) and result.body is None
         assert result.status == 412
@@ -335,9 +318,6 @@ class TestOauthHandlers:
         mock_context.api.users.token.get.side_effect = generic_error
 
         result = await oauth_handlers.sign_in_verify_state(mock_context)
-
-        # Verify error logged
-        mock_context.logger.error.assert_called_once()
 
         # Verify 412 response
         assert isinstance(result, InvokeResponse) and result.body is None
@@ -452,25 +432,20 @@ class TestSignInFailureMiddlewareChain:
     @pytest.fixture
     def router(self):
         """Create a real ActivityRouter."""
-        from microsoft_teams.apps.routing.router import ActivityRouter
-
         return ActivityRouter()
 
     @pytest.fixture
     def processor(self, router):
         """Create an ActivityProcessor for middleware chain execution."""
-        from microsoft_teams.apps.app_process import ActivityProcessor
-        from microsoft_teams.common import LocalStorage
-
         return ActivityProcessor(
             router=router,
-            logger=MagicMock(),
             id="bot-456",
             storage=LocalStorage(),
             default_connection_name="graph",
             http_client=MagicMock(),
             token_manager=MagicMock(),
             api_client_settings=None,
+            activity_sender=MagicMock(),
         )
 
     @staticmethod
@@ -479,22 +454,19 @@ class TestSignInFailureMiddlewareChain:
         return ActivityContext(
             activity=activity,
             app_id="bot-456",
-            logger=MagicMock(),
             storage=MagicMock(),
             api=MagicMock(),
             user_token=None,
             conversation_ref=MagicMock(),
             is_signed_in=False,
             connection_name="graph",
-            sender=MagicMock(),
+            activity_sender=MagicMock(),
             app_token=MagicMock(),
         )
 
     @pytest.mark.asyncio
     async def test_system_default_handler_fires_alone(self, router, processor, failure_activity):
         """System default fires when no developer handler is registered."""
-        from microsoft_teams.apps.routing.activity_route_configs import ACTIVITY_ROUTES
-
         called = []
 
         async def system_handler(ctx):
@@ -515,8 +487,6 @@ class TestSignInFailureMiddlewareChain:
     @pytest.mark.asyncio
     async def test_developer_handler_fires_with_system_handler(self, router, processor, failure_activity):
         """Developer on_signin_failure handler fires alongside the system default."""
-        from microsoft_teams.apps.routing.activity_route_configs import ACTIVITY_ROUTES
-
         called = []
 
         async def system_handler(ctx):
@@ -542,8 +512,6 @@ class TestSignInFailureMiddlewareChain:
     @pytest.mark.asyncio
     async def test_catchall_on_invoke_without_next_blocks_developer_handler(self, router, processor, failure_activity):
         """A catch-all on_invoke that omits ctx.next() blocks later handlers."""
-        from microsoft_teams.apps.routing.activity_route_configs import ACTIVITY_ROUTES
-
         called = []
 
         async def system_handler(ctx):
@@ -575,8 +543,6 @@ class TestSignInFailureMiddlewareChain:
     @pytest.mark.asyncio
     async def test_catchall_on_invoke_with_next_allows_developer_handler(self, router, processor, failure_activity):
         """A catch-all on_invoke that calls ctx.next() allows later handlers to fire."""
-        from microsoft_teams.apps.routing.activity_route_configs import ACTIVITY_ROUTES
-
         called = []
 
         async def system_handler(ctx):
@@ -608,8 +574,6 @@ class TestSignInFailureMiddlewareChain:
     @pytest.mark.asyncio
     async def test_developer_handler_return_value_does_not_override_system(self, router, processor, failure_activity):
         """The first handler's return value wins (system handler returns first on unwind)."""
-        from microsoft_teams.apps.routing.activity_route_configs import ACTIVITY_ROUTES
-
         config = ACTIVITY_ROUTES["signin.failure"]
 
         async def system_handler(ctx):

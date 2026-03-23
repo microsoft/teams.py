@@ -3,6 +3,8 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
+# pyright: basic
+
 from typing import Literal, cast
 from unittest.mock import MagicMock, create_autospec, patch
 
@@ -13,6 +15,7 @@ from microsoft_teams.api import (
     JsonWebToken,
     ManagedIdentityCredentials,
 )
+from microsoft_teams.api.auth.credentials import TokenCredentials
 from microsoft_teams.apps.token_manager import TokenManager
 from msal import ManagedIdentityClient  # pyright: ignore[reportMissingTypeStubs]
 
@@ -338,3 +341,201 @@ class TestTokenManager:
                     await manager.get_bot_token()
 
                 assert "invalid_grant" in str(exc_info.value)
+
+    @pytest.mark.asyncio
+    async def test_get_token_caller_name_logged_when_no_credentials(self):
+        """Test that caller_name is logged when credentials is None (covers line 77)."""
+        manager = TokenManager(credentials=None)
+
+        # Call _get_token directly with caller_name set and credentials=None
+        result = await manager._get_token(
+            "https://api.botframework.com/.default", "botframework.com", caller_name="test_caller"
+        )
+
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_get_token_with_token_credentials_sync(self):
+        """Test _get_token with a synchronous TokenCredentials token provider."""
+        credentials = TokenCredentials(
+            client_id="test-client-id",
+            token=lambda scope, tenant: VALID_TEST_TOKEN,
+            tenant_id="tenant",
+        )
+        manager = TokenManager(credentials=credentials)
+
+        result = await manager._get_token("https://api.botframework.com/.default", "botframework.com")
+        assert result is not None
+        assert isinstance(result, JsonWebToken)
+        assert str(result) == VALID_TEST_TOKEN
+
+    @pytest.mark.asyncio
+    async def test_get_token_with_token_credentials_async(self):
+        """Test _get_token with an async TokenCredentials token provider."""
+
+        async def async_token_provider(scope: str | list[str], _tenant: str | None) -> str:
+            return VALID_TEST_TOKEN
+
+        credentials = TokenCredentials(
+            client_id="test-client-id",
+            token=async_token_provider,
+            tenant_id="tenant",
+        )
+        manager = TokenManager(credentials=credentials)
+
+        result = await manager._get_token("https://api.botframework.com/.default", "botframework.com")
+        assert result is not None
+        assert isinstance(result, JsonWebToken)
+        assert str(result) == VALID_TEST_TOKEN
+
+    @pytest.mark.asyncio
+    async def test_acquire_managed_identity_token_success(self):
+        """Test _acquire_managed_identity_token returns token string on success."""
+        mock_credentials = FederatedIdentityCredentials(
+            client_id="test-app-client-id",
+            managed_identity_type="user",
+            managed_identity_client_id="test-mi-client-id",
+            tenant_id="test-tenant-id",
+        )
+
+        mock_mi_client = create_autospec(ManagedIdentityClient, instance=True)
+        mock_mi_client.acquire_token_for_client.return_value = {"access_token": "mi-token"}
+
+        manager = TokenManager(credentials=mock_credentials)
+
+        with patch.object(manager, "_get_managed_identity_client", return_value=mock_mi_client):
+            result = await manager._acquire_managed_identity_token(mock_credentials)
+
+        assert result == "mi-token"
+        mock_mi_client.acquire_token_for_client.assert_called_once_with(resource="api://AzureADTokenExchange")
+
+    @pytest.mark.asyncio
+    async def test_acquire_managed_identity_token_failure(self):
+        """Test _acquire_managed_identity_token raises ValueError when no access_token returned."""
+        mock_credentials = FederatedIdentityCredentials(
+            client_id="test-app-client-id",
+            managed_identity_type="user",
+            managed_identity_client_id="test-mi-client-id",
+            tenant_id="test-tenant-id",
+        )
+
+        mock_mi_client = create_autospec(ManagedIdentityClient, instance=True)
+        mock_mi_client.acquire_token_for_client.return_value = {"error": "some_error"}
+
+        manager = TokenManager(credentials=mock_credentials)
+
+        with patch.object(manager, "_get_managed_identity_client", return_value=mock_mi_client):
+            with pytest.raises(ValueError) as exc_info:
+                await manager._acquire_managed_identity_token(mock_credentials)
+
+        assert "some_error" in str(exc_info.value)
+
+    @pytest.mark.asyncio
+    async def test_get_confidential_client_uses_cache(self):
+        """Test that _get_confidential_client returns cached client on second call."""
+        mock_credentials = ClientCredentials(
+            client_id="test-client-id",
+            client_secret="test-client-secret",
+            tenant_id="test-tenant-id",
+        )
+
+        manager = TokenManager(credentials=mock_credentials)
+
+        with patch("microsoft_teams.apps.token_manager.ConfidentialClientApplication") as mock_msal_class:
+            mock_msal_class.return_value = MagicMock()
+
+            client_first = manager._get_confidential_client(mock_credentials, "test-tenant-id")
+            client_second = manager._get_confidential_client(mock_credentials, "test-tenant-id")
+
+        # ConfidentialClientApplication should only be constructed once
+        mock_msal_class.assert_called_once()
+        assert client_first is client_second
+
+    @pytest.mark.asyncio
+    async def test_get_managed_identity_client_uses_cache(self):
+        """Test that _get_managed_identity_client returns cached client on second call."""
+        mock_credentials = ManagedIdentityCredentials(
+            client_id="test-managed-identity-client-id",
+            tenant_id="test-tenant-id",
+        )
+
+        manager = TokenManager(credentials=mock_credentials)
+
+        with patch("microsoft_teams.apps.token_manager.ManagedIdentityClient") as mock_mi_client_class:
+            with patch("microsoft_teams.apps.token_manager.requests") as mock_requests:
+                mock_requests.Session.return_value = MagicMock()
+                mock_mi_client_class.return_value = MagicMock()
+
+                client_first = manager._get_managed_identity_client(mock_credentials)
+                client_second = manager._get_managed_identity_client(mock_credentials)
+
+        # ManagedIdentityClient should only be constructed once
+        mock_mi_client_class.assert_called_once()
+        assert client_first is client_second
+
+    @pytest.mark.asyncio
+    async def test_get_managed_identity_client_with_managed_identity_credentials(self):
+        """Test _get_managed_identity_client creates UserAssignedManagedIdentity for ManagedIdentityCredentials."""
+        mock_credentials = ManagedIdentityCredentials(
+            client_id="test-managed-identity-client-id",
+            tenant_id="test-tenant-id",
+        )
+
+        manager = TokenManager(credentials=mock_credentials)
+
+        with patch("microsoft_teams.apps.token_manager.ManagedIdentityClient") as mock_mi_client_class:
+            with patch("microsoft_teams.apps.token_manager.requests") as mock_requests:
+                mock_requests.Session.return_value = MagicMock()
+                mock_mi_client_class.return_value = MagicMock()
+                with patch("microsoft_teams.apps.token_manager.UserAssignedManagedIdentity") as mock_user_mi:
+                    mock_user_mi.return_value = MagicMock()
+
+                    manager._get_managed_identity_client(mock_credentials)
+
+                    mock_user_mi.assert_called_once_with(client_id="test-managed-identity-client-id")
+
+    @pytest.mark.asyncio
+    async def test_get_managed_identity_client_with_federated_system(self):
+        """Test _get_managed_identity_client uses SystemAssignedManagedIdentity for system managed_identity_type."""
+        mock_credentials = FederatedIdentityCredentials(
+            client_id="test-app-client-id",
+            managed_identity_type="system",
+            managed_identity_client_id=None,
+            tenant_id="test-tenant-id",
+        )
+
+        manager = TokenManager(credentials=mock_credentials)
+
+        with patch("microsoft_teams.apps.token_manager.ManagedIdentityClient") as mock_mi_client_class:
+            with patch("microsoft_teams.apps.token_manager.requests") as mock_requests:
+                mock_requests.Session.return_value = MagicMock()
+                mock_mi_client_class.return_value = MagicMock()
+                with patch("microsoft_teams.apps.token_manager.SystemAssignedManagedIdentity") as mock_system_mi:
+                    mock_system_mi.return_value = MagicMock()
+
+                    manager._get_managed_identity_client(mock_credentials)
+
+                    mock_system_mi.assert_called_once_with()
+
+    @pytest.mark.asyncio
+    async def test_get_managed_identity_client_with_federated_user(self):
+        """Test _get_managed_identity_client uses UserAssignedManagedIdentity with mi_client_id for user type."""
+        mock_credentials = FederatedIdentityCredentials(
+            client_id="test-app-client-id",
+            managed_identity_type="user",
+            managed_identity_client_id="mi-client",
+            tenant_id="test-tenant-id",
+        )
+
+        manager = TokenManager(credentials=mock_credentials)
+
+        with patch("microsoft_teams.apps.token_manager.ManagedIdentityClient") as mock_mi_client_class:
+            with patch("microsoft_teams.apps.token_manager.requests") as mock_requests:
+                mock_requests.Session.return_value = MagicMock()
+                mock_mi_client_class.return_value = MagicMock()
+                with patch("microsoft_teams.apps.token_manager.UserAssignedManagedIdentity") as mock_user_mi:
+                    mock_user_mi.return_value = MagicMock()
+
+                    manager._get_managed_identity_client(mock_credentials)
+
+                    mock_user_mi.assert_called_once_with(client_id="mi-client")

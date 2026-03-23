@@ -5,8 +5,8 @@ Licensed under the MIT License.
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
-from logging import Logger
 from typing import Generic, Optional, TypeVar
 
 from microsoft_teams.api import (
@@ -21,10 +21,12 @@ from microsoft_teams.api import (
 )
 from microsoft_teams.cards import AdaptiveCard
 
-from ..http_plugin import HttpPlugin
+from ..activity_sender import ActivitySender
 from .client_context import ClientContext
 
 T = TypeVar("T")
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(kw_only=True)
@@ -42,11 +44,8 @@ class FunctionContext(ClientContext, Generic[T]):
     api: ApiClient
     """The API client instance for conversation client."""
 
-    http: HttpPlugin
-    """The HTTP plugin instance for sending messages."""
-
-    log: Logger
-    """The app logger instance."""
+    activity_sender: ActivitySender
+    """The activity sender instance for sending messages."""
 
     data: T
     """The function payload."""
@@ -63,7 +62,7 @@ class FunctionContext(ClientContext, Generic[T]):
         conversation_id = await self._resolve_conversation_id(activity)
 
         if not conversation_id:
-            self.log.warning("Cannot send activity: conversation ID could not be resolved")
+            logger.warning("Cannot send activity: conversation ID could not be resolved")
             return None
 
         conversation_ref = ConversationReference(
@@ -80,7 +79,7 @@ class FunctionContext(ClientContext, Generic[T]):
         else:
             activity = activity
 
-        return await self.http.send(activity, conversation_ref)
+        return await self.activity_sender.send(activity, conversation_ref)
 
     async def _resolve_conversation_id(self, activity: str | ActivityParams | AdaptiveCard) -> Optional[str]:
         """Resolve or create a conversation ID for the current user/context.
@@ -107,12 +106,12 @@ class FunctionContext(ClientContext, Generic[T]):
                     self._resolved_conversation_id, self.user_id
                 )
                 if not member:
-                    self.log.warning(
+                    logger.warning(
                         f"User {self.user_id} is not a member of conversation {self._resolved_conversation_id}"
                     )
                     self._resolved_conversation_id = None
             except Exception as e:
-                self.log.error(f"Failed to get conversation member: {e}")
+                logger.error(f"Failed to get conversation member: {e}")
                 self._resolved_conversation_id = None
 
         else:
@@ -129,7 +128,7 @@ class FunctionContext(ClientContext, Generic[T]):
                 conversation = await self.api.conversations.create(conversation_params)
                 self._resolved_conversation_id = conversation.id
             except Exception as e:
-                self.log.error(f"Failed to create conversation: {e}")
+                logger.error(f"Failed to create conversation: {e}")
                 self._resolved_conversation_id = None
 
         return self._resolved_conversation_id

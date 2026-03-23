@@ -3,6 +3,7 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
+import logging
 from typing import cast
 from uuid import uuid4
 
@@ -12,6 +13,8 @@ from fastapi.responses import JSONResponse
 from microsoft_teams.api import Account, Activity, ConversationAccount, JsonWebToken, MessageActivity
 
 from ....context import RouteContext
+
+logger = logging.getLogger(__name__)
 
 
 async def create(context: RouteContext):
@@ -51,7 +54,7 @@ async def create(context: RouteContext):
             return response
 
         except Exception as err:
-            context.log.error(err)
+            logger.error(err)
             raise HTTPException(status_code=500, detail=str(err)) from err
 
     return create_activity_endpoint

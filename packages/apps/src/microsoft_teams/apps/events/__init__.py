@@ -9,6 +9,7 @@ from .types import (
     ActivityEvent,
     ActivityResponseEvent,
     ActivitySentEvent,
+    CoreActivity,
     ErrorEvent,
     SignInEvent,
     StartEvent,
@@ -27,4 +28,5 @@ __all__ = [
     "is_registered_event",
     "ActivitySentEvent",
     "ActivityResponseEvent",
+    "CoreActivity",
 ]
