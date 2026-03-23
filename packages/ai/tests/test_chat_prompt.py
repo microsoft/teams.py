@@ -392,6 +392,65 @@ class TestChatPromptEssentials:
         assert result.response.content == "Function returned: Success"
 
 
+class TestBaseAIPluginLifecycle:
+    """Integration test: BaseAIPlugin subclass run through ChatPrompt to verify lifecycle call order."""
+
+    @pytest.mark.asyncio
+    async def test_plugin_lifecycle_order_through_chat_prompt(self) -> None:
+        """All plugin hooks are called in the expected order during a send with function calling."""
+        call_log: list[str] = []
+
+        class LifecyclePlugin(BaseAIPlugin):
+            async def on_build_instructions(self, instructions: SystemMessage | None) -> SystemMessage | None:
+                call_log.append("on_build_instructions")
+                return instructions
+
+            async def on_build_functions(
+                self, functions: list[Function[BaseModel]]
+            ) -> list[Function[BaseModel]] | None:
+                call_log.append("on_build_functions")
+                return functions
+
+            async def on_before_send(self, input: Message) -> Message | None:
+                call_log.append("on_before_send")
+                return input
+
+            async def on_after_send(self, response: ModelMessage) -> ModelMessage | None:
+                call_log.append("on_after_send")
+                return response
+
+            async def on_before_function_call(self, function_name: str, args: Optional[BaseModel] = None) -> None:
+                call_log.append(f"on_before_function_call:{function_name}")
+
+            async def on_after_function_call(
+                self, function_name: str, result: str, args: Optional[BaseModel] = None
+            ) -> str | None:
+                call_log.append(f"on_after_function_call:{function_name}")
+                return result
+
+        plugin = LifecyclePlugin("lifecycle")
+        mock_model = MockAIModel(should_call_function=True)
+
+        def handler(params: MockFunctionParams) -> str:
+            call_log.append("function_handler")
+            return "ok"
+
+        func = Function("test_function", "A test function", MockFunctionParams, handler)
+        prompt = ChatPrompt(mock_model, functions=[func], plugins=[plugin])
+
+        await prompt.send("Hello", instructions=SystemMessage(content="Be helpful"))
+
+        assert call_log == [
+            "on_before_send",
+            "on_build_instructions",
+            "on_build_functions",
+            "on_before_function_call:test_function",
+            "function_handler",
+            "on_after_function_call:test_function",
+            "on_after_send",
+        ]
+
+
 class MockPlugin(BaseAIPlugin):
     """Mock plugin for testing that tracks all hook calls"""
 
