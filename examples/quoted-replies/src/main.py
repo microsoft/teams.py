@@ -48,36 +48,38 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
     # reply() — auto-quotes the inbound message
     # ============================================
     if "test reply" in text:
-        await ctx.reply("This reply auto-quotes your message using reply()")
+        await ctx.reply("Thanks for your message! This reply auto-quotes it using reply().")
         return
 
     # ============================================
     # quote_reply() — quote a previously sent message by ID
     # ============================================
     if "test quote" in text:
-        sent = await ctx.send("This message will be quoted next...")
-        await ctx.quote_reply(sent.id, "This quotes the message above using quote_reply()")
+        sent = await ctx.send("The meeting has been moved to 3 PM tomorrow.")
+        await ctx.quote_reply(sent.id, "Just to confirm — does the new time work for everyone?")
         return
 
     # ============================================
     # add_quoted_reply() — builder with response
     # ============================================
     if "test add" in text:
-        sent = await ctx.send("This message will be quoted next...")
-        msg = MessageActivityInput().add_quoted_reply(sent.id, "This uses add_quoted_reply() with a response")
+        sent = await ctx.send("Please review the latest PR before end of day.")
+        msg = MessageActivityInput().add_quoted_reply(sent.id, "Done! Left my comments on the PR.")
         await ctx.send(msg)
         return
 
     # ============================================
-    # Multi-quote interleaved
+    # Multi-quote with mixed responses
     # ============================================
     if "test multi" in text:
-        sent_a = await ctx.send("Message A — will be quoted")
-        sent_b = await ctx.send("Message B — will be quoted")
+        sent_a = await ctx.send("We need to update the API docs before launch.")
+        sent_b = await ctx.send("The design mockups are ready for review.")
+        sent_c = await ctx.send("CI pipeline is green on main.")
         msg = (
             MessageActivityInput()
-            .add_quoted_reply(sent_a.id, "Response to A")
-            .add_quoted_reply(sent_b.id, "Response to B")
+            .add_quoted_reply(sent_a.id, "I can take the docs — will have a draft by Thursday.")
+            .add_quoted_reply(sent_b.id, "Looks great, approved!")
+            .add_quoted_reply(sent_c.id)
         )
         await ctx.send(msg)
         return
@@ -86,8 +88,8 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
     # add_quoted_reply() + add_text() — manual control
     # ============================================
     if "test manual" in text:
-        sent = await ctx.send("This message will be quoted next...")
-        msg = MessageActivityInput().add_quoted_reply(sent.id).add_text(" Custom text after the quote placeholder")
+        sent = await ctx.send("Deployment to staging is complete.")
+        msg = MessageActivityInput().add_quoted_reply(sent.id).add_text(" Verified — all smoke tests passing.")
         await ctx.send(msg)
         return
 
@@ -101,7 +103,7 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
             "- `test reply` - reply() auto-quotes your message\n"
             "- `test quote` - quote_reply() quotes a previously sent message\n"
             "- `test add` - add_quoted_reply() builder with response\n"
-            "- `test multi` - Multi-quote interleaved (quotes two separate messages)\n"
+            "- `test multi` - Multi-quote with mixed responses (one bare quote with no response)\n"
             "- `test manual` - add_quoted_reply() + add_text() manual control\n\n"
             "Quote any message to me to see the parsed metadata!"
         )
