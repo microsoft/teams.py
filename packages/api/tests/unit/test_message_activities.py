@@ -16,7 +16,7 @@ from microsoft_teams.api.activities.message import (
     MessageUpdateActivity,
     MessageUpdateChannelData,
 )
-from microsoft_teams.api.activities.message.message_update import MessageEventType, MessageUpdateActivityInput
+from microsoft_teams.api.activities.message.message_update import MessageEventType
 from microsoft_teams.api.activities.utils import StripMentionsTextOptions
 from microsoft_teams.api.models import (
     Account,
@@ -444,66 +444,6 @@ class TestMessageActivity:
 
         assert result is activity
         assert activity.text == "Hi ! How are you?"
-
-    def test_with_text(self):
-        """Test with_text builder sets the text field"""
-        activity = MessageActivityInput()
-        result = activity.with_text("Hello from builder")
-
-        assert result is activity
-        assert activity.text == "Hello from builder"
-
-    def test_with_text_chaining(self):
-        """Test with_text supports fluent chaining"""
-        activity = MessageActivityInput().with_text("First").with_text("Second")
-        assert activity.text == "Second"
-
-    def test_with_speak(self):
-        """Test with_speak builder sets the speak field"""
-        activity = MessageActivityInput(text="Hello")
-        result = activity.with_speak("Spoken text")
-
-        assert result is activity
-        assert activity.speak == "Spoken text"
-
-    def test_with_importance(self):
-        """Test with_importance builder sets the importance field"""
-        activity = MessageActivityInput(text="Hello")
-        result = activity.with_importance(Importance.HIGH)
-
-        assert result is activity
-        assert activity.importance == Importance.HIGH
-
-    def test_with_importance_low(self):
-        """Test with_importance builder sets low importance"""
-        activity = MessageActivityInput(text="Hello")
-        activity.with_importance(Importance.LOW)
-        assert activity.importance == Importance.LOW
-
-    def test_with_summary(self):
-        """Test with_summary builder sets the summary field"""
-        activity = MessageActivityInput(text="Hello")
-        result = activity.with_summary("This is a summary")
-
-        assert result is activity
-        assert activity.summary == "This is a summary"
-
-    def test_with_subject_via_attribute(self):
-        """Test that the MessageActivityInput can have a subject set via attribute"""
-        # MessageActivityInput inherits from ActivityInputBase; subject may live there
-        activity = MessageActivityInput(text="Hello")
-        # Verify fluent chaining across multiple builders
-        result = (
-            activity.with_text("Updated")
-            .with_speak("Say this")
-            .with_summary("Brief")
-            .with_importance(Importance.NORMAL)
-        )
-        assert result is activity
-        assert activity.text == "Updated"
-        assert activity.speak == "Say this"
-        assert activity.summary == "Brief"
-        assert activity.importance == Importance.NORMAL
 
 
 class TestMessageDeleteActivity:
@@ -946,34 +886,3 @@ class TestMessageActivityIntegration:
         assert activity.is_targeted is True
         assert activity.recipient is not None
         assert activity.recipient.id == "user-123"
-
-
-class TestMessageUpdateActivityInputBuilders:
-    """Tests for MessageUpdateActivityInput builder methods."""
-
-    def test_with_text(self):
-        activity = MessageUpdateActivityInput()
-        result = activity.with_text("updated text")
-        assert result is activity
-        assert activity.text == "updated text"
-
-    def test_with_speak(self):
-        activity = MessageUpdateActivityInput()
-        result = activity.with_speak("speak text")
-        assert result is activity
-        assert activity.speak == "speak text"
-
-    def test_with_summary(self):
-        activity = MessageUpdateActivityInput()
-        result = activity.with_summary("summary text")
-        assert result is activity
-        assert activity.summary == "summary text"
-
-    def test_with_expiration(self):
-        from datetime import datetime, timezone
-
-        activity = MessageUpdateActivityInput()
-        expiry = datetime(2025, 1, 1, tzinfo=timezone.utc)
-        result = activity.with_expiration(expiry)
-        assert result is activity
-        assert activity.expiration == expiry

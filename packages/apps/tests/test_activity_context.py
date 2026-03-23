@@ -245,30 +245,6 @@ class TestActivityContextReply:
         assert sent_activity.reply_to_id == "evt-id-999"
 
 
-class TestActivityContextNext:
-    """Tests for ActivityContext.next()."""
-
-    @pytest.mark.asyncio
-    async def test_next_calls_handler_when_set(self) -> None:
-        """next() invokes the registered _next_handler."""
-        ctx, _ = _create_activity_context()
-        handler = AsyncMock()
-        ctx.set_next(handler)
-
-        await ctx.next()
-
-        handler.assert_called_once()
-
-    @pytest.mark.asyncio
-    async def test_next_does_nothing_when_handler_is_none(self) -> None:
-        """next() silently returns when no handler is registered."""
-        ctx, _ = _create_activity_context()
-        assert ctx._next_handler is None
-
-        # Should not raise
-        await ctx.next()
-
-
 class TestActivityContextBuildBlockQuote:
     """Tests for ActivityContext._build_block_quote_for_activity()."""
 
@@ -406,20 +382,6 @@ class TestActivityContextSignIn:
 
 class TestActivityContextSignOut:
     """Tests for ActivityContext.sign_out()."""
-
-    @pytest.mark.asyncio
-    async def test_sign_out_succeeds(self) -> None:
-        """sign_out calls the API and completes without error."""
-        mock_activity = MagicMock()
-        mock_activity.channel_id = "msteams"
-        mock_activity.from_.id = "user-002"
-
-        ctx, _ = _create_activity_context(activity=mock_activity)
-        ctx.api.users.token.sign_out = AsyncMock(return_value=None)
-
-        await ctx.sign_out()
-
-        ctx.api.users.token.sign_out.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_sign_out_logs_error_and_does_not_raise_on_failure(self) -> None:

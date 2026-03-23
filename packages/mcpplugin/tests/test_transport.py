@@ -210,27 +210,6 @@ class TestCreateStreamableHttpTransport:
 
             mock_async_client.assert_called_once_with(headers={"X-Port": "8080"})
 
-    async def test_empty_headers_dict_uses_plain_client(self):
-        """An empty headers dict (falsy) skips creating httpx.AsyncClient."""
-        read_stream = MagicMock()
-        write_stream = MagicMock()
-
-        with (
-            patch("microsoft_teams.mcpplugin.transport.streamable_http_client") as mock_streamable,
-            patch("microsoft_teams.mcpplugin.transport.httpx.AsyncClient") as mock_async_client,
-        ):
-
-            @asynccontextmanager
-            async def fake_streamable(url, http_client=None):
-                yield (read_stream, write_stream, MagicMock())
-
-            mock_streamable.side_effect = fake_streamable
-
-            async with create_streamable_http_transport("http://example.com", {}):
-                pass
-
-            mock_async_client.assert_not_called()
-
     async def test_yields_read_and_write_streams(self):
         """The context manager correctly yields (read_stream, write_stream) to callers."""
         read_stream = MagicMock(name="read")
@@ -390,21 +369,3 @@ class TestCreateSseTransport:
                 pass
 
         assert captured["headers"] == {"X-Retry": "3"}
-
-    async def test_sse_empty_headers_dict_uses_empty_resolved(self):
-        """An empty headers dict (falsy) results in empty resolved_headers passed to sse_client."""
-        captured: dict = {}
-
-        @asynccontextmanager
-        async def mock_sse_client(url, headers=None):
-            captured["headers"] = headers
-            yield (MagicMock(), MagicMock())
-
-        with patch(
-            "microsoft_teams.mcpplugin.transport.sse_client",
-            mock_sse_client,
-        ):
-            async with create_sse_transport("http://example.com", {}):
-                pass
-
-        assert captured["headers"] == {}

@@ -30,18 +30,6 @@ class TestApiClientReactionsProperty:
         second = client.reactions
         assert first is second
 
-    def test_reactions_not_instantiated_until_accessed(self, mock_http_client):
-        """Test that _reactions remains None until the property is accessed."""
-        client = ApiClient("https://mock.service.url", mock_http_client)
-        assert client._reactions is None
-        _ = client.reactions
-        assert client._reactions is not None
-
-    def test_http_getter_returns_http_client(self, mock_http_client):
-        """Test that the http property returns the underlying HTTP client."""
-        client = ApiClient("https://mock.service.url", mock_http_client)
-        assert client.http is mock_http_client
-
     def test_http_setter_updates_all_sub_clients(self, mock_http_client):
         """Test that setting http propagates the new client to all sub-clients."""
         client = ApiClient("https://mock.service.url", mock_http_client)

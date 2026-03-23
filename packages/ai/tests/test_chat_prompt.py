@@ -392,81 +392,63 @@ class TestChatPromptEssentials:
         assert result.response.content == "Function returned: Success"
 
 
-class TestBaseAIPlugin:
-    """Direct unit tests for BaseAIPlugin covering its missing lines."""
-
-    def test_name_property_returns_name_passed_to_init(self) -> None:
-        """Test that the name property returns the name supplied to __init__."""
-        plugin = BaseAIPlugin("my_plugin")
-        assert plugin.name == "my_plugin"
+class TestBaseAIPluginLifecycle:
+    """Integration test: BaseAIPlugin subclass run through ChatPrompt to verify lifecycle call order."""
 
     @pytest.mark.asyncio
-    async def test_on_before_function_call_runs_without_error_and_returns_none(self) -> None:
-        """Test that on_before_function_call completes without error and implicitly returns None."""
-        plugin = BaseAIPlugin("test")
-        result = await plugin.on_before_function_call("my_function")
-        assert result is None
+    async def test_plugin_lifecycle_order_through_chat_prompt(self) -> None:
+        """All plugin hooks are called in the expected order during a send with function calling."""
+        call_log: list[str] = []
 
-    @pytest.mark.asyncio
-    async def test_on_before_function_call_with_args_returns_none(self) -> None:
-        """Test on_before_function_call with args argument returns None."""
+        class LifecyclePlugin(BaseAIPlugin):
+            async def on_build_instructions(self, instructions: SystemMessage | None) -> SystemMessage | None:
+                call_log.append("on_build_instructions")
+                return instructions
 
-        class TestModel(BaseModel):
-            value: str
+            async def on_build_functions(
+                self, functions: list[Function[BaseModel]]
+            ) -> list[Function[BaseModel]] | None:
+                call_log.append("on_build_functions")
+                return functions
 
-        plugin = BaseAIPlugin("test")
-        result = await plugin.on_before_function_call("my_function", TestModel(value="x"))
-        assert result is None
+            async def on_before_send(self, input: Message) -> Message | None:
+                call_log.append("on_before_send")
+                return input
 
-    @pytest.mark.asyncio
-    async def test_on_after_function_call_returns_result_unchanged(self) -> None:
-        """Test that on_after_function_call returns the result string unchanged."""
-        plugin = BaseAIPlugin("test")
-        result = await plugin.on_after_function_call("my_function", "the_result")
-        assert result == "the_result"
+            async def on_after_send(self, response: ModelMessage) -> ModelMessage | None:
+                call_log.append("on_after_send")
+                return response
 
-    @pytest.mark.asyncio
-    async def test_on_before_send_returns_input_unchanged(self) -> None:
-        """Test that on_before_send returns the input message unchanged."""
-        plugin = BaseAIPlugin("test")
-        msg = UserMessage(content="hello")
-        result = await plugin.on_before_send(msg)
-        assert result is msg
+            async def on_before_function_call(self, function_name: str, args: Optional[BaseModel] = None) -> None:
+                call_log.append(f"on_before_function_call:{function_name}")
 
-    @pytest.mark.asyncio
-    async def test_on_after_send_returns_response_unchanged(self) -> None:
-        """Test that on_after_send returns the response message unchanged."""
-        plugin = BaseAIPlugin("test")
-        response = ModelMessage(content="world", function_calls=None)
-        result = await plugin.on_after_send(response)
-        assert result is response
+            async def on_after_function_call(
+                self, function_name: str, result: str, args: Optional[BaseModel] = None
+            ) -> str | None:
+                call_log.append(f"on_after_function_call:{function_name}")
+                return result
 
-    @pytest.mark.asyncio
-    async def test_on_build_functions_returns_functions_unchanged(self) -> None:
-        """Test that on_build_functions returns the function list unchanged."""
+        plugin = LifecyclePlugin("lifecycle")
+        mock_model = MockAIModel(should_call_function=True)
 
-        def handler(params: BaseModel) -> str:
+        def handler(params: MockFunctionParams) -> str:
+            call_log.append("function_handler")
             return "ok"
 
-        plugin = BaseAIPlugin("test")
-        functions = [Function("f", "desc", BaseModel, handler)]
-        result = await plugin.on_build_functions(functions)
-        assert result is functions
+        func = Function("test_function", "A test function", MockFunctionParams, handler)
+        prompt = ChatPrompt(mock_model, functions=[func], plugins=[plugin])
 
-    @pytest.mark.asyncio
-    async def test_on_build_instructions_returns_instructions_unchanged(self) -> None:
-        """Test that on_build_instructions returns the system message unchanged."""
-        plugin = BaseAIPlugin("test")
-        instructions = SystemMessage(content="Be helpful.")
-        result = await plugin.on_build_instructions(instructions)
-        assert result is instructions
+        await prompt.send("Hello", instructions=SystemMessage(content="Be helpful"))
 
-    @pytest.mark.asyncio
-    async def test_on_build_instructions_with_none_returns_none(self) -> None:
-        """Test that on_build_instructions returns None when passed None."""
-        plugin = BaseAIPlugin("test")
-        result = await plugin.on_build_instructions(None)
-        assert result is None
+        assert call_log == [
+            "on_before_send",
+            "on_build_instructions",
+            "on_build_functions",
+            "on_before_function_call:test_function",
+            "function_handler",
+            "on_after_function_call:test_function",
+            "on_after_send",
+        ]
 
 
 class MockPlugin(BaseAIPlugin):

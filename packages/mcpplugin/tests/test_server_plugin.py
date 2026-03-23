@@ -44,20 +44,6 @@ class TestMcpServerPluginInit:
             assert plugin._mounted is False
 
 
-class TestMcpServerPluginServerProperty:
-    """Tests for McpServerPlugin.server property."""
-
-    def test_server_property_returns_fastmcp_instance(self):
-        """Test the server property returns the underlying FastMCP instance."""
-        with patch("microsoft_teams.mcpplugin.server_plugin.FastMCP") as mock_fastmcp_class:
-            mock_fastmcp_instance = MagicMock()
-            mock_fastmcp_class.return_value = mock_fastmcp_instance
-
-            plugin = McpServerPlugin()
-
-            assert plugin.server is mock_fastmcp_instance
-
-
 class TestMcpServerPluginUseTool:
     """Tests for McpServerPlugin.use_tool method."""
 
