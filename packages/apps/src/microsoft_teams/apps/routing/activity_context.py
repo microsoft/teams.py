@@ -7,7 +7,7 @@ import base64
 import json
 import logging
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Awaitable, Callable, Generic, Optional, TypeVar, cast
+from typing import TYPE_CHECKING, Any, Awaitable, Callable, Generic, Optional, TypeVar
 
 from microsoft_teams.api import (
     ActivityBase,
@@ -219,12 +219,13 @@ class ActivityContext(Generic[T]):
             Diagnostic: ExperimentalTeamsQuotedReplies
         """
         activity = MessageActivityInput(text=input) if isinstance(input, str) else input
-        placeholder = f'<quoted messageId="{message_id}"/>'
-        if not activity.entities:
-            activity.entities = []
-        activity.entities.append(QuotedReplyEntity(quoted_reply=QuotedReplyData(message_id=message_id)))
-        text = (activity.text or "").strip()
-        activity.text = f"{placeholder} {text}" if text else placeholder
+        if isinstance(activity, MessageActivityInput):
+            placeholder = f'<quoted messageId="{message_id}"/>'
+            if not activity.entities:
+                activity.entities = []
+            activity.entities.append(QuotedReplyEntity(quoted_reply=QuotedReplyData(message_id=message_id)))
+            text = (activity.text or "").strip()
+            activity.text = f"{placeholder} {text}" if text else placeholder
         return await self.send(activity)
 
     async def next(self) -> None:
