@@ -11,12 +11,12 @@ from ..core import SubmitAction, SubmitActionData, TaskFetchSubmitActionData
 
 class TaskFetchAction(SubmitAction):
     """This class is deprecated. Please use TaskFetchSubmitActionData instead.
-    This will be removed in a future version of the SDK."""
+    This will be removed in version 2.0.0 GA."""
 
     def __init__(self, value: Dict[str, Any]):
         warnings.warn(
             "TaskFetchAction is deprecated. Use TaskFetchSubmitActionData instead. "
-            "This will be removed in a future version of the SDK.",
+            "This will be removed in version 2.0.0 GA.",
             DeprecationWarning,
             stacklevel=2,
         )

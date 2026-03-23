@@ -11,12 +11,12 @@ from ..core import InvokeSubmitActionData, SubmitAction, SubmitActionData
 
 class InvokeAction(SubmitAction):
     """This class is deprecated. Please use InvokeSubmitActionData instead.
-    This will be removed in a future version of the SDK."""
+    This will be removed in version 2.0.0 GA."""
 
     def __init__(self, value: Dict[str, Any]):
         warnings.warn(
             "InvokeAction is deprecated. Use InvokeSubmitActionData instead. "
-            "This will be removed in a future version of the SDK.",
+            "This will be removed in version 2.0.0 GA.",
             DeprecationWarning,
             stacklevel=2,
         )

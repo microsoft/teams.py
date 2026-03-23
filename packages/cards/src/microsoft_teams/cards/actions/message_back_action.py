@@ -11,12 +11,12 @@ from ..core import MessageBackSubmitActionData, SubmitAction, SubmitActionData
 
 class MessageBackAction(SubmitAction):
     """This class is deprecated. Please use MessageBackSubmitActionData instead.
-    This will be removed in a future version of the SDK."""
+    This will be removed in version 2.0.0 GA."""
 
     def __init__(self, text: str, value: Union[str, Dict[str, Any]], display_text: Optional[str] = None):
         warnings.warn(
             "MessageBackAction is deprecated. Use MessageBackSubmitActionData instead. "
-            "This will be removed in a future version of the SDK.",
+            "This will be removed in version 2.0.0 GA.",
             DeprecationWarning,
             stacklevel=2,
         )

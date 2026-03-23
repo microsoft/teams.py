@@ -10,12 +10,12 @@ from ..core import SigninSubmitActionData, SubmitAction, SubmitActionData
 
 class SignInAction(SubmitAction):
     """This class is deprecated. Please use SigninSubmitActionData instead.
-    This will be removed in a future version of the SDK."""
+    This will be removed in version 2.0.0 GA."""
 
     def __init__(self, value: str):
         warnings.warn(
             "SignInAction is deprecated. Use SigninSubmitActionData instead. "
-            "This will be removed in a future version of the SDK.",
+            "This will be removed in version 2.0.0 GA.",
             DeprecationWarning,
             stacklevel=2,
         )
