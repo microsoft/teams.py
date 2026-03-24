@@ -28,7 +28,10 @@ class HttpServer:
 
     def __init__(self, adapter: HttpServerAdapter, messaging_endpoint: str = "/api/messages"):
         self._adapter = adapter
-        self._messaging_endpoint = messaging_endpoint
+        normalized_endpoint = messaging_endpoint.strip()
+        if not normalized_endpoint or not normalized_endpoint.startswith("/"):
+            raise ValueError("messaging_endpoint must be a non-empty path starting with '/'.")
+        self._messaging_endpoint = normalized_endpoint
         self._on_request: Optional[Callable[[ActivityEvent], Awaitable[InvokeResponse[Any]]]] = None
         self._token_validator: Optional[TokenValidator] = None
         self._skip_auth: bool = False
