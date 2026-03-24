@@ -3,7 +3,7 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from typing import Any
+from typing import Any, Optional
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -17,7 +17,7 @@ class TestActivityContextReply:
 
     def _create_activity_context(
         self,
-        activity_id: str = "incoming-msg-123",
+        activity_id: Optional[str] = "incoming-msg-123",
         activity_type: str = "message",
         activity_text: str = "Hello from user",
     ) -> ActivityContext[Any]:

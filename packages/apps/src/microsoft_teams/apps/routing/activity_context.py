@@ -199,8 +199,8 @@ class ActivityContext(Generic[T]):
             if not activity.entities:
                 activity.entities = []
             activity.entities.append(QuotedReplyEntity(quoted_reply=QuotedReplyData(message_id=self.activity.id)))
-            text = (activity.text or "").strip()
-            activity.text = f"{placeholder} {text}" if text else placeholder
+            has_text = bool((activity.text or "").strip())
+            activity.text = f"{placeholder} {activity.text}" if has_text else placeholder
         return await self.send(activity)
 
     async def quote_reply(self, message_id: str, input: str | ActivityParams) -> SentActivity:
@@ -224,8 +224,8 @@ class ActivityContext(Generic[T]):
             if not activity.entities:
                 activity.entities = []
             activity.entities.append(QuotedReplyEntity(quoted_reply=QuotedReplyData(message_id=message_id)))
-            text = (activity.text or "").strip()
-            activity.text = f"{placeholder} {text}" if text else placeholder
+            has_text = bool((activity.text or "").strip())
+            activity.text = f"{placeholder} {activity.text}" if has_text else placeholder
         return await self.send(activity)
 
     async def next(self) -> None:

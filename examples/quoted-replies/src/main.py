@@ -1,6 +1,11 @@
 """
 Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
+
+Example: Quoted Replies
+
+A bot that demonstrates quoted reply features in Microsoft Teams.
+Tests reply(), quote_reply(), add_quoted_reply(), and get_quoted_messages().
 """
 
 import asyncio
@@ -8,13 +13,6 @@ import asyncio
 from microsoft_teams.api import MessageActivity, MessageActivityInput
 from microsoft_teams.api.activities.typing import TypingActivityInput
 from microsoft_teams.apps import ActivityContext, App
-
-"""
-Example: Quoted Replies
-
-A bot that demonstrates quoted reply features in Microsoft Teams.
-Tests reply(), quote_reply(), add_quoted_reply(), and get_quoted_messages().
-"""
 
 app = App()
 
