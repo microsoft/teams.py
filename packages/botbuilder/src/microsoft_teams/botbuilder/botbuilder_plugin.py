@@ -89,12 +89,12 @@ class BotBuilderPlugin(PluginBase):
 
             logger.debug("BotBuilder plugin initialized successfully")
 
-        # Register the activity route via adapter (bypasses HttpServer's default /api/messages)
-        self.http_server.adapter.register_route("POST", "/api/messages", self._handle_activity)
+        # Register the messaging endpoint route via adapter (bypasses HttpServer's default route)
+        self.http_server.adapter.register_route("POST", self.http_server.messaging_endpoint, self._handle_activity)
 
     async def _handle_activity(self, request: HttpRequest) -> HttpResponse:
         """
-        Handler for POST /api/messages.
+        Handler for the messaging endpoint.
 
         Runs Bot Framework CloudAdapter auth + handler first,
         then routes through HttpServer.handle_request for SDK-level JWT validation and pipeline.

@@ -47,6 +47,9 @@ class AppOptions(TypedDict, total=False):
     http_server_adapter: Optional[HttpServerAdapter]
     """Custom HTTP server adapter. Defaults to FastAPIAdapter if not provided."""
 
+    messaging_endpoint: Optional[str]
+    """URL path for the Teams messaging endpoint. Defaults to '/api/messages'."""
+
     # OAuth
     default_connection_name: Optional[str]
     """The OAuth connection name to use for authentication. Defaults to 'graph'."""
@@ -101,6 +104,8 @@ class InternalAppOptions:
     """
     http_server_adapter: Optional[HttpServerAdapter] = None
     """Custom HTTP server adapter. Defaults to FastAPIAdapter if not provided."""
+    messaging_endpoint: str = "/api/messages"
+    """URL path for the Teams messaging endpoint. Defaults to '/api/messages'."""
 
     @classmethod
     def from_typeddict(cls, options: AppOptions) -> "InternalAppOptions":

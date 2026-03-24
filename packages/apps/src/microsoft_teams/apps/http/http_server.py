@@ -26,8 +26,9 @@ class HttpServer:
     and activity processing for the Teams protocol.
     """
 
-    def __init__(self, adapter: HttpServerAdapter):
+    def __init__(self, adapter: HttpServerAdapter, messaging_endpoint: str = "/api/messages"):
         self._adapter = adapter
+        self._messaging_endpoint = messaging_endpoint
         self._on_request: Optional[Callable[[ActivityEvent], Awaitable[InvokeResponse[Any]]]] = None
         self._token_validator: Optional[TokenValidator] = None
         self._skip_auth: bool = False
@@ -37,6 +38,11 @@ class HttpServer:
     def adapter(self) -> HttpServerAdapter:
         """The underlying HttpServerAdapter."""
         return self._adapter
+
+    @property
+    def messaging_endpoint(self) -> str:
+        """The URL path for the Teams messaging endpoint."""
+        return self._messaging_endpoint
 
     @property
     def on_request(self) -> Optional[Callable[[ActivityEvent], Awaitable[InvokeResponse[Any]]]]:
@@ -53,7 +59,7 @@ class HttpServer:
         skip_auth: bool = False,
     ) -> None:
         """
-        Set up JWT validation and register the default POST /api/messages route.
+        Set up JWT validation and register the messaging endpoint route.
 
         Args:
             credentials: App credentials for JWT validation.
@@ -67,9 +73,9 @@ class HttpServer:
         app_id = getattr(credentials, "client_id", None) if credentials else None
         if app_id and not skip_auth:
             self._token_validator = TokenValidator.for_service(app_id)
-            logger.debug("JWT validation enabled for /api/messages")
+            logger.debug("JWT validation enabled for %s", self._messaging_endpoint)
 
-        self._adapter.register_route("POST", "/api/messages", self.handle_request)
+        self._adapter.register_route("POST", self._messaging_endpoint, self.handle_request)
         self._initialized = True
 
     async def handle_request(self, request: HttpRequest) -> HttpResponse:
