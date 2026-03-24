@@ -199,14 +199,13 @@ class TestActivityContextReply:
 
     @pytest.mark.asyncio
     async def test_reply_with_string(self) -> None:
-        """reply() with a plain string sends a message with reply_to_id set."""
+        """reply() with a plain string stamps a quotedReply entity and placeholder."""
+        from microsoft_teams.api.models.entity import QuotedReplyEntity
+
         mock_activity = MagicMock()
         mock_activity.type = "message"
         mock_activity.id = "original-id"
         mock_activity.text = "Original message"
-        mock_activity.from_ = MagicMock()
-        mock_activity.from_.id = "user-1"
-        mock_activity.from_.name = "User One"
 
         ctx, mock_sender = _create_activity_context(activity=mock_activity)
 
@@ -215,14 +214,20 @@ class TestActivityContextReply:
         mock_sender.send.assert_called_once()
         sent_activity = mock_sender.send.call_args[0][0]
         assert isinstance(sent_activity, MessageActivityInput)
-        assert sent_activity.reply_to_id == "original-id"
+        assert sent_activity.entities is not None
+        assert len(sent_activity.entities) == 1
+        assert isinstance(sent_activity.entities[0], QuotedReplyEntity)
+        assert sent_activity.entities[0].quoted_reply.message_id == "original-id"
+        assert '<quoted messageId="original-id"/>' in (sent_activity.text or "")
         assert "My reply" in (sent_activity.text or "")
 
     @pytest.mark.asyncio
     async def test_reply_with_activity_params(self) -> None:
-        """reply() with an ActivityParams instance sets reply_to_id and delegates to send."""
+        """reply() with a MessageActivityInput stamps a quotedReply entity."""
+        from microsoft_teams.api.models.entity import QuotedReplyEntity
+
         mock_activity = MagicMock()
-        mock_activity.type = "event"
+        mock_activity.type = "message"
         mock_activity.id = "evt-id-999"
 
         ctx, mock_sender = _create_activity_context(activity=mock_activity)
@@ -232,58 +237,9 @@ class TestActivityContextReply:
 
         mock_sender.send.assert_called_once()
         sent_activity = mock_sender.send.call_args[0][0]
-        assert sent_activity.reply_to_id == "evt-id-999"
-
-
-class TestActivityContextBuildBlockQuote:
-    """Tests for ActivityContext._build_block_quote_for_activity()."""
-
-    def _make_message_activity(self, text: str, activity_id: str = "act-1") -> MagicMock:
-        mock_activity = MagicMock()
-        mock_activity.type = "message"
-        mock_activity.id = activity_id
-        mock_activity.text = text
-        mock_activity.from_ = MagicMock()
-        mock_activity.from_.id = "user-xyz"
-        mock_activity.from_.name = "Test User"
-        return mock_activity
-
-    def test_message_activity_returns_html_blockquote(self) -> None:
-        """Activity type 'message' with text produces a blockquote HTML string."""
-        activity = self._make_message_activity("Hello blockquote")
-        ctx, _ = _create_activity_context(activity=activity)
-
-        result = ctx._build_block_quote_for_activity()
-
-        assert result is not None
-        assert "<blockquote" in result
-        assert "Hello blockquote" in result
-        assert "Test User" in result
-        assert "act-1" in result
-
-    def test_long_text_is_truncated(self) -> None:
-        """Text longer than 120 characters is truncated with an ellipsis."""
-        long_text = "A" * 130
-        activity = self._make_message_activity(long_text)
-        ctx, _ = _create_activity_context(activity=activity)
-
-        result = ctx._build_block_quote_for_activity()
-
-        assert result is not None
-        # Truncated text should be 120 chars + "..."
-        assert "A" * 120 + "..." in result
-        # The full text should not be present
-        assert long_text not in result
-
-    def test_non_message_activity_returns_none(self) -> None:
-        """Activity type other than 'message' returns None."""
-        mock_activity = MagicMock()
-        mock_activity.type = "event"
-        ctx, _ = _create_activity_context(activity=mock_activity)
-
-        result = ctx._build_block_quote_for_activity()
-
-        assert result is None
+        assert sent_activity.entities is not None
+        assert isinstance(sent_activity.entities[0], QuotedReplyEntity)
+        assert sent_activity.entities[0].quoted_reply.message_id == "evt-id-999"
 
 
 class TestActivityContextUserGraph:

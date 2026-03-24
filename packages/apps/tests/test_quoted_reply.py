@@ -42,7 +42,6 @@ class TestActivityContextReply:
         return ActivityContext(
             activity=mock_activity,
             app_id="test-app-id",
-            logger=MagicMock(),
             storage=MagicMock(),
             api=MagicMock(),
             user_token=None,
@@ -155,7 +154,6 @@ class TestActivityContextQuoteReply:
         return ActivityContext(
             activity=mock_activity,
             app_id="test-app-id",
-            logger=MagicMock(),
             storage=MagicMock(),
             api=MagicMock(),
             user_token=None,
