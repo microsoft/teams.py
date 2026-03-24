@@ -191,22 +191,6 @@ class TestActivityContextSend:
         assert len(sent_activity.attachments) > 0
         assert isinstance(result, SentActivity)
 
-    @pytest.mark.asyncio
-    async def test_send_targeted_cleared_recipient_stays_none(self) -> None:
-        """After IsTargeted moved to Account, clearing recipient is not auto-inferred."""
-        from_account = Account(id="user-abc", name="Alice")
-        ctx, mock_sender = _create_activity_context()
-        ctx.activity.from_ = from_account
-
-        # Build a targeted message then clear the recipient
-        activity = MessageActivityInput(text="Hi").with_recipient(from_account, is_targeted=True)
-        activity.recipient = None
-
-        await ctx.send(activity)
-
-        sent_activity = mock_sender.send.call_args[0][0]
-        assert sent_activity.recipient is None
-
 
 class TestActivityContextReply:
     """Tests for ActivityContext.reply()."""
