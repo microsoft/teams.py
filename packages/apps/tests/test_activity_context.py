@@ -192,21 +192,20 @@ class TestActivityContextSend:
         assert isinstance(result, SentActivity)
 
     @pytest.mark.asyncio
-    async def test_send_targeted_no_recipient_infers_from_activity(self) -> None:
-        """Targeted send with no recipient infers recipient from activity.from_."""
+    async def test_send_targeted_cleared_recipient_stays_none(self) -> None:
+        """After IsTargeted moved to Account, clearing recipient is not auto-inferred."""
         from_account = Account(id="user-abc", name="Alice")
         ctx, mock_sender = _create_activity_context()
         ctx.activity.from_ = from_account
 
-        # Build a targeted message with no recipient and no id
+        # Build a targeted message then clear the recipient
         activity = MessageActivityInput(text="Hi").with_recipient(from_account, is_targeted=True)
-        # Clear the recipient so the inference path is exercised
         activity.recipient = None
 
         await ctx.send(activity)
 
         sent_activity = mock_sender.send.call_args[0][0]
-        assert sent_activity.recipient == from_account
+        assert sent_activity.recipient is None
 
 
 class TestActivityContextReply:
