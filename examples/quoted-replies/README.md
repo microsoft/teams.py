@@ -18,6 +18,10 @@ A bot that demonstrates quoted reply features in Microsoft Teams — referencing
 
 ```bash
 cd examples/quoted-replies
+pip install -e .
+python src/main.py
+
+# Or with uv:
 uv run python src/main.py
 ```
 
