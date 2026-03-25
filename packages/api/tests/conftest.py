@@ -100,6 +100,29 @@ def mock_transport():
                     },
                 ]
             }
+        elif "/conversations/" in str(request.url) and "/pagedMembers" in str(request.url):
+            response_data = {
+                "members": [
+                    {
+                        "id": "mock_member_id",
+                        "name": "Mock Member",
+                        "aadObjectId": "mock_aad_object_id",
+                    }
+                ],
+                "continuationToken": "mock_continuation_token",
+            }
+        elif "/v3/batch/conversation/" in str(request.url) and request.method == "POST":
+            response_data = {"operationId": "mock_operation_id"}
+        elif "/notification" in str(request.url) and request.method == "POST":
+            response_data = {
+                "recipientsFailureInfo": [
+                    {
+                        "recipientMri": "8:orgid:mock_recipient",
+                        "errorCode": "BadArgument",
+                        "failureReason": "Invalid recipient",
+                    }
+                ]
+            }
         elif "/conversations/" in str(request.url) and str(request.url).endswith("/members"):
             response_data = [
                 {

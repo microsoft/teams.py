@@ -3,11 +3,12 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from typing import List, Optional
+from typing import Any, List, Optional
 
 from microsoft_teams.common.http import Client
 
 from ...models import TeamsChannelAccount
+from ...models.conversation import PagedMembersResult
 from ..api_client_settings import ApiClientSettings
 from ..base_client import BaseClient
 
@@ -46,6 +47,36 @@ class ConversationMemberClient(BaseClient):
         """
         response = await self.http.get(f"{self.service_url}/v3/conversations/{conversation_id}/members")
         return [TeamsChannelAccount.model_validate(member) for member in response.json()]
+
+    async def get_paged(
+        self,
+        conversation_id: str,
+        page_size: Optional[int] = None,
+        continuation_token: Optional[str] = None,
+    ) -> PagedMembersResult:
+        """
+        Get a page of members in a conversation.
+
+        Args:
+            conversation_id: The ID of the conversation.
+            page_size: Optional maximum number of members to return per page.
+            continuation_token: Optional token from a previous call to fetch the next page.
+
+        Returns:
+            PagedMembersResult containing the members and an optional continuation token
+            for fetching subsequent pages.
+        """
+        url = f"{self.service_url}/v3/conversations/{conversation_id}/pagedMembers"
+        params: dict[str, Any] = {}
+        if page_size is not None:
+            params["pageSize"] = page_size
+        if continuation_token is not None:
+            params["continuationToken"] = continuation_token
+        if params:
+            query = "&".join(f"{k}={v}" for k, v in params.items())
+            url = f"{url}?{query}"
+        response = await self.http.get(url)
+        return PagedMembersResult.model_validate(response.json())
 
     async def get_by_id(self, conversation_id: str, member_id: str) -> TeamsChannelAccount:
         """

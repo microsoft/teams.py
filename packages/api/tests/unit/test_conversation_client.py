@@ -4,10 +4,13 @@ Licensed under the MIT License.
 """
 # pyright: basic
 
+from unittest.mock import AsyncMock, patch
+
+import httpx
 import pytest
 from microsoft_teams.api.clients.conversation import ConversationClient
 from microsoft_teams.api.clients.conversation.params import CreateConversationParams
-from microsoft_teams.api.models import ConversationResource, TeamsChannelAccount
+from microsoft_teams.api.models import ConversationResource, PagedMembersResult, TeamsChannelAccount
 from microsoft_teams.common.http import Client, ClientOptions
 
 
@@ -260,6 +263,42 @@ class TestConversationMemberOperations:
         assert result.id == "mock_member_id"
         assert result.name == "Mock Member"
         assert result.aad_object_id == "mock_aad_object_id"
+
+    async def test_member_get_paged(self, mock_http_client):
+        """Test getting a page of members returns PagedMembersResult."""
+
+        service_url = "https://test.service.url"
+        client = ConversationClient(service_url, mock_http_client)
+
+        conversation_id = "test_conversation_id"
+        members = client.members(conversation_id)
+
+        result = await members.get_paged()
+
+        assert isinstance(result, PagedMembersResult)
+        assert len(result.members) == 1
+        assert isinstance(result.members[0], TeamsChannelAccount)
+        assert result.members[0].id == "mock_member_id"
+        assert result.continuation_token == "mock_continuation_token"
+
+    async def test_member_get_paged_with_token(self, mock_http_client):
+        """Test get_paged passes continuation_token and page_size."""
+
+        service_url = "https://test.service.url"
+        client = ConversationClient(service_url, mock_http_client)
+        members = client.members("test_conversation_id")
+
+        mock_response = httpx.Response(
+            200,
+            json={"members": [], "continuationToken": None},
+            headers={"content-type": "application/json"},
+        )
+        with patch.object(mock_http_client, "get", new_callable=AsyncMock, return_value=mock_response) as mock_get:
+            await members.get_paged(page_size=50, continuation_token="some_token")
+
+        called_url = mock_get.call_args[0][0]
+        assert "pageSize=50" in called_url
+        assert "continuationToken=some_token" in called_url
 
 
 @pytest.mark.unit

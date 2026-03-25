@@ -6,6 +6,7 @@ Licensed under the MIT License.
 from . import (
     adaptive_card,
     attachment,
+    batch,
     card,
     channel_data,
     config,
@@ -29,6 +30,7 @@ from .activity import ActivityInput as ActivityInputBase
 from .adaptive_card import *  # noqa: F403
 from .app_based_link_query import AppBasedLinkQuery
 from .attachment import *  # noqa: F403
+from .batch import *  # noqa: F403
 from .cache_info import CacheInfo
 from .card import *  # noqa: F403
 from .channel_data import *  # noqa: F403
@@ -104,6 +106,7 @@ __all__: list[str] = [
     "is_invoke_response",
 ]
 __all__.extend(adaptive_card.__all__)
+__all__.extend(batch.__all__)
 __all__.extend(attachment.__all__)
 __all__.extend(card.__all__)
 __all__.extend(channel_data.__all__)

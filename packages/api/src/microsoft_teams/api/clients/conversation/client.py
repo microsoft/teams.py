@@ -60,6 +60,9 @@ class MemberOperations(ConversationOperations):
     async def get_all(self):
         return await self._client.members_client.get(self._conversation_id)
 
+    async def get_paged(self, page_size: Optional[int] = None, continuation_token: Optional[str] = None):
+        return await self._client.members_client.get_paged(self._conversation_id, page_size, continuation_token)
+
     async def get(self, member_id: str):
         return await self._client.members_client.get_by_id(self._conversation_id, member_id)
 
