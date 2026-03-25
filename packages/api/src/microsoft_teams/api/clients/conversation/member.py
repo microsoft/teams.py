@@ -3,7 +3,7 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from typing import Any, List, Optional
+from typing import List, Optional
 
 from microsoft_teams.common.http import Client
 
@@ -67,15 +67,7 @@ class ConversationMemberClient(BaseClient):
             for fetching subsequent pages.
         """
         url = f"{self.service_url}/v3/conversations/{conversation_id}/pagedMembers"
-        params: dict[str, Any] = {}
-        if page_size is not None:
-            params["pageSize"] = page_size
-        if continuation_token is not None:
-            params["continuationToken"] = continuation_token
-        if params:
-            query = "&".join(f"{k}={v}" for k, v in params.items())
-            url = f"{url}?{query}"
-        response = await self.http.get(url)
+        response = await self.http.get(url, params={"pageSize": page_size, "continuationToken": continuation_token})
         return PagedMembersResult.model_validate(response.json())
 
     async def get_by_id(self, conversation_id: str, member_id: str) -> TeamsChannelAccount:

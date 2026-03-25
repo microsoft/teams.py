@@ -5,6 +5,8 @@ Licensed under the MIT License.
 
 from typing import List, Optional
 
+from pydantic import Field
+
 from ..account import TeamsChannelAccount
 from ..custom_base_model import CustomBaseModel
 
@@ -14,7 +16,7 @@ class PagedMembersResult(CustomBaseModel):
     Result of a paged members request.
     """
 
-    members: List[TeamsChannelAccount] = []
+    members: List[TeamsChannelAccount] = Field(default_factory=list[TeamsChannelAccount])
     "The members in this page."
 
     continuation_token: Optional[str] = None
