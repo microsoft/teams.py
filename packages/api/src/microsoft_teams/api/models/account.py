@@ -5,6 +5,8 @@ Licensed under the MIT License.
 
 from typing import Any, Dict, Literal, Optional
 
+from pydantic import AliasChoices, Field
+
 from .custom_base_model import CustomBaseModel
 
 AccountRole = Literal["user", "bot"]
@@ -59,13 +61,17 @@ class TeamsChannelAccount(CustomBaseModel):
     """
     Display-friendly name of the user or bot.
     """
-    aad_object_id: Optional[str] = None
+    aad_object_id: Optional[str] = Field(
+        default=None,
+        validation_alias=AliasChoices("aadObjectId", "objectId"),
+        serialization_alias="aadObjectId",
+    )
     """
     The user's Object ID in Azure Active Directory (AAD).
     """
-    role: Optional[AccountRole] = None
+    role: Optional[str] = Field(default=None, alias="userRole")
     """
-    Role of the user (e.g., 'user' or 'bot').
+    Role of the user in the conversation.
     """
     given_name: Optional[str] = None
     """

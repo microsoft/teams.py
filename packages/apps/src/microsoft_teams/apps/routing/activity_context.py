@@ -274,7 +274,6 @@ class ActivityContext(Generic[T]):
                 CreateConversationParams(
                     tenant_id=self.activity.conversation.tenant_id,
                     is_group=False,
-                    bot=self.activity.recipient,
                     members=[self.activity.from_],
                 )
             )

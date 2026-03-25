@@ -9,7 +9,7 @@ from microsoft_teams.common.experimental import experimental
 from microsoft_teams.common.http import Client
 
 from ...activities import ActivityParams, SentActivity
-from ...models import Account
+from ...models import TeamsChannelAccount
 from ..api_client_settings import ApiClientSettings
 from ..base_client import BaseClient
 
@@ -111,7 +111,7 @@ class ConversationActivityClient(BaseClient):
         """
         await self.http.delete(f"{self.service_url}/v3/conversations/{conversation_id}/activities/{activity_id}")
 
-    async def get_members(self, conversation_id: str, activity_id: str) -> List[Account]:
+    async def get_members(self, conversation_id: str, activity_id: str) -> List[TeamsChannelAccount]:
         """
         Get the members associated with an activity.
 
@@ -120,12 +120,12 @@ class ConversationActivityClient(BaseClient):
             activity_id: The ID of the activity
 
         Returns:
-            List of Account objects representing the activity members
+            List of TeamsChannelAccount objects representing the activity members
         """
         response = await self.http.get(
             f"{self.service_url}/v3/conversations/{conversation_id}/activities/{activity_id}/members"
         )
-        return [Account.model_validate(member) for member in response.json()]
+        return [TeamsChannelAccount.model_validate(member) for member in response.json()]
 
     @experimental("ExperimentalTeamsTargeted")
     async def create_targeted(self, conversation_id: str, activity: ActivityParams) -> SentActivity:

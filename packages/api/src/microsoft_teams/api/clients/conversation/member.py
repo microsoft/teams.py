@@ -60,13 +60,3 @@ class ConversationMemberClient(BaseClient):
         """
         response = await self.http.get(f"{self.service_url}/v3/conversations/{conversation_id}/members/{member_id}")
         return TeamsChannelAccount.model_validate(response.json())
-
-    async def delete(self, conversation_id: str, member_id: str) -> None:
-        """
-        Remove a member from a conversation.
-
-        Args:
-            conversation_id: The ID of the conversation
-            member_id: The ID of the member to remove
-        """
-        await self.http.delete(f"{self.service_url}/v3/conversations/{conversation_id}/members/{member_id}")

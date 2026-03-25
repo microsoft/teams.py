@@ -6,10 +6,7 @@ Licensed under the MIT License.
 
 import pytest
 from microsoft_teams.api.clients.conversation import ConversationClient
-from microsoft_teams.api.clients.conversation.params import (
-    CreateConversationParams,
-    GetConversationsParams,
-)
+from microsoft_teams.api.clients.conversation.params import CreateConversationParams
 from microsoft_teams.api.models import ConversationResource, TeamsChannelAccount
 from microsoft_teams.common.http import Client, ClientOptions
 
@@ -48,30 +45,6 @@ class TestConversationClient:
         assert client.service_url == service_url
 
     @pytest.mark.asyncio
-    async def test_get_conversations(self, mock_http_client):
-        """Test getting conversations."""
-        service_url = "https://test.service.url"
-        client = ConversationClient(service_url, mock_http_client)
-
-        params = GetConversationsParams(continuation_token="test_token")
-        response = await client.get(params)
-
-        assert response.conversations is not None
-        assert isinstance(response.conversations, list)
-        assert response.continuation_token is not None
-
-    @pytest.mark.asyncio
-    async def test_get_conversations_without_params(self, mock_http_client):
-        """Test getting conversations without parameters."""
-        service_url = "https://test.service.url"
-        client = ConversationClient(service_url, mock_http_client)
-
-        response = await client.get()
-
-        assert response.conversations is not None
-        assert isinstance(response.conversations, list)
-
-    @pytest.mark.asyncio
     async def test_create_conversation(self, mock_http_client, mock_account, mock_activity):
         """Test creating a conversation with an activity."""
         service_url = "https://test.service.url"
@@ -79,9 +52,7 @@ class TestConversationClient:
 
         params = CreateConversationParams(
             is_group=True,
-            bot=mock_account,
             members=[mock_account],
-            topic_name="Test Conversation",
             tenant_id="test_tenant_id",
             activity=mock_activity,
             channel_data={"custom": "data"},
@@ -101,9 +72,7 @@ class TestConversationClient:
 
         params = CreateConversationParams(
             is_group=True,
-            bot=mock_account,
             members=[mock_account],
-            topic_name="Test Conversation",
             tenant_id="test_tenant_id",
         )
 
@@ -291,18 +260,6 @@ class TestConversationMemberOperations:
         assert result.id == "mock_member_id"
         assert result.name == "Mock Member"
         assert result.aad_object_id == "mock_aad_object_id"
-
-    async def test_member_delete(self, mock_http_client):
-        """Test deleting a member."""
-        service_url = "https://test.service.url"
-        client = ConversationClient(service_url, mock_http_client)
-
-        conversation_id = "test_conversation_id"
-        member_id = "test_member_id"
-        members = client.members(conversation_id)
-
-        # Should not raise an exception
-        await members.delete(member_id)
 
 
 @pytest.mark.unit

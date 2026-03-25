@@ -120,7 +120,6 @@ class FunctionContext(ClientContext, Generic[T]):
             or return a pre-existing one."""
             try:
                 conversation_params = CreateConversationParams(
-                    bot=Account(id=self.id, name=self.name, role="bot"),  # type: ignore
                     members=[Account(id=self.user_id, role="user", name=self.user_name)],
                     tenant_id=self.tenant_id,
                     is_group=False,

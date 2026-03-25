@@ -56,4 +56,4 @@ class TeamClient(BaseClient):
             List of channel information.
         """
         response = await self.http.get(f"{self.service_url}/v3/teams/{id}/conversations")
-        return [ChannelInfo.model_validate(channel) for channel in response.json()]
+        return [ChannelInfo.model_validate(channel) for channel in response.json()["conversations"]]
