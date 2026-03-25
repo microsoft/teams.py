@@ -296,9 +296,9 @@ class TestConversationMemberOperations:
         with patch.object(mock_http_client, "get", new_callable=AsyncMock, return_value=mock_response) as mock_get:
             await members.get_paged(page_size=50, continuation_token="some_token")
 
-        called_url = mock_get.call_args[0][0]
-        assert "pageSize=50" in called_url
-        assert "continuationToken=some_token" in called_url
+        called_params = mock_get.call_args.kwargs.get("params", {})
+        assert called_params.get("pageSize") == 50
+        assert called_params.get("continuationToken") == "some_token"
 
 
 @pytest.mark.unit
