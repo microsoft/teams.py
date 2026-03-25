@@ -32,7 +32,7 @@ class QuotedReplyData(CustomBaseModel):
     "Preview text of the quoted message"
 
     time: Optional[str] = None
-    "Timestamp of the quoted message"
+    "Timestamp of the quoted message (IC3 epoch value, e.g. '1772050244572'). Inbound only."
 
     is_reply_deleted: Optional[bool] = None
     "Whether the quoted reply has been deleted"
