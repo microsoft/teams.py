@@ -11,6 +11,8 @@ from microsoft_teams.api import Credentials, InvokeResponse, TokenProtocol
 from microsoft_teams.api.auth.json_web_token import JsonWebToken
 from pydantic import BaseModel
 
+from microsoft_teams.api.auth.cloud_environment import CloudEnvironment
+
 from ..auth import TokenValidator
 from ..events import ActivityEvent, CoreActivity
 from .adapter import HttpRequest, HttpResponse, HttpServerAdapter
@@ -60,6 +62,7 @@ class HttpServer:
         self,
         credentials: Optional[Credentials] = None,
         skip_auth: bool = False,
+        cloud: Optional[CloudEnvironment] = None,
     ) -> None:
         """
         Set up JWT validation and register the messaging endpoint route.
@@ -67,6 +70,7 @@ class HttpServer:
         Args:
             credentials: App credentials for JWT validation.
             skip_auth: Whether to skip JWT validation.
+            cloud: Optional cloud environment for sovereign cloud support.
         """
         if self._initialized:
             return
@@ -75,7 +79,7 @@ class HttpServer:
 
         app_id = getattr(credentials, "client_id", None) if credentials else None
         if app_id and not skip_auth:
-            self._token_validator = TokenValidator.for_service(app_id)
+            self._token_validator = TokenValidator.for_service(app_id, cloud=cloud)
             logger.debug("JWT validation enabled for %s", self._messaging_endpoint)
 
         self._adapter.register_route("POST", self._messaging_endpoint, self.handle_request)

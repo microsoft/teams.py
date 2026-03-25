@@ -37,6 +37,8 @@ from .app_events import EventManager
 from .app_oauth import OauthHandlers
 from .app_plugins import PluginProcessor
 from .app_process import ActivityProcessor
+from microsoft_teams.api.auth.cloud_environment import PUBLIC, from_name as cloud_from_name
+
 from .auth import TokenValidator
 from .auth.remote_function_jwt_middleware import validate_remote_function_request
 from .container import Container
@@ -79,6 +81,10 @@ class App(ActivityHandlerMixin):
     def __init__(self, **options: Unpack[AppOptions]):
         self.options = InternalAppOptions.from_typeddict(options)
 
+        # Resolve cloud environment from options or CLOUD env var
+        cloud_env_name = os.getenv("CLOUD")
+        self.cloud = self.options.cloud or (cloud_from_name(cloud_env_name) if cloud_env_name else PUBLIC)
+
         self.storage = self.options.storage or LocalStorage()
 
         self.http_client = Client(
@@ -94,6 +100,7 @@ class App(ActivityHandlerMixin):
 
         self._token_manager = TokenManager(
             credentials=self.credentials,
+            cloud=self.cloud,
         )
 
         self.container = Container()
@@ -159,6 +166,7 @@ class App(ActivityHandlerMixin):
                 self.credentials.client_id,
                 self.credentials.tenant_id,
                 application_id_uri=self.options.application_id_uri,
+                cloud=self.cloud,
             )
 
     @property
@@ -203,7 +211,7 @@ class App(ActivityHandlerMixin):
 
             # Initialize HttpServer (JWT validation + messaging endpoint route)
             self.server.on_request = self._process_activity_event
-            self.server.initialize(credentials=self.credentials, skip_auth=self.options.skip_auth)
+            self.server.initialize(credentials=self.credentials, skip_auth=self.options.skip_auth, cloud=self.cloud)
 
             self._initialized = True
             logger.info("Teams app initialized successfully")

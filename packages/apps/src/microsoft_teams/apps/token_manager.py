@@ -15,6 +15,7 @@ from microsoft_teams.api import (
     JsonWebToken,
     TokenProtocol,
 )
+from microsoft_teams.api.auth.cloud_environment import PUBLIC, CloudEnvironment
 from microsoft_teams.api.auth.credentials import (
     FederatedIdentityCredentials,
     ManagedIdentityCredentials,
@@ -27,11 +28,8 @@ from msal import (
     UserAssignedManagedIdentity,
 )
 
-BOT_TOKEN_SCOPE = "https://api.botframework.com/.default"
 GRAPH_TOKEN_SCOPE = "https://graph.microsoft.com/.default"
-DEFAULT_TENANT_FOR_BOT_TOKEN = "botframework.com"
 DEFAULT_TENANT_FOR_GRAPH_TOKEN = "common"
-DEFAULT_TOKEN_AUTHORITY = "https://login.microsoftonline.com/{tenant_id}"
 
 logger = logging.getLogger(__name__)
 
@@ -42,15 +40,17 @@ class TokenManager:
     def __init__(
         self,
         credentials: Optional[Credentials],
+        cloud: Optional[CloudEnvironment] = None,
     ):
         self._credentials = credentials
+        self._cloud = cloud or PUBLIC
         self._confidential_clients_by_tenant: dict[str, ConfidentialClientApplication] = {}
         self._managed_identity_client: Optional[ManagedIdentityClient] = None
 
     async def get_bot_token(self) -> Optional[TokenProtocol]:
         """Refresh the bot authentication token."""
         return await self._get_token(
-            BOT_TOKEN_SCOPE, tenant_id=self._resolve_tenant_id(None, DEFAULT_TENANT_FOR_BOT_TOKEN)
+            self._cloud.bot_scope, tenant_id=self._resolve_tenant_id(None, self._cloud.login_tenant)
         )
 
     async def get_graph_token(self, tenant_id: Optional[str] = None) -> Optional[TokenProtocol]:
@@ -134,7 +134,7 @@ class TokenManager:
         confidential_client = ConfidentialClientApplication(
             credentials.client_id,
             client_credential={"client_assertion": mi_token},
-            authority=DEFAULT_TOKEN_AUTHORITY.format(tenant_id=tenant_id),
+            authority=f"{self._cloud.login_endpoint}/{tenant_id}",
         )
 
         token_res: dict[str, Any] = await asyncio.to_thread(
@@ -205,7 +205,7 @@ class TokenManager:
         client: ConfidentialClientApplication = ConfidentialClientApplication(
             credentials.client_id,
             client_credential=credentials.client_secret,
-            authority=f"https://login.microsoftonline.com/{tenant_id}",
+            authority=f"{self._cloud.login_endpoint}/{tenant_id}",
         )
         self._confidential_clients_by_tenant[tenant_id] = client
         return client

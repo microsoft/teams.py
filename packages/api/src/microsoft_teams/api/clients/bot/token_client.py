@@ -3,16 +3,22 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
+from __future__ import annotations
+
 import inspect
-from typing import Literal, Optional, Union
+from typing import TYPE_CHECKING, Literal, Optional, Union
 
 from microsoft_teams.api.auth.credentials import ClientCredentials
 from microsoft_teams.common.http import Client, ClientOptions
 from pydantic import BaseModel
 
 from ...auth import Credentials, TokenCredentials
+from ...auth.cloud_environment import PUBLIC
 from ..api_client_settings import ApiClientSettings, merge_api_client_settings
 from ..base_client import BaseClient
+
+if TYPE_CHECKING:
+    from ...auth.cloud_environment import CloudEnvironment
 
 
 class GetBotTokenResponse(BaseModel):
@@ -44,15 +50,18 @@ class BotTokenClient(BaseClient):
         self,
         options: Union[Client, ClientOptions, None] = None,
         api_client_settings: Optional[ApiClientSettings] = None,
+        cloud: Optional[CloudEnvironment] = None,
     ) -> None:
         """Initialize the bot token client.
 
         Args:
             options: Optional Client or ClientOptions instance.
             api_client_settings: Optional API client settings.
+            cloud: Optional cloud environment for sovereign cloud support.
         """
         super().__init__(options)
-        self._api_client_settings = merge_api_client_settings(api_client_settings)
+        self._cloud = cloud or PUBLIC
+        self._api_client_settings = merge_api_client_settings(api_client_settings, cloud)
 
     async def get(self, credentials: Credentials) -> GetBotTokenResponse:
         """Get a bot token.
@@ -65,7 +74,7 @@ class BotTokenClient(BaseClient):
         """
         if isinstance(credentials, TokenCredentials):
             token = credentials.token(
-                "https://api.botframework.com/.default",
+                self._cloud.bot_scope,
                 credentials.tenant_id,
             )
             if inspect.isawaitable(token):
@@ -81,14 +90,14 @@ class BotTokenClient(BaseClient):
             "Bot token client currently only supports Credentials with secrets."
         )
 
-        tenant_id = credentials.tenant_id or "botframework.com"
+        tenant_id = credentials.tenant_id or self._cloud.login_tenant
         res = await self.http.post(
-            f"https://login.microsoftonline.com/{tenant_id}/oauth2/v2.0/token",
+            f"{self._cloud.login_endpoint}/{tenant_id}/oauth2/v2.0/token",
             data={
                 "grant_type": "client_credentials",
                 "client_id": credentials.client_id,
                 "client_secret": credentials.client_secret,
-                "scope": "https://api.botframework.com/.default",
+                "scope": self._cloud.bot_scope,
             },
             headers={"Content-Type": "application/x-www-form-urlencoded"},
         )
@@ -122,9 +131,9 @@ class BotTokenClient(BaseClient):
             "Bot token client currently only supports Credentials with secrets."
         )
 
-        tenant_id = credentials.tenant_id or "botframework.com"
+        tenant_id = credentials.tenant_id or self._cloud.login_tenant
         res = await self.http.post(
-            f"https://login.microsoftonline.com/{tenant_id}/oauth2/v2.0/token",
+            f"{self._cloud.login_endpoint}/{tenant_id}/oauth2/v2.0/token",
             data={
                 "grant_type": "client_credentials",
                 "client_id": credentials.client_id,

@@ -3,9 +3,14 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
+from __future__ import annotations
+
 import os
 from dataclasses import dataclass
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
+
+if TYPE_CHECKING:
+    from ..auth.cloud_environment import CloudEnvironment
 
 
 @dataclass
@@ -26,12 +31,16 @@ class ApiClientSettings:
 DEFAULT_API_CLIENT_SETTINGS = ApiClientSettings()
 
 
-def merge_api_client_settings(api_client_settings: Optional[ApiClientSettings]) -> ApiClientSettings:
+def merge_api_client_settings(
+    api_client_settings: Optional[ApiClientSettings] = None,
+    cloud: Optional["CloudEnvironment"] = None,
+) -> ApiClientSettings:
     """
     Merge API client settings with environment variables and defaults.
 
     Args:
         api_client_settings: Optional API client settings to merge.
+        cloud: Optional cloud environment for default oauth_url.
 
     Returns:
         Merged API client settings.
@@ -41,5 +50,10 @@ def merge_api_client_settings(api_client_settings: Optional[ApiClientSettings]) 
 
     # Check for environment variable override
     env_oauth_url = os.environ.get("OAUTH_URL")
+    default_oauth_url = cloud.token_service_url if cloud else DEFAULT_API_CLIENT_SETTINGS.oauth_url
 
-    return ApiClientSettings(oauth_url=env_oauth_url if env_oauth_url else api_client_settings.oauth_url)
+    return ApiClientSettings(
+        oauth_url=api_client_settings.oauth_url
+        if api_client_settings.oauth_url != DEFAULT_API_CLIENT_SETTINGS.oauth_url
+        else (env_oauth_url or default_oauth_url)
+    )
