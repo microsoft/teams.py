@@ -112,7 +112,7 @@ class App(ActivityHandlerMixin):
 
         # Create HttpServer (not a plugin — owned directly by App)
         adapter = self.options.http_server_adapter or FastAPIAdapter()
-        self.server = HttpServer(adapter)
+        self.server = HttpServer(adapter, messaging_endpoint=self.options.messaging_endpoint)
         self.container.set_provider("HttpServer", providers.Object(self.server))
 
         self._port: Optional[int] = None
@@ -194,7 +194,7 @@ class App(ActivityHandlerMixin):
                 if hasattr(plugin, "on_init") and callable(plugin.on_init):
                     await plugin.on_init()
 
-            # Initialize HttpServer (JWT validation + default /api/messages route)
+            # Initialize HttpServer (JWT validation + messaging endpoint route)
             self.server.on_request = self._process_activity_event
             self.server.initialize(credentials=self.credentials, skip_auth=self.options.skip_auth)
 

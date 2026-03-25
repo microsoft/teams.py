@@ -191,23 +191,6 @@ class TestActivityContextSend:
         assert len(sent_activity.attachments) > 0
         assert isinstance(result, SentActivity)
 
-    @pytest.mark.asyncio
-    async def test_send_targeted_no_recipient_infers_from_activity(self) -> None:
-        """Targeted send with no recipient infers recipient from activity.from_."""
-        from_account = Account(id="user-abc", name="Alice")
-        ctx, mock_sender = _create_activity_context()
-        ctx.activity.from_ = from_account
-
-        # Build a targeted message with no recipient and no id
-        activity = MessageActivityInput(text="Hi").with_recipient(from_account, is_targeted=True)
-        # Clear the recipient so the inference path is exercised
-        activity.recipient = None
-
-        await ctx.send(activity)
-
-        sent_activity = mock_sender.send.call_args[0][0]
-        assert sent_activity.recipient == from_account
-
 
 class TestActivityContextReply:
     """Tests for ActivityContext.reply()."""

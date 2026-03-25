@@ -39,6 +39,10 @@ class TestHttpServer:
         assert server.adapter is mock_adapter
         assert server.on_request is None
 
+    def test_messaging_endpoint_default(self, server):
+        """Test default messaging endpoint."""
+        assert server.messaging_endpoint == "/api/messages"
+
     def test_initialize_registers_route(self, server, mock_adapter):
         """Test that initialize registers the /api/messages route."""
         server.initialize()
@@ -46,6 +50,17 @@ class TestHttpServer:
         call_args = mock_adapter.register_route.call_args
         assert call_args[0][0] == "POST"
         assert call_args[0][1] == "/api/messages"
+
+    def test_initialize_registers_custom_messaging_endpoint(self, mock_adapter):
+        """Test that initialize registers a custom messaging endpoint."""
+        custom_server = HttpServer(mock_adapter, messaging_endpoint="/bot/incoming")
+        assert custom_server.messaging_endpoint == "/bot/incoming"
+
+        custom_server.initialize()
+        mock_adapter.register_route.assert_called_once()
+        call_args = mock_adapter.register_route.call_args
+        assert call_args[0][0] == "POST"
+        assert call_args[0][1] == "/bot/incoming"
 
     def test_on_request_setter(self, server):
         """Test on_request callback setter."""

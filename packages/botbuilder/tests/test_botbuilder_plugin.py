@@ -27,6 +27,7 @@ class TestBotBuilderPlugin:
     def mock_http_server(self):
         server = MagicMock(spec=HttpServer)
         server.adapter = MagicMock()
+        server.messaging_endpoint = "/api/messages"
         server.handle_request = AsyncMock(return_value=HttpResponse(status=200, body=None))
         return server
 
