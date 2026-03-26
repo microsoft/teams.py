@@ -3,10 +3,9 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from . import batch, bot, conversation, meeting, reaction, team, user
+from . import bot, conversation, meeting, reaction, team, user
 from .api_client import ApiClient
 from .api_client_settings import DEFAULT_API_CLIENT_SETTINGS, ApiClientSettings, merge_api_client_settings
-from .batch import *  # noqa: F403
 from .bot import *  # noqa: F403
 from .conversation import *  # noqa: F403
 from .meeting import *  # noqa: F403
@@ -21,7 +20,6 @@ __all__: list[str] = [
     "DEFAULT_API_CLIENT_SETTINGS",
     "merge_api_client_settings",
 ]
-__all__.extend(batch.__all__)
 __all__.extend(bot.__all__)
 __all__.extend(conversation.__all__)
 __all__.extend(meeting.__all__)

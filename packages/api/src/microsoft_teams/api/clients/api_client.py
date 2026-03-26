@@ -10,7 +10,6 @@ from microsoft_teams.common import ClientOptions
 
 from .api_client_settings import ApiClientSettings
 from .base_client import BaseClient
-from .batch import BatchClient
 from .bot import BotClient
 from .conversation import ConversationClient
 from .meeting import MeetingClient
@@ -44,7 +43,6 @@ class ApiClient(BaseClient):
         self.conversations = ConversationClient(self.service_url, self._http, self._api_client_settings)
         self.teams = TeamClient(self.service_url, self._http, self._api_client_settings)
         self.meetings = MeetingClient(self.service_url, self._http, self._api_client_settings)
-        self.batch = BatchClient(self.service_url, self._http, self._api_client_settings)
         self._reactions: Optional[ReactionClient] = None
 
     @property
@@ -67,7 +65,6 @@ class ApiClient(BaseClient):
         self.users.http = value
         self.teams.http = value
         self.meetings.http = value
-        self.batch.http = value
         if self._reactions is not None:
             self._reactions.http = value
         self._http = value

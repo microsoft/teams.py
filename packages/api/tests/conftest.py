@@ -111,8 +111,6 @@ def mock_transport():
                 ],
                 "continuationToken": "mock_continuation_token",
             }
-        elif "/v3/batch/conversation/" in str(request.url) and request.method == "POST":
-            response_data = {"operationId": "mock_operation_id"}
         elif "/notification" in str(request.url) and request.method == "POST":
             response_data = {
                 "recipientsFailureInfo": [
