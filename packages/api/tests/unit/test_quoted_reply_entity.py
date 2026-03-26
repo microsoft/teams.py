@@ -28,7 +28,7 @@ class TestQuotedReplyData:
             sender_id="user-456",
             sender_name="Test User",
             preview="Hello world",
-            time="2024-01-01T12:00:00Z",
+            time="1772050244572",
             is_reply_deleted=False,
             validated_message_reference=True,
         )
@@ -36,7 +36,7 @@ class TestQuotedReplyData:
         assert data.sender_id == "user-456"
         assert data.sender_name == "Test User"
         assert data.preview == "Hello world"
-        assert data.time == "2024-01-01T12:00:00Z"
+        assert data.time == "1772050244572"
         assert data.is_reply_deleted is False
         assert data.validated_message_reference is True
 
@@ -67,7 +67,7 @@ class TestQuotedReplyData:
                 "senderId": "user-456",
                 "senderName": "Test User",
                 "preview": "Hello world",
-                "time": "2024-01-01T12:00:00Z",
+                "time": "1772050244572",
                 "isReplyDeleted": False,
                 "validatedMessageReference": True,
             }
@@ -123,7 +123,7 @@ class TestQuotedReplyEntity:
                 sender_id="user-456",
                 sender_name="Test User",
                 preview="Hello world",
-                time="2024-01-01T12:00:00Z",
+                time="1772050244572",
                 is_reply_deleted=False,
                 validated_message_reference=True,
             )
