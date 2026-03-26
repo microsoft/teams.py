@@ -193,14 +193,9 @@ class ActivityContext(Generic[T]):
         In other scopes, sends with a quoted reply.
         To send without quoting, use :meth:`send`.
         """
+        if self.activity.id:
+            return await self.quote_reply(self.activity.id, input)
         activity = MessageActivityInput(text=input) if isinstance(input, str) else input
-        if isinstance(activity, MessageActivityInput) and self.activity.id:
-            placeholder = f'<quoted messageId="{self.activity.id}"/>'
-            if not activity.entities:
-                activity.entities = []
-            activity.entities.append(QuotedReplyEntity(quoted_reply=QuotedReplyData(message_id=self.activity.id)))
-            has_text = bool((activity.text or "").strip())
-            activity.text = f"{placeholder} {activity.text}" if has_text else placeholder
         return await self.send(activity)
 
     async def quote_reply(self, message_id: str, input: str | ActivityParams) -> SentActivity:
