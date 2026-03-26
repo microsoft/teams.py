@@ -428,10 +428,10 @@ class MessageActivityInput(_MessageBase, ActivityInputBase):
         self.channel_data.feedback_loop = FeedbackLoop(type=mode)
         self.channel_data.feedback_loop_enabled = None
 
-    def prepend_quoted_reply(self, message_id: str) -> Self:
+    def prepend_quote(self, message_id: str) -> Self:
         """
         Prepend a quotedReply entity and placeholder before existing text.
-        Used by reply()/quote_reply() for quote-above-response.
+        Used by reply()/quote() for quote-above-response.
 
         Args:
             message_id: The IC3 message ID of the message to quote
@@ -451,14 +451,15 @@ class MessageActivityInput(_MessageBase, ActivityInputBase):
         self.text = f"{placeholder} {self.text}" if has_text else placeholder
         return self
 
-    def add_quoted_reply(self, message_id: str, response: str | None = None) -> Self:
+    def add_quote(self, message_id: str, text: str | None = None) -> Self:
         """
-        Add a quotedReply entity for the given message ID and append a placeholder to text.
-        If response is provided, it is appended after the placeholder.
+        Add a quoted message reference and append a placeholder to text.
+        Teams renders the quoted message as a preview bubble above the response text.
+        If text is provided, it is appended to the quoted message placeholder.
 
         Args:
-            message_id: The IC3 message ID of the message to quote
-            response: Optional response text to append after the placeholder
+            message_id: The ID of the message to quote
+            text: Optional text, appended to the quoted message placeholder
 
         Returns:
             Self for method chaining
@@ -471,8 +472,8 @@ class MessageActivityInput(_MessageBase, ActivityInputBase):
             self.entities = []
         self.entities.append(QuotedReplyEntity(quoted_reply=QuotedReplyData(message_id=message_id)))
         self.add_text(f'<quoted messageId="{message_id}"/>')
-        if response:
-            self.add_text(f" {response}")
+        if text:
+            self.add_text(f" {text}")
         return self
 
     def with_recipient(self, value: Account, is_targeted: Optional[bool] = None) -> Self:

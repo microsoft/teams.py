@@ -5,7 +5,7 @@ Licensed under the MIT License.
 Example: Quoted Replies
 
 A bot that demonstrates quoted reply features in Microsoft Teams.
-Tests reply(), quote_reply(), add_quoted_reply(), and get_quoted_messages().
+Tests reply(), quote(), add_quote(), and get_quoted_messages().
 """
 
 import asyncio
@@ -50,19 +50,19 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
         return
 
     # ============================================
-    # quote_reply() — quote a previously sent message by ID
+    # quote() — quote a previously sent message by ID
     # ============================================
     if "test quote" in text:
         sent = await ctx.send("The meeting has been moved to 3 PM tomorrow.")
-        await ctx.quote_reply(sent.id, "Just to confirm — does the new time work for everyone?")
+        await ctx.quote(sent.id, "Just to confirm — does the new time work for everyone?")
         return
 
     # ============================================
-    # add_quoted_reply() — builder with response
+    # add_quote() — builder with response
     # ============================================
     if "test add" in text:
         sent = await ctx.send("Please review the latest PR before end of day.")
-        msg = MessageActivityInput().add_quoted_reply(sent.id, "Done! Left my comments on the PR.")
+        msg = MessageActivityInput().add_quote(sent.id, "Done! Left my comments on the PR.")
         await ctx.send(msg)
         return
 
@@ -75,19 +75,19 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
         sent_c = await ctx.send("CI pipeline is green on main.")
         msg = (
             MessageActivityInput()
-            .add_quoted_reply(sent_a.id, "I can take the docs — will have a draft by Thursday.")
-            .add_quoted_reply(sent_b.id, "Looks great, approved!")
-            .add_quoted_reply(sent_c.id)
+            .add_quote(sent_a.id, "I can take the docs — will have a draft by Thursday.")
+            .add_quote(sent_b.id, "Looks great, approved!")
+            .add_quote(sent_c.id)
         )
         await ctx.send(msg)
         return
 
     # ============================================
-    # add_quoted_reply() + add_text() — manual control
+    # add_quote() + add_text() — manual control
     # ============================================
     if "test manual" in text:
         sent = await ctx.send("Deployment to staging is complete.")
-        msg = MessageActivityInput().add_quoted_reply(sent.id).add_text(" Verified — all smoke tests passing.")
+        msg = MessageActivityInput().add_quote(sent.id).add_text(" Verified — all smoke tests passing.")
         await ctx.send(msg)
         return
 
@@ -99,10 +99,10 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
             "**Quoted Replies Test Bot**\n\n"
             "**Commands:**\n"
             "- `test reply` - reply() auto-quotes your message\n"
-            "- `test quote` - quote_reply() quotes a previously sent message\n"
-            "- `test add` - add_quoted_reply() builder with response\n"
+            "- `test quote` - quote() quotes a previously sent message\n"
+            "- `test add` - add_quote() builder with response\n"
             "- `test multi` - Multi-quote with mixed responses (one bare quote with no response)\n"
-            "- `test manual` - add_quoted_reply() + add_text() manual control\n\n"
+            "- `test manual` - add_quote() + add_text() manual control\n\n"
             "Quote any message to me to see the parsed metadata!"
         )
         return

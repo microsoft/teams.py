@@ -193,17 +193,18 @@ class ActivityContext(Generic[T]):
         To send without quoting, use :meth:`send`.
         """
         if self.activity.id:
-            return await self.quote_reply(self.activity.id, input)
+            return await self.quote(self.activity.id, input)
         activity = MessageActivityInput(text=input) if isinstance(input, str) else input
         return await self.send(activity)
 
-    async def quote_reply(self, message_id: str, input: str | ActivityParams) -> SentActivity:
+    async def quote(self, message_id: str, input: str | ActivityParams) -> SentActivity:
         """
-        Send a reply quoting a specific message by ID.
+        Send a message to the conversation with a quoted message reference prepended to the text.
+        Teams renders the quoted message as a preview bubble above the response text.
 
         Args:
             message_id: The ID of the message to quote
-            input: The message to send, can be a string or ActivityParams
+            input: The response text or activity — a quote placeholder for message_id will be prepended to its text
 
         Returns:
             The sent activity
@@ -214,7 +215,7 @@ class ActivityContext(Generic[T]):
         """
         activity = MessageActivityInput(text=input) if isinstance(input, str) else input
         if isinstance(activity, MessageActivityInput):
-            activity.prepend_quoted_reply(message_id)
+            activity.prepend_quote(message_id)
         return await self.send(activity)
 
     async def next(self) -> None:

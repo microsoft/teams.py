@@ -62,42 +62,42 @@ class TestMessageActivityQuotedReplies:
 
 
 class TestMessageActivityInputAddQuotedReply:
-    """Tests for the add_quoted_reply builder method on MessageActivityInput"""
+    """Tests for the add_quote builder method on MessageActivityInput"""
 
-    def test_add_quoted_reply_adds_entity_and_placeholder(self):
+    def test_add_quote_adds_entity_and_placeholder(self):
         from microsoft_teams.api.activities.message import MessageActivityInput
 
-        msg = MessageActivityInput().add_quoted_reply("msg-1")
+        msg = MessageActivityInput().add_quote("msg-1")
         assert len(msg.entities) == 1
         assert msg.entities[0].type == "quotedReply"
         assert msg.entities[0].quoted_reply.message_id == "msg-1"
         assert msg.text == '<quoted messageId="msg-1"/>'
 
-    def test_add_quoted_reply_with_response(self):
+    def test_add_quote_with_response(self):
         from microsoft_teams.api.activities.message import MessageActivityInput
 
-        msg = MessageActivityInput().add_quoted_reply("msg-1", "my response")
+        msg = MessageActivityInput().add_quote("msg-1", "my response")
         assert msg.text == '<quoted messageId="msg-1"/> my response'
 
-    def test_add_quoted_reply_multi_quote_interleaved(self):
+    def test_add_quote_multi_quote_interleaved(self):
         from microsoft_teams.api.activities.message import MessageActivityInput
 
         msg = (
             MessageActivityInput()
-            .add_quoted_reply("msg-1", "response to first")
-            .add_quoted_reply("msg-2", "response to second")
+            .add_quote("msg-1", "response to first")
+            .add_quote("msg-2", "response to second")
         )
         assert msg.text == '<quoted messageId="msg-1"/> response to first<quoted messageId="msg-2"/> response to second'
         assert len(msg.entities) == 2
 
-    def test_add_quoted_reply_grouped(self):
+    def test_add_quote_grouped(self):
         from microsoft_teams.api.activities.message import MessageActivityInput
 
-        msg = MessageActivityInput().add_quoted_reply("msg-1").add_quoted_reply("msg-2", "response to both")
+        msg = MessageActivityInput().add_quote("msg-1").add_quote("msg-2", "response to both")
         assert msg.text == '<quoted messageId="msg-1"/><quoted messageId="msg-2"/> response to both'
 
-    def test_add_quoted_reply_chainable_with_add_text(self):
+    def test_add_quote_chainable_with_add_text(self):
         from microsoft_teams.api.activities.message import MessageActivityInput
 
-        msg = MessageActivityInput().add_quoted_reply("msg-1").add_text(" manual text")
+        msg = MessageActivityInput().add_quote("msg-1").add_text(" manual text")
         assert msg.text == '<quoted messageId="msg-1"/> manual text'

@@ -132,7 +132,7 @@ class TestActivityContextReply:
 
 
 class TestActivityContextQuoteReply:
-    """Tests for ActivityContext.quote_reply() with arbitrary message ID."""
+    """Tests for ActivityContext.quote() with arbitrary message ID."""
 
     def _create_activity_context(self) -> ActivityContext[Any]:
         """Create an ActivityContext for testing."""
@@ -165,10 +165,10 @@ class TestActivityContextQuoteReply:
         )
 
     @pytest.mark.asyncio
-    async def test_quote_reply_stamps_entity_with_message_id(self) -> None:
-        """Test that quote_reply() stamps entity with the provided message ID."""
+    async def test_quote_stamps_entity_with_message_id(self) -> None:
+        """Test that quote() stamps entity with the provided message ID."""
         ctx = self._create_activity_context()
-        await ctx.quote_reply("arbitrary-msg-id", "Quoting this!")
+        await ctx.quote("arbitrary-msg-id", "Quoting this!")
 
         sent_activity = ctx._activity_sender.send.call_args[0][0]
         assert sent_activity.entities is not None
@@ -178,30 +178,30 @@ class TestActivityContextQuoteReply:
         assert entity.quoted_reply.message_id == "arbitrary-msg-id"
 
     @pytest.mark.asyncio
-    async def test_quote_reply_prepends_placeholder(self) -> None:
-        """Test that quote_reply() prepends the quoted placeholder."""
+    async def test_quote_prepends_placeholder(self) -> None:
+        """Test that quote() prepends the quoted placeholder."""
         ctx = self._create_activity_context()
-        await ctx.quote_reply("msg-xyz", "My reply text")
+        await ctx.quote("msg-xyz", "My reply text")
 
         sent_activity = ctx._activity_sender.send.call_args[0][0]
         assert sent_activity.text == '<quoted messageId="msg-xyz"/> My reply text'
 
     @pytest.mark.asyncio
-    async def test_quote_reply_with_empty_text(self) -> None:
-        """Test that quote_reply() handles empty text correctly."""
+    async def test_quote_with_empty_text(self) -> None:
+        """Test that quote() handles empty text correctly."""
         ctx = self._create_activity_context()
         activity = MessageActivityInput(text="")
-        await ctx.quote_reply("msg-xyz", activity)
+        await ctx.quote("msg-xyz", activity)
 
         sent_activity = ctx._activity_sender.send.call_args[0][0]
         assert sent_activity.text == '<quoted messageId="msg-xyz"/>'
 
     @pytest.mark.asyncio
-    async def test_quote_reply_with_activity_params(self) -> None:
-        """Test that quote_reply() works with an ActivityParams input."""
+    async def test_quote_with_activity_params(self) -> None:
+        """Test that quote() works with an ActivityParams input."""
         ctx = self._create_activity_context()
         activity = MessageActivityInput(text="Hello world")
-        await ctx.quote_reply("msg-xyz", activity)
+        await ctx.quote("msg-xyz", activity)
 
         sent_activity = ctx._activity_sender.send.call_args[0][0]
         assert sent_activity.text == '<quoted messageId="msg-xyz"/> Hello world'
