@@ -32,7 +32,6 @@ from microsoft_teams.api.models.attachment.card_attachment import (
     OAuthCardAttachment,
     card_attachment,
 )
-from microsoft_teams.api.models.entity import QuotedReplyData, QuotedReplyEntity
 from microsoft_teams.api.models.oauth import OAuthCard
 from microsoft_teams.cards import AdaptiveCard
 from microsoft_teams.common import Storage
@@ -215,12 +214,7 @@ class ActivityContext(Generic[T]):
         """
         activity = MessageActivityInput(text=input) if isinstance(input, str) else input
         if isinstance(activity, MessageActivityInput):
-            placeholder = f'<quoted messageId="{message_id}"/>'
-            if not activity.entities:
-                activity.entities = []
-            activity.entities.append(QuotedReplyEntity(quoted_reply=QuotedReplyData(message_id=message_id)))
-            has_text = bool((activity.text or "").strip())
-            activity.text = f"{placeholder} {activity.text}" if has_text else placeholder
+            activity.prepend_quoted_reply(message_id)
         return await self.send(activity)
 
     async def next(self) -> None:

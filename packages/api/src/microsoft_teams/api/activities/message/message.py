@@ -428,6 +428,29 @@ class MessageActivityInput(_MessageBase, ActivityInputBase):
         self.channel_data.feedback_loop = FeedbackLoop(type=mode)
         self.channel_data.feedback_loop_enabled = None
 
+    def prepend_quoted_reply(self, message_id: str) -> Self:
+        """
+        Prepend a quotedReply entity and placeholder before existing text.
+        Used by reply()/quote_reply() for quote-above-response.
+
+        Args:
+            message_id: The IC3 message ID of the message to quote
+
+        Returns:
+            Self for method chaining
+
+        .. warning:: Preview
+            This API is in preview and may change in the future.
+            Diagnostic: ExperimentalTeamsQuotedReplies
+        """
+        if not self.entities:
+            self.entities = []
+        self.entities.append(QuotedReplyEntity(quoted_reply=QuotedReplyData(message_id=message_id)))
+        placeholder = f'<quoted messageId="{message_id}"/>'
+        has_text = bool((self.text or "").strip())
+        self.text = f"{placeholder} {self.text}" if has_text else placeholder
+        return self
+
     def add_quoted_reply(self, message_id: str, response: str | None = None) -> Self:
         """
         Add a quotedReply entity for the given message ID and append a placeholder to text.
