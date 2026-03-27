@@ -32,4 +32,5 @@ Create a `.env` file:
 ```env
 CLIENT_ID=<your-azure-bot-app-id>
 CLIENT_SECRET=<your-azure-bot-app-secret>
+TENANT_ID=<your-tenant-id>
 ```
