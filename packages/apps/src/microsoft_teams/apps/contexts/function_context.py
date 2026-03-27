@@ -122,7 +122,6 @@ class FunctionContext(ClientContext, Generic[T]):
                 conversation_params = CreateConversationParams(
                     members=[Account(id=self.user_id, role="user", name=self.user_name)],
                     tenant_id=self.tenant_id,
-                    is_group=False,
                 )
                 conversation = await self.api.conversations.create(conversation_params)
                 self._resolved_conversation_id = conversation.id
