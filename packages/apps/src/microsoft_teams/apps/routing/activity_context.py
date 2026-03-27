@@ -273,7 +273,6 @@ class ActivityContext(Generic[T]):
             one_on_one_conversation = await self.api.conversations.create(
                 CreateConversationParams(
                     tenant_id=self.activity.conversation.tenant_id,
-                    is_group=False,
                     members=[self.activity.from_],
                 )
             )
