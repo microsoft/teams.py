@@ -12,10 +12,6 @@ from .activity import ActivityParams
 class CreateConversationParams(CustomBaseModel):
     """Parameters for creating a conversation."""
 
-    is_group: bool = False
-    """
-    Whether this is a group conversation.
-    """
     members: Optional[List[Account]] = None
     """
     The members to add to the conversation.

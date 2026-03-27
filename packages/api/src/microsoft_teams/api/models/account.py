@@ -9,7 +9,7 @@ from pydantic import AliasChoices, Field
 
 from .custom_base_model import CustomBaseModel
 
-AccountRole = Literal["user", "bot"]
+AccountRole = Literal["user", "bot", "skill"]
 
 
 class Account(CustomBaseModel):
@@ -69,7 +69,7 @@ class TeamsChannelAccount(CustomBaseModel):
     """
     The user's Object ID in Azure Active Directory (AAD).
     """
-    role: Optional[str] = Field(default=None, alias="userRole")
+    user_role: Optional[str] = None
     """
     Role of the user in the conversation.
     """
