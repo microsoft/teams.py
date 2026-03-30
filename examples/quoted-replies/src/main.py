@@ -1,11 +1,6 @@
 """
 Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
-
-Example: Quoted Replies
-
-A bot that demonstrates quoted reply features in Microsoft Teams.
-Tests reply(), quote(), add_quote(), and get_quoted_messages().
 """
 
 import asyncio
