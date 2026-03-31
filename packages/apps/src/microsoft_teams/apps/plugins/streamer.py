@@ -14,6 +14,11 @@ class StreamerProtocol(Protocol):
     """Component that can send streamed chunks of an activity."""
 
     @property
+    def canceled(self) -> bool:
+        """Whether the stream has been canceled. For example when the user pressed the Stop button or the 2 minute timeout has exceeded."""
+        ...
+
+    @property
     def closed(self) -> bool:
         """Whether the final stream message has been sent."""
         ...
