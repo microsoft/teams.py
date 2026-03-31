@@ -15,7 +15,6 @@ from microsoft_teams.api import (
     ConfigSubmitInvokeActivity,
     ConversationUpdateActivity,
     CustomBaseModel,
-    EndOfConversationActivity,
     EventActivity,
     ExecuteActionInvokeActivity,
     FileConsentInvokeActivity,
@@ -242,13 +241,6 @@ ACTIVITY_ROUTES: Dict[str, ActivityConfig] = {
         input_model=ConversationUpdateActivity,
         selector=lambda activity: isinstance(activity, ConversationUpdateActivity)
         and activity.channel_data.event_type == "teamUnarchived",
-        output_model=None,
-    ),
-    "end_of_conversation": ActivityConfig(
-        name="end_of_conversation",
-        method_name="on_end_of_conversation",
-        input_model=EndOfConversationActivity,
-        selector=lambda activity: isinstance(activity, EndOfConversationActivity),
         output_model=None,
     ),
     # Complex Union Activities (discriminated by sub-fields)

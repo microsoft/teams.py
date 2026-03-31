@@ -3,9 +3,8 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from typing import Any, Literal, Optional
+from typing import Any, Literal
 
-from ....models import ConversationReference
 from ...invoke_activity import InvokeActivity
 
 
@@ -21,6 +20,3 @@ class ConfigSubmitInvokeActivity(InvokeActivity):
 
     value: Any
     """The value associated with the activity."""
-
-    relates_to: Optional[ConversationReference] = None
-    """A reference to another conversation or activity."""

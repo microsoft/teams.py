@@ -20,7 +20,6 @@ from microsoft_teams.api.activities import (
     ConfigFetchInvokeActivity,
     ConfigSubmitInvokeActivity,
     ConversationUpdateActivity,
-    EndOfConversationActivity,
     EventActivity,
     ExecuteActionInvokeActivity,
     FileConsentInvokeActivity,
@@ -576,33 +575,6 @@ class GeneratedActivityHandlerMixin(ABC):
         def decorator(func: BasicHandler[ConversationUpdateActivity]) -> BasicHandler[ConversationUpdateActivity]:
             validate_handler_type(func, ConversationUpdateActivity, "on_team_unarchived", "ConversationUpdateActivity")
             config = ACTIVITY_ROUTES["team_unarchived"]
-            self.router.add_handler(config.selector, func)
-            return func
-
-        if handler is not None:
-            return decorator(handler)
-        return decorator
-
-    @overload
-    def on_end_of_conversation(
-        self, handler: BasicHandler[EndOfConversationActivity]
-    ) -> BasicHandler[EndOfConversationActivity]: ...
-
-    @overload
-    def on_end_of_conversation(
-        self,
-    ) -> Callable[[BasicHandler[EndOfConversationActivity]], BasicHandler[EndOfConversationActivity]]: ...
-
-    def on_end_of_conversation(
-        self, handler: Optional[BasicHandler[EndOfConversationActivity]] = None
-    ) -> BasicHandlerUnion[EndOfConversationActivity]:
-        """Register a end_of_conversation activity handler."""
-
-        def decorator(func: BasicHandler[EndOfConversationActivity]) -> BasicHandler[EndOfConversationActivity]:
-            validate_handler_type(
-                func, EndOfConversationActivity, "on_end_of_conversation", "EndOfConversationActivity"
-            )
-            config = ACTIVITY_ROUTES["end_of_conversation"]
             self.router.add_handler(config.selector, func)
             return func
 
