@@ -5,7 +5,7 @@ Licensed under the MIT License.
 
 from typing import Literal
 
-from ..models import ActivityBase, ActivityInputBase, CustomBaseModel
+from ..models import ActivityBase, CustomBaseModel
 
 
 class _HandoffBase(CustomBaseModel):
@@ -18,5 +18,3 @@ class HandoffActivity(_HandoffBase, ActivityBase):
     """Output model for received handoff activities with required fields and read-only properties."""
 
 
-class HandoffActivityInput(_HandoffBase, ActivityInputBase):
-    """Input model for creating handoff activities with builder methods."""

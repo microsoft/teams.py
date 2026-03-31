@@ -5,7 +5,7 @@ Licensed under the MIT License.
 
 from typing import Any, Literal, Optional
 
-from ...models import ActivityBase, ActivityInputBase, CustomBaseModel
+from ...models import ActivityBase, CustomBaseModel
 
 
 class CommandSendValue(CustomBaseModel):
@@ -43,7 +43,3 @@ class CommandSendActivity(_CommandSendBase, ActivityBase):
     """The name of the event."""
 
 
-class CommandSendActivityInput(_CommandSendBase, ActivityInputBase):
-    """Input model for creating command send activities with builder methods."""
-
-    pass

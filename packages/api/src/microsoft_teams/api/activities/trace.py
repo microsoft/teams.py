@@ -5,7 +5,7 @@ Licensed under the MIT License.
 
 from typing import Any, Literal, Optional
 
-from ..models import ActivityBase, ActivityInputBase, CustomBaseModel
+from ..models import ActivityBase, CustomBaseModel
 
 
 class _TraceBase(CustomBaseModel):
@@ -48,5 +48,3 @@ class TraceActivity(_TraceBase, ActivityBase):
     """
 
 
-class TraceActivityInput(_TraceBase, ActivityInputBase):
-    """Input model for creating trace activities with builder methods."""
