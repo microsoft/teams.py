@@ -5,19 +5,19 @@ Licensed under the MIT License.
 # pyright: basic
 
 import pytest
-from microsoft_teams.api.activities import ActivityParams, MessageActivityInput, SentActivity
+from microsoft_teams.api.activities import SendableActivity, MessageActivityInput, SentActivity
 
 
 @pytest.fixture
-def mock_new_activity_params() -> ActivityParams:
-    """Create a mock ActivityParams for testing."""
+def mock_new_activity_params() -> SendableActivity:
+    """Create a mock SendableActivity for testing."""
     return MessageActivityInput(
         id="updated-id", type="message", text="updated message", locale="en-US", reply_to_id="activity-3"
     )
 
 
 @pytest.fixture
-def mock_sent_activity(mock_new_activity_params: ActivityParams) -> SentActivity:
+def mock_sent_activity(mock_new_activity_params: SendableActivity) -> SentActivity:
     """Create a mock SentActivity for testing."""
     return SentActivity(
         id="sent-1",

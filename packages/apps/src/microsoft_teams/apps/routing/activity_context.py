@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, Any, Awaitable, Callable, Generic, Optional, T
 
 from microsoft_teams.api import (
     ActivityBase,
-    ActivityParams,
+    SendableActivity,
     ApiClient,
     CardAction,
     CardActionType,
@@ -71,7 +71,7 @@ class SignInOptions:
                 Optional[TokenPostResource],
                 Optional[str],
             ],
-            ActivityParams,
+            SendableActivity,
         ]
     ] = None
 
@@ -165,14 +165,14 @@ class ActivityContext(Generic[T]):
 
     async def send(
         self,
-        message: str | ActivityParams | AdaptiveCard,
+        message: str | SendableActivity | AdaptiveCard,
         conversation_ref: Optional[ConversationReference] = None,
     ) -> SentActivity:
         """
         Send a message to the conversation.
 
         Args:
-            message: The message to send, can be a string, ActivityParams, or AdaptiveCard
+            message: The message to send, can be a string, SendableActivity, or AdaptiveCard
             conversation_ref: Optional conversation reference to override the current conversation reference
         """
         if isinstance(message, str):
@@ -186,7 +186,7 @@ class ActivityContext(Generic[T]):
         res = await self._activity_sender.send(activity, ref)
         return res
 
-    async def reply(self, input: str | ActivityParams) -> SentActivity:
+    async def reply(self, input: str | SendableActivity) -> SentActivity:
         """Send a reply to the activity."""
         activity = MessageActivityInput(text=input) if isinstance(input, str) else input
         if isinstance(activity, MessageActivityInput):

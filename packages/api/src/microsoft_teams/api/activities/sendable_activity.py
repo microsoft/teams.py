@@ -20,7 +20,7 @@ from .message import (
 )
 from .typing import TypingActivityInput
 
-ActivityParams = Annotated[
+SendableActivity = Annotated[
     Union[
         MessageActivityInput,
         MessageReactionActivityInput,

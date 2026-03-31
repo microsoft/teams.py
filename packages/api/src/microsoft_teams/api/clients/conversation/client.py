@@ -10,7 +10,7 @@ from microsoft_teams.common.http import Client, ClientOptions
 from ...models import ConversationResource
 from ..api_client_settings import ApiClientSettings
 from ..base_client import BaseClient
-from .activity import ActivityParams, ConversationActivityClient
+from .activity import SendableActivity, ConversationActivityClient
 from .member import ConversationMemberClient
 from .params import CreateConversationParams
 
@@ -26,13 +26,13 @@ class ConversationOperations:
 class ActivityOperations(ConversationOperations):
     """Operations for managing activities in a conversation."""
 
-    async def create(self, activity: ActivityParams):
+    async def create(self, activity: SendableActivity):
         return await self._client.activities_client.create(self._conversation_id, activity)
 
-    async def update(self, activity_id: str, activity: ActivityParams):
+    async def update(self, activity_id: str, activity: SendableActivity):
         return await self._client.activities_client.update(self._conversation_id, activity_id, activity)
 
-    async def reply(self, activity_id: str, activity: ActivityParams):
+    async def reply(self, activity_id: str, activity: SendableActivity):
         return await self._client.activities_client.reply(self._conversation_id, activity_id, activity)
 
     async def delete(self, activity_id: str):
@@ -41,11 +41,11 @@ class ActivityOperations(ConversationOperations):
     async def get_members(self, activity_id: str):
         return await self._client.activities_client.get_members(self._conversation_id, activity_id)
 
-    async def create_targeted(self, activity: ActivityParams):
+    async def create_targeted(self, activity: SendableActivity):
         """Create a new targeted activity visible only to the specified recipient."""
         return await self._client.activities_client.create_targeted(self._conversation_id, activity)
 
-    async def update_targeted(self, activity_id: str, activity: ActivityParams):
+    async def update_targeted(self, activity_id: str, activity: SendableActivity):
         """Update an existing targeted activity."""
         return await self._client.activities_client.update_targeted(self._conversation_id, activity_id, activity)
 

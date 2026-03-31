@@ -7,7 +7,7 @@ import logging
 from typing import cast
 
 from microsoft_teams.api import (
-    ActivityParams,
+    SendableActivity,
     ApiClient,
     ConversationReference,
     MessageActivityInput,
@@ -36,7 +36,7 @@ class ActivitySender:
         """
         self._client = client
 
-    async def send(self, activity: ActivityParams, ref: ConversationReference) -> SentActivity:
+    async def send(self, activity: SendableActivity, ref: ConversationReference) -> SentActivity:
         """
         Send an activity to the Bot Framework.
 

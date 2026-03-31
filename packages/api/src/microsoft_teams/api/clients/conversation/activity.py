@@ -8,7 +8,7 @@ from typing import List, Optional
 from microsoft_teams.common.experimental import experimental
 from microsoft_teams.common.http import Client
 
-from ...activities import ActivityParams, SentActivity
+from ...activities import SendableActivity, SentActivity
 from ...models import TeamsChannelAccount
 from ..api_client_settings import ApiClientSettings
 from ..base_client import BaseClient
@@ -38,7 +38,7 @@ class ConversationActivityClient(BaseClient):
         super().__init__(http_client, api_client_settings)
         self.service_url = service_url.rstrip("/")
 
-    async def create(self, conversation_id: str, activity: ActivityParams) -> SentActivity:
+    async def create(self, conversation_id: str, activity: SendableActivity) -> SentActivity:
         """
         Create a new activity in a conversation.
 
@@ -61,7 +61,7 @@ class ConversationActivityClient(BaseClient):
         id = response.json().get("id", _PLACEHOLDER_ACTIVITY_ID)
         return SentActivity(id=id, activity_params=activity)
 
-    async def update(self, conversation_id: str, activity_id: str, activity: ActivityParams) -> SentActivity:
+    async def update(self, conversation_id: str, activity_id: str, activity: SendableActivity) -> SentActivity:
         """
         Update an existing activity in a conversation.
 
@@ -80,7 +80,7 @@ class ConversationActivityClient(BaseClient):
         id = response.json()["id"]
         return SentActivity(id=id, activity_params=activity)
 
-    async def reply(self, conversation_id: str, activity_id: str, activity: ActivityParams) -> SentActivity:
+    async def reply(self, conversation_id: str, activity_id: str, activity: SendableActivity) -> SentActivity:
         """
         Reply to an activity in a conversation.
 
@@ -128,7 +128,7 @@ class ConversationActivityClient(BaseClient):
         return [TeamsChannelAccount.model_validate(member) for member in response.json()]
 
     @experimental("ExperimentalTeamsTargeted")
-    async def create_targeted(self, conversation_id: str, activity: ActivityParams) -> SentActivity:
+    async def create_targeted(self, conversation_id: str, activity: SendableActivity) -> SentActivity:
         """
         Create a new targeted activity in a conversation.
 
@@ -153,7 +153,7 @@ class ConversationActivityClient(BaseClient):
         return SentActivity(id=id, activity_params=activity)
 
     @experimental("ExperimentalTeamsTargeted")
-    async def update_targeted(self, conversation_id: str, activity_id: str, activity: ActivityParams) -> SentActivity:
+    async def update_targeted(self, conversation_id: str, activity_id: str, activity: SendableActivity) -> SentActivity:
         """
         Update an existing targeted activity in a conversation.
 

@@ -8,7 +8,7 @@ from typing import Annotated, Union
 from pydantic import Field, TypeAdapter
 
 from . import event, install_update, invoke, message
-from .activity_params import ActivityParams
+from .sendable_activity import SendableActivity
 from .command import CommandActivity, CommandResultActivity, CommandResultValue, CommandSendActivity, CommandSendValue
 from .conversation import (
     ConversationActivity,
@@ -68,7 +68,7 @@ __all__: list[str] = [
     "ConversationEventType",
     "InvokeActivity",
     "TraceActivity",
-    "ActivityParams",
+    "SendableActivity",
     "SentActivity",
 ]
 __all__.extend(event.__all__)

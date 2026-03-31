@@ -11,7 +11,7 @@ from typing import Generic, Optional, TypeVar
 
 from microsoft_teams.api import (
     Account,
-    ActivityParams,
+    SendableActivity,
     ApiClient,
     ConversationAccount,
     ConversationReference,
@@ -50,7 +50,7 @@ class FunctionContext(ClientContext, Generic[T]):
     data: T
     """The function payload."""
 
-    async def send(self, activity: str | ActivityParams | AdaptiveCard) -> Optional[SentActivity]:
+    async def send(self, activity: str | SendableActivity | AdaptiveCard) -> Optional[SentActivity]:
         """
         Send an activity to the current conversation.
 
@@ -81,7 +81,7 @@ class FunctionContext(ClientContext, Generic[T]):
 
         return await self.activity_sender.send(activity, conversation_ref)
 
-    async def _resolve_conversation_id(self, activity: str | ActivityParams | AdaptiveCard) -> Optional[str]:
+    async def _resolve_conversation_id(self, activity: str | SendableActivity | AdaptiveCard) -> Optional[str]:
         """Resolve or create a conversation ID for the current user/context.
 
         Args:

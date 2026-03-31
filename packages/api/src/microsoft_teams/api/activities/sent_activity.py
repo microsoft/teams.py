@@ -4,7 +4,7 @@ Licensed under the MIT License.
 """
 
 from ..models import CustomBaseModel
-from . import ActivityParams
+from . import SendableActivity
 
 
 class SentActivity(CustomBaseModel):
@@ -13,10 +13,10 @@ class SentActivity(CustomBaseModel):
     id: str
     """Id of the activity."""
 
-    activity_params: ActivityParams
+    activity_params: SendableActivity
     """Additional parameters for the activity."""
 
     @classmethod
-    def merge(cls, activity_params: ActivityParams, curr_activity: "SentActivity") -> "SentActivity":
+    def merge(cls, activity_params: SendableActivity, curr_activity: "SentActivity") -> "SentActivity":
         merged_data = {**activity_params.model_dump(), **curr_activity.model_dump()}
         return cls(**merged_data)

@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union, ca
 
 from microsoft_teams.api import (
     ActivityBase,
-    ActivityParams,
+    SendableActivity,
     ActivityTypeAdapter,
     ApiClient,
     ApiClientSettings,
@@ -131,7 +131,7 @@ class ActivityProcessor:
         send = activityCtx.send
 
         async def updated_send(
-            message: str | ActivityParams | AdaptiveCard,
+            message: str | SendableActivity | AdaptiveCard,
             conversation_ref: Optional[ConversationReference] = None,
         ) -> SentActivity:
             res = await send(message, conversation_ref)

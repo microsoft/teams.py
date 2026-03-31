@@ -14,7 +14,7 @@ from dotenv import find_dotenv, load_dotenv
 from microsoft_teams.api import (
     Account,
     ActivityBase,
-    ActivityParams,
+    SendableActivity,
     ApiClient,
     ClientCredentials,
     ConversationAccount,
@@ -275,7 +275,7 @@ class App(ActivityHandlerMixin):
             self._events.emit("error", ErrorEvent(error, context={"method": "stop"}))
             raise
 
-    async def send(self, conversation_id: str, activity: str | ActivityParams | AdaptiveCard):
+    async def send(self, conversation_id: str, activity: str | SendableActivity | AdaptiveCard):
         """Send an activity proactively."""
 
         if not self._initialized:

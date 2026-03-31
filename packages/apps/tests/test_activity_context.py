@@ -217,8 +217,8 @@ class TestActivityContextReply:
         assert "My reply" in (sent_activity.text or "")
 
     @pytest.mark.asyncio
-    async def test_reply_with_activity_params(self) -> None:
-        """reply() with an ActivityParams instance sets reply_to_id and delegates to send."""
+    async def test_reply_with_sendable_activity(self) -> None:
+        """reply() with a SendableActivity instance sets reply_to_id and delegates to send."""
         mock_activity = MagicMock()
         mock_activity.type = "event"
         mock_activity.id = "evt-id-999"
