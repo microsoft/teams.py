@@ -186,6 +186,15 @@ class ActivityContext(Generic[T]):
         res = await self._activity_sender.send(activity, ref)
         return res
 
+    async def delete(self, activity_id: str) -> None:
+        """
+        Delete an activity from the conversation.
+
+        Args:
+            activity_id: The ID of the activity to delete
+        """
+        await self._activity_sender.delete(activity_id, self.conversation_ref)
+
     async def reply(self, input: str | SendableActivity) -> SentActivity:
         """Send a reply to the activity."""
         activity = MessageActivityInput(text=input) if isinstance(input, str) else input
