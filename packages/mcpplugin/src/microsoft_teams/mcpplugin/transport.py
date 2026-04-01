@@ -7,7 +7,6 @@ import asyncio
 from contextlib import asynccontextmanager
 from typing import Awaitable, Callable, Dict, Mapping, Optional, Union
 
-import httpx
 from mcp.client.sse import sse_client
 from mcp.client.streamable_http import create_mcp_http_client, streamable_http_client
 
