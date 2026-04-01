@@ -5,14 +5,14 @@ Licensed under the MIT License.
 
 from typing import Any, Dict, Optional
 
-from ..core import SubmitActionData as BaseSubmitActionData
+from ..core import SubmitActionData
 
 RESERVED_KEYWORD = "action"
 
 
-class EnhancedSubmitActionData(BaseSubmitActionData):
+class SubmitData(SubmitActionData):
     """
-    Utility class for creating submit action data with action-based routing.
+    Utility class for creating submit data with action-based routing.
 
     This class extends the base ``SubmitActionData`` (``microsoft_teams.cards.core.SubmitActionData``)
     with a convenience constructor that accepts an ``action`` identifier, which is used by
@@ -24,7 +24,7 @@ class EnhancedSubmitActionData(BaseSubmitActionData):
         data: Optional additional data to include with the submission.
 
     Example:
-        >>> submit_data = EnhancedSubmitActionData(action="submit_user_form", data={"user_id": "123"})
+        >>> submit_data = SubmitData(action="submit_user_form", data={"user_id": "123"})
         >>> submit_action = SubmitAction(title="Submit").with_data(submit_data)
     """
 

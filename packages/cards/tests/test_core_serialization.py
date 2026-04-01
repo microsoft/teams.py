@@ -13,13 +13,13 @@ from microsoft_teams.cards import (
     ExecuteAction,
     QueryData,
     SubmitAction,
-    SubmitActionData,
+    SubmitData,
     TaskFetchSubmitActionData,
     TeamsCardProperties,
     TextBlock,
     ToggleInput,
 )
-from microsoft_teams.cards.core import SubmitActionData as BaseSubmitActionData
+from microsoft_teams.cards.core import SubmitActionData
 
 
 def test_adaptive_card_serialization():
@@ -31,9 +31,7 @@ def test_adaptive_card_serialization():
             ToggleInput(label="Notify me", id="notify"),
             ActionSet(
                 actions=[
-                    ExecuteAction(title="Submit")
-                    .with_data(SubmitActionData("submit_basic"))
-                    .with_associated_inputs("auto")
+                    ExecuteAction(title="Submit").with_data(SubmitData("submit_basic")).with_associated_inputs("auto")
                 ]
             ),
         ],
@@ -60,8 +58,8 @@ def test_action_set_serialization():
     """Test ActionSet with multiple actions serializes correctly."""
     action_set = ActionSet(
         actions=[
-            ExecuteAction(title="Execute").with_data(SubmitActionData("execute")),
-            SubmitAction(title="Submit").with_data(SubmitActionData("submit")),
+            ExecuteAction(title="Execute").with_data(SubmitData("execute")),
+            SubmitAction(title="Submit").with_data(SubmitData("submit")),
         ]
     )
 
@@ -199,9 +197,9 @@ def test_ms_teams_serializes_to_msteams():
 
 
 def test_submit_action_data_ms_teams_serialization():
-    """Test that SubmitActionData.ms_teams serializes to 'msteams' correctly."""
-    # Create SubmitActionData with custom fields and ms_teams
-    action_data = SubmitActionData.model_validate({"opendialogtype": "simple_form"})
+    """Test that SubmitData.ms_teams serializes to 'msteams' correctly."""
+    # Create SubmitData with custom fields and ms_teams
+    action_data = SubmitData.model_validate({"opendialogtype": "simple_form"})
     action_data.ms_teams = TaskFetchSubmitActionData().model_dump()
 
     # Create a SubmitAction with the data
@@ -220,7 +218,7 @@ def test_submit_action_data_ms_teams_serialization():
 
     # Test round-trip deserialization
     deserialized_action = SubmitAction.model_validate(parsed)
-    assert isinstance(deserialized_action.data, BaseSubmitActionData)
+    assert isinstance(deserialized_action.data, SubmitActionData)
     assert deserialized_action.data.ms_teams is not None
     assert deserialized_action.data.ms_teams["type"] == "task/fetch"
 
