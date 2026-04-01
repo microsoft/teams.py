@@ -8,7 +8,8 @@ from contextlib import asynccontextmanager
 from typing import Awaitable, Callable, Dict, Mapping, Optional, Union
 
 from mcp.client.sse import sse_client
-from mcp.client.streamable_http import create_mcp_http_client, streamable_http_client
+from mcp.client.streamable_http import streamable_http_client
+from mcp.shared._httpx_utils import create_mcp_http_client
 
 ValueOrFactory = Union[str, Callable[[], Union[str, Awaitable[str]]]]
 
