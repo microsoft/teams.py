@@ -18,7 +18,7 @@ from microsoft_teams.cards import (
     ExecuteAction,
     NumberInput,
     OpenUrlAction,
-    SubmitActionData,
+    SubmitData,
     TextBlock,
     ToggleInput,
 )
@@ -36,9 +36,7 @@ def create_basic_adaptive_card() -> AdaptiveCard:
             ToggleInput(label="Notify me").with_id("notify"),
             ActionSet(
                 actions=[
-                    ExecuteAction(title="Submit")
-                    .with_data(SubmitActionData("submit_basic"))
-                    .with_associated_inputs("auto")
+                    ExecuteAction(title="Submit").with_data(SubmitData("submit_basic")).with_associated_inputs("auto")
                 ]
             ),
         ],
@@ -129,7 +127,7 @@ def create_profile_card() -> AdaptiveCard:
             ActionSet(
                 actions=[
                     ExecuteAction(title="Save")
-                    .with_data(SubmitActionData("save_profile", {"entity_id": "12345"}))
+                    .with_data(SubmitData("save_profile", {"entity_id": "12345"}))
                     .with_associated_inputs("auto"),
                     OpenUrlAction(url="https://adaptivecards.microsoft.com").with_title("Learn More"),
                 ]
@@ -175,7 +173,7 @@ def create_feedback_card() -> AdaptiveCard:
             ActionSet(
                 actions=[
                     ExecuteAction(title="Submit Feedback")
-                    .with_data(SubmitActionData("submit_feedback"))
+                    .with_data(SubmitData("submit_feedback"))
                     .with_associated_inputs("auto")
                 ]
             ),
@@ -234,7 +232,7 @@ async def handle_form(ctx: ActivityContext[MessageActivity]):
             ActionSet(
                 actions=[
                     ExecuteAction(title="Create Task")
-                    .with_data(SubmitActionData("create_task"))
+                    .with_data(SubmitData("create_task"))
                     .with_associated_inputs("auto")
                     .with_style("positive")
                 ]
