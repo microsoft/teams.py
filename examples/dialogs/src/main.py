@@ -27,7 +27,7 @@ from microsoft_teams.cards import (
     AdaptiveCard,
     OpenDialogData,
     SubmitAction,
-    SubmitActionData,
+    SubmitData,
     TextBlock,
     TextInput,
 )
@@ -87,8 +87,8 @@ async def handle_simple_form_open(ctx: ActivityContext[TaskFetchInvokeActivity])
                 },
             ],
             "actions": [
-                # Alternative: Use SubmitActionData for cleaner action-based routing
-                # SubmitAction(title="Submit").with_data(SubmitActionData("submit_simple_form"))
+                # Alternative: Use SubmitData for cleaner action-based routing
+                # SubmitAction(title="Submit").with_data(SubmitData("submit_simple_form"))
                 {"type": "Action.Submit", "title": "Submit", "data": {"action": "submit_simple_form"}}
             ],
         }
@@ -130,7 +130,7 @@ async def handle_multi_step_form_open(ctx: ActivityContext[TaskFetchInvokeActivi
                 TextInput(id="name").with_label("Name").with_placeholder("Enter your name").with_is_required(True),
             ]
         )
-        .with_actions([SubmitAction(title="Submit").with_data(SubmitActionData("submit_multi_step_1"))])
+        .with_actions([SubmitAction(title="Submit").with_data(SubmitData("submit_multi_step_1"))])
     )
 
     return TaskModuleResponse(
@@ -176,7 +176,7 @@ async def handle_multi_step_1_submit(ctx: ActivityContext[TaskSubmitInvokeActivi
                 TextInput(id="email").with_label("Email").with_placeholder("Enter your email").with_is_required(True),
             ]
         )
-        .with_actions([SubmitAction(title="Submit").with_data(SubmitActionData("submit_multi_step_2", {"name": name}))])
+        .with_actions([SubmitAction(title="Submit").with_data(SubmitData("submit_multi_step_2", {"name": name}))])
     )
 
     return TaskModuleResponse(
