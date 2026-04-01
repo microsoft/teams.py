@@ -3,7 +3,7 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from logging import Logger
+import logging
 from typing import Any, List, Optional, cast, get_type_hints
 
 from dependency_injector import providers
@@ -22,6 +22,8 @@ from .plugins import (
     get_metadata,
 )
 
+logger = logging.getLogger(__name__)
+
 
 class PluginProcessor:
     """
@@ -35,14 +37,12 @@ class PluginProcessor:
         self,
         container: Container,
         event_manager: EventManager,
-        logger: Logger,
         event_emitter: EventEmitter[EventType],
         activity_processor: ActivityProcessor,
     ):
         self.plugins: List[PluginBase] = []
         self.container = container
         self.event_manager = event_manager
-        self.logger = logger
         self.event_emitter = event_emitter
         self.activity_processor = activity_processor
 
@@ -54,7 +54,7 @@ class PluginProcessor:
             name = metadata.name
             class_name = plugin.__class__.__name__
 
-            self.logger.debug(f"Initializing the plugin {class_name}")
+            logger.debug(f"Initializing the plugin {class_name}")
 
             if not name:
                 raise ValueError(f"Plugin {class_name} missing name in metadata")
@@ -68,7 +68,7 @@ class PluginProcessor:
             if class_name != name:
                 self.container.set_provider(class_name, providers.Object(plugin))
 
-        self.logger.debug("Successfully initialized all plugins")
+        logger.debug("Successfully initialized all plugins")
         return self.plugins
 
     def get_plugin(self, name: str) -> Optional[PluginBase]:
@@ -88,7 +88,7 @@ class PluginProcessor:
             metadata = getattr(annotated_type, "__metadata__", ())
 
             for meta in metadata:
-                self.logger.debug(f"Initializing the dependency {field_name} for {plugin.__class__.__name__}")
+                logger.debug(f"Initializing the dependency {field_name} for {plugin.__class__.__name__}")
                 if isinstance(meta, EventMetadata):
                     self._inject_event(meta, plugin, field_name)
 
@@ -98,7 +98,7 @@ class PluginProcessor:
     def _inject_event(self, meta: EventMetadata, plugin: PluginBase, field_name: str) -> None:
         """Injects event handler into the plugin based on metadata info."""
         if meta.name == "error":
-            self.logger.debug("Injecting the error event")
+            logger.debug("Injecting the error event")
 
             async def error_handler(event: PluginErrorEvent) -> None:
                 activity = cast(Activity, event.activity)
@@ -106,7 +106,7 @@ class PluginProcessor:
 
             setattr(plugin, field_name, error_handler)
         elif meta.name == "activity":
-            self.logger.debug("Injecting the activity event")
+            logger.debug("Injecting the activity event")
 
             async def activity_handler(event: ActivityEvent) -> InvokeResponse[Any]:
                 await self.event_manager.on_activity(event)
@@ -114,13 +114,11 @@ class PluginProcessor:
 
             setattr(plugin, field_name, activity_handler)
         elif meta.name == "custom":
-            self.logger.debug("Injecting the custom event")
+            logger.debug("Injecting the custom event")
 
             async def custom_handler(name: str, event: Any) -> None:
                 if is_registered_event(name):
-                    self.logger.warning(
-                        f"event {name} is reserved by core app-events but an plugin is trying to emit it"
-                    )
+                    logger.warning(f"event {name} is reserved by core app-events but an plugin is trying to emit it")
                     return
                 self.event_emitter.emit(name, event)
 
@@ -143,8 +141,5 @@ class PluginProcessor:
         else:
             # Calling the provider to get the actual instance
             dependency = dependency()
-            if field_name == "logger":
-                logger_dependency = cast(Logger, dependency)
-                dependency = logger_dependency.getChild(plugin.__class__.__name__)
             setattr(plugin, field_name, dependency)
-            self.logger.debug(f"Successfully injected the dependency {field_name} into {plugin.__class__.__name__}")
+            logger.debug(f"Successfully injected the dependency {field_name} into {plugin.__class__.__name__}")

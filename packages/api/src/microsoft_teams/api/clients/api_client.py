@@ -35,14 +35,14 @@ class ApiClient(BaseClient):
             api_client_settings: Optional API client settings.
         """
         super().__init__(options, api_client_settings)
-        self.service_url = service_url
+        self.service_url = service_url.rstrip("/")
 
         # Initialize all client types
         self.bots = BotClient(self._http, self._api_client_settings)
         self.users = UserClient(self._http, self._api_client_settings)
-        self.conversations = ConversationClient(service_url, self._http, self._api_client_settings)
-        self.teams = TeamClient(service_url, self._http, self._api_client_settings)
-        self.meetings = MeetingClient(service_url, self._http, self._api_client_settings)
+        self.conversations = ConversationClient(self.service_url, self._http, self._api_client_settings)
+        self.teams = TeamClient(self.service_url, self._http, self._api_client_settings)
+        self.meetings = MeetingClient(self.service_url, self._http, self._api_client_settings)
         self._reactions: Optional[ReactionClient] = None
 
     @property

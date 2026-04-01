@@ -79,4 +79,4 @@ jobs:
       - name: Run Tests
         run: |
           source .venv/bin/activate
-          pytest packages
+          uv run poe test-cov-ci

@@ -18,6 +18,12 @@ venv.bak/
 .dmypy.json
 dmypy.json
 
+# pytest-cov
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+
 .copilot-instructions.md
 
 # other
@@ -31,6 +37,7 @@ py.typed
 
 .env.claude/
 .claude/
+tmpclaude-*-cwd
 
 examples/**/.vscode/
 examples/**/appPackage/

@@ -30,3 +30,6 @@ class TeamDetails(CustomBaseModel):
 
     member_count: Optional[int] = None
     "Count of members in the team."
+
+    tenant_id: Optional[str] = None
+    "Azure Active Directory (AAD) tenant ID for the team."

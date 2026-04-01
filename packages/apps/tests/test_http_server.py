@@ -20,11 +20,6 @@ class TestHttpServer:
     """Test cases for HttpServer public interface."""
 
     @pytest.fixture
-    def mock_logger(self):
-        """Create a mock logger."""
-        return MagicMock()
-
-    @pytest.fixture
     def mock_adapter(self):
         """Create a mock adapter."""
         adapter = MagicMock()
@@ -35,14 +30,18 @@ class TestHttpServer:
         return adapter
 
     @pytest.fixture
-    def server(self, mock_adapter, mock_logger):
+    def server(self, mock_adapter):
         """Create HttpServer with mock adapter."""
-        return HttpServer(mock_adapter, mock_logger)
+        return HttpServer(mock_adapter)
 
     def test_init(self, server, mock_adapter):
         """Test HttpServer initialization."""
         assert server.adapter is mock_adapter
         assert server.on_request is None
+
+    def test_messaging_endpoint_default(self, server):
+        """Test default messaging endpoint."""
+        assert server.messaging_endpoint == "/api/messages"
 
     def test_initialize_registers_route(self, server, mock_adapter):
         """Test that initialize registers the /api/messages route."""
@@ -51,6 +50,17 @@ class TestHttpServer:
         call_args = mock_adapter.register_route.call_args
         assert call_args[0][0] == "POST"
         assert call_args[0][1] == "/api/messages"
+
+    def test_initialize_registers_custom_messaging_endpoint(self, mock_adapter):
+        """Test that initialize registers a custom messaging endpoint."""
+        custom_server = HttpServer(mock_adapter, messaging_endpoint="/bot/incoming")
+        assert custom_server.messaging_endpoint == "/bot/incoming"
+
+        custom_server.initialize()
+        mock_adapter.register_route.assert_called_once()
+        call_args = mock_adapter.register_route.call_args
+        assert call_args[0][0] == "POST"
+        assert call_args[0][1] == "/bot/incoming"
 
     def test_on_request_setter(self, server):
         """Test on_request callback setter."""
@@ -88,7 +98,7 @@ class TestHttpServer:
         assert result["body"] == expected_body
 
     @pytest.mark.asyncio
-    async def test_handle_activity_exception(self, server, mock_logger):
+    async def test_handle_activity_exception(self, server):
         """Test activity handling when handler raises exception."""
 
         async def failing_handler(event):
@@ -105,10 +115,9 @@ class TestHttpServer:
         result = await server.handle_request(request)
 
         assert result["status"] == 500
-        mock_logger.exception.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_handle_activity_no_handler(self, server, mock_logger):
+    async def test_handle_activity_no_handler(self, server):
         """Test activity handling when no on_request handler is set."""
         server.initialize(skip_auth=True)
 
@@ -120,7 +129,6 @@ class TestHttpServer:
         result = await server.handle_request(request)
 
         assert result["status"] == 500
-        mock_logger.warning.assert_called()
 
 
 class TestFastAPIAdapter:

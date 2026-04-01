@@ -4,5 +4,6 @@ Licensed under the MIT License.
 """
 
 from .client import TeamClient
+from .params import GetTeamConversationsResponse
 
-__all__ = ["TeamClient"]
+__all__ = ["GetTeamConversationsResponse", "TeamClient"]

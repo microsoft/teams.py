@@ -9,7 +9,7 @@ from typing import Annotated, Union
 from pydantic import Field
 
 from .command import CommandResultActivityInput, CommandSendActivityInput
-from .conversation import ConversationUpdateActivityInput, EndOfConversationActivityInput
+from .conversation import ConversationUpdateActivityInput
 from .handoff import HandoffActivityInput
 from .message import (
     MessageActivityInput,
@@ -24,7 +24,6 @@ ActivityParams = Annotated[
     Union[
         # Simple activities
         ConversationUpdateActivityInput,
-        EndOfConversationActivityInput,
         HandoffActivityInput,
         TraceActivityInput,
         TypingActivityInput,

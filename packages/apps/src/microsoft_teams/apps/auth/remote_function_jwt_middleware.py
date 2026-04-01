@@ -3,14 +3,16 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from logging import Logger
+import logging
 from typing import Dict, Optional
 
 from ..contexts import ClientContext
 from .token_validator import TokenValidator
 
+logger = logging.getLogger(__name__)
 
-def _require_fields(fields: Dict[str, Optional[str]], context: str, logger: Logger) -> Optional[str]:
+
+def _require_fields(fields: Dict[str, Optional[str]], context: str) -> Optional[str]:
     """Validate required fields are present. Returns error message if any are missing, None otherwise."""
     missing = [name for name, value in fields.items() if not value]
     if missing:
@@ -22,7 +24,6 @@ def _require_fields(fields: Dict[str, Optional[str]], context: str, logger: Logg
 
 async def validate_remote_function_request(
     headers: Dict[str, str],
-    logger: Logger,
     entra_token_validator: Optional[TokenValidator],
 ) -> tuple[Optional[ClientContext], Optional[str]]:
     """
@@ -30,7 +31,6 @@ async def validate_remote_function_request(
 
     Args:
         headers: Request headers dict.
-        logger: Logger instance.
         entra_token_validator: TokenValidator instance for Entra ID tokens.
 
     Returns:
@@ -49,7 +49,6 @@ async def validate_remote_function_request(
             "Authorization (Bearer token)": auth_token,
         },
         "header",
-        logger,
     )
     if error:
         return None, error
@@ -64,7 +63,6 @@ async def validate_remote_function_request(
     error = _require_fields(
         {"oid": token_payload.get("oid"), "tid": token_payload.get("tid"), "name": token_payload.get("name")},
         "token payload",
-        logger,
     )
     if error:
         return None, error

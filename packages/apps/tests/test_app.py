@@ -71,11 +71,6 @@ class TestApp:
     """Test cases for App class public interface."""
 
     @pytest.fixture
-    def mock_logger(self):
-        """Create a mock logger."""
-        return MagicMock()
-
-    @pytest.fixture
     def mock_storage(self):
         """Create a mock storage."""
         return MagicMock()
@@ -90,10 +85,9 @@ class TestApp:
         return handler
 
     @pytest.fixture(scope="function")
-    def basic_options(self, mock_logger, mock_storage):
+    def basic_options(self, mock_storage):
         """Create basic app options."""
         return AppOptions(
-            logger=mock_logger,
             storage=mock_storage,
             client_id="test-client-id",
             client_secret="test-secret",
@@ -112,10 +106,9 @@ class TestApp:
         return self._mock_http_server(app)
 
     @pytest.fixture(scope="function")
-    def app_with_activity_handler(self, mock_logger, mock_storage, mock_activity_handler):
+    def app_with_activity_handler(self, mock_storage, mock_activity_handler):
         """Create App with activity handler."""
         options = AppOptions(
-            logger=mock_logger,
             storage=mock_storage,
             client_id="test-client-id",
             client_secret="test-secret",
@@ -152,7 +145,7 @@ class TestApp:
         await app_with_options.stop()
 
     @pytest.mark.asyncio
-    async def test_app_start_with_multiple_plugins_cancelled(self, mock_logger, mock_storage):
+    async def test_app_start_with_multiple_plugins_cancelled(self, mock_storage):
         @Plugin(name="PluginTwo", version="1.0", description="plugin")
         class PluginTwo(PluginBase):
             def __init__(self):
@@ -168,7 +161,6 @@ class TestApp:
         plugin_two = PluginTwo()
 
         options = AppOptions(
-            logger=mock_logger,
             storage=mock_storage,
             client_id="test-client-id",
             client_secret="test-secret",
@@ -194,7 +186,6 @@ class TestApp:
         except asyncio.CancelledError:
             pass
 
-        mock_logger.info.assert_any_call("Teams app shutting down")
         assert plugin_two.stop_called, "plugin two on_stop was called."
 
     # Event Testing - Focus on functional behavior
@@ -588,7 +579,6 @@ class TestApp:
     )
     def test_app_init_with_managed_identity(
         self,
-        mock_logger,
         mock_storage,
         options_dict: dict,
         env_vars: dict,
@@ -597,7 +587,7 @@ class TestApp:
         description: str,
     ):
         """Test app initialization with managed identity credentials."""
-        options = AppOptions(logger=mock_logger, storage=mock_storage, **options_dict)
+        options = AppOptions(storage=mock_storage, **options_dict)
 
         with patch.dict("os.environ", env_vars, clear=False):
             app = App(**options)
@@ -623,7 +613,6 @@ class TestApp:
     )
     def test_app_init_with_federated_identity(
         self,
-        mock_logger,
         mock_storage,
         managed_identity_client_id: str,
         expected_mi_type: str,
@@ -632,7 +621,6 @@ class TestApp:
     ):
         """Test app initialization with FederatedIdentityCredentials."""
         options = AppOptions(
-            logger=mock_logger,
             storage=mock_storage,
             client_id="app-client-id",
             managed_identity_client_id=managed_identity_client_id,
@@ -648,11 +636,10 @@ class TestApp:
             assert app.credentials.managed_identity_client_id == expected_mi_client_id, f"Failed for: {description}"
             assert app.credentials.tenant_id == "test-tenant-id", f"Failed for: {description}"
 
-    def test_app_init_with_client_secret_takes_precedence(self, mock_logger, mock_storage):
+    def test_app_init_with_client_secret_takes_precedence(self, mock_storage):
         """Test that ClientCredentials is used when both client_secret and managed_identity_client_id are provided."""
         # When client_secret is provided, it should take precedence over managed identity
         options = AppOptions(
-            logger=mock_logger,
             storage=mock_storage,
             client_id="test-client-id",
             client_secret="test-client-secret",
@@ -667,10 +654,9 @@ class TestApp:
         assert type(app.credentials).__name__ == "ClientCredentials"
         assert app.credentials.client_id == "test-client-id"
 
-    def test_service_url_default(self, mock_logger, mock_storage):
+    def test_service_url_default(self, mock_storage):
         """Test that app uses default service URL when no configuration provided."""
         options = AppOptions(
-            logger=mock_logger,
             storage=mock_storage,
             client_id="test-client-id",
             client_secret="test-client-secret",
@@ -684,10 +670,9 @@ class TestApp:
             app = App(**options)
             assert app.api.service_url == "https://smba.trafficmanager.net/teams"
 
-    def test_service_url_from_environment(self, mock_logger, mock_storage):
+    def test_service_url_from_environment(self, mock_storage):
         """Test that app uses service URL from environment variable."""
         options = AppOptions(
-            logger=mock_logger,
             storage=mock_storage,
             client_id="test-client-id",
             client_secret="test-client-secret",
@@ -697,10 +682,9 @@ class TestApp:
             app = App(**options)
             assert app.api.service_url == "https://custom.service.url/teams"
 
-    def test_service_url_from_options(self, mock_logger, mock_storage):
+    def test_service_url_from_options(self, mock_storage):
         """Test that app uses service URL from options when provided."""
         options = AppOptions(
-            logger=mock_logger,
             storage=mock_storage,
             client_id="test-client-id",
             client_secret="test-client-secret",
@@ -712,11 +696,10 @@ class TestApp:
             # Options should take precedence over environment
             assert app.api.service_url == "https://options.service.url/teams"
 
-    def test_service_url_priority(self, mock_logger, mock_storage):
+    def test_service_url_priority(self, mock_storage):
         """Test that service URL prioritizes options > env > default."""
         # Test 1: Default when neither option nor env provided
         options1 = AppOptions(
-            logger=mock_logger,
             storage=mock_storage,
             client_id="test-client-id",
             client_secret="test-client-secret",
@@ -730,7 +713,6 @@ class TestApp:
 
         # Test 2: Environment when provided but option not set
         options2 = AppOptions(
-            logger=mock_logger,
             storage=mock_storage,
             client_id="test-client-id",
             client_secret="test-client-secret",
@@ -742,7 +724,6 @@ class TestApp:
 
         # Test 3: Options when both option and env provided
         options3 = AppOptions(
-            logger=mock_logger,
             storage=mock_storage,
             client_id="test-client-id",
             client_secret="test-client-secret",
@@ -756,40 +737,12 @@ class TestApp:
     # Tests for App.send() proactive targeted message validation
 
     @pytest.mark.asyncio
-    async def test_proactive_targeted_without_recipient_raises_error(self, mock_logger, mock_storage) -> None:
-        """
-        Test that sending a targeted message proactively without an explicit
-        recipient raises a ValueError.
-        """
-        options = AppOptions(
-            logger=mock_logger,
-            storage=mock_storage,
-            client_id="test-client-id",
-            client_secret="test-secret",
-        )
-        app = App(**options)
-        app._initialized = True
-        app.activity_sender.send = AsyncMock(
-            return_value=SentActivity(id="sent-activity-id", activity_params=MessageActivityInput(text="sent"))
-        )
-
-        # Create a targeted message without explicit recipient
-        activity = MessageActivityInput(text="Hello")
-        activity.is_targeted = True  # Set is_targeted without recipient
-
-        with pytest.raises(
-            ValueError, match="Targeted messages sent proactively must specify an explicit recipient account"
-        ):
-            await app.send("conv-123", activity)
-
-    @pytest.mark.asyncio
-    async def test_proactive_targeted_with_explicit_recipient_succeeds(self, mock_logger, mock_storage) -> None:
+    async def test_proactive_targeted_with_explicit_recipient_succeeds(self, mock_storage) -> None:
         """
         Test that sending a targeted message proactively with an explicit
         recipient account succeeds.
         """
         options = AppOptions(
-            logger=mock_logger,
             storage=mock_storage,
             client_id="test-client-id",
             client_secret="test-secret",

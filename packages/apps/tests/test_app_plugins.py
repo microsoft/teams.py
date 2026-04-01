@@ -4,7 +4,6 @@ Licensed under the MIT License.
 """
 # pyright: basic
 
-from logging import Logger
 from typing import Annotated, Callable
 from unittest.mock import AsyncMock, MagicMock
 
@@ -15,7 +14,6 @@ from microsoft_teams.apps import (
     DependencyMetadata,
     ErrorEvent,
     EventMetadata,
-    LoggerDependencyOptions,
     Plugin,
     PluginBase,
 )
@@ -30,10 +28,6 @@ from typing_extensions import Any
 
 class TestPluginProcessor:
     """Test cases for PluginProcessor class."""
-
-    @pytest.fixture
-    def mock_logger(self):
-        return MagicMock(spec=Logger)
 
     @pytest.fixture
     def container(self):
@@ -56,13 +50,12 @@ class TestPluginProcessor:
         return MagicMock(spec=ActivityProcessor)
 
     @pytest.fixture
-    def plugin_processor(self, container, mock_event_emitter, mock_logger, mock_event_manager, mock_activity_processor):
+    def plugin_processor(self, container, mock_event_emitter, mock_event_manager, mock_activity_processor):
         """Create a PluginProcessor instance."""
         return PluginProcessor(
             container=container,
             event_manager=mock_event_manager,
             event_emitter=mock_event_emitter,
-            logger=mock_logger,
             activity_processor=mock_activity_processor,
         )
 
@@ -72,7 +65,6 @@ class TestPluginProcessor:
 
         @Plugin(name="MockPlugin", version="1.0", description="A mock plugin for testing")
         class MockPlugin(PluginBase):
-            logger: Annotated[Logger, LoggerDependencyOptions()]
             on_error_event: Annotated[Callable[[ErrorEvent], None], EventMetadata(name="error")]
             client: Annotated[Client, DependencyMetadata()]
             on_activity_event: Annotated[Callable[[ActivityEvent], InvokeResponse[Any]], EventMetadata(name="activity")]
@@ -114,10 +106,9 @@ class TestPluginProcessor:
         assert plugin_none is None
 
     @pytest.mark.asyncio
-    async def test_inject(self, plugin_processor, mock_plugin, mock_logger, mock_client):
+    async def test_inject(self, plugin_processor, mock_plugin, mock_client):
         """Test the inject method."""
 
-        plugin_processor.container.set_provider("logger", mock_logger)
         plugin_processor.container.set_provider("client", mock_client)
 
         invoke_response = InvokeResponse[Any](status=200, body=None)
@@ -128,7 +119,6 @@ class TestPluginProcessor:
 
         result = await mock_plugin.on_activity_event(MagicMock(spec=PluginActivityEvent))
 
-        assert mock_plugin.logger._extract_mock_name() == "mock().getChild()"
         assert hasattr(mock_plugin, "on_error_event")
         assert mock_plugin.client._extract_mock_name() == "mock()"
 

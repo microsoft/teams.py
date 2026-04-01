@@ -18,7 +18,6 @@ class TestOptionalGraphDependencies:
         """Create a minimal ActivityContext for testing."""
         # Create mock objects for all required parameters
         mock_activity = MagicMock()
-        mock_logger = MagicMock()
         mock_storage = MagicMock()
         mock_api = MagicMock()
         mock_conversation_ref = MagicMock()
@@ -29,7 +28,6 @@ class TestOptionalGraphDependencies:
         return ActivityContext(
             activity=mock_activity,
             app_id="test-app-id",
-            logger=mock_logger,
             storage=mock_storage,
             api=mock_api,
             user_token=None,
@@ -77,7 +75,6 @@ class TestOptionalGraphDependencies:
         activity_context = ActivityContext(
             activity=MagicMock(),
             app_id="test-app-id",
-            logger=MagicMock(),
             storage=MagicMock(),
             api=MagicMock(),
             user_token=MagicMock(),  # Has token but not signed in
@@ -97,7 +94,6 @@ class TestOptionalGraphDependencies:
         activity_context = ActivityContext(
             activity=MagicMock(),
             app_id="test-app-id",
-            logger=MagicMock(),
             storage=MagicMock(),
             api=MagicMock(),
             user_token=None,  # No token
@@ -117,7 +113,6 @@ class TestOptionalGraphDependencies:
         activity_context = ActivityContext(
             activity=MagicMock(),
             app_id="test-app-id",
-            logger=MagicMock(),
             storage=MagicMock(),
             api=MagicMock(),
             user_token=None,

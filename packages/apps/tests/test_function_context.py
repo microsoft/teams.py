@@ -44,13 +44,12 @@ class TestFunctionContextSend:
         return MagicMock()
 
     @pytest.fixture
-    def function_context(self, mock_api: ApiClient, mock_http: Any, mock_logger: Any) -> FunctionContext[Any]:
+    def function_context(self, mock_api: ApiClient, mock_http: Any) -> FunctionContext[Any]:
         ctx: FunctionContext[Any] = FunctionContext(
             id="bot-123",
             name="Test Bot",
             api=mock_api,
             activity_sender=mock_http,
-            log=mock_logger,
             data={"some": "payload"},
             app_session_id="dummy-session",
             tenant_id="tenant-789",

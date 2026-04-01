@@ -3,6 +3,6 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from .event_emitter import EventEmitter, EventEmitterOptions, EventEmitterProtocol, EventHandler
+from .event_emitter import EventEmitter, EventEmitterProtocol, EventHandler
 
-__all__ = ["EventEmitter", "EventEmitterOptions", "EventHandler", "EventEmitterProtocol"]
+__all__ = ["EventEmitter", "EventHandler", "EventEmitterProtocol"]

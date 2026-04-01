@@ -4,7 +4,7 @@ Licensed under the MIT License.
 """
 
 import importlib.metadata
-from logging import Logger
+import logging
 from types import SimpleNamespace
 from typing import Annotated, Optional, TypedDict, Unpack, cast
 
@@ -12,7 +12,6 @@ from microsoft_teams.api import Credentials
 from microsoft_teams.apps import (
     DependencyMetadata,
     HttpServer,
-    LoggerDependencyOptions,
     Plugin,
     PluginBase,
 )
@@ -29,6 +28,8 @@ from botbuilder.integration.aiohttp import (
 from botbuilder.schema import Activity
 
 version = importlib.metadata.version("microsoft-teams-botbuilder")
+
+logger = logging.getLogger(__name__)
 
 # Constants for app types
 SINGLE_TENANT = "singletenant"
@@ -49,7 +50,6 @@ class BotBuilderPlugin(PluginBase):
     """
 
     # Dependency injections
-    logger: Annotated[Logger, LoggerDependencyOptions()]
     credentials: Annotated[Optional[Credentials], DependencyMetadata(optional=True)]
     http_server: Annotated[HttpServer, DependencyMetadata()]
 
@@ -87,14 +87,14 @@ class BotBuilderPlugin(PluginBase):
             bot_framework_auth = ConfigurationBotFrameworkAuthentication(configuration=config)
             self.adapter = CloudAdapter(bot_framework_auth)
 
-            self.logger.debug("BotBuilder plugin initialized successfully")
+            logger.debug("BotBuilder plugin initialized successfully")
 
-        # Register the activity route via adapter (bypasses HttpServer's default /api/messages)
-        self.http_server.adapter.register_route("POST", "/api/messages", self._handle_activity)
+        # Register the messaging endpoint route via adapter (bypasses HttpServer's default route)
+        self.http_server.adapter.register_route("POST", self.http_server.messaging_endpoint, self._handle_activity)
 
     async def _handle_activity(self, request: HttpRequest) -> HttpResponse:
         """
-        Handler for POST /api/messages.
+        Handler for the messaging endpoint.
 
         Runs Bot Framework CloudAdapter auth + handler first,
         then routes through HttpServer.handle_request for SDK-level JWT validation and pipeline.
@@ -127,5 +127,5 @@ class BotBuilderPlugin(PluginBase):
             return await self.http_server.handle_request(request)
 
         except Exception as err:
-            self.logger.error(f"Error processing activity: {err}", exc_info=True)
+            logger.error(f"Error processing activity: {err}", exc_info=True)
             return HttpResponse(status=500, body={"detail": str(err)})

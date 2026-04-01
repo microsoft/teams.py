@@ -6,7 +6,6 @@ Licensed under the MIT License.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from logging import Logger
 from typing import Any, Awaitable, Callable, List, Optional, TypedDict, Union, cast
 
 from microsoft_teams.api import ApiClientSettings
@@ -40,7 +39,6 @@ class AppOptions(TypedDict, total=False):
     """
 
     # Infrastructure
-    logger: Optional[Logger]
     storage: Optional[Storage[str, Any]]
     plugins: Optional[List[PluginBase]]
     skip_auth: Optional[bool]
@@ -48,6 +46,9 @@ class AppOptions(TypedDict, total=False):
     # HTTP adapter
     http_server_adapter: Optional[HttpServerAdapter]
     """Custom HTTP server adapter. Defaults to FastAPIAdapter if not provided."""
+
+    messaging_endpoint: Optional[str]
+    """URL path for the Teams messaging endpoint. Defaults to '/api/messages'."""
 
     # OAuth
     default_connection_name: Optional[str]
@@ -94,7 +95,6 @@ class InternalAppOptions:
     If set to a different client ID than client_id, triggers Federated Identity Credentials with user-assigned MI.
     If not set or equals client_id, uses direct managed identity (no federation).
     """
-    logger: Optional[Logger] = None
     storage: Optional[Storage[str, Any]] = None
     service_url: Optional[str] = None
     """
@@ -104,6 +104,8 @@ class InternalAppOptions:
     """
     http_server_adapter: Optional[HttpServerAdapter] = None
     """Custom HTTP server adapter. Defaults to FastAPIAdapter if not provided."""
+    messaging_endpoint: str = "/api/messages"
+    """URL path for the Teams messaging endpoint. Defaults to '/api/messages'."""
 
     @classmethod
     def from_typeddict(cls, options: AppOptions) -> "InternalAppOptions":

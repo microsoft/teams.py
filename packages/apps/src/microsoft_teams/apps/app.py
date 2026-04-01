@@ -5,8 +5,8 @@ Licensed under the MIT License.
 
 import asyncio
 import importlib.metadata
+import logging
 import os
-from logging import Logger
 from typing import Any, Awaitable, Callable, List, Optional, TypeVar, Union, Unpack, cast, overload
 
 from dependency_injector import providers
@@ -26,7 +26,7 @@ from microsoft_teams.api import (
     TokenCredentials,
 )
 from microsoft_teams.cards import AdaptiveCard
-from microsoft_teams.common import Client, ClientOptions, ConsoleLogger, EventEmitter, LocalStorage
+from microsoft_teams.common import Client, ClientOptions, EventEmitter, LocalStorage
 
 from .activity_sender import ActivitySender
 from .app_events import EventManager
@@ -61,6 +61,8 @@ load_dotenv(find_dotenv(usecwd=True))
 
 USER_AGENT = f"teams.py[apps]/{version}"
 
+logger = logging.getLogger(__name__)
+
 
 class App(ActivityHandlerMixin):
     """
@@ -72,7 +74,6 @@ class App(ActivityHandlerMixin):
     def __init__(self, **options: Unpack[AppOptions]):
         self.options = InternalAppOptions.from_typeddict(options)
 
-        self.log = self.options.logger or ConsoleLogger().create_logger("@teams/app")
         self.storage = self.options.storage or LocalStorage()
 
         self.http_client = Client(
@@ -88,14 +89,12 @@ class App(ActivityHandlerMixin):
 
         self._token_manager = TokenManager(
             credentials=self.credentials,
-            logger=self.log,
         )
 
         self.container = Container()
         self.container.set_provider("id", providers.Object(self.id))
         self.container.set_provider("credentials", providers.Object(self.credentials))
         self.container.set_provider("bot_token", providers.Factory(lambda: self._get_bot_token))
-        self.container.set_provider("logger", providers.Object(self.log))
         self.container.set_provider("storage", providers.Object(self.storage))
         self.container.set_provider(self.http_client.__class__.__name__, providers.Factory(lambda: self.http_client))
 
@@ -113,21 +112,18 @@ class App(ActivityHandlerMixin):
 
         # Create HttpServer (not a plugin — owned directly by App)
         adapter = self.options.http_server_adapter or FastAPIAdapter()
-        self.server = HttpServer(adapter, self.log)
+        self.server = HttpServer(adapter, messaging_endpoint=self.options.messaging_endpoint)
         self.container.set_provider("HttpServer", providers.Object(self.server))
 
         self._port: Optional[int] = None
         self._initialized = False
 
         # initialize ActivitySender for sending activities
-        self.activity_sender = ActivitySender(
-            self.http_client.clone(ClientOptions(token=self._get_bot_token)), self.log
-        )
+        self.activity_sender = ActivitySender(self.http_client.clone(ClientOptions(token=self._get_bot_token)))
 
         # initialize all event, activity, and plugin processors
         self.activity_processor = ActivityProcessor(
             self._router,
-            self.log,
             self.id,
             self.storage,
             self.options.default_connection_name,
@@ -139,7 +135,7 @@ class App(ActivityHandlerMixin):
         self.event_manager = EventManager(self._events)
         self.activity_processor.event_manager = self.event_manager
         self._plugin_processor = PluginProcessor(
-            self.container, self.event_manager, self.log, self._events, self.activity_processor
+            self.container, self.event_manager, self._events, self.activity_processor
         )
         self.plugins = self._plugin_processor.initialize_plugins(plugins)
 
@@ -155,18 +151,13 @@ class App(ActivityHandlerMixin):
         self.entra_token_validator: Optional[TokenValidator] = None
         if self.credentials and hasattr(self.credentials, "client_id"):
             self.entra_token_validator = TokenValidator.for_entra(
-                self.credentials.client_id, self.credentials.tenant_id, logger=self.log
+                self.credentials.client_id, self.credentials.tenant_id
             )
 
     @property
     def port(self) -> Optional[int]:
         """Port the app is running on."""
         return self._port
-
-    @property
-    def logger(self) -> Logger:
-        """The logger instance used by the app."""
-        return self.log
 
     @property
     def events(self) -> EventEmitter[EventType]:
@@ -193,7 +184,7 @@ class App(ActivityHandlerMixin):
         allowing you to use app.send() for proactive messaging without running a server.
         """
         if self._initialized:
-            self.log.warning("App is already initialized")
+            logger.warning("App is already initialized")
             return
 
         try:
@@ -203,15 +194,15 @@ class App(ActivityHandlerMixin):
                 if hasattr(plugin, "on_init") and callable(plugin.on_init):
                     await plugin.on_init()
 
-            # Initialize HttpServer (JWT validation + default /api/messages route)
+            # Initialize HttpServer (JWT validation + messaging endpoint route)
             self.server.on_request = self._process_activity_event
             self.server.initialize(credentials=self.credentials, skip_auth=self.options.skip_auth)
 
             self._initialized = True
-            self.log.info("Teams app initialized successfully")
+            logger.info("Teams app initialized successfully")
 
         except Exception as error:
-            self.log.error(f"Failed to initialize app: {error}")
+            logger.error(f"Failed to initialize app: {error}")
             self._events.emit("error", ErrorEvent(error, context={"method": "initialize"}))
             raise
 
@@ -245,14 +236,14 @@ class App(ActivityHandlerMixin):
                 if is_callable:
                     tasks.append(plugin.on_start(event))
 
-            self.log.info("Teams app started successfully")
+            logger.info("Teams app started successfully")
             self._events.emit("start", StartEvent(port=self._port))
 
             tasks.append(self.server.adapter.start(self._port))
             await asyncio.gather(*tasks)
 
         except (asyncio.CancelledError, KeyboardInterrupt):
-            self.log.info("Teams app shutting down")
+            logger.info("Teams app shutting down")
             try:
                 await self._stop_plugins()
             finally:
@@ -260,7 +251,7 @@ class App(ActivityHandlerMixin):
                 self._events.emit("stop", StopEvent())
 
         except Exception as error:
-            self.log.error(f"Failed to start app: {error}")
+            logger.error(f"Failed to start app: {error}")
             self._events.emit("error", ErrorEvent(error, context={"method": "start", "port": self._port}))
             raise
 
@@ -276,11 +267,11 @@ class App(ActivityHandlerMixin):
                 if is_callable:
                     await plugin.on_stop()
 
-            self.log.info("Teams app stopped")
+            logger.info("Teams app stopped")
             self._events.emit("stop", StopEvent())
 
         except Exception as error:
-            self.log.error(f"Failed to stop app: {error}")
+            logger.error(f"Failed to stop app: {error}")
             self._events.emit("error", ErrorEvent(error, context={"method": "stop"}))
             raise
 
@@ -296,7 +287,7 @@ class App(ActivityHandlerMixin):
         conversation_ref = ConversationReference(
             channel_id="msteams",
             service_url=self.api.service_url,
-            bot=Account(id=self.id, role="bot"),
+            bot=Account(id=self.id),
             conversation=ConversationAccount(id=conversation_id, conversation_type="personal"),
         )
 
@@ -306,13 +297,6 @@ class App(ActivityHandlerMixin):
             activity = MessageActivityInput().add_card(activity)
         else:
             activity = activity
-
-        # Validate targeted messages in proactive context
-        if isinstance(activity, MessageActivityInput) and activity.is_targeted and not activity.recipient:
-            raise ValueError(
-                "Targeted messages sent proactively must specify an explicit recipient account. "
-                "Use with_recipient(Account(...), is_targeted=True) with an explicit recipient account."
-            )
 
         return await self.activity_sender.send(activity, conversation_ref)
 
@@ -328,14 +312,14 @@ class App(ActivityHandlerMixin):
         token = self.options.token
         managed_identity_client_id = self.options.managed_identity_client_id or os.getenv("MANAGED_IDENTITY_CLIENT_ID")
 
-        self.log.debug(f"Using CLIENT_ID: {client_id}")
+        logger.debug(f"Using CLIENT_ID: {client_id}")
         if not tenant_id:
-            self.log.warning("TENANT_ID is not set, assuming multi-tenant app")
+            logger.warning("TENANT_ID is not set, assuming multi-tenant app")
         else:
-            self.log.debug(f"Using TENANT_ID: {tenant_id} (assuming single-tenant app)")
+            logger.debug(f"Using TENANT_ID: {tenant_id} (assuming single-tenant app)")
 
         if client_id and client_secret:
-            self.log.debug("Using client secret for auth")
+            logger.debug("Using client secret for auth")
             return ClientCredentials(client_id=client_id, client_secret=client_secret, tenant_id=tenant_id)
 
         if client_id and token:
@@ -343,7 +327,7 @@ class App(ActivityHandlerMixin):
 
         if client_id:
             if managed_identity_client_id == "system":
-                self.log.debug("Using Federated Identity Credentials with system-assigned managed identity")
+                logger.debug("Using Federated Identity Credentials with system-assigned managed identity")
                 return FederatedIdentityCredentials(
                     client_id=client_id,
                     managed_identity_type="system",
@@ -352,7 +336,7 @@ class App(ActivityHandlerMixin):
                 )
 
             if managed_identity_client_id and managed_identity_client_id != client_id:
-                self.log.debug("Using Federated Identity Credentials with user-assigned managed identity")
+                logger.debug("Using Federated Identity Credentials with user-assigned managed identity")
                 return FederatedIdentityCredentials(
                     client_id=client_id,
                     managed_identity_type="user",
@@ -360,7 +344,7 @@ class App(ActivityHandlerMixin):
                     tenant_id=tenant_id,
                 )
 
-            self.log.debug("Using user-assigned managed identity (direct)")
+            logger.debug("Using user-assigned managed identity (direct)")
             mi_client_id = managed_identity_client_id or client_id
             return ManagedIdentityCredentials(
                 client_id=mi_client_id,
@@ -433,7 +417,7 @@ class App(ActivityHandlerMixin):
 
             # Validate the detected type against registered events or custom event
             if not is_registered_event(detected_type):
-                self.logger.info(f"Event type '{detected_type}' is not a registered type.")
+                logger.info(f"Event type '{detected_type}' is not a registered type.")
             detected_type = cast(EventType, detected_type)
 
             # add it to the event emitter
@@ -497,11 +481,11 @@ class App(ActivityHandlerMixin):
 
         def decorator(func: FCtx) -> FCtx:
             endpoint_name = name_or_func if isinstance(name_or_func, str) else func.__name__.replace("_", "-")
-            self.logger.debug("Generated endpoint name for function '%s': %s", func.__name__, endpoint_name)
+            logger.debug("Generated endpoint name for function '%s': %s", func.__name__, endpoint_name)
 
             async def handler(request: HttpRequest) -> HttpResponse:
                 client_context, error = await validate_remote_function_request(
-                    request["headers"], self.log, self.entra_token_validator
+                    request["headers"], self.entra_token_validator
                 )
                 if error or not client_context:
                     return HttpResponse(status=401, body={"detail": error or "unauthorized"})
@@ -510,7 +494,6 @@ class App(ActivityHandlerMixin):
                     id=self.id,
                     api=self.api,
                     activity_sender=self.activity_sender,
-                    log=self.log,
                     data=request["body"],
                     **client_context.__dict__,
                 )

@@ -13,7 +13,6 @@ from microsoft_teams.api.models.channel_data.channel_info import ChannelInfo
 from microsoft_teams.api.models.channel_data.notification_info import NotificationInfo
 from microsoft_teams.api.models.channel_data.team_info import TeamInfo
 from microsoft_teams.api.models.channel_id import ChannelID
-from microsoft_teams.api.models.conversation.conversation_reference import ConversationReference
 from microsoft_teams.api.models.entity.ai_message_entity import AIMessageEntity
 from microsoft_teams.api.models.entity.citation_entity import (
     Appearance,
@@ -62,9 +61,6 @@ class _ActivityBase(CustomBaseModel):
     conversation: ConversationAccount
     """Identifies the conversation to which the activity belongs."""
 
-    relates_to: Optional[ConversationReference] = None
-    """A reference to another conversation or activity."""
-
     reply_to_id: Optional[str] = None
     """Contains the ID of the message to which this message is a reply."""
 
@@ -95,14 +91,6 @@ class ActivityInput(_ActivityBase):
 
     recipient: Optional[Account] = None
     """Identifies the recipient of the message."""
-
-    is_targeted: Optional[bool] = None
-    """Indicates if this is a targeted message visible only to a specific recipient.
-
-    .. warning:: Preview
-        This field is in preview and may change in the future.
-        Diagnostic: ExperimentalTeamsTargeted
-    """
 
     @property
     def channel(self) -> Optional[ChannelInfo]:
@@ -154,11 +142,6 @@ class ActivityInput(_ActivityBase):
         self.conversation = value
         return self
 
-    def with_relates_to(self, value: ConversationReference) -> Self:
-        """Set the relates_to field."""
-        self.relates_to = value
-        return self
-
     def with_recipient(self, value: Account, is_targeted: Optional[bool] = None) -> Self:
         """
         Set the recipient.
@@ -166,8 +149,7 @@ class ActivityInput(_ActivityBase):
         Args:
             value: The recipient account
             is_targeted: If True, marks this as a targeted message visible only to this
-                recipient. If False, explicitly clears targeting. If None (the default),
-                the existing is_targeted value is left unchanged.
+                recipient. If False or None (the default), targeted routing is cleared.
 
                 .. warning:: Preview
                     The ``is_targeted`` parameter is in preview and may change or be
@@ -176,8 +158,9 @@ class ActivityInput(_ActivityBase):
         Returns:
             Self for method chaining
         """
-        self.recipient = value
-        self.is_targeted = is_targeted
+        recipient = value.model_copy()
+        recipient.is_targeted = True if is_targeted is True else None
+        self.recipient = recipient
         if is_targeted is True:
             warnings.warn(
                 "The is_targeted parameter of with_recipient is in preview and may change "

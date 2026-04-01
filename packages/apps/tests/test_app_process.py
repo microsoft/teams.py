@@ -37,7 +37,7 @@ class TestActivityProcessor:
         return http_client
 
     @pytest.fixture
-    def activity_processor(self, mock_logger, mock_http_client):
+    def activity_processor(self, mock_http_client):
         """Create an ActivityProcessor instance."""
         mock_storage = MagicMock(spec=LocalStorage)
         mock_activity_router = MagicMock(spec=ActivityRouter)
@@ -49,7 +49,6 @@ class TestActivityProcessor:
         mock_activity_sender.create_stream.return_value = mock_stream
         return ActivityProcessor(
             mock_activity_router,
-            mock_logger,
             "id",
             mock_storage,
             "default_connection",
@@ -69,14 +68,13 @@ class TestActivityProcessor:
         assert response is None
 
     @pytest.mark.asyncio
-    async def test_execute_middleware_chain_with_two_handlers(self, activity_processor, mock_http_client, mock_logger):
+    async def test_execute_middleware_chain_with_two_handlers(self, activity_processor, mock_http_client):
         """Test the execute_middleware_chain method with two handlers."""
         mock_activity_sender = MagicMock(spec=ActivitySender)
         mock_activity_sender.create_stream.return_value = MagicMock()
         context = ActivityContext(
             activity=MagicMock(spec=ActivityBase),
             app_id="app_id",
-            logger=mock_logger,
             storage=MagicMock(spec=LocalStorage),
             api=mock_http_client,
             user_token=None,

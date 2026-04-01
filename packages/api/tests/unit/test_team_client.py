@@ -49,3 +49,10 @@ class TestTeamClient:
         client.http = new_http_client
 
         assert client.http == new_http_client
+
+    def test_team_client_strips_trailing_slash(self, mock_http_client):
+        """Test TeamClient strips trailing slash from service_url."""
+        service_url = "https://test.service.url/"
+        client = TeamClient(service_url, mock_http_client)
+
+        assert client.service_url == "https://test.service.url"

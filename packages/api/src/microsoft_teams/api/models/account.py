@@ -5,9 +5,11 @@ Licensed under the MIT License.
 
 from typing import Any, Dict, Literal, Optional
 
+from pydantic import AliasChoices, Field
+
 from .custom_base_model import CustomBaseModel
 
-AccountRole = Literal["user", "bot"]
+AccountType = Literal["person", "tag", "channel", "team", "bot"]
 
 
 class Account(CustomBaseModel):
@@ -23,13 +25,20 @@ class Account(CustomBaseModel):
     """
     The Azure AD object ID.
     """
-    role: Optional[AccountRole] = None
+    type: Optional[AccountType] = None
     """
-    The role of the account in the conversation.
+    The type of account.
     """
     properties: Optional[Dict[str, Any]] = None
     """
     Additional properties for the account.
+    """
+    is_targeted: Optional[bool] = None
+    """Indicates targeted-message routing for this recipient.
+
+    .. warning:: Preview
+        This field is in preview and may change in the future.
+        Diagnostic: ExperimentalTeamsTargeted
     """
     name: Optional[str] = None
     """
@@ -52,13 +61,17 @@ class TeamsChannelAccount(CustomBaseModel):
     """
     Display-friendly name of the user or bot.
     """
-    aad_object_id: Optional[str] = None
+    aad_object_id: Optional[str] = Field(
+        default=None,
+        validation_alias=AliasChoices("aadObjectId", "objectId"),
+        serialization_alias="aadObjectId",
+    )
     """
     The user's Object ID in Azure Active Directory (AAD).
     """
-    role: Optional[AccountRole] = None
+    user_role: Optional[str] = None
     """
-    Role of the user (e.g., 'user' or 'bot').
+    Role of the user in the conversation.
     """
     given_name: Optional[str] = None
     """

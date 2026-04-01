@@ -5,8 +5,8 @@ Licensed under the MIT License.
 
 import base64
 import json
+import logging
 from dataclasses import dataclass
-from logging import Logger
 from typing import TYPE_CHECKING, Any, Awaitable, Callable, Generic, Optional, TypeVar, cast
 
 from microsoft_teams.api import (
@@ -42,6 +42,7 @@ if TYPE_CHECKING:
     from msgraph.graph_service_client import GraphServiceClient
 
 T = TypeVar("T", bound=ActivityBase, contravariant=True)
+logger = logging.getLogger(__name__)
 
 
 def _get_graph_client(token: Token):
@@ -85,7 +86,6 @@ class ActivityContext(Generic[T]):
         self,
         activity: T,
         app_id: str,
-        logger: Logger,
         storage: Storage[str, Any],
         api: ApiClient,
         user_token: Optional[str],
@@ -182,16 +182,6 @@ class ActivityContext(Generic[T]):
         else:
             activity = message
 
-        # For targeted send, set the recipient if not already set.
-        # For targeted update (activity.id exists), we dont update recipient since recipient cannot be changed.
-        if (
-            isinstance(activity, MessageActivityInput)
-            and activity.is_targeted
-            and not activity.id
-            and not activity.recipient
-        ):
-            activity.recipient = self.activity.from_
-
         ref = conversation_ref or self.conversation_ref
         res = await self._activity_sender.send(activity, ref)
         return res
@@ -271,7 +261,6 @@ class ActivityContext(Generic[T]):
         token_exchange_state = TokenExchangeState(
             connection_name=connection_name,
             conversation=self.conversation_ref,
-            relates_to=self.activity.relates_to,
             ms_app_id=self.app_id,
         )
 
@@ -283,8 +272,6 @@ class ActivityContext(Generic[T]):
             one_on_one_conversation = await self.api.conversations.create(
                 CreateConversationParams(
                     tenant_id=self.activity.conversation.tenant_id,
-                    is_group=False,
-                    bot=self.activity.recipient,
                     members=[self.activity.from_],
                 )
             )
@@ -298,7 +285,7 @@ class ActivityContext(Generic[T]):
         resource_params = GetBotSignInResourceParams(state=state)
         resource = await self.api.bots.sign_in.get_resource(resource_params)
 
-        payload = MessageActivityInput(recipient=self.activity.from_, input_hint="acceptingInput").add_attachments(
+        payload = MessageActivityInput(recipient=self.activity.from_).add_attachments(
             card_attachment(
                 attachment=OAuthCardAttachment(
                     content=OAuthCard(

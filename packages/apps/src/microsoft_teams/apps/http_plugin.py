@@ -5,8 +5,8 @@ Licensed under the MIT License.
 
 import importlib.metadata
 import inspect
+import logging
 from contextlib import AsyncExitStack, asynccontextmanager
-from logging import Logger
 from pathlib import Path
 from types import SimpleNamespace
 from typing import (
@@ -31,7 +31,6 @@ from microsoft_teams.api import (
     InvokeResponse,
     TokenProtocol,
 )
-from microsoft_teams.common import ConsoleLogger
 from pydantic import BaseModel
 from starlette.applications import Starlette
 from starlette.types import Lifespan
@@ -41,7 +40,6 @@ from .events import ActivityEvent, CoreActivity, ErrorEvent
 from .plugins import (
     DependencyMetadata,
     EventMetadata,
-    LoggerDependencyOptions,
     PluginActivityResponseEvent,
     PluginBase,
     PluginStartEvent,
@@ -50,11 +48,12 @@ from .plugins.metadata import Plugin
 
 version = importlib.metadata.version("microsoft-teams-apps")
 
+logger = logging.getLogger(__name__)
+
 
 class HttpPluginOptions(TypedDict, total=False):
     """Options for configuring the HTTP plugin."""
 
-    logger: Logger
     skip_auth: bool
     server_factory: Callable[[FastAPI], uvicorn.Server]
 
@@ -66,7 +65,6 @@ class HttpPlugin(PluginBase):
     Handles HTTP server setup, routing, and authentication.
     """
 
-    logger: Annotated[Logger, LoggerDependencyOptions()]
     credentials: Annotated[Optional[Credentials], DependencyMetadata(optional=True)]
 
     on_error_event: Annotated[Callable[[ErrorEvent], None], EventMetadata(name="error")]
@@ -77,7 +75,6 @@ class HttpPlugin(PluginBase):
     def __init__(self, **options: Unpack[HttpPluginOptions]):
         """
         Args:
-            logger: Optional logger.
             skip_auth: Whether to skip JWT validation.
             server_factory: Optional function that takes an ASGI app
                 and returns a configured `uvicorn.Server`.
@@ -91,7 +88,6 @@ class HttpPlugin(PluginBase):
                 ```
         """
         super().__init__()
-        self.logger = options.get("logger") or ConsoleLogger().create_logger("@teams/http-plugin")
         self._port: Optional[int] = None
         self._skip_auth: bool = options.get("skip_auth", False)
         self._server: Optional[uvicorn.Server] = None
@@ -102,12 +98,12 @@ class HttpPlugin(PluginBase):
         @asynccontextmanager
         async def default_lifespan(_app: Starlette) -> AsyncGenerator[None, None]:
             # Startup
-            self.logger.info(f"listening on port {self._port} 🚀")
+            logger.info(f"listening on port {self._port} 🚀")
             if self._on_ready_callback:
                 await self._on_ready_callback()
             yield
             # Shutdown
-            self.logger.info("Server shutting down")
+            logger.info("Server shutting down")
             if self._on_stopped_callback:
                 await self._on_stopped_callback()
 
@@ -171,9 +167,7 @@ class HttpPlugin(PluginBase):
         # Add JWT validation middleware
         app_id = getattr(self.credentials, "client_id", None)
         if app_id and not self._skip_auth:
-            jwt_middleware = create_jwt_validation_middleware(
-                app_id=app_id, logger=self.logger, paths=["/api/messages"]
-            )
+            jwt_middleware = create_jwt_validation_middleware(app_id=app_id, paths=["/api/messages"])
             self.app.middleware("http")(jwt_middleware)
 
     async def on_start(self, event: PluginStartEvent) -> None:
@@ -182,7 +176,7 @@ class HttpPlugin(PluginBase):
 
         try:
             if self._server and self._server.config.port != self._port:
-                self.logger.warning(
+                logger.warning(
                     "Using port configured by server factory: %d, but plugin start event has port %d.",
                     self._server.config.port,
                     self._port,
@@ -192,23 +186,23 @@ class HttpPlugin(PluginBase):
                 config = uvicorn.Config(app=self.app, host="0.0.0.0", port=self._port, log_level="info")
                 self._server = uvicorn.Server(config)
 
-            self.logger.info("Starting HTTP server on port %d", self._port)
+            logger.info("Starting HTTP server on port %d", self._port)
 
             # The lifespan handler will call the callback when the server is ready
             await self._server.serve()
 
         except OSError as error:
             # Handle port in use, permission errors, etc.
-            self.logger.error("Server startup failed: %s", error)
+            logger.error("Server startup failed: %s", error)
             raise
         except Exception as error:
-            self.logger.error("Failed to start server: %s", error)
+            logger.error("Failed to start server: %s", error)
             raise
 
     async def on_stop(self) -> None:
         """Stop the HTTP server."""
         if self._server:
-            self.logger.info("Stopping HTTP server")
+            logger.info("Stopping HTTP server")
             self._server.should_exit = True
 
     async def on_activity_response(self, event: PluginActivityResponseEvent) -> None:
@@ -223,7 +217,7 @@ class HttpPlugin(PluginBase):
             response_data: The response data to send back
             plugin: The plugin that sent the response
         """
-        self.logger.debug(f"Completing activity response for {event.activity.id}")
+        logger.debug(f"Completing activity response for {event.activity.id}")
 
     async def _process_activity(self, core_activity: CoreActivity, token: TokenProtocol) -> InvokeResponse[Any]:
         """
@@ -242,7 +236,7 @@ class HttpPlugin(PluginBase):
                 result = self.on_activity_event(event)
         except Exception as error:
             # Log with full traceback
-            self.logger.exception(str(error))
+            logger.exception(str(error))
             result = InvokeResponse(status=500)
 
         return result
@@ -277,9 +271,9 @@ class HttpPlugin(PluginBase):
             response.status_code = status_code
 
         if body is not None:
-            self.logger.debug(f"Returning body {body}")
+            logger.debug(f"Returning body {body}")
             return body
-        self.logger.debug("Returning empty body")
+        logger.debug("Returning empty body")
         return response
 
     async def on_activity_request(self, core_activity: CoreActivity, request: Request, response: Response) -> Any:
@@ -304,8 +298,8 @@ class HttpPlugin(PluginBase):
         activity_type = core_activity.type or "unknown"
         activity_id = core_activity.id or "unknown"
 
-        self.logger.debug(f"Received activity: {activity_type} (ID: {activity_id})")
-        self.logger.debug(f"Processing activity {activity_id} via handler...")
+        logger.debug(f"Received activity: {activity_type} (ID: {activity_id})")
+        logger.debug(f"Processing activity {activity_id} via handler...")
 
         # Process the activity
         result = await self._process_activity(core_activity, token)

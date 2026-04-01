@@ -44,9 +44,6 @@ class _ConversationUpdateBase(CustomBaseModel):
     topic_name: Optional[str] = None
     """The updated topic name of the conversation."""
 
-    history_disclosed: Optional[bool] = None
-    """Indicates whether the prior history of the channel is disclosed."""
-
     channel_data: Optional[ConversationChannelData] = None
     """Channel data with event type information."""
 
