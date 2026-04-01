@@ -287,7 +287,7 @@ class App(ActivityHandlerMixin):
         conversation_ref = ConversationReference(
             channel_id="msteams",
             service_url=self.api.service_url,
-            bot=Account(id=self.id, role="bot"),
+            bot=Account(id=self.id),
             conversation=ConversationAccount(id=conversation_id, conversation_type="personal"),
         )
 

@@ -11,9 +11,6 @@ from ..custom_base_model import CustomBaseModel
 class Attachment(CustomBaseModel):
     """A model representing an attachment."""
 
-    id: Optional[str] = None
-    "The id of the attachment."
-
     content_type: str
     "mimetype/Contenttype for the file"
 

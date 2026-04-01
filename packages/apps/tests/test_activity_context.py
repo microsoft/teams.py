@@ -114,7 +114,7 @@ class TestActivityContextSendTargeted:
         the recipient should not be overridden.
         """
         incoming_sender = Account(id="user-123", name="Test User")
-        explicit_recipient = Account(id="other-user-456", name="Other User", role="user")
+        explicit_recipient = Account(id="other-user-456", name="Other User")
         ctx, mock_sender = self._create_activity_context(from_account=incoming_sender)
 
         # Create a targeted message with explicit recipient
@@ -353,7 +353,6 @@ class TestActivityContextSignIn:
         mock_activity = MagicMock()
         mock_activity.channel_id = "msteams"
         mock_activity.from_.id = "user-001"
-        mock_activity.relates_to = None
         mock_activity.conversation.is_group = False
 
         ctx, _ = _create_activity_context(activity=mock_activity)

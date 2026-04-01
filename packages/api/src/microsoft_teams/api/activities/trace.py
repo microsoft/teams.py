@@ -5,7 +5,7 @@ Licensed under the MIT License.
 
 from typing import Any, Literal, Optional
 
-from ..models import ActivityBase, ActivityInputBase, ConversationReference, CustomBaseModel
+from ..models import ActivityBase, ActivityInputBase, CustomBaseModel
 
 
 class _TraceBase(CustomBaseModel):
@@ -31,11 +31,6 @@ class _TraceBase(CustomBaseModel):
     value: Optional[Any] = None
     """
     A value that is associated with the activity.
-    """
-
-    relates_to: Optional[ConversationReference] = None
-    """
-    A reference to another conversation or activity.
     """
 
 
