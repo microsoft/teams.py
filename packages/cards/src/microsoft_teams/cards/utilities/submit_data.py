@@ -37,9 +37,10 @@ class SubmitData(SubmitActionData):
         # If action is provided, use convenience constructor
         if action is not None:
             super().__init__(**kwargs)
-            merged_data = data.copy() if data else {}
-            merged_data[RESERVED_KEYWORD] = action
-            self.with_data(merged_data)
+            if data:
+                for k, v in data.items():
+                    setattr(self, k, v)
+            setattr(self, RESERVED_KEYWORD, action)
         else:
             # Otherwise, use standard Pydantic initialization for model_validate
             super().__init__(**kwargs)
