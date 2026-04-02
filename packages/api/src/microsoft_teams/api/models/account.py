@@ -9,7 +9,7 @@ from pydantic import AliasChoices, Field
 
 from .custom_base_model import CustomBaseModel
 
-AccountRole = Literal["user", "bot", "skill"]
+AccountType = Literal["person", "tag", "channel", "team", "bot"]
 
 
 class Account(CustomBaseModel):
@@ -25,9 +25,9 @@ class Account(CustomBaseModel):
     """
     The Azure AD object ID.
     """
-    role: Optional[AccountRole] = None
+    type: Optional[AccountType] = None
     """
-    The role of the account in the conversation.
+    The type of account.
     """
     properties: Optional[Dict[str, Any]] = None
     """

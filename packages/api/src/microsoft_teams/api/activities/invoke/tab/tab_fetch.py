@@ -3,9 +3,9 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from typing import Literal, Optional
+from typing import Literal
 
-from ....models import ConversationReference, TabRequest
+from ....models import TabRequest
 from ...invoke_activity import InvokeActivity
 
 
@@ -22,6 +22,3 @@ class TabFetchInvokeActivity(InvokeActivity):
 
     value: TabRequest
     """A value that is associated with the activity."""
-
-    relates_to: Optional[ConversationReference] = None
-    """A reference to another conversation or activity."""
