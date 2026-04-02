@@ -5,13 +5,12 @@ Licensed under the MIT License.
 # pyright: basic
 
 import json
-from typing import Any
 from unittest.mock import AsyncMock, patch
 
 import httpx
 import pytest
 from microsoft_teams.api.clients.conversation import ConversationClient
-from microsoft_teams.api.clients.conversation.params import CreateConversationParams, GetConversationsParams
+from microsoft_teams.api.clients.conversation.params import CreateConversationParams
 from microsoft_teams.api.models import ConversationResource, PagedMembersResult, TeamsChannelAccount
 from microsoft_teams.common.http import Client, ClientOptions
 
@@ -50,91 +49,12 @@ class TestConversationClient:
         assert client.service_url == service_url
 
     @pytest.mark.asyncio
-    async def test_get_conversations(self, request_capture):
-        """Test getting conversations with continuation token."""
-        service_url = "https://test.service.url"
-        client = ConversationClient(service_url, request_capture)
-
-        params = GetConversationsParams(continuation_token="test_token")
-        response = await client.get(params)
-
-        # Validate response
-        assert response.conversations is not None
-        assert isinstance(response.conversations, list)
-        assert response.continuation_token is not None
-
-        # Validate request details
-        last_request = request_capture._capture.last_request
-        assert last_request.method == "GET"
-        assert str(last_request.url) == "https://test.service.url/v3/conversations?continuationToken=test_token"
-
-    @pytest.mark.asyncio
-    async def test_get_conversations_without_params(self, request_capture):
-        """Test getting conversations without parameters."""
-        service_url = "https://test.service.url"
-        client = ConversationClient(service_url, request_capture)
-
-        response = await client.get()
-
-        # Validate response
-        assert response.conversations is not None
-        assert isinstance(response.conversations, list)
-
-        # Validate request details
-        last_request = request_capture._capture.last_request
-        assert last_request.method == "GET"
-        assert str(last_request.url) == "https://test.service.url/v3/conversations"
-
-    @pytest.mark.asyncio
-    async def test_get_conversations_with_token(self):
-        """Test that authorization token is sent in requests."""
-        service_url = "https://test.service.url"
-
-        # Create client with token
-        options = ClientOptions(base_url="https://mock.api.com", token="test_bearer_token")
-
-        # Create request capture with the configured client
-        class RequestCapture:
-            def __init__(self):
-                self.requests: list[httpx.Request] = []
-
-            def handler(self, request: httpx.Request) -> httpx.Response:
-                self.requests.append(request)
-                response_data: Any = {
-                    "conversations": [{"id": "test", "conversationType": "personal", "isGroup": False}],
-                    "continuationToken": "token",
-                }
-                return httpx.Response(status_code=200, json=response_data, headers={"content-type": "application/json"})
-
-            @property
-            def last_request(self) -> httpx.Request | None:
-                return self.requests[-1] if self.requests else None
-
-        capture = RequestCapture()
-        transport = httpx.MockTransport(capture.handler)
-        client_with_token = Client(options)
-        client_with_token.http._transport = transport
-
-        # Create conversation client with the token-enabled HTTP client
-        conv_client = ConversationClient(service_url, client_with_token)
-
-        # Make request
-        await conv_client.get()
-
-        # Validate token was sent in Authorization header
-        last_request = capture.last_request
-        assert last_request is not None
-        assert "Authorization" in last_request.headers
-        assert last_request.headers["Authorization"] == "Bearer test_bearer_token"
-
-    @pytest.mark.asyncio
-    async def test_create_conversation(self, mock_http_client, mock_account, mock_activity):
+    async def test_create_conversation(self, request_capture, mock_account, mock_activity):
         """Test creating a conversation with an activity."""
         service_url = "https://test.service.url"
-        client = ConversationClient(service_url, mock_http_client)
+        client = ConversationClient(service_url, request_capture)
 
         params = CreateConversationParams(
-            is_group=True,
             members=[mock_account],
             tenant_id="test_tenant_id",
             activity=mock_activity,
@@ -143,27 +63,42 @@ class TestConversationClient:
 
         response = await client.create(params)
 
+        # Validate response
         assert response.id is not None
         assert response.activity_id is not None
         assert response.service_url is not None
 
+        # Validate request details
+        last_request = request_capture._capture.last_request
+        assert last_request.method == "POST"
+        assert str(last_request.url) == "https://test.service.url/v3/conversations"
+
+        # Validate request payload
+        payload = json.loads(last_request.content)
+        assert payload["tenantId"] == "test_tenant_id"
+
     @pytest.mark.asyncio
-    async def test_create_conversation_without_activity(self, mock_http_client, mock_account):
+    async def test_create_conversation_without_activity(self, request_capture, mock_account):
         """Test creating a conversation without an activity."""
         service_url = "https://test.service.url"
-        client = ConversationClient(service_url, mock_http_client)
+        client = ConversationClient(service_url, request_capture)
 
         params = CreateConversationParams(
-            is_group=True,
             members=[mock_account],
             tenant_id="test_tenant_id",
         )
 
         response = await client.create(params)
 
+        # Validate response
         assert response.id is not None
         assert response.activity_id is None
         assert response.service_url is not None
+
+        # Validate request details
+        last_request = request_capture._capture.last_request
+        assert last_request.method == "POST"
+        assert str(last_request.url) == "https://test.service.url/v3/conversations"
 
     def test_conversation_resource_with_all_fields(self):
         """Test that ConversationResource correctly handles all fields present."""
