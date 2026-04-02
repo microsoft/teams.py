@@ -14,8 +14,8 @@ from ..custom_base_model import CustomBaseModel
 class QuotedReplyData(CustomBaseModel):
     """Data for a quoted reply entity
 
-    .. warning:: Preview
-        This API is in preview and may change in the future.
+    .. warning:: Coming Soon
+        This API is coming soon and may change in the future.
         Diagnostic: ExperimentalTeamsQuotedReplies
     """
 
@@ -45,8 +45,8 @@ class QuotedReplyData(CustomBaseModel):
 class QuotedReplyEntity(CustomBaseModel):
     """Entity containing quoted reply information
 
-    .. warning:: Preview
-        This API is in preview and may change in the future.
+    .. warning:: Coming Soon
+        This API is coming soon and may change in the future.
         Diagnostic: ExperimentalTeamsQuotedReplies
     """
 
