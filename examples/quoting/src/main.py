@@ -91,7 +91,7 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
     # ============================================
     if "help" in text:
         await ctx.reply(
-            "**Quoted Replies Test Bot**\n\n"
+            "**Quoting Test Bot**\n\n"
             "**Commands:**\n"
             "- `test reply` - reply() auto-quotes your message\n"
             "- `test quote` - quote() quotes a previously sent message\n"

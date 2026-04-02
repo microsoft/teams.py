@@ -1,6 +1,6 @@
-# Example: Quoted Replies
+# Example: Quoting
 
-A bot that demonstrates quoted reply features in Microsoft Teams — referencing previous messages when sending responses.
+A bot that demonstrates various ways to quote previous messages in Microsoft Teams.
 
 ## Commands
 
@@ -17,7 +17,7 @@ A bot that demonstrates quoted reply features in Microsoft Teams — referencing
 ## Run
 
 ```bash
-cd examples/quoted-replies
+cd examples/quoting
 pip install -e .
 python src/main.py
 

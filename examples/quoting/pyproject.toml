@@ -1,7 +1,7 @@
 [project]
-name = "quoted-replies"
+name = "quoting"
 version = "0.1.0"
-description = "Quoted replies example - demonstrates quoting previous messages in conversations"
+description = "Quoting example - demonstrates various ways to quote previous messages in conversations"
 readme = "README.md"
 requires-python = ">=3.12,<3.15"
 dependencies = [

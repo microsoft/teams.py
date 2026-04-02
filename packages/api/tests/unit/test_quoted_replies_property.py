@@ -82,11 +82,7 @@ class TestMessageActivityInputAddQuotedReply:
     def test_add_quote_multi_quote_interleaved(self):
         from microsoft_teams.api.activities.message import MessageActivityInput
 
-        msg = (
-            MessageActivityInput()
-            .add_quote("msg-1", "response to first")
-            .add_quote("msg-2", "response to second")
-        )
+        msg = MessageActivityInput().add_quote("msg-1", "response to first").add_quote("msg-2", "response to second")
         assert msg.text == '<quoted messageId="msg-1"/> response to first<quoted messageId="msg-2"/> response to second'
         assert len(msg.entities) == 2
 
