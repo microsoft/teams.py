@@ -280,14 +280,14 @@ def request_capture():
                     {
                         "id": "mock_member_id",
                         "name": "Mock Member",
-                        "objectId": "mock_object_id",
+                        "aadObjectId": "mock_aad_object_id",
                     }
                 ]
             elif "/conversations/" in str(request.url) and "/members/" in str(request.url) and request.method == "GET":
                 response_data = {
                     "id": "mock_member_id",
                     "name": "Mock Member",
-                    "objectId": "mock_object_id",
+                    "aadObjectId": "mock_aad_object_id",
                 }
             elif "/conversations" in str(request.url) and request.method == "GET":
                 response_data = {
@@ -325,7 +325,7 @@ def request_capture():
                         {
                             "id": "mock_member_id",
                             "name": "Mock Member",
-                            "objectId": "mock_object_id",
+                            "aadObjectId": "mock_aad_object_id",
                         }
                     ]
 
