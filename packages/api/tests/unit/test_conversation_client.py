@@ -427,8 +427,7 @@ class TestConversationMemberOperations:
         last_request = request_capture._capture.last_request
         assert last_request.method == "GET"
         assert (
-            str(last_request.url)
-            == f"https://test.service.url/v3/conversations/{conversation_id}/members/{member_id}"
+            str(last_request.url) == f"https://test.service.url/v3/conversations/{conversation_id}/members/{member_id}"
         )
 
     async def test_member_get_paged(self, mock_http_client):
