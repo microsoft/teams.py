@@ -35,10 +35,8 @@ class OpenDialogData(SubmitActionData):
             extra_data (Dict[str, Any] | None): Optional additional data to include in the payload.
         """
         super().__init__()
-        self.with_ms_teams(TaskFetchSubmitActionData().model_dump())
+        self.with_msteams(TaskFetchSubmitActionData().model_dump())
         if extra_data:
-            data = {**extra_data}
-        else:
-            data = {}
-        data[RESERVED_KEYWORD] = dialog_identifier
-        self.with_data(data)
+            for k, v in extra_data.items():
+                setattr(self, k, v)
+        setattr(self, RESERVED_KEYWORD, dialog_identifier)
