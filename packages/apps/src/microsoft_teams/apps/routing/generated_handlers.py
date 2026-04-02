@@ -43,6 +43,7 @@ from microsoft_teams.api.activities import (
     MessageExtensionSelectItemInvokeActivity,
     MessageExtensionSettingInvokeActivity,
     MessageExtensionSubmitActionInvokeActivity,
+    MessageFetchTaskInvokeActivity,
     MessageReactionActivity,
     MessageSubmitActionInvokeActivity,
     MessageUpdateActivity,
@@ -62,6 +63,7 @@ from microsoft_teams.api.models.invoke_response import (
     MessagingExtensionActionInvokeResponse,
     MessagingExtensionInvokeResponse,
     TabInvokeResponse,
+    TaskModuleInvokeResponse,
     TokenExchangeInvokeResponseType,
 )
 
@@ -1244,6 +1246,38 @@ class GeneratedActivityHandlerMixin(ABC):
         ) -> InvokeHandler[TabSubmitInvokeActivity, TabInvokeResponse]:
             validate_handler_type(func, TabSubmitInvokeActivity, "on_tab_submit", "TabSubmitInvokeActivity")
             config = ACTIVITY_ROUTES["tab.submit"]
+            self.router.add_handler(config.selector, func)
+            return func
+
+        if handler is not None:
+            return decorator(handler)
+        return decorator
+
+    @overload
+    def on_message_fetch_task(
+        self, handler: InvokeHandler[MessageFetchTaskInvokeActivity, TaskModuleInvokeResponse]
+    ) -> InvokeHandler[MessageFetchTaskInvokeActivity, TaskModuleInvokeResponse]: ...
+
+    @overload
+    def on_message_fetch_task(
+        self,
+    ) -> Callable[
+        [InvokeHandler[MessageFetchTaskInvokeActivity, TaskModuleInvokeResponse]],
+        InvokeHandler[MessageFetchTaskInvokeActivity, TaskModuleInvokeResponse],
+    ]: ...
+
+    def on_message_fetch_task(
+        self, handler: Optional[InvokeHandler[MessageFetchTaskInvokeActivity, TaskModuleInvokeResponse]] = None
+    ) -> InvokeHandlerUnion[MessageFetchTaskInvokeActivity, TaskModuleInvokeResponse]:
+        """Register a message.fetch-task activity handler."""
+
+        def decorator(
+            func: InvokeHandler[MessageFetchTaskInvokeActivity, TaskModuleInvokeResponse],
+        ) -> InvokeHandler[MessageFetchTaskInvokeActivity, TaskModuleInvokeResponse]:
+            validate_handler_type(
+                func, MessageFetchTaskInvokeActivity, "on_message_fetch_task", "MessageFetchTaskInvokeActivity"
+            )
+            config = ACTIVITY_ROUTES["message.fetch-task"]
             self.router.add_handler(config.selector, func)
             return func
 

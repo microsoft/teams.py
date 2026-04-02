@@ -37,6 +37,7 @@ from microsoft_teams.api import (
     MessageExtensionSelectItemInvokeActivity,
     MessageExtensionSettingInvokeActivity,
     MessageExtensionSubmitActionInvokeActivity,
+    MessageFetchTaskInvokeActivity,
     MessageReactionActivity,
     MessageSubmitActionInvokeActivity,
     MessageUpdateActivity,
@@ -49,6 +50,7 @@ from microsoft_teams.api import (
     TabFetchInvokeActivity,
     TabInvokeResponse,
     TabSubmitInvokeActivity,
+    TaskModuleInvokeResponse,
     TraceActivity,
     TypingActivity,
     UninstalledActivity,
@@ -449,6 +451,16 @@ ACTIVITY_ROUTES: Dict[str, ActivityConfig] = {
         selector=lambda activity: activity.type == "invoke" and cast(InvokeActivity, activity).name == "tab/submit",
         output_model=TabInvokeResponse,
         output_type_name="TabInvokeResponse",
+        is_invoke=True,
+    ),
+    "message.fetch-task": ActivityConfig(
+        name="message.fetch-task",
+        method_name="on_message_fetch_task",
+        input_model=MessageFetchTaskInvokeActivity,
+        selector=lambda activity: activity.type == "invoke"
+        and cast(InvokeActivity, activity).name == "message/fetchTask",
+        output_model=TaskModuleInvokeResponse,
+        output_type_name="TaskModuleInvokeResponse",
         is_invoke=True,
     ),
     "message.submit": ActivityConfig(

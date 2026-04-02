@@ -14,7 +14,13 @@ from .config import ConfigInvokeActivity
 from .execute_action import ExecuteActionInvokeActivity
 from .file_consent import FileConsentInvokeActivity
 from .handoff_action import HandoffActionInvokeActivity
-from .message import MessageSubmitActionInvokeActivity
+from .message import (
+    MessageFetchTaskActionValue,
+    MessageFetchTaskData,
+    MessageFetchTaskInvokeActivity,
+    MessageFetchTaskInvokeValue,
+    MessageSubmitActionInvokeActivity,
+)
 from .message_extension import *  # noqa: F403
 from .message_extension import MessageExtensionInvokeActivity
 from .sign_in import *  # noqa: F403
@@ -32,6 +38,7 @@ InvokeActivity = Annotated[
         ConfigInvokeActivity,
         TabInvokeActivity,
         TaskInvokeActivity,
+        MessageFetchTaskInvokeActivity,
         MessageSubmitActionInvokeActivity,
         HandoffActionInvokeActivity,
         SignInInvokeActivity,
@@ -48,6 +55,10 @@ __all__ = [
     "ConfigInvokeActivity",
     "TabInvokeActivity",
     "TaskInvokeActivity",
+    "MessageFetchTaskActionValue",
+    "MessageFetchTaskData",
+    "MessageFetchTaskInvokeActivity",
+    "MessageFetchTaskInvokeValue",
     "MessageSubmitActionInvokeActivity",
     "HandoffActionInvokeActivity",
     "SignInInvokeActivity",
