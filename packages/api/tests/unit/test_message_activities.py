@@ -50,17 +50,27 @@ class TestMessageActivity:
         )
         return activity
 
+    def create_incoming_message_activity(self, text: str = "Hello world!") -> MessageActivity:
+        """Create a basic incoming MessageActivity for testing"""
+        from_account = Account(id="bot-123", name="Test Bot", role="bot")
+        recipient = Account(id="user-456", name="Test User", role="user")
+        conversation = ConversationAccount(id="conv-789", conversation_type="personal")
+
+        activity = MessageActivity(
+            id="msg-123",
+            text=text,
+            from_=from_account,
+            conversation=conversation,
+            recipient=recipient,
+        )
+        return activity
+
     def test_message_activity_creation(self):
         """Test basic message activity creation"""
         activity = self.create_message_activity("Test message")
         assert activity.type == "message"
         assert activity.text == "Test message"
         assert activity.id == "msg-123"
-
-    def test_message_activity_type_property(self):
-        """Test that type property returns correct value"""
-        activity = self.create_message_activity()
-        assert activity.type == "message"
 
     def test_message_activity_text_defaults_to_empty_string(self):
         """Test that text field defaults to empty string in MessageActivity"""
@@ -347,6 +357,94 @@ class TestMessageActivity:
         assert activity.delivery_mode == "notification"
         assert activity.input_hint == "acceptingInput"
 
+    def test_is_recipient_mentioned_no_entities_received(self):
+        """Test MessageActivity.is_recipient_mentioned when no entities exist"""
+        activity = self.create_incoming_message_activity("Hello world!")
+        assert activity.is_recipient_mentioned() is False
+
+    def test_is_recipient_mentioned_no_recipient_received(self):
+        """Test MessageActivity.is_recipient_mentioned when recipient is None"""
+        from_account = Account(id="bot-123", name="Test Bot", role="bot")
+        conversation = ConversationAccount(id="conv-789", conversation_type="personal")
+        activity = MessageActivity(
+            id="msg-123",
+            text="Hello <at>Bot</at>!",
+            from_=from_account,
+            conversation=conversation,
+            recipient=Account(id="r-1", name="R"),
+        )
+        # Override recipient to None to test that branch
+        activity.recipient = None  # type: ignore[assignment]
+        account = Account(id="r-1", name="R", role="bot")
+        mention = MentionEntity(mentioned=account, text="<at>R</at>")
+        activity.entities = [mention]
+
+        assert activity.is_recipient_mentioned() is False
+
+    def test_is_recipient_mentioned_when_mentioned_received(self):
+        """Test MessageActivity.is_recipient_mentioned returns True when recipient is mentioned"""
+        activity = self.create_incoming_message_activity("Hello <at>Test User</at>!")
+        recipient = Account(id="user-456", name="Test User", role="user")
+        activity.recipient = recipient
+        mention = MentionEntity(mentioned=recipient, text="<at>Test User</at>")
+        activity.entities = [mention]
+
+        assert activity.is_recipient_mentioned() is True
+
+    def test_is_recipient_mentioned_not_mentioned_received(self):
+        """Test MessageActivity.is_recipient_mentioned returns False when recipient is not mentioned"""
+        activity = self.create_incoming_message_activity("Hello <at>Other</at>!")
+        recipient = Account(id="user-456", name="Test User", role="user")
+        activity.recipient = recipient
+        other = Account(id="other-999", name="Other", role="user")
+        mention = MentionEntity(mentioned=other, text="<at>Other</at>")
+        activity.entities = [mention]
+
+        assert activity.is_recipient_mentioned() is False
+
+    def test_get_account_mention_no_entities_received(self):
+        """Test MessageActivity.get_account_mention returns None when no entities"""
+        activity = self.create_incoming_message_activity("Hello world!")
+        # No entities set
+        result = activity.get_account_mention("user-456")
+        assert result is None
+
+    def test_get_account_mention_found_received(self):
+        """Test MessageActivity.get_account_mention returns MentionEntity when found"""
+        activity = self.create_incoming_message_activity("Hello <at>Test User</at>!")
+        account = Account(id="user-456", name="Test User", role="user")
+        mention = MentionEntity(mentioned=account, text="<at>Test User</at>")
+        activity.entities = [mention]
+
+        result = activity.get_account_mention("user-456")
+
+        assert result is not None
+        assert isinstance(result, MentionEntity)
+        assert result.mentioned.id == "user-456"
+        assert result.text == "<at>Test User</at>"
+
+    def test_get_account_mention_not_found_received(self):
+        """Test MessageActivity.get_account_mention returns None when account not in mentions"""
+        activity = self.create_incoming_message_activity("Hello <at>Test User</at>!")
+        account = Account(id="user-456", name="Test User", role="user")
+        mention = MentionEntity(mentioned=account, text="<at>Test User</at>")
+        activity.entities = [mention]
+
+        result = activity.get_account_mention("nonexistent-id")
+        assert result is None
+
+    def test_strip_mentions_text_updates_text_received(self):
+        """Test MessageActivity.strip_mentions_text sets text when stripped_text is not None"""
+        activity = self.create_incoming_message_activity("Hi <at>Test User</at>! How are you?")
+        account = Account(id="user-456", name="Test User", role="user")
+        mention = MentionEntity(mentioned=account, text="<at>Test User</at>")
+        activity.entities = [mention]
+
+        result = activity.strip_mentions_text()
+
+        assert result is activity
+        assert activity.text == "Hi ! How are you?"
+
 
 class TestMessageDeleteActivity:
     """Test MessageDeleteActivity functionality"""
@@ -379,12 +477,6 @@ class TestMessageDeleteActivity:
         """Test MessageDeleteChannelData default values"""
         channel_data = MessageDeleteChannelData()
         assert channel_data.event_type == "softDeleteMessage"
-
-    def test_message_delete_activity_type_property(self):
-        """Test that type property returns correct value"""
-        activity = self.create_message_delete_activity("delete-456")
-
-        assert activity.type == "messageDelete"
 
 
 class TestMessageUpdateActivity:
@@ -450,12 +542,6 @@ class TestMessageUpdateActivity:
         assert activity.expiration == expiration
         assert activity.value == {"custom": "data"}
 
-    def test_message_update_activity_type_property(self):
-        """Test that type property returns correct value"""
-        activity = self.create_message_update_activity("update-999", "Test")
-
-        assert activity.type == "messageUpdate"
-
 
 class TestMessageReactionActivity:
     """Test MessageReactionActivity functionality"""
@@ -491,12 +577,6 @@ class TestMessageReactionActivity:
         assert activity.id == "reaction-123"
         assert activity.reactions_added is None
         assert activity.reactions_removed is None
-
-    def test_message_reaction_activity_type_property(self):
-        """Test that type property returns correct value"""
-        activity = self.create_message_reaction_activity("reaction-456")
-
-        assert activity.type == "messageReaction"
 
     def test_add_reaction_single(self):
         """Test adding a single reaction"""
@@ -778,12 +858,12 @@ class TestMessageActivityIntegration:
             assert activity.type == expected_type
 
     def test_with_recipient_defaults_to_not_targeted(self):
-        """Test that with_recipient without is_targeted flag leaves is_targeted unchanged"""
+        """Test that with_recipient without is_targeted clears recipient-targeting."""
         account = Account(id="user-123", name="Test User", role="user")
         activity = MessageActivityInput(text="hello").with_recipient(account)
 
-        assert activity.is_targeted is None
         assert activity.recipient is not None
+        assert activity.recipient.is_targeted is None
         assert activity.recipient.id == "user-123"
 
     def test_with_recipient_sets_is_targeted_and_recipient(self):
@@ -791,8 +871,8 @@ class TestMessageActivityIntegration:
         account = Account(id="user-123", name="Test User", role="user")
         activity = MessageActivityInput(text="hello").with_recipient(account, is_targeted=True)
 
-        assert activity.is_targeted is True
         assert activity.recipient is not None
+        assert activity.recipient.is_targeted is True
         assert activity.recipient.id == "user-123"
         assert activity.recipient.name == "Test User"
         assert activity.recipient.role == "user"
@@ -803,6 +883,16 @@ class TestMessageActivityIntegration:
         activity = MessageActivityInput(text="hello").with_recipient(account, is_targeted=True).add_text(" world")
 
         assert activity.text == "hello world"
-        assert activity.is_targeted is True
         assert activity.recipient is not None
+        assert activity.recipient.is_targeted is True
         assert activity.recipient.id == "user-123"
+
+    def test_with_recipient_targeted_serializes_on_recipient(self):
+        """Test that targeted routing serializes as recipient.isTargeted in payload JSON."""
+        account = Account(id="user-123", name="Test User", role="user")
+        activity = MessageActivityInput(text="targeted message").with_recipient(account, is_targeted=True)
+
+        data = activity.model_dump(by_alias=True, exclude_none=True)
+
+        assert "recipient" in data
+        assert data["recipient"]["isTargeted"] is True

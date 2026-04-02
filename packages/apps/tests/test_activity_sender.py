@@ -24,7 +24,7 @@ class TestActivitySender:
     def sender(self):
         """Create an ActivitySender for testing."""
         mock_client = MagicMock()
-        return ActivitySender(client=mock_client, logger=MagicMock())
+        return ActivitySender(client=mock_client)
 
     @pytest.fixture
     def conversation_ref(self):
@@ -134,8 +134,8 @@ class TestActivitySender:
     async def test_update_targeted_message_calls_update_targeted(self, sender, conversation_ref):
         """Test that targeted message updates use the update_targeted method."""
         activity = MessageActivityInput(text="Updated targeted message")
+        activity.recipient = Account(id="user-123", name="Test User", role="user", is_targeted=True)
         activity.id = "existing-msg-id"
-        activity.is_targeted = True
 
         mock_activities = MagicMock()
         mock_activities.update_targeted = AsyncMock(

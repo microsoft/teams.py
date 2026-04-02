@@ -3,7 +3,7 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from logging import Logger
+import logging
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union, cast
 
 from microsoft_teams.api import (
@@ -33,6 +33,8 @@ from .routing.router import ActivityHandler, ActivityRouter
 from .token_manager import TokenManager
 from .utils import extract_tenant_id
 
+logger = logging.getLogger(__name__)
+
 
 class ActivityProcessor:
     """Provides activity processing functionality with middleware chain support."""
@@ -40,7 +42,6 @@ class ActivityProcessor:
     def __init__(
         self,
         router: ActivityRouter,
-        logger: Logger,
         id: Optional[str],
         storage: Union[Storage[str, Any], LocalStorage[Any]],
         default_connection_name: str,
@@ -50,7 +51,6 @@ class ActivityProcessor:
         activity_sender: ActivitySender,
     ) -> None:
         self.router = router
-        self.logger = logger
         self.id = id
         self.storage = storage
         self.default_connection_name = default_connection_name
@@ -110,7 +110,7 @@ class ActivityProcessor:
             is_signed_in = True
         except Exception:
             # User token not available
-            self.logger.debug("No user token available")
+            logger.debug("No user token available")
             pass
 
         tenant_id = extract_tenant_id(activity)
@@ -118,7 +118,6 @@ class ActivityProcessor:
         activityCtx = ActivityContext(
             activity,
             self.id or "",
-            self.logger,
             self.storage,
             api_client,
             user_token,
@@ -140,7 +139,7 @@ class ActivityProcessor:
             if not self.event_manager:
                 raise ValueError("EventManager was not initialized properly")
 
-            self.logger.debug("Calling on_activity_sent for plugins")
+            logger.debug("Calling on_activity_sent for plugins")
             ref = conversation_ref or activityCtx.conversation_ref
 
             await self.event_manager.on_activity_sent(
@@ -176,7 +175,7 @@ class ActivityProcessor:
 
         activityCtx = await self._build_context(activity, event.token, plugins)
 
-        self.logger.debug(f"Received activity: {activityCtx.activity}")
+        logger.debug(f"Received activity: {activityCtx.activity}")
 
         # Get registered handlers for this activity type
         handlers = self.router.select_handlers(activityCtx.activity)
@@ -229,7 +228,7 @@ class ActivityProcessor:
             await self.event_manager.on_error(ErrorEvent(error=error, activity=activity), plugins)
             raise error
 
-        self.logger.debug("Completed processing activity")
+        logger.debug("Completed processing activity")
 
         return response
 

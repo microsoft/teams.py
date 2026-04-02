@@ -5,6 +5,7 @@ Licensed under the MIT License.
 
 import inspect
 import json
+import logging
 from dataclasses import dataclass
 from typing import Awaitable, Callable, cast
 
@@ -41,6 +42,8 @@ from openai.types.responses import (
 
 from .common import OpenAIBaseModel
 from .function_utils import get_function_schema, parse_function_arguments
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -112,7 +115,7 @@ class OpenAIResponsesAIModel(OpenAIBaseModel, AIModel):
             if isinstance(msg, ModelMessage) and msg.id:
                 previous_response_id = msg.id
                 break
-        self.logger.debug(f"Found previous response ID: {previous_response_id}")
+        logger.debug(f"Found previous response ID: {previous_response_id}")
         if function_results:
             for result in function_results:
                 await memory.push(result)
@@ -123,7 +126,7 @@ class OpenAIResponsesAIModel(OpenAIBaseModel, AIModel):
         # Convert functions to tools format
         tools = self._convert_functions_to_tools(functions) if functions else omit
 
-        self.logger.debug(f"Making Responses API call with input type: {type(input).__name__}")
+        logger.debug(f"Making Responses API call with input type: {type(input).__name__}")
 
         # Make OpenAI Responses API call
         response = await self._client.responses.create(
@@ -134,9 +137,9 @@ class OpenAIResponsesAIModel(OpenAIBaseModel, AIModel):
             previous_response_id=previous_response_id,
         )
 
-        self.logger.debug(f"Response API returned: {type(response)}")
-        self.logger.debug(f"Response has content: {hasattr(response, 'content')}")
-        self.logger.debug(f"Response attributes: {[attr for attr in dir(response) if not attr.startswith('_')]}")
+        logger.debug(f"Response API returned: {type(response)}")
+        logger.debug(f"Response has content: {hasattr(response, 'content')}")
+        logger.debug(f"Response attributes: {[attr for attr in dir(response) if not attr.startswith('_')]}")
 
         # Convert response to ModelMessage format
         model_response = self._convert_from_responses_format(response)
@@ -150,15 +153,13 @@ class OpenAIResponsesAIModel(OpenAIBaseModel, AIModel):
 
         # If response has function calls, recursively execute them
         if model_response.function_calls:
-            self.logger.debug(
-                f"Response has {len(model_response.function_calls)} function calls, executing recursively"
-            )
+            logger.debug(f"Response has {len(model_response.function_calls)} function calls, executing recursively")
             return await self.generate_text(
                 model_response, system=system, memory=memory, functions=functions, on_chunk=on_chunk
             )
 
-        self.logger.debug("Stateful Responses API conversation completed")
-        self.logger.debug(model_response)
+        logger.debug("Stateful Responses API conversation completed")
+        logger.debug(model_response)
         return model_response
 
     async def _send_stateless(
@@ -173,7 +174,7 @@ class OpenAIResponsesAIModel(OpenAIBaseModel, AIModel):
         """Handle stateless conversation using standard OpenAI API pattern."""
         # Get conversation history from memory (make a copy to avoid modifying memory's internal state)
         messages = list(await memory.get_all())
-        self.logger.debug(f"Retrieved {len(messages)} messages from memory")
+        logger.debug(f"Retrieved {len(messages)} messages from memory")
 
         # Push current input to memory
         await memory.push(input)
@@ -191,7 +192,7 @@ class OpenAIResponsesAIModel(OpenAIBaseModel, AIModel):
         # Convert functions to tools format
         tools = self._convert_functions_to_tools(functions) if functions else omit
 
-        self.logger.debug(f"Making Responses API call with input type: {type(input).__name__}")
+        logger.debug(f"Making Responses API call with input type: {type(input).__name__}")
 
         # Make OpenAI Responses API call (stateless)
         response = await self._client.responses.create(
@@ -201,20 +202,18 @@ class OpenAIResponsesAIModel(OpenAIBaseModel, AIModel):
             tools=tools,
         )
 
-        self.logger.debug(f"Response API returned: {type(response)}")
-        self.logger.debug(f"Response has content: {hasattr(response, 'content')}")
+        logger.debug(f"Response API returned: {type(response)}")
+        logger.debug(f"Response has content: {hasattr(response, 'content')}")
         if hasattr(response, "output"):
-            self.logger.debug(f"Response content: {response.output}")
-        self.logger.debug(f"Response attributes: {[attr for attr in dir(response) if not attr.startswith('_')]}")
+            logger.debug(f"Response content: {response.output}")
+        logger.debug(f"Response attributes: {[attr for attr in dir(response) if not attr.startswith('_')]}")
 
         # Convert response to ModelMessage format
         model_response = self._convert_from_responses_format(response)
 
         # If response has function calls, recursively execute them
         if model_response.function_calls:
-            self.logger.debug(
-                f"Response has {len(model_response.function_calls)} function calls, executing recursively"
-            )
+            logger.debug(f"Response has {len(model_response.function_calls)} function calls, executing recursively")
             return await self.generate_text(model_response, system=system, memory=memory, functions=functions)
 
         # Push response to memory (only if not recursing)
@@ -225,7 +224,7 @@ class OpenAIResponsesAIModel(OpenAIBaseModel, AIModel):
             if model_response.content:
                 await on_chunk(model_response.content)
 
-        self.logger.debug("Stateless Responses API conversation completed")
+        logger.debug("Stateless Responses API conversation completed")
         return model_response
 
     async def _execute_functions(
@@ -314,7 +313,7 @@ class OpenAIResponsesAIModel(OpenAIBaseModel, AIModel):
                                 }
                             )
                         else:
-                            self.logger.warning(f"No associated result found for call id ({call.name} - {call.id})")
+                            logger.warning(f"No associated result found for call id ({call.name} - {call.id})")
                 else:
                     # ModelMessage with content but no function calls
                     content = message.content or ""

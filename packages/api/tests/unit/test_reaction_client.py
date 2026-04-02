@@ -22,6 +22,13 @@ class TestReactionClient:
         assert client.http == mock_http_client
         assert client.service_url == service_url
 
+    def test_reaction_client_strips_trailing_slash(self, mock_http_client):
+        """Test ReactionClient strips trailing slash from service_url."""
+        service_url = "https://test.service.url/"
+        client = ReactionClient(service_url, mock_http_client)
+
+        assert client.service_url == "https://test.service.url"
+
     def test_reaction_client_initialization_with_options(self):
         """Test ReactionClient initialization with ClientOptions."""
         service_url = "https://test.service.url"

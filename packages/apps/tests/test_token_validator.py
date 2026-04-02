@@ -58,7 +58,6 @@ class TestTokenValidator:
         """Test TokenValidator initialization."""
         validator = TokenValidator.for_service("test-app-id")
 
-        assert validator.logger is not None
         assert validator.options.valid_issuers == ["https://api.botframework.com"]
         assert validator.options.valid_audiences == [
             "test-app-id",
@@ -66,20 +65,6 @@ class TestTokenValidator:
             "api://botid-test-app-id",
         ]
         assert validator.options.jwks_uri == "https://login.botframework.com/v1/.well-known/keys"
-
-    def test_init_with_custom_logger(self):
-        """Test TokenValidator initialization with custom logger."""
-        mock_logger = MagicMock()
-        validator = TokenValidator.for_service("test-app-id", mock_logger)
-
-        assert validator.options.valid_issuers == ["https://api.botframework.com"]
-        assert validator.options.valid_audiences == [
-            "test-app-id",
-            "api://test-app-id",
-            "api://botid-test-app-id",
-        ]
-        assert validator.options.jwks_uri == "https://login.botframework.com/v1/.well-known/keys"
-        assert validator.logger == mock_logger
 
     @pytest.mark.asyncio
     async def test_validate_token_success(self, validator, mock_signing_key, valid_payload):

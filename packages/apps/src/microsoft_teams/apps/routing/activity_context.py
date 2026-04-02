@@ -5,8 +5,8 @@ Licensed under the MIT License.
 
 import base64
 import json
+import logging
 from dataclasses import dataclass
-from logging import Logger
 from typing import TYPE_CHECKING, Any, Awaitable, Callable, Generic, Optional, TypeVar, cast
 
 from microsoft_teams.api import (
@@ -42,6 +42,7 @@ if TYPE_CHECKING:
     from msgraph.graph_service_client import GraphServiceClient
 
 T = TypeVar("T", bound=ActivityBase, contravariant=True)
+logger = logging.getLogger(__name__)
 
 
 def _get_graph_client(token: Token):
@@ -85,7 +86,6 @@ class ActivityContext(Generic[T]):
         self,
         activity: T,
         app_id: str,
-        logger: Logger,
         storage: Storage[str, Any],
         api: ApiClient,
         user_token: Optional[str],
@@ -182,16 +182,6 @@ class ActivityContext(Generic[T]):
         else:
             activity = message
 
-        # For targeted send, set the recipient if not already set.
-        # For targeted update (activity.id exists), we dont update recipient since recipient cannot be changed.
-        if (
-            isinstance(activity, MessageActivityInput)
-            and activity.is_targeted
-            and not activity.id
-            and not activity.recipient
-        ):
-            activity.recipient = self.activity.from_
-
         ref = conversation_ref or self.conversation_ref
         res = await self._activity_sender.send(activity, ref)
         return res
@@ -283,8 +273,6 @@ class ActivityContext(Generic[T]):
             one_on_one_conversation = await self.api.conversations.create(
                 CreateConversationParams(
                     tenant_id=self.activity.conversation.tenant_id,
-                    is_group=False,
-                    bot=self.activity.recipient,
                     members=[self.activity.from_],
                 )
             )

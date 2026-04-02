@@ -16,7 +16,7 @@ Targeted messages are messages that only a specific recipient can see - other pa
 
 ## How It Works
 
-When responding to an incoming message, use `with_targeted_recipient(True)` - the recipient is automatically inferred from the message sender.
+When sending targeted messages, use `with_recipient(Account(...), is_targeted=True)` to mark the recipient as targeted.
 
 ## Testing in a Group Chat
 

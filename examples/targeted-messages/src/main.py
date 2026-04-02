@@ -72,15 +72,15 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
         async def update_after_delay():
             await asyncio.sleep(3)
             try:
-                # For updates, we just set is_targeted but don't change the recipient
-                # The backend doesn't allow changing the recipient of a targeted message
+                # For targeted updates, do not include recipient in the payload.
                 updated_message = MessageActivityInput(
                     text="🔒 [UPDATE] ✅ UPDATED targeted message! (only you see this)"
                 )
                 updated_message.id = result.id
-                updated_message.is_targeted = True  # Mark as targeted for the API URL
 
-                await ctx.send(updated_message)
+                await ctx.api.conversations.activities(ctx.activity.conversation.id).update_targeted(
+                    result.id, updated_message
+                )
                 print("Targeted UPDATE completed")
             except Exception as err:
                 print(f"Targeted UPDATE error: {err}")

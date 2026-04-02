@@ -43,10 +43,7 @@ def experimental(diagnostic: str, *, message: Optional[str] = None) -> Callable[
 
     def decorator(obj: F) -> F:
         name = getattr(obj, "__qualname__", getattr(obj, "__name__", str(obj)))
-        warn_msg = message or (
-            f"{name} is in preview and may change in the future. "
-            f"Diagnostic: {diagnostic}"
-        )
+        warn_msg = message or (f"{name} is in preview and may change in the future. Diagnostic: {diagnostic}")
 
         if isinstance(obj, type):
             original_init = obj.__init__

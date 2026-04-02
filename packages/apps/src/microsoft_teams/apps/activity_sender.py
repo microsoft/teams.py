@@ -3,8 +3,8 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from logging import Logger
-from typing import Optional, cast
+import logging
+from typing import cast
 
 from microsoft_teams.api import (
     ActivityParams,
@@ -13,10 +13,12 @@ from microsoft_teams.api import (
     MessageActivityInput,
     SentActivity,
 )
-from microsoft_teams.common import Client, ConsoleLogger
+from microsoft_teams.common import Client
 
 from .http_stream import HttpStream
 from .plugins.streamer import StreamerProtocol
+
+logger = logging.getLogger(__name__)
 
 
 class ActivitySender:
@@ -25,16 +27,14 @@ class ActivitySender:
     Separate from transport concerns (HTTP, WebSocket, etc.)
     """
 
-    def __init__(self, client: Client, logger: Optional[Logger] = None):
+    def __init__(self, client: Client):
         """
         Initialize ActivitySender.
 
         Args:
             client: HTTP client with token provider configured
-            logger: Optional logger instance for debugging. If not provided, creates a default console logger.
         """
         self._client = client
-        self._logger = logger or ConsoleLogger().create_logger("@teams/activity-sender")
 
     async def send(self, activity: ActivityParams, ref: ConversationReference) -> SentActivity:
         """
@@ -54,7 +54,11 @@ class ActivitySender:
         activity.from_ = ref.bot
         activity.conversation = ref.conversation
 
-        is_targeted = isinstance(activity, MessageActivityInput) and activity.is_targeted is True
+        is_targeted = (
+            isinstance(activity, MessageActivityInput)
+            and activity.recipient is not None
+            and activity.recipient.is_targeted is True
+        )
         is_update = hasattr(activity, "id") and activity.id
         activities = api.conversations.activities(ref.conversation.id)
 
@@ -84,4 +88,4 @@ class ActivitySender:
         """
         # Create API client for this conversation's service URL
         api = ApiClient(ref.service_url, self._client)
-        return HttpStream(api, ref, self._logger)
+        return HttpStream(api, ref)

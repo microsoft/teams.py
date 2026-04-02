@@ -3,7 +3,7 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from logging import Logger
+import logging
 from types import SimpleNamespace
 from typing import Any, Awaitable, Callable, Dict, Optional, cast
 
@@ -13,7 +13,9 @@ from pydantic import BaseModel
 
 from ..auth import TokenValidator
 from ..events import ActivityEvent, CoreActivity
-from .adapter import HttpMethod, HttpRequest, HttpResponse, HttpRouteHandler, HttpServerAdapter
+from .adapter import HttpRequest, HttpResponse, HttpServerAdapter
+
+logger = logging.getLogger(__name__)
 
 
 class HttpServer:
@@ -24,9 +26,12 @@ class HttpServer:
     and activity processing for the Teams protocol.
     """
 
-    def __init__(self, adapter: HttpServerAdapter, logger: Logger):
+    def __init__(self, adapter: HttpServerAdapter, messaging_endpoint: str = "/api/messages"):
         self._adapter = adapter
-        self._logger = logger
+        normalized_endpoint = messaging_endpoint.strip()
+        if not normalized_endpoint or not normalized_endpoint.startswith("/"):
+            raise ValueError("messaging_endpoint must be a non-empty path starting with '/'.")
+        self._messaging_endpoint = normalized_endpoint
         self._on_request: Optional[Callable[[ActivityEvent], Awaitable[InvokeResponse[Any]]]] = None
         self._token_validator: Optional[TokenValidator] = None
         self._skip_auth: bool = False
@@ -36,6 +41,11 @@ class HttpServer:
     def adapter(self) -> HttpServerAdapter:
         """The underlying HttpServerAdapter."""
         return self._adapter
+
+    @property
+    def messaging_endpoint(self) -> str:
+        """The URL path for the Teams messaging endpoint."""
+        return self._messaging_endpoint
 
     @property
     def on_request(self) -> Optional[Callable[[ActivityEvent], Awaitable[InvokeResponse[Any]]]]:
@@ -52,7 +62,7 @@ class HttpServer:
         skip_auth: bool = False,
     ) -> None:
         """
-        Set up JWT validation and register the default POST /api/messages route.
+        Set up JWT validation and register the messaging endpoint route.
 
         Args:
             credentials: App credentials for JWT validation.
@@ -65,14 +75,14 @@ class HttpServer:
 
         app_id = getattr(credentials, "client_id", None) if credentials else None
         if app_id and not skip_auth:
-            self._token_validator = TokenValidator.for_service(app_id, self._logger)
-            self._logger.debug("JWT validation enabled for /api/messages")
+            self._token_validator = TokenValidator.for_service(app_id)
+            logger.debug("JWT validation enabled for %s", self._messaging_endpoint)
 
-        self._adapter.register_route("POST", "/api/messages", self._handle_activity)
+        self._adapter.register_route("POST", self._messaging_endpoint, self.handle_request)
         self._initialized = True
 
-    async def _handle_activity(self, request: HttpRequest) -> HttpResponse:
-        """Handle incoming activity on POST /api/messages."""
+    async def handle_request(self, request: HttpRequest) -> HttpResponse:
+        """Handle incoming activity request. Public so plugins (e.g. BotBuilder) can route through SDK auth."""
         try:
             body = request["body"]
             headers = request["headers"]
@@ -90,7 +100,7 @@ class HttpServer:
                 try:
                     await self._token_validator.validate_token(raw_token, service_url)
                 except Exception as e:
-                    self._logger.warning(f"JWT token validation failed: {e}")
+                    logger.warning(f"JWT token validation failed: {e}")
                     return HttpResponse(status=401, body={"error": "Unauthorized"})
 
                 token: TokenProtocol = cast(TokenProtocol, JsonWebToken(value=raw_token))
@@ -113,13 +123,13 @@ class HttpServer:
             core_activity = CoreActivity.model_validate(body)
             activity_type = core_activity.type or "unknown"
             activity_id = core_activity.id or "unknown"
-            self._logger.debug(f"Received activity: {activity_type} (ID: {activity_id})")
+            logger.debug(f"Received activity: {activity_type} (ID: {activity_id})")
 
             # Process the activity via the App callback
             result = await self._process_activity(core_activity, token)
             return self._format_response(result)
         except Exception as e:
-            self._logger.exception(str(e))
+            logger.exception(str(e))
             return HttpResponse(status=500, body={"error": "Internal server error"})
 
     async def _process_activity(self, core_activity: CoreActivity, token: TokenProtocol) -> InvokeResponse[Any]:
@@ -128,7 +138,7 @@ class HttpServer:
         if self._on_request:
             return await self._on_request(event)
 
-        self._logger.warning("No on_request handler registered")
+        logger.warning("No on_request handler registered")
         return InvokeResponse(status=500)
 
     def _format_response(self, result: Any) -> HttpResponse:
@@ -151,21 +161,3 @@ class HttpServer:
         if body is not None:
             return HttpResponse(status=status_code, body=body)
         return HttpResponse(status=status_code, body=None)
-
-    def register_route(self, method: HttpMethod, path: str, handler: HttpRouteHandler) -> None:
-        """Delegate route registration to the adapter."""
-        self._adapter.register_route(method, path, handler)
-
-    def serve_static(self, path: str, directory: str) -> None:
-        """Delegate static file serving to the adapter."""
-        self._adapter.serve_static(path, directory)
-
-    async def start(self, port: int) -> None:
-        """Start the HTTP server. Blocks until stopped."""
-        self._logger.info(f"Starting HTTP server on port {port}")
-        await self._adapter.start(port)
-
-    async def stop(self) -> None:
-        """Stop the HTTP server."""
-        self._logger.info("Stopping HTTP server")
-        await self._adapter.stop()

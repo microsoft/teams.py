@@ -86,18 +86,41 @@ def mock_transport():
                 "tokenExchangeResource": {"id": "mock_resource_id"},
             }
         elif "/v3/teams/" in str(request.url) and "/conversations" in str(request.url):
-            response_data = [
-                {
-                    "id": "mock_channel_id_1",
-                    "name": "General",
-                    "type": "standard",
-                },
-                {
-                    "id": "mock_channel_id_2",
-                    "name": "Random",
-                    "type": "standard",
-                },
-            ]
+            response_data = {
+                "conversations": [
+                    {
+                        "id": "mock_channel_id_1",
+                        "name": "General",
+                        "type": "standard",
+                    },
+                    {
+                        "id": "mock_channel_id_2",
+                        "name": "Random",
+                        "type": "standard",
+                    },
+                ]
+            }
+        elif "/conversations/" in str(request.url) and "/pagedMembers" in str(request.url):
+            response_data = {
+                "members": [
+                    {
+                        "id": "mock_member_id",
+                        "name": "Mock Member",
+                        "aadObjectId": "mock_aad_object_id",
+                    }
+                ],
+                "continuationToken": "mock_continuation_token",
+            }
+        elif "/notification" in str(request.url) and request.method == "POST":
+            response_data = {
+                "recipientsFailureInfo": [
+                    {
+                        "recipientMri": "8:orgid:mock_recipient",
+                        "errorCode": "BadArgument",
+                        "failureReason": "Invalid recipient",
+                    }
+                ]
+            }
         elif "/conversations/" in str(request.url) and str(request.url).endswith("/members"):
             response_data = [
                 {
@@ -111,17 +134,6 @@ def mock_transport():
                 "id": "mock_member_id",
                 "name": "Mock Member",
                 "aadObjectId": "mock_aad_object_id",
-            }
-        elif "/conversations" in str(request.url) and request.method == "GET":
-            response_data = {
-                "conversations": [
-                    {
-                        "id": "mock_conversation_id",
-                        "conversationType": "personal",
-                        "isGroup": True,
-                    }
-                ],
-                "continuationToken": "mock_continuation_token",
             }
         elif "/conversations" in str(request.url) and request.method == "POST":
             # Parse request body to check if activity is present

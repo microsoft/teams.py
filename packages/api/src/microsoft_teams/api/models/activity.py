@@ -96,14 +96,6 @@ class ActivityInput(_ActivityBase):
     recipient: Optional[Account] = None
     """Identifies the recipient of the message."""
 
-    is_targeted: Optional[bool] = None
-    """Indicates if this is a targeted message visible only to a specific recipient.
-
-    .. warning:: Preview
-        This field is in preview and may change in the future.
-        Diagnostic: ExperimentalTeamsTargeted
-    """
-
     @property
     def channel(self) -> Optional[ChannelInfo]:
         """Information about the channel in which the message was sent."""
@@ -166,8 +158,7 @@ class ActivityInput(_ActivityBase):
         Args:
             value: The recipient account
             is_targeted: If True, marks this as a targeted message visible only to this
-                recipient. If False, explicitly clears targeting. If None (the default),
-                the existing is_targeted value is left unchanged.
+                recipient. If False or None (the default), targeted routing is cleared.
 
                 .. warning:: Preview
                     The ``is_targeted`` parameter is in preview and may change or be
@@ -176,8 +167,9 @@ class ActivityInput(_ActivityBase):
         Returns:
             Self for method chaining
         """
-        self.recipient = value
-        self.is_targeted = is_targeted
+        recipient = value.model_copy()
+        recipient.is_targeted = True if is_targeted is True else None
+        self.recipient = recipient
         if is_targeted is True:
             warnings.warn(
                 "The is_targeted parameter of with_recipient is in preview and may change "

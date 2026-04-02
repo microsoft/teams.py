@@ -5,10 +5,10 @@ Licensed under the MIT License.
 
 import asyncio
 import importlib.metadata
+import logging
 import os
 from contextlib import asynccontextmanager
 from datetime import datetime
-from logging import Logger
 from typing import Annotated, Any, AsyncGenerator, Awaitable, Callable, Dict, List, Optional
 from uuid import uuid4
 
@@ -23,7 +23,6 @@ from microsoft_teams.apps import (
     DependencyMetadata,
     ErrorEvent,
     EventMetadata,
-    LoggerDependencyOptions,
     Plugin,
     PluginActivityEvent,
     PluginActivityResponseEvent,
@@ -39,6 +38,8 @@ from .routes import RouteContext, get_router
 
 version = importlib.metadata.version("microsoft-teams-devtools")
 
+logger = logging.getLogger(__name__)
+
 
 @Plugin(
     name="devtools",
@@ -46,7 +47,6 @@ version = importlib.metadata.version("microsoft-teams-devtools")
     description="set of tools to make development of Teams apps faster and simpler",
 )
 class DevToolsPlugin(PluginBase):
-    logger: Annotated[Logger, LoggerDependencyOptions()]
     id: Annotated[Optional[TokenProtocol], DependencyMetadata(optional=True)]
 
     on_error_event: Annotated[Callable[[ErrorEvent], None], EventMetadata(name="error")]
@@ -63,12 +63,12 @@ class DevToolsPlugin(PluginBase):
         @asynccontextmanager
         async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
             # Startup
-            self.logger.info(f"listening on port {self._port} 🚀")
+            logger.info(f"listening on port {self._port} 🚀")
             if self._on_ready_callback:
                 await self._on_ready_callback()
             yield
             # Shutdown
-            self.logger.info("Server shutting down")
+            logger.info("Server shutting down")
             if self._on_stopped_callback:
                 await self._on_stopped_callback()
 
@@ -81,7 +81,7 @@ class DevToolsPlugin(PluginBase):
 
         @self.app.websocket("/devtools/sockets")
         async def websocket_endpoint(websocket: WebSocket):  # type: ignore
-            self.logger.info(f"WebSocket connection initiated with scope type: {websocket.scope['type']}")
+            logger.info(f"WebSocket connection initiated with scope type: {websocket.scope['type']}")
             await self.on_socket_connection(websocket)
 
         dist = os.path.join(os.path.dirname(__file__), "web")
@@ -114,7 +114,7 @@ class DevToolsPlugin(PluginBase):
         self._on_stopped_callback = callback
 
     async def on_init(self) -> None:
-        self.logger.warning("⚠️ Devtools is not secure and should not be used in production environments ⚠️")
+        logger.warning("⚠️ Devtools is not secure and should not be used in production environments ⚠️")
 
     async def on_start(self, event: PluginStartEvent) -> None:
         self._port = event.port + 1
@@ -142,13 +142,13 @@ class DevToolsPlugin(PluginBase):
                         del self.pending[activity.id]
                 return result
 
-            router.include_router(get_router(RouteContext(port=self._port, log=self.logger, process=process)))
+            router.include_router(get_router(RouteContext(port=self._port, process=process)))
             self.app.include_router(router)
 
             config = uvicorn.Config(app=self.app, host="0.0.0.0", port=self._port, log_level="info")
             self._server = uvicorn.Server(config)
 
-            self.logger.info(f"available at http://localhost:{self._port}/devtools")
+            logger.info(f"available at http://localhost:{self._port}/devtools")
 
             # The lifespan handler will call the callback when the server is ready
             await self._server.serve()
@@ -156,11 +156,11 @@ class DevToolsPlugin(PluginBase):
         except OSError as error:
             # Handle port in use, permission errors, etc.
             await self.on_error(PluginErrorEvent(error=error))
-            self.logger.error("Server startup failed: %s", error)
+            logger.error("Server startup failed: %s", error)
             raise
         except Exception as error:
             await self.on_error(PluginErrorEvent(error=error))
-            self.logger.error("Failed to start server: %s", error)
+            logger.error("Failed to start server: %s", error)
             raise
 
     async def on_socket_connection(self, websocket: WebSocket):
@@ -186,16 +186,16 @@ class DevToolsPlugin(PluginBase):
             while True:
                 try:
                     data = await websocket.receive_text()
-                    self.logger.debug(f"Received WebSocket message: {data}")
+                    logger.debug(f"Received WebSocket message: {data}")
                 except WebSocketDisconnect:
-                    self.logger.debug(f"WebSocket {socket_id} disconnected")
+                    logger.debug(f"WebSocket {socket_id} disconnected")
                     break
         finally:
             del self.sockets[socket_id]
 
     async def on_activity(self, event: PluginActivityEvent):
         """Handle incoming activities."""
-        self.logger.debug("Activity received in on_activity")
+        logger.debug("Activity received in on_activity")
 
         activity = DevToolsActivityReceivedEvent(
             id=str(uuid4()),
@@ -209,7 +209,7 @@ class DevToolsPlugin(PluginBase):
 
     async def on_activity_sent(self, event: PluginActivitySentEvent):
         """Handle sent activities."""
-        self.logger.debug(f"Activity sent: {event.activity}")
+        logger.debug(f"Activity sent: {event.activity}")
 
         activity = DevToolsActivitySentEvent(
             id=str(uuid4()),
@@ -234,7 +234,7 @@ class DevToolsPlugin(PluginBase):
             try:
                 await websocket.send_json(data)
             except WebSocketDisconnect:
-                self.logger.debug(f"WebSocket {socket_id} disconnected")
+                logger.debug(f"WebSocket {socket_id} disconnected")
                 del self.sockets[socket_id]
 
     def add_page(self, page: Page) -> "DevToolsPlugin":

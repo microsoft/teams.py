@@ -4,14 +4,15 @@ Licensed under the MIT License.
 """
 
 import inspect
-from logging import Logger
+import logging
 from typing import Any, Callable, Optional
 
 from .activity_context import ActivityContext
 
+logger = logging.getLogger(__name__)
+
 
 def validate_handler_type(
-    logger: Logger,
     func: Callable[[Any], Any],
     expected_activity_type: Any,
     method_name: str,

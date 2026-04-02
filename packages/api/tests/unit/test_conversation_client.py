@@ -4,13 +4,13 @@ Licensed under the MIT License.
 """
 # pyright: basic
 
+from unittest.mock import AsyncMock, patch
+
+import httpx
 import pytest
 from microsoft_teams.api.clients.conversation import ConversationClient
-from microsoft_teams.api.clients.conversation.params import (
-    CreateConversationParams,
-    GetConversationsParams,
-)
-from microsoft_teams.api.models import ConversationResource, TeamsChannelAccount
+from microsoft_teams.api.clients.conversation.params import CreateConversationParams
+from microsoft_teams.api.models import ConversationResource, PagedMembersResult, TeamsChannelAccount
 from microsoft_teams.common.http import Client, ClientOptions
 
 
@@ -28,6 +28,15 @@ class TestConversationClient:
         assert client.activities_client is not None
         assert client.members_client is not None
 
+    def test_conversation_client_strips_trailing_slash(self, mock_http_client):
+        """Test ConversationClient strips trailing slash from service_url."""
+        service_url = "https://test.service.url/"
+        client = ConversationClient(service_url, mock_http_client)
+
+        assert client.service_url == "https://test.service.url"
+        assert client.activities_client.service_url == "https://test.service.url"
+        assert client.members_client.service_url == "https://test.service.url"
+
     def test_conversation_client_initialization_with_options(self):
         """Test ConversationClient initialization with ClientOptions."""
 
@@ -39,30 +48,6 @@ class TestConversationClient:
         assert client.service_url == service_url
 
     @pytest.mark.asyncio
-    async def test_get_conversations(self, mock_http_client):
-        """Test getting conversations."""
-        service_url = "https://test.service.url"
-        client = ConversationClient(service_url, mock_http_client)
-
-        params = GetConversationsParams(continuation_token="test_token")
-        response = await client.get(params)
-
-        assert response.conversations is not None
-        assert isinstance(response.conversations, list)
-        assert response.continuation_token is not None
-
-    @pytest.mark.asyncio
-    async def test_get_conversations_without_params(self, mock_http_client):
-        """Test getting conversations without parameters."""
-        service_url = "https://test.service.url"
-        client = ConversationClient(service_url, mock_http_client)
-
-        response = await client.get()
-
-        assert response.conversations is not None
-        assert isinstance(response.conversations, list)
-
-    @pytest.mark.asyncio
     async def test_create_conversation(self, mock_http_client, mock_account, mock_activity):
         """Test creating a conversation with an activity."""
         service_url = "https://test.service.url"
@@ -70,9 +55,7 @@ class TestConversationClient:
 
         params = CreateConversationParams(
             is_group=True,
-            bot=mock_account,
             members=[mock_account],
-            topic_name="Test Conversation",
             tenant_id="test_tenant_id",
             activity=mock_activity,
             channel_data={"custom": "data"},
@@ -92,9 +75,7 @@ class TestConversationClient:
 
         params = CreateConversationParams(
             is_group=True,
-            bot=mock_account,
             members=[mock_account],
-            topic_name="Test Conversation",
             tenant_id="test_tenant_id",
         )
 
@@ -283,17 +264,41 @@ class TestConversationMemberOperations:
         assert result.name == "Mock Member"
         assert result.aad_object_id == "mock_aad_object_id"
 
-    async def test_member_delete(self, mock_http_client):
-        """Test deleting a member."""
+    async def test_member_get_paged(self, mock_http_client):
+        """Test getting a page of members returns PagedMembersResult."""
+
         service_url = "https://test.service.url"
         client = ConversationClient(service_url, mock_http_client)
 
         conversation_id = "test_conversation_id"
-        member_id = "test_member_id"
         members = client.members(conversation_id)
 
-        # Should not raise an exception
-        await members.delete(member_id)
+        result = await members.get_paged()
+
+        assert isinstance(result, PagedMembersResult)
+        assert len(result.members) == 1
+        assert isinstance(result.members[0], TeamsChannelAccount)
+        assert result.members[0].id == "mock_member_id"
+        assert result.continuation_token == "mock_continuation_token"
+
+    async def test_member_get_paged_with_token(self, mock_http_client):
+        """Test get_paged passes continuation_token and page_size."""
+
+        service_url = "https://test.service.url"
+        client = ConversationClient(service_url, mock_http_client)
+        members = client.members("test_conversation_id")
+
+        mock_response = httpx.Response(
+            200,
+            json={"members": [], "continuationToken": None},
+            headers={"content-type": "application/json"},
+        )
+        with patch.object(mock_http_client, "get", new_callable=AsyncMock, return_value=mock_response) as mock_get:
+            await members.get_paged(page_size=50, continuation_token="some_token")
+
+        called_params = mock_get.call_args.kwargs.get("params", {})
+        assert called_params.get("pageSize") == 50
+        assert called_params.get("continuationToken") == "some_token"
 
 
 @pytest.mark.unit
