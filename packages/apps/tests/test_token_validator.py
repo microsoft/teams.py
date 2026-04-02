@@ -33,6 +33,13 @@ class TestTokenValidator:
         return mock_key
 
     @pytest.fixture
+    def mock_jwks_client(self, mock_signing_key):
+        """Create mock PyJWKClient that returns the mock signing key."""
+        client = MagicMock()
+        client.get_signing_key_from_jwt.return_value = mock_signing_key
+        return client
+
+    @pytest.fixture
     def valid_payload(self):
         """Create valid JWT payload."""
         return {
@@ -63,11 +70,11 @@ class TestTokenValidator:
         assert validator.options.jwks_uri == "https://login.botframework.com/v1/.well-known/keys"
 
     @pytest.mark.asyncio
-    async def test_validate_token_success(self, validator, mock_signing_key, valid_payload):
+    async def test_validate_token_success(self, validator, mock_jwks_client, valid_payload):
         """Test successful token validation."""
         token = "valid.jwt.token"
 
-        validator._jwks_client = mock_signing_key
+        validator._jwks_client = mock_jwks_client
         with patch("jwt.decode", return_value=valid_payload):
             result = await validator.validate_token(token)
 
@@ -76,12 +83,12 @@ class TestTokenValidator:
             assert result["aud"] == "test-app-id"
 
     @pytest.mark.asyncio
-    async def test_validate_token_with_service_url(self, validator, mock_signing_key, valid_payload):
+    async def test_validate_token_with_service_url(self, validator, mock_jwks_client, valid_payload):
         """Test successful token validation with service URL check."""
         token = "valid.jwt.token"
         service_url = "https://smba.trafficmanager.net/teams"
 
-        validator._jwks_client = mock_signing_key
+        validator._jwks_client = mock_jwks_client
         with patch("jwt.decode", return_value=valid_payload):
             result = await validator.validate_token(token, service_url)
 
@@ -113,37 +120,37 @@ class TestTokenValidator:
             await validator.validate_token(token)
 
     @pytest.mark.asyncio
-    async def test_validate_token_decode_error(self, validator, mock_signing_key):
+    async def test_validate_token_decode_error(self, validator, mock_jwks_client):
         """Test validation when JWT decode fails."""
         token = "invalid.jwt.token"
 
-        validator._jwks_client = mock_signing_key
+        validator._jwks_client = mock_jwks_client
         with patch("jwt.decode", side_effect=jwt.ExpiredSignatureError("Token expired")):
             with pytest.raises(jwt.InvalidTokenError):
                 await validator.validate_token(token)
 
     @pytest.mark.asyncio
-    async def test_validate_token_invalid_audience(self, validator, mock_signing_key):
+    async def test_validate_token_invalid_audience(self, validator, mock_jwks_client):
         """Test validation with invalid audience."""
         token = "invalid.jwt.token"
 
-        validator._jwks_client = mock_signing_key
+        validator._jwks_client = mock_jwks_client
         with patch("jwt.decode", side_effect=jwt.InvalidAudienceError("Invalid audience")):
             with pytest.raises(jwt.InvalidTokenError):
                 await validator.validate_token(token)
 
     @pytest.mark.asyncio
-    async def test_validate_token_invalid_issuer(self, validator, mock_signing_key):
+    async def test_validate_token_invalid_issuer(self, validator, mock_jwks_client):
         """Test validation with invalid issuer."""
         token = "invalid.jwt.token"
 
-        validator._jwks_client = mock_signing_key
+        validator._jwks_client = mock_jwks_client
         with patch("jwt.decode", side_effect=jwt.InvalidIssuerError("Invalid issuer")):
             with pytest.raises(jwt.InvalidTokenError):
                 await validator.validate_token(token)
 
     @pytest.mark.asyncio
-    async def test_service_url_validation_missing_claim(self, validator, mock_signing_key):
+    async def test_service_url_validation_missing_claim(self, validator, mock_jwks_client):
         """Test service URL validation when token missing serviceurl claim."""
         token = "valid.jwt.token"
         service_url = "https://smba.trafficmanager.net/teams"
@@ -152,13 +159,13 @@ class TestTokenValidator:
             "aud": "test-app-id",
         }
 
-        validator._jwks_client = mock_signing_key
+        validator._jwks_client = mock_jwks_client
         with patch("jwt.decode", return_value=payload_without_service_url):
             with pytest.raises(jwt.InvalidTokenError, match="Token missing serviceurl claim"):
                 await validator.validate_token(token, service_url)
 
     @pytest.mark.asyncio
-    async def test_service_url_validation_mismatch(self, validator, mock_signing_key):
+    async def test_service_url_validation_mismatch(self, validator, mock_jwks_client):
         """Test service URL validation when URLs don't match."""
         token = "valid.jwt.token"
         service_url = "https://smba.trafficmanager.net/teams"
@@ -168,13 +175,13 @@ class TestTokenValidator:
             "serviceurl": "https://different.service.url",
         }
 
-        validator._jwks_client = mock_signing_key
+        validator._jwks_client = mock_jwks_client
         with patch("jwt.decode", return_value=payload_with_different_url):
             with pytest.raises(jwt.InvalidTokenError, match="Service URL mismatch"):
                 await validator.validate_token(token, service_url)
 
     @pytest.mark.asyncio
-    async def test_service_url_validation_with_trailing_slashes(self, validator, mock_signing_key):
+    async def test_service_url_validation_with_trailing_slashes(self, validator, mock_jwks_client):
         """Test service URL validation normalizes trailing slashes."""
         token = "valid.jwt.token"
         service_url = "https://smba.trafficmanager.net/teams/"  # With trailing slash
@@ -184,7 +191,7 @@ class TestTokenValidator:
             "serviceurl": "https://smba.trafficmanager.net/teams",  # Without trailing slash
         }
 
-        validator._jwks_client = mock_signing_key
+        validator._jwks_client = mock_jwks_client
         with patch("jwt.decode", return_value=payload_without_slash):
             # Should succeed because URLs are normalized
             result = await validator.validate_token(token, service_url)
@@ -219,17 +226,17 @@ class TestTokenValidator:
 
     @pytest.mark.asyncio
     async def test_validate_entra_token_success_with_scope(
-        self, validator_entra, mock_signing_key, valid_payload_entra
+        self, validator_entra, mock_jwks_client, valid_payload_entra
     ):
         """Validate Entra token successfully with required scope."""
         token = "entra.valid.token"
-        validator_entra._jwks_client = mock_signing_key
+        validator_entra._jwks_client = mock_jwks_client
         with patch("jwt.decode", return_value=valid_payload_entra):
             payload = await validator_entra.validate_token(token)
             assert payload["scp"] == "user.read mail.read"
 
     @pytest.mark.asyncio
-    async def test_validate_entra_token_missing_scope(self, validator_entra, mock_signing_key):
+    async def test_validate_entra_token_missing_scope(self, validator_entra, mock_jwks_client):
         """Fail validation if required scope is missing."""
         token = "entra.missing.scope"
         payload_missing_scope = {
@@ -240,13 +247,13 @@ class TestTokenValidator:
             "iat": 1000000000,
         }
 
-        validator_entra._jwks_client = mock_signing_key
+        validator_entra._jwks_client = mock_jwks_client
         with patch("jwt.decode", return_value=payload_missing_scope):
             with pytest.raises(jwt.InvalidTokenError, match="Token missing required scope: user.read"):
                 await validator_entra.validate_token(token)
 
     @pytest.mark.asyncio
-    async def test_validate_entra_token_invalid_issuer(self, validator_entra, mock_signing_key):
+    async def test_validate_entra_token_invalid_issuer(self, validator_entra, mock_jwks_client):
         """Fail validation for invalid issuer."""
         token = "entra.invalid.issuer"
         payload_invalid_issuer = {
@@ -257,7 +264,7 @@ class TestTokenValidator:
             "iat": 1000000000,
         }
 
-        validator_entra._jwks_client = mock_signing_key
+        validator_entra._jwks_client = mock_jwks_client
         with patch(
             "jwt.decode", return_value=payload_invalid_issuer, side_effect=jwt.InvalidIssuerError("Invalid issuer")
         ):
@@ -265,7 +272,7 @@ class TestTokenValidator:
                 await validator_entra.validate_token(token)
 
     @pytest.mark.asyncio
-    async def test_validate_entra_token_invalid_audience(self, validator_entra, mock_signing_key):
+    async def test_validate_entra_token_invalid_audience(self, validator_entra, mock_jwks_client):
         """Fail validation for invalid audience."""
         token = "entra.invalid.aud"
         payload_invalid_aud = {
@@ -276,7 +283,7 @@ class TestTokenValidator:
             "iat": 1000000000,
         }
 
-        validator_entra._jwks_client = mock_signing_key
+        validator_entra._jwks_client = mock_jwks_client
         with patch(
             "jwt.decode", return_value=payload_invalid_aud, side_effect=jwt.InvalidAudienceError("Invalid audience")
         ):
