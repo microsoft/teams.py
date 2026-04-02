@@ -47,6 +47,10 @@ class TokenValidator:
         self.options = jwt_validation_options
         self._jwks_client = jwt.PyJWKClient(jwt_validation_options.jwks_uri)
 
+    @staticmethod
+    def _default_audiences(app_id: str) -> List[str]:
+        return [app_id, f"api://{app_id}", f"api://botid-{app_id}"]
+
     # ----- Factory constructors -----
     @classmethod
     def for_service(cls, app_id: str, service_url: Optional[str] = None) -> "TokenValidator":
@@ -60,20 +64,28 @@ class TokenValidator:
 
         options = JwtValidationOptions(
             valid_issuers=["https://api.botframework.com"],
-            valid_audiences=[app_id, f"api://{app_id}"],
+            valid_audiences=cls._default_audiences(app_id),
             jwks_uri="https://login.botframework.com/v1/.well-known/keys",
             service_url=service_url,
         )
         return cls(options)
 
     @classmethod
-    def for_entra(cls, app_id: str, tenant_id: Optional[str], scope: Optional[str] = None) -> "TokenValidator":
+    def for_entra(
+        cls,
+        app_id: str,
+        tenant_id: Optional[str],
+        scope: Optional[str] = None,
+        application_id_uri: Optional[str] = None,
+    ) -> "TokenValidator":
         """Create a validator for Entra ID tokens.
 
         Args:
             app_id: The app's Microsoft App ID (used for audience validation)
             tenant_id: The Azure AD tenant ID
             scope: Optional scope that must be present in the token
+            application_id_uri: Optional Application ID URI from Azure portal.
+                Matches webApplicationInfo.resource in the app manifest.
 
         """
 
@@ -81,9 +93,12 @@ class TokenValidator:
         if tenant_id:
             valid_issuers.append(f"https://login.microsoftonline.com/{tenant_id}/v2.0")
         tenant_id = tenant_id or "common"
+        valid_audiences = cls._default_audiences(app_id)
+        if application_id_uri:
+            valid_audiences.append(application_id_uri)
         options = JwtValidationOptions(
             valid_issuers=valid_issuers,
-            valid_audiences=[app_id, f"api://{app_id}"],
+            valid_audiences=valid_audiences,
             jwks_uri=f"https://login.microsoftonline.com/{tenant_id}/discovery/v2.0/keys",
             scope=scope,
         )
