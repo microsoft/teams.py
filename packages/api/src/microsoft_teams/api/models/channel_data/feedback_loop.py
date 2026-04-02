@@ -12,4 +12,4 @@ class FeedbackLoop(CustomBaseModel):
     """Configuration for a custom feedback loop on a message."""
 
     type: Literal["custom", "default"] = "custom"
-    """The type of feedback loop. Use "custom" to show a task module dialog."""
+    """The type of feedback loop. Use 'custom' to show a task module dialog."""
