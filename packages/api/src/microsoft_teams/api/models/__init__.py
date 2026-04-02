@@ -22,7 +22,7 @@ from . import (
     token,
     token_exchange,
 )
-from .account import Account, AccountRole, ConversationAccount, TeamsChannelAccount
+from .account import Account, AccountType, ConversationAccount, TeamsChannelAccount
 from .action import Action
 from .activity import Activity as ActivityBase
 from .activity import ActivityInput as ActivityInputBase
@@ -71,7 +71,7 @@ from .token_exchange import *  # noqa: F403
 # Combine all exports from submodules
 __all__: list[str] = [
     "Account",
-    "AccountRole",
+    "AccountType",
     "Action",
     "ActivityBase",
     "ActivityInputBase",

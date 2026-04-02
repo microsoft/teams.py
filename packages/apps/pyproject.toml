@@ -1,6 +1,6 @@
 [project]
 name = "microsoft-teams-apps"
-version = "2.0.0a9"
+dynamic = ["version"]
 description = "The app package for a Microsoft Teams agent"
 authors = [{ name = "Microsoft", email = "TeamsAISDKFeedback@microsoft.com" }]
 readme = "README.md"
@@ -15,10 +15,11 @@ dependencies = [
     "microsoft-teams-common",
     "uvicorn>=0.34.3",
     "cryptography>=3.4.0",
-    "pyjwt[crypto]>=2.10.0",
+    "pyjwt[crypto]>=2.12.0",
     "dependency-injector>=4.48.1",
     "msal>=1.33.0",
     "python-dotenv>=1.0.0",
+    "pydantic-settings>=2.11.0",
 ]
 
 [project.optional-dependencies]
@@ -34,14 +35,14 @@ test = [
 ]
 
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling", "nbgv-python"]
 build-backend = "hatchling.build"
 
-[tool.hatch.build.targets.wheel]
-packages = ["src/microsoft_teams", "src/microsoft", "scripts"]
+[tool.hatch.version]
+source = "nbgv"
 
-[project.scripts]
-generate-activity-handlers = "scripts.generate_handlers:generate_activity_handlers"
+[tool.hatch.build.targets.wheel]
+packages = ["src/microsoft_teams", "src/microsoft"]
 
 [tool.uv.sources]
 microsoft-teams-common = { workspace = true }

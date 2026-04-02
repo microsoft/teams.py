@@ -56,8 +56,8 @@ class TestHttpStream:
         )
 
     @pytest.fixture
-    def http_stream(self, mock_api_client, conversation_reference, mock_logger):
-        return HttpStream(mock_api_client, conversation_reference, mock_logger)
+    def http_stream(self, mock_api_client, conversation_reference):
+        return HttpStream(mock_api_client, conversation_reference)
 
     @pytest.fixture
     def patch_loop_call_later(self):
@@ -96,7 +96,7 @@ class TestHttpStream:
 
     @pytest.mark.asyncio
     async def test_stream_error_handled_gracefully(
-        self, mock_api_client, conversation_reference, mock_logger, patch_loop_call_later
+        self, mock_api_client, conversation_reference, patch_loop_call_later
     ):
         call_count = 0
         loop = asyncio.get_running_loop()
@@ -111,7 +111,7 @@ class TestHttpStream:
                 return SentActivity(id=f"success-after-timeout-{call_count}", activity_params=activity)
 
             mock_api_client.conversations.activities().create = mock_send_with_timeout
-            stream = HttpStream(mock_api_client, conversation_reference, mock_logger)
+            stream = HttpStream(mock_api_client, conversation_reference)
 
             stream.emit("Test message with timeout")
             await asyncio.sleep(0)
@@ -123,7 +123,7 @@ class TestHttpStream:
 
     @pytest.mark.asyncio
     async def test_stream_all_timeouts_fail_handled_gracefully(
-        self, mock_api_client, conversation_reference, mock_logger, patch_loop_call_later
+        self, mock_api_client, conversation_reference, patch_loop_call_later
     ):
         call_count = 0
         loop = asyncio.get_running_loop()
@@ -136,7 +136,7 @@ class TestHttpStream:
                 raise TimeoutError("All operations timed out")
 
             mock_api_client.conversations.activities().create = mock_send_all_timeout
-            stream = HttpStream(mock_api_client, conversation_reference, mock_logger)
+            stream = HttpStream(mock_api_client, conversation_reference)
 
             stream.emit("Test message with all timeouts")
             await asyncio.sleep(0)
@@ -146,12 +146,12 @@ class TestHttpStream:
 
     @pytest.mark.asyncio
     async def test_stream_update_status_sends_typing_activity(
-        self, mock_api_client, conversation_reference, mock_logger, patch_loop_call_later
+        self, mock_api_client, conversation_reference, patch_loop_call_later
     ):
         loop = asyncio.get_running_loop()
         patcher, scheduled = patch_loop_call_later(loop)
         with patcher:
-            stream = HttpStream(mock_api_client, conversation_reference, mock_logger)
+            stream = HttpStream(mock_api_client, conversation_reference)
             stream.update("Thinking...")
             await asyncio.sleep(0)
             await self._run_scheduled_flushes(scheduled)
@@ -166,12 +166,12 @@ class TestHttpStream:
 
     @pytest.mark.asyncio
     async def test_stream_sequence_of_update_and_emit(
-        self, mock_api_client, conversation_reference, mock_logger, patch_loop_call_later
+        self, mock_api_client, conversation_reference, patch_loop_call_later
     ):
         loop = asyncio.get_running_loop()
         patcher, scheduled = patch_loop_call_later(loop)
         with patcher:
-            stream = HttpStream(mock_api_client, conversation_reference, mock_logger)
+            stream = HttpStream(mock_api_client, conversation_reference)
             stream.update("Preparing response...")
             stream.emit("Final response message")
             await asyncio.sleep(0)
@@ -188,7 +188,7 @@ class TestHttpStream:
 
     @pytest.mark.asyncio
     async def test_stream_concurrent_emits_do_not_flush_simultaneously(
-        self, mock_api_client, conversation_reference, mock_logger, patch_loop_call_later
+        self, mock_api_client, conversation_reference, patch_loop_call_later
     ):
         concurrent_entries = 0
         max_concurrent_entries = 0
@@ -209,7 +209,7 @@ class TestHttpStream:
         mock_api_client.conversations.activities().create = mock_send
 
         with patcher:
-            stream = HttpStream(mock_api_client, conversation_reference, mock_logger)
+            stream = HttpStream(mock_api_client, conversation_reference)
 
             async def emit_task():
                 stream.emit("Concurrent message")

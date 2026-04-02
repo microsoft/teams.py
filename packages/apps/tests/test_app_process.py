@@ -9,18 +9,17 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from microsoft_teams.api import (
-    Account,
     Activity,
     ActivityBase,
-    ConversationAccount,
     ConversationReference,
     InvokeResponse,
-    MessageActivity,
     TokenProtocol,
 )
-from microsoft_teams.apps import ActivityContext, ActivityEvent, Sender
+from microsoft_teams.apps import ActivityContext, ActivityEvent
+from microsoft_teams.apps.activity_sender import ActivitySender
 from microsoft_teams.apps.app_events import EventManager
 from microsoft_teams.apps.app_process import ActivityProcessor
+from microsoft_teams.apps.events import CoreActivity
 from microsoft_teams.apps.routing.router import ActivityHandler, ActivityRouter
 from microsoft_teams.apps.token_manager import TokenManager
 from microsoft_teams.common import Client, LocalStorage
@@ -38,20 +37,25 @@ class TestActivityProcessor:
         return http_client
 
     @pytest.fixture
-    def activity_processor(self, mock_logger, mock_http_client):
+    def activity_processor(self, mock_http_client):
         """Create an ActivityProcessor instance."""
         mock_storage = MagicMock(spec=LocalStorage)
         mock_activity_router = MagicMock(spec=ActivityRouter)
         mock_token_manager = MagicMock(spec=TokenManager)
+        mock_activity_sender = MagicMock(spec=ActivitySender)
+        # Mock the stream object with async close
+        mock_stream = MagicMock()
+        mock_stream.close = AsyncMock()
+        mock_activity_sender.create_stream.return_value = mock_stream
         return ActivityProcessor(
             mock_activity_router,
-            mock_logger,
             "id",
             mock_storage,
             "default_connection",
             mock_http_client,
             mock_token_manager,
             None,
+            mock_activity_sender,
         )
 
     @pytest.mark.asyncio
@@ -64,20 +68,21 @@ class TestActivityProcessor:
         assert response is None
 
     @pytest.mark.asyncio
-    async def test_execute_middleware_chain_with_two_handlers(self, activity_processor, mock_http_client, mock_logger):
+    async def test_execute_middleware_chain_with_two_handlers(self, activity_processor, mock_http_client):
         """Test the execute_middleware_chain method with two handlers."""
+        mock_activity_sender = MagicMock(spec=ActivitySender)
+        mock_activity_sender.create_stream.return_value = MagicMock()
         context = ActivityContext(
             activity=MagicMock(spec=ActivityBase),
             app_id="app_id",
-            logger=mock_logger,
             storage=MagicMock(spec=LocalStorage),
             api=mock_http_client,
             user_token=None,
             conversation_ref=MagicMock(spec=ConversationReference),
             is_signed_in=True,
             connection_name="default_connection",
-            sender=MagicMock(spec=Sender),
-            app_token=None,
+            activity_sender=mock_activity_sender,
+            app_token=lambda: None,
         )
 
         handler_one = AsyncMock(spec=ActivityHandler)
@@ -118,35 +123,32 @@ class TestActivityProcessor:
         """Test process_activity with different middleware return values."""
         # Setup mocks
         mock_plugins = []
-        mock_sender = MagicMock()
-        stream = MagicMock()
-        stream.close = AsyncMock()
-        mock_sender.create_stream.return_value = stream
 
-        # Create real activity and event
-        mock_account = Account(id="user-123", name="Test User")
-        mock_conversation = ConversationAccount(id="conv-789")
-        mock_bot = Account(id="bot-456", name="Test Bot")
-        activity = MessageActivity(
+        # Create core activity with required fields for MessageActivity
+        core_activity = CoreActivity(
             type="message",
-            text="Test message",
-            from_=mock_account,
-            conversation=mock_conversation,
-            recipient=mock_bot,
             id="activity-123",
             service_url="https://service.url",
+            **{
+                "from": {"id": "user-123", "name": "Test User"},
+                "conversation": {"id": "conv-789"},
+                "recipient": {"id": "bot-456", "name": "Test Bot"},
+                "channelId": "msteams",
+            },
         )
         mock_token = MagicMock(spec=TokenProtocol)
-        mock_activity_event = ActivityEvent(activity=activity, sender=mock_sender, token=mock_token)
+        mock_token.service_url = "https://service.url"
+        mock_activity_event = ActivityEvent(body=core_activity, token=mock_token)
 
         # Setup processor mocks
         activity_processor.router.select_handlers = MagicMock(return_value=[])
         activity_processor.execute_middleware_chain = AsyncMock(return_value=middleware_result)
         activity_processor.event_manager = MagicMock()
         activity_processor.event_manager.on_activity_response = AsyncMock()
+        activity_processor.event_manager.on_error = AsyncMock()
 
         # Act
-        result = await activity_processor.process_activity(mock_plugins, mock_sender, mock_activity_event)
+        result = await activity_processor.process_activity(mock_plugins, mock_activity_event)
 
         # Assert
         assert result.status == expected_result.status
@@ -157,26 +159,22 @@ class TestActivityProcessor:
         """Test process_activity raises exception when middleware chain fails."""
         # Setup mocks
         mock_plugins = []
-        mock_sender = MagicMock()
-        stream = MagicMock()
-        stream.close = AsyncMock()
-        mock_sender.create_stream.return_value = stream
 
-        # Create real activity and event
-        mock_account = Account(id="user-123", name="Test User")
-        mock_conversation = ConversationAccount(id="conv-789")
-        mock_bot = Account(id="bot-456", name="Test Bot")
-        activity = MessageActivity(
+        # Create core activity with required fields for MessageActivity
+        core_activity = CoreActivity(
             type="message",
-            text="Test message",
-            from_=mock_account,
-            conversation=mock_conversation,
-            recipient=mock_bot,
             id="activity-123",
             service_url="https://service.url",
+            **{
+                "from": {"id": "user-123", "name": "Test User"},
+                "conversation": {"id": "conv-789"},
+                "recipient": {"id": "bot-456", "name": "Test Bot"},
+                "channelId": "msteams",
+            },
         )
         mock_token = MagicMock(spec=TokenProtocol)
-        mock_activity_event = ActivityEvent(activity=activity, sender=mock_sender, token=mock_token)
+        mock_token.service_url = "https://service.url"
+        mock_activity_event = ActivityEvent(body=core_activity, token=mock_token)
 
         # Setup processor mocks
         activity_processor.router.select_handlers = MagicMock(return_value=[])
@@ -188,7 +186,7 @@ class TestActivityProcessor:
 
         # Act & Assert - expect exception to be raised
         with pytest.raises(Exception, match="Test exception"):
-            await activity_processor.process_activity(mock_plugins, mock_sender, mock_activity_event)
+            await activity_processor.process_activity(mock_plugins, mock_activity_event)
 
         # Assert error event was called
         assert activity_processor.event_manager.on_error.called

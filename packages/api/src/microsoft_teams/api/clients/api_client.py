@@ -13,6 +13,7 @@ from .base_client import BaseClient
 from .bot import BotClient
 from .conversation import ConversationClient
 from .meeting import MeetingClient
+from .reaction import ReactionClient
 from .team import TeamClient
 from .user import UserClient
 
@@ -34,14 +35,22 @@ class ApiClient(BaseClient):
             api_client_settings: Optional API client settings.
         """
         super().__init__(options, api_client_settings)
-        self.service_url = service_url
+        self.service_url = service_url.rstrip("/")
 
         # Initialize all client types
         self.bots = BotClient(self._http, self._api_client_settings)
         self.users = UserClient(self._http, self._api_client_settings)
-        self.conversations = ConversationClient(service_url, self._http, self._api_client_settings)
-        self.teams = TeamClient(service_url, self._http, self._api_client_settings)
-        self.meetings = MeetingClient(service_url, self._http, self._api_client_settings)
+        self.conversations = ConversationClient(self.service_url, self._http, self._api_client_settings)
+        self.teams = TeamClient(self.service_url, self._http, self._api_client_settings)
+        self.meetings = MeetingClient(self.service_url, self._http, self._api_client_settings)
+        self._reactions: Optional[ReactionClient] = None
+
+    @property
+    def reactions(self) -> ReactionClient:
+        """Get the reactions client (preview). Lazily instantiated to avoid warnings for non-users."""
+        if self._reactions is None:
+            self._reactions = ReactionClient(self.service_url, self._http, self._api_client_settings)
+        return self._reactions
 
     @property
     def http(self) -> HttpClient:
@@ -56,4 +65,6 @@ class ApiClient(BaseClient):
         self.users.http = value
         self.teams.http = value
         self.meetings.http = value
+        if self._reactions is not None:
+            self._reactions.http = value
         self._http = value

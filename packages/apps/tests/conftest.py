@@ -3,6 +3,8 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
+import logging
+
 import pytest
 from microsoft_teams.api import (
     Account,
@@ -32,6 +34,18 @@ def reset_environment():
     os.environ.update(original_env)
 
 
+@pytest.fixture(autouse=True)
+def configure_logging():
+    """Configure logging for tests to ensure DEBUG logs are captured."""
+    # Set the microsoft_teams logger to DEBUG level so caplog can capture DEBUG logs
+    logger = logging.getLogger("microsoft_teams")
+    original_level = logger.level
+    logger.setLevel(logging.DEBUG)
+    yield
+    # Restore original level after test
+    logger.setLevel(original_level)
+
+
 @pytest.fixture
 def mock_account():
     """Create a mock account for testing."""
@@ -51,9 +65,29 @@ def mock_activity():
 
 @pytest.fixture
 def mock_conversation_resource():
-    """Create a mock conversation resource for testing."""
+    """Create a mock conversation resource with activity and service_url for testing."""
     return ConversationResource(
         id="mock_conversation_id",
         activity_id="mock_activity_id",
         service_url="https://mock.service.url",
+    )
+
+
+@pytest.fixture
+def mock_conversation_resource_without_activity():
+    """Create a mock conversation resource without activity for testing."""
+    return ConversationResource(
+        id="mock_conversation_id",
+        activity_id=None,
+        service_url="https://mock.service.url",
+    )
+
+
+@pytest.fixture
+def mock_conversation_resource_minimal():
+    """Create a minimal mock conversation resource with only required fields."""
+    return ConversationResource(
+        id="mock_conversation_id",
+        activity_id=None,
+        service_url=None,
     )

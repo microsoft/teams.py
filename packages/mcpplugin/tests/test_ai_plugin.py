@@ -5,6 +5,7 @@ Licensed under the MIT License.
 
 import asyncio
 import inspect
+import json
 import time
 from contextlib import asynccontextmanager
 from typing import Any, Dict, List, Optional, Tuple
@@ -440,6 +441,58 @@ class TestMcpClientPlugin:
             assert "weather" in function_names
 
     @pytest.mark.asyncio
+    async def test_cache_initialization_sets_last_fetched_when_missing(self, sample_tools: List[MockMCPTool]):
+        """__init__ sets last_fetched on cache entries that have tools but no timestamp."""
+        tool_details = [
+            McpToolDetails(name=tool.name, description=tool.description, input_schema=tool.inputSchema)
+            for tool in sample_tools[:1]
+        ]
+
+        cached_value = McpCachedValue(available_tools=tool_details, last_fetched=None)
+        assert cached_value.last_fetched is None
+
+        before = time.time() * 1000
+        plugin = McpClientPlugin(cache={"http://test-server": cached_value})
+        after = time.time() * 1000
+
+        assert plugin.cache["http://test-server"].last_fetched is not None
+        assert before <= plugin.cache["http://test-server"].last_fetched <= after  # type: ignore[operator]
+
+    @pytest.mark.asyncio
+    async def test_partial_server_failure_skip_succeeds_other_cached(self, sample_tools: List[MockMCPTool]):
+        """When one server fails with skip_if_unavailable=True and another succeeds, good server tools are cached."""
+        good_session = MockClientSession(tools=[sample_tools[0]])
+        connection_error = ConnectionError("bad server down")
+
+        call_count = 0
+
+        def transport_factory(url, transport_type, headers=None):
+            nonlocal call_count
+            call_count += 1
+            mock = MagicMock()
+            if "bad" in url:
+                mock.__aenter__ = AsyncMock(side_effect=connection_error)
+            else:
+                mock.__aenter__ = AsyncMock(return_value=(MagicMock(), MagicMock()))
+            mock.__aexit__ = AsyncMock(return_value=None)
+            return mock
+
+        with (
+            patch("microsoft_teams.mcpplugin.ai_plugin.create_transport", side_effect=transport_factory),
+            patch("microsoft_teams.mcpplugin.ai_plugin.ClientSession", return_value=good_session),
+        ):
+            plugin = McpClientPlugin()
+            plugin.use_mcp_server("http://good-server", McpClientPluginParams(skip_if_unavailable=False))
+            plugin.use_mcp_server("http://bad-server", McpClientPluginParams(skip_if_unavailable=True))
+
+            functions = await plugin.on_build_functions([])
+
+        assert len(functions) == 1
+        assert functions[0].name == "calculator"
+        assert "http://good-server" in plugin.cache
+        assert "http://bad-server" not in plugin.cache
+
+    @pytest.mark.asyncio
     async def test_predefined_tools_not_fetched(self, sample_tools: List[MockMCPTool]):
         """Test that predefined tools are not fetched from server."""
         tool_details = [
@@ -459,3 +512,92 @@ class TestMcpClientPlugin:
             function_names = [f.name for f in functions]
             assert "calculator" in function_names
             assert "weather" in function_names
+
+
+class TestCallMcpToolContentHandling:
+    """Tests for _call_mcp_tool content processing branches."""
+
+    @pytest.fixture
+    def plugin(self):
+        return McpClientPlugin()
+
+    @pytest.fixture
+    def mock_transport(self):
+        transport = MagicMock()
+        transport.__aenter__ = AsyncMock(return_value=(MagicMock(), MagicMock()))
+        transport.__aexit__ = AsyncMock(return_value=False)
+        return transport
+
+    def _make_session(self, call_result):
+        session = AsyncMock()
+        session.initialize = AsyncMock()
+        session.call_tool = AsyncMock(return_value=call_result)
+        session.__aenter__ = AsyncMock(return_value=session)
+        session.__aexit__ = AsyncMock(return_value=False)
+        return session
+
+    @pytest.mark.asyncio
+    async def test_empty_content_returns_none(self, plugin, mock_transport):
+        """When result.content is empty, returns None."""
+        mock_result = MagicMock()
+        mock_result.content = []
+        session = self._make_session(mock_result)
+
+        with (
+            patch("microsoft_teams.mcpplugin.ai_plugin.create_transport", return_value=mock_transport),
+            patch("microsoft_teams.mcpplugin.ai_plugin.ClientSession", return_value=session),
+        ):
+            result = await plugin._call_mcp_tool("http://server", "tool", {}, McpClientPluginParams())
+
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_single_non_text_content_returns_str(self, plugin, mock_transport):
+        """Single non-TextContent item falls back to str(item)."""
+        non_text = MagicMock()
+        mock_result = MagicMock()
+        mock_result.content = [non_text]
+        session = self._make_session(mock_result)
+
+        with (
+            patch("microsoft_teams.mcpplugin.ai_plugin.create_transport", return_value=mock_transport),
+            patch("microsoft_teams.mcpplugin.ai_plugin.ClientSession", return_value=session),
+        ):
+            result = await plugin._call_mcp_tool("http://server", "tool", {}, McpClientPluginParams())
+
+        assert result == str(non_text)
+
+    @pytest.mark.asyncio
+    async def test_multiple_items_non_text_json_serialized(self, plugin, mock_transport):
+        """Multiple items: TextContent uses .text; non-TextContent is JSON serialized."""
+        text_item = TextContent(type="text", text="hello")
+        non_text = {"type": "image", "url": "http://example.com/img.png"}
+        mock_result = MagicMock()
+        mock_result.content = [text_item, non_text]
+        session = self._make_session(mock_result)
+
+        with (
+            patch("microsoft_teams.mcpplugin.ai_plugin.create_transport", return_value=mock_transport),
+            patch("microsoft_teams.mcpplugin.ai_plugin.ClientSession", return_value=session),
+        ):
+            result = await plugin._call_mcp_tool("http://server", "tool", {}, McpClientPluginParams())
+
+        assert result == ["hello", json.dumps(non_text, default=str, ensure_ascii=False)]
+
+    @pytest.mark.asyncio
+    async def test_multiple_items_json_serialization_fallback(self, plugin, mock_transport):
+        """When JSON serialization raises, falls back to str(item)."""
+        text_item = TextContent(type="text", text="hello")
+        non_text = MagicMock()
+        mock_result = MagicMock()
+        mock_result.content = [text_item, non_text]
+        session = self._make_session(mock_result)
+
+        with (
+            patch("microsoft_teams.mcpplugin.ai_plugin.create_transport", return_value=mock_transport),
+            patch("microsoft_teams.mcpplugin.ai_plugin.ClientSession", return_value=session),
+            patch("microsoft_teams.mcpplugin.ai_plugin.json.dumps", side_effect=TypeError("not serializable")),
+        ):
+            result = await plugin._call_mcp_tool("http://server", "tool", {}, McpClientPluginParams())
+
+        assert result == ["hello", str(non_text)]

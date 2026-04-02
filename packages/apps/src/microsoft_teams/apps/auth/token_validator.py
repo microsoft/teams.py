@@ -3,14 +3,15 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
+import logging
 from dataclasses import dataclass
-from logging import Logger
 from typing import Any, Dict, List, Optional
 
 import jwt
-from microsoft_teams.common.logging import ConsoleLogger
 
 JWT_LEEWAY_SECONDS = 300  # Allowable clock skew when validating JWTs
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -36,41 +37,46 @@ class TokenValidator:
     JWT token validator using PyJWKClient for simplified validation.
     """
 
-    def __init__(self, jwt_validation_options: JwtValidationOptions, logger: Optional[Logger] = None):
+    def __init__(self, jwt_validation_options: JwtValidationOptions):
         """
         Initialize the token validator.
 
         Args:
             jwt_validation_options: Configuration for JWT validation
         """
-        self.logger = logger or ConsoleLogger().create_logger("@teams/token-validator")
         self.options = jwt_validation_options
+        self._jwks_client = jwt.PyJWKClient(jwt_validation_options.jwks_uri)
+
+    @staticmethod
+    def _default_audiences(app_id: str) -> List[str]:
+        return [app_id, f"api://{app_id}", f"api://botid-{app_id}"]
 
     # ----- Factory constructors -----
     @classmethod
-    def for_service(
-        cls, app_id: str, logger: Optional[Logger] = None, service_url: Optional[str] = None
-    ) -> "TokenValidator":
+    def for_service(cls, app_id: str, service_url: Optional[str] = None) -> "TokenValidator":
         """Create a validator for Bot Framework service tokens.
 
         Reference: https://learn.microsoft.com/en-us/azure/bot-service/rest-api/bot-framework-rest-connector-authentication
 
         Args:
             app_id: The bot's Microsoft App ID (used for audience validation)
-            service_url: Optional service URL to validate against token claims
-            logger: Optional logger instance"""
+            service_url: Optional service URL to validate against token claims"""
 
         options = JwtValidationOptions(
             valid_issuers=["https://api.botframework.com"],
-            valid_audiences=[app_id, f"api://{app_id}"],
+            valid_audiences=cls._default_audiences(app_id),
             jwks_uri="https://login.botframework.com/v1/.well-known/keys",
             service_url=service_url,
         )
-        return cls(options, logger)
+        return cls(options)
 
     @classmethod
     def for_entra(
-        cls, app_id: str, tenant_id: Optional[str], scope: Optional[str] = None, logger: Optional[Logger] = None
+        cls,
+        app_id: str,
+        tenant_id: Optional[str],
+        scope: Optional[str] = None,
+        application_id_uri: Optional[str] = None,
     ) -> "TokenValidator":
         """Create a validator for Entra ID tokens.
 
@@ -78,7 +84,8 @@ class TokenValidator:
             app_id: The app's Microsoft App ID (used for audience validation)
             tenant_id: The Azure AD tenant ID
             scope: Optional scope that must be present in the token
-            logger: Optional logger instance
+            application_id_uri: Optional Application ID URI from Azure portal.
+                Matches webApplicationInfo.resource in the app manifest.
 
         """
 
@@ -86,13 +93,16 @@ class TokenValidator:
         if tenant_id:
             valid_issuers.append(f"https://login.microsoftonline.com/{tenant_id}/v2.0")
         tenant_id = tenant_id or "common"
+        valid_audiences = cls._default_audiences(app_id)
+        if application_id_uri:
+            valid_audiences.append(application_id_uri)
         options = JwtValidationOptions(
             valid_issuers=valid_issuers,
-            valid_audiences=[app_id, f"api://{app_id}"],
+            valid_audiences=valid_audiences,
             jwks_uri=f"https://login.microsoftonline.com/{tenant_id}/discovery/v2.0/keys",
             scope=scope,
         )
-        return cls(options, logger)
+        return cls(options)
 
     async def validate_token(
         self, raw_token: str, service_url: Optional[str] = None, scope: Optional[str] = None
@@ -112,13 +122,11 @@ class TokenValidator:
             jwt.InvalidTokenError: When token validation fails
         """
         if not raw_token:
-            self.logger.error("No token provided")
+            logger.error("No token provided")
             raise jwt.InvalidTokenError("No token provided")
 
         try:
-            jwks_client = jwt.PyJWKClient(self.options.jwks_uri)
-            # Get signing key automatically from JWKS
-            signing_key = jwks_client.get_signing_key_from_jwt(raw_token)
+            signing_key = self._jwks_client.get_signing_key_from_jwt(raw_token)
 
             # Validate token
             payload: Dict[str, Any] = jwt.decode(
@@ -146,11 +154,11 @@ class TokenValidator:
             if required_scope:
                 self._validate_scope(payload, required_scope)
 
-            self.logger.debug("Token validation successful")
+            logger.debug("Token validation successful")
             return payload
 
         except jwt.InvalidTokenError as e:
-            self.logger.error(f"Token validation failed: {e}")
+            logger.error(f"Token validation failed: {e}")
             raise
 
     def _validate_service_url(self, payload: Dict[str, Any], expected_service_url: str) -> None:
@@ -163,7 +171,7 @@ class TokenValidator:
         token_service_url = payload.get("serviceurl")
 
         if not token_service_url:
-            self.logger.error("Token missing serviceurl claim")
+            logger.error("Token missing serviceurl claim")
             raise jwt.InvalidTokenError("Token missing serviceurl claim")
 
         # Normalize URLs (remove trailing slashes)
@@ -171,9 +179,7 @@ class TokenValidator:
         normalized_expected_url = expected_service_url.rstrip("/")
 
         if normalized_token_url != normalized_expected_url:
-            self.logger.error(
-                f"Service URL mismatch. Token: {normalized_token_url}, Expected: {normalized_expected_url}"
-            )
+            logger.error(f"Service URL mismatch. Token: {normalized_token_url}, Expected: {normalized_expected_url}")
             raise jwt.InvalidTokenError(
                 f"Service URL mismatch. Token: {normalized_token_url}, Expected: {normalized_expected_url}"
             )
@@ -187,5 +193,5 @@ class TokenValidator:
         """
         scopes = payload.get("scp", "") or ""
         if required_scope not in scopes:
-            self.logger.error(f"Token missing required scope: {required_scope}")
+            logger.error(f"Token missing required scope: {required_scope}")
             raise jwt.InvalidTokenError(f"Token missing required scope: {required_scope}")

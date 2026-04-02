@@ -3,7 +3,7 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from typing import Dict, Optional, Union
+from typing import Optional, Union
 
 from microsoft_teams.common.http import Client, ClientOptions
 
@@ -12,11 +12,7 @@ from ..api_client_settings import ApiClientSettings
 from ..base_client import BaseClient
 from .activity import ActivityParams, ConversationActivityClient
 from .member import ConversationMemberClient
-from .params import (
-    CreateConversationParams,
-    GetConversationsParams,
-    GetConversationsResponse,
-)
+from .params import CreateConversationParams
 
 
 class ConversationOperations:
@@ -45,6 +41,18 @@ class ActivityOperations(ConversationOperations):
     async def get_members(self, activity_id: str):
         return await self._client.activities_client.get_members(self._conversation_id, activity_id)
 
+    async def create_targeted(self, activity: ActivityParams):
+        """Create a new targeted activity visible only to the specified recipient."""
+        return await self._client.activities_client.create_targeted(self._conversation_id, activity)
+
+    async def update_targeted(self, activity_id: str, activity: ActivityParams):
+        """Update an existing targeted activity."""
+        return await self._client.activities_client.update_targeted(self._conversation_id, activity_id, activity)
+
+    async def delete_targeted(self, activity_id: str):
+        """Delete a targeted activity."""
+        await self._client.activities_client.delete_targeted(self._conversation_id, activity_id)
+
 
 class MemberOperations(ConversationOperations):
     """Operations for managing members in a conversation."""
@@ -52,11 +60,11 @@ class MemberOperations(ConversationOperations):
     async def get_all(self):
         return await self._client.members_client.get(self._conversation_id)
 
+    async def get_paged(self, page_size: Optional[int] = None, continuation_token: Optional[str] = None):
+        return await self._client.members_client.get_paged(self._conversation_id, page_size, continuation_token)
+
     async def get(self, member_id: str):
         return await self._client.members_client.get_by_id(self._conversation_id, member_id)
-
-    async def delete(self, member_id: str) -> None:
-        await self._client.members_client.delete(self._conversation_id, member_id)
 
 
 class ConversationClient(BaseClient):
@@ -76,10 +84,10 @@ class ConversationClient(BaseClient):
             api_client_settings: Optional API client settings.
         """
         super().__init__(options, api_client_settings)
-        self.service_url = service_url
+        self.service_url = service_url.rstrip("/")
 
-        self._activities_client = ConversationActivityClient(service_url, self.http, self._api_client_settings)
-        self._members_client = ConversationMemberClient(service_url, self.http, self._api_client_settings)
+        self._activities_client = ConversationActivityClient(self.service_url, self.http, self._api_client_settings)
+        self._members_client = ConversationMemberClient(self.service_url, self.http, self._api_client_settings)
 
     @property
     def http(self) -> Client:
@@ -124,25 +132,6 @@ class ConversationClient(BaseClient):
             An operations object for managing members in the conversation.
         """
         return MemberOperations(self, conversation_id)
-
-    async def get(self, params: Optional[GetConversationsParams] = None) -> GetConversationsResponse:
-        """Get a list of conversations.
-
-        Args:
-            params: Optional parameters for getting conversations.
-
-        Returns:
-            A response containing the list of conversations and a continuation token.
-        """
-        query_params: Dict[str, str] = {}
-        if params and params.continuation_token:
-            query_params["continuationToken"] = params.continuation_token
-
-        response = await self.http.get(
-            f"{self.service_url}/v3/conversations",
-            params=query_params,
-        )
-        return GetConversationsResponse.model_validate(response.json())
 
     async def create(self, params: CreateConversationParams) -> ConversationResource:
         """Create a new conversation.

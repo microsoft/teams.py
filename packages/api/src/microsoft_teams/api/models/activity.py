@@ -3,6 +3,7 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
+import warnings
 from datetime import datetime
 from typing import Any, List, Optional, Self
 
@@ -12,7 +13,6 @@ from microsoft_teams.api.models.channel_data.channel_info import ChannelInfo
 from microsoft_teams.api.models.channel_data.notification_info import NotificationInfo
 from microsoft_teams.api.models.channel_data.team_info import TeamInfo
 from microsoft_teams.api.models.channel_id import ChannelID
-from microsoft_teams.api.models.conversation.conversation_reference import ConversationReference
 from microsoft_teams.api.models.entity.ai_message_entity import AIMessageEntity
 from microsoft_teams.api.models.entity.citation_entity import (
     Appearance,
@@ -24,6 +24,7 @@ from microsoft_teams.api.models.entity.citation_entity import (
 from microsoft_teams.api.models.entity.entity import Entity
 from microsoft_teams.api.models.entity.message_entity import MessageEntity
 from microsoft_teams.api.models.meetings.meeting_info import MeetingInfo
+from microsoft_teams.common.experimental import ExperimentalWarning
 
 from .custom_base_model import CustomBaseModel
 
@@ -59,9 +60,6 @@ class _ActivityBase(CustomBaseModel):
 
     conversation: ConversationAccount
     """Identifies the conversation to which the activity belongs."""
-
-    relates_to: Optional[ConversationReference] = None
-    """A reference to another conversation or activity."""
 
     reply_to_id: Optional[str] = None
     """Contains the ID of the message to which this message is a reply."""
@@ -144,14 +142,32 @@ class ActivityInput(_ActivityBase):
         self.conversation = value
         return self
 
-    def with_relates_to(self, value: ConversationReference) -> Self:
-        """Set the relates_to field."""
-        self.relates_to = value
-        return self
+    def with_recipient(self, value: Account, is_targeted: Optional[bool] = None) -> Self:
+        """
+        Set the recipient.
 
-    def with_recipient(self, value: Account) -> Self:
-        """Set the recipient."""
-        self.recipient = value
+        Args:
+            value: The recipient account
+            is_targeted: If True, marks this as a targeted message visible only to this
+                recipient. If False or None (the default), targeted routing is cleared.
+
+                .. warning:: Preview
+                    The ``is_targeted`` parameter is in preview and may change or be
+                    removed in future versions. Diagnostic: ExperimentalTeamsTargeted
+
+        Returns:
+            Self for method chaining
+        """
+        recipient = value.model_copy()
+        recipient.is_targeted = True if is_targeted is True else None
+        self.recipient = recipient
+        if is_targeted is True:
+            warnings.warn(
+                "The is_targeted parameter of with_recipient is in preview and may change "
+                "or be removed in future versions. Diagnostic: ExperimentalTeamsTargeted",
+                ExperimentalWarning,
+                stacklevel=2,
+            )
         return self
 
     def with_service_url(self, value: str) -> Self:

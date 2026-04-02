@@ -5,8 +5,8 @@ Licensed under the MIT License.
 
 import base64
 import json
+import logging
 from dataclasses import dataclass
-from logging import Logger
 from typing import TYPE_CHECKING, Any, Awaitable, Callable, Generic, Optional, TypeVar, cast
 
 from microsoft_teams.api import (
@@ -36,14 +36,13 @@ from microsoft_teams.cards import AdaptiveCard
 from microsoft_teams.common import Storage
 from microsoft_teams.common.http.client_token import Token
 
+from ..activity_sender import ActivitySender
+
 if TYPE_CHECKING:
     from msgraph.graph_service_client import GraphServiceClient
 
-from ..plugins import Sender
-
 T = TypeVar("T", bound=ActivityBase, contravariant=True)
-
-SendCallable = Callable[[str | ActivityParams | AdaptiveCard], Awaitable[SentActivity]]
+logger = logging.getLogger(__name__)
 
 
 def _get_graph_client(token: Token):
@@ -54,9 +53,7 @@ def _get_graph_client(token: Token):
         return get_graph_client(token)
     except ImportError as exc:
         raise ImportError(
-            "Graph functionality not available. "
-            "Install with 'uv add microsoft-teams-apps[graph]' (recommended) "
-            "or 'pip install microsoft-teams-apps[graph]'"
+            "Graph functionality not available. Install with 'pip install microsoft-teams-apps[graph]'"
         ) from exc
 
 
@@ -89,14 +86,13 @@ class ActivityContext(Generic[T]):
         self,
         activity: T,
         app_id: str,
-        logger: Logger,
         storage: Storage[str, Any],
         api: ApiClient,
         user_token: Optional[str],
         conversation_ref: ConversationReference,
         is_signed_in: bool,
         connection_name: str,
-        sender: Sender,
+        activity_sender: ActivitySender,
         app_token: Token,
     ):
         self.activity = activity
@@ -108,9 +104,9 @@ class ActivityContext(Generic[T]):
         self.user_token = user_token
         self.connection_name = connection_name
         self.is_signed_in = is_signed_in
-        self._plugin = sender
+        self._activity_sender = activity_sender
         self._app_token = app_token
-        self.stream = self._plugin.create_stream(self.conversation_ref)
+        self.stream = activity_sender.create_stream(conversation_ref)
 
         self._next_handler: Optional[Callable[[], Awaitable[None]]] = None
 
@@ -177,7 +173,7 @@ class ActivityContext(Generic[T]):
 
         Args:
             message: The message to send, can be a string, ActivityParams, or AdaptiveCard
-            conversation_id: Optional conversation ID to override the current conversation reference
+            conversation_ref: Optional conversation reference to override the current conversation reference
         """
         if isinstance(message, str):
             activity = MessageActivityInput(text=message)
@@ -187,7 +183,7 @@ class ActivityContext(Generic[T]):
             activity = message
 
         ref = conversation_ref or self.conversation_ref
-        res = await self._plugin.send(activity, ref)
+        res = await self._activity_sender.send(activity, ref)
         return res
 
     async def reply(self, input: str | ActivityParams) -> SentActivity:
@@ -265,7 +261,6 @@ class ActivityContext(Generic[T]):
         token_exchange_state = TokenExchangeState(
             connection_name=connection_name,
             conversation=self.conversation_ref,
-            relates_to=self.activity.relates_to,
             ms_app_id=self.app_id,
         )
 
@@ -277,8 +272,6 @@ class ActivityContext(Generic[T]):
             one_on_one_conversation = await self.api.conversations.create(
                 CreateConversationParams(
                     tenant_id=self.activity.conversation.tenant_id,
-                    is_group=False,
-                    bot=self.activity.recipient,
                     members=[self.activity.from_],
                 )
             )
@@ -292,7 +285,7 @@ class ActivityContext(Generic[T]):
         resource_params = GetBotSignInResourceParams(state=state)
         resource = await self.api.bots.sign_in.get_resource(resource_params)
 
-        payload = MessageActivityInput(recipient=self.activity.from_, input_hint="acceptingInput").add_attachments(
+        payload = MessageActivityInput(recipient=self.activity.from_).add_attachments(
             card_attachment(
                 attachment=OAuthCardAttachment(
                     content=OAuthCard(

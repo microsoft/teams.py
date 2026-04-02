@@ -4,6 +4,7 @@ Licensed under the MIT License.
 """
 # pyright: basic
 
+import json
 import os
 from pathlib import Path
 from typing import Any, Optional
@@ -85,50 +86,71 @@ def mock_transport():
                 "tokenExchangeResource": {"id": "mock_resource_id"},
             }
         elif "/v3/teams/" in str(request.url) and "/conversations" in str(request.url):
-            response_data = [
-                {
-                    "id": "mock_channel_id_1",
-                    "name": "General",
-                    "type": "standard",
-                },
-                {
-                    "id": "mock_channel_id_2",
-                    "name": "Random",
-                    "type": "standard",
-                },
-            ]
+            response_data = {
+                "conversations": [
+                    {
+                        "id": "mock_channel_id_1",
+                        "name": "General",
+                        "type": "standard",
+                    },
+                    {
+                        "id": "mock_channel_id_2",
+                        "name": "Random",
+                        "type": "standard",
+                    },
+                ]
+            }
+        elif "/conversations/" in str(request.url) and "/pagedMembers" in str(request.url):
+            response_data = {
+                "members": [
+                    {
+                        "id": "mock_member_id",
+                        "name": "Mock Member",
+                        "aadObjectId": "mock_aad_object_id",
+                    }
+                ],
+                "continuationToken": "mock_continuation_token",
+            }
+        elif "/notification" in str(request.url) and request.method == "POST":
+            response_data = {
+                "recipientsFailureInfo": [
+                    {
+                        "recipientMri": "8:orgid:mock_recipient",
+                        "errorCode": "BadArgument",
+                        "failureReason": "Invalid recipient",
+                    }
+                ]
+            }
         elif "/conversations/" in str(request.url) and str(request.url).endswith("/members"):
             response_data = [
                 {
                     "id": "mock_member_id",
                     "name": "Mock Member",
-                    "objectId": "mock_object_id",
+                    "aadObjectId": "mock_aad_object_id",
                 }
             ]
         elif "/conversations/" in str(request.url) and "/members/" in str(request.url) and request.method == "GET":
             response_data = {
                 "id": "mock_member_id",
                 "name": "Mock Member",
-                "objectId": "mock_object_id",
-            }
-        elif "/conversations" in str(request.url) and request.method == "GET":
-            response_data = {
-                "conversations": [
-                    {
-                        "id": "mock_conversation_id",
-                        "conversationType": "personal",
-                        "isGroup": True,
-                    }
-                ],
-                "continuationToken": "mock_continuation_token",
+                "aadObjectId": "mock_aad_object_id",
             }
         elif "/conversations" in str(request.url) and request.method == "POST":
+            # Parse request body to check if activity is present
+            try:
+                body = json.loads(request.content.decode("utf-8"))
+                has_activity = "activity" in body and body["activity"] is not None
+            except (json.JSONDecodeError, AttributeError):
+                has_activity = False
+
             response_data = {
                 "id": "mock_conversation_id",
-                "type": "message",
-                "activityId": "mock_activity_id",
                 "serviceUrl": "https://mock.service.url",
             }
+            # Only include activityId if an activity was sent
+            if has_activity:
+                response_data["activityId"] = "mock_activity_id"
+                response_data["type"] = "message"
         elif "/activities" in str(request.url):
             if request.method == "POST":
                 response_data = {
@@ -196,6 +218,10 @@ def mock_transport():
                 "channelCount": 5,
                 "memberCount": 15,
             }
+        elif "/reactions/" in str(request.url):
+            # Handle reaction endpoints - both PUT (add) and DELETE (remove)
+            # These endpoints typically return 200 with empty response or minimal response
+            response_data = {"ok": True}
 
         return httpx.Response(
             status_code=200,
@@ -367,11 +393,31 @@ def mock_activity():
 
 @pytest.fixture
 def mock_conversation_resource():
-    """Create a mock conversation resource for testing."""
+    """Create a mock conversation resource with activity and service_url for testing."""
     return ConversationResource(
         id="mock_conversation_id",
         activity_id="mock_activity_id",
         service_url="https://mock.service.url",
+    )
+
+
+@pytest.fixture
+def mock_conversation_resource_without_activity():
+    """Create a mock conversation resource without activity for testing."""
+    return ConversationResource(
+        id="mock_conversation_id",
+        activity_id=None,
+        service_url="https://mock.service.url",
+    )
+
+
+@pytest.fixture
+def mock_conversation_resource_minimal():
+    """Create a minimal mock conversation resource with only required fields."""
+    return ConversationResource(
+        id="mock_conversation_id",
+        activity_id=None,
+        service_url=None,
     )
 
 

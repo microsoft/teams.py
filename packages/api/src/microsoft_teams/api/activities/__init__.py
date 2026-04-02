@@ -15,8 +15,6 @@ from .conversation import (
     ConversationChannelData,
     ConversationEventType,
     ConversationUpdateActivity,
-    EndOfConversationActivity,
-    EndOfConversationCode,
 )
 from .event import *  # noqa: F403
 from .event import EventActivity
@@ -62,8 +60,6 @@ __all__: list[str] = [
     "ConversationActivity",
     "ConversationUpdateActivity",
     "ConversationChannelData",
-    "EndOfConversationActivity",
-    "EndOfConversationCode",
     "EventActivity",
     "HandoffActivity",
     "InstallUpdateActivity",

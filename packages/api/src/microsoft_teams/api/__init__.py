@@ -3,11 +3,15 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
+import logging
+
 from . import activities, auth, clients, models
 from .activities import *  # noqa: F403
 from .auth import *  # noqa: F403
 from .clients import *  # noqa: F403
 from .models import *  # noqa: F403
+
+logging.getLogger(__name__).addHandler(logging.NullHandler())
 
 # Combine all exports from submodules
 __all__: list[str] = []

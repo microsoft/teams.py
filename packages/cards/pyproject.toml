@@ -1,6 +1,6 @@
 [project]
 name = "microsoft-teams-cards"
-version = "2.0.0a9"
+dynamic = ["version"]
 description = "Cards package for Microsoft Teams"
 readme = "README.md"
 repository = "https://github.com/microsoft/teams.py"
@@ -20,8 +20,11 @@ dependencies = [
 Homepage = "https://github.com/microsoft/teams.py/tree/main/packages/cards/src/microsoft/teams/cards"
 
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling", "nbgv-python"]
 build-backend = "hatchling.build"
+
+[tool.hatch.version]
+source = "nbgv"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/microsoft_teams", "src/microsoft"]

@@ -3,80 +3,88 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from logging import Logger
-from typing import Any, Awaitable, Callable, Dict, List, Optional
-
-from fastapi import HTTPException, Request, Response
+import logging
+from typing import Dict, Optional
 
 from ..contexts import ClientContext
 from .token_validator import TokenValidator
 
+logger = logging.getLogger(__name__)
 
-def require_fields(fields: Dict[str, Optional[Any]], context: str, logger: Logger) -> None:
-    missing: List[str] = [name for name, value in fields.items() if not value]
+
+def _require_fields(fields: Dict[str, Optional[str]], context: str) -> Optional[str]:
+    """Validate required fields are present. Returns error message if any are missing, None otherwise."""
+    missing = [name for name, value in fields.items() if not value]
     if missing:
         message = f"Missing or invalid fields in {context}: {', '.join(missing)}"
         logger.warning(message)
-        raise HTTPException(status_code=401, detail=message)
+        return message
+    return None
 
 
-def remote_function_jwt_validation(logger: Logger, entra_token_validator: Optional[TokenValidator]):
+async def validate_remote_function_request(
+    headers: Dict[str, str],
+    entra_token_validator: Optional[TokenValidator],
+) -> tuple[Optional[ClientContext], Optional[str]]:
     """
-    Middleware to validate JWT for remote function calls.
+    Validate JWT and extract client context from request headers for remote function calls.
+
     Args:
-        entra_token_validator: TokenValidator instance for Entra ID tokens
-        logger: Logger instance
+        headers: Request headers dict.
+        entra_token_validator: TokenValidator instance for Entra ID tokens.
 
     Returns:
-        Middleware function that can be added to FastAPI app
+        Tuple of (ClientContext, None) on success or (None, error_message) on failure.
     """
+    # Extract auth token
+    authorization = headers.get("Authorization") or headers.get("authorization") or ""
+    parts = authorization.split(" ")
+    auth_token = parts[1] if len(parts) == 2 and parts[0].lower() == "bearer" else ""
 
-    async def middleware(request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
-        # Extract auth token
-        authorization = request.headers.get("Authorization", "")
-        parts = authorization.split(" ")
-        auth_token = parts[1] if len(parts) == 2 and parts[0].lower() == "bearer" else ""
+    # Validate headers
+    error = _require_fields(
+        {
+            "X-Teams-App-Session-Id": headers.get("X-Teams-App-Session-Id") or headers.get("x-teams-app-session-id"),
+            "X-Teams-Page-Id": headers.get("X-Teams-Page-Id") or headers.get("x-teams-page-id"),
+            "Authorization (Bearer token)": auth_token,
+        },
+        "header",
+    )
+    if error:
+        return None, error
 
-        # Validate headers
-        require_fields(
-            {
-                "X-Teams-App-Session-Id": request.headers.get("X-Teams-App-Session-Id"),
-                "X-Teams-Page-Id": request.headers.get("X-Teams-Page-Id"),
-                "Authorization (Bearer token)": auth_token,
-            },
-            "header",
-            logger,
-        )
+    if not entra_token_validator:
+        return None, "Token validator not configured"
 
-        if not entra_token_validator:
-            raise HTTPException(status_code=500, detail="Token validator not configured")
+    # Validate token
+    token_payload = await entra_token_validator.validate_token(auth_token)
 
-        # Validate token
-        token_payload = await entra_token_validator.validate_token(auth_token)
+    # Validate required fields in token
+    error = _require_fields(
+        {"oid": token_payload.get("oid"), "tid": token_payload.get("tid"), "name": token_payload.get("name")},
+        "token payload",
+    )
+    if error:
+        return None, error
 
-        # Validate required fields in token
-        require_fields(
-            {"oid": token_payload.get("oid"), "tid": token_payload.get("tid"), "name": token_payload.get("name")},
-            "token payload",
-            logger,
-        )
+    def _h(name: str) -> str:
+        """Get header value case-insensitively."""
+        return headers.get(name) or headers.get(name.lower()) or ""
 
-        # Build context
-        request.state.context = ClientContext(
-            app_session_id=request.headers.get("X-Teams-App-Session-Id"),  # type: ignore
-            tenant_id=token_payload["tid"],
-            user_id=token_payload["oid"],
-            user_name=token_payload["name"],
-            page_id=request.headers.get("X-Teams-Page-Id"),  # type: ignore
-            auth_token=auth_token,  # type: ignore
-            app_id=token_payload.get("appId"),
-            channel_id=request.headers.get("X-Teams-Channel-Id"),
-            chat_id=request.headers.get("X-Teams-Chat-Id"),
-            meeting_id=request.headers.get("X-Teams-Meeting-Id"),
-            message_id=request.headers.get("X-Teams-Message-Id"),
-            sub_page_id=request.headers.get("X-Teams-Sub-Page-Id"),
-            team_id=request.headers.get("X-Teams-Team-Id"),
-        )
-        return await call_next(request)
+    context = ClientContext(
+        app_session_id=_h("X-Teams-App-Session-Id"),
+        tenant_id=token_payload["tid"],
+        user_id=token_payload["oid"],
+        user_name=token_payload["name"],
+        page_id=_h("X-Teams-Page-Id"),
+        auth_token=auth_token,
+        app_id=token_payload.get("appId"),
+        channel_id=_h("X-Teams-Channel-Id") or None,
+        chat_id=_h("X-Teams-Chat-Id") or None,
+        meeting_id=_h("X-Teams-Meeting-Id") or None,
+        message_id=_h("X-Teams-Message-Id") or None,
+        sub_page_id=_h("X-Teams-Sub-Page-Id") or None,
+        team_id=_h("X-Teams-Team-Id") or None,
+    )
 
-    return middleware
+    return context, None

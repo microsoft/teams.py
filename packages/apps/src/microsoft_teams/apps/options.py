@@ -3,14 +3,16 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
+from __future__ import annotations
+
 from dataclasses import dataclass, field
-from logging import Logger
 from typing import Any, Awaitable, Callable, List, Optional, TypedDict, Union, cast
 
 from microsoft_teams.api import ApiClientSettings
 from microsoft_teams.common import Storage
 from typing_extensions import Unpack
 
+from .http.adapter import HttpServerAdapter
 from .plugins import PluginBase
 
 
@@ -23,6 +25,9 @@ class AppOptions(TypedDict, total=False):
     """The client secret. If provided with client_id, uses ClientCredentials auth."""
     tenant_id: Optional[str]
     """The tenant ID. Required for single-tenant apps."""
+    application_id_uri: Optional[str]
+    """Application ID URI from the Azure portal. Used for user authentication.
+    Matches webApplicationInfo.resource in the app manifest."""
     # Custom token provider function
     token: Optional[Callable[[Union[str, list[str]], Optional[str]], Union[str, Awaitable[str]]]]
     """Custom token provider function. If provided with client_id (no client_secret), uses TokenCredentials."""
@@ -37,10 +42,16 @@ class AppOptions(TypedDict, total=False):
     """
 
     # Infrastructure
-    logger: Optional[Logger]
     storage: Optional[Storage[str, Any]]
     plugins: Optional[List[PluginBase]]
     skip_auth: Optional[bool]
+
+    # HTTP adapter
+    http_server_adapter: Optional[HttpServerAdapter]
+    """Custom HTTP server adapter. Defaults to FastAPIAdapter if not provided."""
+
+    messaging_endpoint: Optional[str]
+    """URL path for the Teams messaging endpoint. Defaults to '/api/messages'."""
 
     # OAuth
     default_connection_name: Optional[str]
@@ -78,6 +89,9 @@ class InternalAppOptions:
     """The client secret. If provided with client_id, uses ClientCredentials auth."""
     tenant_id: Optional[str] = None
     """The tenant ID. Required for single-tenant apps."""
+    application_id_uri: Optional[str] = None
+    """Application ID URI from the Azure portal. Used for user authentication.
+    Matches webApplicationInfo.resource in the app manifest."""
     token: Optional[Callable[[Union[str, list[str]], Optional[str]], Union[str, Awaitable[str]]]] = None
     """Custom token provider function. If provided with client_id (no client_secret), uses TokenCredentials."""
     managed_identity_client_id: Optional[str] = None
@@ -87,7 +101,6 @@ class InternalAppOptions:
     If set to a different client ID than client_id, triggers Federated Identity Credentials with user-assigned MI.
     If not set or equals client_id, uses direct managed identity (no federation).
     """
-    logger: Optional[Logger] = None
     storage: Optional[Storage[str, Any]] = None
     service_url: Optional[str] = None
     """
@@ -95,6 +108,10 @@ class InternalAppOptions:
     Uses environment variable SERVICE_URL if not provided
     and defaults to https://smba.trafficmanager.net/teams
     """
+    http_server_adapter: Optional[HttpServerAdapter] = None
+    """Custom HTTP server adapter. Defaults to FastAPIAdapter if not provided."""
+    messaging_endpoint: str = "/api/messages"
+    """URL path for the Teams messaging endpoint. Defaults to '/api/messages'."""
 
     @classmethod
     def from_typeddict(cls, options: AppOptions) -> "InternalAppOptions":

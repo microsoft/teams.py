@@ -24,7 +24,7 @@ class CommandResultValue(CustomBaseModel):
     as defined by the name. The value of the data field is a complex type.
     """
 
-    error: Optional[Exception] = None
+    error: Optional[Any] = None
     """The optional error, if the command result indicates a failure."""
 
 
