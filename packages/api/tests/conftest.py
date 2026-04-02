@@ -301,12 +301,22 @@ def request_capture():
                     "continuationToken": "mock_continuation_token",
                 }
             elif "/conversations" in str(request.url) and request.method == "POST":
+                # Parse request body to check if activity is included
+                try:
+                    import json
+
+                    request_body = json.loads(request.content.decode("utf-8")) if request.content else {}
+                    has_activity = "activity" in request_body and request_body["activity"] is not None
+                except Exception:
+                    has_activity = True  # Default to including activity_id if we can't parse
+
                 response_data = {
                     "id": "mock_conversation_id",
                     "type": "message",
-                    "activityId": "mock_activity_id",
                     "serviceUrl": "https://mock.service.url",
                 }
+                if has_activity:
+                    response_data["activityId"] = "mock_activity_id"
             elif "/activities" in str(request.url):
                 if request.method == "POST":
                     response_data = {
