@@ -46,6 +46,10 @@ class TokenValidator:
         """
         self.options = jwt_validation_options
 
+    @staticmethod
+    def _default_audiences(app_id: str) -> List[str]:
+        return [app_id, f"api://{app_id}", f"api://botid-{app_id}"]
+
     # ----- Factory constructors -----
     @classmethod
     def for_service(cls, app_id: str, service_url: Optional[str] = None) -> "TokenValidator":
@@ -59,7 +63,7 @@ class TokenValidator:
 
         options = JwtValidationOptions(
             valid_issuers=["https://api.botframework.com"],
-            valid_audiences=[app_id, f"api://{app_id}", f"api://botid-{app_id}"],
+            valid_audiences=cls._default_audiences(app_id),
             jwks_uri="https://login.botframework.com/v1/.well-known/keys",
             service_url=service_url,
         )
@@ -88,7 +92,7 @@ class TokenValidator:
         if tenant_id:
             valid_issuers.append(f"https://login.microsoftonline.com/{tenant_id}/v2.0")
         tenant_id = tenant_id or "common"
-        valid_audiences = [app_id, f"api://{app_id}", f"api://botid-{app_id}"]
+        valid_audiences = cls._default_audiences(app_id)
         if application_id_uri:
             valid_audiences.append(application_id_uri)
         options = JwtValidationOptions(
