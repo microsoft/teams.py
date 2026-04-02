@@ -3,7 +3,6 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from datetime import datetime
 from typing import Any, List, Literal, Optional, Self
 
 from microsoft_teams.cards import AdaptiveCard
@@ -18,8 +17,6 @@ from ...models import (
     ChannelData,
     CustomBaseModel,
     DeliveryMode,
-    Importance,
-    InputHint,
     MentionEntity,
     StreamInfoEntity,
     SuggestedActions,
@@ -36,15 +33,6 @@ class _MessageBase(CustomBaseModel):
     text: Optional[str] = None
     """The text content of the message."""
 
-    speak: Optional[str] = None
-    """The text to speak."""
-
-    input_hint: Optional[InputHint] = None
-    """
-    Indicates whether your bot is accepting, expecting, or ignoring user input
-    after the message is delivered to the client.
-    """
-
     summary: Optional[str] = None
     """The text to display if the channel cannot render cards."""
 
@@ -60,17 +48,8 @@ class _MessageBase(CustomBaseModel):
     suggested_actions: Optional[SuggestedActions] = None
     """The suggested actions for the activity."""
 
-    importance: Optional[Importance] = None
-    """The importance of the activity."""
-
     delivery_mode: Optional[DeliveryMode] = None
     """A delivery hint to signal to the recipient alternate delivery paths for the activity."""
-
-    expiration: Optional[datetime] = None
-    """
-    The time at which the activity should be considered to be "expired"
-    and should not be presented to the recipient.
-    """
 
     value: Optional[Any] = None
     """A value that is associated with the activity."""
@@ -151,32 +130,6 @@ class MessageActivityInput(_MessageBase, ActivityInputBase):
         self.text = text
         return self
 
-    def with_speak(self, speak: str) -> Self:
-        """
-        Set the text to speak.
-
-        Args:
-            speak: Text to speak
-
-        Returns:
-            Self for method chaining
-        """
-        self.speak = speak
-        return self
-
-    def with_input_hint(self, input_hint: InputHint) -> Self:
-        """
-        Set the input hint.
-
-        Args:
-            input_hint: Input hint value
-
-        Returns:
-            Self for method chaining
-        """
-        self.input_hint = input_hint
-        return self
-
     def with_summary(self, summary: str) -> Self:
         """
         Set the text to display if the channel cannot render cards.
@@ -229,19 +182,6 @@ class MessageActivityInput(_MessageBase, ActivityInputBase):
         self.suggested_actions = suggested_actions
         return self
 
-    def with_importance(self, importance: Importance) -> Self:
-        """
-        Set the importance of the activity.
-
-        Args:
-            importance: Importance (low, normal, high)
-
-        Returns:
-            Self for method chaining
-        """
-        self.importance = importance
-        return self
-
     def with_delivery_mode(self, delivery_mode: DeliveryMode) -> Self:
         """
         Set the delivery mode for the activity.
@@ -253,19 +193,6 @@ class MessageActivityInput(_MessageBase, ActivityInputBase):
             Self for method chaining
         """
         self.delivery_mode = delivery_mode
-        return self
-
-    def with_expiration(self, expiration: datetime) -> Self:
-        """
-        Set the expiration time for the activity.
-
-        Args:
-            expiration: Expiration datetime
-
-        Returns:
-            Self for method chaining
-        """
-        self.expiration = expiration
         return self
 
     def add_text(self, text: str) -> Self:

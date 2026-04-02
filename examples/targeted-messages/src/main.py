@@ -38,7 +38,7 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
 
             targeted_message = MessageActivityInput(
                 text="🔒 [SEND] This is a targeted message - only YOU can see this!"
-            ).with_recipient(Account(id=member.id, name=member.name, role="user"), is_targeted=True)
+            ).with_recipient(Account(id=member.id, name=member.name), is_targeted=True)
 
             result = await ctx.send(targeted_message)
         print("[SEND] Sent targeted message")

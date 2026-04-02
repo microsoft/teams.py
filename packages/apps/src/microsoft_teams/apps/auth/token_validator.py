@@ -45,6 +45,7 @@ class TokenValidator:
             jwt_validation_options: Configuration for JWT validation
         """
         self.options = jwt_validation_options
+        self._jwks_client = jwt.PyJWKClient(jwt_validation_options.jwks_uri)
 
     @staticmethod
     def _default_audiences(app_id: str) -> List[str]:
@@ -125,9 +126,7 @@ class TokenValidator:
             raise jwt.InvalidTokenError("No token provided")
 
         try:
-            jwks_client = jwt.PyJWKClient(self.options.jwks_uri)
-            # Get signing key automatically from JWKS
-            signing_key = jwks_client.get_signing_key_from_jwt(raw_token)
+            signing_key = self._jwks_client.get_signing_key_from_jwt(raw_token)
 
             # Validate token
             payload: Dict[str, Any] = jwt.decode(

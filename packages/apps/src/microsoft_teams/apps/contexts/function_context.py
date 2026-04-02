@@ -68,7 +68,7 @@ class FunctionContext(ClientContext, Generic[T]):
         conversation_ref = ConversationReference(
             channel_id="msteams",
             service_url=self.api.service_url,
-            bot=Account(id=self.id, name=self.name, role="bot"),
+            bot=Account(id=self.id, name=self.name),
             conversation=ConversationAccount(id=conversation_id, conversation_type="personal"),
         )
 
@@ -120,7 +120,7 @@ class FunctionContext(ClientContext, Generic[T]):
             or return a pre-existing one."""
             try:
                 conversation_params = CreateConversationParams(
-                    members=[Account(id=self.user_id, role="user", name=self.user_name)],
+                    members=[Account(id=self.user_id, name=self.user_name)],
                     tenant_id=self.tenant_id,
                 )
                 conversation = await self.api.conversations.create(conversation_params)
