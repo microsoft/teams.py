@@ -61,7 +61,9 @@ class ChannelData(CustomBaseModel):
         Normalize the feedback loop configuration.
         This is necessary as the client only accepts either/or.
         """
-        if self.feedback_loop_enabled is True and self.feedback_loop is None:
+        if self.feedback_loop is not None:
+            self.feedback_loop_enabled = None
+        elif self.feedback_loop_enabled is True:
             self.feedback_loop = FeedbackLoop(type="default")
             self.feedback_loop_enabled = None
         return self
