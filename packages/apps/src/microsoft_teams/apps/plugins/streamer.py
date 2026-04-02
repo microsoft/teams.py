@@ -15,7 +15,10 @@ class StreamerProtocol(Protocol):
 
     @property
     def canceled(self) -> bool:
-        """Whether the stream has been canceled. For example when the user pressed the Stop button or the 2 minute timeout has exceeded."""
+        """
+        Whether the stream has been canceled.
+        For example when the user pressed the Stop button or the 2-minute timeout has exceeded.
+        """
         ...
 
     @property

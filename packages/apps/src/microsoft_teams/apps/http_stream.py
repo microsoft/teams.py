@@ -78,7 +78,10 @@ class HttpStream(StreamerProtocol):
 
     @property
     def canceled(self) -> bool:
-        """Whether the stream has been canceled. For example when the user pressed the Stop button or the 2 minute timeout has exceeded."""
+        """
+        Whether the stream has been canceled.
+        For example when the user pressed the Stop button or the 2-minute timeout has exceeded.
+        """
         return self._canceled
 
     @property
@@ -276,6 +279,7 @@ class HttpStream(StreamerProtocol):
             activity: The activity to send.
         """
         if self._canceled:
+            logger.warning("Teams channel stopped the stream.")
             raise asyncio.CancelledError("Teams channel stopped the stream.")
 
         to_send.from_ = self._ref.bot
@@ -292,7 +296,7 @@ class HttpStream(StreamerProtocol):
             if e.response.status_code == 403:
                 self._canceled = True
                 logger.warning("Teams channel stopped the stream.")
-                raise asyncio.CancelledError("Teams channel stopped the stream.")
+                raise asyncio.CancelledError("Teams channel stopped the stream.") from e
             raise e
         except Exception as e:
             raise e
