@@ -170,3 +170,50 @@ class TestActivitySender:
 
             mock_activities.update.assert_called_once_with("existing-msg-id", activity)
             mock_activities.update_targeted.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_delete_calls_delete(self, sender, conversation_ref):
+        """Test that delete() calls the underlying delete method."""
+        mock_activities = MagicMock()
+        mock_activities.delete = AsyncMock(return_value=None)
+
+        with patch("microsoft_teams.apps.activity_sender.ApiClient") as mock_api_client:
+            mock_api = MagicMock()
+            mock_api.conversations.activities.return_value = mock_activities
+            mock_api_client.return_value = mock_api
+
+            await sender.delete("msg-123", conversation_ref)
+
+            mock_activities.delete.assert_called_once_with("msg-123")
+            mock_activities.delete_targeted.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_delete_targeted_calls_delete_targeted(self, sender, conversation_ref):
+        """Test that delete() with targeted=True calls delete_targeted."""
+        mock_activities = MagicMock()
+        mock_activities.delete_targeted = AsyncMock(return_value=None)
+
+        with patch("microsoft_teams.apps.activity_sender.ApiClient") as mock_api_client:
+            mock_api = MagicMock()
+            mock_api.conversations.activities.return_value = mock_activities
+            mock_api_client.return_value = mock_api
+
+            await sender.delete("msg-123", conversation_ref, targeted=True)
+
+            mock_activities.delete_targeted.assert_called_once_with("msg-123")
+            mock_activities.delete.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_delete_uses_correct_conversation_id(self, sender, conversation_ref):
+        """Test that delete() uses conversation id from ref."""
+        mock_activities = MagicMock()
+        mock_activities.delete = AsyncMock(return_value=None)
+
+        with patch("microsoft_teams.apps.activity_sender.ApiClient") as mock_api_client:
+            mock_api = MagicMock()
+            mock_api.conversations.activities.return_value = mock_activities
+            mock_api_client.return_value = mock_api
+
+            await sender.delete("msg-123", conversation_ref)
+
+            mock_api.conversations.activities.assert_called_once_with(conversation_ref.conversation.id)

@@ -76,6 +76,22 @@ class ActivitySender:
             res = await activities.create(activity)
         return SentActivity.merge(activity, res)
 
+    async def delete(self, activity_id: str, ref: ConversationReference, targeted: bool = False) -> None:
+        """
+        Delete an activity from a conversation.
+
+        Args:
+            activity_id: The ID of the activity to delete
+            ref: The conversation reference
+            targeted: If True, deletes a targeted (ephemeral) activity
+        """
+        api = ApiClient(service_url=ref.service_url, options=self._client)
+        activities = api.conversations.activities(ref.conversation.id)
+        if targeted:
+            await activities.delete_targeted(activity_id)
+        else:
+            await activities.delete(activity_id)
+
     def create_stream(self, ref: ConversationReference) -> StreamerProtocol:
         """
         Create a new activity stream for real-time updates.
