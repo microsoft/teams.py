@@ -5,7 +5,7 @@ Licensed under the MIT License.
 
 from types import SimpleNamespace
 from typing import Any
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from microsoft_teams.apps.routing.activity_context import ActivityContext
@@ -126,3 +126,63 @@ class TestOptionalGraphDependencies:
         # app_graph should raise ValueError when no app token is available
         with pytest.raises(RuntimeError, match="Token cannot be None"):
             _ = activity_context.app_graph
+
+
+class TestAppGetAppGraph:
+    """Test App.get_app_graph method."""
+
+    def _create_app(self):
+        from microsoft_teams.apps import App, AppOptions
+
+        return App(**AppOptions(client_id="test-id", client_secret="test-secret"))
+
+    def test_get_app_graph_raises_import_error_when_graph_not_installed(self) -> None:
+        """get_app_graph raises ImportError when graph dependencies are not available."""
+        app = self._create_app()
+
+        with patch(
+            "microsoft_teams.apps.app._get_graph_client",
+            side_effect=ImportError("graph not installed"),
+        ):
+            with pytest.raises(ImportError):
+                _ = app.get_app_graph()
+
+    def test_get_app_graph_returns_new_client_each_call(self) -> None:
+        """get_app_graph returns a new client on every call (no caching)."""
+        app = self._create_app()
+
+        mock_client_1 = MagicMock()
+        mock_client_2 = MagicMock()
+        side_effects = [mock_client_1, mock_client_2]
+
+        with patch(
+            "microsoft_teams.apps.app._get_graph_client",
+            side_effect=side_effects,
+        ):
+            first = app.get_app_graph()
+            second = app.get_app_graph()
+
+        assert first is mock_client_1
+        assert second is mock_client_2
+        assert first is not second
+
+    def test_get_app_graph_passes_tenant_id(self) -> None:
+        """get_app_graph passes the tenant_id through to the token factory."""
+        app = self._create_app()
+
+        mock_client = MagicMock()
+        captured_token_arg = []
+
+        def capture_token(token):
+            captured_token_arg.append(token)
+            return mock_client
+
+        with patch(
+            "microsoft_teams.apps.app._get_graph_client",
+            side_effect=capture_token,
+        ):
+            app.get_app_graph(tenant_id="my-tenant-id")
+
+        assert len(captured_token_arg) == 1
+        # token arg should be a callable (lambda)
+        assert callable(captured_token_arg[0])
