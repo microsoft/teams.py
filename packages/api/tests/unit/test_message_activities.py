@@ -7,6 +7,7 @@ Licensed under the MIT License.
 from datetime import datetime
 from typing import cast
 
+from microsoft_teams.api.activities import ActivityTypeAdapter
 from microsoft_teams.api.activities.message import (
     MessageActivity,
     MessageActivityInput,
@@ -259,7 +260,7 @@ class TestMessageActivity:
         activity.recipient = recipient
 
         # Mention someone else
-        other_account = Account(id="user-456", name="User", role="user")
+        other_account = Account(id="user-456", name="User")
         mention = MentionEntity(mentioned=other_account, text="<at>User</at>")
         activity.entities = [mention]
 
@@ -510,6 +511,40 @@ class TestMessageUpdateActivity:
 
         assert activity.type == "messageUpdate"
         assert activity.channel_data.event_type == "undeleteMessage"
+
+    def test_message_update_activity_text_defaults_to_empty_string(self):
+        """Test that text field defaults to empty string when absent (e.g. attachment-only update)"""
+        from_account = Account(id="bot-123", name="Test Bot")
+        recipient = Account(id="user-456", name="Test User")
+        conversation = ConversationAccount(id="conv-789", conversation_type="personal")
+        channel_data = MessageUpdateChannelData(event_type="editMessage")
+
+        activity = MessageUpdateActivity(
+            id="update-no-text",
+            channel_data=channel_data,
+            from_=from_account,
+            conversation=conversation,
+            recipient=recipient,
+        )
+
+        assert activity.text == ""
+
+    def test_inbound_message_update_without_text_does_not_throw(self):
+        """Test that an inbound messageUpdate payload with no text (attachment-only) parses without error"""
+
+        payload = {
+            "type": "messageUpdate",
+            "id": "msg-123",
+            "from": {"id": "user-123", "name": "Test User"},
+            "conversation": {"id": "conv-456", "conversationType": "personal"},
+            "recipient": {"id": "bot-789", "name": "Test Bot"},
+            "channelData": {"eventType": "editMessage"},
+        }
+
+        activity = ActivityTypeAdapter.validate_python(payload)
+
+        assert isinstance(activity, MessageUpdateActivity)
+        assert activity.text == ""
 
     def test_message_update_activity_optional_fields(self):
         """Test message update activity with optional fields"""

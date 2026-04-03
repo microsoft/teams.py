@@ -39,10 +39,17 @@ class TestCreateTransportFactory:
 class TestCreateStreamableHttpTransport:
     """Tests for create_streamable_http_transport."""
 
-    async def test_no_headers_skips_httpx_async_client(self):
-        """Without headers, httpx.AsyncClient is never instantiated."""
+    async def test_no_headers_calls_create_mcp_http_client(self):
+        """Without headers, create_mcp_http_client is called with None headers."""
         read_stream = MagicMock()
         write_stream = MagicMock()
+        mock_http_client_instance = MagicMock()
+        captured: dict = {}
+
+        @asynccontextmanager
+        async def mock_create_mcp_http_client(headers=None):
+            captured["headers"] = headers
+            yield mock_http_client_instance
 
         @asynccontextmanager
         async def mock_streamable_http_client(url, http_client=None):
@@ -53,19 +60,28 @@ class TestCreateStreamableHttpTransport:
                 "microsoft_teams.mcpplugin.transport.streamable_http_client",
                 mock_streamable_http_client,
             ),
-            patch("microsoft_teams.mcpplugin.transport.httpx.AsyncClient") as mock_async_client,
+            patch(
+                "microsoft_teams.mcpplugin.transport.create_mcp_http_client",
+                mock_create_mcp_http_client,
+            ),
         ):
             async with create_streamable_http_transport("http://example.com"):
                 pass
 
-            mock_async_client.assert_not_called()
+        assert captured["headers"] is None
 
     async def test_static_string_headers_creates_http_client(self):
-        """Static string headers are passed verbatim to httpx.AsyncClient."""
+        """Static string headers are passed to create_mcp_http_client."""
         read_stream = MagicMock()
         write_stream = MagicMock()
 
         mock_http_client_instance = MagicMock()
+        captured: dict = {}
+
+        @asynccontextmanager
+        async def mock_create_mcp_http_client(headers=None):
+            captured["headers"] = headers
+            yield mock_http_client_instance
 
         @asynccontextmanager
         async def mock_streamable_http_client(url, http_client=None):
@@ -76,17 +92,17 @@ class TestCreateStreamableHttpTransport:
                 "microsoft_teams.mcpplugin.transport.streamable_http_client",
                 mock_streamable_http_client,
             ),
-            patch("microsoft_teams.mcpplugin.transport.httpx.AsyncClient") as mock_async_client,
+            patch(
+                "microsoft_teams.mcpplugin.transport.create_mcp_http_client",
+                mock_create_mcp_http_client,
+            ),
         ):
-            mock_async_client.return_value.__aenter__ = AsyncMock(return_value=mock_http_client_instance)
-            mock_async_client.return_value.__aexit__ = AsyncMock(return_value=False)
-
             headers = {"Authorization": "Bearer token", "X-Version": "1.0"}
             async with create_streamable_http_transport("http://example.com", headers) as (r, w):
                 assert r is read_stream
                 assert w is write_stream
 
-            mock_async_client.assert_called_once_with(headers={"Authorization": "Bearer token", "X-Version": "1.0"})
+        assert captured["headers"] == {"Authorization": "Bearer token", "X-Version": "1.0"}
 
     async def test_sync_callable_header_is_resolved(self):
         """Sync callable header values are called and resolved to strings."""
@@ -98,11 +114,11 @@ class TestCreateStreamableHttpTransport:
 
         with (
             patch("microsoft_teams.mcpplugin.transport.streamable_http_client") as mock_streamable,
-            patch("microsoft_teams.mcpplugin.transport.httpx.AsyncClient") as mock_async_client,
+            patch("microsoft_teams.mcpplugin.transport.create_mcp_http_client") as mock_http_client,
         ):
             mock_http_instance = MagicMock()
-            mock_async_client.return_value.__aenter__ = AsyncMock(return_value=mock_http_instance)
-            mock_async_client.return_value.__aexit__ = AsyncMock(return_value=False)
+            mock_http_client.return_value.__aenter__ = AsyncMock(return_value=mock_http_instance)
+            mock_http_client.return_value.__aexit__ = AsyncMock(return_value=False)
 
             @asynccontextmanager
             async def fake_streamable(url, http_client=None):
@@ -114,7 +130,7 @@ class TestCreateStreamableHttpTransport:
             async with create_streamable_http_transport("http://example.com", headers):
                 pass
 
-            mock_async_client.assert_called_once_with(headers={"Authorization": "Bearer sync-token"})
+            mock_http_client.assert_called_once_with(headers={"Authorization": "Bearer sync-token"})
 
     async def test_async_callable_header_is_awaited_and_resolved(self):
         """Async callable header values are awaited and resolved to strings."""
@@ -126,11 +142,11 @@ class TestCreateStreamableHttpTransport:
 
         with (
             patch("microsoft_teams.mcpplugin.transport.streamable_http_client") as mock_streamable,
-            patch("microsoft_teams.mcpplugin.transport.httpx.AsyncClient") as mock_async_client,
+            patch("microsoft_teams.mcpplugin.transport.create_mcp_http_client") as mock_http_client,
         ):
             mock_http_instance = MagicMock()
-            mock_async_client.return_value.__aenter__ = AsyncMock(return_value=mock_http_instance)
-            mock_async_client.return_value.__aexit__ = AsyncMock(return_value=False)
+            mock_http_client.return_value.__aenter__ = AsyncMock(return_value=mock_http_instance)
+            mock_http_client.return_value.__aexit__ = AsyncMock(return_value=False)
 
             @asynccontextmanager
             async def fake_streamable(url, http_client=None):
@@ -142,7 +158,7 @@ class TestCreateStreamableHttpTransport:
             async with create_streamable_http_transport("http://example.com", headers):
                 pass
 
-            mock_async_client.assert_called_once_with(headers={"Authorization": "Bearer async-token"})
+            mock_http_client.assert_called_once_with(headers={"Authorization": "Bearer async-token"})
 
     async def test_mixed_header_types_all_resolved(self):
         """Mix of static string, sync callable, and async callable headers are all resolved."""
@@ -157,11 +173,11 @@ class TestCreateStreamableHttpTransport:
 
         with (
             patch("microsoft_teams.mcpplugin.transport.streamable_http_client") as mock_streamable,
-            patch("microsoft_teams.mcpplugin.transport.httpx.AsyncClient") as mock_async_client,
+            patch("microsoft_teams.mcpplugin.transport.create_mcp_http_client") as mock_http_client,
         ):
             mock_http_instance = MagicMock()
-            mock_async_client.return_value.__aenter__ = AsyncMock(return_value=mock_http_instance)
-            mock_async_client.return_value.__aexit__ = AsyncMock(return_value=False)
+            mock_http_client.return_value.__aenter__ = AsyncMock(return_value=mock_http_instance)
+            mock_http_client.return_value.__aexit__ = AsyncMock(return_value=False)
 
             @asynccontextmanager
             async def fake_streamable(url, http_client=None):
@@ -177,7 +193,7 @@ class TestCreateStreamableHttpTransport:
             async with create_streamable_http_transport("http://example.com", headers):
                 pass
 
-            mock_async_client.assert_called_once_with(
+            mock_http_client.assert_called_once_with(
                 headers={
                     "X-Static": "static-value",
                     "X-Sync": "sync-value",
@@ -192,11 +208,11 @@ class TestCreateStreamableHttpTransport:
 
         with (
             patch("microsoft_teams.mcpplugin.transport.streamable_http_client") as mock_streamable,
-            patch("microsoft_teams.mcpplugin.transport.httpx.AsyncClient") as mock_async_client,
+            patch("microsoft_teams.mcpplugin.transport.create_mcp_http_client") as mock_http_client,
         ):
             mock_http_instance = MagicMock()
-            mock_async_client.return_value.__aenter__ = AsyncMock(return_value=mock_http_instance)
-            mock_async_client.return_value.__aexit__ = AsyncMock(return_value=False)
+            mock_http_client.return_value.__aenter__ = AsyncMock(return_value=mock_http_instance)
+            mock_http_client.return_value.__aexit__ = AsyncMock(return_value=False)
 
             @asynccontextmanager
             async def fake_streamable(url, http_client=None):
@@ -208,7 +224,7 @@ class TestCreateStreamableHttpTransport:
             async with create_streamable_http_transport("http://example.com", headers):
                 pass
 
-            mock_async_client.assert_called_once_with(headers={"X-Port": "8080"})
+            mock_http_client.assert_called_once_with(headers={"X-Port": "8080"})
 
     async def test_yields_read_and_write_streams(self):
         """The context manager correctly yields (read_stream, write_stream) to callers."""
