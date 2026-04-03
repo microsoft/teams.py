@@ -175,13 +175,14 @@ class HttpPlugin(PluginBase):
         self._port = event.port
 
         try:
-            if self._server and self._server.config.port != self._port:
-                logger.warning(
-                    "Using port configured by server factory: %d, but plugin start event has port %d.",
-                    self._server.config.port,
-                    self._port,
-                )
-                self._port = self._server.config.port
+            if self._server:
+                if self._server.config.port != self._port:
+                    logger.warning(
+                        "Using port configured by server factory: %d, but plugin start event has port %d.",
+                        self._server.config.port,
+                        self._port,
+                    )
+                    self._port = self._server.config.port
             else:
                 config = uvicorn.Config(app=self.app, host="0.0.0.0", port=self._port, log_level="info")
                 self._server = uvicorn.Server(config)
