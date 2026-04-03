@@ -387,3 +387,75 @@ class TestActivityContextSignOut:
             mock_log_error.assert_called_once()
             logged_message = mock_log_error.call_args[0][0]
             assert "Failed to sign out user" in logged_message
+
+
+class TestActivityContextDelete:
+    """Tests for ActivityContext.delete()."""
+
+    @pytest.mark.asyncio
+    async def test_delete_delegates_to_sender(self) -> None:
+        """delete() calls ActivitySender.delete with current conversation_ref."""
+        ctx, mock_sender = _create_activity_context()
+        mock_sender.delete = AsyncMock(return_value=None)
+
+        await ctx.delete("msg-123")
+
+        mock_sender.delete.assert_called_once_with("msg-123", ctx.conversation_ref, targeted=False)
+
+    @pytest.mark.asyncio
+    async def test_delete_with_custom_conversation_ref(self) -> None:
+        """delete() uses provided conversation_ref for proactive deletion."""
+        from microsoft_teams.api import ConversationReference
+
+        ctx, mock_sender = _create_activity_context()
+        mock_sender.delete = AsyncMock(return_value=None)
+
+        custom_ref = MagicMock(spec=ConversationReference)
+        await ctx.delete("msg-123", conversation_ref=custom_ref)
+
+        mock_sender.delete.assert_called_once_with("msg-123", custom_ref, targeted=False)
+
+    @pytest.mark.asyncio
+    async def test_delete_targeted_passes_flag(self) -> None:
+        """delete() with targeted=True passes targeted=True to sender."""
+        ctx, mock_sender = _create_activity_context()
+        mock_sender.delete = AsyncMock(return_value=None)
+
+        await ctx.delete("msg-123", targeted=True)
+
+        mock_sender.delete.assert_called_once_with("msg-123", ctx.conversation_ref, targeted=True)
+
+    @pytest.mark.asyncio
+    async def test_delete_targeted_emits_experimental_warning(self) -> None:
+        """delete() with targeted=True emits ExperimentalWarning."""
+        import warnings
+
+        from microsoft_teams.common.experimental import ExperimentalWarning
+
+        ctx, mock_sender = _create_activity_context()
+        mock_sender.delete = AsyncMock(return_value=None)
+
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            await ctx.delete("msg-123", targeted=True)
+
+        experimental = [w for w in caught if issubclass(w.category, ExperimentalWarning)]
+        assert len(experimental) == 1
+        assert "ExperimentalTeamsTargeted" in str(experimental[0].message)
+
+    @pytest.mark.asyncio
+    async def test_delete_non_targeted_no_warning(self) -> None:
+        """delete() without targeted=True does not emit ExperimentalWarning."""
+        import warnings
+
+        from microsoft_teams.common.experimental import ExperimentalWarning
+
+        ctx, mock_sender = _create_activity_context()
+        mock_sender.delete = AsyncMock(return_value=None)
+
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            await ctx.delete("msg-123")
+
+        experimental = [w for w in caught if issubclass(w.category, ExperimentalWarning)]
+        assert len(experimental) == 0

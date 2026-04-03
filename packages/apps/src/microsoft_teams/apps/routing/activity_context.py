@@ -6,12 +6,12 @@ Licensed under the MIT License.
 import base64
 import json
 import logging
+import warnings
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Awaitable, Callable, Generic, Optional, TypeVar, cast
 
 from microsoft_teams.api import (
     ActivityBase,
-    SendableActivity,
     ApiClient,
     CardAction,
     CardActionType,
@@ -21,6 +21,7 @@ from microsoft_teams.api import (
     GetUserTokenParams,
     JsonWebToken,
     MessageActivityInput,
+    SendableActivity,
     SentActivity,
     SignOutUserParams,
     TokenExchangeResource,
@@ -34,6 +35,7 @@ from microsoft_teams.api.models.attachment.card_attachment import (
 from microsoft_teams.api.models.oauth import OAuthCard
 from microsoft_teams.cards import AdaptiveCard
 from microsoft_teams.common import Storage
+from microsoft_teams.common.experimental import ExperimentalWarning
 from microsoft_teams.common.http.client_token import Token
 
 from ..activity_sender import ActivitySender
@@ -186,14 +188,34 @@ class ActivityContext(Generic[T]):
         res = await self._activity_sender.send(activity, ref)
         return res
 
-    async def delete(self, activity_id: str) -> None:
+    async def delete(
+        self,
+        activity_id: str,
+        conversation_ref: Optional[ConversationReference] = None,
+        targeted: bool = False,
+    ) -> None:
         """
         Delete an activity from the conversation.
 
         Args:
             activity_id: The ID of the activity to delete
+            conversation_ref: Optional conversation reference to override the current one,
+                enabling proactive deletion from a different conversation
+            targeted: If True, deletes a targeted (ephemeral) activity
+
+                .. warning:: Preview
+                    The ``targeted`` parameter is in preview and may change or be
+                    removed in future versions. Diagnostic: ExperimentalTeamsTargeted
         """
-        await self._activity_sender.delete(activity_id, self.conversation_ref)
+        if targeted:
+            warnings.warn(
+                "The targeted parameter of delete is in preview and may change "
+                "or be removed in future versions. Diagnostic: ExperimentalTeamsTargeted",
+                ExperimentalWarning,
+                stacklevel=2,
+            )
+        ref = conversation_ref or self.conversation_ref
+        await self._activity_sender.delete(activity_id, ref, targeted=targeted)
 
     async def reply(self, input: str | SendableActivity) -> SentActivity:
         """Send a reply to the activity."""
