@@ -51,8 +51,6 @@ from microsoft_teams.api.activities import (
     SignInVerifyStateInvokeActivity,
     TabFetchInvokeActivity,
     TabSubmitInvokeActivity,
-    TaskFetchInvokeActivity,
-    TaskSubmitInvokeActivity,
     TypingActivity,
     UninstalledActivity,
 )
@@ -62,7 +60,6 @@ from microsoft_teams.api.models.invoke_response import (
     MessagingExtensionActionInvokeResponse,
     MessagingExtensionInvokeResponse,
     TabInvokeResponse,
-    TaskModuleInvokeResponse,
     TokenExchangeInvokeResponseType,
 )
 
@@ -1185,66 +1182,6 @@ class GeneratedActivityHandlerMixin(ABC):
                 "MessageExtensionCardButtonClickedInvokeActivity",
             )
             config = ACTIVITY_ROUTES["message.ext.card-button-clicked"]
-            self.router.add_handler(config.selector, func)
-            return func
-
-        if handler is not None:
-            return decorator(handler)
-        return decorator
-
-    @overload
-    def on_dialog_open(
-        self, handler: InvokeHandler[TaskFetchInvokeActivity, TaskModuleInvokeResponse]
-    ) -> InvokeHandler[TaskFetchInvokeActivity, TaskModuleInvokeResponse]: ...
-
-    @overload
-    def on_dialog_open(
-        self,
-    ) -> Callable[
-        [InvokeHandler[TaskFetchInvokeActivity, TaskModuleInvokeResponse]],
-        InvokeHandler[TaskFetchInvokeActivity, TaskModuleInvokeResponse],
-    ]: ...
-
-    def on_dialog_open(
-        self, handler: Optional[InvokeHandler[TaskFetchInvokeActivity, TaskModuleInvokeResponse]] = None
-    ) -> InvokeHandlerUnion[TaskFetchInvokeActivity, TaskModuleInvokeResponse]:
-        """Register a dialog.open activity handler."""
-
-        def decorator(
-            func: InvokeHandler[TaskFetchInvokeActivity, TaskModuleInvokeResponse],
-        ) -> InvokeHandler[TaskFetchInvokeActivity, TaskModuleInvokeResponse]:
-            validate_handler_type(func, TaskFetchInvokeActivity, "on_dialog_open", "TaskFetchInvokeActivity")
-            config = ACTIVITY_ROUTES["dialog.open"]
-            self.router.add_handler(config.selector, func)
-            return func
-
-        if handler is not None:
-            return decorator(handler)
-        return decorator
-
-    @overload
-    def on_dialog_submit(
-        self, handler: InvokeHandler[TaskSubmitInvokeActivity, TaskModuleInvokeResponse]
-    ) -> InvokeHandler[TaskSubmitInvokeActivity, TaskModuleInvokeResponse]: ...
-
-    @overload
-    def on_dialog_submit(
-        self,
-    ) -> Callable[
-        [InvokeHandler[TaskSubmitInvokeActivity, TaskModuleInvokeResponse]],
-        InvokeHandler[TaskSubmitInvokeActivity, TaskModuleInvokeResponse],
-    ]: ...
-
-    def on_dialog_submit(
-        self, handler: Optional[InvokeHandler[TaskSubmitInvokeActivity, TaskModuleInvokeResponse]] = None
-    ) -> InvokeHandlerUnion[TaskSubmitInvokeActivity, TaskModuleInvokeResponse]:
-        """Register a dialog.submit activity handler."""
-
-        def decorator(
-            func: InvokeHandler[TaskSubmitInvokeActivity, TaskModuleInvokeResponse],
-        ) -> InvokeHandler[TaskSubmitInvokeActivity, TaskModuleInvokeResponse]:
-            validate_handler_type(func, TaskSubmitInvokeActivity, "on_dialog_submit", "TaskSubmitInvokeActivity")
-            config = ACTIVITY_ROUTES["dialog.submit"]
             self.router.add_handler(config.selector, func)
             return func
 
