@@ -7,10 +7,10 @@ import logging
 from typing import cast
 
 from microsoft_teams.api import (
-    SendableActivity,
     ApiClient,
     ConversationReference,
     MessageActivityInput,
+    SendableActivity,
     SentActivity,
 )
 from microsoft_teams.common import Client
@@ -76,16 +76,21 @@ class ActivitySender:
             res = await activities.create(activity)
         return SentActivity.merge(activity, res)
 
-    async def delete(self, activity_id: str, ref: ConversationReference) -> None:
+    async def delete(self, activity_id: str, ref: ConversationReference, targeted: bool = False) -> None:
         """
         Delete an activity from a conversation.
 
         Args:
             activity_id: The ID of the activity to delete
             ref: The conversation reference
+            targeted: If True, deletes a targeted (ephemeral) activity
         """
         api = ApiClient(service_url=ref.service_url, options=self._client)
-        await api.conversations.activities(ref.conversation.id).delete(activity_id)
+        activities = api.conversations.activities(ref.conversation.id)
+        if targeted:
+            await activities.delete_targeted(activity_id)
+        else:
+            await activities.delete(activity_id)
 
     def create_stream(self, ref: ConversationReference) -> StreamerProtocol:
         """
