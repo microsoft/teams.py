@@ -16,9 +16,9 @@ from microsoft_teams.api import (
     MessageFetchTaskInvokeActivity,
     MessageFetchTaskInvokeValue,
     TaskFetchInvokeActivity,
+    TaskModuleInvokeResponse,
     TaskModuleMessageResponse,
     TaskModuleRequest,
-    TaskModuleResponse,
 )
 from microsoft_teams.apps import ActivityContext, App
 
@@ -49,8 +49,8 @@ class TestFeedbackRouting:
         self, app: App, fetch_task_activity: MessageFetchTaskInvokeActivity
     ) -> None:
         @app.on_message_fetch_task
-        async def handler(ctx: ActivityContext[MessageFetchTaskInvokeActivity]) -> TaskModuleResponse:
-            return TaskModuleResponse(task=TaskModuleMessageResponse(value="feedback form"))
+        async def handler(ctx: ActivityContext[MessageFetchTaskInvokeActivity]) -> TaskModuleInvokeResponse:
+            return TaskModuleInvokeResponse(task=TaskModuleMessageResponse(value="feedback form"))
 
         handlers = app.router.select_handlers(fetch_task_activity)
         assert len(handlers) == 1
@@ -58,8 +58,8 @@ class TestFeedbackRouting:
 
     def test_on_message_fetch_task_does_not_match_other_invokes(self, app: App) -> None:
         @app.on_message_fetch_task
-        async def handler(ctx: ActivityContext[MessageFetchTaskInvokeActivity]) -> TaskModuleResponse:
-            return TaskModuleResponse(task=TaskModuleMessageResponse(value="feedback form"))
+        async def handler(ctx: ActivityContext[MessageFetchTaskInvokeActivity]) -> TaskModuleInvokeResponse:
+            return TaskModuleInvokeResponse(task=TaskModuleMessageResponse(value="feedback form"))
 
         other_activity = TaskFetchInvokeActivity(
             id="activity-2",
@@ -77,8 +77,8 @@ class TestFeedbackRouting:
 
     def test_on_message_fetch_task_reaction_dislike(self, app: App) -> None:
         @app.on_message_fetch_task
-        async def handler(ctx: ActivityContext[MessageFetchTaskInvokeActivity]) -> TaskModuleResponse:
-            return TaskModuleResponse(task=TaskModuleMessageResponse(value="feedback form"))
+        async def handler(ctx: ActivityContext[MessageFetchTaskInvokeActivity]) -> TaskModuleInvokeResponse:
+            return TaskModuleInvokeResponse(task=TaskModuleMessageResponse(value="feedback form"))
 
         dislike_activity = MessageFetchTaskInvokeActivity(
             id="activity-3",
