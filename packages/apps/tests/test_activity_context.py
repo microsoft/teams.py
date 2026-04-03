@@ -5,12 +5,14 @@ Licensed under the MIT License.
 
 # pyright: basic
 
+import warnings
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from microsoft_teams.api import Account, MessageActivityInput, SentActivity
+from microsoft_teams.api import Account, ConversationReference, MessageActivityInput, SentActivity
 from microsoft_teams.apps.routing.activity_context import ActivityContext
+from microsoft_teams.common.experimental import ExperimentalWarning
 
 
 def _create_activity_context(
@@ -405,8 +407,6 @@ class TestActivityContextDelete:
     @pytest.mark.asyncio
     async def test_delete_with_custom_conversation_ref(self) -> None:
         """delete() uses provided conversation_ref for proactive deletion."""
-        from microsoft_teams.api import ConversationReference
-
         ctx, mock_sender = _create_activity_context()
         mock_sender.delete = AsyncMock(return_value=None)
 
@@ -428,10 +428,6 @@ class TestActivityContextDelete:
     @pytest.mark.asyncio
     async def test_delete_targeted_emits_experimental_warning(self) -> None:
         """delete() with targeted=True emits ExperimentalWarning."""
-        import warnings
-
-        from microsoft_teams.common.experimental import ExperimentalWarning
-
         ctx, mock_sender = _create_activity_context()
         mock_sender.delete = AsyncMock(return_value=None)
 
@@ -446,10 +442,6 @@ class TestActivityContextDelete:
     @pytest.mark.asyncio
     async def test_delete_non_targeted_no_warning(self) -> None:
         """delete() without targeted=True does not emit ExperimentalWarning."""
-        import warnings
-
-        from microsoft_teams.common.experimental import ExperimentalWarning
-
         ctx, mock_sender = _create_activity_context()
         mock_sender.delete = AsyncMock(return_value=None)
 
