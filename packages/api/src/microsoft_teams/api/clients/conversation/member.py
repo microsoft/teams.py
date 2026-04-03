@@ -8,6 +8,7 @@ from typing import List, Optional
 from microsoft_teams.common.http import Client
 
 from ...models import TeamsChannelAccount
+from ...models.conversation import PagedMembersResult
 from ..api_client_settings import ApiClientSettings
 from ..base_client import BaseClient
 
@@ -47,6 +48,28 @@ class ConversationMemberClient(BaseClient):
         response = await self.http.get(f"{self.service_url}/v3/conversations/{conversation_id}/members")
         return [TeamsChannelAccount.model_validate(member) for member in response.json()]
 
+    async def get_paged(
+        self,
+        conversation_id: str,
+        page_size: Optional[int] = None,
+        continuation_token: Optional[str] = None,
+    ) -> PagedMembersResult:
+        """
+        Get a page of members in a conversation.
+
+        Args:
+            conversation_id: The ID of the conversation.
+            page_size: Optional maximum number of members to return per page.
+            continuation_token: Optional token from a previous call to fetch the next page.
+
+        Returns:
+            PagedMembersResult containing the members and an optional continuation token
+            for fetching subsequent pages.
+        """
+        url = f"{self.service_url}/v3/conversations/{conversation_id}/pagedMembers"
+        response = await self.http.get(url, params={"pageSize": page_size, "continuationToken": continuation_token})
+        return PagedMembersResult.model_validate(response.json())
+
     async def get_by_id(self, conversation_id: str, member_id: str) -> TeamsChannelAccount:
         """
         Get a specific member in a conversation.
@@ -60,13 +83,3 @@ class ConversationMemberClient(BaseClient):
         """
         response = await self.http.get(f"{self.service_url}/v3/conversations/{conversation_id}/members/{member_id}")
         return TeamsChannelAccount.model_validate(response.json())
-
-    async def delete(self, conversation_id: str, member_id: str) -> None:
-        """
-        Remove a member from a conversation.
-
-        Args:
-            conversation_id: The ID of the conversation
-            member_id: The ID of the member to remove
-        """
-        await self.http.delete(f"{self.service_url}/v3/conversations/{conversation_id}/members/{member_id}")

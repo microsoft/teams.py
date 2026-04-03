@@ -6,5 +6,6 @@ Licensed under the MIT License.
 from .conversation import Conversation, ConversationType
 from .conversation_reference import ConversationReference
 from .conversation_resource import ConversationResource
+from .paged_members_result import PagedMembersResult
 
-__all__ = ["Conversation", "ConversationReference", "ConversationResource", "ConversationType"]
+__all__ = ["Conversation", "ConversationReference", "ConversationResource", "ConversationType", "PagedMembersResult"]

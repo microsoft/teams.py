@@ -10,6 +10,7 @@ from microsoft_teams.common.http import Client, ClientOptions
 from ...models import ChannelInfo, TeamDetails
 from ..api_client_settings import ApiClientSettings
 from ..base_client import BaseClient
+from .params import GetTeamConversationsResponse
 
 
 class TeamClient(BaseClient):
@@ -56,4 +57,4 @@ class TeamClient(BaseClient):
             List of channel information.
         """
         response = await self.http.get(f"{self.service_url}/v3/teams/{id}/conversations")
-        return [ChannelInfo.model_validate(channel) for channel in response.json()]
+        return GetTeamConversationsResponse.model_validate(response.json()).conversations

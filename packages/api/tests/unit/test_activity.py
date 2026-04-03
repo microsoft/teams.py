@@ -15,7 +15,6 @@ from microsoft_teams.api.models import (
     ChannelInfo,
     CitationIconName,
     ConversationAccount,
-    ConversationReference,
     MeetingInfo,
     NotificationInfo,
     TeamInfo,
@@ -26,12 +25,12 @@ from microsoft_teams.api.models.entity import CitationAppearance, CitationEntity
 
 @pytest.fixture
 def user() -> Account:
-    return Account(id="1", name="test", role="user")
+    return Account(id="1", name="test")
 
 
 @pytest.fixture
 def bot() -> Account:
-    return Account(id="2", name="test-bot", role="bot")
+    return Account(id="2", name="test-bot")
 
 
 @pytest.fixture
@@ -66,14 +65,6 @@ class TestActivity:
     ) -> None:
         activity = (
             test_activity.with_locale("en")
-            .with_relates_to(
-                ConversationReference(
-                    channel_id="msteams",
-                    service_url="http://localhost",
-                    bot=bot,
-                    conversation=chat,
-                )
-            )
             .with_recipient(bot)
             .with_reply_to_id("3")
             .with_service_url("http://localhost")
@@ -86,12 +77,6 @@ class TestActivity:
         assert activity.locale == "en"
         assert activity.from_ == user
         assert activity.conversation == chat
-        assert activity.relates_to == ConversationReference(
-            channel_id="msteams",
-            service_url="http://localhost",
-            bot=bot,
-            conversation=chat,
-        )
         assert activity.recipient == bot
         assert activity.reply_to_id == "3"
         assert activity.service_url == "http://localhost"

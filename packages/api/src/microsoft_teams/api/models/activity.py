@@ -13,7 +13,6 @@ from microsoft_teams.api.models.channel_data.channel_info import ChannelInfo
 from microsoft_teams.api.models.channel_data.notification_info import NotificationInfo
 from microsoft_teams.api.models.channel_data.team_info import TeamInfo
 from microsoft_teams.api.models.channel_id import ChannelID
-from microsoft_teams.api.models.conversation.conversation_reference import ConversationReference
 from microsoft_teams.api.models.entity.ai_message_entity import AIMessageEntity
 from microsoft_teams.api.models.entity.citation_entity import (
     Appearance,
@@ -61,9 +60,6 @@ class _ActivityBase(CustomBaseModel):
 
     conversation: ConversationAccount
     """Identifies the conversation to which the activity belongs."""
-
-    relates_to: Optional[ConversationReference] = None
-    """A reference to another conversation or activity."""
 
     reply_to_id: Optional[str] = None
     """Contains the ID of the message to which this message is a reply."""
@@ -144,11 +140,6 @@ class ActivityInput(_ActivityBase):
     def with_conversation(self, value: ConversationAccount) -> Self:
         """Set the conversation."""
         self.conversation = value
-        return self
-
-    def with_relates_to(self, value: ConversationReference) -> Self:
-        """Set the relates_to field."""
-        self.relates_to = value
         return self
 
     def with_recipient(self, value: Account, is_targeted: Optional[bool] = None) -> Self:

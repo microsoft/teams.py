@@ -4,13 +4,14 @@ Licensed under the MIT License.
 """
 # pyright: basic
 
+import json
+from unittest.mock import AsyncMock, patch
+
+import httpx
 import pytest
 from microsoft_teams.api.clients.conversation import ConversationClient
-from microsoft_teams.api.clients.conversation.params import (
-    CreateConversationParams,
-    GetConversationsParams,
-)
-from microsoft_teams.api.models import ConversationResource, TeamsChannelAccount
+from microsoft_teams.api.clients.conversation.params import CreateConversationParams
+from microsoft_teams.api.models import ConversationResource, PagedMembersResult, TeamsChannelAccount
 from microsoft_teams.common.http import Client, ClientOptions
 
 
@@ -48,40 +49,13 @@ class TestConversationClient:
         assert client.service_url == service_url
 
     @pytest.mark.asyncio
-    async def test_get_conversations(self, mock_http_client):
-        """Test getting conversations."""
-        service_url = "https://test.service.url"
-        client = ConversationClient(service_url, mock_http_client)
-
-        params = GetConversationsParams(continuation_token="test_token")
-        response = await client.get(params)
-
-        assert response.conversations is not None
-        assert isinstance(response.conversations, list)
-        assert response.continuation_token is not None
-
-    @pytest.mark.asyncio
-    async def test_get_conversations_without_params(self, mock_http_client):
-        """Test getting conversations without parameters."""
-        service_url = "https://test.service.url"
-        client = ConversationClient(service_url, mock_http_client)
-
-        response = await client.get()
-
-        assert response.conversations is not None
-        assert isinstance(response.conversations, list)
-
-    @pytest.mark.asyncio
-    async def test_create_conversation(self, mock_http_client, mock_account, mock_activity):
+    async def test_create_conversation(self, request_capture, mock_account, mock_activity):
         """Test creating a conversation with an activity."""
         service_url = "https://test.service.url"
-        client = ConversationClient(service_url, mock_http_client)
+        client = ConversationClient(service_url, request_capture)
 
         params = CreateConversationParams(
-            is_group=True,
-            bot=mock_account,
             members=[mock_account],
-            topic_name="Test Conversation",
             tenant_id="test_tenant_id",
             activity=mock_activity,
             channel_data={"custom": "data"},
@@ -89,29 +63,42 @@ class TestConversationClient:
 
         response = await client.create(params)
 
+        # Validate response
         assert response.id is not None
         assert response.activity_id is not None
         assert response.service_url is not None
 
+        # Validate request details
+        last_request = request_capture._capture.last_request
+        assert last_request.method == "POST"
+        assert str(last_request.url) == "https://test.service.url/v3/conversations"
+
+        # Validate request payload
+        payload = json.loads(last_request.content)
+        assert payload["tenantId"] == "test_tenant_id"
+
     @pytest.mark.asyncio
-    async def test_create_conversation_without_activity(self, mock_http_client, mock_account):
+    async def test_create_conversation_without_activity(self, request_capture, mock_account):
         """Test creating a conversation without an activity."""
         service_url = "https://test.service.url"
-        client = ConversationClient(service_url, mock_http_client)
+        client = ConversationClient(service_url, request_capture)
 
         params = CreateConversationParams(
-            is_group=True,
-            bot=mock_account,
             members=[mock_account],
-            topic_name="Test Conversation",
             tenant_id="test_tenant_id",
         )
 
         response = await client.create(params)
 
+        # Validate response
         assert response.id is not None
         assert response.activity_id is None
         assert response.service_url is not None
+
+        # Validate request details
+        last_request = request_capture._capture.last_request
+        assert last_request.method == "POST"
+        assert str(last_request.url) == "https://test.service.url/v3/conversations"
 
     def test_conversation_resource_with_all_fields(self):
         """Test that ConversationResource correctly handles all fields present."""
@@ -189,22 +176,33 @@ class TestConversationClient:
 class TestConversationActivityOperations:
     """Unit tests for ConversationClient activity operations."""
 
-    async def test_activity_create(self, mock_http_client, mock_activity):
+    async def test_activity_create(self, request_capture, mock_activity):
         """Test creating an activity."""
         service_url = "https://test.service.url"
-        client = ConversationClient(service_url, mock_http_client)
+        client = ConversationClient(service_url, request_capture)
 
         conversation_id = "test_conversation_id"
         activities = client.activities(conversation_id)
 
         result = await activities.create(mock_activity)
 
+        # Validate response
         assert result is not None
+        assert result.id is not None
 
-    async def test_activity_update(self, mock_http_client, mock_activity):
+        # Validate request details
+        last_request = request_capture._capture.last_request
+        assert last_request.method == "POST"
+        assert str(last_request.url) == f"https://test.service.url/v3/conversations/{conversation_id}/activities"
+
+        # Validate request payload
+        payload = json.loads(last_request.content)
+        assert payload["type"] == "message"
+
+    async def test_activity_update(self, request_capture, mock_activity):
         """Test updating an activity."""
         service_url = "https://test.service.url"
-        client = ConversationClient(service_url, mock_http_client)
+        client = ConversationClient(service_url, request_capture)
 
         conversation_id = "test_conversation_id"
         activity_id = "test_activity_id"
@@ -212,12 +210,26 @@ class TestConversationActivityOperations:
 
         result = await activities.update(activity_id, mock_activity)
 
+        # Validate response
         assert result is not None
+        assert result.id is not None
 
-    async def test_activity_reply(self, mock_http_client, mock_activity):
+        # Validate request details
+        last_request = request_capture._capture.last_request
+        assert last_request.method == "PUT"
+        assert (
+            str(last_request.url)
+            == f"https://test.service.url/v3/conversations/{conversation_id}/activities/{activity_id}"
+        )
+
+        # Validate request payload
+        payload = json.loads(last_request.content)
+        assert payload["type"] == "message"
+
+    async def test_activity_reply(self, request_capture, mock_activity):
         """Test replying to an activity."""
         service_url = "https://test.service.url"
-        client = ConversationClient(service_url, mock_http_client)
+        client = ConversationClient(service_url, request_capture)
 
         conversation_id = "test_conversation_id"
         activity_id = "test_activity_id"
@@ -225,12 +237,26 @@ class TestConversationActivityOperations:
 
         result = await activities.reply(activity_id, mock_activity)
 
+        # Validate response
         assert result is not None
+        assert result.id is not None
 
-    async def test_activity_delete(self, mock_http_client):
+        # Validate request details
+        last_request = request_capture._capture.last_request
+        assert last_request.method == "POST"
+        assert (
+            str(last_request.url)
+            == f"https://test.service.url/v3/conversations/{conversation_id}/activities/{activity_id}"
+        )
+
+        # Validate request payload - check that replyToId was added
+        payload = json.loads(last_request.content)
+        assert payload["replyToId"] == activity_id
+
+    async def test_activity_delete(self, request_capture):
         """Test deleting an activity."""
         service_url = "https://test.service.url"
-        client = ConversationClient(service_url, mock_http_client)
+        client = ConversationClient(service_url, request_capture)
 
         conversation_id = "test_conversation_id"
         activity_id = "test_activity_id"
@@ -239,10 +265,33 @@ class TestConversationActivityOperations:
         # Should not raise an exception
         await activities.delete(activity_id)
 
-    async def test_activity_get_members(self, mock_http_client):
+        # Validate request details
+        last_request = request_capture._capture.last_request
+        assert last_request.method == "DELETE"
+        assert (
+            str(last_request.url)
+            == f"https://test.service.url/v3/conversations/{conversation_id}/activities/{activity_id}"
+        )
+
+        conversation_id = "test_conversation_id"
+        activity_id = "test_activity_id"
+        activities = client.activities(conversation_id)
+
+        # Should not raise an exception
+        await activities.delete(activity_id)
+
+        # Validate request details
+        last_request = request_capture._capture.last_request
+        assert last_request.method == "DELETE"
+        assert (
+            str(last_request.url)
+            == f"https://test.service.url/v3/conversations/{conversation_id}/activities/{activity_id}"
+        )
+
+    async def test_activity_get_members(self, request_capture):
         """Test getting activity members."""
         service_url = "https://test.service.url"
-        client = ConversationClient(service_url, mock_http_client)
+        client = ConversationClient(service_url, request_capture)
 
         conversation_id = "test_conversation_id"
         activity_id = "test_activity_id"
@@ -250,7 +299,17 @@ class TestConversationActivityOperations:
 
         result = await activities.get_members(activity_id)
 
+        # Validate response
         assert result is not None
+        assert len(result) > 0
+
+        # Validate request details
+        last_request = request_capture._capture.last_request
+        assert last_request.method == "GET"
+        assert (
+            str(last_request.url)
+            == f"https://test.service.url/v3/conversations/{conversation_id}/activities/{activity_id}/members"
+        )
 
 
 @pytest.mark.unit
@@ -258,16 +317,17 @@ class TestConversationActivityOperations:
 class TestConversationMemberOperations:
     """Unit tests for ConversationClient member operations."""
 
-    async def test_member_get_all(self, mock_http_client):
+    async def test_member_get_all(self, request_capture):
         """Test getting all members returns TeamsChannelAccount instances."""
         service_url = "https://test.service.url"
-        client = ConversationClient(service_url, mock_http_client)
+        client = ConversationClient(service_url, request_capture)
 
         conversation_id = "test_conversation_id"
         members = client.members(conversation_id)
 
         result = await members.get_all()
 
+        # Validate response
         assert result is not None
         assert len(result) > 0
         assert isinstance(result[0], TeamsChannelAccount)
@@ -275,10 +335,15 @@ class TestConversationMemberOperations:
         assert result[0].name == "Mock Member"
         assert result[0].aad_object_id == "mock_aad_object_id"
 
-    async def test_member_get(self, mock_http_client):
+        # Validate request details
+        last_request = request_capture._capture.last_request
+        assert last_request.method == "GET"
+        assert str(last_request.url) == f"https://test.service.url/v3/conversations/{conversation_id}/members"
+
+    async def test_member_get(self, request_capture):
         """Test getting a specific member returns TeamsChannelAccount instance."""
         service_url = "https://test.service.url"
-        client = ConversationClient(service_url, mock_http_client)
+        client = ConversationClient(service_url, request_capture)
 
         conversation_id = "test_conversation_id"
         member_id = "test_member_id"
@@ -286,23 +351,55 @@ class TestConversationMemberOperations:
 
         result = await members.get(member_id)
 
+        # Validate response
         assert result is not None
         assert isinstance(result, TeamsChannelAccount)
         assert result.id == "mock_member_id"
         assert result.name == "Mock Member"
         assert result.aad_object_id == "mock_aad_object_id"
 
-    async def test_member_delete(self, mock_http_client):
-        """Test deleting a member."""
+        # Validate request details
+        last_request = request_capture._capture.last_request
+        assert last_request.method == "GET"
+        assert (
+            str(last_request.url) == f"https://test.service.url/v3/conversations/{conversation_id}/members/{member_id}"
+        )
+
+    async def test_member_get_paged(self, mock_http_client):
+        """Test getting a page of members returns PagedMembersResult."""
+
         service_url = "https://test.service.url"
         client = ConversationClient(service_url, mock_http_client)
 
         conversation_id = "test_conversation_id"
-        member_id = "test_member_id"
         members = client.members(conversation_id)
 
-        # Should not raise an exception
-        await members.delete(member_id)
+        result = await members.get_paged()
+
+        assert isinstance(result, PagedMembersResult)
+        assert len(result.members) == 1
+        assert isinstance(result.members[0], TeamsChannelAccount)
+        assert result.members[0].id == "mock_member_id"
+        assert result.continuation_token == "mock_continuation_token"
+
+    async def test_member_get_paged_with_token(self, mock_http_client):
+        """Test get_paged passes continuation_token and page_size."""
+
+        service_url = "https://test.service.url"
+        client = ConversationClient(service_url, mock_http_client)
+        members = client.members("test_conversation_id")
+
+        mock_response = httpx.Response(
+            200,
+            json={"members": [], "continuationToken": None},
+            headers={"content-type": "application/json"},
+        )
+        with patch.object(mock_http_client, "get", new_callable=AsyncMock, return_value=mock_response) as mock_get:
+            await members.get_paged(page_size=50, continuation_token="some_token")
+
+        called_params = mock_get.call_args.kwargs.get("params", {})
+        assert called_params.get("pageSize") == 50
+        assert called_params.get("continuationToken") == "some_token"
 
 
 @pytest.mark.unit

@@ -86,18 +86,41 @@ def mock_transport():
                 "tokenExchangeResource": {"id": "mock_resource_id"},
             }
         elif "/v3/teams/" in str(request.url) and "/conversations" in str(request.url):
-            response_data = [
-                {
-                    "id": "mock_channel_id_1",
-                    "name": "General",
-                    "type": "standard",
-                },
-                {
-                    "id": "mock_channel_id_2",
-                    "name": "Random",
-                    "type": "standard",
-                },
-            ]
+            response_data = {
+                "conversations": [
+                    {
+                        "id": "mock_channel_id_1",
+                        "name": "General",
+                        "type": "standard",
+                    },
+                    {
+                        "id": "mock_channel_id_2",
+                        "name": "Random",
+                        "type": "standard",
+                    },
+                ]
+            }
+        elif "/conversations/" in str(request.url) and "/pagedMembers" in str(request.url):
+            response_data = {
+                "members": [
+                    {
+                        "id": "mock_member_id",
+                        "name": "Mock Member",
+                        "aadObjectId": "mock_aad_object_id",
+                    }
+                ],
+                "continuationToken": "mock_continuation_token",
+            }
+        elif "/notification" in str(request.url) and request.method == "POST":
+            response_data = {
+                "recipientsFailureInfo": [
+                    {
+                        "recipientMri": "8:orgid:mock_recipient",
+                        "errorCode": "BadArgument",
+                        "failureReason": "Invalid recipient",
+                    }
+                ]
+            }
         elif "/conversations/" in str(request.url) and str(request.url).endswith("/members"):
             response_data = [
                 {
@@ -111,17 +134,6 @@ def mock_transport():
                 "id": "mock_member_id",
                 "name": "Mock Member",
                 "aadObjectId": "mock_aad_object_id",
-            }
-        elif "/conversations" in str(request.url) and request.method == "GET":
-            response_data = {
-                "conversations": [
-                    {
-                        "id": "mock_conversation_id",
-                        "conversationType": "personal",
-                        "isGroup": True,
-                    }
-                ],
-                "continuationToken": "mock_continuation_token",
             }
         elif "/conversations" in str(request.url) and request.method == "POST":
             # Parse request body to check if activity is present
@@ -225,6 +237,128 @@ def mock_http_client(mock_transport):
     """Create a mock HTTP client with transport."""
     client = Client(ClientOptions(base_url="https://mock.api.com"))
     client.http._transport = mock_transport
+    return client
+
+
+@pytest.fixture
+def request_capture():
+    """Fixture to capture HTTP request details for testing.
+
+    Returns:
+        A Client instance with an attached `_capture` attribute containing the RequestCapture helper.
+        Access captured requests via `client._capture.last_request` or `client._capture.requests`.
+    """
+
+    class RequestCapture:
+        """Helper class to capture request details."""
+
+        def __init__(self):
+            self.requests: list[httpx.Request] = []
+
+        def handler(self, request: httpx.Request) -> httpx.Response:
+            """Handler that captures requests and returns mock responses."""
+            self.requests.append(request)
+
+            # Default response
+            response_data: Any = {
+                "ok": True,
+                "url": str(request.url),
+                "method": request.method,
+            }
+
+            # Handle specific endpoints with realistic responses
+            if "GetAadTokens" in str(request.url):
+                response_data = {
+                    "https://graph.microsoft.com": {
+                        "connectionName": "test_connection",
+                        "token": "mock_graph_token_123",
+                        "expiration": "2024-12-01T12:00:00Z",
+                    },
+                }
+            elif "/conversations/" in str(request.url) and str(request.url).endswith("/members"):
+                response_data = [
+                    {
+                        "id": "mock_member_id",
+                        "name": "Mock Member",
+                        "aadObjectId": "mock_aad_object_id",
+                    }
+                ]
+            elif "/conversations/" in str(request.url) and "/members/" in str(request.url) and request.method == "GET":
+                response_data = {
+                    "id": "mock_member_id",
+                    "name": "Mock Member",
+                    "aadObjectId": "mock_aad_object_id",
+                }
+            elif "/conversations" in str(request.url) and request.method == "GET":
+                response_data = {
+                    "conversations": [
+                        {
+                            "id": "mock_conversation_id",
+                            "conversationType": "personal",
+                            "isGroup": True,
+                        }
+                    ],
+                    "continuationToken": "mock_continuation_token",
+                }
+            elif "/conversations" in str(request.url) and request.method == "POST":
+                # Parse request body to check if activity is included
+                try:
+                    import json
+
+                    request_body = json.loads(request.content.decode("utf-8")) if request.content else {}
+                    has_activity = "activity" in request_body and request_body["activity"] is not None
+                except Exception:
+                    has_activity = True  # Default to including activity_id if we can't parse
+
+                response_data = {
+                    "id": "mock_conversation_id",
+                    "type": "message",
+                    "serviceUrl": "https://mock.service.url",
+                }
+                if has_activity:
+                    response_data["activityId"] = "mock_activity_id"
+            elif "/activities" in str(request.url):
+                if request.method == "POST":
+                    response_data = {
+                        "id": "mock_activity_id",
+                        "type": "message",
+                        "text": "Mock activity response",
+                    }
+                elif request.method == "PUT":
+                    response_data = {
+                        "id": "mock_activity_id",
+                        "type": "message",
+                        "text": "Updated mock activity",
+                    }
+                elif request.method == "GET":
+                    response_data = [
+                        {
+                            "id": "mock_member_id",
+                            "name": "Mock Member",
+                            "aadObjectId": "mock_aad_object_id",
+                        }
+                    ]
+
+            return httpx.Response(
+                status_code=200,
+                json=response_data,
+                headers={"content-type": "application/json"},
+            )
+
+        @property
+        def last_request(self) -> httpx.Request | None:
+            """Get the last captured request."""
+            return self.requests[-1] if self.requests else None
+
+        def clear(self):
+            """Clear all captured requests."""
+            self.requests.clear()
+
+    capture = RequestCapture()
+    transport = httpx.MockTransport(capture.handler)
+    client = Client(ClientOptions(base_url="https://mock.api.com"))
+    client.http._transport = transport
+    client._capture = capture  # type: ignore[attr-defined]  # Attach for test access
     return client
 
 

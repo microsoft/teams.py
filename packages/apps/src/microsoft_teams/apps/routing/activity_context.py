@@ -261,7 +261,6 @@ class ActivityContext(Generic[T]):
         token_exchange_state = TokenExchangeState(
             connection_name=connection_name,
             conversation=self.conversation_ref,
-            relates_to=self.activity.relates_to,
             ms_app_id=self.app_id,
         )
 
@@ -273,8 +272,6 @@ class ActivityContext(Generic[T]):
             one_on_one_conversation = await self.api.conversations.create(
                 CreateConversationParams(
                     tenant_id=self.activity.conversation.tenant_id,
-                    is_group=False,
-                    bot=self.activity.recipient,
                     members=[self.activity.from_],
                 )
             )
@@ -288,7 +285,7 @@ class ActivityContext(Generic[T]):
         resource_params = GetBotSignInResourceParams(state=state)
         resource = await self.api.bots.sign_in.get_resource(resource_params)
 
-        payload = MessageActivityInput(recipient=self.activity.from_, input_hint="acceptingInput").add_attachments(
+        payload = MessageActivityInput(recipient=self.activity.from_).add_attachments(
             card_attachment(
                 attachment=OAuthCardAttachment(
                     content=OAuthCard(

@@ -151,7 +151,9 @@ class App(ActivityHandlerMixin):
         self.entra_token_validator: Optional[TokenValidator] = None
         if self.credentials and hasattr(self.credentials, "client_id"):
             self.entra_token_validator = TokenValidator.for_entra(
-                self.credentials.client_id, self.credentials.tenant_id
+                self.credentials.client_id,
+                self.credentials.tenant_id,
+                application_id_uri=self.options.application_id_uri,
             )
 
     @property
@@ -287,7 +289,7 @@ class App(ActivityHandlerMixin):
         conversation_ref = ConversationReference(
             channel_id="msteams",
             service_url=self.api.service_url,
-            bot=Account(id=self.id, role="bot"),
+            bot=Account(id=self.id),
             conversation=ConversationAccount(id=conversation_id, conversation_type="personal"),
         )
 
