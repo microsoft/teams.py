@@ -167,7 +167,7 @@ class TestAppGetAppGraph:
         assert first is not second
 
     def test_get_app_graph_passes_tenant_id(self) -> None:
-        """get_app_graph passes the tenant_id through to the token factory."""
+        """get_app_graph passes the tenant_id through to the token factory callable."""
         app = self._create_app()
 
         mock_client = MagicMock()
@@ -186,3 +186,10 @@ class TestAppGetAppGraph:
         assert len(captured_token_arg) == 1
         # token arg should be a callable (lambda)
         assert callable(captured_token_arg[0])
+
+        # Verify the lambda invokes _get_graph_token with the correct tenant_id
+        with patch.object(app, "_get_graph_token", new=AsyncMock(return_value=None)) as mock_get_token:
+            import asyncio
+
+            asyncio.run(captured_token_arg[0]())
+            mock_get_token.assert_called_once_with("my-tenant-id")

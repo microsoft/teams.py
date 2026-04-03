@@ -539,7 +539,6 @@ class App(ActivityHandlerMixin):
 
         Raises:
             ImportError: If the graph dependencies are not installed.
-            RuntimeError: If the graph client cannot be created.
 
         """
         return _get_graph_client(lambda: self._get_graph_token(tenant_id))
