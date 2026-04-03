@@ -5,9 +5,18 @@ Licensed under the MIT License.
 
 from .channel_data import ChannelData
 from .channel_info import ChannelInfo
+from .feedback_loop import FeedbackLoop
 from .notification_info import NotificationInfo
 from .settings import ChannelDataSettings
 from .team_info import TeamInfo
 from .tenant_info import TenantInfo
 
-__all__ = ["ChannelInfo", "NotificationInfo", "ChannelDataSettings", "TeamInfo", "TenantInfo", "ChannelData"]
+__all__ = [
+    "ChannelInfo",
+    "NotificationInfo",
+    "ChannelDataSettings",
+    "TeamInfo",
+    "TenantInfo",
+    "ChannelData",
+    "FeedbackLoop",
+]
