@@ -8,12 +8,11 @@ from typing import Annotated, Union
 from pydantic import Field
 
 from .message import MessageActivity, MessageActivityInput
-from .message_delete import MessageDeleteActivity, MessageDeleteActivityInput, MessageDeleteChannelData
+from .message_delete import MessageDeleteActivity, MessageDeleteChannelData
 from .message_reaction import MessageReactionActivity, MessageReactionActivityInput
 from .message_update import (
     MessageEventType,
     MessageUpdateActivity,
-    MessageUpdateActivityInput,
     MessageUpdateChannelData,
 )
 
@@ -32,12 +31,10 @@ __all__ = [
     "MessageActivity",
     "MessageActivityInput",
     "MessageDeleteActivity",
-    "MessageDeleteActivityInput",
     "MessageDeleteChannelData",
     "MessageReactionActivity",
     "MessageReactionActivityInput",
     "MessageUpdateActivity",
-    "MessageUpdateActivityInput",
     "MessageUpdateChannelData",
     "MessageEventType",
 ]

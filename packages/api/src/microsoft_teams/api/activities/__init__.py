@@ -18,7 +18,6 @@ from .conversation import (
 )
 from .event import *  # noqa: F403
 from .event import EventActivity
-from .handoff import HandoffActivity
 from .install_update import *  # noqa: F403
 from .install_update import InstallUpdateActivity
 from .invoke import *  # noqa: F403
@@ -26,13 +25,10 @@ from .invoke import InvokeActivity
 from .message import *  # noqa: F403
 from .message import MessageActivities
 from .sent_activity import SentActivity
-from .trace import TraceActivity
 from .typing import TypingActivity, TypingActivityInput
 
 Activity = Annotated[
     Union[
-        HandoffActivity,
-        TraceActivity,
         TypingActivity,
         CommandActivity,
         ConversationActivity,
@@ -61,13 +57,11 @@ __all__: list[str] = [
     "ConversationUpdateActivity",
     "ConversationChannelData",
     "EventActivity",
-    "HandoffActivity",
     "InstallUpdateActivity",
     "TypingActivity",
     "TypingActivityInput",
     "ConversationEventType",
     "InvokeActivity",
-    "TraceActivity",
     "ActivityParams",
     "SentActivity",
 ]
