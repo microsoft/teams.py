@@ -26,10 +26,13 @@ class TestCreateJwtValidationMiddleware:
         call_next = AsyncMock(return_value=mock_response)
         return call_next
 
-    def _make_request(self, path: str, auth_header: str | None = None, body: dict | None = None) -> MagicMock:
-        """Build a mock FastAPI Request with the given path and auth header."""
+    def _make_request(
+        self, path: str, auth_header: str | None = None, body: dict | None = None, method: str = "POST"
+    ) -> MagicMock:
+        """Build a mock FastAPI Request with the given path, method, and auth header."""
         mock_request = MagicMock()
         mock_request.url.path = path
+        mock_request.method = method
         mock_request.headers.get = MagicMock(return_value=auth_header)
         if body is None:
             body = {"serviceUrl": "https://test.service.url", "id": "activity-123"}
@@ -51,6 +54,22 @@ class TestCreateJwtValidationMiddleware:
 
         mock_call_next.assert_awaited_once_with(mock_request)
         assert response is mock_call_next.return_value
+
+    @pytest.mark.asyncio
+    async def test_options_preflight_bypasses_auth(self, mock_call_next):
+        """OPTIONS preflight requests to validated paths bypass auth and call call_next directly."""
+        with patch("microsoft_teams.apps.auth.jwt_middleware.TokenValidator") as mock_validator_class:
+            mock_validator = AsyncMock()
+            mock_validator_class.for_service.return_value = mock_validator
+
+            middleware = create_jwt_validation_middleware(self.APP_ID, self.VALIDATED_PATHS)
+
+            mock_request = self._make_request("/api/messages", method="OPTIONS")
+            response = await middleware(mock_request, mock_call_next)
+
+        mock_call_next.assert_awaited_once_with(mock_request)
+        assert response is mock_call_next.return_value
+        mock_validator.validate_token.assert_not_awaited()
 
     @pytest.mark.asyncio
     async def test_missing_authorization_header(self, mock_call_next):

@@ -34,8 +34,8 @@ def create_jwt_validation_middleware(
 
     async def middleware(request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
         """JWT validation middleware function."""
-        # Only validate specified paths
-        if request.url.path not in paths:
+        # Skip preflight requests and non-validated paths
+        if request.method == "OPTIONS" or request.url.path not in paths:
             return await call_next(request)
 
         # Extract Bearer token
