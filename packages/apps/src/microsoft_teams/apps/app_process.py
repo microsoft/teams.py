@@ -4,7 +4,7 @@ Licensed under the MIT License.
 """
 
 import logging
-from typing import TYPE_CHECKING, Any, Awaitable, Callable, Dict, List, Optional, Union, cast
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union, cast
 
 from microsoft_teams.api import (
     ActivityBase,
@@ -49,7 +49,6 @@ class ActivityProcessor:
         token_manager: TokenManager,
         api_client_settings: Optional[ApiClientSettings],
         activity_sender: ActivitySender,
-        get_graph_token: Callable[[Optional[str]], Awaitable[Optional[TokenProtocol]]],
     ) -> None:
         self.router = router
         self.id = id
@@ -59,7 +58,6 @@ class ActivityProcessor:
         self.token_manager = token_manager
         self.api_client_settings = api_client_settings
         self.activity_sender = activity_sender
-        self._get_graph_token = get_graph_token
 
         # This will be set after the EventManager is initialized due to
         # a circular dependency
@@ -127,7 +125,7 @@ class ActivityProcessor:
             is_signed_in,
             self.default_connection_name,
             activity_sender=self.activity_sender,
-            app_token=lambda: self._get_graph_token(tenant_id),
+            app_token=lambda: self.token_manager.get_graph_token(tenant_id),
         )
 
         send = activityCtx.send

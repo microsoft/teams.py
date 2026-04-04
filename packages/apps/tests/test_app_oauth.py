@@ -446,7 +446,6 @@ class TestSignInFailureMiddlewareChain:
             token_manager=MagicMock(),
             api_client_settings=None,
             activity_sender=MagicMock(),
-            get_graph_token=AsyncMock(return_value=None),
         )
 
     @staticmethod

@@ -53,8 +53,9 @@ from .http.adapter import HttpRequest, HttpResponse
 from .options import AppOptions, InternalAppOptions
 from .plugins import PluginBase, PluginStartEvent
 from .routing import ActivityHandlerMixin, ActivityRouter
-from .routing.activity_context import ActivityContext, _get_graph_client
+from .routing.activity_context import ActivityContext
 from .token_manager import TokenManager
+from .utils import create_graph_client
 
 version = importlib.metadata.version("microsoft-teams-apps")
 
@@ -134,7 +135,6 @@ class App(ActivityHandlerMixin):
             self._token_manager,
             self.options.api_client_settings,
             self.activity_sender,
-            self._get_graph_token,
         )
         self.event_manager = EventManager(self._events)
         self.activity_processor.event_manager = self.event_manager
@@ -541,4 +541,4 @@ class App(ActivityHandlerMixin):
             ImportError: If the graph dependencies are not installed.
 
         """
-        return _get_graph_client(lambda: self._get_graph_token(tenant_id))
+        return create_graph_client(lambda: self._get_graph_token(tenant_id))

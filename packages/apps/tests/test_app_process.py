@@ -56,7 +56,6 @@ class TestActivityProcessor:
             mock_token_manager,
             None,
             mock_activity_sender,
-            AsyncMock(return_value=None),
         )
 
     @pytest.mark.asyncio

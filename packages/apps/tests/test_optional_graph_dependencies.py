@@ -141,7 +141,7 @@ class TestAppGetAppGraph:
         app = self._create_app()
 
         with patch(
-            "microsoft_teams.apps.app._get_graph_client",
+            "microsoft_teams.apps.app.create_graph_client",
             side_effect=ImportError("graph not installed"),
         ):
             with pytest.raises(ImportError):
@@ -156,7 +156,7 @@ class TestAppGetAppGraph:
         side_effects = [mock_client_1, mock_client_2]
 
         with patch(
-            "microsoft_teams.apps.app._get_graph_client",
+            "microsoft_teams.apps.app.create_graph_client",
             side_effect=side_effects,
         ):
             first = app.get_app_graph()
@@ -178,7 +178,7 @@ class TestAppGetAppGraph:
             return mock_client
 
         with patch(
-            "microsoft_teams.apps.app._get_graph_client",
+            "microsoft_teams.apps.app.create_graph_client",
             side_effect=capture_token,
         ):
             app.get_app_graph(tenant_id="my-tenant-id")

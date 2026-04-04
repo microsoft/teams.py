@@ -37,24 +37,13 @@ from microsoft_teams.common import Storage
 from microsoft_teams.common.http.client_token import Token
 
 from ..activity_sender import ActivitySender
+from ..utils import create_graph_client
 
 if TYPE_CHECKING:
     from msgraph.graph_service_client import GraphServiceClient
 
 T = TypeVar("T", bound=ActivityBase, contravariant=True)
 logger = logging.getLogger(__name__)
-
-
-def _get_graph_client(token: Token):
-    """Lazy import and call get_graph_client when needed."""
-    try:
-        from microsoft_teams.graph import get_graph_client
-
-        return get_graph_client(token)
-    except ImportError as exc:
-        raise ImportError(
-            "Graph functionality not available. Install with 'pip install microsoft-teams-apps[graph]'"
-        ) from exc
 
 
 @dataclass
@@ -134,7 +123,7 @@ class ActivityContext(Generic[T]):
         if self._user_graph is None:
             try:
                 user_token = JsonWebToken(self.user_token)
-                self._user_graph = _get_graph_client(user_token)
+                self._user_graph = create_graph_client(user_token)
             except Exception as e:
                 self.logger.error(f"Failed to create user graph client: {e}")
                 raise RuntimeError(f"Failed to create user graph client: {e}") from e
@@ -156,7 +145,7 @@ class ActivityContext(Generic[T]):
         """
         if self._app_graph is None:
             try:
-                self._app_graph = _get_graph_client(self._app_token)
+                self._app_graph = create_graph_client(self._app_token)
             except Exception as e:
                 self.logger.error(f"Failed to create app graph client: {e}")
                 raise RuntimeError(f"Failed to create app graph client: {e}") from e
