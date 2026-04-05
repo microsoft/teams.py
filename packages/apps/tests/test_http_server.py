@@ -132,7 +132,7 @@ class TestHttpServer:
 
 
 class TestHttpServerNoCredentials:
-    """Test cases for HttpServer when no credentials are configured and skipAuth is not set."""
+    """Test cases for HttpServer when no credentials are configured and skip_auth is not set."""
 
     @pytest.fixture
     def mock_adapter(self):
