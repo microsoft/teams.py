@@ -94,10 +94,16 @@ class HttpServer:
                 cloud=self._cloud,
             )
             logger.debug("JWT validation enabled for %s", self._messaging_endpoint)
-        elif not app_id:
+        elif not app_id and not skip_auth:
             logger.warning(
-                "No credentials configured (CLIENT_ID / CLIENT_SECRET / TENANT_ID). "
-                "Bot will accept unauthenticated requests on %s.",
+                "No credentials configured and skip_auth is not enabled. "
+                "All incoming requests will be rejected. Configure client authentication "
+                "to securely receive messages, or set skip_auth=True for local development."
+            )
+        elif not app_id and skip_auth:
+            logger.warning(
+                "No credentials configured (CLIENT_ID / CLIENT_SECRET / TENANT_ID), "
+                "but skip_auth is enabled. Bot will accept unauthenticated requests on %s.",
                 self._messaging_endpoint,
             )
 
@@ -116,7 +122,30 @@ class HttpServer:
             # Validate JWT token
             authorization = headers.get("authorization") or headers.get("Authorization") or ""
 
-            if self._token_validator and not self._skip_auth:
+            if self._skip_auth:
+                # Auth explicitly skipped — use a default token
+                service_url = cast(Optional[str], body.get("serviceUrl"))
+                token: TokenProtocol = cast(
+                    TokenProtocol,
+                    SimpleNamespace(
+                        app_id="",
+                        app_display_name="",
+                        tenant_id="",
+                        service_url=service_url or "",
+                        from_="azure",
+                        from_id="",
+                        is_expired=lambda: False,
+                    ),
+                )
+            elif not self._token_validator:
+                # No credentials configured — reject the request
+                logger.error(
+                    "No credentials configured. Configure client authentication "
+                    "to securely receive messages, or set skip_auth=True to allow "
+                    "unauthenticated requests."
+                )
+                return HttpResponse(status=401, body={"error": "Authentication not configured"})
+            else:
                 if not authorization.startswith("Bearer "):
                     logger.warning(
                         "inbound activity rejected (type=%s, id=%s): missing or malformed "
@@ -135,22 +164,7 @@ class HttpServer:
                     logger.warning(f"JWT token validation failed: {e}")
                     return HttpResponse(status=401, body={"error": "Unauthorized"})
 
-                token: TokenProtocol = cast(TokenProtocol, JsonWebToken(value=raw_token))
-            else:
-                # No auth — use a default token
-                service_url = cast(Optional[str], body.get("serviceUrl"))
-                token = cast(
-                    TokenProtocol,
-                    SimpleNamespace(
-                        app_id="",
-                        app_display_name="",
-                        tenant_id="",
-                        service_url=service_url or "",
-                        from_="azure",
-                        from_id="",
-                        is_expired=lambda: False,
-                    ),
-                )
+                token = cast(TokenProtocol, JsonWebToken(value=raw_token))
 
             core_activity = CoreActivity.model_validate(body)
             activity_type = core_activity.type or "unknown"
