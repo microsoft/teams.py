@@ -79,7 +79,7 @@ class HttpServer:
             logger.debug("JWT validation enabled for %s", self._messaging_endpoint)
         elif not skip_auth:
             logger.warning(
-                "No credentials configured and skipAuth is not enabled. "
+                "No credentials configured and skip_auth is not enabled. "
                 "All incoming requests will be rejected. Configure client authentication "
                 "to securely receive messages, or set skip_auth=True for local development."
             )
