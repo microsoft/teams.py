@@ -131,6 +131,64 @@ class TestHttpServer:
         assert result["status"] == 500
 
 
+class TestHttpServerNoCredentials:
+    """Test cases for HttpServer when no credentials are configured and skipAuth is not set."""
+
+    @pytest.fixture
+    def mock_adapter(self):
+        adapter = MagicMock()
+        adapter.register_route = MagicMock()
+        adapter.start = AsyncMock()
+        adapter.stop = AsyncMock()
+        return adapter
+
+    @pytest.fixture
+    def server(self, mock_adapter):
+        server = HttpServer(mock_adapter)
+        server.initialize(credentials=None, skip_auth=False)
+        return server
+
+    @pytest.mark.asyncio
+    async def test_rejects_request_when_no_credentials(self, server):
+        """Test that requests are rejected with 401 when no credentials are configured."""
+        server.on_request = AsyncMock(return_value=InvokeResponse(status=200))
+
+        request = HttpRequest(
+            body={
+                "type": "message",
+                "id": "test-123",
+                "serviceUrl": "https://attacker.com",
+            },
+            headers={},
+        )
+
+        result = await server.handle_request(request)
+
+        assert result["status"] == 401
+        assert result["body"] == {"error": "Authentication not configured"}
+        server.on_request.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_rejects_request_with_auth_header_when_no_credentials(self, server):
+        """Test that even requests with auth headers are rejected when no credentials are configured."""
+        server.on_request = AsyncMock(return_value=InvokeResponse(status=200))
+
+        request = HttpRequest(
+            body={
+                "type": "message",
+                "id": "test-123",
+                "serviceUrl": "https://example.com",
+            },
+            headers={"authorization": "Bearer some-token"},
+        )
+
+        result = await server.handle_request(request)
+
+        assert result["status"] == 401
+        assert result["body"] == {"error": "Authentication not configured"}
+        server.on_request.assert_not_called()
+
+
 class TestFastAPIAdapter:
     """Test cases for FastAPIAdapter."""
 
@@ -145,7 +203,7 @@ class TestFastAPIAdapter:
         """Test route registration on FastAPI app."""
         adapter = FastAPIAdapter()
 
-        async def handler(req: HttpRequest) -> HttpResponse:
+        async def handler(request: HttpRequest) -> HttpResponse:
             return HttpResponse(status=200, body=None)
 
         adapter.register_route("POST", "/test", handler)
