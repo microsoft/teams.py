@@ -161,7 +161,7 @@ class HttpServer:
                 try:
                     await self._token_validator.validate_token(raw_token, service_url)
                 except Exception as e:
-                    logger.warning(f"JWT token validation failed: {e}")
+                    logger.warning("JWT token validation failed: %s", e)
                     return HttpResponse(status=401, body={"error": "Unauthorized"})
 
                 token = cast(TokenProtocol, JsonWebToken(value=raw_token))
