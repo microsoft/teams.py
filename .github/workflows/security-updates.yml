@@ -48,8 +48,12 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          packages=$(gh api "repos/${{ github.repository }}/dependabot/alerts?state=open&per_page=100" \
-            --jq '[.[] | select(.dependency.package.ecosystem == "pip") | .dependency.package.name] | unique | join(" ")')
+          packages=$(gh api --paginate "repos/${{ github.repository }}/dependabot/alerts?state=open" \
+            --slurp \
+            --jq '[.[]
+              | .[]
+              | select(.dependency.package.ecosystem == "pip")
+              | .dependency.package.name] | unique | join(" ")')
           echo "packages=$packages" >> $GITHUB_OUTPUT
           echo "Vulnerable packages: $packages"
 
@@ -77,9 +81,18 @@ jobs:
           git diff --staged --quiet && echo "No changes to uv.lock" && exit 0
           git commit -m "fix(deps): update packages with security vulnerabilities"
           git push origin "$branch" --force
-          gh pr create \
+          pr_create_output=$(gh pr create \
             --title "fix(deps): update packages with security vulnerabilities" \
             --body "Updates the following packages flagged by Dependabot security alerts: \`$PACKAGES\`" \
-            --label "dependencies" \
             --head "$branch" \
-            2>/dev/null || echo "PR already open for this branch"
+            2>&1) || pr_create_status=$?
+
+          if [ -z "${pr_create_status:-}" ]; then
+            echo "$pr_create_output"
+          elif printf '%s\n' "$pr_create_output" | grep -Fq "A pull request already exists for"; then
+            echo "$pr_create_output"
+            echo "PR already open for this branch"
+          else
+            echo "$pr_create_output"
+            exit "$pr_create_status"
+          fi
