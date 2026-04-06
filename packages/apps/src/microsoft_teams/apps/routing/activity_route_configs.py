@@ -106,7 +106,6 @@ ACTIVITY_ROUTES: Dict[str, ActivityConfig] = {
         method_name="on_soft_delete_message",
         input_model=MessageDeleteActivity,
         selector=lambda activity: isinstance(activity, MessageDeleteActivity)
-        and activity.channel_data is not None
         and activity.channel_data.event_type == "softDeleteMessage",
         output_model=None,
     ),
@@ -129,7 +128,6 @@ ACTIVITY_ROUTES: Dict[str, ActivityConfig] = {
         method_name="on_undelete_message",
         input_model=MessageUpdateActivity,
         selector=lambda activity: isinstance(activity, MessageUpdateActivity)
-        and activity.channel_data is not None
         and activity.channel_data.event_type == "undeleteMessage",
         output_model=None,
     ),
@@ -138,7 +136,6 @@ ACTIVITY_ROUTES: Dict[str, ActivityConfig] = {
         method_name="on_edit_message",
         input_model=MessageUpdateActivity,
         selector=lambda activity: isinstance(activity, MessageUpdateActivity)
-        and activity.channel_data is not None
         and activity.channel_data.event_type == "editMessage",
         output_model=None,
     ),
