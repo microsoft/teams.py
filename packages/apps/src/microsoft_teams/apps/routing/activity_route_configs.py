@@ -19,7 +19,6 @@ from microsoft_teams.api import (
     ExecuteActionInvokeActivity,
     FileConsentInvokeActivity,
     HandoffActionInvokeActivity,
-    HandoffActivity,
     InstalledActivity,
     InvokeActivity,
     MeetingEndEventActivity,
@@ -51,7 +50,6 @@ from microsoft_teams.api import (
     TabInvokeResponse,
     TabSubmitInvokeActivity,
     TaskModuleInvokeResponse,
-    TraceActivity,
     TypingActivity,
     UninstalledActivity,
 )
@@ -560,20 +558,6 @@ ACTIVITY_ROUTES: Dict[str, ActivityConfig] = {
         method_name="on_typing",
         input_model=TypingActivity,
         selector=lambda activity: isinstance(activity, TypingActivity),
-        output_model=None,
-    ),
-    "trace": ActivityConfig(
-        name="trace",
-        method_name="on_trace",
-        input_model=TraceActivity,
-        selector=lambda activity: isinstance(activity, TraceActivity),
-        output_model=None,
-    ),
-    "handoff": ActivityConfig(
-        name="handoff",
-        method_name="on_handoff",
-        input_model=HandoffActivity,
-        selector=lambda activity: isinstance(activity, HandoffActivity),
         output_model=None,
     ),
     # Generic Activity Handler (catch-all)
