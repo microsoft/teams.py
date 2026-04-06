@@ -13,15 +13,7 @@ from microsoft_teams.api.models.channel_data.channel_info import ChannelInfo
 from microsoft_teams.api.models.channel_data.notification_info import NotificationInfo
 from microsoft_teams.api.models.channel_data.team_info import TeamInfo
 from microsoft_teams.api.models.channel_id import ChannelID
-from microsoft_teams.api.models.entity.citation_entity import (
-    Appearance,
-    CitationAppearance,
-    CitationEntity,
-    Claim,
-    Image,
-)
 from microsoft_teams.api.models.entity.entity import Entity
-from microsoft_teams.api.models.entity.message_entity import MessageEntity
 from microsoft_teams.api.models.meetings.meeting_info import MeetingInfo
 from microsoft_teams.common.experimental import ExperimentalWarning
 
@@ -212,57 +204,9 @@ class ActivityInput(_ActivityBase):
         self.entities.extend(values)
         return self
 
-    def add_citation(self, position: int, appearance: CitationAppearance) -> Self:
-        """Add citations."""
-        message_entity = self.ensure_single_root_level_message_entity()
-        citation_entity = CitationEntity(**message_entity.model_dump())
-        if citation_entity.citation is None:
-            citation_entity.citation = []
-
-        citation_entity.citation.append(
-            Claim(
-                position=position,
-                appearance=Appearance(
-                    abstract=appearance.abstract,
-                    name=appearance.name,
-                    image=Image(name=appearance.icon) if appearance.icon else None,
-                    keywords=appearance.keywords,
-                    text=appearance.text,
-                    url=appearance.url,
-                    usage_info=appearance.usage_info,
-                ),
-            )
-        )
-
-        self._update_entity(message_entity, citation_entity)
-
-        return self
-
     def is_streaming(self) -> bool:
         """Check if this is a streaming activity."""
         return bool(self.entities and any(e.type == "streaminfo" for e in self.entities or []))
-
-    def ensure_single_root_level_message_entity(self) -> MessageEntity:
-        """
-        Get or create the base message entity.
-        There should only be one root level message entity.
-        """
-        message_entity = next(
-            (e for e in (self.entities or []) if e.type == "https://schema.org/Message" and e.at_type == "Message"),
-            None,
-        )
-
-        if not message_entity:
-            message_entity = MessageEntity()
-            self.add_entity(message_entity)
-
-        return message_entity
-
-    def _update_entity(self, old_entity: Entity, new_entity: Entity) -> None:
-        if self.entities is not None:
-            index = self.entities.index(old_entity)
-            self.entities.pop(index)
-            self.entities.insert(index, new_entity)
 
 
 class Activity(_ActivityBase):
