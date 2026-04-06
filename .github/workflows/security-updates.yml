@@ -1,0 +1,85 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+
+name: "Security Updates"
+
+on:
+  schedule:
+    - cron: "0 9 * * 1" # Every Monday at 9am UTC
+  workflow_dispatch:
+
+# Declare default permissions as read only.
+permissions: read-all
+
+jobs:
+  update:
+    name: Update vulnerable dependencies
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+      pull-requests: write
+      security-events: read
+
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@0080882f6c36860b6ba35c610c98ce87d4e2f26f # v2.10.2
+        with:
+          egress-policy: audit
+
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.x'
+
+      - name: Install nbgv
+        run: dotnet tool install -g nbgv
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Get vulnerable pip packages
+        id: alerts
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          packages=$(gh api "repos/${{ github.repository }}/dependabot/alerts?state=open&per_page=100" \
+            --jq '[.[] | select(.dependency.package.ecosystem == "pip") | .dependency.package.name] | unique | join(" ")')
+          echo "packages=$packages" >> $GITHUB_OUTPUT
+          echo "Vulnerable packages: $packages"
+
+      - name: Update packages in lockfile
+        if: steps.alerts.outputs.packages != ''
+        env:
+          PACKAGES: ${{ steps.alerts.outputs.packages }}
+        run: |
+          for pkg in $PACKAGES; do
+            echo "Upgrading $pkg..."
+            uv lock --upgrade-package "$pkg"
+          done
+
+      - name: Open Pull Request
+        if: steps.alerts.outputs.packages != ''
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PACKAGES: ${{ steps.alerts.outputs.packages }}
+        run: |
+          branch="deps/security-updates"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$branch" 2>/dev/null || git checkout "$branch"
+          git add uv.lock
+          git diff --staged --quiet && echo "No changes to uv.lock" && exit 0
+          git commit -m "fix(deps): update packages with security vulnerabilities"
+          git push origin "$branch" --force
+          gh pr create \
+            --title "fix(deps): update packages with security vulnerabilities" \
+            --body "Updates the following packages flagged by Dependabot security alerts: \`$PACKAGES\`" \
+            --label "dependencies" \
+            --head "$branch" \
+            2>/dev/null || echo "PR already open for this branch"
