@@ -49,7 +49,7 @@ class _MessageUpdateBase(CustomBaseModel):
 class MessageUpdateActivity(_MessageUpdateBase, ActivityBase):
     """Output model for received message update activities with required fields and read-only properties."""
 
-    text: str  # pyright: ignore [reportGeneralTypeIssues]
+    text: str = ""  # pyright: ignore [reportGeneralTypeIssues, reportIncompatibleVariableOverride]
     """The text content of the message."""
 
     channel_data: MessageUpdateChannelData  # pyright: ignore [reportGeneralTypeIssues]

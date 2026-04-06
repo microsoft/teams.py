@@ -124,7 +124,17 @@ class TestActivity:
         activity = test_activity.add_feedback()
 
         assert activity.type == "test"
-        assert activity.channel_data and activity.channel_data.feedback_loop_enabled is True
+        assert activity.channel_data and activity.channel_data.feedback_loop is not None
+        assert activity.channel_data.feedback_loop.type == "default"
+        assert activity.channel_data.feedback_loop_enabled is None
+
+    def test_should_add_custom_feedback_label(self, test_activity: ConcreteTestActivity) -> None:
+        activity = test_activity.add_feedback(mode="custom")
+
+        assert activity.type == "test"
+        assert activity.channel_data and activity.channel_data.feedback_loop is not None
+        assert activity.channel_data.feedback_loop.type == "custom"
+        assert activity.channel_data.feedback_loop_enabled is None
 
     def test_should_add_citation(self, test_activity: ConcreteTestActivity) -> None:
         activity = test_activity.add_citation(0, CitationAppearance(abstract="test", name="test"))

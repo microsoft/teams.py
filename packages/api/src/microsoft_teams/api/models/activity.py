@@ -5,10 +5,10 @@ Licensed under the MIT License.
 
 import warnings
 from datetime import datetime
-from typing import Any, List, Optional, Self
+from typing import Any, List, Literal, Optional, Self
 
 from microsoft_teams.api.models.account import Account, ConversationAccount
-from microsoft_teams.api.models.channel_data.channel_data import ChannelData
+from microsoft_teams.api.models.channel_data.channel_data import ChannelData, FeedbackLoop
 from microsoft_teams.api.models.channel_data.channel_info import ChannelInfo
 from microsoft_teams.api.models.channel_data.notification_info import NotificationInfo
 from microsoft_teams.api.models.channel_data.team_info import TeamInfo
@@ -229,12 +229,19 @@ class ActivityInput(_ActivityBase):
 
         return self
 
-    def add_feedback(self) -> Self:
-        """Enable message feedback."""
+    def add_feedback(self, mode: Literal["default", "custom"] = "default") -> Self:
+        """
+        Enable message feedback.
+
+        Args:
+            mode: "default" shows Teams' built-in thumbs up/down UI.
+                  "custom" triggers a message/fetchTask invoke so the bot
+                  can return its own task module dialog.
+        """
         if not self.channel_data:
-            self.channel_data = ChannelData(feedback_loop_enabled=True)
-        else:
-            self.channel_data.feedback_loop_enabled = True
+            self.channel_data = ChannelData()
+        self.channel_data.feedback_loop = FeedbackLoop(type=mode)
+        self.channel_data.feedback_loop_enabled = None
         return self
 
     def add_citation(self, position: int, appearance: CitationAppearance) -> Self:
