@@ -23,12 +23,14 @@ from microsoft_teams.api.models import (
     Account,
     Attachment,
     ChannelData,
+    CitationIconName,
     ConversationAccount,
     MentionEntity,
     MessageReaction,
     MessageUser,
     StreamInfoEntity,
 )
+from microsoft_teams.api.models.entity import CitationAppearance, CitationEntity, MessageEntity
 from microsoft_teams.cards import AdaptiveCard
 
 
@@ -302,6 +304,53 @@ class TestMessageActivity:
 
         result = activity.get_account_mention("nonexistent-id")
         assert result is None
+
+    def test_should_add_ai_label(self) -> None:
+        activity = self.create_message_activity().add_ai_generated()
+
+        assert activity.type == "message"
+        assert activity.entities and len(activity.entities) == 1
+        message_entity = cast(MessageEntity, activity.entities[0])
+        assert message_entity.additional_type and message_entity.additional_type[0] == "AIGeneratedContent"
+
+    def test_should_add_feedback_label(self) -> None:
+        activity = self.create_message_activity().add_feedback()
+
+        assert activity.type == "message"
+        assert activity.channel_data and activity.channel_data.feedback_loop is not None
+        assert activity.channel_data.feedback_loop.type == "default"
+        assert activity.channel_data.feedback_loop_enabled is None
+
+    def test_should_add_custom_feedback_label(self) -> None:
+        activity = self.create_message_activity().add_feedback(mode="custom")
+
+        assert activity.type == "message"
+        assert activity.channel_data and activity.channel_data.feedback_loop is not None
+        assert activity.channel_data.feedback_loop.type == "custom"
+        assert activity.channel_data.feedback_loop_enabled is None
+
+    def test_should_add_citation(self) -> None:
+        activity = self.create_message_activity().add_citation(0, CitationAppearance(abstract="test", name="test"))
+
+        assert activity.type == "message"
+        assert activity.entities and len(activity.entities) == 1
+        citation_entity = cast(CitationEntity, activity.entities[0])
+        assert citation_entity.citation and len(citation_entity.citation) == 1
+
+    def test_should_add_citation_with_icon(self) -> None:
+        activity = self.create_message_activity().add_citation(
+            0, CitationAppearance(abstract="test", name="test", icon=CitationIconName.GIF)
+        )
+
+        assert activity.type == "message"
+        assert activity.entities and len(activity.entities) == 1
+        citation_entity = cast(CitationEntity, activity.entities[0])
+        assert citation_entity.citation and len(citation_entity.citation) == 1
+        assert citation_entity.citation[0].appearance.abstract == "test"
+        assert citation_entity.citation[0].appearance.name == "test"
+        assert (
+            citation_entity.citation[0].appearance.image and citation_entity.citation[0].appearance.image.name == "GIF"
+        )
 
     def test_add_stream_final(self):
         """Test adding stream final functionality"""
