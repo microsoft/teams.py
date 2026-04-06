@@ -8,10 +8,9 @@ from types import SimpleNamespace
 from typing import Any, Awaitable, Callable, Dict, Optional, cast
 
 from microsoft_teams.api import Credentials, InvokeResponse, TokenProtocol
+from microsoft_teams.api.auth.cloud_environment import CloudEnvironment
 from microsoft_teams.api.auth.json_web_token import JsonWebToken
 from pydantic import BaseModel
-
-from microsoft_teams.api.auth.cloud_environment import CloudEnvironment
 
 from ..auth import TokenValidator
 from ..events import ActivityEvent, CoreActivity

@@ -26,6 +26,8 @@ from microsoft_teams.api import (
     TokenCredentials,
     TokenProtocol,
 )
+from microsoft_teams.api.auth.cloud_environment import PUBLIC
+from microsoft_teams.api.auth.cloud_environment import from_name as cloud_from_name
 from microsoft_teams.cards import AdaptiveCard
 from microsoft_teams.common import Client, ClientOptions, EventEmitter, LocalStorage
 
@@ -37,8 +39,6 @@ from .app_events import EventManager
 from .app_oauth import OauthHandlers
 from .app_plugins import PluginProcessor
 from .app_process import ActivityProcessor
-from microsoft_teams.api.auth.cloud_environment import PUBLIC, from_name as cloud_from_name
-
 from .auth import TokenValidator
 from .auth.remote_function_jwt_middleware import validate_remote_function_request
 from .container import Container
