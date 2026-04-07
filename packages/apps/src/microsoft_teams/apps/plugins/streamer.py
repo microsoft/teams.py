@@ -3,11 +3,18 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
+import asyncio
 from typing import Awaitable, Callable, Literal, Optional, Protocol, Union
 
 from microsoft_teams.api import MessageActivityInput, SentActivity, TypingActivityInput
 
 StreamerEvent = Literal["chunk", "close"]
+
+
+class StreamCancelledError(asyncio.CancelledError):
+    """Raised when a stream operation is attempted after the stream has been cancelled."""
+
+    pass
 
 
 class StreamerProtocol(Protocol):

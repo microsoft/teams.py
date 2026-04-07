@@ -21,7 +21,7 @@ from microsoft_teams.api import (
 )
 from microsoft_teams.common import EventEmitter
 
-from .plugins.streamer import StreamerEvent, StreamerProtocol
+from .plugins.streamer import StreamCancelledError, StreamerEvent, StreamerProtocol
 from .utils import RetryOptions, retry
 
 logger = logging.getLogger(__name__)
@@ -114,7 +114,7 @@ class HttpStream(StreamerProtocol):
         """
 
         if self._canceled:
-            return
+            raise StreamCancelledError("Stream has been cancelled.")
 
         if isinstance(activity, str):
             activity = MessageActivityInput(text=activity, type="message")
@@ -137,7 +137,7 @@ class HttpStream(StreamerProtocol):
         """Wait until _id is set and the queue is empty, with a total timeout."""
 
         async def _poll():
-            while self._queue or not self._id:
+            while (self._queue or not self._id) and not self._canceled:
                 await self._state_changed.wait()
                 self._state_changed.clear()
 
@@ -152,6 +152,10 @@ class HttpStream(StreamerProtocol):
         if self._result is not None:
             logger.debug("stream already closed with result")
             return self._result
+
+        if self._canceled:
+            logger.debug("stream was cancelled, nothing to close")
+            return None
 
         if self._index == 1 and not self._queue and not self._lock.locked():
             logger.debug("stream has no content to send, returning None")
@@ -242,13 +246,11 @@ class HttpStream(StreamerProtocol):
             if self._queue and not self._timeout:
                 self._timeout = asyncio.get_running_loop().call_later(0.5, lambda: asyncio.create_task(self._flush()))
 
-            # Notify that queue state has changed
-            self._state_changed.set()
-
         finally:
             # Reset flushing flag so future emits can trigger another flush
             self._pending = None
             self._lock.release()
+            self._state_changed.set()
 
     async def _send_activity(self, to_send: TypingActivityInput):
         """
@@ -280,7 +282,7 @@ class HttpStream(StreamerProtocol):
         """
         if self._canceled:
             logger.warning("Teams channel stopped the stream.")
-            raise asyncio.CancelledError("Teams channel stopped the stream.")
+            raise StreamCancelledError("Teams channel stopped the stream.")
 
         to_send.from_ = self._ref.bot
         to_send.conversation = self._ref.conversation
@@ -296,7 +298,5 @@ class HttpStream(StreamerProtocol):
             if e.response.status_code == 403:
                 self._canceled = True
                 logger.warning("Teams channel stopped the stream.")
-                raise asyncio.CancelledError("Teams channel stopped the stream.") from e
-            raise e
-        except Exception as e:
-            raise e
+                raise StreamCancelledError("Teams channel stopped the stream.") from e
+            raise

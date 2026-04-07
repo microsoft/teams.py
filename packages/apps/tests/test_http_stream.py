@@ -18,6 +18,7 @@ from microsoft_teams.api import (
     TypingActivityInput,
 )
 from microsoft_teams.apps import HttpStream
+from microsoft_teams.apps.plugins import StreamCancelledError
 
 
 class TestHttpStream:
@@ -265,16 +266,16 @@ class TestHttpStream:
 
             assert stream.canceled is True
 
-            # Emit after cancel should be a no-op
-            stream.emit("Should be ignored")
-            assert stream.count == 0
+            # Emit after cancel should raise
+            with pytest.raises(StreamCancelledError, match="Stream has been cancelled."):
+                stream.emit("Should be ignored")
 
     @pytest.mark.asyncio
     async def test_send_blocked_after_cancel(self, mock_api_client, conversation_reference):
         stream = HttpStream(mock_api_client, conversation_reference)
         stream._canceled = True
 
-        with pytest.raises(asyncio.CancelledError, match="Teams channel stopped the stream."):
+        with pytest.raises(StreamCancelledError, match="Teams channel stopped the stream."):
             await stream._send(TypingActivityInput(text="test"))
 
     @pytest.mark.asyncio
@@ -316,6 +317,14 @@ class TestHttpStream:
             assert stream.canceled is True
             assert call_count == 2
 
-            # Further emits are blocked
-            stream.emit("Should be ignored")
-            assert stream.count == 0
+            # Further emits raise
+            with pytest.raises(StreamCancelledError, match="Stream has been cancelled."):
+                stream.emit("Should be ignored")
+
+    @pytest.mark.asyncio
+    async def test_close_returns_none_when_canceled(self, mock_api_client, conversation_reference):
+        stream = HttpStream(mock_api_client, conversation_reference)
+        stream._canceled = True
+
+        result = await stream.close()
+        assert result is None
