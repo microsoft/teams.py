@@ -10,6 +10,7 @@
 "microsoft-teams-mcpplugin" = { workspace = true }
 "microsoft-teams-a2a" = { workspace = true }
 "microsoft-teams-botbuilder" = { workspace = true }
+"hatch-nbgv" = { workspace = true }
 
 [tool.uv.workspace]
 members = ["packages/*", "examples/*"]
@@ -30,7 +31,7 @@ dev = [
     "pytest-cov>=6.0.0",
 ]
 release = [
-    "nbgv-python>=0.1.8",
+    "hatch-nbgv",
 ]
 
 [tool.ruff]

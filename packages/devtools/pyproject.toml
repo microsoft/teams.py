@@ -25,7 +25,7 @@ Homepage = "https://github.com/microsoft/teams.py/tree/main/packages/devtools/sr
 
 
 [build-system]
-requires = ["hatchling", "nbgv-python"]
+requires = ["hatchling", "hatch-nbgv"]
 build-backend = "hatchling.build"
 
 [tool.hatch.version]

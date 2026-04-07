@@ -20,7 +20,7 @@ dependencies = [
 Homepage = "https://github.com/microsoft/teams.py/tree/main/packages/cards/src/microsoft/teams/cards"
 
 [build-system]
-requires = ["hatchling", "nbgv-python"]
+requires = ["hatchling", "hatch-nbgv"]
 build-backend = "hatchling.build"
 
 [tool.hatch.version]

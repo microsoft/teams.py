@@ -20,7 +20,7 @@ dependencies = [
 external = true
 
 [build-system]
-requires = ["hatchling", "nbgv-python"]
+requires = ["hatchling", "hatch-nbgv"]
 build-backend = "hatchling.build"
 
 [tool.hatch.version]

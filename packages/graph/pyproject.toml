@@ -26,7 +26,7 @@ testpaths = ["tests"]
 python_paths = ["src"]
 
 [build-system]
-requires = ["hatchling", "nbgv-python"]
+requires = ["hatchling", "hatch-nbgv"]
 build-backend = "hatchling.build"
 
 [tool.hatch.version]
