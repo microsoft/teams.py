@@ -429,6 +429,7 @@ class MessageActivityInput(_MessageBase, ActivityInputBase):
             self.channel_data = ChannelData()
         self.channel_data.feedback_loop = FeedbackLoop(type=mode)
         self.channel_data.feedback_loop_enabled = None
+        return self
 
     @experimental("ExperimentalTeamsQuotedReplies")
     def prepend_quote(self, message_id: str) -> Self:
