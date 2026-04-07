@@ -1,4 +1,4 @@
-># Microsoft Teams Common Utilities
+# Microsoft Teams Common Utilities
 
 <p>
     <a href="https://pypi.org/project/microsoft-teams-common" target="_blank">
