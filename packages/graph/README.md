@@ -78,10 +78,6 @@ graph = get_graph_client(create_token_callable(ctx))
 # Or, use the user token that's already available in the context
 graph = get_graph_client(ctx.user_token)
 
-# Make Graph API calls
-me = await graph.me.get()
-await ctx.send(f"Hello {me.display_name}!")
-
 ````
 
 ## Token Type Usage

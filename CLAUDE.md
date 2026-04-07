@@ -75,7 +75,7 @@ All packages live in `packages/`, each with `src/microsoft_teams/<package>/` lay
 
 ```bash
 cookiecutter templates/package -o packages   # New package
-cookiecutter templates/examples -o examples         # New test package
+cookiecutter templates/examples -o examples         # New test app
 ```
 
 ## Dependencies and Build

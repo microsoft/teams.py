@@ -106,7 +106,7 @@ pyright             # Type checking validation
 - **microsoft-teams-openai**: OpenAI integration
 - **microsoft-teams-mcpplugin**: MCP protocol integration
 
-### Test Applications (`/tests`)
+### Test Applications (`/examples`)
 Available test apps for development and validation:
 - **echo**: Basic message echo bot (recommended for quick validation)
 - **ai-test**: AI functionality testing
