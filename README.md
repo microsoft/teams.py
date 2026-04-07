@@ -86,7 +86,7 @@ Follow the prompts to name the package and the directory. It should create the p
 Similarly, to create a new test package, run:
 
 ```bash
-cookiecutter templates/test -o tests
+cookiecutter templates/examples -o examples
 ```
 
 ## Test Apps

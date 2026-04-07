@@ -118,14 +118,14 @@ Available test apps for development and validation:
 
 ### Creating New Components
 - **New package**: `cookiecutter templates/package -o packages`
-- **New test app**: `cookiecutter templates/test -o tests`
+- **New test app**: `cookiecutter templates/examples -o examples`
 
 ## Common Development Tasks
 
 ### Testing Changes
 1. **Run commands with UV** (recommended): Use `uv run pytest packages/[package-name]` or **activate virtual environment**: `source .venv/bin/activate`
 2. **Run affected tests**: `pytest packages/[package-name]` for specific package (or `uv run pytest packages/[package-name]`)
-3. **Validate with test app**: Use `tests/echo` for basic functionality validation (starts a blocking server process)
+3. **Validate with test app**: Use `examples/echo` for basic functionality validation (starts a blocking server process)
 4. **Check DevTools web app**: Access http://localhost:3979/devtools when app is running
 
 ### Debugging and Development
