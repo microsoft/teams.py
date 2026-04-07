@@ -8,33 +8,17 @@ from typing import Annotated, Union
 
 from pydantic import Field
 
-from .command import CommandResultActivityInput, CommandSendActivityInput
-from .conversation import ConversationUpdateActivityInput
-from .handoff import HandoffActivityInput
 from .message import (
     MessageActivityInput,
-    MessageDeleteActivityInput,
     MessageReactionActivityInput,
-    MessageUpdateActivityInput,
 )
-from .trace import TraceActivityInput
 from .typing import TypingActivityInput
 
 ActivityParams = Annotated[
     Union[
-        # Simple activities
-        ConversationUpdateActivityInput,
-        HandoffActivityInput,
-        TraceActivityInput,
-        TypingActivityInput,
-        # Message activities
         MessageActivityInput,
-        MessageDeleteActivityInput,
         MessageReactionActivityInput,
-        MessageUpdateActivityInput,
-        # Command activities
-        CommandSendActivityInput,
-        CommandResultActivityInput,
+        TypingActivityInput,
     ],
     Field(discriminator="type"),
 ]

@@ -5,7 +5,7 @@ Licensed under the MIT License.
 
 from typing import Literal, Optional
 
-from ...models import ActivityBase, ActivityInputBase, ChannelData
+from ...models import ActivityBase, ChannelData
 from ...models.custom_base_model import CustomBaseModel
 
 
@@ -30,7 +30,3 @@ class MessageDeleteActivity(_MessageDeleteBase, ActivityBase):
 
     channel_data: MessageDeleteChannelData  # pyright: ignore [reportGeneralTypeIssues]
     """Channel-specific data for message delete events."""
-
-
-class MessageDeleteActivityInput(_MessageDeleteBase, ActivityInputBase):
-    """Input model for creating message delete activities with builder methods."""

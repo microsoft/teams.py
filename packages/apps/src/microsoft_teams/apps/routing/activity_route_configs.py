@@ -19,7 +19,6 @@ from microsoft_teams.api import (
     ExecuteActionInvokeActivity,
     FileConsentInvokeActivity,
     HandoffActionInvokeActivity,
-    HandoffActivity,
     InstalledActivity,
     InvokeActivity,
     MeetingEndEventActivity,
@@ -37,6 +36,7 @@ from microsoft_teams.api import (
     MessageExtensionSelectItemInvokeActivity,
     MessageExtensionSettingInvokeActivity,
     MessageExtensionSubmitActionInvokeActivity,
+    MessageFetchTaskInvokeActivity,
     MessageReactionActivity,
     MessageSubmitActionInvokeActivity,
     MessageUpdateActivity,
@@ -49,7 +49,7 @@ from microsoft_teams.api import (
     TabFetchInvokeActivity,
     TabInvokeResponse,
     TabSubmitInvokeActivity,
-    TraceActivity,
+    TaskModuleInvokeResponse,
     TypingActivity,
     UninstalledActivity,
 )
@@ -451,6 +451,16 @@ ACTIVITY_ROUTES: Dict[str, ActivityConfig] = {
         output_type_name="TabInvokeResponse",
         is_invoke=True,
     ),
+    "message.fetch-task": ActivityConfig(
+        name="message.fetch-task",
+        method_name="on_message_fetch_task",
+        input_model=MessageFetchTaskInvokeActivity,
+        selector=lambda activity: activity.type == "invoke"
+        and cast(InvokeActivity, activity).name == "message/fetchTask",
+        output_model=TaskModuleInvokeResponse,
+        output_type_name="TaskModuleInvokeResponse",
+        is_invoke=True,
+    ),
     "message.submit": ActivityConfig(
         name="message.submit",
         method_name="on_message_submit",
@@ -548,20 +558,6 @@ ACTIVITY_ROUTES: Dict[str, ActivityConfig] = {
         method_name="on_typing",
         input_model=TypingActivity,
         selector=lambda activity: isinstance(activity, TypingActivity),
-        output_model=None,
-    ),
-    "trace": ActivityConfig(
-        name="trace",
-        method_name="on_trace",
-        input_model=TraceActivity,
-        selector=lambda activity: isinstance(activity, TraceActivity),
-        output_model=None,
-    ),
-    "handoff": ActivityConfig(
-        name="handoff",
-        method_name="on_handoff",
-        input_model=HandoffActivity,
-        selector=lambda activity: isinstance(activity, HandoffActivity),
         output_model=None,
     ),
     # Generic Activity Handler (catch-all)

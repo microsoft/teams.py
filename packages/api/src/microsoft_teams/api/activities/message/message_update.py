@@ -4,9 +4,9 @@ Licensed under the MIT License.
 """
 
 from datetime import datetime
-from typing import Any, Literal, Optional, Self
+from typing import Any, Literal, Optional
 
-from ...models import ActivityBase, ActivityInputBase, ChannelData
+from ...models import ActivityBase, ChannelData
 from ...models.custom_base_model import CustomBaseModel
 
 MessageEventType = Literal["undeleteMessage", "editMessage"]
@@ -49,64 +49,8 @@ class _MessageUpdateBase(CustomBaseModel):
 class MessageUpdateActivity(_MessageUpdateBase, ActivityBase):
     """Output model for received message update activities with required fields and read-only properties."""
 
-    text: str  # pyright: ignore [reportGeneralTypeIssues]
+    text: str = ""  # pyright: ignore [reportGeneralTypeIssues, reportIncompatibleVariableOverride]
     """The text content of the message."""
 
     channel_data: MessageUpdateChannelData  # pyright: ignore [reportGeneralTypeIssues]
     """Channel-specific data for message update events."""
-
-
-class MessageUpdateActivityInput(_MessageUpdateBase, ActivityInputBase):
-    """Input model for creating message update activities with builder methods."""
-
-    def with_text(self, text: str) -> Self:
-        """
-        Set the text content of the message.
-
-        Args:
-            text: The text content to set
-
-        Returns:
-            Self for method chaining
-        """
-        self.text = text
-        return self
-
-    def with_speak(self, speak: str) -> Self:
-        """
-        Set the text to speak.
-
-        Args:
-            speak: The text to speak
-
-        Returns:
-            Self for method chaining
-        """
-        self.speak = speak
-        return self
-
-    def with_summary(self, summary: str) -> Self:
-        """
-        Set the summary text.
-
-        Args:
-            summary: The summary text to set
-
-        Returns:
-            Self for method chaining
-        """
-        self.summary = summary
-        return self
-
-    def with_expiration(self, expiration: datetime) -> Self:
-        """
-        Set the expiration time for the activity.
-
-        Args:
-            expiration: The expiration datetime to set
-
-        Returns:
-            Self for method chaining
-        """
-        self.expiration = expiration
-        return self

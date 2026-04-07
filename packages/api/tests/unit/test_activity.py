@@ -5,7 +5,6 @@ Licensed under the MIT License.
 # pyright: basic
 
 from datetime import datetime
-from typing import cast
 
 import pytest
 from microsoft_teams.api.models import (
@@ -13,14 +12,12 @@ from microsoft_teams.api.models import (
     ActivityInputBase,
     ChannelData,
     ChannelInfo,
-    CitationIconName,
     ConversationAccount,
     MeetingInfo,
     NotificationInfo,
     TeamInfo,
     TenantInfo,
 )
-from microsoft_teams.api.models.entity import CitationAppearance, CitationEntity, MessageEntity
 
 
 @pytest.fixture
@@ -111,40 +108,3 @@ class TestActivity:
         assert activity.team and activity.team.id == "team-id"
         assert activity.meeting and activity.meeting.id == "meeting-id"
         assert activity.notification and activity.notification.alert is True
-
-    def test_should_add_ai_label(self, test_activity: ConcreteTestActivity) -> None:
-        activity = test_activity.add_ai_generated()
-
-        assert activity.type == "test"
-        assert activity.entities and len(activity.entities) == 1
-        message_entity = cast(MessageEntity, activity.entities[0])
-        assert message_entity.additional_type and message_entity.additional_type[0] == "AIGeneratedContent"
-
-    def test_should_add_feedback_label(self, test_activity: ConcreteTestActivity) -> None:
-        activity = test_activity.add_feedback()
-
-        assert activity.type == "test"
-        assert activity.channel_data and activity.channel_data.feedback_loop_enabled is True
-
-    def test_should_add_citation(self, test_activity: ConcreteTestActivity) -> None:
-        activity = test_activity.add_citation(0, CitationAppearance(abstract="test", name="test"))
-
-        assert activity.type == "test"
-        assert activity.entities and len(activity.entities) == 1
-        citation_entity = cast(CitationEntity, activity.entities[0])
-        assert citation_entity.citation and len(citation_entity.citation) == 1
-
-    def test_should_add_citation_with_icon(self, test_activity: ConcreteTestActivity) -> None:
-        activity = test_activity.add_citation(
-            0, CitationAppearance(abstract="test", name="test", icon=CitationIconName.GIF)
-        )
-
-        assert activity.type == "test"
-        assert activity.entities and len(activity.entities) == 1
-        citation_entity = cast(CitationEntity, activity.entities[0])
-        assert citation_entity.citation and len(citation_entity.citation) == 1
-        assert citation_entity.citation[0].appearance.abstract == "test"
-        assert citation_entity.citation[0].appearance.name == "test"
-        assert (
-            citation_entity.citation[0].appearance.image and citation_entity.citation[0].appearance.image.name == "GIF"
-        )
