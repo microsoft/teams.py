@@ -1,3 +1,6 @@
+> [!NOTE]
+> Our Python SDK is now Generally Available!
+
 # Microsoft Teams SDK for Python
 
 A comprehensive SDK for building Microsoft Teams applications, bots, and AI agents using Python. This SDK provides a high-level framework with built-in Microsoft Graph integration, OAuth handling, and extensible plugin architecture.
