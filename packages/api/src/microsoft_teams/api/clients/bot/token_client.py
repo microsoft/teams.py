@@ -61,7 +61,7 @@ class BotTokenClient(BaseClient):
         """
         super().__init__(options)
         self._cloud = cloud or PUBLIC
-        self._api_client_settings = merge_api_client_settings(api_client_settings, cloud)
+        self._api_client_settings = merge_api_client_settings(api_client_settings, self._cloud)
 
     async def get(self, credentials: Credentials) -> GetBotTokenResponse:
         """Get a bot token.
