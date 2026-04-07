@@ -1,7 +1,4 @@
-> [!CAUTION]
-> This project is in public preview. We’ll do our best to maintain compatibility, but there may be breaking changes in upcoming releases.
-
-# Microsoft Teams Common Utilities
+># Microsoft Teams Common Utilities
 
 <p>
     <a href="https://pypi.org/project/microsoft-teams-common" target="_blank">
