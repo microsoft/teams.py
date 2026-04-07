@@ -72,7 +72,7 @@ Microsoft Teams SDK for Python is a comprehensive SDK for building Microsoft Tea
 **ALWAYS manually validate changes by running at least one complete test application scenario:**
 
 ### Basic Teams App Validation
-1. Navigate to test app: `cd tests/echo`
+1. Navigate to test app: `cd examples/echo`
 2. Start the app: `python src/main.py`
 3. **Expected output**: App starts on ports 3978 and 3979 with logs:
    ```

@@ -32,7 +32,7 @@ class TestFunctionContextSend:
 
     @pytest.fixture
     def mock_http(self):
-        """Create a mock HTTP server."""
+        """Create a mock activity sender."""
         http = MagicMock()
         http.send = AsyncMock()
         http.send.return_value = "sent-activity"
