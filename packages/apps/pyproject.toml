@@ -39,7 +39,7 @@ requires = ["hatchling", "hatch-nbgv"]
 build-backend = "hatchling.build"
 
 [tool.hatch.version]
-source = "nbgv"
+source = "nbgv-fallback"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/microsoft_teams", "src/microsoft"]

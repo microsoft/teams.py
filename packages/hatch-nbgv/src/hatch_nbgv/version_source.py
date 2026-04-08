@@ -18,7 +18,7 @@ _FALLBACK_VERSION = "0.0.0"
 
 
 class NbgvVersionSource(VersionSourceInterface):
-    PLUGIN_NAME = "nbgv"
+    PLUGIN_NAME = "nbgv-fallback"
 
     def get_version_data(self) -> dict[str, Any]:
         try:
