@@ -159,7 +159,7 @@ async def handle_app_users_ctx_command(ctx: ActivityContext[MessageActivity]):
         users = await ctx.app_graph.users.get()
 
         if users and users.value:
-            user_list = "👥 **Organization Users (via ctx.app_graph)**\n\n"
+            user_list = "👥 **Organization Users**\n\n*Fetched using `ctx.app_graph`*\n\n"
             for i, user in enumerate(users.value[:5], 1):
                 user_list += f"**{i}.** {user.display_name or 'N/A'} ({user.user_principal_name or 'N/A'})\n\n"
             await ctx.send(user_list)
@@ -182,7 +182,7 @@ async def handle_app_users_command(ctx: ActivityContext[MessageActivity]):
         users = await graph.users.get()
 
         if users and users.value:
-            user_list = "👥 **Organization Users (via app.get_app_graph())**\n\n"
+            user_list = "👥 **Organization Users**\n\n*Fetched using `app.get_app_graph()`*\n\n"
             for i, user in enumerate(users.value[:5], 1):
                 user_list += f"**{i}.** {user.display_name or 'N/A'} ({user.user_principal_name or 'N/A'})\n\n"
             await ctx.send(user_list)
