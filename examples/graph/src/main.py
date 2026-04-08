@@ -168,12 +168,11 @@ async def handle_app_users_command(ctx: ActivityContext[MessageActivity]):
             await ctx.send("No users found.")
 
     except Exception as e:
-        logger.error(
-            f"Failed to query Graph with app-only permissions: {e}. "
-            "Ensure the app has 'User.Read.All' application permission granted "
+        await ctx.send(
+            f"❌ Failed to list users: {e}\n\n"
+            "Ensure the app has **User.Read.All** application permission granted "
             "in Azure Portal > App registrations > API permissions, and that an admin has consented."
         )
-        await ctx.send("❌ Failed to list users. Check the bot logs for details on required Azure AD permissions.")
 
 
 @app.on_message_pattern("help")
