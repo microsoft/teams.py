@@ -118,6 +118,7 @@ class App(ActivityHandlerMixin):
             service_url,
             self.http_client.clone(ClientOptions(token=self._get_bot_token)),
             self.options.api_client_settings,
+            cloud=self.cloud,
         )
 
         plugins: List[PluginBase] = list(self.options.plugins)
