@@ -152,6 +152,30 @@ async def handle_emails_command(ctx: ActivityContext[MessageActivity]):
         await ctx.send(f"❌ Failed to get your emails: {str(e)}")
 
 
+@app.on_message_pattern("app-users")
+async def handle_app_users_command(ctx: ActivityContext[MessageActivity]):
+    """List users in the organization using app-only permissions (no user sign-in required)."""
+    try:
+        graph = app.get_app_graph()
+        users = await graph.users.get()
+
+        if users and users.value:
+            user_list = "👥 **Organization Users (App-Only)**\n\n"
+            for i, user in enumerate(users.value[:5], 1):
+                user_list += f"**{i}.** {user.display_name or 'N/A'} ({user.user_principal_name or 'N/A'})\n\n"
+            await ctx.send(user_list)
+        else:
+            await ctx.send("No users found.")
+
+    except Exception as e:
+        logger.error(
+            f"Failed to query Graph with app-only permissions: {e}. "
+            "Ensure the app has 'User.Read.All' application permission granted "
+            "in Azure Portal > App registrations > API permissions, and that an admin has consented."
+        )
+        await ctx.send("❌ Failed to list users. Check the bot logs for details on required Azure AD permissions.")
+
+
 @app.on_message_pattern("help")
 async def handle_help_command(ctx: ActivityContext[MessageActivity]):
     """Handle help command."""
@@ -164,6 +188,7 @@ async def handle_help_command(ctx: ActivityContext[MessageActivity]):
         "• **signout** - Sign out of your account\n\n"
         "• **profile** - View your Microsoft profile information\n\n"
         "• **emails** - List your 5 most recent emails\n\n"
+        "• **app-users** - List org users using app-only permissions (no sign-in needed)\n\n"
         "• **help** - Show this help message\n\n"
         "**Getting Started:**\n\n"
         "1. Type `signin` to authenticate\n\n"
@@ -189,6 +214,7 @@ async def handle_default_message(ctx: ActivityContext[MessageActivity]):
         "• **signout** - Sign out\n\n"
         "• **profile** - Show your profile information\n\n"
         "• **emails** - List your recent emails\n\n"
+        "• **app-users** - List org users (app-only, no sign-in needed)\n\n"
         "• **help** - Show detailed help with technical info"
     )
 
