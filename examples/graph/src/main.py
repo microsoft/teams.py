@@ -154,10 +154,9 @@ async def handle_emails_command(ctx: ActivityContext[MessageActivity]):
 
 @app.on_message_pattern("app-users")
 async def handle_app_users_command(ctx: ActivityContext[MessageActivity]):
-    """List users in the organization using app-only permissions (no user sign-in required)."""
+    """List users in the organization using app-only permissions via ctx.app_graph."""
     try:
-        graph = app.get_app_graph()
-        users = await graph.users.get()
+        users = await ctx.app_graph.users.get()
 
         if users and users.value:
             user_list = "👥 **Organization Users (App-Only)**\n\n"
