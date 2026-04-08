@@ -24,6 +24,7 @@ from microsoft_teams.api import (
     ManagedIdentityCredentials,
     MessageActivityInput,
     TokenCredentials,
+    TokenProtocol,
 )
 from microsoft_teams.cards import AdaptiveCard
 from microsoft_teams.common import Client, ClientOptions, EventEmitter, LocalStorage
@@ -524,7 +525,7 @@ class App(ActivityHandlerMixin):
     async def _get_bot_token(self):
         return await self._token_manager.get_bot_token()
 
-    async def _get_graph_token(self, tenant_id: Optional[str] = None):
+    async def _get_graph_token(self, tenant_id: Optional[str] = None) -> Optional[TokenProtocol]:
         return await self._token_manager.get_graph_token(tenant_id)
 
     def get_app_graph(self, tenant_id: Optional[str] = None) -> "GraphServiceClient":

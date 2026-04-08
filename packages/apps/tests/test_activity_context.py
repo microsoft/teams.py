@@ -316,15 +316,15 @@ class TestActivityContextUserGraph:
 class TestActivityContextAppGraph:
     """Tests for ActivityContext.app_graph property."""
 
-    def test_app_graph_raises_runtime_error_when_graph_import_fails(self) -> None:
-        """app_graph raises RuntimeError when create_graph_client raises ImportError."""
+    def test_app_graph_raises_import_error_when_graph_not_installed(self) -> None:
+        """app_graph raises ImportError when graph dependencies are not installed."""
         ctx, _ = _create_activity_context()
 
         with patch(
             "microsoft_teams.apps.routing.activity_context.create_graph_client",
             side_effect=ImportError("graph not installed"),
         ):
-            with pytest.raises(RuntimeError, match="Failed to create app graph client"):
+            with pytest.raises(ImportError, match="graph not installed"):
                 _ = ctx.app_graph
 
     def test_app_graph_returns_cached_client_on_second_access(self) -> None:

@@ -49,8 +49,8 @@ class TestOptionalGraphDependencies:
 
         with patch("builtins.__import__", side_effect=mock_import):
             activity_context = self._create_activity_context()
-            # app_graph should raise RuntimeError when graph dependencies are not available
-            with pytest.raises(RuntimeError, match="Failed to create app graph client"):
+            # app_graph should raise ImportError when graph dependencies are not available
+            with pytest.raises(ImportError, match="Graph functionality not available"):
                 _ = activity_context.app_graph
 
     def test_app_graph_property_with_graph_available(self) -> None:
@@ -123,7 +123,7 @@ class TestOptionalGraphDependencies:
             app_token=None,  # No app token
         )
 
-        # app_graph should raise ValueError when no app token is available
+        # app_graph should raise RuntimeError when no app token is available
         with pytest.raises(RuntimeError, match="Token cannot be None"):
             _ = activity_context.app_graph
 

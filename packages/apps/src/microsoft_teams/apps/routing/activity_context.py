@@ -124,6 +124,8 @@ class ActivityContext(Generic[T]):
             try:
                 user_token = JsonWebToken(self.user_token)
                 self._user_graph = create_graph_client(user_token)
+            except ImportError:
+                raise
             except Exception as e:
                 self.logger.error(f"Failed to create user graph client: {e}")
                 raise RuntimeError(f"Failed to create user graph client: {e}") from e
@@ -146,6 +148,8 @@ class ActivityContext(Generic[T]):
         if self._app_graph is None:
             try:
                 self._app_graph = create_graph_client(self._app_token)
+            except ImportError:
+                raise
             except Exception as e:
                 self.logger.error(f"Failed to create app graph client: {e}")
                 raise RuntimeError(f"Failed to create app graph client: {e}") from e
