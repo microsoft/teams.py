@@ -17,7 +17,8 @@
       "packages/openai/src",
       "packages/mcpplugin/src",
       "packages/a2aprotocol/src",
-      "packages/botbuilder/src"
+      "packages/botbuilder/src",
+      "packages/hatch-nbgv/src"
    ],
    "typeCheckingMode": "strict",
    "executionEnvironments": [
@@ -30,6 +31,11 @@
       "root": "packages/botbuilder/src",
       "reportMissingTypeStubs": "none",
       "reportUnknownMemberType": "none"
+      },
+      {
+         "root": "packages/hatch-nbgv/src",
+         "reportMissingTypeStubs": "none",
+         "reportUnknownMemberType": "none"
       },
       {
          "root": "examples/botbuilder/src",
