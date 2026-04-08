@@ -13,6 +13,10 @@ dependencies = [
     "microsoft-teams-ai",
     "microsoft-teams-apps",
     "microsoft-teams-common",
+]
+
+[dependency-groups]
+dev = [
     "pytest>=8.4.1",
 ]
 

@@ -74,21 +74,9 @@ def create_token_callable(ctx: ActivityContext) -> Token:
 
 # Use with Graph client
 graph = get_graph_client(create_token_callable(ctx))
-```
 
-        await ctx.sign_in()
-        return
-
-    # Use the user token that's already available in the context
-    graph = get_graph_client(ctx.user_token)
-
-    # Make Graph API calls
-    me = await graph.me.get()
-    await ctx.send(f"Hello {me.display_name}!")
-
-    # Make Graph API calls
-    me = await graph.me.get()
-    await ctx.send(f"Hello {me.display_name}!")
+# Or, use the user token that's already available in the context
+graph = get_graph_client(ctx.user_token)
 
 ````
 
