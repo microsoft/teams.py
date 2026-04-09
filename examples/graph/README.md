@@ -30,8 +30,11 @@ This demo application showcases how to use Microsoft Graph APIs within a Teams b
    - `User.Read` (for profile access)
    - `Mail.Read` (for email access)
    - `User.Read.All` application permission (for app-users commands)
-4. Create a `.env` file with required environment variables (copy from `sample.env`):
+4. Create a `.env` file in `examples/graph/src/` with required environment variables (copy from `sample.env`):
    ```
+   CLIENT_ID=<your-azure-bot-app-id>
+   CLIENT_SECRET=<your-azure-bot-app-secret>
+   TENANT_ID=<your-tenant-id>
    CONNECTION_NAME=graph
    # PORT=3978  # Optional: specify custom port (defaults to 3978)
    ```
@@ -55,10 +58,11 @@ app = App(
 
 ## Running
 
-From the repository root:
+From the `examples/graph/` directory (so `.env` is discovered automatically):
 
 ```bash
-uv run examples/graph/src/main.py
+cd examples/graph
+uv run src/main.py
 ```
 
 ## Example Usage
