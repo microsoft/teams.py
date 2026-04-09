@@ -6,7 +6,12 @@ This project uses [Nerdbank.GitVersioning](https://github.com/dotnet/Nerdbank.Gi
 
 ## Prerequisites
 
+The .NET SDK and `nbgv` CLI are **required for publishing** but **optional for local development**. Without them, packages fall back to version `0.0.0` so you can still build and test locally.
+
+CI pipelines set `NBGV_REQUIRED=1` to ensure builds fail if `nbgv` is unavailable.
+
 ```bash
+# Optional for local dev, required for releases
 dotnet tool install -g nbgv
 ```
 
