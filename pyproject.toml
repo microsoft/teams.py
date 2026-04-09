@@ -10,7 +10,7 @@
 "microsoft-teams-mcpplugin" = { workspace = true }
 "microsoft-teams-a2a" = { workspace = true }
 "microsoft-teams-botbuilder" = { workspace = true }
-"hatch-nbgv" = { workspace = true }
+"hatch-nbgv" = { path = "tools/hatch-nbgv" }
 
 [tool.uv.workspace]
 members = ["packages/*", "examples/*"]
