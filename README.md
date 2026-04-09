@@ -25,6 +25,7 @@ A comprehensive SDK for building Microsoft Teams applications, bots, and AI agen
 
 - UV version is >= 0.8.11. Install and upgrade from [docs.astral.sh/uv](https://docs.astral.sh/uv/getting-started/installation/).
 - Python version is >= 3.12. Install or upgrade from [python.org/downloads](https://www.python.org/downloads/).
+- (Optional) .NET SDK + `nbgv` CLI for real version numbers. Without it, packages build as `0.0.0` which is fine for local development. See [RELEASE.md](RELEASE.md) for details.
 
 ### Installation
 
