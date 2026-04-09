@@ -1,0 +1,21 @@
+[project]
+name = "hatch-nbgv"
+version = "0.1.0"
+description = "Hatchling version source plugin wrapping nbgv-python with graceful fallback"
+authors = [{ name = "Microsoft", email = "TeamsAISDKFeedback@microsoft.com" }]
+requires-python = ">=3.12"
+license = "MIT"
+dependencies = ["hatchling>=1.25.0", "nbgv-python>=2.0.0"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project.entry-points.hatch]
+hatch-nbgv = "hatch_nbgv.hooks"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/hatch_nbgv"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src"]

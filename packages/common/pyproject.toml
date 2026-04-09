@@ -11,16 +11,15 @@ authors = [
 ]
 requires-python = ">=3.12,<3.15"
 dependencies = [
-    "coverage>=7.8.0",
     "httpx>=0.28.1",
-    "pytest>=8.3.5",
-    "ruff>=0.11.5",
 ]
 
 [dependency-groups]
 dev = [
+    "coverage>=7.8.0",
     "pytest>=8.4.0",
     "pytest-asyncio>=1.0.0",
+    "ruff>=0.11.5",
 ]
 
 [project.urls]
@@ -28,11 +27,11 @@ Homepage = "https://github.com/microsoft/teams.py/tree/main/packages/common/src/
 
 
 [build-system]
-requires = ["hatchling", "nbgv-python"]
+requires = ["hatchling", "hatch-nbgv"]
 build-backend = "hatchling.build"
 
 [tool.hatch.version]
-source = "nbgv"
+source = "nbgv-fallback"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/microsoft_teams", "src/microsoft"]

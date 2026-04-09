@@ -4,6 +4,7 @@ Licensed under the MIT License.
 """
 
 import asyncio
+import logging
 import re
 from os import getenv
 
@@ -29,6 +30,8 @@ from microsoft_teams.devtools import DevToolsPlugin
 from microsoft_teams.openai import OpenAICompletionsAIModel, OpenAIResponsesAIModel
 
 load_dotenv(find_dotenv(usecwd=True))
+
+logging.basicConfig(level=getenv("LOG_LEVEL", "WARNING").upper())
 
 
 def get_required_env(key: str) -> str:

@@ -7,7 +7,7 @@ import asyncio
 import importlib.metadata
 import logging
 import os
-from typing import Any, Awaitable, Callable, List, Optional, TypeVar, Union, Unpack, cast, overload
+from typing import TYPE_CHECKING, Any, Awaitable, Callable, List, Optional, TypeVar, Union, Unpack, cast, overload
 
 from dependency_injector import providers
 from dotenv import find_dotenv, load_dotenv
@@ -24,9 +24,13 @@ from microsoft_teams.api import (
     ManagedIdentityCredentials,
     MessageActivityInput,
     TokenCredentials,
+    TokenProtocol,
 )
 from microsoft_teams.cards import AdaptiveCard
 from microsoft_teams.common import Client, ClientOptions, EventEmitter, LocalStorage
+
+if TYPE_CHECKING:
+    from msgraph.graph_service_client import GraphServiceClient
 
 from .activity_sender import ActivitySender
 from .app_events import EventManager
@@ -52,6 +56,7 @@ from .plugins import PluginBase, PluginStartEvent
 from .routing import ActivityHandlerMixin, ActivityRouter
 from .routing.activity_context import ActivityContext
 from .token_manager import TokenManager
+from .utils import create_graph_client
 
 version = importlib.metadata.version("microsoft-teams-apps")
 
@@ -519,3 +524,22 @@ class App(ActivityHandlerMixin):
 
     async def _get_bot_token(self):
         return await self._token_manager.get_bot_token()
+
+    async def _get_graph_token(self, tenant_id: Optional[str] = None) -> Optional[TokenProtocol]:
+        return await self._token_manager.get_graph_token(tenant_id)
+
+    def get_app_graph(self, tenant_id: Optional[str] = None) -> "GraphServiceClient":
+        """
+        Get a Microsoft Graph client configured with the app's token.
+
+        This client can be used for app-only operations that don't require user context.
+        For multi-tenant apps, pass a tenant_id to get a tenant-specific token.
+
+        Args:
+            tenant_id: Optional tenant ID. If not provided, uses the app's default tenant.
+
+        Raises:
+            ImportError: If the graph dependencies are not installed.
+
+        """
+        return create_graph_client(lambda: self._get_graph_token(tenant_id))

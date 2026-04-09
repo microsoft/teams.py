@@ -8,6 +8,7 @@ import logging
 from collections import deque
 from typing import Awaitable, Callable, List, Optional, Union
 
+from httpx import HTTPStatusError
 from microsoft_teams.api import (
     ApiClient,
     Attachment,
@@ -20,7 +21,7 @@ from microsoft_teams.api import (
 )
 from microsoft_teams.common import EventEmitter
 
-from .plugins.streamer import StreamerEvent, StreamerProtocol
+from .plugins.streamer import StreamCancelledError, StreamerEvent, StreamerProtocol
 from .utils import RetryOptions, retry
 
 logger = logging.getLogger(__name__)
@@ -62,6 +63,7 @@ class HttpStream(StreamerProtocol):
         self._total_wait_timeout: float = 30.0
         self._state_changed = asyncio.Event()
 
+        self._canceled = False
         self._reset_state()
 
     def _reset_state(self) -> None:
@@ -73,6 +75,14 @@ class HttpStream(StreamerProtocol):
         self._channel_data: ChannelData = ChannelData()
         self._entities: List[Entity] = []
         self._queue: deque[Union[MessageActivityInput, TypingActivityInput, str]] = deque()
+
+    @property
+    def canceled(self) -> bool:
+        """
+        Whether the stream has been canceled.
+        For example when the user pressed the Stop button or the 2-minute timeout has exceeded.
+        """
+        return self._canceled
 
     @property
     def closed(self) -> bool:
@@ -103,6 +113,9 @@ class HttpStream(StreamerProtocol):
             activity: The activity to emit.
         """
 
+        if self._canceled:
+            raise StreamCancelledError("Stream has been cancelled.")
+
         if isinstance(activity, str):
             activity = MessageActivityInput(text=activity, type="message")
         self._queue.append(activity)
@@ -124,7 +137,7 @@ class HttpStream(StreamerProtocol):
         """Wait until _id is set and the queue is empty, with a total timeout."""
 
         async def _poll():
-            while self._queue or not self._id:
+            while (self._queue or not self._id) and not self._canceled:
                 await self._state_changed.wait()
                 self._state_changed.clear()
 
@@ -139,6 +152,10 @@ class HttpStream(StreamerProtocol):
         if self._result is not None:
             logger.debug("stream already closed with result")
             return self._result
+
+        if self._canceled:
+            logger.debug("stream was cancelled, nothing to close")
+            return None
 
         if self._index == 1 and not self._queue and not self._lock.locked():
             logger.debug("stream has no content to send, returning None")
@@ -229,13 +246,11 @@ class HttpStream(StreamerProtocol):
             if self._queue and not self._timeout:
                 self._timeout = asyncio.get_running_loop().call_later(0.5, lambda: asyncio.create_task(self._flush()))
 
-            # Notify that queue state has changed
-            self._state_changed.set()
-
         finally:
             # Reset flushing flag so future emits can trigger another flush
             self._pending = None
             self._lock.release()
+            self._state_changed.set()
 
     async def _send_activity(self, to_send: TypingActivityInput):
         """
@@ -265,12 +280,23 @@ class HttpStream(StreamerProtocol):
         Args:
             activity: The activity to send.
         """
+        if self._canceled:
+            logger.warning("Teams channel stopped the stream.")
+            raise StreamCancelledError("Teams channel stopped the stream.")
+
         to_send.from_ = self._ref.bot
         to_send.conversation = self._ref.conversation
 
-        if to_send.id and not any(e.type == "streaminfo" for e in (to_send.entities or [])):
-            res = await self._client.conversations.activities(self._ref.conversation.id).update(to_send.id, to_send)
-        else:
-            res = await self._client.conversations.activities(self._ref.conversation.id).create(to_send)
+        try:
+            if to_send.id and not any(e.type == "streaminfo" for e in (to_send.entities or [])):
+                res = await self._client.conversations.activities(self._ref.conversation.id).update(to_send.id, to_send)
+            else:
+                res = await self._client.conversations.activities(self._ref.conversation.id).create(to_send)
 
-        return SentActivity.merge(to_send, res)
+            return SentActivity.merge(to_send, res)
+        except HTTPStatusError as e:
+            if e.response.status_code == 403:
+                self._canceled = True
+                logger.warning("Teams channel stopped the stream.")
+                raise StreamCancelledError("Teams channel stopped the stream.") from e
+            raise

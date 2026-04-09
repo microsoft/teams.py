@@ -7,7 +7,6 @@ from .conversation_update import (
     ConversationChannelData,
     ConversationEventType,
     ConversationUpdateActivity,
-    ConversationUpdateActivityInput,
 )
 
 ConversationActivity = ConversationUpdateActivity
@@ -16,6 +15,5 @@ __all__ = [
     "ConversationEventType",
     "ConversationChannelData",
     "ConversationUpdateActivity",
-    "ConversationUpdateActivityInput",
     "ConversationActivity",
 ]

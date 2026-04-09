@@ -8,6 +8,7 @@ import asyncio
 from unittest.mock import MagicMock, patch
 
 import pytest
+from httpx import HTTPStatusError, Request, Response
 from microsoft_teams.api import (
     Account,
     ApiClient,
@@ -17,6 +18,7 @@ from microsoft_teams.api import (
     TypingActivityInput,
 )
 from microsoft_teams.apps import HttpStream
+from microsoft_teams.apps.plugins import StreamCancelledError
 
 
 class TestHttpStream:
@@ -219,3 +221,110 @@ class TestHttpStream:
             await self._run_scheduled_flushes(scheduled)
 
             assert max_concurrent_entries == 1
+
+    @pytest.mark.asyncio
+    async def test_stream_canceled_on_403(self, mock_api_client, conversation_reference, patch_loop_call_later):
+        loop = asyncio.get_running_loop()
+        patcher, scheduled = patch_loop_call_later(loop)
+        with patcher:
+
+            async def mock_send_403(activity):
+                raise HTTPStatusError(
+                    "Forbidden",
+                    request=Request("POST", "https://example.com"),
+                    response=Response(403),
+                )
+
+            mock_api_client.conversations.activities().create = mock_send_403
+            stream = HttpStream(mock_api_client, conversation_reference)
+
+            stream.emit("Test message")
+            await asyncio.sleep(0)
+            await self._run_scheduled_flushes(scheduled)
+
+            assert stream.canceled is True
+
+    @pytest.mark.asyncio
+    async def test_emit_blocked_after_cancel(self, mock_api_client, conversation_reference, patch_loop_call_later):
+        loop = asyncio.get_running_loop()
+        patcher, scheduled = patch_loop_call_later(loop)
+        with patcher:
+
+            async def mock_send_403(activity):
+                raise HTTPStatusError(
+                    "Forbidden",
+                    request=Request("POST", "https://example.com"),
+                    response=Response(403),
+                )
+
+            mock_api_client.conversations.activities().create = mock_send_403
+            stream = HttpStream(mock_api_client, conversation_reference)
+
+            stream.emit("First message")
+            await asyncio.sleep(0)
+            await self._run_scheduled_flushes(scheduled)
+
+            assert stream.canceled is True
+
+            # Emit after cancel should raise
+            with pytest.raises(StreamCancelledError, match="Stream has been cancelled."):
+                stream.emit("Should be ignored")
+
+    @pytest.mark.asyncio
+    async def test_send_blocked_after_cancel(self, mock_api_client, conversation_reference):
+        stream = HttpStream(mock_api_client, conversation_reference)
+        stream._canceled = True
+
+        with pytest.raises(StreamCancelledError, match="Teams channel stopped the stream."):
+            await stream._send(TypingActivityInput(text="test"))
+
+    @pytest.mark.asyncio
+    async def test_stream_canceled_after_successful_message(
+        self, mock_api_client, conversation_reference, patch_loop_call_later
+    ):
+        call_count = 0
+        loop = asyncio.get_running_loop()
+        patcher, scheduled = patch_loop_call_later(loop)
+        with patcher:
+
+            async def mock_send_then_403(activity):
+                nonlocal call_count
+                call_count += 1
+                if call_count == 1:
+                    return SentActivity(id="activity-1", activity_params=activity)
+                raise HTTPStatusError(
+                    "Forbidden",
+                    request=Request("POST", "https://example.com"),
+                    response=Response(403),
+                )
+
+            mock_api_client.conversations.activities().create = mock_send_then_403
+            stream = HttpStream(mock_api_client, conversation_reference)
+
+            # First emit succeeds
+            stream.emit("First message")
+            await asyncio.sleep(0)
+            await self._run_scheduled_flushes(scheduled)
+
+            assert stream.canceled is False
+            assert call_count == 1
+
+            # Second emit triggers 403
+            stream.emit("Second message")
+            await asyncio.sleep(0)
+            await self._run_scheduled_flushes(scheduled)
+
+            assert stream.canceled is True
+            assert call_count == 2
+
+            # Further emits raise
+            with pytest.raises(StreamCancelledError, match="Stream has been cancelled."):
+                stream.emit("Should be ignored")
+
+    @pytest.mark.asyncio
+    async def test_close_returns_none_when_canceled(self, mock_api_client, conversation_reference):
+        stream = HttpStream(mock_api_client, conversation_reference)
+        stream._canceled = True
+
+        result = await stream.close()
+        assert result is None

@@ -27,7 +27,7 @@ if TYPE_CHECKING:
 
 from .activity_sender import ActivitySender
 from .events import ActivityEvent, ActivityResponseEvent, ActivitySentEvent, ErrorEvent
-from .plugins import PluginActivityEvent, PluginBase
+from .plugins import PluginActivityEvent, PluginBase, StreamCancelledError
 from .routing.activity_context import ActivityContext
 from .routing.router import ActivityHandler, ActivityRouter
 from .token_manager import TokenManager
@@ -224,6 +224,10 @@ class ActivityProcessor:
                 ),
                 plugins=plugins,
             )
+        except StreamCancelledError:
+            logger.debug("Activity processing was cancelled (stream stopped)")
+            await activityCtx.stream.close()
+            response = InvokeResponse[Any](status=200)
         except Exception as error:
             await self.event_manager.on_error(ErrorEvent(error=error, activity=activity), plugins)
             raise error

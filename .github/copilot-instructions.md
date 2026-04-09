@@ -72,11 +72,11 @@ Microsoft Teams SDK for Python is a comprehensive SDK for building Microsoft Tea
 **ALWAYS manually validate changes by running at least one complete test application scenario:**
 
 ### Basic Teams App Validation
-1. Navigate to test app: `cd tests/echo`
+1. Navigate to test app: `cd examples/echo`
 2. Start the app: `python src/main.py`
 3. **Expected output**: App starts on ports 3978 and 3979 with logs:
    ```
-   [INFO] @teams/app.HttpPlugin listening on port 3978 🚀
+   [INFO] Teams app started successfully
    [INFO] @teams/app.DevToolsPlugin listening on port 3979 🚀
    ```
 4. **Test endpoints**:
@@ -106,7 +106,7 @@ pyright             # Type checking validation
 - **microsoft-teams-openai**: OpenAI integration
 - **microsoft-teams-mcpplugin**: MCP protocol integration
 
-### Test Applications (`/tests`)
+### Test Applications (`/examples`)
 Available test apps for development and validation:
 - **echo**: Basic message echo bot (recommended for quick validation)
 - **ai-test**: AI functionality testing
@@ -118,14 +118,14 @@ Available test apps for development and validation:
 
 ### Creating New Components
 - **New package**: `cookiecutter templates/package -o packages`
-- **New test app**: `cookiecutter templates/test -o tests`
+- **New test app**: `cookiecutter templates/examples -o examples`
 
 ## Common Development Tasks
 
 ### Testing Changes
 1. **Run commands with UV** (recommended): Use `uv run pytest packages/[package-name]` or **activate virtual environment**: `source .venv/bin/activate`
 2. **Run affected tests**: `pytest packages/[package-name]` for specific package (or `uv run pytest packages/[package-name]`)
-3. **Validate with test app**: Use `tests/echo` for basic functionality validation (starts a blocking server process)
+3. **Validate with test app**: Use `examples/echo` for basic functionality validation (starts a blocking server process)
 4. **Check DevTools web app**: Access http://localhost:3979/devtools when app is running
 
 ### Debugging and Development
