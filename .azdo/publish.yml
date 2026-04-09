@@ -50,6 +50,7 @@ extends:
           ob_git_fetchTags: true
           ob_sdl_binskim_break: true
           ob_git_fetchDepth: -1
+          NBGV_REQUIRED: '1'
 
         steps:
         - checkout: self
