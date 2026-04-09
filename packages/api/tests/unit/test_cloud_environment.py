@@ -6,7 +6,6 @@ Licensed under the MIT License.
 import dataclasses
 
 import pytest
-
 from microsoft_teams.api.auth.cloud_environment import (
     CHINA,
     PUBLIC,

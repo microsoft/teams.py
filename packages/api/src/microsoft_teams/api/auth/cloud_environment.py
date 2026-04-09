@@ -31,6 +31,8 @@ class CloudEnvironment:
     """The channel service URL. Empty for public cloud; set for sovereign clouds."""
     oauth_redirect_url: str
     """The OAuth redirect URL (e.g. "https://token.botframework.com/.auth/web/redirect")."""
+    graph_scope: str
+    """The Microsoft Graph token scope (e.g. "https://graph.microsoft.com/.default")."""
 
 
 PUBLIC = CloudEnvironment(
@@ -42,6 +44,7 @@ PUBLIC = CloudEnvironment(
     token_issuer="https://api.botframework.com",
     channel_service="",
     oauth_redirect_url="https://token.botframework.com/.auth/web/redirect",
+    graph_scope="https://graph.microsoft.com/.default",
 )
 """Microsoft public (commercial) cloud."""
 
@@ -54,6 +57,7 @@ US_GOV = CloudEnvironment(
     token_issuer="https://api.botframework.us",
     channel_service="https://botframework.azure.us",
     oauth_redirect_url="https://tokengcch.botframework.azure.us/.auth/web/redirect",
+    graph_scope="https://graph.microsoft.us/.default",
 )
 """US Government Community Cloud High (GCCH)."""
 
@@ -66,6 +70,7 @@ US_GOV_DOD = CloudEnvironment(
     token_issuer="https://api.botframework.us",
     channel_service="https://botframework.azure.us",
     oauth_redirect_url="https://apiDoD.botframework.azure.us/.auth/web/redirect",
+    graph_scope="https://dod-graph.microsoft.us/.default",
 )
 """US Government Department of Defense (DoD)."""
 
@@ -78,6 +83,7 @@ CHINA = CloudEnvironment(
     token_issuer="https://api.botframework.azure.cn",
     channel_service="https://botframework.azure.cn",
     oauth_redirect_url="https://token.botframework.azure.cn/.auth/web/redirect",
+    graph_scope="https://microsoftgraph.chinacloudapi.cn/.default",
 )
 """China cloud (21Vianet)."""
 

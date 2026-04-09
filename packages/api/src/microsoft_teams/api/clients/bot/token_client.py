@@ -115,7 +115,7 @@ class BotTokenClient(BaseClient):
         """
         if isinstance(credentials, TokenCredentials):
             token = credentials.token(
-                "https://graph.microsoft.com/.default",
+                self._cloud.graph_scope,
                 credentials.tenant_id,
             )
             if inspect.isawaitable(token):
@@ -138,7 +138,7 @@ class BotTokenClient(BaseClient):
                 "grant_type": "client_credentials",
                 "client_id": credentials.client_id,
                 "client_secret": credentials.client_secret,
-                "scope": "https://graph.microsoft.com/.default",
+                "scope": self._cloud.graph_scope,
             },
             headers={"Content-Type": "application/x-www-form-urlencoded"},
         )

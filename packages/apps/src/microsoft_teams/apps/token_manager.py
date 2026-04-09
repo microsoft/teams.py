@@ -28,7 +28,6 @@ from msal import (
     UserAssignedManagedIdentity,
 )
 
-GRAPH_TOKEN_SCOPE = "https://graph.microsoft.com/.default"
 DEFAULT_TENANT_FOR_GRAPH_TOKEN = "common"
 
 logger = logging.getLogger(__name__)
@@ -65,7 +64,7 @@ class TokenManager:
             The graph token or None if not available
         """
         return await self._get_token(
-            GRAPH_TOKEN_SCOPE, tenant_id=self._resolve_tenant_id(tenant_id, DEFAULT_TENANT_FOR_GRAPH_TOKEN)
+            self._cloud.graph_scope, tenant_id=self._resolve_tenant_id(tenant_id, DEFAULT_TENANT_FOR_GRAPH_TOKEN)
         )
 
     async def _get_token(
