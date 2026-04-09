@@ -15,7 +15,6 @@ members = [
     "dialogs",
     "echo",
     "graph",
-    "hatch-nbgv",
     "http-adapters",
     "mcp-client",
     "mcp-server",
@@ -51,7 +50,7 @@ dev = [
     { name = "pytest-cov", specifier = ">=6.0.0" },
     { name = "ruff", specifier = ">=0.11.13" },
 ]
-release = [{ name = "hatch-nbgv", editable = "packages/hatch-nbgv" }]
+release = [{ name = "hatch-nbgv", directory = "tools/hatch-nbgv" }]
 
 [[package]]
 name = "a2a"
@@ -1171,7 +1170,7 @@ wheels = [
 [[package]]
 name = "hatch-nbgv"
 version = "0.1.0"
-source = { editable = "packages/hatch-nbgv" }
+source = { directory = "tools/hatch-nbgv" }
 dependencies = [
     { name = "hatchling" },
     { name = "nbgv-python" },
@@ -1823,6 +1822,10 @@ dependencies = [
     { name = "microsoft-teams-ai" },
     { name = "microsoft-teams-apps" },
     { name = "microsoft-teams-common" },
+]
+
+[package.dev-dependencies]
+dev = [
     { name = "pytest" },
 ]
 
@@ -1832,8 +1835,10 @@ requires-dist = [
     { name = "microsoft-teams-ai", editable = "packages/ai" },
     { name = "microsoft-teams-apps", editable = "packages/apps" },
     { name = "microsoft-teams-common", editable = "packages/common" },
-    { name = "pytest", specifier = ">=8.4.1" },
 ]
+
+[package.metadata.requires-dev]
+dev = [{ name = "pytest", specifier = ">=8.4.1" }]
 
 [[package]]
 name = "microsoft-teams-ai"
@@ -1951,14 +1956,18 @@ requires-dist = [
 [[package]]
 name = "microsoft-teams-cards"
 source = { editable = "packages/cards" }
-dependencies = [
+
+[package.dev-dependencies]
+dev = [
     { name = "coverage" },
     { name = "pytest" },
     { name = "ruff" },
 ]
 
 [package.metadata]
-requires-dist = [
+
+[package.metadata.requires-dev]
+dev = [
     { name = "coverage", specifier = ">=7.8.0" },
     { name = "pytest", specifier = ">=8.3.5" },
     { name = "ruff", specifier = ">=0.11.5" },
@@ -1968,30 +1977,26 @@ requires-dist = [
 name = "microsoft-teams-common"
 source = { editable = "packages/common" }
 dependencies = [
-    { name = "coverage" },
     { name = "httpx" },
-    { name = "pytest" },
-    { name = "ruff" },
 ]
 
 [package.dev-dependencies]
 dev = [
+    { name = "coverage" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
+    { name = "ruff" },
 ]
 
 [package.metadata]
-requires-dist = [
-    { name = "coverage", specifier = ">=7.8.0" },
-    { name = "httpx", specifier = ">=0.28.1" },
-    { name = "pytest", specifier = ">=8.3.5" },
-    { name = "ruff", specifier = ">=0.11.5" },
-]
+requires-dist = [{ name = "httpx", specifier = ">=0.28.1" }]
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "coverage", specifier = ">=7.8.0" },
     { name = "pytest", specifier = ">=8.4.0" },
     { name = "pytest-asyncio", specifier = ">=1.0.0" },
+    { name = "ruff", specifier = ">=0.11.5" },
 ]
 
 [[package]]
