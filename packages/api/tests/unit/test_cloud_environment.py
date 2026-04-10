@@ -26,8 +26,6 @@ class TestCloudEnvironmentPresets:
         assert PUBLIC.token_service_url == "https://token.botframework.com"
         assert PUBLIC.openid_metadata_url == "https://login.botframework.com/v1/.well-known/openidconfiguration"
         assert PUBLIC.token_issuer == "https://api.botframework.com"
-        assert PUBLIC.channel_service == ""
-        assert PUBLIC.oauth_redirect_url == "https://token.botframework.com/.auth/web/redirect"
 
     def test_us_gov_has_correct_endpoints(self):
         assert US_GOV.login_endpoint == "https://login.microsoftonline.us"
@@ -36,14 +34,11 @@ class TestCloudEnvironmentPresets:
         assert US_GOV.token_service_url == "https://tokengcch.botframework.azure.us"
         assert US_GOV.openid_metadata_url == "https://login.botframework.azure.us/v1/.well-known/openidconfiguration"
         assert US_GOV.token_issuer == "https://api.botframework.us"
-        assert US_GOV.channel_service == "https://botframework.azure.us"
-        assert US_GOV.oauth_redirect_url == "https://tokengcch.botframework.azure.us/.auth/web/redirect"
 
     def test_us_gov_dod_has_correct_endpoints(self):
         assert US_GOV_DOD.login_endpoint == "https://login.microsoftonline.us"
         assert US_GOV_DOD.token_service_url == "https://apiDoD.botframework.azure.us"
         assert US_GOV_DOD.token_issuer == "https://api.botframework.us"
-        assert US_GOV_DOD.channel_service == "https://botframework.azure.us"
 
     def test_china_has_correct_endpoints(self):
         assert CHINA.login_endpoint == "https://login.partner.microsoftonline.cn"
@@ -51,7 +46,6 @@ class TestCloudEnvironmentPresets:
         assert CHINA.bot_scope == "https://api.botframework.azure.cn/.default"
         assert CHINA.token_service_url == "https://token.botframework.azure.cn"
         assert CHINA.token_issuer == "https://api.botframework.azure.cn"
-        assert CHINA.channel_service == "https://botframework.azure.cn"
 
     def test_presets_are_frozen(self):
         with pytest.raises(dataclasses.FrozenInstanceError):
@@ -121,8 +115,6 @@ class TestWithOverrides:
             token_service_url="d",
             openid_metadata_url="e",
             token_issuer="f",
-            channel_service="g",
-            oauth_redirect_url="h",
         )
         assert result.login_endpoint == "a"
         assert result.login_tenant == "b"
@@ -130,8 +122,6 @@ class TestWithOverrides:
         assert result.token_service_url == "d"
         assert result.openid_metadata_url == "e"
         assert result.token_issuer == "f"
-        assert result.channel_service == "g"
-        assert result.oauth_redirect_url == "h"
 
     def test_result_is_frozen(self):
         result = with_overrides(PUBLIC, login_tenant="test")
