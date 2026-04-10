@@ -17,8 +17,8 @@ logger = logging.getLogger(__name__)
 _FALLBACK_VERSION = "0.0.0"
 
 
-class NbgvVersionSource(VersionSourceInterface):
-    PLUGIN_NAME = "nbgv-fallback"
+class TeamsBuildVersionSource(VersionSourceInterface):
+    PLUGIN_NAME = "teams-build"
 
     def get_version_data(self) -> dict[str, Any]:
         try:
