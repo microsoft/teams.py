@@ -55,6 +55,7 @@ select = ["E", "F", "W", "B", "Q", "I", "ASYNC"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+testpaths = ["packages"]
 
 [tool.poe.tasks]
 fmt = "ruff format"
