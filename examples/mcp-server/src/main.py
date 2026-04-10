@@ -10,7 +10,6 @@ from microsoft_teams.ai import Function
 from microsoft_teams.api.activities.message.message import MessageActivity
 from microsoft_teams.apps import App
 from microsoft_teams.apps.routing.activity_context import ActivityContext
-from microsoft_teams.devtools import DevToolsPlugin
 from microsoft_teams.mcpplugin import McpServerPlugin
 from pydantic import BaseModel
 
@@ -126,7 +125,7 @@ mcp_server_plugin.use_tool(
     )
 )
 
-app = App(plugins=[mcp_server_plugin, DevToolsPlugin()])
+app = App(plugins=[mcp_server_plugin])
 
 
 @app.on_message

@@ -11,13 +11,12 @@ from dotenv import find_dotenv, load_dotenv
 from microsoft_teams.ai import ChatPrompt, ListMemory
 from microsoft_teams.api import MessageActivity, MessageActivityInput, TypingActivityInput
 from microsoft_teams.apps import ActivityContext, App
-from microsoft_teams.devtools import DevToolsPlugin
 from microsoft_teams.mcpplugin import McpClientPlugin, McpClientPluginParams
 from microsoft_teams.openai import OpenAICompletionsAIModel, OpenAIResponsesAIModel
 
 load_dotenv(find_dotenv(usecwd=True))
 
-app = App(plugins=[DevToolsPlugin()])
+app = App()
 
 
 def get_required_env(key: str) -> str:

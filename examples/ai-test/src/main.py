@@ -26,7 +26,6 @@ from microsoft_teams.ai import ChatPrompt
 from microsoft_teams.api import MessageActivity, MessageActivityInput
 from microsoft_teams.api.activities.invoke.message.submit_action import MessageSubmitActionInvokeActivity
 from microsoft_teams.apps import ActivityContext, App
-from microsoft_teams.devtools import DevToolsPlugin
 from microsoft_teams.openai import OpenAICompletionsAIModel, OpenAIResponsesAIModel
 
 load_dotenv(find_dotenv(usecwd=True))
@@ -46,7 +45,7 @@ AZURE_OPENAI_MODEL = get_required_env("AZURE_OPENAI_MODEL")
 # Global plugin instance for tracking
 plugin_instance = LoggingAIPlugin()
 
-app = App(plugins=[DevToolsPlugin()])
+app = App()
 
 # Models for different AI approaches
 completions_model = OpenAICompletionsAIModel(
