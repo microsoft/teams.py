@@ -10,7 +10,7 @@ from typing import Any
 
 from hatchling.metadata.plugin.interface import MetadataHookInterface
 
-from hatch_teams_build.version_source import TeamsBuildVersionSource
+from hatch_teams_build.version_source import FALLBACK_VERSION, TeamsBuildVersionSource
 
 logger = logging.getLogger(__name__)
 
@@ -41,14 +41,17 @@ class TeamsBuildMetadataHook(MetadataHookInterface):
         source = TeamsBuildVersionSource(self.root, self.config)
         version = _strip_local(source.get_version_data()["version"])
 
-        if version == "0.0.0":
+        fallback = _strip_local(FALLBACK_VERSION)
+        if version == fallback:
             if os.environ.get("NBGV_REQUIRED"):
                 raise RuntimeError(
-                    "teams-build metadata hook: nbgv resolved to 0.0.0 but NBGV_REQUIRED is set. "
+                    f"teams-build metadata hook: nbgv resolved to {fallback} but NBGV_REQUIRED is set. "
                     "Workspace dependency versions would be incorrect. "
                     "Ensure nbgv CLI is installed and available on PATH."
                 )
-            logger.warning("teams-build metadata hook: skipping dep rewrite (nbgv unavailable, version is 0.0.0)")
+            logger.warning(
+                "teams-build metadata hook: skipping dep rewrite (nbgv unavailable, version is %s)", fallback
+            )
             return
 
         logger.debug("teams-build metadata hook: rewriting workspace deps with >=%s", version)
