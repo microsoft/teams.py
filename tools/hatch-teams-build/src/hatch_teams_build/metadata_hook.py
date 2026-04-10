@@ -4,6 +4,7 @@ Licensed under the MIT License.
 """
 
 import logging
+import os
 import re
 from typing import Any
 
@@ -41,6 +42,12 @@ class TeamsBuildMetadataHook(MetadataHookInterface):
         version = _strip_local(source.get_version_data()["version"])
 
         if version == "0.0.0":
+            if os.environ.get("NBGV_REQUIRED"):
+                raise RuntimeError(
+                    "teams-build metadata hook: nbgv resolved to 0.0.0 but NBGV_REQUIRED is set. "
+                    "Workspace dependency versions would be incorrect. "
+                    "Ensure nbgv CLI is installed and available on PATH."
+                )
             logger.warning("teams-build metadata hook: skipping dep rewrite (nbgv unavailable, version is 0.0.0)")
             return
 
