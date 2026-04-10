@@ -38,10 +38,9 @@ source = "teams-build"
 [tool.hatch.metadata.hooks.teams-build]
 ```
 
-## Running Tests
+## Verification
 
 ```bash
-PYTHONPATH=tools/hatch-teams-build/src uv run --with hatchling --with nbgv-python \
-  pytest tools/hatch-teams-build/tests/ -v \
-  --override-ini="testpaths=" --rootdir=tools/hatch-teams-build
+uv build packages/apps --sdist
+# Inspect PKG-INFO — workspace deps should show >=<version>
 ```
