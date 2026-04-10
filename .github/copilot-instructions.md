@@ -97,7 +97,6 @@ pyright             # Type checking validation
 
 ### Core Packages (`/packages`)
 - **microsoft-teams-apps**: Main application framework
-- **microsoft-teams-ai**: AI integration functionality
 - **microsoft-teams-api**: Teams API client
 - **microsoft-teams-cards**: Adaptive cards support
 - **microsoft-teams-common**: Shared utilities
@@ -109,7 +108,6 @@ pyright             # Type checking validation
 ### Test Applications (`/examples`)
 Available test apps for development and validation:
 - **echo**: Basic message echo bot (recommended for quick validation)
-- **ai-test**: AI functionality testing
 - **dialogs**: Dialog handling examples
 - **message-extensions**: Message extension samples
 - **oauth**: OAuth authentication examples

@@ -58,7 +58,6 @@ A comprehensive SDK for building Microsoft Teams applications, bots, and AI agen
 > ℹ️ core packages used to build client/server apps for Teams.
 
 - [`microsoft-teams-apps`](./packages/apps/README.md)
-- [`microsoft-teams-ai`](./packages/ai/README.md)
 - [`microsoft-teams-api`](./packages/api/README.md)
 - [`microsoft-teams-cards`](./packages/cards/README.md)
 - [`microsoft-teams-common`](./packages/common/README.md)
