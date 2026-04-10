@@ -14,11 +14,11 @@ from nbgv_python.hatch_plugin import NbgvVersionSource as _UpstreamSource  # typ
 
 logger = logging.getLogger(__name__)
 
-_FALLBACK_VERSION = "0.0.0"
+FALLBACK_VERSION = "0.0.0"
 
 
-class NbgvVersionSource(VersionSourceInterface):
-    PLUGIN_NAME = "nbgv-fallback"
+class TeamsBuildVersionSource(VersionSourceInterface):
+    PLUGIN_NAME = "teams-build"
 
     def get_version_data(self) -> dict[str, Any]:
         try:
@@ -34,8 +34,8 @@ class NbgvVersionSource(VersionSourceInterface):
                 UserWarning,
                 stacklevel=1,
             )
-            logger.warning("nbgv not found, falling back to version %s", _FALLBACK_VERSION)
-            return {"version": _FALLBACK_VERSION}
+            logger.warning("nbgv not found, falling back to version %s", FALLBACK_VERSION)
+            return {"version": FALLBACK_VERSION}
 
     def set_version(self, version: str, version_data: dict[str, Any]) -> None:
         raise NotImplementedError("Version is managed by nbgv via version.json — not settable.")
