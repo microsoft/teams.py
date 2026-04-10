@@ -20,11 +20,13 @@ dependencies = [
 external = true
 
 [build-system]
-requires = ["hatchling", "hatch-nbgv"]
+requires = ["hatchling", "hatch-teams-build"]
 build-backend = "hatchling.build"
 
 [tool.hatch.version]
-source = "nbgv-fallback"
+source = "teams-build"
+
+[tool.hatch.metadata.hooks.teams-build]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/microsoft_teams", "src/microsoft"]
