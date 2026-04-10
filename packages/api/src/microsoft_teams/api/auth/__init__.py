@@ -6,7 +6,6 @@ Licensed under the MIT License.
 from .caller import CallerIds, CallerType
 from .cloud_environment import (
     CloudEnvironment,
-    from_name,
     with_overrides,
 )
 from .cloud_environment import from_name as config_from_cloud_name
@@ -28,7 +27,6 @@ __all__ = [
     "config_from_cloud_name",
     "Credentials",
     "FederatedIdentityCredentials",
-    "from_name",
     "ManagedIdentityCredentials",
     "TokenCredentials",
     "TokenProtocol",

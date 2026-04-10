@@ -9,8 +9,6 @@ from typing import Optional
 
 from ..auth.cloud_environment import PUBLIC, CloudEnvironment
 
-DEFAULT_OAUTH_URL = "https://token.botframework.com"
-
 
 @dataclass
 class ApiClientSettings:
@@ -21,10 +19,10 @@ class ApiClientSettings:
         oauth_url: The URL to use for managing user OAuth tokens.
                    Specify this value if you are using a regional bot.
                    For example: https://europe.token.botframework.com
-                   Default is https://token.botframework.com
+                   Defaults to the cloud environment's token service URL.
     """
 
-    oauth_url: str = DEFAULT_OAUTH_URL
+    oauth_url: Optional[str] = None
 
 
 def merge_api_client_settings(
@@ -43,7 +41,7 @@ def merge_api_client_settings(
     """
     env_oauth_url = os.environ.get("OAUTH_URL")
 
-    if api_client_settings and api_client_settings.oauth_url != DEFAULT_OAUTH_URL:
+    if api_client_settings and api_client_settings.oauth_url:
         return api_client_settings
 
     return ApiClientSettings(
