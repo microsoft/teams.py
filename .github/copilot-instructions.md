@@ -102,8 +102,6 @@ pyright             # Type checking validation
 - **microsoft-teams-common**: Shared utilities
 - **microsoft-teams-devtools**: Development and debugging tools
 - **microsoft-teams-graph**: Microsoft Graph integration
-- **microsoft-teams-openai**: OpenAI integration
-- **microsoft-teams-mcpplugin**: MCP protocol integration
 
 ### Test Applications (`/examples`)
 Available test apps for development and validation:

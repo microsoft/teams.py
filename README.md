@@ -63,13 +63,7 @@ A comprehensive SDK for building Microsoft Teams applications, bots, and AI agen
 - [`microsoft-teams-common`](./packages/common/README.md)
 - [`microsoft-teams-devtools`](./packages/devtools/README.md)
 - [`microsoft-teams-graph`](./packages/graph/README.md)
-- [`microsoft-teams-openai`](./packages/openai/README.md)
 - [`microsoft-teams-botbuilder`](./packages/botbuilder/README.md)
-
-> external packages to integrate with external protocols and microsoft-teams-cards
-
-- [`microsoft-teams-mcpplugin`](./packages/mcpplugin/README.md)
-- [`microsoft-teams-a2a`](./packages/a2aprotocol/README.md)
 
 ### Create a New Package
 

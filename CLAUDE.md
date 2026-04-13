@@ -44,10 +44,7 @@ All packages live in `packages/`, each with `src/microsoft_teams/<package>/` lay
 | `cards` | Adaptive cards |
 | `botbuilder` | Bot Framework integration plugin |
 | `devtools` | Development tools plugin |
-| `mcpplugin` | MCP server plugin |
-| `a2aprotocol` | A2A protocol plugin |
 | `graph` | Microsoft Graph integration |
-| `openai` | OpenAI integration |
 
 ### Key Patterns
 
