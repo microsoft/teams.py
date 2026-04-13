@@ -3,11 +3,15 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
+from __future__ import annotations
+
 import logging
+import re
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
 import jwt
+from microsoft_teams.api.auth.cloud_environment import PUBLIC, CloudEnvironment
 
 JWT_LEEWAY_SECONDS = 300  # Allowable clock skew when validating JWTs
 
@@ -53,19 +57,28 @@ class TokenValidator:
 
     # ----- Factory constructors -----
     @classmethod
-    def for_service(cls, app_id: str, service_url: Optional[str] = None) -> "TokenValidator":
+    def for_service(
+        cls,
+        app_id: str,
+        service_url: Optional[str] = None,
+        cloud: Optional[CloudEnvironment] = None,
+    ) -> TokenValidator:
         """Create a validator for Bot Framework service tokens.
 
         Reference: https://learn.microsoft.com/en-us/azure/bot-service/rest-api/bot-framework-rest-connector-authentication
 
         Args:
             app_id: The bot's Microsoft App ID (used for audience validation)
-            service_url: Optional service URL to validate against token claims"""
+            service_url: Optional service URL to validate against token claims
+            cloud: Optional cloud environment for sovereign cloud support
+        """
+        env = cloud or PUBLIC
+        jwks_keys_uri = re.sub(r"/openidconfiguration$", "/keys", env.openid_metadata_url)
 
         options = JwtValidationOptions(
-            valid_issuers=["https://api.botframework.com"],
+            valid_issuers=[env.token_issuer],
             valid_audiences=cls._default_audiences(app_id),
-            jwks_uri="https://login.botframework.com/v1/.well-known/keys",
+            jwks_uri=jwks_keys_uri,
             service_url=service_url,
         )
         return cls(options)
@@ -77,7 +90,8 @@ class TokenValidator:
         tenant_id: Optional[str],
         scope: Optional[str] = None,
         application_id_uri: Optional[str] = None,
-    ) -> "TokenValidator":
+        cloud: Optional[CloudEnvironment] = None,
+    ) -> TokenValidator:
         """Create a validator for Entra ID tokens.
 
         Args:
@@ -86,12 +100,12 @@ class TokenValidator:
             scope: Optional scope that must be present in the token
             application_id_uri: Optional Application ID URI from Azure portal.
                 Matches webApplicationInfo.resource in the app manifest.
-
+            cloud: Optional cloud environment for sovereign cloud support
         """
-
+        env = cloud or PUBLIC
         valid_issuers: List[str] = []
         if tenant_id:
-            valid_issuers.append(f"https://login.microsoftonline.com/{tenant_id}/v2.0")
+            valid_issuers.append(f"{env.login_endpoint}/{tenant_id}/v2.0")
         tenant_id = tenant_id or "common"
         valid_audiences = cls._default_audiences(app_id)
         if application_id_uri:
@@ -99,7 +113,7 @@ class TokenValidator:
         options = JwtValidationOptions(
             valid_issuers=valid_issuers,
             valid_audiences=valid_audiences,
-            jwks_uri=f"https://login.microsoftonline.com/{tenant_id}/discovery/v2.0/keys",
+            jwks_uri=f"{env.login_endpoint}/{tenant_id}/discovery/v2.0/keys",
             scope=scope,
         )
         return cls(options)
