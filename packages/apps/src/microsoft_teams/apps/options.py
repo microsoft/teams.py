@@ -9,6 +9,7 @@ from dataclasses import dataclass, field
 from typing import Any, Awaitable, Callable, List, Optional, TypedDict, Union, cast
 
 from microsoft_teams.api import ApiClientSettings
+from microsoft_teams.api.auth.cloud_environment import CloudEnvironment
 from microsoft_teams.common import Storage
 from typing_extensions import Unpack
 
@@ -69,6 +70,15 @@ class AppOptions(TypedDict, total=False):
     and defaults to https://smba.trafficmanager.net/teams
     """
 
+    # Cloud environment
+    cloud: Optional[CloudEnvironment]
+    """
+    Cloud environment for sovereign cloud support.
+    Accepts a CloudEnvironment instance or uses CLOUD environment variable.
+    Valid env var values: "Public", "USGov", "USGovDoD", "China".
+    Defaults to PUBLIC (commercial cloud).
+    """
+
 
 @dataclass
 class InternalAppOptions:
@@ -112,6 +122,8 @@ class InternalAppOptions:
     """Custom HTTP server adapter. Defaults to FastAPIAdapter if not provided."""
     messaging_endpoint: str = "/api/messages"
     """URL path for the Teams messaging endpoint. Defaults to '/api/messages'."""
+    cloud: Optional[CloudEnvironment] = None
+    """Cloud environment for sovereign cloud support."""
 
     @classmethod
     def from_typeddict(cls, options: AppOptions) -> "InternalAppOptions":

@@ -94,3 +94,27 @@ class TestBotClientRegionalEndpoints:
         response = await client.sign_in.get_resource(params)
         assert response.sign_in_link is not None
         assert response.sign_in_link.startswith("http")
+
+
+@pytest.mark.unit
+class TestBotClientSovereignCloud:
+    def test_bot_token_client_receives_cloud(self):
+        from microsoft_teams.api.auth.cloud_environment import US_GOV
+
+        client = BotClient(cloud=US_GOV)
+        assert client.token._cloud is US_GOV
+        assert client.token._cloud.bot_scope == "https://api.botframework.us/.default"
+        assert client.token._cloud.login_endpoint == "https://login.microsoftonline.us"
+
+    def test_bot_token_client_defaults_to_public(self):
+        from microsoft_teams.api.auth.cloud_environment import PUBLIC
+
+        client = BotClient()
+        assert client.token._cloud is PUBLIC
+
+    def test_api_client_passes_cloud_to_bot_client(self):
+        from microsoft_teams.api import ApiClient
+        from microsoft_teams.api.auth.cloud_environment import US_GOV
+
+        api = ApiClient("https://example.com", cloud=US_GOV)
+        assert api.bots.token._cloud is US_GOV
