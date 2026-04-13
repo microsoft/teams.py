@@ -43,7 +43,7 @@ def _merge_headers(base: Dict[str, str], overrides: Dict[str, str]) -> Dict[str,
                 if value not in existing.split():
                     result[base_ua_key] = f"{existing} {value}"
             else:
-                result[key] = value
+                result["User-Agent"] = value
         else:
             result[key] = value
     return result

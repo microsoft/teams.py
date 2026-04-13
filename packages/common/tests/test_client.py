@@ -236,3 +236,17 @@ def test_clone_only_override_user_agent_kept_when_base_has_none():
     client = Client(ClientOptions(headers={}))
     clone = client.clone(ClientOptions(headers={"User-Agent": "myapp/2.0"}))
     assert clone._options.headers["User-Agent"] == "myapp/2.0"
+
+
+def test_clone_normalizes_user_agent_key_when_base_has_none():
+    client = Client(ClientOptions(headers={}))
+    clone = client.clone(ClientOptions(headers={"user-agent": "myapp/2.0"}))
+    assert "User-Agent" in clone._options.headers
+    assert clone._options.headers["User-Agent"] == "myapp/2.0"
+
+
+def test_clone_user_agent_multi_token_override():
+    client = Client(ClientOptions(headers={"User-Agent": "teams-bot/1.0"}))
+    clone = client.clone(ClientOptions(headers={"User-Agent": "myapp/2.0 partner/3.0"}))
+    ua = clone._options.headers["User-Agent"]
+    assert ua == "teams-bot/1.0 myapp/2.0 partner/3.0"
