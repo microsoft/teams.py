@@ -3,7 +3,9 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from typing import Optional, Union
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Optional, Union
 
 from microsoft_teams.common import Client as HttpClient
 from microsoft_teams.common import ClientOptions
@@ -17,6 +19,9 @@ from .reaction import ReactionClient
 from .team import TeamClient
 from .user import UserClient
 
+if TYPE_CHECKING:
+    from ..auth.cloud_environment import CloudEnvironment
+
 
 class ApiClient(BaseClient):
     """Unified client for Microsoft Teams API operations."""
@@ -26,6 +31,7 @@ class ApiClient(BaseClient):
         service_url: str,
         options: Optional[Union[HttpClient, ClientOptions]] = None,
         api_client_settings: Optional[ApiClientSettings] = None,
+        cloud: Optional[CloudEnvironment] = None,
     ) -> None:
         """Initialize the unified Teams API client.
 
@@ -33,12 +39,13 @@ class ApiClient(BaseClient):
             service_url: The Teams service URL for API calls.
             options: Either an HTTP client instance or client options. If None, a default client is created.
             api_client_settings: Optional API client settings.
+            cloud: Optional cloud environment for sovereign cloud support.
         """
         super().__init__(options, api_client_settings)
         self.service_url = service_url.rstrip("/")
 
         # Initialize all client types
-        self.bots = BotClient(self._http, self._api_client_settings)
+        self.bots = BotClient(self._http, self._api_client_settings, cloud=cloud)
         self.users = UserClient(self._http, self._api_client_settings)
         self.conversations = ConversationClient(self.service_url, self._http, self._api_client_settings)
         self.teams = TeamClient(self.service_url, self._http, self._api_client_settings)

@@ -26,6 +26,8 @@ from microsoft_teams.api import (
     TokenCredentials,
     TokenProtocol,
 )
+from microsoft_teams.api.auth.cloud_environment import PUBLIC
+from microsoft_teams.api.auth.cloud_environment import from_name as cloud_from_name
 from microsoft_teams.cards import AdaptiveCard
 from microsoft_teams.common import Client, ClientOptions, EventEmitter, LocalStorage
 
@@ -79,6 +81,10 @@ class App(ActivityHandlerMixin):
     def __init__(self, **options: Unpack[AppOptions]):
         self.options = InternalAppOptions.from_typeddict(options)
 
+        # Resolve cloud environment from options or CLOUD env var
+        cloud_env_name = os.getenv("CLOUD")
+        self.cloud = self.options.cloud or (cloud_from_name(cloud_env_name) if cloud_env_name else PUBLIC)
+
         self.storage = self.options.storage or LocalStorage()
 
         self.http_client = Client(
@@ -94,6 +100,7 @@ class App(ActivityHandlerMixin):
 
         self._token_manager = TokenManager(
             credentials=self.credentials,
+            cloud=self.cloud,
         )
 
         self.container = Container()
@@ -111,6 +118,7 @@ class App(ActivityHandlerMixin):
             service_url,
             self.http_client.clone(ClientOptions(token=self._get_bot_token)),
             self.options.api_client_settings,
+            cloud=self.cloud,
         )
 
         plugins: List[PluginBase] = list(self.options.plugins)
@@ -159,6 +167,7 @@ class App(ActivityHandlerMixin):
                 self.credentials.client_id,
                 self.credentials.tenant_id,
                 application_id_uri=self.options.application_id_uri,
+                cloud=self.cloud,
             )
 
     @property
@@ -203,7 +212,7 @@ class App(ActivityHandlerMixin):
 
             # Initialize HttpServer (JWT validation + messaging endpoint route)
             self.server.on_request = self._process_activity_event
-            self.server.initialize(credentials=self.credentials, skip_auth=self.options.skip_auth)
+            self.server.initialize(credentials=self.credentials, skip_auth=self.options.skip_auth, cloud=self.cloud)
 
             self._initialized = True
             logger.info("Teams app initialized successfully")

@@ -4,6 +4,11 @@ Licensed under the MIT License.
 """
 
 from .caller import CallerIds, CallerType
+from .cloud_environment import (
+    CloudEnvironment,
+    with_overrides,
+)
+from .cloud_environment import from_name as config_from_cloud_name
 from .credentials import (
     ClientCredentials,
     Credentials,
@@ -17,7 +22,9 @@ from .token import TokenProtocol
 __all__ = [
     "CallerIds",
     "CallerType",
+    "CloudEnvironment",
     "ClientCredentials",
+    "config_from_cloud_name",
     "Credentials",
     "FederatedIdentityCredentials",
     "ManagedIdentityCredentials",
@@ -25,4 +32,5 @@ __all__ = [
     "TokenProtocol",
     "JsonWebToken",
     "JsonWebTokenPayload",
+    "with_overrides",
 ]
