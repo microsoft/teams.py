@@ -50,7 +50,7 @@ dev = [
     { name = "pytest-cov", specifier = ">=6.0.0" },
     { name = "ruff", specifier = ">=0.11.13" },
 ]
-release = [{ name = "hatch-nbgv", directory = "tools/hatch-nbgv" }]
+release = [{ name = "hatch-teams-build", directory = "tools/hatch-teams-build" }]
 
 [[package]]
 name = "a2a"
@@ -1894,9 +1894,9 @@ wheels = [
 ]
 
 [[package]]
-name = "hatch-nbgv"
+name = "hatch-teams-build"
 version = "0.1.0"
-source = { directory = "tools/hatch-nbgv" }
+source = { directory = "tools/hatch-teams-build" }
 dependencies = [
     { name = "hatchling" },
     { name = "nbgv-python" },

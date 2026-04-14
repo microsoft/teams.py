@@ -33,7 +33,7 @@ class HttpStream(StreamerProtocol):
 
     Flow:
     1. emit() adds activities to a queue
-    2. _flush() processes up to 10 queued items under a lock.
+    2. _flush() drains the entire queue under a lock.
     3. Informative typing updates are sent immediately if no message started.
     4. Message text are combined into a typing chunk.
     5. Another flush is scheduled if more items remain.
@@ -205,10 +205,10 @@ class HttpStream(StreamerProtocol):
                 self._timeout.cancel()
                 self._timeout = None
 
-            i = 0
             informative_updates: List[TypingActivityInput] = []
+            start_length = len(self._queue)
 
-            while i < 10 and self._queue:
+            while self._queue:
                 activity = self._queue.popleft()
 
                 if isinstance(activity, MessageActivityInput):
@@ -227,9 +227,7 @@ class HttpStream(StreamerProtocol):
                     # And so informative updates cannot be sent.
                     informative_updates.append(activity)
 
-                i += 1
-
-            if i == 0:
+            if start_length == 0:
                 logger.debug("No activities to flush")
                 return
 

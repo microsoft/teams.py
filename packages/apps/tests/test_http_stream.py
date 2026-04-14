@@ -91,10 +91,9 @@ class TestHttpStream:
                 http_stream.emit(f"Message {i + 1}")
 
             await asyncio.sleep(0)
+            # First flush drains the entire queue, no second flush needed
             assert http_stream._client.send_call_count == 1
-
-            await self._run_scheduled_flushes(scheduled)
-            assert http_stream._client.send_call_count == 2
+            assert len(scheduled) == 0
 
     @pytest.mark.asyncio
     async def test_stream_error_handled_gracefully(
