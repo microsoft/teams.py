@@ -8,8 +8,6 @@ from microsoft_teams.ai.ai_model import AIModel
 from microsoft_teams.api import MessageActivity, MessageActivityInput
 from microsoft_teams.apps import ActivityContext
 
-from .suggested_prompts import SUGGESTED_PROMPTS
-
 # Simple in-memory store for conversation histories
 # In your application, it may be a good idea to use a more
 # persistent store backed by a database or other storage solution
@@ -42,11 +40,7 @@ async def handle_stateful_conversation(model: AIModel, ctx: ActivityContext[Mess
     )
 
     if chat_result.response.content:
-        message = (
-            MessageActivityInput(text=chat_result.response.content)
-            .add_ai_generated()
-            .with_suggested_actions(SUGGESTED_PROMPTS)
-        )
+        message = MessageActivityInput(text=chat_result.response.content).add_ai_generated()
         await ctx.send(message)
     else:
         await ctx.reply("I did not generate a response.")

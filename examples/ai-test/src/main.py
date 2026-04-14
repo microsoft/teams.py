@@ -111,14 +111,41 @@ async def handle_streaming(ctx: ActivityContext[MessageActivity]):
 
         if hasattr(ctx.activity.conversation, "is_group") and ctx.activity.conversation.is_group:
             if chat_result.response.content:
-                message = (
-                    MessageActivityInput(text=chat_result.response.content)
-                    .add_ai_generated()
-                    .with_suggested_actions(SUGGESTED_PROMPTS)
-                )
+                message = MessageActivityInput(text=chat_result.response.content).add_ai_generated()
                 await ctx.send(message)
         else:
-            ctx.stream.emit(MessageActivityInput().add_ai_generated().with_suggested_actions(SUGGESTED_PROMPTS))
+            ctx.stream.emit(MessageActivityInput().add_ai_generated())
+
+
+# Suggested prompts demos
+@app.on_message_pattern(re.compile(r"^suggested-prompt message$", re.IGNORECASE))
+async def handle_suggested_prompt_message(ctx: ActivityContext[MessageActivity]):
+    """Demo suggested prompts on a regular message."""
+    prompt = ChatPrompt(current_model)
+    chat_result = await prompt.send(
+        input="Tell me something interesting", instructions="You are a friendly assistant. Keep it brief."
+    )
+
+    if chat_result.response.content:
+        message = (
+            MessageActivityInput(text=chat_result.response.content)
+            .add_ai_generated()
+            .with_suggested_actions(SUGGESTED_PROMPTS)
+        )
+        await ctx.send(message)
+
+
+@app.on_message_pattern(re.compile(r"^suggested-prompt stream$", re.IGNORECASE))
+async def handle_suggested_prompt_stream(ctx: ActivityContext[MessageActivity]):
+    """Demo suggested prompts on a streamed message."""
+    prompt = ChatPrompt(current_model)
+    await prompt.send(
+        input="Tell me something interesting",
+        instructions="You are a friendly assistant who responds in extremely verbose language",
+        on_chunk=lambda chunk: ctx.stream.emit(chunk),
+    )
+
+    ctx.stream.emit(MessageActivityInput().add_ai_generated().with_suggested_actions(SUGGESTED_PROMPTS))
 
 
 # Utility commands
