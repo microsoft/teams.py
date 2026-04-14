@@ -13,8 +13,11 @@ from typing import Any, cast
 from agent_framework import Agent, FunctionInvocationContext, FunctionMiddleware
 from agent_framework.foundry import FoundryChatClient
 from azure.identity import DefaultAzureCredential
+from dotenv import find_dotenv, load_dotenv
 from local_tools import tools as local_tools
 from mcp_tools import mcp_tools
+
+load_dotenv(find_dotenv(usecwd=True))
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -50,11 +53,18 @@ class AgentMiddleware(FunctionMiddleware):
             pass
 
 
+def _require_env(name: str) -> str:
+    value = getenv(name)
+    if not value:
+        raise ValueError(f"Required environment variable {name!r} is not set.")
+    return value
+
+
 # DefaultAzureCredential tries in order: env vars (AZURE_CLIENT_ID/SECRET/TENANT_ID),
 # workload identity, managed identity, az login, azd auth login.
 client = FoundryChatClient(
-    project_endpoint=getenv("PROJECT_ENDPOINT"),
-    model=getenv("AZURE_OPENAI_MODEL"),
+    project_endpoint=_require_env("PROJECT_ENDPOINT"),
+    model=_require_env("AZURE_OPENAI_MODEL"),
     credential=DefaultAzureCredential(),
 )
 

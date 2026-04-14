@@ -10,7 +10,6 @@ from os import getenv
 
 from agent import agent, tool_logger
 from agent_framework import AgentSession
-from dotenv import find_dotenv, load_dotenv
 from microsoft_teams.api import (
     CitationAppearance,
     MessageActivity,
@@ -19,14 +18,12 @@ from microsoft_teams.api import (
 )
 from microsoft_teams.apps import ActivityContext, App
 
-load_dotenv(find_dotenv(usecwd=True))
-
 # LOG_LEVEL controls third-party noise (httpx, mcp, azure-identity). Defaults to WARNING.
 logging.basicConfig(level=getenv("LOG_LEVEL", "WARNING").upper())
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
-# App is the Teams bot host. DevToolsPlugin adds a local UI at http://localhost:3979 for testing.
+# App is the Teams bot host for this example.
 app = App()
 
 # Per-conversation sessions preserve message history across turns.
