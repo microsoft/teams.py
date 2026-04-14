@@ -13,6 +13,7 @@ from microsoft_teams.api.auth.json_web_token import JsonWebToken
 from pydantic import BaseModel
 
 from ..auth import TokenValidator
+from ..auth.token_validator import is_allowed_service_url
 from ..events import ActivityEvent, CoreActivity
 from .adapter import HttpRequest, HttpResponse, HttpServerAdapter
 
@@ -36,6 +37,7 @@ class HttpServer:
         self._on_request: Optional[Callable[[ActivityEvent], Awaitable[InvokeResponse[Any]]]] = None
         self._token_validator: Optional[TokenValidator] = None
         self._skip_auth: bool = False
+        self._additional_allowed_domains: Optional[list[str]] = None
         self._initialized: bool = False
 
     @property
@@ -61,6 +63,7 @@ class HttpServer:
         self,
         credentials: Optional[Credentials] = None,
         skip_auth: bool = False,
+        additional_allowed_domains: Optional[list[str]] = None,
         cloud: Optional[CloudEnvironment] = None,
     ) -> None:
         """
@@ -69,12 +72,14 @@ class HttpServer:
         Args:
             credentials: App credentials for JWT validation.
             skip_auth: Whether to skip JWT validation.
+            additional_allowed_domains: Additional allowed service URL domain suffixes.
             cloud: Optional cloud environment for sovereign cloud support.
         """
         if self._initialized:
             return
 
         self._skip_auth = skip_auth
+        self._additional_allowed_domains = additional_allowed_domains
 
         app_id = getattr(credentials, "client_id", None) if credentials else None
         if app_id and not skip_auth:
@@ -122,6 +127,11 @@ class HttpServer:
                         is_expired=lambda: False,
                     ),
                 )
+
+            # Validate service URL against allowed domains
+            if service_url and not is_allowed_service_url(service_url, self._additional_allowed_domains):
+                logger.warning(f"Service URL '{service_url}' is not from an allowed domain")
+                return HttpResponse(status=403, body={"error": "Service URL not allowed"})
 
             core_activity = CoreActivity.model_validate(body)
             activity_type = core_activity.type or "unknown"

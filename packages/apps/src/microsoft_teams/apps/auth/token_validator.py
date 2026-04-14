@@ -7,8 +7,9 @@ from __future__ import annotations
 
 import logging
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
+from urllib.parse import urlparse
 
 import jwt
 from microsoft_teams.api.auth.cloud_environment import PUBLIC, CloudEnvironment
@@ -16,6 +17,43 @@ from microsoft_teams.api.auth.cloud_environment import PUBLIC, CloudEnvironment
 JWT_LEEWAY_SECONDS = 300  # Allowable clock skew when validating JWTs
 
 logger = logging.getLogger(__name__)
+
+# Default allowed service URL domain patterns.
+# Covers public, government, sovereign, and regional clouds.
+DEFAULT_ALLOWED_SERVICE_URL_DOMAINS = [
+    # Public cloud
+    ".botframework.com",
+    # US Government
+    ".botframework.azure.us",
+    ".teams.microsoft.com",
+    ".teams.microsoft.us",
+    # China (21Vianet)
+    ".botframework.azure.cn",
+    ".teams.microsoftonline.cn",
+]
+
+
+def is_allowed_service_url(service_url: str, additional_domains: Optional[List[str]] = None) -> bool:
+    """Validate that a service URL belongs to a known domain.
+
+    Returns True if the URL's hostname ends with one of the allowed domain suffixes,
+    or if the hostname is localhost (for local development).
+    """
+    try:
+        parsed = urlparse(service_url)
+        hostname = (parsed.hostname or "").lower()
+
+        if hostname in ("localhost", "127.0.0.1"):
+            return True
+
+        # trafficmanager.net is a shared Azure service; only allow smba-prefixed hostnames
+        if hostname.endswith(".trafficmanager.net") or hostname == "trafficmanager.net":
+            return hostname.startswith("smba")
+
+        allowed = DEFAULT_ALLOWED_SERVICE_URL_DOMAINS + (additional_domains or [])
+        return any(domain == "*" or hostname.endswith(domain.lower()) for domain in allowed)
+    except Exception:  # pragma: no cover
+        return False
 
 
 @dataclass
@@ -34,6 +72,8 @@ class JwtValidationOptions:
     """ Optional scope that must be present in the token """
     clock_tolerance: int = JWT_LEEWAY_SECONDS
     """ Allowable clock skew when validating JWTs """
+    additional_allowed_domains: List[str] = field(default_factory=lambda: [])
+    """ Additional allowed service URL domains beyond the defaults """
 
 
 class TokenValidator:
@@ -106,6 +146,11 @@ class TokenValidator:
         valid_issuers: List[str] = []
         if tenant_id:
             valid_issuers.append(f"{env.login_endpoint}/{tenant_id}/v2.0")
+        else:
+            logger.warning(
+                "No tenant_id provided for Entra token validation. "
+                "Issuer validation will be skipped, accepting tokens from any tenant."
+            )
         tenant_id = tenant_id or "common"
         valid_audiences = cls._default_audiences(app_id)
         if application_id_uri:
@@ -159,10 +204,17 @@ class TokenValidator:
                 leeway=JWT_LEEWAY_SECONDS,
             )
 
-            # Optional service URL validation
-            expected_service_url = service_url or self.options.service_url
-            if expected_service_url:
-                self._validate_service_url(payload, expected_service_url)
+            # Validate service URL against allowed domains
+            effective_service_url = service_url or self.options.service_url
+            if effective_service_url and not is_allowed_service_url(
+                effective_service_url, self.options.additional_allowed_domains
+            ):
+                logger.error(f"Service URL '{effective_service_url}' is not from an allowed domain")
+                raise jwt.InvalidTokenError(f"Service URL '{effective_service_url}' is not from an allowed domain")
+
+            # Optional service URL claim validation
+            if effective_service_url:
+                self._validate_service_url(payload, effective_service_url)
 
             required_scope = scope or self.options.scope
             if required_scope:
@@ -205,7 +257,7 @@ class TokenValidator:
             payload: The decoded JWT payload
             required_scope: The scope required to be present in the token
         """
-        scopes = payload.get("scp", "") or ""
-        if required_scope not in scopes:
+        scope_set = set((payload.get("scp", "") or "").split())
+        if required_scope not in scope_set:
             logger.error(f"Token missing required scope: {required_scope}")
             raise jwt.InvalidTokenError(f"Token missing required scope: {required_scope}")
