@@ -45,9 +45,14 @@ class AgentMiddleware(FunctionMiddleware):
             for item in parsed.get("results", []):
                 url = item.get("contentUrl") or item.get("link")
                 if url:
+                    pos = len(self.citations) + 1
                     title = item.get("title") or ""
                     snippet = (item.get("content") or item.get("description") or "")[:160]
-                    self.citations.setdefault(url, {"url": url, "title": title, "snippet": snippet})
+                    entry = self.citations.setdefault(
+                        url, {"position": pos, "url": url, "title": title, "snippet": snippet}
+                    )
+                    item["citation"] = f"[{entry['position']}]"
+            context.result = json.dumps(parsed)
         except Exception:
             pass
 

@@ -87,12 +87,13 @@ def _build_reply(full_text: str) -> MessageActivityInput:
     # add_ai_generated() adds the "AI-generated" label; add_feedback() enables thumbs up/down.
     # Emit with no text so the streamed content isn't duplicated in the final activity.
     reply = MessageActivityInput().add_ai_generated().add_feedback()
-    for i, annotation in enumerate(citations_list, 1):
-        if i in used_positions:
+    for annotation in citations_list:
+        pos = annotation["position"]
+        if pos in used_positions:
             reply.add_citation(
-                position=i,
+                position=pos,
                 appearance=CitationAppearance(
-                    name=annotation.get("title") or f"Source {i}",
+                    name=annotation.get("title") or f"Source {pos}",
                     abstract=annotation.get("snippet") or "No description available.",
                     url=annotation.get("url"),
                 ),
