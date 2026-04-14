@@ -5,17 +5,10 @@ Licensed under the MIT License.
 
 from microsoft_teams.ai import ChatPrompt, ListMemory
 from microsoft_teams.ai.ai_model import AIModel
-from microsoft_teams.api import CardAction, CardActionType, MessageActivity, MessageActivityInput, SuggestedActions
+from microsoft_teams.api import MessageActivity, MessageActivityInput
 from microsoft_teams.apps import ActivityContext
 
-SUGGESTED_PROMPTS = SuggestedActions(
-    to=[],
-    actions=[
-        CardAction(type=CardActionType.IM_BACK, title="Tell me a joke", value="Tell me a joke"),
-        CardAction(type=CardActionType.IM_BACK, title="What's the weather?", value="weather"),
-        CardAction(type=CardActionType.IM_BACK, title="Stream a story", value="stream Tell me a short story"),
-    ],
-)
+from .suggested_prompts import SUGGESTED_PROMPTS
 
 # Simple in-memory store for conversation histories
 # In your application, it may be a good idea to use a more
