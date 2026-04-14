@@ -15,6 +15,7 @@ from .http_stream import HttpStream
 from .options import AppOptions
 from .plugins import *  # noqa: F401, F403
 from .routing import ActivityContext
+from .utils.thread import to_thread_id
 
 logging.getLogger(__name__).addHandler(logging.NullHandler())
 
@@ -27,6 +28,7 @@ __all__: list[str] = [
     "FastAPIAdapter",
     "HttpStream",
     "ActivityContext",
+    "to_thread_id",
 ]
 __all__.extend(auth.__all__)
 __all__.extend(events.__all__)
