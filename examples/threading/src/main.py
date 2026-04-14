@@ -53,7 +53,8 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
     if "test manual" in text:
         # to_thread_id() is only valid for conversations that support threading
         base = conversation_id.split(";")[0]
-        if not base.endswith("@thread.tacv2") and not base.endswith("@thread.skype") and not base.endswith("@unq.gbl.spaces"):
+        threading_suffixes = ("@thread.tacv2", "@thread.skype", "@unq.gbl.spaces")
+        if not any(base.endswith(s) for s in threading_suffixes):
             await ctx.reply("This command doesn't support threading in this conversation type.")
             return
         thread_id = to_thread_id(conversation_id, thread_root_id)
