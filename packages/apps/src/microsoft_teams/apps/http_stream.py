@@ -164,8 +164,13 @@ class HttpStream(StreamerProtocol):
             logger.warning("Timeout while waiting for _id to be set and queue to be empty, cannot close stream")
             return None
 
-        if self._text == "" and (not self._final_activity or not self._final_activity.attachments):
-            logger.warning("no text or attachments to send, cannot close stream")
+        has_content = (
+            self._text != ""
+            or (self._final_activity and self._final_activity.attachments)
+            or (self._final_activity and self._final_activity.suggested_actions)
+        )
+        if not has_content:
+            logger.warning("no text, attachments, or suggested actions to send, cannot close stream")
             return None
 
         # Build final message from the last emitted MessageActivityInput (last wins)
