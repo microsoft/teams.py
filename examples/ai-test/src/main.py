@@ -23,7 +23,7 @@ from handlers.feedback_management import (
 )
 from handlers.memory_management import clear_conversation_memory
 from microsoft_teams.ai import ChatPrompt
-from microsoft_teams.api import MessageActivity, MessageActivityInput
+from microsoft_teams.api import CardAction, CardActionType, MessageActivity, MessageActivityInput, SuggestedActions
 from microsoft_teams.api.activities.invoke.message.submit_action import MessageSubmitActionInvokeActivity
 from microsoft_teams.apps import ActivityContext, App
 from microsoft_teams.devtools import DevToolsPlugin
@@ -56,6 +56,15 @@ completions_model = OpenAICompletionsAIModel(
 responses_model = OpenAIResponsesAIModel(
     model=AZURE_OPENAI_MODEL,
     stateful=True,
+)
+
+SUGGESTED_PROMPTS = SuggestedActions(
+    to=[],
+    actions=[
+        CardAction(type=CardActionType.IM_BACK, title="Tell me a joke", value="Tell me a joke"),
+        CardAction(type=CardActionType.IM_BACK, title="What's the weather?", value="weather"),
+        CardAction(type=CardActionType.IM_BACK, title="Stream a story", value="stream Tell me a short story"),
+    ],
 )
 
 # Global state
@@ -102,21 +111,13 @@ async def handle_streaming(ctx: ActivityContext[MessageActivity]):
         query = match.group(1).strip()
 
         prompt = ChatPrompt(current_model)
-        chat_result = await prompt.send(
+        await prompt.send(
             input=query,
             instructions="You are a friendly assistant who responds in extremely verbose language",
             on_chunk=lambda chunk: ctx.stream.emit(chunk) if hasattr(ctx, "stream") else None,
         )
 
-        if hasattr(ctx.activity.conversation, "is_group") and ctx.activity.conversation.is_group:
-            # Group chat - send final response
-            if chat_result.response.content:
-                message = MessageActivityInput(text=chat_result.response.content).add_ai_generated()
-                await ctx.send(message)
-        else:
-            # 1:1 chat - streaming handled above
-            if hasattr(ctx, "stream"):
-                ctx.stream.emit(MessageActivityInput().add_ai_generated())
+        ctx.stream.emit(MessageActivityInput().add_ai_generated().with_suggested_actions(SUGGESTED_PROMPTS))
 
 
 # Utility commands

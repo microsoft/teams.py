@@ -5,8 +5,17 @@ Licensed under the MIT License.
 
 from microsoft_teams.ai import ChatPrompt, ListMemory
 from microsoft_teams.ai.ai_model import AIModel
-from microsoft_teams.api import MessageActivity, MessageActivityInput
+from microsoft_teams.api import CardAction, CardActionType, MessageActivity, MessageActivityInput, SuggestedActions
 from microsoft_teams.apps import ActivityContext
+
+SUGGESTED_PROMPTS = SuggestedActions(
+    to=[],
+    actions=[
+        CardAction(type=CardActionType.IM_BACK, title="Tell me a joke", value="Tell me a joke"),
+        CardAction(type=CardActionType.IM_BACK, title="What's the weather?", value="weather"),
+        CardAction(type=CardActionType.IM_BACK, title="Stream a story", value="stream Tell me a short story"),
+    ],
+)
 
 # Simple in-memory store for conversation histories
 # In your application, it may be a good idea to use a more
@@ -40,7 +49,11 @@ async def handle_stateful_conversation(model: AIModel, ctx: ActivityContext[Mess
     )
 
     if chat_result.response.content:
-        message = MessageActivityInput(text=chat_result.response.content).add_ai_generated()
+        message = (
+            MessageActivityInput(text=chat_result.response.content)
+            .add_ai_generated()
+            .with_suggested_actions(SUGGESTED_PROMPTS)
+        )
         await ctx.send(message)
     else:
         await ctx.reply("I did not generate a response.")
