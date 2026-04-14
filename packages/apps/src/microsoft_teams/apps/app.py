@@ -347,8 +347,8 @@ class App(ActivityHandlerMixin):
 
         **3-arg form** ``reply(conversation_id, message_id, activity)``:
         In channels, constructs a threaded conversation ID and sends to that thread.
-        In flat scopes (1:1, group chat, meetings), sends as a normal message -
-        the message ID is ignored.
+        In scopes that do not support threading (group chat, meetings), sends as a
+        normal message - the message ID is ignored.
 
         **2-arg form** ``reply(conversation_id, activity)``:
         Sends to the exact conversation ID provided - threaded if it contains
@@ -360,6 +360,8 @@ class App(ActivityHandlerMixin):
             activity: The activity to send (only in 3-arg form)
         """
         if activity is not None:
+            if not isinstance(message_id, str):
+                raise TypeError("message_id must be a string when activity is provided")
             target_id = (
                 to_thread_id(conversation_id, cast(str, message_id))
                 if supports_threading(conversation_id)

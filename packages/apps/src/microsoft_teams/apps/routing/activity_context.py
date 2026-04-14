@@ -163,8 +163,8 @@ class ActivityContext(Generic[T]):
     ) -> SentActivity:
         """Send a message in the current conversation without quoting.
 
-        In channels, sends to the current thread. In flat scopes (1:1,
-        group chat, meetings), sends as a normal message.
+        In channels, sends to the current thread. In scopes that do not
+        support threading (group chat, meetings), sends as a normal message.
         To send with a visual quote of the inbound message, use :meth:`reply`.
 
         Args:
@@ -186,7 +186,7 @@ class ActivityContext(Generic[T]):
         """Send a message in the current conversation with a visual quote of the inbound message.
 
         In channels, sends to the current thread with a quoted reply.
-        In flat scopes, sends with a quoted reply.
+        In other scopes, sends with a quoted reply.
         To send without quoting, use :meth:`send`.
         """
         activity = MessageActivityInput(text=input) if isinstance(input, str) else input

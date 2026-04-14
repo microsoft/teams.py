@@ -4,7 +4,7 @@ Licensed under the MIT License.
 """
 
 import pytest
-from microsoft_teams.apps.utils.thread import to_thread_id
+from microsoft_teams.apps.utils.thread import supports_threading, to_thread_id
 
 
 class TestToThreadId:
@@ -40,3 +40,29 @@ class TestToThreadId:
 
     def test_strips_existing_messageid_and_replaces_with_thread_root(self):
         assert to_thread_id("19:abc@thread.skype;messageid=111", "222") == "19:abc@thread.skype;messageid=222"
+
+
+class TestSupportsThreading:
+    def test_tacv2_returns_true(self):
+        assert supports_threading("19:abc@thread.tacv2") is True
+
+    def test_skype_returns_true(self):
+        assert supports_threading("19:abc@thread.skype") is True
+
+    def test_unq_gbl_spaces_returns_true(self):
+        assert supports_threading("19:abc@unq.gbl.spaces") is True
+
+    def test_thread_v2_returns_false(self):
+        assert supports_threading("19:meeting_abc@thread.v2") is False
+
+    def test_tacv2_with_messageid_suffix_returns_true(self):
+        assert supports_threading("19:abc@thread.tacv2;messageid=123") is True
+
+    def test_skype_with_messageid_suffix_returns_true(self):
+        assert supports_threading("19:abc@thread.skype;messageid=456") is True
+
+    def test_unq_gbl_spaces_with_messageid_suffix_returns_true(self):
+        assert supports_threading("19:abc@unq.gbl.spaces;messageid=789") is True
+
+    def test_thread_v2_with_messageid_suffix_returns_false(self):
+        assert supports_threading("19:meeting_abc@thread.v2;messageid=111") is False

@@ -15,7 +15,7 @@ app = App()
 @app.on_message
 async def handle_message(ctx: ActivityContext[MessageActivity]):
     """Handle message activities."""
-    await ctx.reply(TypingActivityInput())
+    await ctx.send(TypingActivityInput())
 
     text = (ctx.activity.text or "").lower()
     conversation_id = ctx.conversation_ref.conversation.id
