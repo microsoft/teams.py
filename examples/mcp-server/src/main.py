@@ -4,151 +4,166 @@ Licensed under the MIT License.
 """
 
 import asyncio
-from typing import Dict
+import logging
+import os
+from typing import Annotated, Dict, cast
 
-from microsoft_teams.ai import Function
+from mcp.server.fastmcp import FastMCP
+from microsoft_teams.api import Account, CreateConversationParams, MessageActivityInput
 from microsoft_teams.api.activities.message.message import MessageActivity
 from microsoft_teams.apps import App
+from microsoft_teams.apps.http import FastAPIAdapter
 from microsoft_teams.apps.routing.activity_context import ActivityContext
-from microsoft_teams.devtools import DevToolsPlugin
-from microsoft_teams.mcpplugin import McpServerPlugin
-from pydantic import BaseModel
+from pydantic import BeforeValidator
 
-# Configure MCP server with custom name (as shown in docs)
-mcp_server_plugin = McpServerPlugin(
-    name="test-mcp",
-)
-
-# Storage for conversation IDs (for proactive messaging)
+# Maps user_id -> conversation_id.
+# Populated on each incoming message and on first proactive send (via conversation create).
 conversation_storage: Dict[str, str] = {}
 
+# Maps activity_id -> conversation_id for user-sent messages.
+# Needed by add_reaction/remove_reaction to locate the conversation from an activity_id alone.
+activity_storage: Dict[str, str] = {}
 
-# Echo tool from documentation example
-class EchoParams(BaseModel):
-    input: str
+# Maps activity_id -> conversation_id for bot-sent messages.
+# Needed by update_message/delete_message to locate the conversation from an activity_id alone.
+bot_activity_storage: Dict[str, str] = {}
 
+# MCP Inspector sends activity IDs as JSON integers
+ActivityId = Annotated[str, BeforeValidator(str)]
 
-async def echo_handler(params: EchoParams) -> str:
-    return f"You said {params.input}"
+logger = logging.getLogger(__name__)
 
-
-# Weather tool (existing)
-class GetWeatherParams(BaseModel):
-    location: str
-
-
-async def get_weather_handler(params: GetWeatherParams):
-    return f"The weather in {params.location} is sunny"
+mcp = FastMCP("test-mcp")
 
 
-class CalculateParams(BaseModel):
-    operation: str
-    a: float
-    b: float
+async def _get_or_create_conversation(user_id: str) -> str:
+    """Return the stored conversation_id for user_id, or create a new 1:1 conversation.
 
-
-async def calculate_handler(params: CalculateParams) -> str:
-    match params.operation:
-        case "add":
-            return str(params.a + params.b)
-        case "subtract":
-            return str(params.a - params.b)
-        case "multiply":
-            return str(params.a * params.b)
-        case "divide":
-            return str(params.a / params.b) if params.b != 0 else "Cannot divide by zero"
-        case _:
-            return "Unknown operation"
-
-
-# Alert tool for proactive messaging (as mentioned in docs)
-class AlertParams(BaseModel):
-    user_id: str
-    message: str
-
-
-async def alert_handler(params: AlertParams) -> str:
+    Creating a conversation requires only the user's Teams ID and the tenant ID — the bot
+    does not need to have exchanged messages with the user beforehand.
     """
-    Send proactive message to user via Teams.
-    This demonstrates the "piping messages to user" feature from docs.
-    """
-    # 1. Validate if the incoming request is allowed to send messages
-    if not params.user_id or not params.message:
-        return "Invalid parameters: user_id and message are required"
+    if user_id not in conversation_storage:
+        tenant_id = os.getenv("TENANT_ID")
+        resource = await app.api.conversations.create(
+            CreateConversationParams(members=[Account(id=user_id)], tenant_id=tenant_id)
+        )
+        conversation_storage[user_id] = resource.id
+    return conversation_storage[user_id]
 
-    # 2. Fetch the correct conversation ID for the given user
-    conversation_id = conversation_storage.get(params.user_id)
+
+@mcp.tool()
+async def send_message(user_id: str, message: str) -> str:
+    """Send a proactive message to a Teams user. Creates a conversation if one does not exist yet."""
+    conversation_id = await _get_or_create_conversation(user_id)
+    sent = await app.send(conversation_id=conversation_id, activity=message)
+    # Store so update_message/delete_message can look up the conversation by activity_id.
+    bot_activity_storage[sent.id] = conversation_id
+    logger.info(f"[send_message] user_id={user_id} activity_id={sent.id}")
+    return f"Message sent to user {user_id} (activity_id={sent.id})"
+
+
+@mcp.tool()
+async def update_message(activity_id: ActivityId, message: str) -> str:
+    """Update a bot-sent message by its activity_id."""
+    conversation_id = bot_activity_storage.get(activity_id)
     if not conversation_id:
-        return f"No conversation found for user {params.user_id}. User needs to message the bot first."
+        raise ValueError(
+            f"No bot message found with activity_id {activity_id}. "
+            "Send a message first and use the returned activity_id."
+        )
 
-    # 3. Send proactive message (simplified - in real implementation would use proper proactive messaging)
-    await app.send(conversation_id=conversation_id, activity=params.message)
-    return f"Alert sent to user {params.user_id}: {params.message} (conversation: {conversation_id})"
-
-
-# Register echo tool (from documentation)
-mcp_server_plugin.use_tool(
-    Function(
-        name="echo",
-        description="echo back whatever you said",
-        parameter_schema=EchoParams,
-        handler=echo_handler,
+    await app.api.conversations.activities(conversation_id).update(
+        activity_id, MessageActivityInput().with_text(message)
     )
-)
+    logger.info(f"[update_message] activity_id={activity_id}")
+    return f"Message {activity_id} updated"
 
-# Register weather tool
-mcp_server_plugin.use_tool(
-    Function(
-        name="get_weather",
-        description="Get a location's weather",
-        parameter_schema=GetWeatherParams,
-        handler=get_weather_handler,
-    )
-)
 
-# Register calculator tool
-mcp_server_plugin.use_tool(
-    Function(
-        name="calculate",
-        description="Perform basic arithmetic operations",
-        parameter_schema=CalculateParams,
-        handler=calculate_handler,
-    )
-)
+@mcp.tool()
+async def delete_message(activity_id: ActivityId) -> str:
+    """Delete a bot-sent message by its activity_id."""
+    conversation_id = bot_activity_storage.get(activity_id)
+    if not conversation_id:
+        raise ValueError(
+            f"No bot message found with activity_id {activity_id}. "
+            "Send a message first and use the returned activity_id."
+        )
 
-# Register alert tool for proactive messaging
-mcp_server_plugin.use_tool(
-    Function(
-        name="alert",
-        description="Send proactive message to a Teams user",
-        parameter_schema=AlertParams,
-        handler=alert_handler,
-    )
-)
+    await app.api.conversations.activities(conversation_id).delete(activity_id)
+    # Remove from storage so stale activity_ids can't be reused.
+    bot_activity_storage.pop(activity_id, None)
+    logger.info(f"[delete_message] activity_id={activity_id}")
+    return f"Message {activity_id} deleted"
 
-app = App(plugins=[mcp_server_plugin, DevToolsPlugin()])
+
+@mcp.tool()
+async def add_reaction(activity_id: ActivityId, reaction: str) -> str:
+    """Add a reaction to a user message by its activity_id.
+    Valid reactions: like, heart, 1f440_eyes, 2705_whiteheavycheckmark, launch, 1f4cc_pushpin"""
+    # only react to messages the bot has received,
+    # so this will fail if the user has never messaged the bot.
+    conversation_id = activity_storage.get(activity_id)
+    if not conversation_id:
+        raise ValueError(f"No user message found with activity_id {activity_id}. The user must message the bot first.")
+
+    await app.api.reactions.add(conversation_id, activity_id, reaction)
+    return f"Reaction '{reaction}' added to {activity_id}"
+
+
+@mcp.tool()
+async def remove_reaction(activity_id: ActivityId, reaction: str) -> str:
+    """Remove a reaction from a user message by its activity_id.
+    Valid reactions: like, heart, 1f440_eyes, 2705_whiteheavycheckmark, launch, 1f4cc_pushpin"""
+    conversation_id = activity_storage.get(activity_id)
+    if not conversation_id:
+        raise ValueError(f"No user message found with activity_id {activity_id}. The user must message the bot first.")
+
+    await app.api.reactions.delete(conversation_id, activity_id, reaction)
+    return f"Reaction '{reaction}' removed from {activity_id}"
+
+
+@mcp.tool()
+async def get_members(conversation_id: str) -> str:
+    """Get all members of a conversation by its conversation_id"""
+    members = await app.api.conversations.members(conversation_id).get_all()
+    if not members:
+        return "No members found"
+
+    lines = [f"- {m.name} (id: {m.id})" for m in members]
+    return "\n".join(lines)
+
+
+app = App()
 
 
 @app.on_message
 async def handle_message(ctx: ActivityContext[MessageActivity]):
-    """
-    Handle incoming messages and store conversation IDs for proactive messaging.
-    This demonstrates the conversation ID storage mentioned in the docs.
-    """
-    # Store conversation ID for this user (for proactive messaging)
+    """Handle incoming messages and store context for MCP tools."""
     user_id = ctx.activity.from_.id
     conversation_id = ctx.activity.conversation.id
+
+    # Keep both mappings up to date so all tools can look up by their natural key.
     conversation_storage[user_id] = conversation_id
+    activity_storage[ctx.activity.id] = conversation_id
 
-    print(f"User {ctx.activity.from_} just sent a message!")
+    logger.info(f"[handle_message] user_id={user_id} conversation_id={conversation_id} activity_id={ctx.activity.id}")
+    await ctx.reply(f"You said: {ctx.activity.text}")
 
-    # Echo back the message with info about stored conversation
-    await ctx.reply(
-        f"You said: {ctx.activity.text}\n\n"
-        f"📝 Stored conversation ID `{conversation_id}` for user `{user_id}` "
-        f"(for proactive messaging via MCP alert tool)"
-    )
+
+async def main() -> None:
+    # app.initialize() must be called before mounting the MCP app so that
+    # /api/messages is registered first — FastAPI routes take priority over
+    # mounted sub-applications, and the MCP mount uses a catch-all path (/).
+    await app.initialize()
+
+    mcp_http_app = mcp.streamable_http_app()
+    adapter = cast(FastAPIAdapter, app.server.adapter)
+    # Register the MCP lifespan so its startup/shutdown hooks run with the server.
+    adapter.lifespans.append(mcp_http_app.router.lifespan_context)
+    adapter.app.mount("/", mcp_http_app)
+
+    await app.start()
 
 
 if __name__ == "__main__":
-    asyncio.run(app.start())
+    asyncio.run(main())

@@ -6,9 +6,8 @@ readme = "README.md"
 requires-python = ">=3.12,<3.15"
 dependencies = [
     "dotenv>=0.9.9",
-    "microsoft-teams-apps",
-    "microsoft-teams-mcpplugin",
-    "microsoft-teams-devtools"
+    "mcp>=1.13.1",
+    "microsoft-teams-apps"
 ]
 
 [tool.uv.sources]

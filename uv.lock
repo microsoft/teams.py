@@ -1665,17 +1665,15 @@ version = "0.1.0"
 source = { virtual = "examples/mcp-server" }
 dependencies = [
     { name = "dotenv" },
+    { name = "mcp" },
     { name = "microsoft-teams-apps" },
-    { name = "microsoft-teams-devtools" },
-    { name = "microsoft-teams-mcpplugin" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "dotenv", specifier = ">=0.9.9" },
+    { name = "mcp", specifier = ">=1.13.1" },
     { name = "microsoft-teams-apps", editable = "packages/apps" },
-    { name = "microsoft-teams-devtools", editable = "packages/devtools" },
-    { name = "microsoft-teams-mcpplugin", editable = "packages/mcpplugin" },
 ]
 
 [[package]]
