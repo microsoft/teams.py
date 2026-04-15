@@ -8,7 +8,6 @@ import asyncio
 from app import app
 from mcp_tools import mcp
 from microsoft_teams.apps.http.fastapi_adapter import FastAPIAdapter
-from typing_extensions import cast
 
 
 async def main() -> None:
@@ -17,8 +16,14 @@ async def main() -> None:
     # mounted sub-applications, and the MCP mount uses a catch-all path (/).
     await app.initialize()
 
+    adapter = app.server.adapter
+    if not isinstance(adapter, FastAPIAdapter):
+        raise RuntimeError(
+            f"This example requires FastAPIAdapter, got {type(adapter).__name__}. "
+            "Do not pass a custom adapter to App()."
+        )
+
     mcp_http_app = mcp.streamable_http_app()
-    adapter = cast(FastAPIAdapter, app.server.adapter)
     # Register the MCP lifespan so its startup/shutdown hooks run with the server.
     adapter.lifespans.append(mcp_http_app.router.lifespan_context)
     adapter.app.mount("/", mcp_http_app)
