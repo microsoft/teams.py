@@ -114,8 +114,9 @@ class DevToolsPlugin(PluginBase):
         self._on_stopped_callback = callback
 
     async def on_init(self) -> None:
-        env = os.environ.get("PYTHON_ENV", "") or os.environ.get("NODE_ENV", "")
-        if env.lower() == "production":
+        python_env = os.environ.get("PYTHON_ENV", "").lower()
+        node_env = os.environ.get("NODE_ENV", "").lower()
+        if python_env == "production" or node_env == "production":
             raise RuntimeError(
                 "Devtools plugin cannot be used in production environments "
                 "(PYTHON_ENV=production or NODE_ENV=production). "
