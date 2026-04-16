@@ -5,15 +5,17 @@ Licensed under the MIT License.
 
 import logging
 
-from microsoft_teams.api.activities.invoke.adaptive_card.action import AdaptiveCardInvokeActivity
-from microsoft_teams.api.activities.message.message import MessageActivity
-from microsoft_teams.api.models.adaptive_card.adaptive_card_action_response import AdaptiveCardActionMessageResponse
-from microsoft_teams.api.models.invoke_response import AdaptiveCardInvokeResponse
-from microsoft_teams.apps.app import App
-from microsoft_teams.apps.routing.activity_context import ActivityContext
+from microsoft_teams.api import (
+    AdaptiveCardActionMessageResponse,
+    AdaptiveCardInvokeActivity,
+    AdaptiveCardInvokeResponse,
+    MessageActivity,
+)
+from microsoft_teams.apps import ActivityContext, App
 from state import approvals, pending_asks, personal_conversations, user_pending_ask
 
 app = App()
+logger = logging.getLogger(__name__)
 
 
 @app.on_message
@@ -31,7 +33,7 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
         pending_asks[request_id].status = "answered"
         await ctx.reply("Got it, thank you!")
     else:
-        logging.info(
+        logger.info(
             f"Received message from user {user_id} in conversation {conversation_id}, but no pending ask found."
         )
         await ctx.reply("Hi! I'll let you know if I need anything.")

@@ -38,7 +38,7 @@ async def notify(user_id: str, message: str) -> NotifyResult:
 
 @mcp.tool()
 async def ask(user_id: str, question: str) -> AskResult:
-    """Ask a Teams user a question. Returns a request_id — poll get_reply for their response."""
+    """Ask a Teams user a question. Returns a request_id — use get_reply for their response."""
     conversation_id = await _get_or_create_conversation(user_id)
     request_id = str(uuid.uuid4())
     await app.send(conversation_id=conversation_id, activity=question)
@@ -58,7 +58,7 @@ async def get_reply(request_id: str) -> ReplyResult:
 
 @mcp.tool()
 async def request_approval(user_id: str, title: str, description: str) -> ApprovalRequestResult:
-    """Send an approval request to a Teams user. Returns an approval_id — poll get_approval for the decision."""
+    """Send an approval request to a Teams user. Returns an approval_id — use get_approval for the decision."""
     conversation_id = await _get_or_create_conversation(user_id)
     approval_id = str(uuid.uuid4())
     card = AdaptiveCard(

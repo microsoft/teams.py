@@ -4,10 +4,15 @@ Licensed under the MIT License.
 """
 
 import asyncio
+import logging
+import os
 
 from app import app
 from mcp_tools import mcp
 from microsoft_teams.apps.http.fastapi_adapter import FastAPIAdapter
+
+logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO").upper())
+logger = logging.getLogger(__name__)
 
 
 async def main() -> None:
