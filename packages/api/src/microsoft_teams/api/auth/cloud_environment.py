@@ -41,7 +41,11 @@ PUBLIC = CloudEnvironment(
     openid_metadata_url="https://login.botframework.com/v1/.well-known/openidconfiguration",
     token_issuer="https://api.botframework.com",
     graph_scope="https://graph.microsoft.com/.default",
-    allowed_service_urls=("smba.trafficmanager.net", "smba.onyx.prod.teams.trafficmanager.net", "smba.infra.gcc.teams.microsoft.com"),
+    allowed_service_urls=(
+        "smba.trafficmanager.net",
+        "smba.onyx.prod.teams.trafficmanager.net",
+        "smba.infra.gcc.teams.microsoft.com",
+    ),
 )
 """Microsoft public (commercial) cloud."""
 
@@ -96,9 +100,7 @@ def from_name(name: str) -> CloudEnvironment:
     """
     env = _CLOUD_ENVIRONMENTS.get(name.lower())
     if env is None:
-        raise ValueError(
-            f"Unknown cloud environment: '{name}'. Valid values are: Public, USGov, USGovDoD, China."
-        )
+        raise ValueError(f"Unknown cloud environment: '{name}'. Valid values are: Public, USGov, USGovDoD, China.")
     return env
 
 

@@ -18,6 +18,7 @@ JWT_LEEWAY_SECONDS = 300  # Allowable clock skew when validating JWTs
 
 logger = logging.getLogger(__name__)
 
+
 def is_allowed_service_url(
     service_url: str,
     cloud: CloudEnvironment,

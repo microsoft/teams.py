@@ -44,6 +44,4 @@ def merge_api_client_settings(
     if api_client_settings and api_client_settings.oauth_url:
         return api_client_settings
 
-    return ApiClientSettings(
-        oauth_url=env_oauth_url or cloud.token_service_url
-    )
+    return ApiClientSettings(oauth_url=env_oauth_url or cloud.token_service_url)
