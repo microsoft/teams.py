@@ -12,13 +12,19 @@ from os import getenv
 from agent import agent, tool_logger
 from agent_framework import AgentSession
 from microsoft_teams.api import (
+    AdaptiveCardAttachment,
+    CardTaskModuleTaskInfo,
     CitationAppearance,
     MessageActivity,
     MessageActivityInput,
+    MessageFetchTaskInvokeActivity,
     MessageSubmitActionInvokeActivity,
+    TaskModuleContinueResponse,
+    TaskModuleInvokeResponse,
+    card_attachment,
 )
 from microsoft_teams.apps import ActivityContext, App
-from microsoft_teams.cards import AdaptiveCard
+from microsoft_teams.cards import AdaptiveCard, SubmitAction, TextBlock, TextInput
 
 # LOG_LEVEL controls third-party noise (httpx, mcp, azure-identity). Defaults to WARNING.
 logging.basicConfig(level=getenv("LOG_LEVEL", "WARNING").upper())
@@ -71,7 +77,8 @@ async def _handle_card(ctx: ActivityContext[MessageActivity], text: str) -> None
 
     try:
         card_data = AdaptiveCard.model_validate(json.loads(response.text))
-    except Exception:
+    except Exception as e:
+        logger.debug("failed to parse agent response as AdaptiveCard: %s", e)
         card_data = None
 
     reply = _build_reply("")
@@ -81,13 +88,16 @@ async def _handle_card(ctx: ActivityContext[MessageActivity], text: str) -> None
 
 
 def _build_reply(full_text: str) -> MessageActivityInput:
-    used_positions = {int(n) for n in re.findall(r"\[(\d+)\]", full_text)}
-    citations_list = list(tool_logger.citations.values())
-
     # add_ai_generated() adds the "AI-generated" label; add_feedback() enables thumbs up/down.
-    # Emit with no text so the streamed content isn't duplicated in the final activity.
-    reply = MessageActivityInput().add_ai_generated().add_feedback()
-    for annotation in citations_list:
+    reply = MessageActivityInput().add_ai_generated().add_feedback(mode="custom")
+    _attach_citations(reply, full_text)
+    return reply
+
+
+def _attach_citations(reply: MessageActivityInput, full_text: str) -> None:
+    """Attach citations from tool_logger that were referenced in the reply text."""
+    used_positions = {int(n) for n in re.findall(r"\[(\d+)\]", full_text)}
+    for annotation in tool_logger.citations.values():
         pos = annotation["position"]
         if pos in used_positions:
             reply.add_citation(
@@ -98,7 +108,31 @@ def _build_reply(full_text: str) -> MessageActivityInput:
                     url=annotation.get("url"),
                 ),
             )
-    return reply
+
+
+@app.on_message_fetch_task
+async def handle_feedback_fetch_task(
+    ctx: ActivityContext[MessageFetchTaskInvokeActivity],
+) -> TaskModuleInvokeResponse:
+    reaction = ctx.activity.value.data.action_value.reaction
+    card = (
+        AdaptiveCard(version="1.4")
+        .with_body(
+            [
+                TextBlock(text=f"You clicked {reaction}. Tell us more:"),
+                TextInput(id="feedbackText", placeholder="Enter your feedback here...", is_multiline=True),
+            ]
+        )
+        .with_actions([SubmitAction(title="Submit")])
+    )
+    return TaskModuleInvokeResponse(
+        task=TaskModuleContinueResponse(
+            value=CardTaskModuleTaskInfo(
+                title="Feedback",
+                card=card_attachment(AdaptiveCardAttachment(content=card)),
+            )
+        )
+    )
 
 
 @app.on_message_submit_feedback

@@ -11,7 +11,7 @@ A Teams bot powered by [agent-framework](https://github.com/microsoft/agent-fram
 - **Adaptive Cards** — prefix a message with `/card` to get a structured card response instead of text
 - **Citations** — sources from MCP search tools are attached as clickable references in the reply
 - **Conversation memory** — each conversation maintains its own session so the agent remembers context across turns
-- **AI-generated label + feedback** — replies include the Teams "AI-generated" label and thumbs up/down feedback buttons
+- **AI-generated label + feedback** — replies include the Teams "AI-generated" label and thumbs up/down feedback buttons; clicking a reaction opens a custom Adaptive Card form for additional feedback
 - **Local tools** — deterministic utilities the model can call: datetime, math, random selection, exchange rates
 - **MCP tools** — remote tool servers: Microsoft Learn docs search, Adaptive Cards MCP
 
@@ -70,7 +70,9 @@ cd examples/ai-agentframework
 uv run src/main.py
 ```
 
-## Local Tools
+## Tools
+
+### Local
 
 | Tool                   | Description                                   |
 | ---------------------- | --------------------------------------------- |
@@ -79,7 +81,7 @@ uv run src/main.py
 | `random_pick`          | Randomly select one or more items from a list |
 | `get_exchange_rate`    | Live currency conversion via frankfurter.app  |
 
-## MCP Tools
+### MCP
 
 | Tool            | Type            | Credentials |
 | --------------- | --------------- | ----------- |

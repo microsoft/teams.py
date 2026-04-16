@@ -53,8 +53,8 @@ class AgentMiddleware(FunctionMiddleware):
                     )
                     item["citation"] = f"[{entry['position']}]"
             context.result = json.dumps(parsed)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("skipping citation extraction for non-JSON result: %s", e)
 
 
 def _require_env(name: str) -> str:
