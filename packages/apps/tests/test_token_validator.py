@@ -7,6 +7,7 @@ from unittest.mock import MagicMock, patch
 
 import jwt
 import pytest
+from microsoft_teams.api.auth.cloud_environment import PUBLIC, US_GOV
 from microsoft_teams.apps.auth.token_validator import TokenValidator
 
 # pyright: basic
@@ -387,6 +388,15 @@ class TestTokenValidator:
     # --- Finding 1: Service URL domain allowlist ---
 
     @pytest.mark.asyncio
+    @pytest.mark.asyncio
+    async def test_service_url_rejects_botframework_by_default(self, validator, mock_jwks_client, valid_payload):
+        """botframework.com should be rejected by default (non-Teams channel)."""
+        validator._jwks_client = mock_jwks_client
+        with patch("jwt.decode", return_value=valid_payload):
+            with pytest.raises(jwt.InvalidTokenError, match="is not from an allowed domain"):
+                await validator.validate_token("valid.jwt.token", "https://webchat.botframework.com")
+
+    @pytest.mark.asyncio
     async def test_service_url_rejects_non_allowed_domain(self, validator, mock_jwks_client, valid_payload):
         """Service URL from unknown domain should be rejected."""
         validator._jwks_client = mock_jwks_client
@@ -395,19 +405,19 @@ class TestTokenValidator:
                 await validator.validate_token("valid.jwt.token", "https://evil.com/api")
 
     @pytest.mark.asyncio
-    async def test_service_url_accepts_botframework_domain(self, validator, mock_jwks_client):
-        """Service URL from botframework.com should be accepted."""
+    async def test_service_url_accepts_cloud_preset_fqdn(self, validator, mock_jwks_client):
+        """Service URL from cloud preset should be accepted."""
         payload = {
             "iss": "https://api.botframework.com",
             "aud": "test-app-id",
-            "serviceurl": "https://webchat.botframework.com",
+            "serviceurl": "https://smba.trafficmanager.net/amer/",
             "exp": 9999999999,
             "iat": 1000000000,
         }
         validator._jwks_client = mock_jwks_client
         with patch("jwt.decode", return_value=payload):
-            result = await validator.validate_token("valid.jwt.token", "https://webchat.botframework.com")
-            assert result["serviceurl"] == "https://webchat.botframework.com"
+            result = await validator.validate_token("valid.jwt.token", "https://smba.trafficmanager.net/amer/")
+            assert result["serviceurl"] == "https://smba.trafficmanager.net/amer/"
 
     @pytest.mark.asyncio
     async def test_service_url_accepts_localhost(self, validator, mock_jwks_client):
@@ -425,18 +435,19 @@ class TestTokenValidator:
             assert result["serviceurl"] == "http://localhost:3978"
 
     @pytest.mark.asyncio
-    async def test_service_url_accepts_gov_cloud(self, validator, mock_jwks_client):
-        """US Government cloud service URL should be accepted."""
+    async def test_service_url_accepts_gov_cloud_with_us_gov_preset(self, mock_jwks_client):
+        """US Government cloud service URL should be accepted with US_GOV cloud."""
+        validator = TokenValidator.for_service("test-app-id", cloud=US_GOV)
         payload = {
-            "iss": "https://api.botframework.com",
+            "iss": "https://api.botframework.us",
             "aud": "test-app-id",
-            "serviceurl": "https://smba.infra.gcc.teams.microsoft.com/",
+            "serviceurl": "https://smba.infra.gov.teams.microsoft.us/",
             "exp": 9999999999,
             "iat": 1000000000,
         }
         validator._jwks_client = mock_jwks_client
         with patch("jwt.decode", return_value=payload):
-            result = await validator.validate_token("valid.jwt.token", "https://smba.infra.gcc.teams.microsoft.com/")
+            result = await validator.validate_token("valid.jwt.token", "https://smba.infra.gov.teams.microsoft.us/")
             assert isinstance(result, dict)
 
     @pytest.mark.asyncio
@@ -476,23 +487,23 @@ class TestTokenValidator:
         """Invalid URL should return False."""
         from microsoft_teams.apps.auth.token_validator import is_allowed_service_url
 
-        assert is_allowed_service_url("not-a-url") is False
+        assert is_allowed_service_url("not-a-url", PUBLIC) is False
 
     def test_is_allowed_service_url_empty(self):
         """Empty string should return False (no hostname to match)."""
         from microsoft_teams.apps.auth.token_validator import is_allowed_service_url
 
-        assert is_allowed_service_url("") is False
+        assert is_allowed_service_url("", PUBLIC) is False
 
     def test_is_allowed_service_url_with_additional_domains(self):
         """Additional domains should be accepted."""
         from microsoft_teams.apps.auth.token_validator import is_allowed_service_url
 
-        assert is_allowed_service_url("https://api.custom.com", [".custom.com"]) is True
-        assert is_allowed_service_url("https://api.custom.com") is False
+        assert is_allowed_service_url("https://api.custom.com", PUBLIC, [".custom.com"]) is True
+        assert is_allowed_service_url("https://api.custom.com", PUBLIC) is False
 
     def test_is_allowed_service_url_wildcard(self):
         """Wildcard '*' should accept any domain."""
         from microsoft_teams.apps.auth.token_validator import is_allowed_service_url
 
-        assert is_allowed_service_url("https://anything.example.com", ["*"]) is True
+        assert is_allowed_service_url("https://anything.example.com", PUBLIC, ["*"]) is True

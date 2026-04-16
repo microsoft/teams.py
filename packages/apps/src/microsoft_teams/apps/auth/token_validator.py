@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import logging
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 from urllib.parse import urlparse
 
@@ -18,26 +18,16 @@ JWT_LEEWAY_SECONDS = 300  # Allowable clock skew when validating JWTs
 
 logger = logging.getLogger(__name__)
 
-# Default allowed service URL domain patterns.
-# Covers public, government, sovereign, and regional clouds.
-DEFAULT_ALLOWED_SERVICE_URL_DOMAINS = [
-    # Public cloud
-    ".botframework.com",
-    # US Government
-    ".botframework.azure.us",
-    ".teams.microsoft.com",
-    ".teams.microsoft.us",
-    # China (21Vianet)
-    ".botframework.azure.cn",
-    ".teams.microsoftonline.cn",
-]
+def is_allowed_service_url(
+    service_url: str,
+    cloud: CloudEnvironment,
+    additional_domains: Optional[List[str]] = None,
+) -> bool:
+    """Validate that a service URL hostname is allowed.
 
-
-def is_allowed_service_url(service_url: str, additional_domains: Optional[List[str]] = None) -> bool:
-    """Validate that a service URL belongs to a known domain.
-
-    Returns True if the URL's hostname ends with one of the allowed domain suffixes,
-    or if the hostname is localhost (for local development).
+    Checks against the cloud environment's allowed service URLs,
+    plus any additional domains provided by the caller.
+    Localhost is always allowed for local development.
     """
     try:
         parsed = urlparse(service_url)
@@ -46,12 +36,16 @@ def is_allowed_service_url(service_url: str, additional_domains: Optional[List[s
         if hostname in ("localhost", "127.0.0.1"):
             return True
 
-        # trafficmanager.net is a shared Azure service; only allow smba-prefixed hostnames
-        if hostname.endswith(".trafficmanager.net") or hostname == "trafficmanager.net":
-            return hostname.startswith("smba")
+        additional = additional_domains or []
+        if "*" in additional:
+            return True
 
-        allowed = DEFAULT_ALLOWED_SERVICE_URL_DOMAINS + (additional_domains or [])
-        return any(domain == "*" or hostname.endswith(domain.lower()) for domain in allowed)
+        # Check against cloud environment's allowed FQDNs
+        if any(hostname == allowed.lower() for allowed in cloud.allowed_service_urls):
+            return True
+
+        # Check against additional domains (suffix match)
+        return any(hostname.endswith(domain.lower()) for domain in additional)
     except Exception:  # pragma: no cover
         return False
 
@@ -72,8 +66,6 @@ class JwtValidationOptions:
     """ Optional scope that must be present in the token """
     clock_tolerance: int = JWT_LEEWAY_SECONDS
     """ Allowable clock skew when validating JWTs """
-    additional_allowed_domains: List[str] = field(default_factory=lambda: [])
-    """ Additional allowed service URL domains beyond the defaults """
 
 
 class TokenValidator:
@@ -81,14 +73,16 @@ class TokenValidator:
     JWT token validator using PyJWKClient for simplified validation.
     """
 
-    def __init__(self, jwt_validation_options: JwtValidationOptions):
+    def __init__(self, jwt_validation_options: JwtValidationOptions, cloud: Optional[CloudEnvironment] = None):
         """
         Initialize the token validator.
 
         Args:
             jwt_validation_options: Configuration for JWT validation
+            cloud: Optional cloud environment for service URL validation
         """
         self.options = jwt_validation_options
+        self.cloud = cloud or PUBLIC
         self._jwks_client = jwt.PyJWKClient(jwt_validation_options.jwks_uri)
 
     @staticmethod
@@ -121,7 +115,7 @@ class TokenValidator:
             jwks_uri=jwks_keys_uri,
             service_url=service_url,
         )
-        return cls(options)
+        return cls(options, cloud=env)
 
     @classmethod
     def for_entra(
@@ -206,9 +200,7 @@ class TokenValidator:
 
             # Validate service URL against allowed domains
             effective_service_url = service_url or self.options.service_url
-            if effective_service_url and not is_allowed_service_url(
-                effective_service_url, self.options.additional_allowed_domains
-            ):
+            if effective_service_url and not is_allowed_service_url(effective_service_url, self.cloud):
                 logger.error(f"Service URL '{effective_service_url}' is not from an allowed domain")
                 raise jwt.InvalidTokenError(f"Service URL '{effective_service_url}' is not from an allowed domain")
 
