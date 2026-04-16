@@ -3,8 +3,13 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
+# Conversation ID suffixes that support threading.
+# Channels use @thread.tacv2 or @thread.skype, 1:1 chats use @unq.gbl.spaces.
+# Group chats and meetings use @thread.v2 which does not support threading.
+THREADING_SUFFIXES = ("@thread.tacv2", "@thread.skype", "@unq.gbl.spaces")
 
-def to_thread_id(conversation_id: str, message_id: str) -> str:
+
+def to_threaded_conversation_id(conversation_id: str, message_id: str) -> str:
     """Construct a threaded conversation ID by appending `;messageid={message_id}`
     to the conversation ID. This is the format APX uses to route messages
     to a specific thread.
@@ -28,8 +33,6 @@ def to_thread_id(conversation_id: str, message_id: str) -> str:
 
 
 # Check if a conversation ID represents a conversation that supports threading.
-# Channels use @thread.tacv2 or @thread.skype, 1:1 chats use @unq.gbl.spaces.
-# Group chats and meetings use @thread.v2 which does not support threading.
 def supports_threading(conversation_id: str) -> bool:
     base = conversation_id.split(";")[0]
-    return base.endswith("@thread.tacv2") or base.endswith("@thread.skype") or base.endswith("@unq.gbl.spaces")
+    return any(base.endswith(s) for s in THREADING_SUFFIXES)

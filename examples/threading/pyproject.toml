@@ -6,8 +6,7 @@ requires-python = ">=3.12,<3.15"
 dependencies = [
     "dotenv>=0.9.9",
     "microsoft-teams-apps",
-    "microsoft-teams-api",
-    "microsoft-teams-devtools"
+    "microsoft-teams-api"
 ]
 
 [tool.uv.sources]

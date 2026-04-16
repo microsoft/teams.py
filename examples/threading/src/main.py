@@ -7,7 +7,7 @@ import asyncio
 
 from microsoft_teams.api import MessageActivity
 from microsoft_teams.api.activities.typing import TypingActivityInput
-from microsoft_teams.apps import ActivityContext, App, to_thread_id
+from microsoft_teams.apps import ActivityContext, App, to_threaded_conversation_id
 
 app = App()
 
@@ -48,17 +48,17 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
         return
 
     # ============================================
-    # to_thread_id() + app.send() — advanced manual control (channels only)
+    # to_threaded_conversation_id() + app.send() — advanced manual control (channels only)
     # ============================================
     if "test manual" in text:
-        # to_thread_id() is only valid for conversations that support threading
+        # to_threaded_conversation_id() is only valid for conversations that support threading
         base = conversation_id.split(";")[0]
         threading_suffixes = ("@thread.tacv2", "@thread.skype", "@unq.gbl.spaces")
         if not any(base.endswith(s) for s in threading_suffixes):
             await ctx.reply("This command doesn't support threading in this conversation type.")
             return
-        thread_id = to_thread_id(conversation_id, thread_root_id)
-        await app.send(thread_id, "This was sent using to_thread_id() + app.send() for manual control.")
+        thread_id = to_threaded_conversation_id(conversation_id, thread_root_id)
+        await app.send(thread_id, "This was sent using to_threaded_conversation_id() + app.send() for manual control.")
         return
 
     # ============================================
@@ -71,7 +71,7 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
             "- `test reply` - ctx.reply() reactive threaded reply\n"
             "- `test send` - ctx.send() to same thread without quoting\n"
             "- `test proactive` - app.reply() proactive threaded reply\n"
-            "- `test manual` - to_thread_id() + app.send() for advanced control"
+            "- `test manual` - to_threaded_conversation_id() + app.send() for advanced control"
         )
         return
 

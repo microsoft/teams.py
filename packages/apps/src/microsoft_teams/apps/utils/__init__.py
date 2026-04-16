@@ -6,6 +6,6 @@ Licensed under the MIT License.
 from .activity_utils import extract_tenant_id
 from .graph import create_graph_client
 from .retry import RetryOptions, retry
-from .thread import to_thread_id
+from .thread import to_threaded_conversation_id
 
-__all__ = ["create_graph_client", "extract_tenant_id", "retry", "RetryOptions", "to_thread_id"]
+__all__ = ["create_graph_client", "extract_tenant_id", "retry", "RetryOptions", "to_threaded_conversation_id"]
