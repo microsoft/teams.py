@@ -5,7 +5,7 @@ Licensed under the MIT License.
 
 from . import bot, conversation, meeting, reaction, team, user
 from .api_client import ApiClient
-from .api_client_settings import DEFAULT_API_CLIENT_SETTINGS, ApiClientSettings, merge_api_client_settings
+from .api_client_settings import ApiClientSettings, merge_api_client_settings
 from .bot import *  # noqa: F403
 from .conversation import *  # noqa: F403
 from .meeting import *  # noqa: F403
@@ -17,7 +17,6 @@ from .user import *  # noqa: F403
 __all__: list[str] = [
     "ApiClient",
     "ApiClientSettings",
-    "DEFAULT_API_CLIENT_SETTINGS",
     "merge_api_client_settings",
 ]
 __all__.extend(bot.__all__)
