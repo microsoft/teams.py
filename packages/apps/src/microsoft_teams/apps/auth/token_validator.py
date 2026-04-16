@@ -202,8 +202,8 @@ class TokenValidator:
             # Validate service URL against allowed domains
             effective_service_url = service_url or self.options.service_url
             if effective_service_url and not is_allowed_service_url(effective_service_url, self.cloud):
-                logger.error(f"Service URL '{effective_service_url}' is not from an allowed domain")
-                raise jwt.InvalidTokenError(f"Service URL '{effective_service_url}' is not from an allowed domain")
+                logger.error(f"Rejected service URL: {effective_service_url}")
+                raise jwt.InvalidTokenError("Service URL is not from an allowed domain")
 
             # Optional service URL claim validation
             if effective_service_url:

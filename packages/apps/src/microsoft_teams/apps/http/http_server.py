@@ -132,7 +132,7 @@ class HttpServer:
 
             # Validate service URL against allowed domains
             if service_url and not is_allowed_service_url(service_url, self._cloud, self._additional_allowed_domains):
-                logger.warning(f"Service URL '{service_url}' is not from an allowed domain")
+                logger.warning(f"Rejected service URL: {service_url}")
                 return HttpResponse(status=403, body={"error": "Service URL not allowed"})
 
             core_activity = CoreActivity.model_validate(body)
