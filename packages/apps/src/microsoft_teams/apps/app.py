@@ -363,7 +363,7 @@ class App(ActivityHandlerMixin):
             if not isinstance(message_id, str):
                 raise TypeError("message_id must be a string when activity is provided")
             target_id = (
-                to_threaded_conversation_id(conversation_id, cast(str, message_id))
+                to_threaded_conversation_id(conversation_id, message_id)
                 if supports_threading(conversation_id)
                 else conversation_id
             )
