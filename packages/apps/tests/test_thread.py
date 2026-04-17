@@ -9,10 +9,12 @@ from microsoft_teams.apps.utils.thread import supports_threading, to_threaded_co
 
 class TestToThreadedConversationId:
     def test_constructs_threaded_conversation_id(self):
-        assert to_threaded_conversation_id("19:abc@thread.skype", "1680000000000") == "19:abc@thread.skype;messageid=1680000000000"
+        result = to_threaded_conversation_id("19:abc@thread.skype", "1680000000000")
+        assert result == "19:abc@thread.skype;messageid=1680000000000"
 
     def test_works_with_different_conversation_id_formats(self):
-        assert to_threaded_conversation_id("19:meeting_abc@thread.v2", "999") == "19:meeting_abc@thread.v2;messageid=999"
+        result = to_threaded_conversation_id("19:meeting_abc@thread.v2", "999")
+        assert result == "19:meeting_abc@thread.v2;messageid=999"
 
     def test_raises_on_empty_conversation_id(self):
         with pytest.raises(ValueError, match="conversation_id must be a non-empty string"):
@@ -39,7 +41,8 @@ class TestToThreadedConversationId:
             to_threaded_conversation_id("19:abc@thread.skype", "1.5")
 
     def test_strips_existing_messageid_and_replaces_with_thread_root(self):
-        assert to_threaded_conversation_id("19:abc@thread.skype;messageid=111", "222") == "19:abc@thread.skype;messageid=222"
+        result = to_threaded_conversation_id("19:abc@thread.skype;messageid=111", "222")
+        assert result == "19:abc@thread.skype;messageid=222"
 
 
 class TestSupportsThreading:
