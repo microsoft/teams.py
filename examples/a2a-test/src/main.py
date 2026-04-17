@@ -12,10 +12,9 @@ from agent_framework import Agent, AgentSession, FunctionInvocationContext, tool
 from agent_framework_a2a import A2AAgent  # type: ignore
 from agent_framework_openai import OpenAIChatClient
 from data_analyst import AGENT_PATH as DATA_ANALYST_PATH
-from file_search import AGENT_PATH as FILE_SEARCH_PATH
-from file_search import build_app as build_file_search_app
+from file_search import agent as file_search_agent
 from microsoft_teams.api import Attachment, MessageActivity, MessageActivityInput
-from microsoft_teams.apps import ActivityContext, App, FastAPIAdapter
+from microsoft_teams.apps import ActivityContext, App
 
 logging.basicConfig(level=logging.WARNING)
 for _log_name in ("__main__", "data_analyst", "file_search"):
@@ -24,7 +23,6 @@ for _log_name in ("__main__", "data_analyst", "file_search"):
 logger = logging.getLogger(__name__)
 
 FILE_DOWNLOAD_CONTENT_TYPE = "application/vnd.microsoft.teams.file.download.info"
-BASE_URL = "http://localhost:3978"
 DATA_ANALYST_URL = "http://localhost:3979"  # separate process; see data_analyst/__main__.py
 
 ORCHESTRATOR_INSTRUCTIONS = """You are a data assistant in Teams with two tools:
@@ -35,27 +33,21 @@ Rules:
 1. If the user's message (or any prior turn) contains any of these intents — 'chart', 'graph', 'plot',
    'visualize', 'show', 'display', 'table', 'compare', 'trend', 'breakdown', or implies seeing data —
    you MUST call visualize_data. Do not reply with a markdown table or bullet list of data instead.
-2. When files arrive, call search_files first to get their contents, then call visualize_data.
+2. When files arrive, call search_files first to get their contents, then call visualize_data if necessary.
 3. visualize_data is stateless — always embed the raw data in each call, do not reference prior calls.
 4. Your text reply is a concise summary; no follow-up offers unless there is an error or you need
    more information.
 """
 
 
-# --- App setup: mount both A2A servers on the Teams bot's FastAPI adapter ---
-
 app = App()
-adapter = app.server.adapter
-assert isinstance(adapter, FastAPIAdapter)
-adapter.app.mount(FILE_SEARCH_PATH, build_file_search_app(base_url=BASE_URL))
 
-_file_search_a2a = A2AAgent(url=f"{BASE_URL}{FILE_SEARCH_PATH}/")
 _data_analyst_a2a = A2AAgent(url=f"{DATA_ANALYST_URL}{DATA_ANALYST_PATH}/")
 
 
 # --- Tools exposed to the orchestrator agent ---
 
-search_files = _file_search_a2a.as_tool(
+search_files = file_search_agent.as_tool(
     name="search_files",
     description=(
         "Read and search through file attachments shared in this Teams conversation. "

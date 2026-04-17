@@ -1,13 +1,14 @@
 # A2A Sample — Teams Data Assistant
 
-A Teams bot that orchestrates two **A2A** (Agent-to-Agent protocol) sub-agents to read shared files
-and produce Adaptive Card visualizations from data.
+A Teams bot that reads shared files and produces Adaptive Card visualizations. The data-analyst is
+exposed over the **A2A (Agent-to-Agent) protocol** as a separate process, showing how a Teams bot
+can host capabilities that external, non-Teams systems can consume.
 
 ## Architecture
 
 ```
 ┌─────────────────── Teams bot process (:3978) ───────────────────┐
-│  Teams  ─►  Orchestrator Agent  ─►  search_files   (in-process) │
+│  Teams  ─►  Orchestrator Agent  ─►  search_files   (sub-agent)  │
 │                                                                 │
 │                                 ─►  visualize_data ─────HTTP────┼──►  Data Analyst
 │                                                                 │      A2A process (:3979)
@@ -15,12 +16,11 @@ and produce Adaptive Card visualizations from data.
 ```
 
 - `main.py` — Teams bot + orchestrator Agent (OpenAI) with `search_files` and `visualize_data` tools.
-- `file_search/` — A2A server mounted **in-process** on the Teams bot's FastAPI adapter.
-- `data_analyst/` — A2A server that runs as a **separate process**, called over HTTP.
+- `file_search/` — plain agent-framework `Agent` with a `download_file` tool. Consumed in-process
+  via `.as_tool()`. Not exposed externally — no A2A.
+- `data_analyst/` — an A2A server that runs as a **separate process**, called over HTTP. Useful
+  pattern when the sub-agent has external consumers or lives elsewhere.
 - `a2a_utils.py` — extracts card dicts from A2A responses.
-
-The split shows two valid deployment shapes for A2A: co-located (file_search) and distributed
-(data_analyst). The Teams bot doesn't care — both look the same through `A2AAgent`.
 
 ## Run
 
@@ -34,17 +34,18 @@ AZURE_OPENAI_API_VERSION=...
 ```
 
 The data-analyst runs as a **separate process** (port `3979`) so the Teams bot makes a real HTTP A2A
-call to it. Start them in two terminals — both run from `src/` so Python can find the packages:
+call to it. Start both from the `src/` directory so Python can resolve the packages:
 
 ```bash
-# Terminal 1 — data-analyst A2A server
+# Terminal 1 — data-analyst A2A server (port 3979)
 cd src
 uv run --env-file ../.env python -m data_analyst
 ```
 
 ```bash
-# Terminal 2 — Teams bot (hosts file-search A2A server in-process at :3978, calls data-analyst at :3979)
-uv run src/main.py
+# Terminal 2 — Teams bot (port 3978); calls the data-analyst at :3979 over A2A
+cd src
+uv run --env-file ../.env python main.py
 ```
 
 ## Example interactions
@@ -67,6 +68,29 @@ chart.
 > Now show it as a pie chart and a summary table.
 
 Expected: agent remembers the previous data via `AgentSession` history — no need to re-read the file.
+
+## Calling the A2A server from outside
+
+The data-analyst exposes a standard A2A endpoint, so any A2A-compatible client can invoke it — no
+Teams required. This is the "Teams as A2A server" story: a Teams bot can host capabilities (here,
+chart generation) that external systems consume.
+
+While the data-analyst process is running (Terminal 1), an external caller can do:
+
+```python
+import asyncio
+from agent_framework_a2a import A2AAgent
+
+async def main():
+    client = A2AAgent(url="http://localhost:3979/data-analyst/")
+    response = await client.run(
+        "Bar chart of revenue by region. Data:\n"
+        "North,45000\nSouth,32000\nEast,61000\nWest,28000"
+    )
+    print(response.text)  # JSON payload with {"cards": [...AdaptiveCard...]}
+
+asyncio.run(main())
+```
 
 ## Known limitations (sample-grade)
 
