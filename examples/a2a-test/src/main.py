@@ -5,229 +5,145 @@ Licensed under the MIT License.
 
 import asyncio
 import logging
-import re
-import uuid
-from os import getenv
-from typing import List, Union, cast
+from typing import Annotated, Any, cast
 
-from a2a.types import AgentCapabilities, AgentCard, AgentSkill, Message, Part, Role, TextPart
-from microsoft_teams.a2a import (
-    A2AClientPlugin,
-    A2AMessageEvent,
-    A2AMessageEventKey,
-    A2APlugin,
-    A2APluginOptions,
-    A2APluginUseParams,
-    BuildMessageForAgentMetadata,
-    BuildMessageFromAgentMetadata,
-    FunctionMetadata,
-)
-from microsoft_teams.ai import ChatPrompt, Function, ModelMessage
-from microsoft_teams.api import MessageActivity, TypingActivityInput
-from microsoft_teams.apps import ActivityContext, App, PluginBase
-from microsoft_teams.common import ConsoleFormatter
-from microsoft_teams.devtools import DevToolsPlugin
-from microsoft_teams.openai.completions_model import OpenAICompletionsAIModel
-from pydantic import BaseModel
+from a2a_utils import extract_cards
+from agent_framework import Agent, AgentSession, FunctionInvocationContext, tool
+from agent_framework_a2a import A2AAgent  # type: ignore
+from agent_framework_openai import OpenAIChatClient
+from data_analyst import AGENT_PATH as DATA_ANALYST_PATH
+from file_search import AGENT_PATH as FILE_SEARCH_PATH
+from file_search import build_app as build_file_search_app
+from microsoft_teams.api import Attachment, MessageActivity, MessageActivityInput
+from microsoft_teams.apps import ActivityContext, App, FastAPIAdapter
 
-PORT = getenv("PORT", "4000")
+logging.basicConfig(level=logging.WARNING)
+for _log_name in ("__main__", "data_analyst", "file_search"):
+    logging.getLogger(_log_name).setLevel(logging.INFO)
 
-# Setup logging
-logging.getLogger().setLevel(logging.DEBUG)
-stream_handler = logging.StreamHandler()
-stream_handler.setFormatter(ConsoleFormatter())
-logging.getLogger().addHandler(stream_handler)
 logger = logging.getLogger(__name__)
 
+FILE_DOWNLOAD_CONTENT_TYPE = "application/vnd.microsoft.teams.file.download.info"
+BASE_URL = "http://localhost:3978"
+DATA_ANALYST_URL = "http://localhost:3979"  # separate process; see data_analyst/__main__.py
 
-# Setup AI
-def get_required_env(key: str) -> str:
-    value = getenv(key)
-    if not value:
-        raise ValueError(f"Required environment variable {key} is not set")
-    return value
+ORCHESTRATOR_INSTRUCTIONS = """You are a data assistant in Teams with two tools:
+- search_files: reads file attachments (returns file contents as text).
+- visualize_data: generates Adaptive Card charts AND tables. This is the ONLY way to display data visually.
 
-
-AZURE_OPENAI_MODEL = get_required_env("AZURE_OPENAI_MODEL")
-completions_model = OpenAICompletionsAIModel(model=AZURE_OPENAI_MODEL)
-
-# Setup A2A Client Plugin
-client_plugin = A2AClientPlugin()
-# Specify the connection details for the agent we want to use
-client_plugin.on_use_plugin(
-    A2APluginUseParams(
-        key="my-weather-agent", base_url=f"http://localhost:{PORT}/a2a", card_url=".well-known/agent-card.json"
-    )
-)
-prompt = ChatPrompt(
-    model=completions_model,
-    plugins=[client_plugin],
-)
+Rules:
+1. If the user's message (or any prior turn) contains any of these intents — 'chart', 'graph', 'plot',
+   'visualize', 'show', 'display', 'table', 'compare', 'trend', 'breakdown', or implies seeing data —
+   you MUST call visualize_data. Do not reply with a markdown table or bullet list of data instead.
+2. When files arrive, call search_files first to get their contents, then call visualize_data.
+3. visualize_data is stateless — always embed the raw data in each call, do not reference prior calls.
+4. Your text reply is a concise summary; no follow-up offers unless there is an error or you need
+   more information.
+"""
 
 
-def build_function_metadata(card: AgentCard) -> FunctionMetadata:
-    return FunctionMetadata(
-        name=f"ask{re.sub(r'\s+', '', card.name)}",
-        description=f"Ask {card.name} about {card.description or 'anything'}",
-    )
+# --- App setup: mount both A2A servers on the Teams bot's FastAPI adapter ---
+
+app = App()
+adapter = app.server.adapter
+assert isinstance(adapter, FastAPIAdapter)
+adapter.app.mount(FILE_SEARCH_PATH, build_file_search_app(base_url=BASE_URL))
+
+_file_search_a2a = A2AAgent(url=f"{BASE_URL}{FILE_SEARCH_PATH}/")
+_data_analyst_a2a = A2AAgent(url=f"{DATA_ANALYST_URL}{DATA_ANALYST_PATH}/")
 
 
-def build_message_for_agent(data: BuildMessageForAgentMetadata) -> Union[Message, str]:
-    # Return a string - will be automatically wrapped in a Message
-    return f"[To {data.card.name}]: {data.input}"
+# --- Tools exposed to the orchestrator agent ---
 
-    # Uncomment the following block to return a full Message object
-    # message = Message(
-
-
-#                 kind='message',
-#                 message_id=str(uuid4()),
-#                 role=Role('user'),
-#                 parts=[Part(root=TextPart(kind='text', text=f"[To {data.card.name}]: {data.input}"))],
-#                 metadata={"source": "chat-prompt", **(data.metadata if data.metadata else {})}
-#             )
-# return message
-
-
-def build_message_from_agent_response(data: BuildMessageFromAgentMetadata) -> str:
-    if isinstance(data.response, Message):
-        text_parts: List[str] = []
-        for part in data.response.parts:
-            if getattr(part.root, "kind", None) == "text":
-                text_part = cast(TextPart, part.root)
-                text_parts.append(text_part.text)
-        return f"{data.card.name} says: {' '.join(text_parts)}"
-    return f"{data.card.name} sent a non-text response."
-
-
-## Advanced A2AClientPlugin
-advanced_plugin = A2AClientPlugin(
-    # Custom function metadata builder
-    build_function_metadata=build_function_metadata,
-    # Custom message builder - can return either Message or string
-    build_message_for_agent=build_message_for_agent,
-    # Custom response processor
-    build_message_from_agent_response=build_message_from_agent_response,
-)
-advanced_plugin.on_use_plugin(
-    A2APluginUseParams(
-        key="my-weather-agent", base_url=f"http://localhost:{PORT}/a2a", card_url=".well-known/agent-card.json"
-    )
-)
-advanced_prompt = ChatPrompt(model=completions_model, plugins=[advanced_plugin])
-
-# A2A Server Agent Card
-agent_card = AgentCard(
-    name="weather_agent",
-    description="An agent that can tell you the weather",
-    url=f"http://localhost:{PORT}/a2a/",
-    version="0.0.1",
-    protocol_version="0.3.0",
-    capabilities=AgentCapabilities(),
-    default_input_modes=[],
-    default_output_modes=[],
-    skills=[
-        AgentSkill(
-            # Expose various skills that this agent can perform
-            id="get_weather",
-            name="Get Weather",
-            description="Get the weather for a given location",
-            tags=["weather", "get", "location"],
-            examples=[
-                # Give concrete examples on how to contact the agent
-                "Get the weather for London",
-                "What is the weather",
-                "What's the weather in Tokyo?",
-                "How is the current temperature in San Francisco?",
-            ],
-        ),
-    ],
+search_files = _file_search_a2a.as_tool(
+    name="search_files",
+    description=(
+        "Read and search through file attachments shared in this Teams conversation. "
+        "The task MUST include the list of available files (names and download URLs), "
+        "e.g. 'Available files:\\n- name: sales.csv, download_url: https://...\\n\\nQuery: which month...'."
+    ),
+    arg_name="search_query",
+    arg_description="Question to answer from the shared files, including the file list and URLs.",
 )
 
 
-# Define the parameter for A2AServer function
-class LocationParams(BaseModel):
-    location: str
-    "The location to get the weather for"
+@tool
+async def visualize_data(
+    analysis_query: Annotated[str, "Raw data plus any analysis instructions to pass to the analyst"],
+    context: FunctionInvocationContext,
+) -> str:
+    """Generate Adaptive Card charts or tables from user-provided data. Always embed raw data in the query."""
+    logger.info("visualize_data: query=%r", analysis_query)
+    response = await _data_analyst_a2a.run(analysis_query)
+    cards = extract_cards(response)
+    if context.session is not None:
+        context.session.state.setdefault("cards", []).extend(cards)
+    logger.info("visualize_data: new_cards=%d", len(cards))
+    return f"{len(cards)} chart(s) generated." if cards else (response.text or "No chart generated.")
 
 
-# Setup the A2A Server Plugin
-plugins: List[PluginBase] = [A2APlugin(A2APluginOptions(agent_card=agent_card)), DevToolsPlugin()]
-app = App(plugins=plugins)
+# --- Orchestrator agent (module-scope: one instance reused across messages) ---
+
+_orchestrator = Agent(
+    OpenAIChatClient(),
+    instructions=ORCHESTRATOR_INSTRUCTIONS,
+    tools=[search_files, visualize_data],
+)
+
+_sessions: dict[str, AgentSession] = {}
 
 
-# A2A Server Event Handler
-async def my_event_handler(user_message: str) -> Union[Message, str]:
-    logger.info(f"Received message: {user_message}")
-    tool_location = None
+# --- Teams handler ---
 
-    async def location_handler(params: LocationParams) -> str:
-        nonlocal tool_location
-        tool_location = params.location
-        return f"The weather in {params.location} is sunny"
 
-    result = (
-        await ChatPrompt(model=completions_model)
-        .with_function(
-            Function(
-                name="location",
-                description="The location to get the weather for",
-                parameter_schema=LocationParams,
-                handler=location_handler,
+@app.on_message
+async def handle_message(ctx: ActivityContext[MessageActivity]) -> None:
+    files_metadata = _extract_file_attachments(ctx)
+    query = ctx.activity.text or ""
+    if not query and not files_metadata:
+        return
+
+    logger.info("Message received: query=%r, files=%d", query, len(files_metadata))
+
+    if files_metadata:
+        query = _inject_file_list(query, files_metadata)
+
+    session = _sessions.setdefault(ctx.activity.conversation.id, AgentSession())
+    session.state["cards"] = []
+
+    response = await _orchestrator.run(query, session=session)
+    cards: list[dict[str, Any]] = session.state.get("cards", [])
+
+    reply_text = (response.messages[-1].text if response.messages else "") or "Done."
+    logger.info("Sending reply + %d adaptive card(s): reply=%r", len(cards), reply_text)
+    await ctx.reply(reply_text)
+
+    for card_dict in cards:
+        await ctx.send(
+            MessageActivityInput().add_attachments(
+                Attachment(content_type="application/vnd.microsoft.card.adaptive", content=card_dict)
             )
         )
-        .send(user_message, instructions="You are a weather agent that can tell you the weather for a given location")
-    )
-
-    if not tool_location:
-        return Message(
-            kind="message",
-            message_id=str(uuid.uuid4()),
-            role=Role("agent"),
-            parts=[Part(root=TextPart(kind="text", text="Please provide a location"))],
-        )
-    else:
-        return result.response.content if result.response.content else "No weather information available."
 
 
-# A2A Server Message Event Handler
-@app.event(A2AMessageEventKey)
-async def handle_a2a_message(message: A2AMessageEvent) -> None:
-    request_context = message.get("request_context")
-    respond = message.get("respond")
-
-    logger.info(f"Received message: {request_context.message}")
-
-    if request_context.message:
-        text_input = None
-        for part in request_context.message.parts:
-            if getattr(part.root, "kind", None) == "text":
-                text_part = cast(TextPart, part.root)
-                text_input = text_part.text
-                break
-        if not text_input:
-            await respond("My agent currently only supports text input")
-            return
-
-        result = await my_event_handler(text_input)
-        await respond(result)
+def _extract_file_attachments(ctx: ActivityContext[MessageActivity]) -> list[dict[str, Any]]:
+    """Pull (name, download_url) for each Teams file.download.info attachment."""
+    out: list[dict[str, Any]] = []
+    for a in ctx.activity.attachments or []:
+        if a.content_type != FILE_DOWNLOAD_CONTENT_TYPE:
+            continue
+        content = cast(dict[str, Any], a.content) if isinstance(a.content, dict) else {}  # pyright: ignore[reportUnknownMemberType]
+        url = content.get("downloadUrl")
+        if isinstance(url, str) and url:
+            out.append({"name": a.name, "download_url": url})
+    return out
 
 
-async def handler(message: str) -> ModelMessage:
-    # Now we can send the message to the prompt and it will decide if
-    # the a2a agent should be used or not and also manages contacting the agent
-    result = await prompt.send(message)
-    return result.response
-
-
-# A2A Client Message Handler
-@app.on_message
-async def handle_message(ctx: ActivityContext[MessageActivity]):
-    await ctx.reply(TypingActivityInput())
-
-    result = await handler(ctx.activity.text)
-    if result.content:
-        await ctx.send(result.content)
+def _inject_file_list(query: str, files_metadata: list[dict[str, Any]]) -> str:
+    """Prepend the file list to the user's query so the LLM can forward it to search_files."""
+    file_list = "\n".join(f"- name: {f['name']}, download_url: {f['download_url']}" for f in files_metadata)
+    prefix = f"Files available (pass this list to search_files when you call it):\n{file_list}\n\n"
+    return prefix + (query or "Summarize the files and generate relevant data insights.")
 
 
 if __name__ == "__main__":

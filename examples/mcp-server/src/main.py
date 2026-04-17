@@ -22,12 +22,7 @@ async def main() -> None:
     await app.initialize()
 
     adapter = app.server.adapter
-    if not isinstance(adapter, FastAPIAdapter):
-        raise RuntimeError(
-            f"This example requires FastAPIAdapter, got {type(adapter).__name__}. "
-            "Do not pass a custom adapter to App()."
-        )
-
+    assert isinstance(adapter, FastAPIAdapter)
     mcp_http_app = mcp.streamable_http_app()
     # Register the MCP lifespan so its startup/shutdown hooks run with the server.
     adapter.lifespans.append(mcp_http_app.router.lifespan_context)
