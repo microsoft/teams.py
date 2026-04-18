@@ -4,6 +4,13 @@ A Teams bot that reads shared files and produces Adaptive Card visualizations. T
 exposed over the **A2A (Agent-to-Agent) protocol** as a separate process, showing how a Teams bot
 can host capabilities that external, non-Teams systems can consume.
 
+## What this demonstrates
+
+- **A2A as-a-service** — data-analyst runs in a separate process and exposes a standard A2A endpoint that any A2A client can call.
+- **Local sub-agent** — `file_search` is a dedicated agent-framework `Agent` for extracting context from files, consumed in-process via `.as_tool()`.
+- **Safe concurrent conversational memory** — `AgentSession` preserves prior turns for follow-ups; per-conversation `asyncio.Lock` keeps overlapping messages from racing on session history.
+- **Adaptive Cards for data viz** — the data-analyst agent programmatically builds bar/line/pie/table Adaptive Cards and returns them for Teams to render; multiple cards per turn.
+
 ## Architecture
 
 ```
@@ -24,17 +31,21 @@ can host capabilities that external, non-Teams systems can consume.
 
 ## Run
 
-Set Azure OpenAI credentials in `.env`:
+Set Azure OpenAI + bot credentials in `.env`:
 
 ```
 AZURE_OPENAI_ENDPOINT=...
 AZURE_OPENAI_API_KEY=...
 AZURE_OPENAI_MODEL=...
 AZURE_OPENAI_API_VERSION=...
+
+CLIENT_ID=...
+CLIENT_SECRET=...
+TENANT_ID=...
 ```
 
 The data-analyst runs as a **separate process** (port `3979`) so the Teams bot makes a real HTTP A2A
-call to it. Start both from the `src/` directory so Python can resolve the packages:
+call to it.
 
 ```bash
 # Terminal 1 — data-analyst A2A server (port 3979)
@@ -44,8 +55,7 @@ uv run --env-file ../.env python -m data_analyst
 
 ```bash
 # Terminal 2 — Teams bot (port 3978); calls the data-analyst at :3979 over A2A
-cd src
-uv run --env-file ../.env python main.py
+uv run src/main.py
 ```
 
 ## Example interactions
@@ -71,11 +81,8 @@ Expected: agent remembers the previous data via `AgentSession` history — no ne
 
 ## Calling the A2A server from outside
 
-The data-analyst exposes a standard A2A endpoint, so any A2A-compatible client can invoke it — no
-Teams required. This is the "Teams as A2A server" story: a Teams bot can host capabilities (here,
-chart generation) that external systems consume.
-
-While the data-analyst process is running (Terminal 1), an external caller can do:
+The data-analyst exposes a standard A2A endpoint, so any A2A-compatible client can invoke it.
+While the data-analyst process is running, an external caller can do:
 
 ```python
 import asyncio

@@ -4,12 +4,18 @@ Licensed under the MIT License.
 """
 
 import logging
+import os
 import time
 from typing import Annotated
 
 import httpx
 from agent_framework import Agent, tool
 from agent_framework_openai import OpenAIChatClient
+from dotenv import find_dotenv, load_dotenv
+from microsoft_teams.api import ClientCredentials
+from microsoft_teams.apps.token_manager import TokenManager
+
+load_dotenv(find_dotenv(usecwd=True))
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +28,20 @@ INSTRUCTIONS = (
     "the data and need complete rows."
 )
 
+# Used to mint a Bearer token for SharePoint file downloads.
+_token_manager: TokenManager | None = None
+if (_client_id := os.getenv("CLIENT_ID")) and (_client_secret := os.getenv("CLIENT_SECRET")):
+    _token_manager = TokenManager(ClientCredentials(client_id=_client_id, client_secret=_client_secret))
+else:
+    logger.warning("CLIENT_ID/CLIENT_SECRET not set; file downloads will rely on the pre-signed URL alone.")
+
+
+async def _bot_token_header() -> dict[str, str]:
+    if _token_manager is None:
+        return {}
+    token = await _token_manager.get_bot_token()
+    return {"Authorization": f"Bearer {token}"} if token is not None else {}
+
 
 @tool
 async def download_file(
@@ -31,8 +51,9 @@ async def download_file(
     """Download a file and return its text content."""
     logger.info("download_file: START name=%r url_len=%d url_prefix=%r", name, len(download_url), download_url[:80])
     start = time.monotonic()
+    headers = await _bot_token_header()
     try:
-        async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as http:
+        async with httpx.AsyncClient(timeout=30.0, follow_redirects=True, headers=headers) as http:
             response = await http.get(download_url)
             elapsed = time.monotonic() - start
             logger.info(
