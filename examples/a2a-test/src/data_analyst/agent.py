@@ -13,27 +13,20 @@ from a2a.server.events import EventQueue
 from a2a.server.request_handlers import DefaultRequestHandler
 from a2a.server.tasks import InMemoryTaskStore
 from a2a.types import AgentCapabilities, AgentCard, AgentSkill, DataPart, Message, Part, Role, TextPart
-from agent_framework import Agent, tool
+from agent_framework import Agent, AgentSession, InMemoryHistoryProvider, tool
 from agent_framework_openai import OpenAIChatClient
 from fastapi import FastAPI
 
 from .cards import AdaptiveCard, ChartType, build_card
+from .prompts import SYSTEM_PROMPT
 
 logger = logging.getLogger(__name__)
 
 AGENT_PATH = "/data-analyst"
 
-SYSTEM_PROMPT = """You are an expert data analyst. When the user provides data, produce a visualization.
-
-Call generate_card once per visualization the user asks for, then reply with a one-sentence summary.
-
-Data row format:
-- For chart types (verticalBar, horizontalBar, line, pie): pass data rows as [label, numeric_value] pairs ONLY.
-  Do NOT include a header row. Numeric values must be numbers, not strings with currency symbols.
-- For table: include the header row as the first row; subsequent rows are data.
-
-Only use data explicitly provided — never invent values. If no data is provided, ask the user to share some.
-"""
+# Per-conversation session keyed by A2A context_id. Gives the analyst memory of prior turns in the
+# same conversation so it can reference earlier charts/data without the caller re-sending it.
+_sessions: dict[str, AgentSession] = {}
 
 
 class DataAnalystAgentExecutor(AgentExecutor):
@@ -41,7 +34,7 @@ class DataAnalystAgentExecutor(AgentExecutor):
 
     async def execute(self, context: RequestContext, event_queue: EventQueue) -> None:
         query = context.get_user_input() if context.message else ""
-        logger.info("DataAnalyst executing: query=%r", query)
+        logger.info("DataAnalyst executing: ctx=%r query=%r", context.context_id, query)
 
         card_holder: list[AdaptiveCard] = []
 
@@ -56,8 +49,14 @@ class DataAnalystAgentExecutor(AgentExecutor):
             card_holder.append(build_card(chart_type, rows, options))
             return f"Generated a {chart_type} chart with {len(rows)} data point(s)."
 
-        agent = Agent(OpenAIChatClient(), instructions=SYSTEM_PROMPT, tools=[generate_card])
-        response = await agent.run(query)
+        agent = Agent(
+            OpenAIChatClient(),
+            instructions=SYSTEM_PROMPT,
+            tools=[generate_card],
+            context_providers=[InMemoryHistoryProvider()],
+        )
+        session = _sessions.setdefault(context.context_id or "default", AgentSession())
+        response = await agent.run(query, session=session)
         logger.info("DataAnalyst done: summary=%r, cards=%d", response.text, len(card_holder))
 
         if card_holder:
