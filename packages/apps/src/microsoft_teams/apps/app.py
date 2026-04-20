@@ -23,6 +23,7 @@ from microsoft_teams.api import (
     FederatedIdentityCredentials,
     ManagedIdentityCredentials,
     MessageActivityInput,
+    SentActivity,
     TokenCredentials,
     TokenProtocol,
 )
@@ -59,6 +60,7 @@ from .routing import ActivityHandlerMixin, ActivityRouter
 from .routing.activity_context import ActivityContext
 from .token_manager import TokenManager
 from .utils import create_graph_client
+from .utils.thread import supports_threading, to_threaded_conversation_id
 
 version = importlib.metadata.version("microsoft-teams-apps")
 
@@ -292,7 +294,12 @@ class App(ActivityHandlerMixin):
             raise
 
     async def send(self, conversation_id: str, activity: str | ActivityParams | AdaptiveCard):
-        """Send an activity proactively."""
+        """Send an activity proactively to a conversation.
+
+        Sends to the exact conversation ID provided. For channel threads,
+        the conversation ID must include ``;messageid=`` - use :func:`to_threaded_conversation_id`
+        to construct it, or use :meth:`reply` which handles this automatically.
+        """
 
         if not self._initialized:
             raise ValueError("app not initialized - call app.initialize() or app.start() first")
@@ -304,7 +311,7 @@ class App(ActivityHandlerMixin):
             channel_id="msteams",
             service_url=self.api.service_url,
             bot=Account(id=self.id),
-            conversation=ConversationAccount(id=conversation_id, conversation_type="personal"),
+            conversation=ConversationAccount(id=conversation_id),
         )
 
         if isinstance(activity, str):
@@ -315,6 +322,55 @@ class App(ActivityHandlerMixin):
             activity = activity
 
         return await self.activity_sender.send(activity, conversation_ref)
+
+    @overload
+    async def reply(
+        self,
+        conversation_id: str,
+        message_id: str,
+        activity: str | ActivityParams | AdaptiveCard,
+    ) -> SentActivity: ...
+
+    @overload
+    async def reply(
+        self,
+        conversation_id: str,
+        message_id: str | ActivityParams | AdaptiveCard,
+    ) -> SentActivity: ...
+
+    async def reply(  # type: ignore[reportInconsistentOverload]
+        self,
+        conversation_id: str,
+        message_id: str | ActivityParams | AdaptiveCard = "",
+        activity: str | ActivityParams | AdaptiveCard | None = None,
+    ) -> SentActivity:
+        """Send an activity proactively to a conversation or channel thread.
+
+        **3-arg form** ``reply(conversation_id, message_id, activity)``:
+        In channels, constructs a threaded conversation ID and sends to that thread.
+        In scopes that do not support threading (group chat, meetings), sends as a
+        normal message - the message ID is ignored.
+
+        **2-arg form** ``reply(conversation_id, activity)``:
+        Sends to the exact conversation ID provided - threaded if it contains
+        ``;messageid=``, flat otherwise.
+
+        Args:
+            conversation_id: The channel or conversation ID
+            message_id: The thread root message ID (3-arg form) or the activity (2-arg form)
+            activity: The activity to send (only in 3-arg form)
+        """
+        if activity is not None:
+            if not isinstance(message_id, str):
+                raise TypeError("message_id must be a string when activity is provided")
+            target_id = (
+                to_threaded_conversation_id(conversation_id, message_id)
+                if supports_threading(conversation_id)
+                else conversation_id
+            )
+            return await self.send(target_id, activity)
+
+        return await self.send(conversation_id, message_id)
 
     def use(self, middleware: Callable[[ActivityContext[ActivityBase]], Awaitable[None]]) -> None:
         """Add middleware to run on all activities."""

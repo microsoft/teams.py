@@ -762,3 +762,54 @@ class TestApp:
 
         app.activity_sender.send.assert_called_once()
         assert result.id == "sent-activity-id"
+
+
+class TestAppReply:
+    """Test cases for App.reply() method."""
+
+    @pytest.fixture(scope="function")
+    def started_app(self):
+        options = AppOptions(client_id="test-client-id", client_secret="test-secret")
+        app = App(**options)
+        app._initialized = True
+        app.activity_sender.send = AsyncMock(
+            return_value=SentActivity(id="sent-activity-id", activity_params=MessageActivityInput(text="sent"))
+        )
+        return app
+
+    @pytest.mark.asyncio
+    async def test_reply_with_three_args_constructs_threaded_id(self, started_app):
+        await started_app.reply("19:abc@thread.skype", "1680000000000", "Hello thread")
+
+        started_app.activity_sender.send.assert_called_once()
+        _, ref = started_app.activity_sender.send.call_args[0]
+        assert ref.conversation.id == "19:abc@thread.skype;messageid=1680000000000"
+
+    @pytest.mark.asyncio
+    async def test_reply_with_two_args_passes_conversation_id_as_is(self, started_app):
+        await started_app.reply("19:abc@thread.skype", "Hello flat")
+
+        started_app.activity_sender.send.assert_called_once()
+        _, ref = started_app.activity_sender.send.call_args[0]
+        assert ref.conversation.id == "19:abc@thread.skype"
+
+    @pytest.mark.asyncio
+    async def test_reply_with_pre_constructed_threaded_id(self, started_app):
+        await started_app.reply("19:abc@thread.skype;messageid=123", "Hello")
+
+        started_app.activity_sender.send.assert_called_once()
+        _, ref = started_app.activity_sender.send.call_args[0]
+        assert ref.conversation.id == "19:abc@thread.skype;messageid=123"
+
+    @pytest.mark.asyncio
+    async def test_reply_with_invalid_message_id_raises(self, started_app):
+        with pytest.raises(ValueError, match="Invalid message_id"):
+            await started_app.reply("19:abc@thread.skype", "not-a-number", "Hello")
+
+    @pytest.mark.asyncio
+    async def test_reply_raises_when_not_initialized(self):
+        options = AppOptions(client_id="test-client-id", client_secret="test-secret")
+        app = App(**options)
+
+        with pytest.raises(ValueError, match="app not initialized"):
+            await app.reply("conv-id", "Hello")
