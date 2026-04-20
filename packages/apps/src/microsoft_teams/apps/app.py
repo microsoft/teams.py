@@ -60,7 +60,7 @@ from .routing import ActivityHandlerMixin, ActivityRouter
 from .routing.activity_context import ActivityContext
 from .token_manager import TokenManager
 from .utils import create_graph_client
-from .utils.thread import supports_threading, to_threaded_conversation_id
+from .utils.thread import to_threaded_conversation_id
 
 version = importlib.metadata.version("microsoft-teams-apps")
 
@@ -344,31 +344,25 @@ class App(ActivityHandlerMixin):
         message_id: str | ActivityParams | AdaptiveCard = "",
         activity: str | ActivityParams | AdaptiveCard | None = None,
     ) -> SentActivity:
-        """Send an activity proactively to a conversation or channel thread.
+        """Send an activity proactively as a threaded reply.
 
         **3-arg form** ``reply(conversation_id, message_id, activity)``:
-        In channels, constructs a threaded conversation ID and sends to that thread.
-        In scopes that do not support threading (group chat, meetings), sends as a
-        normal message - the message ID is ignored.
+        Constructs a threaded conversation ID via :func:`to_threaded_conversation_id`
+        and sends to that thread.
 
         **2-arg form** ``reply(conversation_id, activity)``:
         Sends to the exact conversation ID provided - threaded if it contains
         ``;messageid=``, flat otherwise.
 
         Args:
-            conversation_id: The channel or conversation ID
+            conversation_id: The conversation ID
             message_id: The thread root message ID (3-arg form) or the activity (2-arg form)
             activity: The activity to send (only in 3-arg form)
         """
         if activity is not None:
             if not isinstance(message_id, str):
                 raise TypeError("message_id must be a string when activity is provided")
-            target_id = (
-                to_threaded_conversation_id(conversation_id, message_id)
-                if supports_threading(conversation_id)
-                else conversation_id
-            )
-            return await self.send(target_id, activity)
+            return await self.send(to_threaded_conversation_id(conversation_id, message_id), activity)
 
         return await self.send(conversation_id, message_id)
 
