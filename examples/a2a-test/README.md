@@ -40,11 +40,15 @@ consume it.
 
 - An [Azure AI Foundry](https://ai.azure.com) project with a deployed model. The bot's Service Principal needs the **Azure AI User** role on the Foundry project.
 - A Teams bot registration (App ID + password)
-- An Azure AI Search resource, grant the bot's Service Principal these role assignments:
-   - **Search Service Contributor** — needed by `ingest.py` to create the index.
-   - **Search Index Data Contributor** — needed by `ingest.py` to upload documents, and by the
-     running agent to read them at query time (a reader role is sufficient if you only run the
-     agent after ingesting once).
+- An Azure AI Search resource. Two things to configure on it:
+   - **Enable RBAC on the resource itself.** Portal → the Search resource → **Keys** blade →
+     **API access control** → switch from "API Key" to "Role-based access control" (or "Both").
+     Save. Without this, role assignments below have no effect — the resource rejects token auth.
+   - Grant the bot's Service Principal these role assignments:
+     - **Search Service Contributor** — needed by `ingest.py` to create the index.
+     - **Search Index Data Contributor** — needed by `ingest.py` to upload documents, and by the
+       running agent to read them at query time (a reader role is sufficient if you only run the
+       agent after ingesting once).
 
 ### .env
 
