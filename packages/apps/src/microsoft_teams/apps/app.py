@@ -344,11 +344,12 @@ class App(ActivityHandlerMixin):
         message_id: str | ActivityParams | AdaptiveCard = "",
         activity: str | ActivityParams | AdaptiveCard | None = None,
     ) -> SentActivity:
-        """Send an activity proactively as a threaded reply.
+        """Send an activity proactively to a conversation, optionally as a threaded reply.
 
         **3-arg form** ``reply(conversation_id, message_id, activity)``:
         Constructs a threaded conversation ID via :func:`to_threaded_conversation_id`
-        and sends to that thread.
+        and sends to that thread. The service determines whether threading is
+        supported for the given conversation type.
 
         **2-arg form** ``reply(conversation_id, activity)``:
         Sends to the exact conversation ID provided - threaded if it contains

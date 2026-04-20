@@ -17,7 +17,7 @@ A bot that demonstrates reactive and proactive threading in Microsoft Teams chan
 - `test reply` and `test send` work in all scopes (1:1, group chat, channels)
 - `test proactive` constructs a threaded conversation ID and sends to that thread
 - `test manual` does the same using `to_threaded_conversation_id()` + `app.send()` directly
-- `test proactive` and `test manual` will return a service error in meetings, which do not currently support threading
+- `test proactive` and `test manual` may return a service error in conversation types that do not currently support threading (e.g. meetings)
 
 ## Run
 
