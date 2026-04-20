@@ -48,9 +48,15 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
         return
 
     # ============================================
-    # to_threaded_conversation_id() + app.send() — advanced manual control
+    # to_threaded_conversation_id() + app.send() — advanced manual control (channels only)
     # ============================================
     if "test manual" in text:
+        # to_threaded_conversation_id() is only valid for conversations that support threading
+        base = conversation_id.split(";")[0]
+        threading_suffixes = ("@thread.tacv2", "@thread.skype", "@unq.gbl.spaces")
+        if not any(base.endswith(s) for s in threading_suffixes):
+            await ctx.reply("This command doesn't support threading in this conversation type.")
+            return
         thread_id = to_threaded_conversation_id(conversation_id, thread_root_id)
         await app.send(thread_id, "This was sent using to_threaded_conversation_id() + app.send() for manual control.")
         return
