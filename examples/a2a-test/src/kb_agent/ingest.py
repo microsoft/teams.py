@@ -70,9 +70,9 @@ def main() -> None:
     endpoint = os.environ["AZURE_SEARCH_ENDPOINT"]
     index_name = os.environ["AZURE_SEARCH_INDEX_NAME"]
     credential = ClientSecretCredential(
-        tenant_id=os.environ["AZURE_TENANT_ID"],
-        client_id=os.environ["AZURE_CLIENT_ID"],
-        client_secret=os.environ["AZURE_CLIENT_SECRET"],
+        tenant_id=os.environ["TENANT_ID"],
+        client_id=os.environ["CLIENT_ID"],
+        client_secret=os.environ["CLIENT_SECRET"],
     )
 
     _ensure_index(endpoint, credential, index_name)
