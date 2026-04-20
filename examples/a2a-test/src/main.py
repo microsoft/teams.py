@@ -8,13 +8,12 @@ import logging
 from typing import Any
 
 from agent_framework import AgentSession
+from host_agent import host_agent
 from microsoft_teams.api import Attachment, MessageActivity, MessageActivityInput
 from microsoft_teams.apps import ActivityContext, App
-from orchestrator import orchestrator
-from teams_helpers import extract_file_attachments, inject_file_list
 
 logging.basicConfig(level=logging.WARNING)
-for _log_name in ("__main__", "data_analyst", "file_search", "orchestrator"):
+for _log_name in ("__main__", "kb_agent", "host_agent"):
     logging.getLogger(_log_name).setLevel(logging.INFO)
 
 logger = logging.getLogger(__name__)
@@ -27,15 +26,11 @@ _conversation_locks: dict[str, asyncio.Lock] = {}
 
 @app.on_message
 async def handle_message(ctx: ActivityContext[MessageActivity]) -> None:
-    files_metadata = extract_file_attachments(ctx)
     query = ctx.activity.text or ""
-    if not query and not files_metadata:
+    if not query:
         return
 
-    logger.info("Message received: query=%r, files=%d", query, len(files_metadata))
-
-    if files_metadata:
-        query = inject_file_list(query, files_metadata)
+    logger.info("Message received: query=%r", query)
 
     conv_id = ctx.activity.conversation.id
     lock = _conversation_locks.setdefault(conv_id, asyncio.Lock())
@@ -47,10 +42,10 @@ async def handle_message(ctx: ActivityContext[MessageActivity]) -> None:
         session.state["cards"] = []
         session.state["teams_conversation_id"] = conv_id
 
-        response = await orchestrator.run(query, session=session)
+        response = await host_agent.run(query, session=session)
         cards: list[dict[str, Any]] = session.state.get("cards", [])
 
-        reply_text = (response.messages[-1].text if response.messages else "") or "Done."
+        reply_text = response.messages[-1].text if response.messages else ""
         logger.info("Sending reply + %d adaptive card(s): reply=%r", len(cards), reply_text)
         await ctx.reply(reply_text)
 

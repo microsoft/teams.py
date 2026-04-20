@@ -7,8 +7,11 @@ requires-python = ">=3.12,<3.15"
 dependencies = [
     "a2a-sdk[http-server]>=0.3.7",
     "agent-framework-a2a",
-    "agent-framework-openai",
+    "agent-framework-foundry",
     "microsoft-teams-apps",
+    "azure-search-documents>=11.5.0",
+    "azure-identity>=1.15.0",
+    "python-dotenv>=1.0.0",
 ]
 
 [tool.uv.sources]

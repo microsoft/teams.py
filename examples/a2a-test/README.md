@@ -1,108 +1,143 @@
-# A2A Sample — Teams Data Assistant
+# A2A Sample — Teams Knowledge-Base Assistant
 
-A Teams bot that reads shared files and produces Adaptive Card visualizations. The data-analyst is
-exposed over the **A2A (Agent-to-Agent) protocol** as a separate process, showing how a Teams bot
-can host capabilities that external, non-Teams systems can consume.
+A Teams bot that answers questions from Northwind Co.'s internal docs (HR, expense, remote work,
+security, engineering handbook, revenue/metrics/headcount tables). The KB agent is exposed over
+the **A2A (Agent-to-Agent) protocol** as a separate process, so external, non-Teams systems can
+consume it.
 
-## What this demonstrates
+## Components
 
-- **A2A as-a-service** — data-analyst runs in a separate process and exposes a standard A2A endpoint that any A2A client can call.
-- **Local sub-agent** — `file_search` is a dedicated agent-framework `Agent` for extracting context from files, consumed in-process via `.as_tool()`.
-- **Safe concurrent conversational memory** — `AgentSession` preserves prior turns for follow-ups; per-conversation `asyncio.Lock` keeps overlapping messages from racing on session history.
-- **Adaptive Cards for data viz** — the data-analyst agent programmatically builds bar/line/pie/table Adaptive Cards and returns them for Teams to render; multiple cards per turn.
+- **Host agent** (Teams bot process) — routes messages; owns the `ask_kb` tool.
+- **`ask_kb`** — uses `A2AAgent` from `agent_framework_a2a` to call the KB agent at
+  `http://localhost:3979/kb-agent/`. Extracts Adaptive Card dicts from the response's DataParts.
+- **KB agent** (separate process, `kb_agent/`) — a stateless A2A server backed by Azure AI Search.
+  Tools:
+  - `search_kb` — full-text search against the Azure AI Search index.
+  - `render_answer` — text answer + cited sources (Adaptive Card).
+  - `render_chart` — chart or table + cited sources (Adaptive Card). Used when the question is
+    quantitative and the retrieved snippets carry a data table.
+  Card dicts are returned as an A2A `DataPart`; the host agent extracts them and Teams renders
+  them natively.
 
 ## Architecture
 
 ```
-┌─────────────────── Teams bot process (:3978) ───────────────────┐
-│  Teams  ─►  Orchestrator Agent  ─►  search_files   (sub-agent)  │
-│                                                                 │
-│                                 ─►  visualize_data ─────HTTP────┼──►  Data Analyst
-│                                                                 │      A2A process (:3979)
-└─────────────────────────────────────────────────────────────────┘
+┌──────── Teams bot process (:3978) ────────┐
+│  Teams ─► Host Agent ─────► ask_kb ───────┼──HTTP/A2A──► KB Agent (:3979)
+└───────────────────────────────────────────┘                    │
+                                                                 ▼
+                                                      Azure AI Search index
+                                                      (populated by ingest.py)
 ```
 
-- `main.py` — Teams bot + orchestrator Agent (OpenAI) with `search_files` and `visualize_data` tools.
-- `file_search/` — plain agent-framework `Agent` with a `download_file` tool. Consumed in-process
-  via `.as_tool()`. Not exposed externally — no A2A.
-- `data_analyst/` — an A2A server that runs as a **separate process**, called over HTTP. Useful
-  pattern when the sub-agent has external consumers or lives elsewhere.
-- `a2a_utils.py` — extracts card dicts from A2A responses.
+- `main.py` — Teams entry point; per-conversation `AgentSession` + `asyncio.Lock`.
+- `host_agent.py` — host agent with the `ask_kb` tool; wraps `A2AAgent`.
+- `kb_agent/` — A2A server. `index.py` wraps an Azure AI Search client; `agent.py` runs the agent
+  with `search_kb` / `render_answer` / `render_chart` tools (stateless per request); `ingest.py`
+  is a one-shot script that chunks `knowledge_base/*.md` and uploads the chunks to Azure Search.
+
+## Prerequisites
+
+- An [Azure AI Foundry](https://ai.azure.com) project with a deployed model. The bot's Service Principal needs the **Azure AI User** role on the Foundry project.
+- A Teams bot registration (App ID + password)
+- An Azure AI Search resource, grant the bot's Service Principal these role assignments:
+   - **Search Service Contributor** — needed by `ingest.py` to create the index.
+   - **Search Index Data Contributor** — needed by `ingest.py` to upload documents, and by the
+     running agent to read them at query time (a reader role is sufficient if you only run the
+     agent after ingesting once).
+
+### .env
+
+```
+FOUNDRY_PROJECT_ENDPOINT=https://<your-project>.services.ai.azure.com
+FOUNDRY_MODEL=<your-model>
+
+AZURE_SEARCH_ENDPOINT=https://<your-search-resource>.search.windows.net
+AZURE_SEARCH_INDEX_NAME=northwind-kb
+
+TENANT_ID=...
+CLIENT_ID=...
+CLIENT_SECRET=...
+
+# Optional — defaults to http://localhost:3979/kb-agent/
+# KB_AGENT_URL=http://kb-agent.internal/kb-agent/
+```
+
 
 ## Run
 
-Set Azure OpenAI + bot credentials in `.env`:
-
-```
-AZURE_OPENAI_ENDPOINT=...
-AZURE_OPENAI_API_KEY=...
-AZURE_OPENAI_MODEL=...
-AZURE_OPENAI_API_VERSION=...
-
-CLIENT_ID=...
-CLIENT_SECRET=...
-TENANT_ID=...
-```
-
-The data-analyst runs as a **separate process** (port `3979`) so the Teams bot makes a real HTTP A2A
-call to it.
+### 1. One-time: ingest the corpus into Azure AI Search
 
 ```bash
-# Terminal 1 — data-analyst A2A server (port 3979)
 cd src
-uv run --env-file ../.env python -m data_analyst
+uv run --env-file ../.env python -m kb_agent.ingest
+```
+
+This creates the index (if missing), chunks every `kb_agent/knowledge_base/*.md` file by `##`
+section, and uploads each chunk as a document. Re-run this whenever the corpus changes.
+
+### 2. Start the KB agent and the Teams bot
+
+```bash
+# Terminal 1 — KB agent A2A server (port 3979)
+cd src
+uv run --env-file ../.env python -m kb_agent
 ```
 
 ```bash
-# Terminal 2 — Teams bot (port 3978); calls the data-analyst at :3979 over A2A
+# Terminal 2 — Teams bot (port 3978); calls the KB agent at :3979 over A2A
 uv run src/main.py
 ```
 
 ## Example interactions
 
-**Chart from inline data:**
+**Policy question (answer card):**
 
-> Visualize revenue by region: North $45,000, South $32,000, East $61,000, West $28,000
+> How much PTO do I accrue in my first year?
 
-Expected: bar chart Adaptive Card.
+The agent retrieves from `pto_policy.md` and renders an Adaptive Card with the answer and the PTO
+policy source.
 
-**Chart from a shared file** — upload `sales.csv` (monthly sales data included) and ask:
+**Quantitative question (chart card):**
 
-> Chart the monthly sales.
+> Chart our engineering headcount over the last two years.
 
-Expected: the orchestrator calls `search_files` to read the CSV, then `visualize_data` to render the
-chart.
+The agent retrieves from `headcount.md`, parses the headcount-over-time table, and renders a
+line-chart Adaptive Card citing the headcount doc.
 
 **Follow-up in same conversation:**
 
-> Now show it as a pie chart and a summary table.
+> What's total company headcount at end of Q4?
 
-Expected: agent remembers the previous data via `AgentSession` history — no need to re-read the file.
+The KB agent is stateless, so this query is answered independently — but it still resolves cleanly
+because the host agent's Teams-side session carries the surrounding conversation context that
+shaped the user's phrasing.
 
 ## Calling the A2A server from outside
 
-The data-analyst exposes a standard A2A endpoint, so any A2A-compatible client can invoke it.
-While the data-analyst process is running, an external caller can do:
+The KB agent exposes a standard A2A endpoint, so any A2A-compatible client can invoke it.
+While the KB agent process is running, an external caller can do:
 
 ```python
 import asyncio
 from agent_framework_a2a import A2AAgent
 
 async def main():
-    client = A2AAgent(url="http://localhost:3979/data-analyst/")
-    response = await client.run(
-        "Bar chart of revenue by region. Data:\n"
-        "North,45000\nSouth,32000\nEast,61000\nWest,28000"
-    )
-    print(response.text)  # JSON payload with {"cards": [...AdaptiveCard...]}
+    client = A2AAgent(url="http://localhost:3979/kb-agent/")
+    response = await client.run("What's the expense limit for international meals?")
+    print(response.text)
 
 asyncio.run(main())
 ```
 
 ## Known limitations (sample-grade)
 
-- **Unbounded memory.** The `_sessions` dict and each `AgentSession`'s history grow without limit.
-  A production bot would add LRU eviction on the session map and a bounded/compacting history provider.
-- **File size.** `file_search` inlines the full file contents into the LLM prompt, so anything
-  beyond roughly 100 KB will exceed the context window. A production version would chunk the file
-  and index it (vector store, keyword search, etc.) before answering.
+- **Keyword search only.** `ingest.py` uploads text fields; `search_kb` uses Azure Search's default
+  BM25 retrieval. For better recall on paraphrased queries, add a vector field (e.g. 1536-dim for
+  `text-embedding-3-small`), generate embeddings at ingest time, and issue hybrid queries with
+  `vector_queries=...`. Optionally enable Azure's semantic ranker for re-ranking.
+- **Manual re-ingest on corpus change.** `ingest.py` is a one-shot; there's no change detection or
+  incremental update. A production version would watch the source and sync.
+- **Unbounded host-agent memory.** The host agent's `_sessions` dict in `main.py` grows without
+  limit. A production bot would add LRU eviction and a bounded/compacting history provider. The
+  KB agent itself is stateless so it has no such concern.

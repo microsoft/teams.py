@@ -35,6 +35,12 @@
          "root": "examples/botbuilder/src",
          "reportMissingTypeStubs": "none",
          "reportUnknownMemberType": "none"
+      },
+      {
+         "root": "examples/a2a-test/src",
+         "reportUnknownMemberType": "none",
+         "reportUnknownVariableType": "none",
+         "reportUnknownArgumentType": "none"
       }
    ]
 }
