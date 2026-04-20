@@ -499,7 +499,7 @@ class TestTokenValidator:
         """Additional domains should be accepted."""
         from microsoft_teams.apps.auth.token_validator import is_allowed_service_url
 
-        assert is_allowed_service_url("https://api.custom.com", PUBLIC, [".custom.com"]) is True
+        assert is_allowed_service_url("https://api.custom.com", PUBLIC, ["api.custom.com"]) is True
         assert is_allowed_service_url("https://api.custom.com", PUBLIC) is False
 
     def test_is_allowed_service_url_wildcard(self):

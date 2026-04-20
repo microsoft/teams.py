@@ -83,6 +83,9 @@ class HttpServer:
         self._additional_allowed_domains = additional_allowed_domains
         self._cloud = cloud or PUBLIC
 
+        if "*" in (additional_allowed_domains or []):
+            logger.warning("Service URL validation is disabled via wildcard in additional_allowed_domains")
+
         app_id = getattr(credentials, "client_id", None) if credentials else None
         if app_id and not skip_auth:
             self._token_validator = TokenValidator.for_service(app_id, cloud=self._cloud)

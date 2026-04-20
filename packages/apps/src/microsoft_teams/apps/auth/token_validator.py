@@ -37,17 +37,16 @@ def is_allowed_service_url(
         if hostname in ("localhost", "127.0.0.1"):
             return True
 
-        additional = additional_domains or []
-        if "*" in additional:
+        if parsed.scheme != "https":
+            return False
+
+        allowed = [d.lower() for d in [*cloud.allowed_service_urls, *(additional_domains or [])]]
+        if "*" in allowed:
             return True
 
-        # Check against cloud environment's allowed FQDNs
-        if any(hostname == allowed.lower() for allowed in cloud.allowed_service_urls):
-            return True
-
-        # Check against additional domains (suffix match)
-        return any(hostname.endswith(domain.lower()) for domain in additional)
+        return hostname in allowed
     except Exception:  # pragma: no cover
+        logger.error("Failed to parse service URL for validation: %s", service_url)
         return False
 
 
