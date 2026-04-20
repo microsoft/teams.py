@@ -55,6 +55,8 @@ From Teams, DevTools, or your test client, use any of the following commands to 
 | Memory management      | `memory clear`                          | Clears conversation memory                                |
 | Feedback collection    | `feedback demo`                         | Demonstrates message feedback with like/dislike buttons   |
 | Feedback statistics    | `feedback stats <message_id>`           | Shows feedback summary for a specific message             |
+| Suggested prompts      | `suggested-prompt message`              | AI response with suggested action buttons                 |
+| Suggested prompts      | `suggested-prompt stream`               | Streamed AI response with suggested action buttons        |
 | Stateful interactions  | `<any other message>`                   | Shows persistent conversation memory across interactions  |
 
 ## Features Demonstrated
@@ -74,6 +76,7 @@ From Teams, DevTools, or your test client, use any of the following commands to 
 ### Advanced Features
 
 - **Streaming responses** - Real-time response streaming with group/1:1 handling
+- **Suggested prompts** - Suggested action buttons on both regular and streamed messages
 - **Memory management** - Per-conversation memory with manual clearing
 - **Custom plugins** - AI plugin system with lifecycle hooks
 - **Citations** - Position-based citations with proper formatting
@@ -96,6 +99,7 @@ The sample follows a modular architecture:
   - `memory_management.py` - Stateful conversation handling
   - `citations.py` - Citation demo functionality
   - `plugins.py` - Custom AI plugin implementation
+  - `suggested_prompts.py` - Shared suggested action prompts
   - `feedback_management.py` - Message feedback collection and storage
 
 This structure mirrors the TypeScript AI test implementation for consistency across language implementations.
