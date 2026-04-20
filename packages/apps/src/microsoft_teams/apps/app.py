@@ -23,6 +23,7 @@ from microsoft_teams.api import (
     FederatedIdentityCredentials,
     ManagedIdentityCredentials,
     MessageActivityInput,
+    SentActivity,
     TokenCredentials,
     TokenProtocol,
 )
@@ -328,21 +329,21 @@ class App(ActivityHandlerMixin):
         conversation_id: str,
         message_id: str,
         activity: str | ActivityParams | AdaptiveCard,
-    ) -> Any: ...
+    ) -> SentActivity: ...
 
     @overload
     async def reply(
         self,
         conversation_id: str,
         message_id: str | ActivityParams | AdaptiveCard,
-    ) -> Any: ...
+    ) -> SentActivity: ...
 
     async def reply(  # type: ignore[reportInconsistentOverload]
         self,
         conversation_id: str,
         message_id: str | ActivityParams | AdaptiveCard = "",
         activity: str | ActivityParams | AdaptiveCard | None = None,
-    ) -> Any:
+    ) -> SentActivity:
         """Send an activity proactively to a conversation or channel thread.
 
         **3-arg form** ``reply(conversation_id, message_id, activity)``:
