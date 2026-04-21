@@ -161,12 +161,15 @@ class ActivityContext(Generic[T]):
         message: str | ActivityParams | AdaptiveCard,
         conversation_ref: Optional[ConversationReference] = None,
     ) -> SentActivity:
-        """
-        Send a message to the conversation.
+        """Send a message in the current conversation without quoting.
+
+        In channels, sends to the current thread. In scopes that do not
+        support threading (group chat, meetings), sends as a normal message.
+        To send with a visual quote of the inbound message, use :meth:`reply`.
 
         Args:
             message: The message to send, can be a string, ActivityParams, or AdaptiveCard
-            conversation_ref: Optional conversation reference to override the current conversation reference
+            conversation_ref: Optional conversation reference to send to a different conversation or thread
         """
         if isinstance(message, str):
             activity = MessageActivityInput(text=message)
@@ -180,7 +183,12 @@ class ActivityContext(Generic[T]):
         return res
 
     async def reply(self, input: str | ActivityParams) -> SentActivity:
-        """Send a reply to the activity."""
+        """Send a message in the current conversation with a visual quote of the inbound message.
+
+        In channels, sends to the current thread with a quoted reply.
+        In other scopes, sends with a quoted reply.
+        To send without quoting, use :meth:`send`.
+        """
         activity = MessageActivityInput(text=input) if isinstance(input, str) else input
         if isinstance(activity, MessageActivityInput):
             block_quote = self._build_block_quote_for_activity()
