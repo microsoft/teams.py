@@ -3,93 +3,138 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-import ast
-import json
-import math
-import operator
-import urllib.request
-from datetime import datetime, timedelta, timezone
-from typing import Annotated, Any
+import asyncio
+from os import getenv
+from typing import Annotated
 
 from agent_framework import tool
+from azure.identity.aio import ClientSecretCredential
+from dotenv import find_dotenv, load_dotenv
+from msgraph import GraphServiceClient  # pyright: ignore[reportPrivateImportUsage]
+from msgraph.generated.groups.groups_request_builder import (  # pyright: ignore[reportMissingTypeStubs]
+    GroupsRequestBuilder,  # pyright: ignore[reportMissingTypeStubs]
+)
+from msgraph.generated.users.users_request_builder import UsersRequestBuilder  # pyright: ignore[reportMissingTypeStubs]
 from pydantic import Field
 
-_BINARY_OPS: dict[type, Any] = {
-    ast.Add: operator.add,
-    ast.Sub: operator.sub,
-    ast.Mult: operator.mul,
-    ast.Div: operator.truediv,
-    ast.Pow: operator.pow,
-    ast.Mod: operator.mod,
-    ast.FloorDiv: operator.floordiv,
-}
-_UNARY_OPS: dict[type, Any] = {
-    ast.USub: operator.neg,
-    ast.UAdd: operator.pos,
-}
-_MATH_FUNCS = {name: getattr(math, name) for name in dir(math) if not name.startswith("_")}
-_MATH_FUNCS.update({"abs": abs, "round": round})
+load_dotenv(find_dotenv(usecwd=True))
+
+_credential = ClientSecretCredential(
+    tenant_id=getenv("TENANT_ID", ""),
+    client_id=getenv("CLIENT_ID", ""),
+    client_secret=getenv("CLIENT_SECRET", ""),
+)
+_graph = GraphServiceClient(credentials=_credential, scopes=["https://graph.microsoft.com/.default"])
 
 
-def _safe_eval(node: ast.expr) -> float:
-    if isinstance(node, ast.Constant) and isinstance(node.value, (int, float)):
-        return float(node.value)
-    if isinstance(node, ast.BinOp) and type(node.op) in _BINARY_OPS:
-        return _BINARY_OPS[type(node.op)](_safe_eval(node.left), _safe_eval(node.right))
-    if isinstance(node, ast.UnaryOp) and type(node.op) in _UNARY_OPS:
-        return _UNARY_OPS[type(node.op)](_safe_eval(node.operand))
-    if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id in _MATH_FUNCS:
-        return _MATH_FUNCS[node.func.id](*(_safe_eval(a) for a in node.args))
-    raise ValueError("unsupported expression")
+def _person(user: object) -> dict[str, str]:
+    return {
+        "id": getattr(user, "id", None) or "",
+        "name": getattr(user, "display_name", None) or "",
+        "upn": getattr(user, "user_principal_name", None) or "",
+        "email": getattr(user, "mail", None) or getattr(user, "user_principal_name", None) or "",
+        "title": getattr(user, "job_title", None) or "",
+        "department": getattr(user, "department", None) or "",
+        "office": getattr(user, "office_location", None) or "",
+    }
 
 
-# Shows a simple tool with an optional parameter and no external dependencies.
 @tool
-def get_current_datetime(
-    utc_offset_hours: Annotated[
-        int, Field(description="UTC offset in hours (e.g. -8 for PST, 0 for UTC, 5 for IST)")
-    ] = 0,
-) -> str:
-    """Get the current date and time for a given UTC offset."""
-    tz = timezone(timedelta(hours=utc_offset_hours))
-    now = datetime.now(tz)
-    label = f"UTC{'+' if utc_offset_hours >= 0 else ''}{utc_offset_hours}"
-    return now.strftime(f"%A, %B %d, %Y at %I:%M %p ({label})")
+async def find_people(
+    query: Annotated[str, Field(description="Name, email, job title, or department fragment")],
+    limit: Annotated[int, Field(description="Max results", ge=1, le=25)] = 5,
+) -> list[dict[str, str]] | str:
+    """Search the org directory. Returns up to `limit` people with name, email, title, department, office."""
+    safe = query.replace('"', "")
+    params = UsersRequestBuilder.UsersRequestBuilderGetQueryParameters(
+        search=f'"displayName:{safe}" OR "mail:{safe}" OR "jobTitle:{safe}" OR "department:{safe}"',
+        select=["id", "displayName", "mail", "userPrincipalName", "jobTitle", "department", "officeLocation"],
+        top=limit,
+    )
+    config = UsersRequestBuilder.UsersRequestBuilderGetRequestConfiguration(query_parameters=params)
+    config.headers.add("ConsistencyLevel", "eventual")
+    result = await _graph.users.get(request_configuration=config)
+    if not result or not result.value:
+        return f"No people found matching {query!r}."
+    return [_person(u) for u in result.value]
 
 
-# Shows how to safely evaluate untrusted model-provided input using an AST whitelist instead of eval().
 @tool
-def calculate(
-    expression: Annotated[
-        str, Field(description="A mathematical expression (e.g. '15% of 847', '(42 * 18) / 3', 'sqrt(144)', '2 ** 10')")
+async def get_org_context(
+    user: Annotated[
+        str,
+        Field(description="User's Graph id (preferred), UPN, or email. Prefer the id from find_people results."),
     ],
-) -> str:
-    """Evaluate a mathematical expression accurately. Use this for any arithmetic to avoid rounding errors."""
-    expr = expression.lower().replace("% of", "/ 100 *").replace("^", "**")
-    try:
-        result = _safe_eval(ast.parse(expr, mode="eval").body)
-        return str(result)
-    except Exception as e:
-        return f"Error: {e}"
+) -> dict[str, object] | str:
+    """Get a person's profile, their manager, and their direct reports in one call."""
+    user_item = _graph.users.by_user_id(user)
+    profile, manager, reports = await asyncio.gather(
+        user_item.get(),
+        user_item.manager.get(),
+        user_item.direct_reports.get(),
+        return_exceptions=True,
+    )
+
+    if isinstance(profile, BaseException) or not profile:
+        return f"Could not get profile for {user!r}: {profile}"
+
+    return {
+        "profile": _person(profile),
+        "manager": _person(manager) if manager and not isinstance(manager, BaseException) else None,
+        "direct_reports": (
+            [_person(u) for u in reports.value]  # type: ignore
+            if reports and not isinstance(reports, BaseException) and getattr(reports, "value", None)
+            else []
+        ),
+    }
 
 
-# Shows a tool that makes an external HTTP call and parses a JSON response.
 @tool
-def get_exchange_rate(
-    from_currency: Annotated[str, Field(description="Source currency code (e.g. 'USD', 'EUR', 'GBP')")],
-    to_currency: Annotated[str, Field(description="Target currency code (e.g. 'INR', 'JPY', 'CAD')")],
-    amount: Annotated[float, Field(description="Amount to convert")] = 1.0,
-) -> str:
-    """Get the current exchange rate between two currencies and convert an amount. Uses frankfurter.app."""
-    url = f"https://api.frankfurter.app/latest?from={from_currency.upper()}&to={to_currency.upper()}"
-    with urllib.request.urlopen(url, timeout=10) as response:  # noqa: S310
-        data: dict[str, object] = json.loads(response.read())
-    rates = data.get("rates", {})
-    if not isinstance(rates, dict) or to_currency.upper() not in rates:
-        return f"Could not get rate for {from_currency.upper()} → {to_currency.upper()}."
-    rate = float(str(rates[to_currency.upper()]))  # type: ignore[arg-type]
-    converted = rate * amount
-    return f"{amount:g} {from_currency.upper()} = {converted:,.2f} {to_currency.upper()} (rate: {rate})"
+async def list_team_members(
+    team_or_group_name: Annotated[str, Field(description="Display name of a Team or M365 group")],
+    limit: Annotated[int, Field(description="Max members to return", ge=1, le=50)] = 20,
+) -> list[dict[str, str]] | str:
+    """Resolve a Team/M365 group by display name and return its members."""
+    safe = team_or_group_name.replace("'", "''")
+    group_params = GroupsRequestBuilder.GroupsRequestBuilderGetQueryParameters(
+        filter=f"displayName eq '{safe}'",
+        select=["id", "displayName"],
+        top=1,
+    )
+    group_config = GroupsRequestBuilder.GroupsRequestBuilderGetRequestConfiguration(query_parameters=group_params)
+    groups = await _graph.groups.get(request_configuration=group_config)
+    if not groups or not groups.value:
+        return f"No group found with display name {team_or_group_name!r}."
+
+    group_id = groups.value[0].id
+    if not group_id:
+        return f"Group {team_or_group_name!r} has no id."
+
+    members = await _graph.groups.by_group_id(group_id).members.get()
+    if not members or not members.value:
+        return f"Group {team_or_group_name!r} has no members."
+
+    return [_person(m) for m in members.value[:limit]]
 
 
-tools = [get_current_datetime, calculate, get_exchange_rate]
+@tool
+async def get_presence(
+    user: Annotated[
+        str,
+        Field(description="User's Graph id (preferred), UPN, or email. Prefer the id from find_people results."),
+    ],
+) -> dict[str, str] | str:
+    """Get a person's current Teams presence (availability + activity)."""
+    try:
+        presence = await _graph.users.by_user_id(user).presence.get()
+    except Exception as e:
+        return f"Could not get presence for {user!r}: {e}"
+    if not presence:
+        return f"No presence information for {user!r}."
+    return {
+        "availability": presence.availability or "Unknown",
+        "activity": presence.activity or "Unknown",
+    }
+
+
+tools = [find_people, get_org_context, list_team_members, get_presence]

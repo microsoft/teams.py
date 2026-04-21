@@ -3,7 +3,7 @@
 
 # Teams AI Agent (agent-framework)
 
-A Teams bot powered by [agent-framework](https://github.com/microsoft/agent-framework) and Azure AI Foundry. Supports streaming responses, inline citations from MCP search results, per-conversation memory, and extensible local and remote tools.
+A Teams bot powered by [agent-framework](https://github.com/microsoft/agent-framework) and Azure OpenAI. Supports streaming responses, inline citations from MCP search results, per-conversation memory, and Microsoft Graph-backed local tools alongside remote MCP servers.
 
 ## Features
 
@@ -12,15 +12,14 @@ A Teams bot powered by [agent-framework](https://github.com/microsoft/agent-fram
 - **Citations** — sources from MCP search tools are attached as clickable references in the reply
 - **Conversation memory** — each conversation maintains its own session so the agent remembers context across turns
 - **AI-generated label + feedback** — replies include the Teams "AI-generated" label and thumbs up/down feedback buttons; clicking a reaction opens a custom Adaptive Card form for additional feedback
-- **Local tools** — deterministic utilities the model can call: datetime, math, random selection, exchange rates
-- **MCP tools** — remote tool servers: Microsoft Learn docs search, Adaptive Cards MCP
+- **Local tools** — Microsoft Graph-backed tools for org directory lookups, org hierarchy, team membership, and presence
+- **MCP tools** — remote tool servers: Microsoft Learn docs search
 
 ## Prerequisites
 
 - Python >= 3.12, < 3.15 
 - UV >= 0.8.11
-- Node.js (for MCP stdio servers)
-- An [Azure AI Foundry](https://ai.azure.com) project with a deployed model
+- An Azure OpenAI resource with a deployed model
 - A Teams bot registration (App ID + password)
 
 ## Setup
@@ -28,36 +27,59 @@ A Teams bot powered by [agent-framework](https://github.com/microsoft/agent-fram
 Create a `.env` file in `examples/ai-agentframework/`:
 
 ```env
-# Azure AI Foundry
-PROJECT_ENDPOINT=https://<your-project>.services.ai.azure.com/api/projects/<project-name>
-AZURE_OPENAI_MODEL=gpt-4o-mini
+# Azure OpenAI
+AZURE_OPENAI_ENDPOINT=https://<your-resource>.openai.azure.com
+AZURE_OPENAI_MODEL=<deployment-name>
 
-# Teams bot credentials — also used to authenticate to Azure AI Foundry
+# Teams bot credentials — also used to authenticate to Azure OpenAI
 CLIENT_ID=<app-id>
 TENANT_ID=<tenant-id>
 CLIENT_SECRET=<client-secret>
 ```
 
-The bot's Service Principal (`CLIENT_ID`) is used for both Teams and Azure AI Foundry — no separate Foundry credentials needed.
+`AZURE_OPENAI_MODEL` is the **deployment name** of your model, not the base model name. The bot's Service Principal (`CLIENT_ID`) is used for Teams, Azure OpenAI, and Microsoft Graph — no separate credentials needed.
 
-### Azure AI Foundry permissions
+### Azure OpenAI permissions
 
-The bot's Service Principal needs the **Azure AI User** role on the Foundry project:
+The bot's Service Principal needs the **Cognitive Services OpenAI User** role on the Azure OpenAI resource:
 
 ```bash
 az role assignment create \
-  --role "Azure AI User" \
+  --role "Cognitive Services OpenAI User" \
   --assignee $CLIENT_ID \
-  --scope <project-resource-id>
+  --scope <openai-resource-id>
 ```
 
-To find the resource ID, open the project in the [Azure portal](https://portal.azure.com) and copy it from **Settings > Properties > Resource ID**, or run:
+To find the resource ID:
 
 ```bash
-az cognitiveservices account show --name <foundry-hub-name> -g <resource-group> --query id -o tsv
+az cognitiveservices account show --name <openai-resource-name> -g <resource-group> --query id -o tsv
 ```
 
-`<hub-name>` is the subdomain of your `PROJECT_ENDPOINT` — e.g. for `https://my-hub.services.ai.azure.com/...` it is `my-hub`.
+### Microsoft Graph permissions
+
+The local tools call Graph as the bot's service principal (app-only). Grant these **Application** permissions to the app registration in the Azure portal (**Entra ID > App registrations > your app > API permissions**), then click **Grant admin consent**:
+
+| Permission             | Used by                                |
+| ---------------------- | -------------------------------------- |
+| `User.Read.All`        | `find_people`, `get_org_context`       |
+| `Group.Read.All`       | `list_team_members`                    |
+| `GroupMember.Read.All` | `list_team_members`                    |
+| `Presence.Read.All`    | `get_presence`                         |
+
+### Using an API key instead of Entra
+
+`agent.py` uses `OpenAIChatClient` with `ClientSecretCredential` so the same Service Principal powers Teams, Graph, and Azure OpenAI. If you'd rather use an API key, drop the `credential` and pass `api_key` instead:
+
+```python
+client = OpenAIChatClient(
+    model=getenv("AZURE_OPENAI_MODEL"),
+    azure_endpoint=getenv("AZURE_OPENAI_ENDPOINT"),
+    api_key=getenv("AZURE_OPENAI_API_KEY"),
+)
+```
+
+Drop `azure_endpoint` to point at OpenAI instead of Azure.
 
 ### Teams bot registration
 
@@ -70,36 +92,24 @@ cd examples/ai-agentframework
 uv run src/main.py
 ```
 
-## Tools
+## Example interactions
 
-### Local
+Once the bot is running in a Teams chat, try:
 
-| Tool                   | Description                                   |
-| ---------------------- | --------------------------------------------- |
-| `get_current_datetime` | Current date and time for any UTC offset      |
-| `calculate`            | Evaluate mathematical expressions accurately  |
-| `random_pick`          | Randomly select one or more items from a list |
-| `get_exchange_rate`    | Live currency conversion via frankfurter.app  |
-
-### MCP
-
-| Tool            | Type            | Credentials |
-| --------------- | --------------- | ----------- |
-| `MSLearn`       | Streamable HTTP | None        |
-| `AdaptiveCards` | Stdio (npx)     | None        |
-
-> **Note:** For best performance, pre-install the AdaptiveCards MCP server globally to avoid npx cold-start delays:
->
-> ```bash
-> npm install -g adaptive-cards-mcp
-> ```
+- `Who is <colleague's name>?` — directory lookup via `find_people`
+- `Who does <colleague> report to?` — manager + direct reports via `get_org_context`
+- `Who's on the <team-name> team?` — group membership via `list_team_members`
+- `Is <colleague> available right now?` — Teams presence via `get_presence`
+- `Find the manager of <colleague> and tell me if they're online` — chains `get_org_context` and `get_presence`
+- `How do I send a proactive message in teams.py?` — searches Microsoft Learn docs (MCP)
+- `/card show me a profile card for <colleague>` — returns an Adaptive Card instead of text
 
 ## Architecture
 
 ```
 main.py          — Teams App, message handler, streaming, citations
-agent.py         — Agent setup, FoundryChatClient, AgentMiddleware
-local_tools.py   — @tool functions (deterministic local utilities)
+agent.py         — Agent setup, OpenAIChatClient, AgentMiddleware
+local_tools.py   — @tool functions (Microsoft Graph-backed directory lookups)
 mcp_tools.py     — MCP server declarations (remote tool servers)
 ```
 

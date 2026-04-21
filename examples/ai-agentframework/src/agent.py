@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from agent_framework import Agent, FunctionInvocationContext, FunctionMiddleware
-from agent_framework.foundry import FoundryChatClient
+from agent_framework.openai import OpenAIChatClient
 from azure.identity import ClientSecretCredential
 from dotenv import find_dotenv, load_dotenv
 from local_tools import tools as local_tools
@@ -64,9 +64,9 @@ def _require_env(name: str) -> str:
     return value
 
 
-client = FoundryChatClient(
-    project_endpoint=_require_env("PROJECT_ENDPOINT"),
+client = OpenAIChatClient(
     model=_require_env("AZURE_OPENAI_MODEL"),
+    azure_endpoint=_require_env("AZURE_OPENAI_ENDPOINT"),
     credential=ClientSecretCredential(
         tenant_id=_require_env("TENANT_ID"),
         client_id=_require_env("CLIENT_ID"),

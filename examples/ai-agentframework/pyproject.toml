@@ -9,6 +9,7 @@ dependencies = [
     "microsoft-teams-apps",
     "agent-framework",
     "azure-identity>=1.0.0",
+    "msgraph-sdk>=1.0.0",
 ]
 
 [tool.uv.sources]

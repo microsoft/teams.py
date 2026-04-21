@@ -78,7 +78,7 @@ async def _handle_card(ctx: ActivityContext[MessageActivity], text: str) -> None
     try:
         card_data = AdaptiveCard.model_validate(json.loads(response.text))
     except Exception as e:
-        logger.debug("failed to parse agent response as AdaptiveCard: %s", e)
+        logger.warning("failed to parse agent response as AdaptiveCard: %s\nresponse.text was: %s", e, response.text)
         card_data = None
 
     reply = _build_reply("")
