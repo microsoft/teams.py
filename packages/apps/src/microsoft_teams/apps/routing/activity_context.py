@@ -23,6 +23,7 @@ from microsoft_teams.api import (
     MessageActivityInput,
     SentActivity,
     SignOutUserParams,
+    TargetedMessageInfoEntity,
     TokenExchangeResource,
     TokenExchangeState,
     TokenPostResource,
@@ -178,6 +179,8 @@ class ActivityContext(Generic[T]):
         else:
             activity = message
 
+        self._auto_add_targeted_message_info(activity)
+
         ref = conversation_ref or self.conversation_ref
         res = await self._activity_sender.send(activity, ref)
         return res
@@ -230,6 +233,23 @@ class ActivityContext(Generic[T]):
                 type(self.activity).__name__,
             )
         return None
+
+    def _auto_add_targeted_message_info(self, activity: ActivityParams) -> None:
+        """Auto-populate targetedMessageInfo entity when replying to a targeted message.
+
+        In the reactive flow, the SDK reads the incoming targeted message ID
+        and attaches the entity automatically so the developer doesn't need to.
+        Skips if the developer already attached a targetedMessageInfo entity.
+        """
+        incoming = self.activity
+        if not (hasattr(incoming, "recipient") and hasattr(incoming.recipient, "is_targeted")):
+            return
+        if incoming.recipient.is_targeted is not True:
+            return
+
+        already_has = activity.entities and any(isinstance(e, TargetedMessageInfoEntity) for e in activity.entities)
+        if not already_has:
+            activity.add_entity(TargetedMessageInfoEntity(message_id=incoming.id))
 
     async def sign_in(self, options: Optional[SignInOptions] = None) -> Optional[str]:
         """
