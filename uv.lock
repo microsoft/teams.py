@@ -481,7 +481,6 @@ version = "0.1.0"
 source = { virtual = "examples/ai-agentframework" }
 dependencies = [
     { name = "agent-framework" },
-    { name = "azure-identity" },
     { name = "dotenv" },
     { name = "microsoft-teams-apps" },
     { name = "msgraph-sdk" },
@@ -490,7 +489,6 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "agent-framework" },
-    { name = "azure-identity", specifier = ">=1.0.0" },
     { name = "dotenv", specifier = ">=0.9.9" },
     { name = "microsoft-teams-apps", editable = "packages/apps" },
     { name = "msgraph-sdk", specifier = ">=1.0.0" },

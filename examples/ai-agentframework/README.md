@@ -8,7 +8,6 @@ A Teams bot powered by [agent-framework](https://github.com/microsoft/agent-fram
 ## Features
 
 - **Streaming responses** — text streams token-by-token into Teams as the model generates it
-- **Adaptive Cards** — prefix a message with `/card` to get a structured card response instead of text
 - **Citations** — sources from MCP search tools are attached as clickable references in the reply
 - **Conversation memory** — each conversation maintains its own session so the agent remembers context across turns
 - **AI-generated label + feedback** — replies include the Teams "AI-generated" label and thumbs up/down feedback buttons; clicking a reaction opens a custom Adaptive Card form for additional feedback
@@ -30,31 +29,15 @@ Create a `.env` file in `examples/ai-agentframework/`:
 # Azure OpenAI
 AZURE_OPENAI_ENDPOINT=https://<your-resource>.openai.azure.com
 AZURE_OPENAI_MODEL=<deployment-name>
+AZURE_OPENAI_API_KEY=<api-key>
 
-# Teams bot credentials — also used to authenticate to Azure OpenAI
+# Teams bot credentials — also used by Microsoft Graph local tools
 CLIENT_ID=<app-id>
 TENANT_ID=<tenant-id>
 CLIENT_SECRET=<client-secret>
 ```
 
-`AZURE_OPENAI_MODEL` is the **deployment name** of your model, not the base model name. The bot's Service Principal (`CLIENT_ID`) is used for Teams, Azure OpenAI, and Microsoft Graph — no separate credentials needed.
-
-### Azure OpenAI permissions
-
-The bot's Service Principal needs the **Cognitive Services OpenAI User** role on the Azure OpenAI resource:
-
-```bash
-az role assignment create \
-  --role "Cognitive Services OpenAI User" \
-  --assignee $CLIENT_ID \
-  --scope <openai-resource-id>
-```
-
-To find the resource ID:
-
-```bash
-az cognitiveservices account show --name <openai-resource-name> -g <resource-group> --query id -o tsv
-```
+`AZURE_OPENAI_MODEL` is the **deployment name** of your model, not the base model name. The bot's Service Principal (`CLIENT_ID`) is used for Teams and Microsoft Graph.
 
 ### Microsoft Graph permissions
 
@@ -67,19 +50,25 @@ The local tools call Graph as the bot's service principal (app-only). Grant thes
 | `GroupMember.Read.All` | `list_team_members`                    |
 | `Presence.Read.All`    | `get_presence`                         |
 
-### Using an API key instead of Entra
+### Using a Service Principal for Azure OpenAI instead of an API key
 
-`agent.py` uses `OpenAIChatClient` with `ClientSecretCredential` so the same Service Principal powers Teams, Graph, and Azure OpenAI. If you'd rather use an API key, drop the `credential` and pass `api_key` instead:
+`agent.py` authenticates to Azure OpenAI with `AZURE_OPENAI_API_KEY`. If you'd rather use the bot's Service Principal (so the same identity powers Teams, Graph, and Azure OpenAI), swap `api_key` for a `ClientSecretCredential`:
 
 ```python
+from azure.identity import ClientSecretCredential
+
 client = OpenAIChatClient(
     model=getenv("AZURE_OPENAI_MODEL"),
     azure_endpoint=getenv("AZURE_OPENAI_ENDPOINT"),
-    api_key=getenv("AZURE_OPENAI_API_KEY"),
+    credential=ClientSecretCredential(
+        tenant_id=getenv("TENANT_ID"),
+        client_id=getenv("CLIENT_ID"),
+        client_secret=getenv("CLIENT_SECRET"),
+    ),
 )
 ```
 
-Drop `azure_endpoint` to point at OpenAI instead of Azure.
+Then drop `AZURE_OPENAI_API_KEY` from `.env` and grant the Service Principal the **Azure AI User** role on the Azure OpenAI resource.
 
 ### Teams bot registration
 
@@ -102,7 +91,6 @@ Once the bot is running in a Teams chat, try:
 - `Is <colleague> available right now?` — Teams presence via `get_presence`
 - `Find the manager of <colleague> and tell me if they're online` — chains `get_org_context` and `get_presence`
 - `How do I send a proactive message in teams.py?` — searches Microsoft Learn docs (MCP)
-- `/card show me a profile card for <colleague>` — returns an Adaptive Card instead of text
 
 ## Architecture
 
@@ -113,9 +101,6 @@ local_tools.py   — @tool functions (Microsoft Graph-backed directory lookups)
 mcp_tools.py     — MCP server declarations (remote tool servers)
 ```
 
-`main.py` routes incoming messages across two paths:
-
-- **Text path** — streams the response token-by-token using `agent.run(..., stream=True)`. Citations collected during tool calls are attached to the final activity.
-- **Card path** — triggered by the `/card` prefix. Runs `agent.run` with `response_format=json_object` (non-streaming) and renders the JSON response as an Adaptive Card attachment.
+`main.py` streams every response with `agent.run(..., stream=True)`. Citations collected during tool calls are attached to the final activity.
 
 `AgentMiddleware` intercepts every tool call to log it and extract citation URLs from MCP search results. Citations are filtered to only those the model actually referenced with `[N]` markers before being attached to the Teams reply.

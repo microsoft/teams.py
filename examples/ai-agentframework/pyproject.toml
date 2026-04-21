@@ -8,7 +8,6 @@ dependencies = [
     "dotenv>=0.9.9",
     "microsoft-teams-apps",
     "agent-framework",
-    "azure-identity>=1.0.0",
     "msgraph-sdk>=1.0.0",
 ]
 

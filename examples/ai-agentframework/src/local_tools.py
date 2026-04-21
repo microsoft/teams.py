@@ -4,27 +4,30 @@ Licensed under the MIT License.
 """
 
 import asyncio
-from os import getenv
 from typing import Annotated
 
 from agent_framework import tool
-from azure.identity.aio import ClientSecretCredential
-from dotenv import find_dotenv, load_dotenv
-from msgraph import GraphServiceClient  # pyright: ignore[reportPrivateImportUsage]
+from microsoft_teams.apps import App
 from msgraph.generated.groups.groups_request_builder import (  # pyright: ignore[reportMissingTypeStubs]
     GroupsRequestBuilder,  # pyright: ignore[reportMissingTypeStubs]
 )
 from msgraph.generated.users.users_request_builder import UsersRequestBuilder  # pyright: ignore[reportMissingTypeStubs]
+from msgraph.graph_service_client import GraphServiceClient
 from pydantic import Field
 
-load_dotenv(find_dotenv(usecwd=True))
+_graph: GraphServiceClient | None = None
 
-_credential = ClientSecretCredential(
-    tenant_id=getenv("TENANT_ID", ""),
-    client_id=getenv("CLIENT_ID", ""),
-    client_secret=getenv("CLIENT_SECRET", ""),
-)
-_graph = GraphServiceClient(credentials=_credential, scopes=["https://graph.microsoft.com/.default"])
+
+def bind_app(app: App) -> None:
+    """Wire the App's Graph client into the tools. Call once after App() construction."""
+    global _graph
+    _graph = app.get_app_graph()
+
+
+def _require_graph() -> GraphServiceClient:
+    if _graph is None:
+        raise RuntimeError("local_tools.bind_app(app) must be called before invoking tools")
+    return _graph
 
 
 def _person(user: object) -> dict[str, str]:
@@ -53,7 +56,7 @@ async def find_people(
     )
     config = UsersRequestBuilder.UsersRequestBuilderGetRequestConfiguration(query_parameters=params)
     config.headers.add("ConsistencyLevel", "eventual")
-    result = await _graph.users.get(request_configuration=config)
+    result = await _require_graph().users.get(request_configuration=config)
     if not result or not result.value:
         return f"No people found matching {query!r}."
     return [_person(u) for u in result.value]
@@ -67,7 +70,7 @@ async def get_org_context(
     ],
 ) -> dict[str, object] | str:
     """Get a person's profile, their manager, and their direct reports in one call."""
-    user_item = _graph.users.by_user_id(user)
+    user_item = _require_graph().users.by_user_id(user)
     profile, manager, reports = await asyncio.gather(
         user_item.get(),
         user_item.manager.get(),
@@ -102,7 +105,7 @@ async def list_team_members(
         top=1,
     )
     group_config = GroupsRequestBuilder.GroupsRequestBuilderGetRequestConfiguration(query_parameters=group_params)
-    groups = await _graph.groups.get(request_configuration=group_config)
+    groups = await _require_graph().groups.get(request_configuration=group_config)
     if not groups or not groups.value:
         return f"No group found with display name {team_or_group_name!r}."
 
@@ -110,7 +113,7 @@ async def list_team_members(
     if not group_id:
         return f"Group {team_or_group_name!r} has no id."
 
-    members = await _graph.groups.by_group_id(group_id).members.get()
+    members = await _require_graph().groups.by_group_id(group_id).members.get()
     if not members or not members.value:
         return f"Group {team_or_group_name!r} has no members."
 
@@ -126,7 +129,7 @@ async def get_presence(
 ) -> dict[str, str] | str:
     """Get a person's current Teams presence (availability + activity)."""
     try:
-        presence = await _graph.users.by_user_id(user).presence.get()
+        presence = await _require_graph().users.by_user_id(user).presence.get()
     except Exception as e:
         return f"Could not get presence for {user!r}: {e}"
     if not presence:

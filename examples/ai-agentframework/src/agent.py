@@ -7,12 +7,10 @@ import json
 import logging
 from collections.abc import Awaitable, Callable
 from os import getenv
-from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from agent_framework import Agent, FunctionInvocationContext, FunctionMiddleware
 from agent_framework.openai import OpenAIChatClient
-from azure.identity import ClientSecretCredential
 from dotenv import find_dotenv, load_dotenv
 from local_tools import tools as local_tools
 from mcp_tools import mcp_tools
@@ -37,24 +35,34 @@ class AgentMiddleware(FunctionMiddleware):
         await call_next()
         result: Any = context.result
         if isinstance(result, list):
-            result = " ".join(str(getattr(c, "text", c)) for c in result if getattr(c, "text", None))  # type: ignore
+            blocks = cast("list[Any]", result)
+            result = " ".join(str(c.text) for c in blocks if getattr(c, "text", None))
         logger.info("tool result: %s -> %s", context.function.name, result)
 
         try:
-            parsed = json.loads(str(result))
-            for item in parsed.get("results", []):
-                url = item.get("contentUrl") or item.get("link")
-                if url:
-                    pos = len(self.citations) + 1
-                    title = item.get("title") or ""
-                    snippet = (item.get("content") or item.get("description") or "")[:160]
-                    entry = self.citations.setdefault(
-                        url, {"position": pos, "url": url, "title": title, "snippet": snippet}
-                    )
-                    item["citation"] = f"[{entry['position']}]"
-            context.result = json.dumps(parsed)
-        except Exception as e:
-            logger.debug("skipping citation extraction for non-JSON result: %s", e)
+            parsed = json.loads(result)
+        except (json.JSONDecodeError, TypeError) as e:
+            logger.debug("citation extraction skipped for %s: %s", context.function.name, e)
+            return
+        if not isinstance(parsed, dict):
+            return
+        parsed = cast("dict[str, Any]", parsed)
+
+        for item in cast("list[dict[str, Any]]", parsed.get("results", [])):
+            url = item.get("contentUrl") or item.get("link")
+            if not url:
+                continue
+            entry = self.citations.setdefault(
+                url,
+                {
+                    "position": len(self.citations) + 1,
+                    "url": url,
+                    "title": item.get("title") or "",
+                    "snippet": (item.get("content") or item.get("description") or "")[:160],
+                },
+            )
+            item["citation"] = f"[{entry['position']}]"
+        context.result = json.dumps(parsed)
 
 
 def _require_env(name: str) -> str:
@@ -67,17 +75,21 @@ def _require_env(name: str) -> str:
 client = OpenAIChatClient(
     model=_require_env("AZURE_OPENAI_MODEL"),
     azure_endpoint=_require_env("AZURE_OPENAI_ENDPOINT"),
-    credential=ClientSecretCredential(
-        tenant_id=_require_env("TENANT_ID"),
-        client_id=_require_env("CLIENT_ID"),
-        client_secret=_require_env("CLIENT_SECRET"),
-    ),
+    api_key=_require_env("AZURE_OPENAI_API_KEY"),
 )
+
+INSTRUCTIONS = """\
+You are a helpful Teams assistant with access to local tools and remote MCP servers.
+
+When you use information from a search tool, cite your sources inline using the "citation" value \
+provided in each result (e.g. [1], [2]).
+Do not add a references or sources list at the end of your response — citations are displayed separately in the UI.
+"""
 
 tool_logger = AgentMiddleware()
 agent = Agent(
     client=client,
-    instructions=(Path(__file__).parent / "instructions.txt").read_text(),
+    instructions=INSTRUCTIONS,
     tools=[*local_tools, *mcp_tools],
     middleware=[tool_logger],
 )
