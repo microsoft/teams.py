@@ -214,7 +214,12 @@ class App(ActivityHandlerMixin):
 
             # Initialize HttpServer (JWT validation + messaging endpoint route)
             self.server.on_request = self._process_activity_event
-            self.server.initialize(credentials=self.credentials, skip_auth=self.options.skip_auth, cloud=self.cloud)
+            self.server.initialize(
+                credentials=self.credentials,
+                skip_auth=self.options.skip_auth,
+                additional_allowed_domains=self.options.additional_allowed_domains,
+                cloud=self.cloud,
+            )
 
             self._initialized = True
             logger.info("Teams app initialized successfully")

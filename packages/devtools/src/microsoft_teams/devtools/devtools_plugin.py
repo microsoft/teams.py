@@ -114,6 +114,15 @@ class DevToolsPlugin(PluginBase):
         self._on_stopped_callback = callback
 
     async def on_init(self) -> None:
+        python_env = os.environ.get("PYTHON_ENV", "").lower()
+        node_env = os.environ.get("NODE_ENV", "").lower()
+        if python_env == "production" or node_env == "production":
+            raise RuntimeError(
+                "Devtools plugin cannot be used in production environments "
+                "(PYTHON_ENV=production or NODE_ENV=production). "
+                "Remove the devtools plugin from your app configuration."
+            )
+
         logger.warning("⚠️ Devtools is not secure and should not be used in production environments ⚠️")
 
     async def on_start(self, event: PluginStartEvent) -> None:
