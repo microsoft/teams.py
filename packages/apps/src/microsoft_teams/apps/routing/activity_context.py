@@ -249,7 +249,7 @@ class ActivityContext(Generic[T]):
         if not isinstance(activity, MessageActivityInput):
             return
 
-        already_has = activity.entities and any(isinstance(e, TargetedMessageInfoEntity) for e in activity.entities)
+        already_has = any(isinstance(e, TargetedMessageInfoEntity) for e in (activity.entities or []))
         if not already_has:
             activity.add_entity(TargetedMessageInfoEntity(message_id=incoming.id))
 
