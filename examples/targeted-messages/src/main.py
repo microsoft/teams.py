@@ -123,8 +123,8 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
             "- `test reply` - Reply with a targeted message\n"
             "- `test update` - Send then update a targeted message\n"
             "- `test delete` - Send then delete a targeted message\n"
-            "- `test prompt preview` - Reply publicly with prompt preview (reactive)\n"
-            "- `test proactive preview` - Reply publicly with prompt preview (proactive)\n\n"
+            "- `test prompt preview` - Reply with targeted message + prompt preview (reactive)\n"
+            "- `test proactive preview` - Reply with targeted message + prompt preview (proactive)\n\n"
             "💡 *Test in a group chat to verify others don't see targeted messages!*"
         )
         return
@@ -135,8 +135,8 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
     # when the incoming activity is a targeted message.
     # ============================================
     if "test prompt preview" in text:
-        # Use send() instead of reply() to avoid a duplicate blockquote —
-        # the prompt preview card from APX already provides context.
+        # Send a targeted reply — the SDK auto-attaches the
+        # targetedMessageInfo entity
         targeted_reply = MessageActivityInput(
             text="🔒 [PROMPT PREVIEW] Reactive — SDK auto-attaches targetedMessageInfo!"
         ).with_recipient(ctx.activity.from_, is_targeted=True)

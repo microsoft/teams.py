@@ -470,3 +470,16 @@ class TestActivityContextPromptPreview:
         targeted_entities = [e for e in sent_activity.entities if isinstance(e, TargetedMessageInfoEntity)]
         assert len(targeted_entities) == 1
         assert targeted_entities[0].message_id == "1772129782775"
+
+    @pytest.mark.asyncio
+    async def test_send_does_not_add_entity_for_non_message_activity(self) -> None:
+        """Non-message activities (e.g. typing) should not get targetedMessageInfo attached."""
+        from microsoft_teams.api.activities.typing import TypingActivityInput
+
+        activity = self._make_targeted_activity("1772129782775")
+        ctx, mock_sender = _create_activity_context(activity=activity)
+
+        await ctx.send(TypingActivityInput())
+
+        sent_activity = mock_sender.send.call_args[0][0]
+        assert sent_activity.entities is None

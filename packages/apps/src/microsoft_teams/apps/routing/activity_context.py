@@ -246,6 +246,8 @@ class ActivityContext(Generic[T]):
             return
         if incoming.recipient.is_targeted is not True:
             return
+        if not isinstance(activity, MessageActivityInput):
+            return
 
         already_has = activity.entities and any(isinstance(e, TargetedMessageInfoEntity) for e in activity.entities)
         if not already_has:
