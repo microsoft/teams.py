@@ -6,7 +6,7 @@ Licensed under the MIT License.
 import asyncio
 from random import random
 
-from microsoft_teams.api import MessageActivity
+from microsoft_teams.api import CardAction, CardActionType, MessageActivity, MessageActivityInput, SuggestedActions
 from microsoft_teams.apps import ActivityContext, App
 
 app = App()
@@ -35,10 +35,22 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
 
     # Stream messages with delays using ctx.stream.emit
     for message in STREAM_MESSAGES:
-        # Add some randomness to timing
         await asyncio.sleep(random())
-
         ctx.stream.emit(message)
+
+    # Add suggested actions to the final message
+    ctx.stream.emit(
+        MessageActivityInput().with_suggested_actions(
+            SuggestedActions(
+                to=[ctx.activity.from_.id],
+                actions=[
+                    CardAction(type=CardActionType.IM_BACK, title="Run again", value="Run again"),
+                    CardAction(type=CardActionType.IM_BACK, title="Show status", value="Show status"),
+                    CardAction(type=CardActionType.IM_BACK, title="Help", value="Help"),
+                ],
+            )
+        )
+    )
 
 
 if __name__ == "__main__":

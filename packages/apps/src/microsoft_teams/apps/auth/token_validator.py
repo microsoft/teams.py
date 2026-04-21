@@ -9,6 +9,7 @@ import logging
 import re
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
+from urllib.parse import urlparse
 
 import jwt
 from microsoft_teams.api.auth.cloud_environment import PUBLIC, CloudEnvironment
@@ -16,6 +17,37 @@ from microsoft_teams.api.auth.cloud_environment import PUBLIC, CloudEnvironment
 JWT_LEEWAY_SECONDS = 300  # Allowable clock skew when validating JWTs
 
 logger = logging.getLogger(__name__)
+
+
+def is_allowed_service_url(
+    service_url: str,
+    cloud: CloudEnvironment,
+    additional_domains: Optional[List[str]] = None,
+) -> bool:
+    """Validate that a service URL hostname is allowed.
+
+    Checks against the cloud environment's allowed service URLs,
+    plus any additional domains provided by the caller.
+    Localhost is always allowed for local development.
+    """
+    try:
+        parsed = urlparse(service_url)
+        hostname = (parsed.hostname or "").lower()
+
+        if hostname in ("localhost", "127.0.0.1"):
+            return True
+
+        if parsed.scheme != "https":
+            return False
+
+        allowed = [d.lower() for d in [*cloud.allowed_service_urls, *(additional_domains or [])]]
+        if "*" in allowed:
+            return True
+
+        return hostname in allowed
+    except Exception:  # pragma: no cover
+        logger.error("Failed to parse service URL for validation: %s", service_url)
+        return False
 
 
 @dataclass
@@ -41,14 +73,16 @@ class TokenValidator:
     JWT token validator using PyJWKClient for simplified validation.
     """
 
-    def __init__(self, jwt_validation_options: JwtValidationOptions):
+    def __init__(self, jwt_validation_options: JwtValidationOptions, cloud: Optional[CloudEnvironment] = None):
         """
         Initialize the token validator.
 
         Args:
             jwt_validation_options: Configuration for JWT validation
+            cloud: Optional cloud environment for service URL validation
         """
         self.options = jwt_validation_options
+        self.cloud = cloud or PUBLIC
         self._jwks_client = jwt.PyJWKClient(jwt_validation_options.jwks_uri)
 
     @staticmethod
@@ -81,7 +115,7 @@ class TokenValidator:
             jwks_uri=jwks_keys_uri,
             service_url=service_url,
         )
-        return cls(options)
+        return cls(options, cloud=env)
 
     @classmethod
     def for_entra(
@@ -106,6 +140,11 @@ class TokenValidator:
         valid_issuers: List[str] = []
         if tenant_id:
             valid_issuers.append(f"{env.login_endpoint}/{tenant_id}/v2.0")
+        else:
+            logger.warning(
+                "No tenant_id provided for Entra token validation. "
+                "Issuer validation will be skipped, accepting tokens from any tenant."
+            )
         tenant_id = tenant_id or "common"
         valid_audiences = cls._default_audiences(app_id)
         if application_id_uri:
@@ -159,10 +198,15 @@ class TokenValidator:
                 leeway=JWT_LEEWAY_SECONDS,
             )
 
-            # Optional service URL validation
-            expected_service_url = service_url or self.options.service_url
-            if expected_service_url:
-                self._validate_service_url(payload, expected_service_url)
+            # Validate service URL against allowed domains
+            effective_service_url = service_url or self.options.service_url
+            if effective_service_url and not is_allowed_service_url(effective_service_url, self.cloud):
+                logger.error(f"Rejected service URL: {effective_service_url}")
+                raise jwt.InvalidTokenError("Service URL is not from an allowed domain")
+
+            # Optional service URL claim validation
+            if effective_service_url:
+                self._validate_service_url(payload, effective_service_url)
 
             required_scope = scope or self.options.scope
             if required_scope:
@@ -205,7 +249,7 @@ class TokenValidator:
             payload: The decoded JWT payload
             required_scope: The scope required to be present in the token
         """
-        scopes = payload.get("scp", "") or ""
-        if required_scope not in scopes:
+        scope_set = set((payload.get("scp", "") or "").split())
+        if required_scope not in scope_set:
             logger.error(f"Token missing required scope: {required_scope}")
             raise jwt.InvalidTokenError(f"Token missing required scope: {required_scope}")

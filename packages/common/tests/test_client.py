@@ -188,3 +188,65 @@ async def test_failing_token_factory(mock_transport):
 
     with pytest.raises(ValueError, match="Token factory failed"):
         await client.get("/token-test")
+
+
+def test_clone_preserves_user_agent_without_overrides():
+    client = Client(ClientOptions(headers={"User-Agent": "teams-bot/1.0"}))
+    clone = client.clone()
+    assert clone._options.headers["User-Agent"] == "teams-bot/1.0"
+
+
+def test_clone_merges_user_agent_with_override():
+    client = Client(ClientOptions(headers={"User-Agent": "teams-bot/1.0"}))
+    clone = client.clone(ClientOptions(headers={"User-Agent": "myapp/2.0"}))
+    assert clone._options.headers["User-Agent"] == "teams-bot/1.0 myapp/2.0"
+
+
+def test_clone_with_other_headers_preserves_original_user_agent():
+    client = Client(ClientOptions(headers={"User-Agent": "teams-bot/1.0"}))
+    clone = client.clone(ClientOptions(headers={"X-Custom": "value"}))
+    assert clone._options.headers["User-Agent"] == "teams-bot/1.0"
+    assert clone._options.headers["X-Custom"] == "value"
+
+
+def test_clone_user_agent_case_insensitive():
+    client = Client(ClientOptions(headers={"User-Agent": "teams-bot/1.0"}))
+    clone = client.clone(ClientOptions(headers={"user-agent": "myapp/2.0"}))
+    ua = clone._options.headers["User-Agent"]
+    assert "teams-bot/1.0" in ua
+    assert "myapp/2.0" in ua
+
+
+def test_clone_user_agent_no_duplicate_token():
+    client = Client(ClientOptions(headers={"User-Agent": "teams-bot/1.0 myapp/2.0"}))
+    clone = client.clone(ClientOptions(headers={"User-Agent": "myapp/2.0"}))
+    ua = clone._options.headers["User-Agent"]
+    assert ua.count("myapp/2.0") == 1
+
+
+def test_clone_user_agent_no_false_positive_substring():
+    # "bot" is a substring of "teams-bot/1.0" but should still be appended as a distinct token
+    client = Client(ClientOptions(headers={"User-Agent": "teams-bot/1.0"}))
+    clone = client.clone(ClientOptions(headers={"User-Agent": "bot"}))
+    ua = clone._options.headers["User-Agent"]
+    assert ua == "teams-bot/1.0 bot"
+
+
+def test_clone_only_override_user_agent_kept_when_base_has_none():
+    client = Client(ClientOptions(headers={}))
+    clone = client.clone(ClientOptions(headers={"User-Agent": "myapp/2.0"}))
+    assert clone._options.headers["User-Agent"] == "myapp/2.0"
+
+
+def test_clone_normalizes_user_agent_key_when_base_has_none():
+    client = Client(ClientOptions(headers={}))
+    clone = client.clone(ClientOptions(headers={"user-agent": "myapp/2.0"}))
+    assert "User-Agent" in clone._options.headers
+    assert clone._options.headers["User-Agent"] == "myapp/2.0"
+
+
+def test_clone_user_agent_multi_token_override():
+    client = Client(ClientOptions(headers={"User-Agent": "teams-bot/1.0"}))
+    clone = client.clone(ClientOptions(headers={"User-Agent": "myapp/2.0 partner/3.0"}))
+    ua = clone._options.headers["User-Agent"]
+    assert ua == "teams-bot/1.0 myapp/2.0 partner/3.0"
