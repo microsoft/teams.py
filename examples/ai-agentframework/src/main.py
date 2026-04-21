@@ -13,12 +13,15 @@ from agent import agent, tool_logger
 from agent_framework import AgentSession
 from microsoft_teams.api import (
     AdaptiveCardAttachment,
+    CardAction,
+    CardActionType,
     CardTaskModuleTaskInfo,
     CitationAppearance,
     MessageActivity,
     MessageActivityInput,
     MessageFetchTaskInvokeActivity,
     MessageSubmitActionInvokeActivity,
+    SuggestedActions,
     TaskModuleContinueResponse,
     TaskModuleInvokeResponse,
     card_attachment,
@@ -38,6 +41,11 @@ app = App()
 _sessions: dict[str, AgentSession] = {}
 
 _CARD_PREFIX = "/card "
+
+_SUGGESTED_PROMPTS = [
+    CardAction(type=CardActionType.IM_BACK, title="How do I stream in teams.py?", value="How do I stream in teams.py?"),
+    CardAction(type=CardActionType.IM_BACK, title="/card welcome card", value="/card a welcome card"),
+]
 
 
 @app.on_message
@@ -63,7 +71,7 @@ async def _handle_message(ctx: ActivityContext[MessageActivity], text: str) -> N
             ctx.stream.emit(chunk.text)
             full_text += chunk.text
 
-    reply = _build_reply(full_text)
+    reply = _build_reply(full_text, ctx)
     ctx.stream.emit(reply)
 
 
@@ -81,16 +89,17 @@ async def _handle_card(ctx: ActivityContext[MessageActivity], text: str) -> None
         logger.warning("failed to parse agent response as AdaptiveCard: %s\nresponse.text was: %s", e, response.text)
         card_data = None
 
-    reply = _build_reply("")
+    reply = _build_reply("", ctx)
     if card_data:
         reply.add_card(card_data)
     await ctx.send(reply)
 
 
-def _build_reply(full_text: str) -> MessageActivityInput:
+def _build_reply(full_text: str, ctx: ActivityContext[MessageActivity]) -> MessageActivityInput:
     # add_ai_generated() adds the "AI-generated" label; add_feedback() enables thumbs up/down.
     reply = MessageActivityInput().add_ai_generated().add_feedback(mode="custom")
     _attach_citations(reply, full_text)
+    reply.with_suggested_actions(SuggestedActions(to=[ctx.activity.from_.id], actions=_SUGGESTED_PROMPTS))
     return reply
 
 
