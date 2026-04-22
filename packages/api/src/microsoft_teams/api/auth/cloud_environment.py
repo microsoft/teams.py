@@ -29,6 +29,8 @@ class CloudEnvironment:
     """The token issuer for Bot Framework tokens (e.g. "https://api.botframework.com")."""
     graph_scope: str
     """The Microsoft Graph token scope (e.g. "https://graph.microsoft.com/.default")."""
+    allowed_service_urls: tuple[str, ...] = ()
+    """Allowed service URL hostnames for this cloud environment."""
 
 
 PUBLIC = CloudEnvironment(
@@ -39,6 +41,11 @@ PUBLIC = CloudEnvironment(
     openid_metadata_url="https://login.botframework.com/v1/.well-known/openidconfiguration",
     token_issuer="https://api.botframework.com",
     graph_scope="https://graph.microsoft.com/.default",
+    allowed_service_urls=(
+        "smba.trafficmanager.net",
+        "smba.onyx.prod.teams.trafficmanager.net",
+        "smba.infra.gcc.teams.microsoft.com",
+    ),
 )
 """Microsoft public (commercial) cloud."""
 
@@ -50,6 +57,7 @@ US_GOV = CloudEnvironment(
     openid_metadata_url="https://login.botframework.azure.us/v1/.well-known/openidconfiguration",
     token_issuer="https://api.botframework.us",
     graph_scope="https://graph.microsoft.us/.default",
+    allowed_service_urls=("smba.infra.gov.teams.microsoft.us",),
 )
 """US Government Community Cloud High (GCCH)."""
 
@@ -61,6 +69,7 @@ US_GOV_DOD = CloudEnvironment(
     openid_metadata_url="https://login.botframework.azure.us/v1/.well-known/openidconfiguration",
     token_issuer="https://api.botframework.us",
     graph_scope="https://dod-graph.microsoft.us/.default",
+    allowed_service_urls=("smba.infra.dod.teams.microsoft.us",),
 )
 """US Government Department of Defense (DoD)."""
 
@@ -72,6 +81,7 @@ CHINA = CloudEnvironment(
     openid_metadata_url="https://login.botframework.azure.cn/v1/.well-known/openidconfiguration",
     token_issuer="https://api.botframework.azure.cn",
     graph_scope="https://microsoftgraph.chinacloudapi.cn/.default",
+    allowed_service_urls=("frontend.botapi.msg.infra.teams.microsoftonline.cn",),
 )
 """China cloud (21Vianet)."""
 
@@ -90,9 +100,7 @@ def from_name(name: str) -> CloudEnvironment:
     """
     env = _CLOUD_ENVIRONMENTS.get(name.lower())
     if env is None:
-        raise ValueError(
-            f"Unknown cloud environment: '{name}'. Valid values are: Public, USGov, USGovDoD, China."
-        )
+        raise ValueError(f"Unknown cloud environment: '{name}'. Valid values are: Public, USGov, USGovDoD, China.")
     return env
 
 

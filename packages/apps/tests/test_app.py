@@ -813,3 +813,13 @@ class TestAppReply:
 
         with pytest.raises(ValueError, match="app not initialized"):
             await app.reply("conv-id", "Hello")
+
+
+class TestMergeAppOptions:
+    def test_merge_with_defaults(self):
+        from microsoft_teams.apps.options import merge_app_options_with_defaults
+
+        result = merge_app_options_with_defaults(client_id="test-id")
+        assert result["client_id"] == "test-id"
+        assert result["skip_auth"] is False
+        assert result["default_connection_name"] == "graph"
