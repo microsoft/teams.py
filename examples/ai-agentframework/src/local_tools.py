@@ -3,141 +3,38 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-import asyncio
+from contextvars import ContextVar
 from typing import Annotated
 
 from agent_framework import tool
-from microsoft_teams.apps import App
-from msgraph.generated.groups.groups_request_builder import (  # pyright: ignore[reportMissingTypeStubs]
-    GroupsRequestBuilder,  # pyright: ignore[reportMissingTypeStubs]
-)
-from msgraph.generated.users.users_request_builder import UsersRequestBuilder  # pyright: ignore[reportMissingTypeStubs]
-from msgraph.graph_service_client import GraphServiceClient
+from microsoft_teams.cards import AdaptiveCard, Fact, FactSet, TextBlock
 from pydantic import Field
 
-_graph: GraphServiceClient | None = None
-
-
-def bind_app(app: App) -> None:
-    """Wire the App's Graph client into the tools. Call once after App() construction."""
-    global _graph
-    _graph = app.get_app_graph()
-
-
-def _require_graph() -> GraphServiceClient:
-    if _graph is None:
-        raise RuntimeError("local_tools.bind_app(app) must be called before invoking tools")
-    return _graph
-
-
-def _person(user: object) -> dict[str, str]:
-    return {
-        "id": getattr(user, "id", None) or "",
-        "name": getattr(user, "display_name", None) or "",
-        "upn": getattr(user, "user_principal_name", None) or "",
-        "email": getattr(user, "mail", None) or getattr(user, "user_principal_name", None) or "",
-        "title": getattr(user, "job_title", None) or "",
-        "department": getattr(user, "department", None) or "",
-        "office": getattr(user, "office_location", None) or "",
-    }
+# Per-turn card bucket. main.py sets a fresh list at the start of each handler so concurrent turns
+# don't clobber each other. The tool appends into whichever list is active in its context.
+pending_cards: ContextVar[list[AdaptiveCard]] = ContextVar("pending_cards")
 
 
 @tool
-async def find_people(
-    query: Annotated[str, Field(description="Name, email, job title, or department fragment")],
-    limit: Annotated[int, Field(description="Max results", ge=1, le=25)] = 5,
-) -> list[dict[str, str]] | str:
-    """Search the org directory. Returns up to `limit` people with name, email, title, department, office."""
-    safe = query.replace('"', "")
-    params = UsersRequestBuilder.UsersRequestBuilderGetQueryParameters(
-        search=f'"displayName:{safe}" OR "mail:{safe}" OR "jobTitle:{safe}" OR "department:{safe}"',
-        select=["id", "displayName", "mail", "userPrincipalName", "jobTitle", "department", "officeLocation"],
-        top=limit,
+async def send_welcome_card(
+    greeting: Annotated[str, Field(description="The greeting message for the user. eg Hello, John! or Welcome!")],
+) -> str:
+    """Attach a welcome card with a capabilities overview."""
+    card = AdaptiveCard(version="1.5").with_body(
+        [
+            TextBlock(text=f"{greeting}! Here are some things I can do:", size="Large", weight="Bolder", wrap=True),
+            FactSet(
+                facts=[
+                    Fact(title="Docs", value="Microsoft Learn search with citations"),
+                    Fact(title="Streaming", value="Token-by-token replies"),
+                    Fact(title="Memory", value="Per-conversation context"),
+                    Fact(title="Feedback", value="Thumbs up/down with a follow-up form"),
+                ]
+            ),
+        ]
     )
-    config = UsersRequestBuilder.UsersRequestBuilderGetRequestConfiguration(query_parameters=params)
-    config.headers.add("ConsistencyLevel", "eventual")
-    result = await _require_graph().users.get(request_configuration=config)
-    if not result or not result.value:
-        return f"No people found matching {query!r}."
-    return [_person(u) for u in result.value]
+    pending_cards.get().append(card)
+    return "Card attached."
 
 
-@tool
-async def get_org_context(
-    user: Annotated[
-        str,
-        Field(description="User's Graph id (preferred), UPN, or email. Prefer the id from find_people results."),
-    ],
-) -> dict[str, object] | str:
-    """Get a person's profile, their manager, and their direct reports in one call."""
-    user_item = _require_graph().users.by_user_id(user)
-    profile, manager, reports = await asyncio.gather(
-        user_item.get(),
-        user_item.manager.get(),
-        user_item.direct_reports.get(),
-        return_exceptions=True,
-    )
-
-    if isinstance(profile, BaseException) or not profile:
-        return f"Could not get profile for {user!r}: {profile}"
-
-    return {
-        "profile": _person(profile),
-        "manager": _person(manager) if manager and not isinstance(manager, BaseException) else None,
-        "direct_reports": (
-            [_person(u) for u in reports.value]  # type: ignore
-            if reports and not isinstance(reports, BaseException) and getattr(reports, "value", None)
-            else []
-        ),
-    }
-
-
-@tool
-async def list_team_members(
-    team_or_group_name: Annotated[str, Field(description="Display name of a Team or M365 group")],
-    limit: Annotated[int, Field(description="Max members to return", ge=1, le=50)] = 20,
-) -> list[dict[str, str]] | str:
-    """Resolve a Team/M365 group by display name and return its members."""
-    safe = team_or_group_name.replace("'", "''")
-    group_params = GroupsRequestBuilder.GroupsRequestBuilderGetQueryParameters(
-        filter=f"displayName eq '{safe}'",
-        select=["id", "displayName"],
-        top=1,
-    )
-    group_config = GroupsRequestBuilder.GroupsRequestBuilderGetRequestConfiguration(query_parameters=group_params)
-    groups = await _require_graph().groups.get(request_configuration=group_config)
-    if not groups or not groups.value:
-        return f"No group found with display name {team_or_group_name!r}."
-
-    group_id = groups.value[0].id
-    if not group_id:
-        return f"Group {team_or_group_name!r} has no id."
-
-    members = await _require_graph().groups.by_group_id(group_id).members.get()
-    if not members or not members.value:
-        return f"Group {team_or_group_name!r} has no members."
-
-    return [_person(m) for m in members.value[:limit]]
-
-
-@tool
-async def get_presence(
-    user: Annotated[
-        str,
-        Field(description="User's Graph id (preferred), UPN, or email. Prefer the id from find_people results."),
-    ],
-) -> dict[str, str] | str:
-    """Get a person's current Teams presence (availability + activity)."""
-    try:
-        presence = await _require_graph().users.by_user_id(user).presence.get()
-    except Exception as e:
-        return f"Could not get presence for {user!r}: {e}"
-    if not presence:
-        return f"No presence information for {user!r}."
-    return {
-        "availability": presence.availability or "Unknown",
-        "activity": presence.activity or "Unknown",
-    }
-
-
-tools = [find_people, get_org_context, list_team_members, get_presence]
+tools = [send_welcome_card]

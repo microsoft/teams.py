@@ -483,7 +483,6 @@ dependencies = [
     { name = "agent-framework" },
     { name = "dotenv" },
     { name = "microsoft-teams-apps" },
-    { name = "msgraph-sdk" },
 ]
 
 [package.metadata]
@@ -491,7 +490,6 @@ requires-dist = [
     { name = "agent-framework" },
     { name = "dotenv", specifier = ">=0.9.9" },
     { name = "microsoft-teams-apps", editable = "packages/apps" },
-    { name = "msgraph-sdk", specifier = ">=1.0.0" },
 ]
 
 [[package]]
