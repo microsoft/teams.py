@@ -26,14 +26,20 @@
          "reportIncompatibleMethodOverride": "none"
       },
       {
-      "root": "packages/botbuilder/src",
-      "reportMissingTypeStubs": "none",
-      "reportUnknownMemberType": "none"
+         "root": "packages/botbuilder/src",
+         "reportMissingTypeStubs": "none",
+         "reportUnknownMemberType": "none"
       },
       {
          "root": "examples/botbuilder/src",
          "reportMissingTypeStubs": "none",
          "reportUnknownMemberType": "none"
+      },
+      {
+         "root": "examples/ai-agentframework/src",
+         "reportMissingTypeStubs": "none",
+         "reportUnknownMemberType": "none",
+         "reportAttributeAccessIssue": "none"
       }
    ]
 }
