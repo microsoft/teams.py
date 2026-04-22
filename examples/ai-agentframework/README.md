@@ -3,7 +3,7 @@
 
 # Teams AI Agent (agent-framework)
 
-A Teams bot powered by [agent-framework](https://github.com/microsoft/agent-framework) and Azure OpenAI. Supports streaming responses, inline citations from MCP search results, per-conversation memory, and a adaptive-card local tool alongside remote MCP servers.
+A Teams bot powered by [agent-framework](https://github.com/microsoft/agent-framework) and Azure OpenAI. Supports streaming responses, inline citations from MCP search results, per-conversation memory, and an Adaptive Card local tool alongside remote MCP servers.
 
 ## Features
 
