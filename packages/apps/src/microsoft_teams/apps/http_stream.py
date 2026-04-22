@@ -6,15 +6,13 @@ Licensed under the MIT License.
 import asyncio
 import logging
 from collections import deque
-from typing import Awaitable, Callable, List, Optional, Union
+from typing import Awaitable, Callable, Optional, Union
 
 from httpx import HTTPStatusError
 from microsoft_teams.api import (
     ApiClient,
-    Attachment,
     ChannelData,
     ConversationReference,
-    Entity,
     MessageActivityInput,
     SentActivity,
     TypingActivityInput,
@@ -71,9 +69,8 @@ class HttpStream(StreamerProtocol):
         self._index = 1
         self._id: Optional[str] = None
         self._text: str = ""
-        self._attachments: List[Attachment] = []
         self._channel_data: ChannelData = ChannelData()
-        self._entities: List[Entity] = []
+        self._final_activity: Optional[MessageActivityInput] = None
         self._queue: deque[Union[MessageActivityInput, TypingActivityInput, str]] = deque()
 
     @property
@@ -167,14 +164,19 @@ class HttpStream(StreamerProtocol):
             logger.warning("Timeout while waiting for _id to be set and queue to be empty, cannot close stream")
             return None
 
-        if self._text == "" and self._attachments == []:
-            logger.warning("no text or attachments to send, cannot close stream")
+        has_content = (
+            self._text != ""
+            or (self._final_activity and self._final_activity.attachments)
+            or (self._final_activity and self._final_activity.suggested_actions)
+        )
+        if not has_content:
+            logger.warning("no text, attachments, or suggested actions to send, cannot close stream")
             return None
 
-        # Build final message
+        # Build final message from the last emitted MessageActivityInput (last wins)
         assert self._id is not None, "ID should be set by this point"
-        activity = MessageActivityInput(text=self._text).with_id(self._id).with_channel_data(self._channel_data)
-        activity.add_attachments(*self._attachments).add_entities(*self._entities).add_stream_final()
+        activity = self._final_activity or MessageActivityInput()
+        activity.with_text(self._text).with_id(self._id).with_channel_data(self._channel_data).add_stream_final()
 
         res = await retry(lambda: self._send(activity), options=RetryOptions())
 
@@ -205,7 +207,7 @@ class HttpStream(StreamerProtocol):
                 self._timeout.cancel()
                 self._timeout = None
 
-            informative_updates: List[TypingActivityInput] = []
+            informative_updates: list[TypingActivityInput] = []
             start_length = len(self._queue)
 
             while self._queue:
@@ -213,8 +215,7 @@ class HttpStream(StreamerProtocol):
 
                 if isinstance(activity, MessageActivityInput):
                     self._text += activity.text or ""
-                    self._attachments.extend(activity.attachments or [])
-                    self._entities.extend(activity.entities or [])
+                    self._final_activity = activity
                 if isinstance(activity, (MessageActivityInput, TypingActivityInput)) and activity.channel_data:
                     merged = {**self._channel_data.model_dump(), **activity.channel_data.model_dump()}
                     self._channel_data = ChannelData(**merged)
