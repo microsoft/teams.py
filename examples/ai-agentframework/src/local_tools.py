@@ -12,7 +12,7 @@ from pydantic import Field
 
 # Per-turn card bucket. main.py sets a fresh list at the start of each handler so concurrent turns
 # don't clobber each other. The tool appends into whichever list is active in its context.
-pending_cards: ContextVar[list[AdaptiveCard]] = ContextVar("pending_cards")
+pending_cards: ContextVar[list[AdaptiveCard] | None] = ContextVar("pending_cards", default=None)
 
 
 @tool
@@ -33,7 +33,10 @@ async def send_welcome_card(
             ),
         ]
     )
-    pending_cards.get().append(card)
+    cards = pending_cards.get()
+    if cards is None:
+        return "No active turn context; card could not be attached."
+    cards.append(card)
     return "Card attached."
 
 
