@@ -74,7 +74,7 @@ uv run src/main.py
 
 Once the bot is running in a Teams chat, try:
 
-- `Hi! My name is Alex !` — agent calls `send_welcome_card` and greets you with an Adaptive Card
+- `Hi! My name is Alex!` — agent calls `send_welcome_card` and greets you with an Adaptive Card
 - `How do I stream in teams.py?` — searches Microsoft Learn docs (MCP) with inline citations
 - `How do I send a proactive message in teams.py?` — searches Microsoft Learn docs (MCP) with inline citations
 
