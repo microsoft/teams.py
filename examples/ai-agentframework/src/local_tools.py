@@ -22,7 +22,7 @@ async def send_welcome_card(
     """Attach a welcome card with a capabilities overview."""
     card = AdaptiveCard(version="1.5").with_body(
         [
-            TextBlock(text=f"{greeting}! Here are some things I can do:", size="Large", weight="Bolder", wrap=True),
+            TextBlock(text=f"{greeting} Here are some things I can do:", size="Large", weight="Bolder", wrap=True),
             FactSet(
                 facts=[
                     Fact(title="Docs", value="Microsoft Learn search with citations"),
