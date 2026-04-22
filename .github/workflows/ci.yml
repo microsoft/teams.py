@@ -6,10 +6,12 @@ on:
   pull_request:
     paths:
       - packages/**
+      - examples/**
   push:
     branches: ["main"]
     paths:
       - packages/**
+      - examples/**
 
 # Declare default permissions as read only.
 permissions: read-all

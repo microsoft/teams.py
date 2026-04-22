@@ -7,7 +7,7 @@ requires-python = ">=3.12,<3.15"
 dependencies = [
     "dotenv>=0.9.9",
     "microsoft-teams-apps",
-    "agent-framework",
+    "agent-framework-core[all]",
     "msgraph-sdk>=1.0.0",
 ]
 
