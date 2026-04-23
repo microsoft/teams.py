@@ -12,11 +12,9 @@ from microsoft_teams.cards import (
 )
 from microsoft_teams.cards.core import TextInput
 
-"""
-Adaptive Card builders. The ask card carries its own routing metadata
-(qid, sender, reply_url) inside the submit action's data, so the receiving bot
-can send the reply back without any in-memory "pending ask" state.
-"""
+# Adaptive Card builders. The ask card carries its own routing metadata
+# (qid, sender, reply_url) inside the submit action's data, so the receiving bot
+# can send the reply back without any in-memory "pending ask" state.
 ASK_REPLY_ACTION = "ask_reply"
 
 
