@@ -23,12 +23,9 @@ from microsoft_teams.apps import App
 from microsoft_teams.cards import AdaptiveCard
 from state import BotState
 
-"""
-
-A2A server-side dispatch. Reads the incoming `DataPart`, branches on
-`data.kind` (`ask` vs `reply`), updates `BotState`, and pushes the right card
-into Teams via `app.send(conv_id, card)`.
-"""
+# A2A server-side dispatch. Reads the incoming `DataPart`, branches on
+# `data.kind` (`ask` vs `reply`), updates `BotState`, and pushes the right card
+# into Teams via `app.send(conv_id, card)`.
 
 logger = logging.getLogger(__name__)
 
