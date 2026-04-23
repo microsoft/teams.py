@@ -3,12 +3,12 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from microsoft_teams.ai import Function
 from microsoft_teams.apps import FastAPIAdapter, HttpServer, PluginStartEvent
-from microsoft_teams.mcpplugin.server_plugin import McpServerPlugin
+from microsoft_teams.mcpplugin.server_plugin import McpServerPlugin, _AuthMiddleware
 from pydantic import BaseModel, ValidationError
 
 # pyright: basic
@@ -351,6 +351,113 @@ class TestMcpServerPluginOnStart:
             await plugin.on_start(event)
 
         assert plugin._mounted is False
+
+    async def test_on_start_without_require_auth_emits_warning(
+        self, plugin: McpServerPlugin, mock_mcp_server: MagicMock, mock_http_server
+    ):
+        """Starting without require_auth logs the 'no auth' warning once."""
+        mock_fastapi_adapter = MagicMock(spec=FastAPIAdapter)
+        mock_fastapi_adapter.lifespans = []
+        mock_fastapi_adapter.app = MagicMock()
+        mock_http_server.adapter = mock_fastapi_adapter
+        plugin.http_server = mock_http_server
+        mock_mcp_server.http_app = MagicMock(return_value=MagicMock())
+
+        with patch("microsoft_teams.mcpplugin.server_plugin.logger") as mock_logger:
+            await plugin.on_start(PluginStartEvent(port=3978))
+
+        warning_calls = [call for call in mock_logger.warning.call_args_list if "without require_auth" in call.args[0]]
+        assert len(warning_calls) == 1
+
+    async def test_on_start_with_require_auth_wraps_in_middleware(self, mock_http_server, mock_mcp_server: MagicMock):
+        """Starting with require_auth wraps the mcp app in _AuthMiddleware and skips the warning."""
+        with patch("microsoft_teams.mcpplugin.server_plugin.FastMCP") as mock_fastmcp_class:
+            mock_fastmcp_class.return_value = mock_mcp_server
+            plugin = McpServerPlugin(require_auth=lambda _req: True)
+
+        mock_fastapi_adapter = MagicMock(spec=FastAPIAdapter)
+        mock_fastapi_adapter.lifespans = []
+        mock_fastapi_adapter.app = MagicMock()
+        mock_http_server.adapter = mock_fastapi_adapter
+        plugin.http_server = mock_http_server
+
+        mock_mcp_http_app = MagicMock()
+        mock_mcp_server.http_app = MagicMock(return_value=mock_mcp_http_app)
+
+        with patch("microsoft_teams.mcpplugin.server_plugin.logger") as mock_logger:
+            await plugin.on_start(PluginStartEvent(port=3978))
+
+        mount_args = mock_fastapi_adapter.app.mount.call_args
+        assert mount_args.args[0] == "/"
+        assert isinstance(mount_args.args[1], _AuthMiddleware)
+        assert not any("without require_auth" in call.args[0] for call in mock_logger.warning.call_args_list)
+
+
+class TestAuthMiddleware:
+    """Tests for _AuthMiddleware ASGI wrapper."""
+
+    def _http_scope(self) -> dict:
+        return {"type": "http", "method": "POST", "path": "/mcp", "headers": []}
+
+    async def _noop_receive(self) -> dict:
+        return {"type": "http.request", "body": b"", "more_body": False}
+
+    async def test_passthrough_non_http_scope(self):
+        app = AsyncMock()
+        mw = _AuthMiddleware(app, lambda _req: True)
+
+        scope = {"type": "lifespan"}
+        send = AsyncMock()
+        await mw(scope, self._noop_receive, send)
+
+        app.assert_awaited_once_with(scope, self._noop_receive, send)
+        send.assert_not_called()
+
+    async def test_allows_when_require_auth_returns_true(self):
+        app = AsyncMock()
+        mw = _AuthMiddleware(app, lambda _req: True)
+
+        scope = self._http_scope()
+        send = AsyncMock()
+        await mw(scope, self._noop_receive, send)
+
+        app.assert_awaited_once()
+        send.assert_not_called()
+
+    async def test_allows_when_require_auth_async_returns_true(self):
+        app = AsyncMock()
+
+        async def require_auth(_req):
+            return True
+
+        mw = _AuthMiddleware(app, require_auth)
+        await mw(self._http_scope(), self._noop_receive, AsyncMock())
+        app.assert_awaited_once()
+
+    async def test_rejects_with_401_when_returning_false(self):
+        app = AsyncMock()
+        mw = _AuthMiddleware(app, lambda _req: False)
+
+        send = AsyncMock()
+        await mw(self._http_scope(), self._noop_receive, send)
+
+        app.assert_not_called()
+        start_call = send.await_args_list[0]
+        assert start_call.args[0]["type"] == "http.response.start"
+        assert start_call.args[0]["status"] == 401
+
+    async def test_rejects_with_401_when_raising(self):
+        app = AsyncMock()
+
+        def require_auth(_req):
+            raise RuntimeError("bad token")
+
+        mw = _AuthMiddleware(app, require_auth)
+        send = AsyncMock()
+        await mw(self._http_scope(), self._noop_receive, send)
+
+        app.assert_not_called()
+        assert send.await_args_list[0].args[0]["status"] == 401
 
 
 class TestMcpServerPluginOnStop:

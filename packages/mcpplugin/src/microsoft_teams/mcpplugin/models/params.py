@@ -25,3 +25,5 @@ class McpClientPluginParams:
     )
     skip_if_unavailable: Optional[bool] = True  # Continue if server is unavailable
     refetch_timeout_ms: Optional[int] = None  # Override default cache timeout
+    allow_private_network: bool = False  # Allow MCP URLs resolving to loopback/RFC1918/link-local
+    validate_url: Optional[Callable[[str], Union[bool, Awaitable[bool]]]] = None  # Fully replace default URL filter

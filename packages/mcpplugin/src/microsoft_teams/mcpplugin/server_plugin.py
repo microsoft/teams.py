@@ -6,7 +6,7 @@ Licensed under the MIT License.
 import importlib.metadata
 import logging
 from inspect import isawaitable
-from typing import Annotated, Any, TypeVar, cast
+from typing import Annotated, Any, Awaitable, Callable, Optional, TypeVar, Union, cast
 
 from fastmcp import FastMCP
 from fastmcp.tools import FunctionTool
@@ -20,6 +20,7 @@ from microsoft_teams.apps import (
     PluginStartEvent,
 )
 from pydantic import BaseModel
+from starlette.requests import Request
 
 try:
     version = importlib.metadata.version("microsoft-teams-mcpplugin")
@@ -29,6 +30,44 @@ except importlib.metadata.PackageNotFoundError:
 logger = logging.getLogger(__name__)
 
 P = TypeVar("P", bound=BaseModel)
+
+RequireAuthCallable = Callable[[Request], Union[bool, Awaitable[bool]]]
+
+
+class _AuthMiddleware:
+    """ASGI middleware that gates inbound MCP requests behind ``require_auth``."""
+
+    def __init__(self, app: Any, require_auth: RequireAuthCallable) -> None:
+        self.app = app
+        self.require_auth = require_auth
+
+    async def __call__(self, scope: Any, receive: Any, send: Any) -> None:
+        if scope.get("type") != "http":
+            await self.app(scope, receive, send)
+            return
+
+        request = Request(scope, receive=receive)
+        ok = False
+        try:
+            result = self.require_auth(request)
+            if isawaitable(result):
+                result = await result
+            ok = bool(result)
+        except Exception as err:  # noqa: BLE001
+            logger.debug("require_auth raised: %s", err)
+
+        if not ok:
+            await send(
+                {
+                    "type": "http.response.start",
+                    "status": 401,
+                    "headers": [(b"content-type", b"text/plain")],
+                }
+            )
+            await send({"type": "http.response.body", "body": b"unauthorized"})
+            return
+
+        await self.app(scope, receive, send)
 
 
 @Plugin(name="mcp-server", version=version, description="MCP server plugin that exposes AI functions as MCP tools")
@@ -44,17 +83,27 @@ class McpServerPlugin(PluginBase):
     # Dependency injection
     http_server: Annotated[HttpServer, DependencyMetadata()]
 
-    def __init__(self, name: str = "teams-mcp-server", path: str = "/mcp"):
+    def __init__(
+        self,
+        name: str = "teams-mcp-server",
+        path: str = "/mcp",
+        require_auth: Optional[RequireAuthCallable] = None,
+    ):
         """
         Initialize the MCP server plugin.
 
         Args:
             name: The name of the MCP server for identification
             path: The HTTP path to mount the MCP server on (default: /mcp)
+            require_auth: Optional callable gating inbound MCP requests. Receives
+                a Starlette Request; return True to allow, False (or raise) to
+                reject with HTTP 401. When unset, all requests are accepted and
+                a warning is emitted at plugin startup.
         """
         self.mcp_server = FastMCP(name)
         self.path = path
         self._mounted = False
+        self._require_auth = require_auth
 
     @property
     def server(self) -> FastMCP:
@@ -165,7 +214,16 @@ class McpServerPlugin(PluginBase):
             # We mount the mcp server as a separate app at self.path
             mcp_http_app = self.mcp_server.http_app(path=self.path, transport="http")
             adapter.lifespans.append(mcp_http_app.lifespan)  # pyright: ignore[reportArgumentType]
-            adapter.app.mount("/", mcp_http_app)
+
+            if self._require_auth is not None:
+                adapter.app.mount("/", _AuthMiddleware(mcp_http_app, self._require_auth))
+            else:
+                logger.warning(
+                    "McpServerPlugin started without require_auth. All MCP requests at %s "
+                    "will be accepted. Pass require_auth to enforce authentication.",
+                    self.path,
+                )
+                adapter.app.mount("/", mcp_http_app)
 
             self._mounted = True
 

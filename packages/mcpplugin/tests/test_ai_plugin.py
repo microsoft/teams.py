@@ -106,6 +106,19 @@ class MockTransport:
         yield (read_stream, write_stream)
 
 
+@pytest.fixture(autouse=True)
+def _stub_url_validation_dns():
+    """
+    Prevent DNS lookups from running when ai_plugin runs URL validation
+    against placeholder test hosts (e.g., http://test-server).
+    """
+    with patch(
+        "microsoft_teams.mcpplugin.url_validation._resolve_host",
+        new=AsyncMock(return_value=["8.8.8.8"]),
+    ):
+        yield
+
+
 @pytest.fixture
 def sample_tools() -> List[MockMCPTool]:
     """Sample MCP tools for testing."""

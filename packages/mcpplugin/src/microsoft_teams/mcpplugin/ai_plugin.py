@@ -17,6 +17,7 @@ from pydantic import BaseModel
 
 from .models import McpCachedValue, McpClientPluginParams, McpToolDetails
 from .transport import create_transport
+from .url_validation import UrlValidationParams, validate_mcp_server_url
 
 REFETCH_TIMEOUT_MS = 24 * 60 * 60 * 1000  # 1 day
 
@@ -248,6 +249,13 @@ class McpClientPlugin(BaseAIPlugin):
         Raises:
             Exception: If connection or tool listing fails
         """
+        await validate_mcp_server_url(
+            url,
+            UrlValidationParams(
+                allow_private_network=params.allow_private_network,
+                validate_url=params.validate_url,
+            ),
+        )
         transport_context = create_transport(url, params.transport or "streamable_http", params.headers)
 
         async with transport_context as (read_stream, write_stream):
@@ -285,6 +293,13 @@ class McpClientPlugin(BaseAIPlugin):
         Returns:
             Tool execution result as string or list of strings
         """
+        await validate_mcp_server_url(
+            url,
+            UrlValidationParams(
+                allow_private_network=params.allow_private_network,
+                validate_url=params.validate_url,
+            ),
+        )
         transport_context = create_transport(url, params.transport or "streamable_http", params.headers)
 
         async with transport_context as (read_stream, write_stream):
