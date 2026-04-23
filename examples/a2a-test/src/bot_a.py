@@ -20,19 +20,16 @@ from microsoft_teams.apps import ActivityContext, App
 from microsoft_teams.common import ConsoleFormatter
 from state import BotState
 
-"""
-
-Bot A (Alice) — Teams bot + A2A server + async A2A sender.
-
-- Teams: port 3978. A2A: port 5000.
-- `ask bob <q>` → send ask card to Bob over A2A, return immediately.
-- Bob's operator fills in the card and clicks Send reply → Bob's card-action
-  handler routes the reply back over A2A. Alice pushes the reply card to the
-  user who originally asked.
-- When Alice receives an ask from Bob, her executor pushes the ask card into
-  Alice's own current operator conversation. That operator fills in the card
-  and clicks Send reply → Alice's card-action handler sends the reply back.
-"""
+# Bot A (Alice) — Teams bot + A2A server + async A2A sender.
+#
+# - Teams: port 3978. A2A: port 5000.
+# - `ask bob <q>` → send ask card to Bob over A2A, return immediately.
+# - Bob's operator fills in the card and clicks Send reply → Bob's card-action
+#   handler routes the reply back over A2A. Alice pushes the reply card to the
+#   user who originally asked.
+# - When Alice receives an ask from Bob, her executor pushes the ask card into
+#   Alice's own current operator conversation. That operator fills in the card
+#   and clicks Send reply → Alice's card-action handler sends the reply back.
 load_dotenv()
 
 
