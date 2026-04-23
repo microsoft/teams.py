@@ -9,7 +9,8 @@ from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from microsoft_teams.api import Account, MessageActivityInput, SentActivity
+from microsoft_teams.api import Account, MessageActivityInput, SentActivity, TargetedMessageInfoEntity
+from microsoft_teams.api.activities.typing import TypingActivityInput
 from microsoft_teams.apps.routing.activity_context import ActivityContext
 
 
@@ -413,8 +414,6 @@ class TestActivityContextPromptPreview:
     @pytest.mark.asyncio
     async def test_send_auto_adds_targeted_message_info_entity(self) -> None:
         """When replying to a targeted message, the SDK auto-adds targetedMessageInfo."""
-        from microsoft_teams.api import TargetedMessageInfoEntity
-
         activity = self._make_targeted_activity("1772129782775")
         ctx, mock_sender = _create_activity_context(activity=activity)
 
@@ -442,8 +441,6 @@ class TestActivityContextPromptPreview:
     @pytest.mark.asyncio
     async def test_send_does_not_duplicate_entity_if_already_present(self) -> None:
         """If the developer already added targetedMessageInfo, the SDK does not duplicate it."""
-        from microsoft_teams.api import TargetedMessageInfoEntity
-
         activity = self._make_targeted_activity("1772129782775")
         ctx, mock_sender = _create_activity_context(activity=activity)
 
@@ -458,8 +455,6 @@ class TestActivityContextPromptPreview:
     @pytest.mark.asyncio
     async def test_reply_auto_adds_targeted_message_info_entity(self) -> None:
         """reply() also auto-adds targetedMessageInfo for targeted messages."""
-        from microsoft_teams.api import TargetedMessageInfoEntity
-
         activity = self._make_targeted_activity("1772129782775")
         ctx, mock_sender = _create_activity_context(activity=activity)
 
@@ -474,8 +469,6 @@ class TestActivityContextPromptPreview:
     @pytest.mark.asyncio
     async def test_send_does_not_add_entity_for_non_message_activity(self) -> None:
         """Non-message activities (e.g. typing) should not get targetedMessageInfo attached."""
-        from microsoft_teams.api.activities.typing import TypingActivityInput
-
         activity = self._make_targeted_activity("1772129782775")
         ctx, mock_sender = _create_activity_context(activity=activity)
 

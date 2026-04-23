@@ -6,6 +6,7 @@ Licensed under the MIT License.
 from typing import Any, List, Literal, Optional, Self
 
 from microsoft_teams.cards import AdaptiveCard
+from microsoft_teams.common.experimental import experimental
 
 from ...models import (
     Account,
@@ -32,6 +33,7 @@ from ...models.entity import (
     Entity,
     Image,
     MessageEntity,
+    TargetedMessageInfoEntity,
 )
 from ..utils import StripMentionsTextOptions, strip_mentions_text
 
@@ -412,6 +414,24 @@ class MessageActivityInput(_MessageBase, ActivityInputBase):
             self.channel_data = ChannelData()
         self.channel_data.feedback_loop = FeedbackLoop(type=mode)
         self.channel_data.feedback_loop_enabled = None
+        return self
+
+    @experimental("ExperimentalTeamsTargeted")
+    def add_targeted_message_info(self, message_id: str) -> Self:
+        """Add a targetedMessageInfo entity for prompt preview.
+
+        If an entity with type ``"targetedMessageInfo"`` already exists,
+        it is not added again (one prompt preview per message).
+
+        Args:
+            message_id: The message ID of the targeted message.
+
+        Returns:
+            Self for method chaining
+        """
+        has_entity = any(isinstance(e, TargetedMessageInfoEntity) for e in (self.entities or []))
+        if not has_entity:
+            self.add_entity(TargetedMessageInfoEntity(message_id=message_id))
         return self
 
     def with_recipient(self, value: Account, is_targeted: Optional[bool] = None) -> Self:

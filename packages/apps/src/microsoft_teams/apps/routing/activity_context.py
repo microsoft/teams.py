@@ -6,6 +6,7 @@ Licensed under the MIT License.
 import base64
 import json
 import logging
+import warnings
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Awaitable, Callable, Generic, Optional, TypeVar, cast
 
@@ -23,7 +24,6 @@ from microsoft_teams.api import (
     MessageActivityInput,
     SentActivity,
     SignOutUserParams,
-    TargetedMessageInfoEntity,
     TokenExchangeResource,
     TokenExchangeState,
     TokenPostResource,
@@ -35,6 +35,7 @@ from microsoft_teams.api.models.attachment.card_attachment import (
 from microsoft_teams.api.models.oauth import OAuthCard
 from microsoft_teams.cards import AdaptiveCard
 from microsoft_teams.common import Storage
+from microsoft_teams.common.experimental import ExperimentalWarning
 from microsoft_teams.common.http.client_token import Token
 
 from ..activity_sender import ActivitySender
@@ -179,7 +180,7 @@ class ActivityContext(Generic[T]):
         else:
             activity = message
 
-        self._auto_add_targeted_message_info(activity)
+        self._add_targeted_message_info_entity(activity)
 
         ref = conversation_ref or self.conversation_ref
         res = await self._activity_sender.send(activity, ref)
@@ -191,9 +192,12 @@ class ActivityContext(Generic[T]):
         In channels, sends to the current thread with a quoted reply.
         In other scopes, sends with a quoted reply.
         To send without quoting, use :meth:`send`.
+
+        When the incoming activity is a targeted message, the blockquote is
+        skipped because prompt preview owns the preview surface.
         """
         activity = MessageActivityInput(text=input) if isinstance(input, str) else input
-        if isinstance(activity, MessageActivityInput):
+        if isinstance(activity, MessageActivityInput) and not self._is_incoming_targeted():
             block_quote = self._build_block_quote_for_activity()
             if block_quote:
                 activity.text = f"{block_quote}\n\n{activity.text}" if activity.text else block_quote
@@ -234,24 +238,30 @@ class ActivityContext(Generic[T]):
             )
         return None
 
-    def _auto_add_targeted_message_info(self, activity: ActivityParams) -> None:
+    def _is_incoming_targeted(self) -> bool:
+        """Check if the incoming activity is a targeted message."""
+        activity = self.activity
+        return (
+            hasattr(activity, "recipient")
+            and hasattr(activity.recipient, "is_targeted")
+            and activity.recipient.is_targeted is True
+        )
+
+    def _add_targeted_message_info_entity(self, activity_params: ActivityParams) -> None:
         """Auto-populate targetedMessageInfo entity when replying to a targeted message.
 
         In the reactive flow, the SDK reads the incoming targeted message ID
         and attaches the entity automatically so the developer doesn't need to.
         Skips if the developer already attached a targetedMessageInfo entity.
         """
-        incoming = self.activity
-        if not (hasattr(incoming, "recipient") and hasattr(incoming.recipient, "is_targeted")):
+        if not self._is_incoming_targeted():
             return
-        if incoming.recipient.is_targeted is not True:
-            return
-        if not isinstance(activity, MessageActivityInput):
+        if not isinstance(activity_params, MessageActivityInput):
             return
 
-        already_has = any(isinstance(e, TargetedMessageInfoEntity) for e in (activity.entities or []))
-        if not already_has:
-            activity.add_entity(TargetedMessageInfoEntity(message_id=incoming.id))
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", ExperimentalWarning)
+            activity_params.add_targeted_message_info(self.activity.id)
 
     async def sign_in(self, options: Optional[SignInOptions] = None) -> Optional[str]:
         """

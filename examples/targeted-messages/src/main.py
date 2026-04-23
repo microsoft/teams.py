@@ -5,7 +5,7 @@ Licensed under the MIT License.
 
 import asyncio
 
-from microsoft_teams.api import Account, MessageActivity, MessageActivityInput, TargetedMessageInfoEntity
+from microsoft_teams.api import MessageActivity, MessageActivityInput
 from microsoft_teams.api.activities.typing import TypingActivityInput
 from microsoft_teams.apps import ActivityContext, App
 
@@ -28,38 +28,9 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
     text = (ctx.activity.text or "").lower()
 
     # ============================================
-    # Test targeted SEND (create)
-    # ============================================
-    if "test send" in text:
-        members = await ctx.api.conversations.members(ctx.activity.conversation.id).get_all()
-
-        for member in members:
-            print(f"Member: {member.name} - {member.id}")
-
-            targeted_message = MessageActivityInput(
-                text="🔒 [SEND] This is a targeted message - only YOU can see this!"
-            ).with_recipient(Account(id=member.id, name=member.name), is_targeted=True)
-
-            result = await ctx.send(targeted_message)
-        print("[SEND] Sent targeted message")
-        return
-
-    # ============================================
-    # Test targeted REPLY
-    # ============================================
-    if "test reply" in text:
-        targeted_reply = MessageActivityInput(text="🔒 [REPLY] Targeted reply - only YOU can see this!").with_recipient(
-            ctx.activity.from_, is_targeted=True
-        )
-
-        result = await ctx.reply(targeted_reply)
-        print(f"Targeted REPLY result: {result}")
-        return
-
-    # ============================================
     # Test targeted UPDATE
     # ============================================
-    if "test update" in text:
+    if "update" in text:
         # First send a targeted message
         targeted_message = MessageActivityInput(text="🔒 [UPDATE] Original targeted message...").with_recipient(
             ctx.activity.from_, is_targeted=True
@@ -91,7 +62,7 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
     # ============================================
     # Test targeted DELETE
     # ============================================
-    if "test delete" in text:
+    if "delete" in text:
         # First send a targeted message
         targeted_message = MessageActivityInput(
             text="🔒 [DELETE] This targeted message will be DELETED in 5 seconds..."
@@ -119,48 +90,34 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
         await ctx.reply(
             "**Targeted Messages Test Bot**\n\n"
             "**Commands:**\n"
-            "- `test send` - Send a targeted message\n"
-            "- `test reply` - Reply with a targeted message\n"
-            "- `test update` - Send then update a targeted message\n"
-            "- `test delete` - Send then delete a targeted message\n"
-            "- `test prompt preview` - Reply with targeted message + prompt preview (reactive)\n"
-            "- `test proactive preview` - Reply with targeted message + prompt preview (proactive)\n\n"
+            "- `send` - Send a targeted message with prompt preview (auto-populated)\n"
+            "- `update` - Send a targeted message, then update it after 3 seconds\n"
+            "- `delete` - Send a targeted message, then delete it after 3 seconds\n"
+            "- `public` - Public message with prompt preview (visible to all)\n\n"
             "💡 *Test in a group chat to verify others don't see targeted messages!*"
         )
         return
 
     # ============================================
-    # Test Prompt Preview — Reactive flow
-    # The SDK auto-populates targetedMessageInfo
-    # when the incoming activity is a targeted message.
+    # Test Prompt Preview — Public reply
+    # Everyone in the chat sees the reply with a
+    # collapsible preview of the original prompt.
     # ============================================
-    if "test prompt preview" in text:
-        # Send a targeted reply — the SDK auto-attaches the
-        # targetedMessageInfo entity
-        targeted_reply = MessageActivityInput(
-            text="🔒 [PROMPT PREVIEW] Reactive — SDK auto-attaches targetedMessageInfo!"
-        ).with_recipient(ctx.activity.from_, is_targeted=True)
-        await ctx.send(targeted_reply)
-        return
-
-    # ============================================
-    # Test Prompt Preview — Proactive flow
-    # The developer manually attaches targetedMessageInfo
-    # using add_entity().
-    # ============================================
-    if "test proactive preview" in text:
-        targeted_reply = (
-            MessageActivityInput(
-                text="🔒 [PROMPT PREVIEW] Proactive — developer manually attaches targetedMessageInfo!"
-            )
-            .with_recipient(ctx.activity.from_, is_targeted=True)
-            .add_entity(TargetedMessageInfoEntity(message_id=ctx.activity.id))
+    if "public" in text:
+        await ctx.send(
+            MessageActivityInput(text="📋 Here is the public result — everyone can see this, with prompt preview!")
         )
-        await ctx.send(targeted_reply)
         return
 
-    # Default
-    await ctx.reply('Say "help" for available commands.')
+    # Default — send a targeted reply.
+    # The SDK auto-populates targetedMessageInfo for prompt preview (reactive flow).
+    targeted_reply = MessageActivityInput(
+        text=(
+            f"🔒 You said: {ctx.activity.text or ''}\n\n"
+            "This is a **targeted message** with prompt preview — only YOU can see this!"
+        )
+    ).with_recipient(ctx.activity.from_, is_targeted=True)
+    await ctx.send(targeted_reply)
 
 
 if __name__ == "__main__":
