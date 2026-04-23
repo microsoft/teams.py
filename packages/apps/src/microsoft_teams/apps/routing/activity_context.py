@@ -27,6 +27,7 @@ from microsoft_teams.api import (
     TokenExchangeState,
     TokenPostResource,
 )
+from microsoft_teams.api.auth.cloud_environment import CloudEnvironment
 from microsoft_teams.api.models.attachment.card_attachment import (
     OAuthCardAttachment,
     card_attachment,
@@ -83,6 +84,7 @@ class ActivityContext(Generic[T]):
         connection_name: str,
         activity_sender: ActivitySender,
         app_token: Token,
+        cloud: CloudEnvironment,
     ):
         self.activity = activity
         self.app_id = app_id
@@ -93,6 +95,7 @@ class ActivityContext(Generic[T]):
         self.user_token = user_token
         self.connection_name = connection_name
         self.is_signed_in = is_signed_in
+        self.cloud = cloud
         self._activity_sender = activity_sender
         self._app_token = app_token
         self.stream = activity_sender.create_stream(conversation_ref)
@@ -123,7 +126,7 @@ class ActivityContext(Generic[T]):
         if self._user_graph is None:
             try:
                 user_token = JsonWebToken(self.user_token)
-                self._user_graph = create_graph_client(user_token)
+                self._user_graph = create_graph_client(user_token, cloud=self.cloud)
             except ImportError:
                 raise
             except Exception as e:
@@ -147,7 +150,7 @@ class ActivityContext(Generic[T]):
         """
         if self._app_graph is None:
             try:
-                self._app_graph = create_graph_client(self._app_token)
+                self._app_graph = create_graph_client(self._app_token, cloud=self.cloud)
             except ImportError:
                 raise
             except Exception as e:

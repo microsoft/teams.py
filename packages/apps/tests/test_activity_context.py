@@ -10,6 +10,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from microsoft_teams.api import Account, MessageActivityInput, SentActivity
+from microsoft_teams.api.auth.cloud_environment import PUBLIC
 from microsoft_teams.apps.routing.activity_context import ActivityContext
 
 
@@ -40,6 +41,7 @@ def _create_activity_context(
         connection_name="test-connection",
         activity_sender=mock_activity_sender,
         app_token=MagicMock(),
+        cloud=PUBLIC,
     )
     return ctx, mock_activity_sender
 

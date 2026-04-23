@@ -16,6 +16,7 @@ from microsoft_teams.api import (
     SignInVerifyStateInvokeActivity,
     TokenExchangeInvokeResponse,
 )
+from microsoft_teams.api.auth.cloud_environment import PUBLIC
 from microsoft_teams.api.models import (
     Account,
     ConversationAccount,
@@ -446,6 +447,7 @@ class TestSignInFailureMiddlewareChain:
             token_manager=MagicMock(),
             api_client_settings=None,
             activity_sender=MagicMock(),
+            cloud=PUBLIC,
         )
 
     @staticmethod
@@ -462,6 +464,7 @@ class TestSignInFailureMiddlewareChain:
             connection_name="graph",
             activity_sender=MagicMock(),
             app_token=MagicMock(),
+            cloud=PUBLIC,
         )
 
     @pytest.mark.asyncio

@@ -15,6 +15,7 @@ from microsoft_teams.api import (
     InvokeResponse,
     TokenProtocol,
 )
+from microsoft_teams.api.auth.cloud_environment import PUBLIC
 from microsoft_teams.apps import ActivityContext, ActivityEvent
 from microsoft_teams.apps.activity_sender import ActivitySender
 from microsoft_teams.apps.app_events import EventManager
@@ -56,6 +57,7 @@ class TestActivityProcessor:
             mock_token_manager,
             None,
             mock_activity_sender,
+            PUBLIC,
         )
 
     @pytest.mark.asyncio
@@ -83,6 +85,7 @@ class TestActivityProcessor:
             connection_name="default_connection",
             activity_sender=mock_activity_sender,
             app_token=lambda: None,
+            cloud=PUBLIC,
         )
 
         handler_one = AsyncMock(spec=ActivityHandler)
