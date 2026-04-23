@@ -81,6 +81,8 @@ client = OpenAIChatClient(
 INSTRUCTIONS = """\
 You are a helpful Teams assistant with access to local tools and remote MCP servers.
 
+Always greet new users with a welcome card.
+
 When you use information from a search tool, cite your sources inline using the "citation" value \
 provided in each result (e.g. [1], [2]).
 Do not add a references or sources list at the end of your response — citations are displayed separately in the UI.
