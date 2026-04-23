@@ -10,12 +10,11 @@ import httpx
 from a2a.client import A2ACardResolver, ClientConfig, ClientFactory
 from a2a.types import DataPart, Message, Part, Role
 
-"""
-Outbound A2A sender. Resolves the peer's agent card, creates an a2a-sdk client,
-and fires a single `DataPart`-carrying message. We drain the response stream
-without caring about the body — the peer only sends an `ack`, the real reply
-comes later asynchronously over the peer's own A2A call back to us.
-"""
+# Outbound A2A sender. Resolves the peer's agent card, creates an a2a-sdk
+# client, and fires a single `DataPart`-carrying message. We drain the
+# response stream without caring about the body — the peer only sends an
+# `ack`, the real reply comes later asynchronously over the peer's own A2A
+# call back to us.
 
 
 async def send_a2a(peer_url: str, data: dict[str, Any]) -> None:
