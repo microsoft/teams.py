@@ -8,8 +8,7 @@ dependencies = [
     "dotenv>=0.9.9",
     "microsoft-teams-apps",
     "agent-framework-core",
-    "agent-framework-openai",
-    "msgraph-sdk>=1.0.0",
+    "agent-framework-openai"
 ]
 
 [tool.uv.sources]

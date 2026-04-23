@@ -10,7 +10,7 @@ from os import getenv
 
 from agent import agent, tool_logger
 from agent_framework import AgentSession
-from local_tools import bind_app
+from local_tools import pending_cards
 from microsoft_teams.api import (
     AdaptiveCardAttachment,
     CardAction,
@@ -29,14 +29,11 @@ from microsoft_teams.api import (
 from microsoft_teams.apps import ActivityContext, App
 from microsoft_teams.cards import AdaptiveCard, SubmitAction, TextBlock, TextInput
 
-# LOG_LEVEL controls third-party noise. Defaults to WARNING.
-logging.basicConfig(level=getenv("LOG_LEVEL", "WARNING").upper())
+logging.basicConfig(level=getenv("LOG_LEVEL", "INFO").upper())
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
 
 # App is the Teams bot host for this example.
 app = App()
-bind_app(app)
 
 # Per-conversation sessions preserve message history across turns.
 _sessions: dict[str, AgentSession] = {}
@@ -59,6 +56,8 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
 
     text = ctx.activity.text or ""
     tool_logger.citations = {}
+    cards: list[AdaptiveCard] = []
+    pending_cards.set(cards)
 
     full_text = ""
     async for chunk in agent.run(text, session=_sessions[conversation_id], stream=True):
@@ -66,13 +65,17 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
             ctx.stream.emit(chunk.text)
             full_text += chunk.text
 
-    reply = _build_reply(full_text, ctx)
+    reply = _build_reply(full_text, cards, ctx)
     ctx.stream.emit(reply)
 
 
-def _build_reply(full_text: str, ctx: ActivityContext[MessageActivity]) -> MessageActivityInput:
+def _build_reply(
+    full_text: str, cards: list[AdaptiveCard], ctx: ActivityContext[MessageActivity]
+) -> MessageActivityInput:
     # add_ai_generated() adds the "AI-generated" label; add_feedback() enables thumbs up/down.
     reply = MessageActivityInput().add_ai_generated().add_feedback(mode="custom")
+    for card in cards:
+        reply.add_card(card)
     _attach_citations(reply, full_text)
     reply.with_suggested_actions(SuggestedActions(to=[ctx.activity.from_.id], actions=_SUGGESTED_PROMPTS))
     return reply
