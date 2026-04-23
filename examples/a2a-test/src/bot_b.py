@@ -12,7 +12,7 @@ import uvicorn
 from a2a_client import send_a2a
 from a2a_server import make_a2a_app
 from cards import ASK_REPLY_ACTION, ask_card, reply_card
-from dotenv.main import load_dotenv
+from dotenv import load_dotenv
 from microsoft_teams.api import AdaptiveCardInvokeActivity, MessageActivity, TypingActivityInput
 from microsoft_teams.api.models.adaptive_card import AdaptiveCardActionMessageResponse
 from microsoft_teams.api.models.invoke_response import AdaptiveCardInvokeResponse
