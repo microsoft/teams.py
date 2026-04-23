@@ -19,7 +19,6 @@ from config import DefaultConfig
 from microsoft_teams.api import MessageActivity
 from microsoft_teams.apps import ActivityContext, App
 from microsoft_teams.botbuilder import BotBuilderPlugin
-from microsoft_teams.devtools import DevToolsPlugin
 
 config = DefaultConfig()
 adapter = CloudAdapter(ConfigurationBotFrameworkAuthentication(config))
@@ -57,7 +56,6 @@ app = App(
             # This is the Bot Framework handler
             handler=EchoBot(),
         ),
-        DevToolsPlugin(),
     ]
 )
 
