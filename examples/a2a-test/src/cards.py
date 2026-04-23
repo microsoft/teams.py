@@ -12,13 +12,14 @@ from microsoft_teams.cards import (
 )
 from microsoft_teams.cards.core import TextInput
 
-# Adaptive Card builders. The ask card carries its own routing metadata
-# (qid, sender, reply_url) inside the submit action's data, so the receiving bot
-# can send the reply back without any in-memory "pending ask" state.
+# Adaptive Card builders. The ask card's submit returns only `qid`; the bot
+# resolves reply routing from server state (card data is client-tamperable).
 ASK_REPLY_ACTION = "ask_reply"
 
 
-def ask_card(sender: str, question: str, qid: str, reply_url: str) -> AdaptiveCard:
+def ask_card(sender: str, question: str, qid: str) -> AdaptiveCard:
+    # Shown to the operator of the receiving bot. Operator types an answer
+    # and clicks Send reply, which fires an Action.Execute back to the bot.
     return AdaptiveCard(
         schema="http://adaptivecards.io/schemas/adaptive-card.json",
         version="1.4",
@@ -29,17 +30,7 @@ def ask_card(sender: str, question: str, qid: str, reply_url: str) -> AdaptiveCa
             ActionSet(
                 actions=[
                     ExecuteAction(title="Send reply")
-                    .with_data(
-                        SubmitData(
-                            action=ASK_REPLY_ACTION,
-                            data={
-                                "qid": qid,
-                                "sender": sender,
-                                "question": question,
-                                "reply_url": reply_url,
-                            },
-                        )
-                    )
+                    .with_data(SubmitData(action=ASK_REPLY_ACTION, data={"qid": qid}))
                     .with_associated_inputs("auto")
                 ]
             ),
@@ -49,6 +40,8 @@ def ask_card(sender: str, question: str, qid: str, reply_url: str) -> AdaptiveCa
 
 
 def reply_card(responder: str, question: str, answer: str, qid: str) -> AdaptiveCard:
+    # Shown to the user who originally asked, once the peer's operator has
+    # answered. Display-only — no submit action.
     return AdaptiveCard(
         schema="http://adaptivecards.io/schemas/adaptive-card.json",
         version="1.4",

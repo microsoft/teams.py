@@ -19,7 +19,11 @@ def make_a2a_app(
     description: str,
     skill: str,
     url: str,
+    allowed_peer_urls: list[str],
 ) -> A2AStarletteApplication:
+    # Builds the A2A server for this bot: an AgentCard advertising the
+    # skill at `url`, plus a request handler wired to AskReplyExecutor
+    # which dispatches incoming asks/replies into the Teams app.
     agent_card = AgentCard(
         name=state.name,
         description=description,
@@ -32,7 +36,7 @@ def make_a2a_app(
         skills=[AgentSkill(id=skill, name=skill, description=description, tags=[skill])],
     )
     handler = DefaultRequestHandler(
-        agent_executor=AskReplyExecutor(teams_app=teams_app, state=state),
+        agent_executor=AskReplyExecutor(teams_app=teams_app, state=state, allowed_peer_urls=allowed_peer_urls),
         task_store=InMemoryTaskStore(),
     )
     return A2AStarletteApplication(agent_card=agent_card, http_handler=handler)

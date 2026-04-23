@@ -20,3 +20,8 @@ class BotState:
     # When the peer's reply lands, we pop the qid and push the reply card into
     # the stashed conversation.
     awaiting_reply: dict[str, dict[str, Any]] = field(default_factory=dict[str, dict[str, Any]])
+
+    # Inbound asks waiting for an operator reply, keyed by qid.
+    # Value: {reply_url, sender, question}. Populated at A2A ingress;
+    # the reply handler resolves routing from here.
+    inbound_asks: dict[str, dict[str, Any]] = field(default_factory=dict[str, dict[str, Any]])
