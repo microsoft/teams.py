@@ -27,7 +27,7 @@ from microsoft_teams.api import (
     TokenExchangeState,
     TokenPostResource,
 )
-from microsoft_teams.api.auth.cloud_environment import CloudEnvironment
+from microsoft_teams.api.auth.cloud_environment import PUBLIC, CloudEnvironment
 from microsoft_teams.api.models.attachment.card_attachment import (
     OAuthCardAttachment,
     card_attachment,
@@ -84,7 +84,7 @@ class ActivityContext(Generic[T]):
         connection_name: str,
         activity_sender: ActivitySender,
         app_token: Token,
-        cloud: CloudEnvironment,
+        cloud: CloudEnvironment = PUBLIC,
     ):
         self.activity = activity
         self.app_id = app_id

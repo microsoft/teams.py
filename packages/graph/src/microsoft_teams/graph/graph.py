@@ -43,7 +43,7 @@ def get_graph_client(
         graph = get_graph_client("eyJ0eXAiOiJKV1Qi...")
 
         # Sovereign cloud (GCCH)
-        graph = get_graph_client(token, base_url="https://graph.microsoft.us")
+        graph = get_graph_client("eyJ0eXAiOiJKV1Qi...", base_url="https://graph.microsoft.us")
         ```
     """
     try:
