@@ -20,9 +20,7 @@ from microsoft_teams.apps import ActivityContext, App
 from microsoft_teams.common import ConsoleFormatter
 from state import BotState
 
-"""
-Bot B (Bob) — symmetric with Bot A. See bot_a.py for the flow description.
-"""
+# Bot B (Bob) — symmetric with Bot A. See bot_a.py for the flow description.
 load_dotenv()
 
 NAME = "Bob"

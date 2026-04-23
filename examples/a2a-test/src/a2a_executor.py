@@ -89,7 +89,12 @@ class AskReplyExecutor(AgentExecutor):
         if not conv_id or not card:
             logger.warning("[%s] no operator conversation; ask not pushed", self._state.name)
             return
-        await self._teams_app.send(conv_id, AdaptiveCard.model_validate(card))
+        try:
+            adaptive_card = AdaptiveCard.model_validate(card)
+        except Exception:
+            logger.exception("[%s] invalid ask card payload for qid=%s; dropping", self._state.name, qid)
+            return
+        await self._teams_app.send(conv_id, adaptive_card)
 
     async def _on_reply(self, data: dict[str, Any]) -> None:
         qid = data.get("qid", "")
@@ -100,4 +105,9 @@ class AskReplyExecutor(AgentExecutor):
             return
         card = data.get("card")
         if card:
-            await self._teams_app.send(pending["conv_id"], AdaptiveCard.model_validate(card))
+            try:
+                adaptive_card = AdaptiveCard.model_validate(card)
+            except Exception:
+                logger.exception("[%s] invalid reply card payload for qid=%s; dropping", self._state.name, qid)
+                return
+            await self._teams_app.send(pending["conv_id"], adaptive_card)
