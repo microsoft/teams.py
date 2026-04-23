@@ -20,6 +20,9 @@ async def send_welcome_card(
     greeting: Annotated[str, Field(description="The greeting message for the user. eg Hello, John! or Welcome!")],
 ) -> str:
     """Attach a welcome card with a capabilities overview."""
+    cards = pending_cards.get()
+    if cards is None:
+        return "No active turn context; card could not be attached."
     card = AdaptiveCard(version="1.5").with_body(
         [
             TextBlock(text=f"{greeting} Here are some things I can do:", size="Large", weight="Bolder", wrap=True),
@@ -33,9 +36,7 @@ async def send_welcome_card(
             ),
         ]
     )
-    cards = pending_cards.get()
-    if cards is None:
-        return "No active turn context; card could not be attached."
+
     cards.append(card)
     return "Card attached."
 
