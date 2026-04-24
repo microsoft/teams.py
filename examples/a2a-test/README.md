@@ -1,6 +1,12 @@
 # Sample: Two Teams bots relaying questions via A2A + Adaptive Cards
 
-Two symmetric Teams bots, each backed by an LLM. The user sends a natural-language message; the LLM decides whether to answer directly or forward the question to the other bot over A2A. The routing decision is driven by each peer's **A2A AgentCard description**, fetched lazily via `A2ACardResolver`. The peer's human operator fills in an Adaptive Card; the answer comes back over A2A and is folded into both a reply card and the user's chat session.
+Two symmetric Teams bots, Alice and Bob, each backed by an LLM agent. The user DMs one of them; the LLM decides whether to answer directly or forward the question to the other bot over the A2A protocol.
+
+This sample demonstrates:
+
+- **LLM-driven peer routing** — each bot's agent reads the other's A2A `AgentCard.description` (fetched lazily via `A2ACardResolver`) and uses that to decide whether to forward.
+- **Human-in-the-loop via Adaptive Cards** — when a peer asks, the answering bot pushes an ask-card to its human operator's 1:1; the operator types a reply and submits.
+- **Async reply, folded back into chat** — the answer comes back over A2A and is delivered both as a reply card and as a `[peer update]` note injected into the user's LLM session, so the next turn's model sees it as context.
 
 ## Flow
 
@@ -26,20 +32,26 @@ sequenceDiagram
 
 ## Files
 
-- **Bot A / Alice** (`src/bot_a.py`) — Teams on **3978**, A2A on **5000**. Edit the `DESCRIPTION` constant to set Alice's expertise; this becomes her A2A AgentCard description that Bob's LLM reads to decide when to forward.
-- **Bot B / Bob** (`src/bot_b.py`) — Teams on **3979**, A2A on **5001**. Same `DESCRIPTION` knob for Bob.
-- **Shared**
-  - `src/agent.py` — `BotAgent` holds the `agent_framework` `Agent`, lazily fetches peer A2A cards via `A2ACardResolver`, and exposes `get_agent()`, `session_for(conv_id)`, and `record_peer_reply(...)` for the bot file to use.
-  - `src/state.py` — `BotState` (operator conversation, outbound asks awaiting a reply, inbound asks awaiting an operator).
-  - `src/messages.py` — `AskMessage` / `ReplyMessage` Pydantic models with a `kind` discriminator.
-  - `src/a2a_executor.py` — A2A server dispatch: `ask` → validate `reply_url`, stash, push card to operator; `reply` → push card to the original user and call `on_peer_reply`.
-  - `src/a2a_server.py` — `make_a2a_app(..., allowed_peer_urls=..., on_peer_reply=...)` wraps the executor in `A2AStarletteApplication`.
-  - `src/a2a_client.py` — `send_a2a(peer_url, data)` one-shot sender, plus `is_allowed_peer(url, allowed)` for origin-based peer URL validation.
-  - `src/cards.py` — `ask_card(sender, question, qid)` (submit carries only qid), `reply_card(...)`.
+**Entry points** — start here.
+- `src/bot_a.py` — Alice. Teams on **3978**, A2A on **5000**. Edit the `DESCRIPTION` constant to set Alice's expertise; this becomes her A2A AgentCard description that Bob's LLM reads to decide when to forward.
+- `src/bot_b.py` — Bob. Teams on **3979**, A2A on **5001**. Same `DESCRIPTION` knob for Bob.
+
+**LLM agent**
+- `src/agent.py` — `BotAgent` builds the `agent_framework` `Agent`, lazily fetches peer A2A cards via `A2ACardResolver`, and exposes `get_agent()`, `session_for(conv_id)`, and `record_peer_reply(...)` for the bot file to use.
+
+**A2A layer**
+- `src/a2a_executor.py` — A2A server dispatch: `ask` → validate `reply_url`, stash, push card to operator; `reply` → push card to the original user and call `on_peer_reply`.
+- `src/a2a_server.py` — `make_a2a_app(..., allowed_peer_urls=..., on_peer_reply=...)` wraps the executor in `A2AStarletteApplication`.
+- `src/a2a_client.py` — `send_a2a(peer_url, data)` one-shot sender, plus `is_allowed_peer(url, allowed)` for origin-based peer URL validation.
+- `src/messages.py` — `AskMessage` / `ReplyMessage` Pydantic models with a `kind` discriminator.
+
+**Cards & state**
+- `src/cards.py` — `ask_card(sender, question, qid)` (submit carries only qid), `reply_card(...)`.
+- `src/state.py` — `BotState` (operator conversation, outbound asks awaiting a reply, inbound asks awaiting an operator).
 
 ## Operator model
 
-Each bot remembers the last **1:1** Teams conversation that messaged it (`state.operator_conv_id`). Incoming asks are pushed into that conversation. 
+Each bot remembers the last **1:1** Teams conversation that messaged it (`state.operator_conv_id`). Incoming asks are pushed into that conversation.
 
 ## Peer authorization
 
@@ -77,7 +89,7 @@ BOT_B_CLIENT_SECRET=<bob-client-secret>
 # ALICE_A2A_URL=http://localhost:5000/
 ```
 
-Each bot needs its **own** Teams app registration so DMs route to the right bot. If any `BOT_X_CLIENT_*` is empty, the bot falls back to the generic `CLIENT_ID` / `CLIENT_SECRET` — fine for devtools, but Teams can only route DMs to one bot at a time.
+Each bot needs its **own** Teams app registration so DMs route to the right bot.
 
 ## Run
 
@@ -89,3 +101,18 @@ uv run python src/bot_b.py   # Bob   — Teams 3979, A2A 5001
 ```
 
 > ⚠ **DM each bot once before relaying.** The operator's conversation id is captured from the first Teams message the bot receives. If a peer ask arrives before its target has been DM'd, the target will log `no operator conversation; ask not pushed` and the card won't appear anywhere.
+
+### Try it
+
+With both bots DM'd at least once, try this transcript against Alice:
+
+```
+You → Alice: how do I scale my postgres database?
+Alice → You: Asked Bob, will let you know…
+   (Bob's operator gets an ask card, types "use read replicas + pgbouncer", submits)
+Alice → You: [reply card] Bob says: use read replicas + pgbouncer
+You → Alice: thanks — and what about caching?
+Alice → You: Bob suggested read replicas + pgbouncer earlier; for caching you'd typically add Redis in front…
+```
+
+The bots are symmetric — DM Bob with a UX question and the same flow runs the other way (Bob's LLM forwards to Alice).
