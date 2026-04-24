@@ -577,3 +577,12 @@ class TestTokenValidator:
             additional_allowed_domains=["custom.example.com"],
         )
         assert validator.additional_allowed_domains == ["custom.example.com"]
+
+    def test_init_copies_additional_allowed_domains(self):
+        """Mutating the caller's list after construction must not change validator behavior."""
+        caller_list = ["a.example.com"]
+        validator = TokenValidator.for_service("test-app-id", additional_allowed_domains=caller_list)
+
+        caller_list.append("b.example.com")
+
+        assert validator.additional_allowed_domains == ["a.example.com"]

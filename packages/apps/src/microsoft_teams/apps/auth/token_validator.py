@@ -85,11 +85,16 @@ class TokenValidator:
         Args:
             jwt_validation_options: Configuration for JWT validation
             cloud: Optional cloud environment for service URL validation
-            additional_allowed_domains: Additional service URL domains accepted beyond the cloud preset.
+            additional_allowed_domains: Additional service URL hostnames accepted beyond the cloud
+                preset. Entries must be bare hostnames matched exactly (case-insensitive) — wildcard
+                patterns like ``"*.example.com"``, URL suffixes, or full URLs are NOT supported.
+                Pass ``["*"]`` as the sole wildcard to accept any hostname.
         """
         self.options = jwt_validation_options
         self.cloud = cloud or PUBLIC
-        self.additional_allowed_domains = additional_allowed_domains
+        self.additional_allowed_domains = (
+            list(additional_allowed_domains) if additional_allowed_domains is not None else None
+        )
         self._jwks_client = jwt.PyJWKClient(jwt_validation_options.jwks_uri)
 
     @staticmethod
@@ -113,7 +118,10 @@ class TokenValidator:
             app_id: The bot's Microsoft App ID (used for audience validation)
             service_url: Optional service URL to validate against token claims
             cloud: Optional cloud environment for sovereign cloud support
-            additional_allowed_domains: Additional service URL domains accepted beyond the cloud preset.
+            additional_allowed_domains: Additional service URL hostnames accepted beyond the cloud
+                preset. Entries must be bare hostnames matched exactly (case-insensitive) — wildcard
+                patterns like ``"*.example.com"``, URL suffixes, or full URLs are NOT supported.
+                Pass ``["*"]`` as the sole wildcard to accept any hostname.
         """
         env = cloud or PUBLIC
         jwks_keys_uri = re.sub(r"/openidconfiguration$", "/keys", env.openid_metadata_url)
@@ -145,7 +153,10 @@ class TokenValidator:
             application_id_uri: Optional Application ID URI from Azure portal.
                 Matches webApplicationInfo.resource in the app manifest.
             cloud: Optional cloud environment for sovereign cloud support
-            additional_allowed_domains: Additional service URL domains accepted beyond the cloud preset.
+            additional_allowed_domains: Additional service URL hostnames accepted beyond the cloud
+                preset. Entries must be bare hostnames matched exactly (case-insensitive) — wildcard
+                patterns like ``"*.example.com"``, URL suffixes, or full URLs are NOT supported.
+                Pass ``["*"]`` as the sole wildcard to accept any hostname.
         """
         env = cloud or PUBLIC
         valid_issuers: List[str] = []
