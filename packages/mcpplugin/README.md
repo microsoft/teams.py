@@ -1,5 +1,8 @@
 # Microsoft Teams MCP Plugin
 
+> [!WARNING]
+> **Deprecated** — This package was originally in preview, but we have decided to stop maintaining it before General Availability. We recommend using the official [MCP Python SDK](https://github.com/modelcontextprotocol/python-sdk) instead, which provides better long-term support for Model Context Protocol integrations.
+
 <p>
     <a href="https://pypi.org/project/microsoft-teams-mcpplugin/" target="_blank">
         <img src="https://img.shields.io/pypi/v/microsoft-teams-mcpplugin" />

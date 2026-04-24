@@ -1,5 +1,8 @@
 # Microsoft Teams A2A
 
+> [!WARNING]
+> **Deprecated** — This package was originally in preview, but we have decided to stop maintaining it before General Availability. We recommend using the official [A2A Python SDK](https://github.com/a2aproject/a2a-python) instead, which provides better long-term support for Agent-to-Agent protocol integrations.
+
 <p>
     <a href="https://pypi.org/project/microsoft-teams-a2a/" target="_blank">
         <img src="https://img.shields.io/pypi/v/microsoft-teams-a2a" />
