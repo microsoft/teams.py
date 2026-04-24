@@ -88,7 +88,11 @@ class HttpServer:
 
         app_id = getattr(credentials, "client_id", None) if credentials else None
         if app_id and not skip_auth:
-            self._token_validator = TokenValidator.for_service(app_id, cloud=self._cloud)
+            self._token_validator = TokenValidator.for_service(
+                app_id,
+                cloud=self._cloud,
+                additional_allowed_domains=self._additional_allowed_domains,
+            )
             logger.debug("JWT validation enabled for %s", self._messaging_endpoint)
 
         self._adapter.register_route("POST", self._messaging_endpoint, self.handle_request)

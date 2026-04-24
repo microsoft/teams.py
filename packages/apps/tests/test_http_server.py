@@ -241,6 +241,28 @@ class TestHttpServer:
         result = await server.handle_request(request)
         assert result["status"] == 200
 
+    def test_initialize_forwards_allowlist_to_token_validator(self, mock_adapter):
+        """With skip_auth=False and credentials, the allowlist must reach TokenValidator.
+
+        Regression: HttpServer.initialize() previously constructed TokenValidator.for_service()
+        without passing additional_allowed_domains, so the token-validation service-URL check
+        ignored user-configured domains.
+        """
+        server = HttpServer(mock_adapter)
+        credentials = MagicMock(client_id="test-app-id")
+
+        with patch("microsoft_teams.apps.http.http_server.TokenValidator.for_service") as mock_for_service:
+            mock_for_service.return_value = MagicMock()
+            server.initialize(
+                credentials=credentials,
+                skip_auth=False,
+                additional_allowed_domains=["canary.botapi.skype.com"],
+            )
+
+        mock_for_service.assert_called_once()
+        _, kwargs = mock_for_service.call_args
+        assert kwargs.get("additional_allowed_domains") == ["canary.botapi.skype.com"]
+
 
 class TestFastAPIAdapter:
     """Test cases for FastAPIAdapter."""

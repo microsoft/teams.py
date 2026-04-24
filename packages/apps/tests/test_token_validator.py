@@ -507,3 +507,73 @@ class TestTokenValidator:
         from microsoft_teams.apps.auth.token_validator import is_allowed_service_url
 
         assert is_allowed_service_url("https://anything.example.com", PUBLIC, ["*"]) is True
+
+    # ----- additional_allowed_domains plumbing through validate_token -----
+
+    @pytest.mark.asyncio
+    async def test_validate_token_honors_additional_allowed_domains(self, mock_jwks_client):
+        """validate_token must accept a service URL listed in additional_allowed_domains.
+
+        Regression: for_service previously dropped the allowlist, so non-default channels
+        (canary, custom) were rejected even when the user configured them.
+        """
+        validator = TokenValidator.for_service("test-app-id", additional_allowed_domains=["canary.botapi.skype.com"])
+        validator._jwks_client = mock_jwks_client
+        payload = {
+            "iss": "https://api.botframework.com",
+            "aud": "test-app-id",
+            "serviceurl": "https://canary.botapi.skype.com/amer",
+            "exp": 9999999999,
+            "iat": 1000000000,
+        }
+        with patch("jwt.decode", return_value=payload):
+            result = await validator.validate_token("valid.jwt.token", "https://canary.botapi.skype.com/amer")
+            assert isinstance(result, dict)
+
+    @pytest.mark.asyncio
+    async def test_validate_token_rejects_when_domain_not_in_allowlist(self, mock_jwks_client):
+        """Sanity check: without additional_allowed_domains, canary is rejected."""
+        validator = TokenValidator.for_service("test-app-id")
+        validator._jwks_client = mock_jwks_client
+        payload = {
+            "iss": "https://api.botframework.com",
+            "aud": "test-app-id",
+            "serviceurl": "https://canary.botapi.skype.com/amer",
+            "exp": 9999999999,
+            "iat": 1000000000,
+        }
+        with patch("jwt.decode", return_value=payload):
+            with pytest.raises(jwt.InvalidTokenError, match="Service URL is not from an allowed domain"):
+                await validator.validate_token("valid.jwt.token", "https://canary.botapi.skype.com/amer")
+
+    @pytest.mark.asyncio
+    async def test_validate_token_wildcard_allows_arbitrary_domain(self, mock_jwks_client):
+        """additional_allowed_domains=['*'] must disable the allowlist check at validate_token level."""
+        validator = TokenValidator.for_service("test-app-id", additional_allowed_domains=["*"])
+        validator._jwks_client = mock_jwks_client
+        payload = {
+            "iss": "https://api.botframework.com",
+            "aud": "test-app-id",
+            "serviceurl": "https://anything.example.com/",
+            "exp": 9999999999,
+            "iat": 1000000000,
+        }
+        with patch("jwt.decode", return_value=payload):
+            result = await validator.validate_token("valid.jwt.token", "https://anything.example.com/")
+            assert isinstance(result, dict)
+
+    def test_for_service_stores_additional_allowed_domains(self):
+        """Factory must surface the allowlist on the instance so validate_token can use it."""
+        validator = TokenValidator.for_service(
+            "test-app-id", additional_allowed_domains=["a.example.com", "b.example.com"]
+        )
+        assert validator.additional_allowed_domains == ["a.example.com", "b.example.com"]
+
+    def test_for_entra_stores_additional_allowed_domains(self):
+        """Same plumbing check for the Entra factory."""
+        validator = TokenValidator.for_entra(
+            app_id="test-app-id",
+            tenant_id="test-tenant-id",
+            additional_allowed_domains=["custom.example.com"],
+        )
+        assert validator.additional_allowed_domains == ["custom.example.com"]

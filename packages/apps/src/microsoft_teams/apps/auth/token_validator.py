@@ -73,16 +73,23 @@ class TokenValidator:
     JWT token validator using PyJWKClient for simplified validation.
     """
 
-    def __init__(self, jwt_validation_options: JwtValidationOptions, cloud: Optional[CloudEnvironment] = None):
+    def __init__(
+        self,
+        jwt_validation_options: JwtValidationOptions,
+        cloud: Optional[CloudEnvironment] = None,
+        additional_allowed_domains: Optional[List[str]] = None,
+    ):
         """
         Initialize the token validator.
 
         Args:
             jwt_validation_options: Configuration for JWT validation
             cloud: Optional cloud environment for service URL validation
+            additional_allowed_domains: Additional service URL domains accepted beyond the cloud preset.
         """
         self.options = jwt_validation_options
         self.cloud = cloud or PUBLIC
+        self.additional_allowed_domains = additional_allowed_domains
         self._jwks_client = jwt.PyJWKClient(jwt_validation_options.jwks_uri)
 
     @staticmethod
@@ -96,6 +103,7 @@ class TokenValidator:
         app_id: str,
         service_url: Optional[str] = None,
         cloud: Optional[CloudEnvironment] = None,
+        additional_allowed_domains: Optional[List[str]] = None,
     ) -> TokenValidator:
         """Create a validator for Bot Framework service tokens.
 
@@ -105,6 +113,7 @@ class TokenValidator:
             app_id: The bot's Microsoft App ID (used for audience validation)
             service_url: Optional service URL to validate against token claims
             cloud: Optional cloud environment for sovereign cloud support
+            additional_allowed_domains: Additional service URL domains accepted beyond the cloud preset.
         """
         env = cloud or PUBLIC
         jwks_keys_uri = re.sub(r"/openidconfiguration$", "/keys", env.openid_metadata_url)
@@ -115,7 +124,7 @@ class TokenValidator:
             jwks_uri=jwks_keys_uri,
             service_url=service_url,
         )
-        return cls(options, cloud=env)
+        return cls(options, cloud=env, additional_allowed_domains=additional_allowed_domains)
 
     @classmethod
     def for_entra(
@@ -125,6 +134,7 @@ class TokenValidator:
         scope: Optional[str] = None,
         application_id_uri: Optional[str] = None,
         cloud: Optional[CloudEnvironment] = None,
+        additional_allowed_domains: Optional[List[str]] = None,
     ) -> TokenValidator:
         """Create a validator for Entra ID tokens.
 
@@ -135,6 +145,7 @@ class TokenValidator:
             application_id_uri: Optional Application ID URI from Azure portal.
                 Matches webApplicationInfo.resource in the app manifest.
             cloud: Optional cloud environment for sovereign cloud support
+            additional_allowed_domains: Additional service URL domains accepted beyond the cloud preset.
         """
         env = cloud or PUBLIC
         valid_issuers: List[str] = []
@@ -155,7 +166,7 @@ class TokenValidator:
             jwks_uri=f"{env.login_endpoint}/{tenant_id}/discovery/v2.0/keys",
             scope=scope,
         )
-        return cls(options)
+        return cls(options, cloud=env, additional_allowed_domains=additional_allowed_domains)
 
     async def validate_token(
         self, raw_token: str, service_url: Optional[str] = None, scope: Optional[str] = None
@@ -200,7 +211,9 @@ class TokenValidator:
 
             # Validate service URL against allowed domains
             effective_service_url = service_url or self.options.service_url
-            if effective_service_url and not is_allowed_service_url(effective_service_url, self.cloud):
+            if effective_service_url and not is_allowed_service_url(
+                effective_service_url, self.cloud, self.additional_allowed_domains
+            ):
                 logger.error(f"Rejected service URL: {effective_service_url}")
                 raise jwt.InvalidTokenError("Service URL is not from an allowed domain")
 
