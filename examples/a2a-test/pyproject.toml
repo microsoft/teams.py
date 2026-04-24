@@ -10,6 +10,8 @@ dependencies = [
     "microsoft-teams-common",
     "microsoft-teams-cards",
     "a2a-sdk[core,http-server]>=0.3.7",
+    "agent-framework-core",
+    "agent-framework-openai",
     "uvicorn>=0.30",
     "httpx>=0.27",
 ]

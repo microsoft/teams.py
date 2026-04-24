@@ -5,7 +5,7 @@ Licensed under the MIT License.
 
 import logging
 import uuid
-from typing import Optional
+from typing import Callable, Optional
 
 from a2a.server.agent_execution.agent_executor import AgentExecutor
 from a2a.server.agent_execution.context import RequestContext
@@ -25,6 +25,9 @@ from messages import A2AMessage, A2AMessageAdapter, AskMessage, ReplyMessage
 from microsoft_teams.apps import App
 from pydantic import ValidationError
 from state import BotState
+
+OnPeerReply = Callable[[str, str, str, str], None]
+# (user_conv_id, responder, question, answer) -> None
 
 # A2A server-side dispatch. Reads the incoming `DataPart`, branches on
 # `data.kind` (`ask` vs `reply`), updates `BotState`, and builds the Teams
@@ -50,10 +53,17 @@ def parse_a2a_message(message: Optional[Message]) -> Optional[A2AMessage]:
 
 
 class AskReplyExecutor(AgentExecutor):
-    def __init__(self, teams_app: App, state: BotState, allowed_peer_urls: list[str]) -> None:
+    def __init__(
+        self,
+        teams_app: App,
+        state: BotState,
+        allowed_peer_urls: list[str],
+        on_peer_reply: Optional[OnPeerReply] = None,
+    ) -> None:
         self._teams_app = teams_app
         self._state = state
         self._allowed_peer_urls = allowed_peer_urls
+        self._on_peer_reply = on_peer_reply
 
     async def execute(self, context: RequestContext, event_queue: EventQueue) -> None:
         task_id = context.task_id or str(uuid.uuid4())
@@ -115,7 +125,8 @@ class AskReplyExecutor(AgentExecutor):
 
     async def _on_reply(self, msg: ReplyMessage) -> None:
         # Peer is answering a question we originally sent. Push the reply
-        # card to the user who asked.
+        # card to the user who asked, and let the caller (the LLM agent)
+        # know so it can fold the reply into the user's chat session.
         pending = self._state.awaiting_reply.pop(msg.qid, None)
         logger.info("[%s] received reply qid=%s", self._state.name, msg.qid)
         if not pending:
@@ -123,3 +134,5 @@ class AskReplyExecutor(AgentExecutor):
             return
         card = reply_card(responder=msg.responder, question=pending["question"], answer=msg.answer, qid=msg.qid)
         await self._teams_app.send(pending["conv_id"], card)
+        if self._on_peer_reply is not None:
+            self._on_peer_reply(pending["conv_id"], msg.responder, pending["question"], msg.answer)

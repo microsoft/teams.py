@@ -5,32 +5,34 @@ Licensed under the MIT License.
 
 import asyncio
 import logging
-import uuid
 from os import getenv
 
 import uvicorn
 from a2a_client import send_a2a
 from a2a_server import make_a2a_app
+from agent import BotAgent, current_user_conv_id
 from cards import ASK_REPLY_ACTION
 from dotenv import load_dotenv
-from messages import AskMessage, ReplyMessage
-from microsoft_teams.api import AdaptiveCardInvokeActivity, MessageActivity, TypingActivityInput
+from messages import ReplyMessage
+from microsoft_teams.api import AdaptiveCardInvokeActivity, MessageActivity
 from microsoft_teams.api.models.adaptive_card import AdaptiveCardActionMessageResponse
 from microsoft_teams.api.models.invoke_response import AdaptiveCardInvokeResponse
 from microsoft_teams.apps import ActivityContext, App
 from microsoft_teams.common import ConsoleFormatter
 from state import BotState
 
-# Bot A (Alice) — Teams bot + A2A server + async A2A sender.
+# Bot A (Alice) — Teams bot + A2A server, with an LLM that decides per-turn
+# whether to answer directly or forward the user's question to a peer over A2A.
 #
 # - Teams: port 3978. A2A: port 5000.
-# - `ask bob <q>` → send ask card to Bob over A2A, return immediately.
-# - Bob's operator fills in the card and clicks Send reply → Bob's card-action
-#   handler routes the reply back over A2A. Alice pushes the reply card to the
-#   user who originally asked.
-# - When Alice receives an ask from Bob, her executor pushes the ask card into
-#   Alice's own current operator conversation. That operator fills in the card
-#   and clicks Send reply → Alice's card-action handler sends the reply back.
+# - Inbound user message → agent.run() streams reply; the agent may call the
+#   `send_to_peer` tool, which queues an A2A ask to Bob.
+# - When Bob's operator answers, Bob sends a reply over A2A. Alice's executor
+#   pushes a reply card to the user *and* injects a "[peer update]" note into
+#   the user's session so the next LLM turn knows about it.
+# - When Alice receives an ask from Bob, her executor pushes an ask card into
+#   Alice's current operator's 1:1 conversation. The operator fills it in and
+#   submits → Alice's card-action handler sends the reply back over A2A.
 load_dotenv()
 
 
@@ -40,7 +42,6 @@ A2A_HOST = getenv("BOT_A_A2A_HOST", "localhost")
 A2A_PORT = int(getenv("BOT_A_A2A_PORT", "5000"))
 SELF_A2A_URL = f"http://{A2A_HOST}:{A2A_PORT}/"
 BOB_URL = getenv("BOB_A2A_URL", "http://localhost:5001/")
-BOB_PREFIX = "ask bob "
 ALLOWED_PEER_URLS = [BOB_URL]
 
 logging.getLogger().setLevel(logging.INFO)
@@ -50,37 +51,30 @@ logging.getLogger().addHandler(_handler)
 logger = logging.getLogger(__name__)
 
 app = App(
-    client_id=getenv("BOT_A_CLIENT_ID"),
-    client_secret=getenv("BOT_A_CLIENT_SECRET"),
-    tenant_id=getenv("TENANT_ID"),
+    client_id=getenv("BOT_A_CLIENT_ID"), client_secret=getenv("BOT_A_CLIENT_SECRET"), tenant_id=getenv("TENANT_ID")
 )
 state = BotState(name=NAME)
+bot_agent = BotAgent(self_name=NAME, self_a2a_url=SELF_A2A_URL, peers={"bob": BOB_URL}, state=state)
+
+# Description goes into Alice's A2A AgentCard. Peers' LLMs read it to
+# decide whether to forward a question. Tweak to match your scenario.
+DESCRIPTION = "Alice — a Teams bot whose human operator answers design and UX questions."
 
 
-# User DM'd this bot. If the text starts with "ask bob ", fire an outbound
-# A2A ask to Bob; otherwise just greet.
 @app.on_message
 async def handle_message(ctx: ActivityContext[MessageActivity]):
-    await ctx.reply(TypingActivityInput())
     text = (ctx.activity.text or "").strip()
+    conv_id = ctx.activity.conversation.id
     # Only 1:1 conversations become the operator channel for inbound asks.
     if ctx.activity.conversation.conversation_type == "personal":
-        state.operator_conv_id = ctx.activity.conversation.id
+        state.operator_conv_id = conv_id
 
-    if text.lower().startswith(BOB_PREFIX):
-        question = text[len(BOB_PREFIX) :].strip()
-        qid = str(uuid.uuid4())
-
-        state.awaiting_reply[qid] = {
-            "conv_id": ctx.activity.conversation.id,
-            "question": question,
-        }
-        ask = AskMessage(qid=qid, question=question, sender=NAME, reply_url=SELF_A2A_URL)
-        await send_a2a(BOB_URL, ask.model_dump())
-        await ctx.send(f"Asked peer (qid {qid[:8]}). Waiting for reply…")
-        return
-
-    await ctx.send("hi")
+    agent = await bot_agent.get_agent()
+    session = bot_agent.session_for(conv_id)
+    current_user_conv_id.set(conv_id)
+    async for chunk in agent.run(text, session=session, stream=True):
+        if chunk.text:
+            ctx.stream.emit(chunk.text)
 
 
 # Operator clicked Send reply on an ask card we'd pushed them. Look up the
@@ -109,10 +103,11 @@ async def main() -> None:
     a2a_app = make_a2a_app(
         teams_app=app,
         state=state,
-        description=f"{NAME} asks and answers over A2A.",
+        description=DESCRIPTION,
         skill="ask_reply",
         url=SELF_A2A_URL,
         allowed_peer_urls=ALLOWED_PEER_URLS,
+        on_peer_reply=bot_agent.record_peer_reply,
     )
     a2a_server = uvicorn.Server(uvicorn.Config(a2a_app.build(), host=A2A_HOST, port=A2A_PORT, log_level="info"))
     await asyncio.gather(app.start(TEAMS_PORT), a2a_server.serve())

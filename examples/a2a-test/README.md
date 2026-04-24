@@ -1,19 +1,23 @@
 # Sample: Two Teams bots relaying questions via A2A + Adaptive Cards
 
-Two symmetric Teams bots. Either can forward a question to the other over A2A; the answer comes back from a human who fills in an Adaptive Card.
+Two symmetric Teams bots, each backed by an LLM. The user sends a natural-language message; the LLM decides whether to answer directly or forward the question to the other bot over A2A. The routing decision is driven by each peer's **A2A AgentCard description**, fetched lazily via `A2ACardResolver`. The peer's human operator fills in an Adaptive Card; the answer comes back over A2A and is folded into both a reply card and the user's chat session.
 
 ## Flow
 
 ```mermaid
 sequenceDiagram
     actor UA as User-A
+    participant LLM as Alice's LLM
     participant A as Alice
     participant B as Bob
     actor OB as Operator-B
 
-    UA->>A: "ask bob what color is the sky"
+    UA->>A: "what color is the sky?"
+    A->>LLM: agent.run(text, session)
+    Note over LLM: tool call: send_to_peer("bob", "what color is the sky?")
     Note over A: stash awaiting_reply[qid] = User-A conv
     A->>B: A2A ask {qid, question, sender, reply_url=Alice}
+    LLM-->>UA: streamed reply ("Asked Bob, will let you know…")
     Note over B: validate reply_url ∈ allowlist<br/>stash inbound_asks[qid] = {reply_url, sender, question}
     B->>OB: push ask card
     OB->>B: submit "blue" (carries qid)
@@ -21,16 +25,19 @@ sequenceDiagram
     B->>A: A2A reply {qid, answer, responder}
     Note over A: pop awaiting_reply[qid]
     A->>UA: push reply card
+    Note over A: inject "[peer update] Bob replied: 'blue'…" into User-A's session
 ```
 
 ## Files
 
-- **Bot A / Alice** (`src/bot_a.py`) — Teams on **3978**, A2A on **5000**. Prefix: `ask bob`.
-- **Bot B / Bob** (`src/bot_b.py`) — Teams on **3979**, A2A on **5001**. Prefix: `ask alice`.
+- **Bot A / Alice** (`src/bot_a.py`) — Teams on **3978**, A2A on **5000**.
+- **Bot B / Bob** (`src/bot_b.py`) — Teams on **3979**, A2A on **5001**.
 - **Shared**
+  - `src/agent.py` — `BotAgent` holds the `agent_framework` `Agent`, lazily fetches peer A2A cards via `A2ACardResolver`, and exposes `get_agent()`, `session_for(conv_id)`, and `record_peer_reply(...)` for the bot file to use.
   - `src/state.py` — `BotState` (operator conversation, outbound asks awaiting a reply, inbound asks awaiting an operator).
-  - `src/a2a_executor.py` — A2A server dispatch: `ask` → validate `reply_url`, stash, push card to operator; `reply` → push card to the original user.
-  - `src/a2a_server.py` — `make_a2a_app(..., allowed_peer_urls=...)` wraps the executor in `A2AStarletteApplication`.
+  - `src/messages.py` — `AskMessage` / `ReplyMessage` Pydantic models with a `kind` discriminator.
+  - `src/a2a_executor.py` — A2A server dispatch: `ask` → validate `reply_url`, stash, push card to operator; `reply` → push card to the original user and call `on_peer_reply`.
+  - `src/a2a_server.py` — `make_a2a_app(..., allowed_peer_urls=..., on_peer_reply=...)` wraps the executor in `A2AStarletteApplication`.
   - `src/a2a_client.py` — `send_a2a(peer_url, data)` one-shot sender, plus `is_allowed_peer(url, allowed)` for origin-based peer URL validation.
   - `src/cards.py` — `ask_card(sender, question, qid)` (submit carries only qid), `reply_card(...)`.
 
@@ -49,6 +56,11 @@ Create `.env` in `examples/a2a-test/`:
 ```dotenv
 # Shared — your Microsoft tenant
 TENANT_ID=<your-tenant-id>
+
+# Azure OpenAI — used by both bots' LLM
+AZURE_OPENAI_API_KEY=<key>
+AZURE_OPENAI_ENDPOINT=<endpoint>
+AZURE_OPENAI_MODEL=<deployment-name>
 
 # Bot A (Alice) — Teams app registration
 BOT_A_CLIENT_ID=<alice-client-id>
@@ -80,4 +92,4 @@ uv run python src/bot_a.py   # Alice — Teams 3978, A2A 5000
 uv run python src/bot_b.py   # Bob   — Teams 3979, A2A 5001
 ```
 
-> ⚠ **DM each bot once before relaying.** The operator's conversation id is captured from the first Teams message the bot receives. If you `ask bob …` before Bob has been DM'd, Bob will log `no operator conversation; ask not pushed` and the card won't appear anywhere.
+> ⚠ **DM each bot once before relaying.** The operator's conversation id is captured from the first Teams message the bot receives. If a peer ask arrives before its target has been DM'd, the target will log `no operator conversation; ask not pushed` and the card won't appear anywhere.
