@@ -13,18 +13,19 @@ from a2a_server import make_a2a_app
 from agent import BotAgent, current_user_conv_id
 from cards import ASK_REPLY_ACTION
 from dotenv import load_dotenv
+from fastapi import FastAPI
 from messages import ReplyMessage
 from microsoft_teams.api import AdaptiveCardInvokeActivity, MessageActivity
 from microsoft_teams.api.models.adaptive_card import AdaptiveCardActionMessageResponse
 from microsoft_teams.api.models.invoke_response import AdaptiveCardInvokeResponse
-from microsoft_teams.apps import ActivityContext, App
+from microsoft_teams.apps import ActivityContext, App, FastAPIAdapter
 from microsoft_teams.common import ConsoleFormatter
 from state import BotState
 
-# Bot A (Alice) — Teams bot + A2A server, with an LLM that decides per-turn
-# whether to answer directly or forward the user's question to a peer over A2A.
+# Bot A (Alice) — Teams bot + A2A server sharing one FastAPI + uvicorn.
+# Teams `/api/messages` and the A2A routes (mounted at `/a2a`) live on the
+# same HTTP server, so Alice only occupies port 3978.
 #
-# - Teams: port 3978. A2A: port 5000.
 # - Inbound user message → agent.run() streams reply; the agent may call the
 #   `send_to_peer` tool, which queues an A2A ask to Bob.
 # - When Bob's operator answers, Bob sends a reply over A2A. Alice's executor
@@ -37,11 +38,10 @@ load_dotenv()
 
 
 NAME = "Alice"
-TEAMS_PORT = int(getenv("BOT_A_PORT", "3978"))
-A2A_HOST = getenv("BOT_A_A2A_HOST", "localhost")
-A2A_PORT = int(getenv("BOT_A_A2A_PORT", "5000"))
-SELF_A2A_URL = f"http://{A2A_HOST}:{A2A_PORT}/"
-BOB_URL = getenv("BOB_A2A_URL", "http://localhost:5001/")
+HOST = getenv("BOT_A_HOST", "localhost")
+PORT = int(getenv("BOT_A_PORT", "3978"))
+SELF_A2A_URL = f"http://{HOST}:{PORT}/a2a/"
+BOB_URL = getenv("BOB_A2A_URL", "http://localhost:3979/a2a/")
 ALLOWED_PEER_URLS = [BOB_URL]
 
 logging.getLogger().setLevel(logging.INFO)
@@ -50,8 +50,12 @@ _handler.setFormatter(ConsoleFormatter())
 logging.getLogger().addHandler(_handler)
 logger = logging.getLogger(__name__)
 
+fastapi_app = FastAPI()
 app = App(
-    client_id=getenv("BOT_A_CLIENT_ID"), client_secret=getenv("BOT_A_CLIENT_SECRET"), tenant_id=getenv("TENANT_ID")
+    http_server_adapter=FastAPIAdapter(app=fastapi_app),
+    client_id=getenv("BOT_A_CLIENT_ID"),
+    client_secret=getenv("BOT_A_CLIENT_SECRET"),
+    tenant_id=getenv("TENANT_ID"),
 )
 state = BotState(name=NAME)
 bot_agent = BotAgent(self_name=NAME, self_a2a_url=SELF_A2A_URL, peers={"bob": BOB_URL}, state=state)
@@ -99,7 +103,8 @@ async def handle_reply_submit(ctx: ActivityContext[AdaptiveCardInvokeActivity]) 
 
 
 async def main() -> None:
-    # Teams bot and A2A server run side-by-side in the same process.
+    # Mount the A2A Starlette sub-app on the shared FastAPI instance so the
+    # Teams `/api/messages` endpoint and A2A routes are served by one uvicorn.
     a2a_app = make_a2a_app(
         teams_app=app,
         state=state,
@@ -109,8 +114,10 @@ async def main() -> None:
         allowed_peer_urls=ALLOWED_PEER_URLS,
         on_peer_reply=bot_agent.record_peer_reply,
     )
-    a2a_server = uvicorn.Server(uvicorn.Config(a2a_app.build(), host=A2A_HOST, port=A2A_PORT, log_level="info"))
-    await asyncio.gather(app.start(TEAMS_PORT), a2a_server.serve())
+    fastapi_app.mount("/a2a", a2a_app.build())
+    await app.initialize()
+    server = uvicorn.Server(uvicorn.Config(fastapi_app, host=HOST, port=PORT, log_level="info"))
+    await server.serve()
 
 
 if __name__ == "__main__":

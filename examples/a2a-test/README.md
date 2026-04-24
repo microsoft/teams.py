@@ -33,8 +33,8 @@ sequenceDiagram
 ## Files
 
 **Entry points** — start here.
-- `src/bot_a.py` — Alice. Teams on **3978**, A2A on **5000**. Edit the `DESCRIPTION` constant to set Alice's expertise; this becomes her A2A AgentCard description that Bob's LLM reads to decide when to forward.
-- `src/bot_b.py` — Bob. Teams on **3979**, A2A on **5001**. Same `DESCRIPTION` knob for Bob.
+- `src/bot_a.py` — Alice. Teams `/api/messages` and A2A `/a2a` share port **3978**. Edit the `DESCRIPTION` constant to set Alice's expertise; this becomes her A2A AgentCard description that Bob's LLM reads to decide when to forward.
+- `src/bot_b.py` — Bob. Same layout on port **3979**. Same `DESCRIPTION` knob for Bob.
 
 **LLM agent**
 - `src/agent.py` — `BotAgent` builds the `agent_framework` `Agent`, lazily fetches peer A2A cards via `A2ACardResolver`, and exposes `get_agent()`, `session_for(conv_id)`, and `record_peer_reply(...)` for the bot file to use.
@@ -79,14 +79,12 @@ BOT_B_CLIENT_ID=<bob-client-id>
 BOT_B_CLIENT_SECRET=<bob-client-secret>
 
 # Optional — ports and A2A peer URLs (defaults shown)
+# BOT_A_HOST=localhost
 # BOT_A_PORT=3978
-# BOT_A_A2A_HOST=localhost
-# BOT_A_A2A_PORT=5000
-# BOB_A2A_URL=http://localhost:5001/
+# BOB_A2A_URL=http://localhost:3979/a2a/
+# BOT_B_HOST=localhost
 # BOT_B_PORT=3979
-# BOT_B_A2A_HOST=localhost
-# BOT_B_A2A_PORT=5001
-# ALICE_A2A_URL=http://localhost:5000/
+# ALICE_A2A_URL=http://localhost:3978/a2a/
 ```
 
 Each bot needs its **own** Teams app registration so DMs route to the right bot.
@@ -96,8 +94,8 @@ Each bot needs its **own** Teams app registration so DMs route to the right bot.
 Two terminals from `examples/a2a-test/`:
 
 ```bash
-uv run python src/bot_a.py   # Alice — Teams 3978, A2A 5000
-uv run python src/bot_b.py   # Bob   — Teams 3979, A2A 5001
+uv run python src/bot_a.py   # Alice — Teams + A2A on 3978
+uv run python src/bot_b.py   # Bob   — Teams + A2A on 3979
 ```
 
 > ⚠ **DM each bot once before relaying.** The operator's conversation id is captured from the first Teams message the bot receives. If a peer ask arrives before its target has been DM'd, the target will log `no operator conversation; ask not pushed` and the card won't appear anywhere.
