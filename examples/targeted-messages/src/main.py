@@ -84,40 +84,37 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
         return
 
     # ============================================
-    # Help / Default
-    # ============================================
-    if "help" in text:
-        await ctx.reply(
-            "**Targeted Messages Test Bot**\n\n"
-            "**Commands:**\n"
-            "- `send` - Send a targeted message with prompt preview (auto-populated)\n"
-            "- `update` - Send a targeted message, then update it after 3 seconds\n"
-            "- `delete` - Send a targeted message, then delete it after 3 seconds\n"
-            "- `public` - Public message with prompt preview (visible to all)\n\n"
-            "💡 *Test in a group chat to verify others don't see targeted messages!*"
-        )
-        return
-
-    # ============================================
-    # Test Prompt Preview — Public reply
-    # Everyone in the chat sees the reply with a
-    # collapsible preview of the original prompt.
+    # Test public reply
+    # Everyone in the chat sees the reply.
     # ============================================
     if "public" in text:
         await ctx.send(
-            MessageActivityInput(text="📋 Here is the public result — everyone can see this, with prompt preview!")
+            MessageActivityInput(text="📋 Here is the public result — everyone can see this!")
         )
         return
 
-    # Default — send a targeted reply.
-    # The SDK auto-populates targetedMessageInfo for prompt preview (reactive flow).
-    targeted_reply = MessageActivityInput(
-        text=(
-            f"🔒 You said: {ctx.activity.text or ''}\n\n"
-            "This is a **targeted message** with prompt preview — only YOU can see this!"
-        )
-    ).with_recipient(ctx.activity.from_, is_targeted=True)
-    await ctx.send(targeted_reply)
+    # ============================================
+    # Test targeted SEND
+    # ============================================
+    if "send" in text:
+        targeted_reply = MessageActivityInput(
+            text="This is a **targeted message** — only YOU can see this!"
+        ).with_recipient(ctx.activity.from_, is_targeted=True)
+        await ctx.send(targeted_reply)
+        return
+
+    # ============================================
+    # Help / Default
+    # ============================================
+    await ctx.reply(
+        "**Targeted Messages Test Bot**\n\n"
+        "**Commands:**\n"
+        "- `send` - Send a targeted message\n"
+        "- `update` - Send a targeted message, then update it after 3 seconds\n"
+        "- `delete` - Send a targeted message, then delete it after 5 seconds\n"
+        "- `public` - Send a public message (visible to all)\n\n"
+        "💡 *Test in a group chat to verify others don't see targeted messages!*"
+    )
 
 
 if __name__ == "__main__":
