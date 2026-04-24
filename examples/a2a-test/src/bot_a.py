@@ -12,7 +12,7 @@ from a2a_client import send_a2a
 from a2a_server import make_a2a_app
 from agent import BotAgent, current_user_conv_id
 from cards import ASK_REPLY_ACTION
-from dotenv import load_dotenv
+from dotenv import find_dotenv, load_dotenv
 from fastapi import FastAPI
 from messages import ReplyMessage
 from microsoft_teams.api import AdaptiveCardInvokeActivity, MessageActivity
@@ -34,8 +34,8 @@ from state import BotState
 # - When Alice receives an ask from Bob, her executor pushes an ask card into
 #   Alice's current operator's 1:1 conversation. The operator fills it in and
 #   submits → Alice's card-action handler sends the reply back over A2A.
-load_dotenv()
 
+load_dotenv(find_dotenv(usecwd=True))
 
 NAME = "Alice"
 HOST = getenv("BOT_A_HOST", "localhost")
