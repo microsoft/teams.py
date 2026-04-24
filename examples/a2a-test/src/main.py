@@ -26,7 +26,6 @@ from microsoft_teams.ai import ChatPrompt, Function, ModelMessage
 from microsoft_teams.api import MessageActivity, TypingActivityInput
 from microsoft_teams.apps import ActivityContext, App, PluginBase
 from microsoft_teams.common import ConsoleFormatter
-from microsoft_teams.devtools import DevToolsPlugin
 from microsoft_teams.openai.completions_model import OpenAICompletionsAIModel
 from pydantic import BaseModel
 
@@ -152,7 +151,7 @@ class LocationParams(BaseModel):
 
 
 # Setup the A2A Server Plugin
-plugins: List[PluginBase] = [A2APlugin(A2APluginOptions(agent_card=agent_card)), DevToolsPlugin()]
+plugins: List[PluginBase] = [A2APlugin(A2APluginOptions(agent_card=agent_card))]
 app = App(plugins=plugins)
 
 
