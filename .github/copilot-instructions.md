@@ -74,14 +74,12 @@ Microsoft Teams SDK for Python is a comprehensive SDK for building Microsoft Tea
 ### Basic Teams App Validation
 1. Navigate to test app: `cd examples/echo`
 2. Start the app: `python src/main.py`
-3. **Expected output**: App starts on ports 3978 and 3979 with logs:
+3. **Expected output**: App starts on port 3978 with logs:
    ```
    [INFO] Teams app started successfully
-   [INFO] @teams/app.DevToolsPlugin listening on port 3979 🚀
    ```
 4. **Test endpoints**:
    - Health check: `curl http://localhost:3978/` (returns `{"status":"healthy","port":3978}`)
-   - DevTools UI: `curl http://localhost:3979/devtools` (returns HTML page)
 5. Stop with Ctrl+C
 
 ### Required Pre-commit Validation
@@ -100,7 +98,6 @@ pyright             # Type checking validation
 - **microsoft-teams-api**: Teams API client
 - **microsoft-teams-cards**: Adaptive cards support
 - **microsoft-teams-common**: Shared utilities
-- **microsoft-teams-devtools**: Development and debugging tools
 - **microsoft-teams-graph**: Microsoft Graph integration
 
 ### Test Applications (`/examples`)
@@ -122,13 +119,11 @@ Available test apps for development and validation:
 1. **Run commands with UV** (recommended): Use `uv run pytest packages/[package-name]` or **activate virtual environment**: `source .venv/bin/activate`
 2. **Run affected tests**: `pytest packages/[package-name]` for specific package (or `uv run pytest packages/[package-name]`)
 3. **Validate with test app**: Use `examples/echo` for basic functionality validation (starts a blocking server process)
-4. **Check DevTools web app**: Access http://localhost:3979/devtools when app is running
 
 ### Debugging and Development
-- **DevTools Web App**: Available at port 3979 when running any test app
 - **Logging**: Apps provide structured logging for debugging
 - **Hot reload**: No hot reload - restart apps after changes
-- **Port conflicts**: Default ports are 3978 (main) and 3979 (devtools)
+- **Port conflicts**: Default port is 3978 (main)
 
 ### CI/CD Integration
 The CI pipeline (`.github/workflows/ci.yml`) runs:

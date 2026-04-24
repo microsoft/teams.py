@@ -3,7 +3,6 @@
 "microsoft-teams-api" = { workspace = true }
 "microsoft-teams-common" = { workspace = true }
 "microsoft-teams-cards" = { workspace = true }
-"microsoft-teams-devtools" = { workspace = true }
 "microsoft-teams-graph" = { workspace = true }
 "microsoft-teams-botbuilder" = { workspace = true }
 "hatch-teams-build" = { path = "tools/hatch-teams-build" }

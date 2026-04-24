@@ -43,7 +43,6 @@ All packages live in `packages/`, each with `src/microsoft_teams/<package>/` lay
 | `common` | HTTP client abstraction, logging, storage |
 | `cards` | Adaptive cards |
 | `botbuilder` | Bot Framework integration plugin |
-| `devtools` | Development tools plugin |
 | `graph` | Microsoft Graph integration |
 
 ### Key Patterns
