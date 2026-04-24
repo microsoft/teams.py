@@ -1,21 +1,21 @@
 """
 Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
-"""
 
-# Proactive Messaging Example
-# ===========================
-# This example demonstrates how to send proactive messages to Teams users
-# without running a server. This is useful for:
-# - Scheduled notifications
-# - Alert systems
-# - Background jobs that need to notify users
-# - Webhook handlers that send messages
-#
-# Key points:
-# - Uses app.initialize() instead of app.start() (no HTTP server)
-# - Directly sends messages using app.send()
-# - Requires a conversation ID (from previous interactions or from the Teams API)
+Proactive Messaging Example
+===========================
+This example demonstrates how to send proactive messages to Teams users
+without running a server. This is useful for:
+- Scheduled notifications
+- Alert systems
+- Background jobs that need to notify users
+- Webhook handlers that send messages
+
+Key points:
+- Uses app.initialize() instead of app.start() (no HTTP server)
+- Directly sends messages using app.send()
+- Requires a conversation ID (from previous interactions or from the Teams API)
+"""
 
 import argparse
 import asyncio
