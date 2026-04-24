@@ -4,26 +4,23 @@ Two symmetric Teams bots. Either can forward a question to the other over A2A; t
 
 ## Flow
 
-```
-User-A → Alice                                Bob → Operator-B
-"ask bob what color is the sky"
-   └─► Alice stashes qid → user's conv       (awaiting_reply)
-   └─► A2A ask {qid, question, sender,
-                reply_url=Alice}            ──► Bob validates reply_url against
-                                                 allowlist, stashes qid →
-                                                 {reply_url, sender, question}
-                                                 (inbound_asks), builds + pushes
-                                                 ask card to Operator-B
-                                                      ↓
-                                                Operator-B types "blue", clicks Submit
-                                                      ↓
-                                                Bob's on_card_action_execute:
-                                                 pops inbound_asks[qid] for the
-                                                 trusted reply_url
-                                                      ↓
-   Alice ◄── A2A reply {qid, answer,
-                        responder} ─────────── Bob sends to the stored reply_url
-   └─► Alice pops awaiting_reply[qid], builds + pushes reply card to User-A
+```mermaid
+sequenceDiagram
+    actor UA as User-A
+    participant A as Alice
+    participant B as Bob
+    actor OB as Operator-B
+
+    UA->>A: "ask bob what color is the sky"
+    Note over A: stash awaiting_reply[qid] = User-A conv
+    A->>B: A2A ask {qid, question, sender, reply_url=Alice}
+    Note over B: validate reply_url ∈ allowlist<br/>stash inbound_asks[qid] = {reply_url, sender, question}
+    B->>OB: push ask card
+    OB->>B: submit "blue" (carries qid)
+    Note over B: pop inbound_asks[qid] → trusted reply_url
+    B->>A: A2A reply {qid, answer, responder}
+    Note over A: pop awaiting_reply[qid]
+    A->>UA: push reply card
 ```
 
 ## Files
@@ -40,6 +37,10 @@ User-A → Alice                                Bob → Operator-B
 ## Operator model
 
 Each bot remembers the last **1:1** Teams conversation that messaged it (`state.operator_conv_id`). Incoming asks are pushed into that conversation. 
+
+## Peer authorization
+
+The `reply_url` check in `is_allowed_peer` is a **demo-only** stand-in for authorization: a peer is trusted because its URL matches a configured origin. Production A2A should verify the caller's identity with a bearer token signed by an IdP or mTLS, not a self-declared URL.
 
 ## Configuration
 

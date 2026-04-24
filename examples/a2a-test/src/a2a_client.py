@@ -30,8 +30,11 @@ def _origin(url: str) -> tuple[str, str, int] | None:
 
 
 def is_allowed_peer(url: str, allowed: list[str]) -> bool:
-    # Match by scheme/host/port so a trailing slash or default port
-    # doesn't flip a valid peer to invalid.
+    # Demo-only stand-in for authorization: we trust a peer because its
+    # reply_url matches a configured origin. Production A2A should verify the
+    # caller's identity (e.g. bearer token signed by an IdP, or mTLS) rather
+    # than trusting a self-declared URL. Match by scheme/host/port so a
+    # trailing slash or default port doesn't flip a valid peer to invalid.
     target = _origin(url)
     if target is None:
         return False

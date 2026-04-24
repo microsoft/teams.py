@@ -13,6 +13,7 @@ from a2a_client import send_a2a
 from a2a_server import make_a2a_app
 from cards import ASK_REPLY_ACTION
 from dotenv import load_dotenv
+from messages import AskMessage, ReplyMessage
 from microsoft_teams.api import AdaptiveCardInvokeActivity, MessageActivity, TypingActivityInput
 from microsoft_teams.api.models.adaptive_card import AdaptiveCardActionMessageResponse
 from microsoft_teams.api.models.invoke_response import AdaptiveCardInvokeResponse
@@ -74,16 +75,8 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
             "conv_id": ctx.activity.conversation.id,
             "question": question,
         }
-        await send_a2a(
-            BOB_URL,
-            {
-                "kind": "ask",
-                "qid": qid,
-                "question": question,
-                "sender": NAME,
-                "reply_url": SELF_A2A_URL,
-            },
-        )
+        ask = AskMessage(qid=qid, question=question, sender=NAME, reply_url=SELF_A2A_URL)
+        await send_a2a(BOB_URL, ask.model_dump())
         await ctx.send(f"Asked peer (qid {qid[:8]}). Waiting for reply…")
         return
 
@@ -106,15 +99,8 @@ async def handle_reply_submit(ctx: ActivityContext[AdaptiveCardInvokeActivity]) 
     reply_url = pending["reply_url"]
     sender = pending["sender"]
 
-    await send_a2a(
-        reply_url,
-        {
-            "kind": "reply",
-            "qid": qid,
-            "answer": answer_text,
-            "responder": NAME,
-        },
-    )
+    reply = ReplyMessage(qid=qid, answer=answer_text, responder=NAME)
+    await send_a2a(reply_url, reply.model_dump())
     return AdaptiveCardActionMessageResponse(value=f"Reply sent back to {sender}.")
 
 
