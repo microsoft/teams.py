@@ -7,31 +7,27 @@ Two symmetric Teams bots, each backed by an LLM. The user sends a natural-langua
 ```mermaid
 sequenceDiagram
     actor UA as User-A
-    participant LLM as Alice's LLM
-    participant A as Alice
-    participant B as Bob
+    participant A as Alice (LLM agent)
+    participant B as Bob (LLM agent)
     actor OB as Operator-B
 
-    UA->>A: "what color is the sky?"
-    A->>LLM: agent.run(text, session)
-    Note over LLM: tool call: send_to_peer("bob", "what color is the sky?")
-    Note over A: stash awaiting_reply[qid] = User-A conv
+    UA->>A: "how do I scale my postgres database?"
+    Note over A: LLM reads Bob's AgentCard ("backend & infra"), picks tool:<br/>send_to_peer("bob", "how do I scale my postgres database?")<br/>stash awaiting_reply[qid] = User-A conv
     A->>B: A2A ask {qid, question, sender, reply_url=Alice}
-    LLM-->>UA: streamed reply ("Asked Bob, will let you know…")
+    A-->>UA: streamed reply ("Asked Bob, will let you know…")
     Note over B: validate reply_url ∈ allowlist<br/>stash inbound_asks[qid] = {reply_url, sender, question}
     B->>OB: push ask card
-    OB->>B: submit "blue" (carries qid)
+    OB->>B: submit "use read replicas + pgbouncer" (carries qid)
     Note over B: pop inbound_asks[qid] → trusted reply_url
     B->>A: A2A reply {qid, answer, responder}
-    Note over A: pop awaiting_reply[qid]
+    Note over A: pop awaiting_reply[qid]<br/>inject "[peer update] Bob replied: 'use read replicas + pgbouncer'…" into User-A's session
     A->>UA: push reply card
-    Note over A: inject "[peer update] Bob replied: 'blue'…" into User-A's session
 ```
 
 ## Files
 
-- **Bot A / Alice** (`src/bot_a.py`) — Teams on **3978**, A2A on **5000**.
-- **Bot B / Bob** (`src/bot_b.py`) — Teams on **3979**, A2A on **5001**.
+- **Bot A / Alice** (`src/bot_a.py`) — Teams on **3978**, A2A on **5000**. Edit the `DESCRIPTION` constant to set Alice's expertise; this becomes her A2A AgentCard description that Bob's LLM reads to decide when to forward.
+- **Bot B / Bob** (`src/bot_b.py`) — Teams on **3979**, A2A on **5001**. Same `DESCRIPTION` knob for Bob.
 - **Shared**
   - `src/agent.py` — `BotAgent` holds the `agent_framework` `Agent`, lazily fetches peer A2A cards via `A2ACardResolver`, and exposes `get_agent()`, `session_for(conv_id)`, and `record_peer_reply(...)` for the bot file to use.
   - `src/state.py` — `BotState` (operator conversation, outbound asks awaiting a reply, inbound asks awaiting an operator).
