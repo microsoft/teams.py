@@ -8,6 +8,9 @@ requires-python = ">=3.12,<3.15"
 repository = "https://github.com/microsoft/teams.py"
 keywords = ["microsoft", "teams", "ai", "bot", "agents"]
 license = "MIT"
+classifiers = [
+    "Development Status :: 7 - Inactive",
+]
 dependencies = [
     "uvicorn[standard]>=0.34.3",
     "fastapi>=0.115.13",

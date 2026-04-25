@@ -1,5 +1,5 @@
-> [!CAUTION]
-> This project is in public preview. We’ll do our best to maintain compatibility, but there may be breaking changes in upcoming releases.
+> [!WARNING]
+> **Deprecated** — This package was originally in preview, but we have decided to stop maintaining it before General Availability. We recommend testing with Microsoft Teams directly, or with the [Agents Playground](https://learn.microsoft.com/en-us/microsoftteams/platform/toolkit/debug-your-agents-playground).
 
 # Microsoft Teams DevTools
 

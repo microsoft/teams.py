@@ -12,9 +12,13 @@ from httpx import HTTPStatusError, Request, Response
 from microsoft_teams.api import (
     Account,
     ApiClient,
+    CardAction,
+    CardActionType,
     ConversationAccount,
     ConversationReference,
+    MessageActivityInput,
     SentActivity,
+    SuggestedActions,
     TypingActivityInput,
 )
 from microsoft_teams.apps import HttpStream
@@ -327,3 +331,98 @@ class TestHttpStream:
 
         result = await stream.close()
         assert result is None
+
+    @pytest.mark.asyncio
+    async def test_final_activity_last_wins(self, mock_api_client, conversation_reference, patch_loop_call_later):
+        """When multiple MessageActivityInputs are emitted, the last one's non-text fields are used."""
+        loop = asyncio.get_running_loop()
+        patcher, scheduled = patch_loop_call_later(loop)
+
+        update_call_count = 0
+        original_create = mock_api_client.conversations.activities().create
+
+        async def mock_send(activity):
+            nonlocal update_call_count
+            if (
+                hasattr(activity, "id")
+                and activity.id
+                and not any(e.type == "streaminfo" for e in (activity.entities or []))
+            ):
+                update_call_count += 1
+                return SentActivity(id=activity.id, activity_params=activity)
+            return await original_create(activity)
+
+        mock_api_client.conversations.activities().create = mock_send
+        mock_api_client.conversations.activities().update = mock_send
+
+        with patcher:
+            stream = HttpStream(mock_api_client, conversation_reference)
+
+            early_actions = SuggestedActions(
+                to=[],
+                actions=[CardAction(type=CardActionType.IM_BACK, title="Early", value="early")],
+            )
+            late_actions = SuggestedActions(
+                to=[],
+                actions=[CardAction(type=CardActionType.IM_BACK, title="Late", value="late")],
+            )
+
+            stream.emit("Hello ")
+            stream.emit(MessageActivityInput(text="world").with_suggested_actions(early_actions))
+            stream.emit(MessageActivityInput().add_ai_generated().with_suggested_actions(late_actions))
+            await asyncio.sleep(0)
+            await self._run_scheduled_flushes(scheduled)
+
+            result = await stream.close()
+            assert result is not None
+            # The final activity should use the last emitted MessageActivityInput's suggested actions
+            assert result.activity_params.suggested_actions == late_actions
+            # Text should be accumulated from all emits
+            assert result.activity_params.text == "Hello world"
+
+    @pytest.mark.asyncio
+    async def test_suggested_actions_on_final_message(
+        self, mock_api_client, conversation_reference, patch_loop_call_later
+    ):
+        """Suggested actions emitted mid-stream appear on the final close() message."""
+        loop = asyncio.get_running_loop()
+        patcher, scheduled = patch_loop_call_later(loop)
+
+        update_call_count = 0
+        original_create = mock_api_client.conversations.activities().create
+
+        async def mock_send(activity):
+            nonlocal update_call_count
+            if (
+                hasattr(activity, "id")
+                and activity.id
+                and not any(e.type == "streaminfo" for e in (activity.entities or []))
+            ):
+                update_call_count += 1
+                return SentActivity(id=activity.id, activity_params=activity)
+            return await original_create(activity)
+
+        mock_api_client.conversations.activities().create = mock_send
+        mock_api_client.conversations.activities().update = mock_send
+
+        with patcher:
+            stream = HttpStream(mock_api_client, conversation_reference)
+
+            actions = SuggestedActions(
+                to=[],
+                actions=[
+                    CardAction(type=CardActionType.IM_BACK, title="Option A", value="a"),
+                    CardAction(type=CardActionType.IM_BACK, title="Option B", value="b"),
+                ],
+            )
+
+            stream.emit("Streaming content...")
+            stream.emit(MessageActivityInput().with_suggested_actions(actions))
+            await asyncio.sleep(0)
+            await self._run_scheduled_flushes(scheduled)
+
+            result = await stream.close()
+            assert result is not None
+            assert result.activity_params.suggested_actions is not None
+            assert len(result.activity_params.suggested_actions.actions) == 2
+            assert result.activity_params.suggested_actions.actions[0].title == "Option A"

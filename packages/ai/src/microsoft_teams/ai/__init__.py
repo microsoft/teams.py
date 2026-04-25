@@ -4,6 +4,7 @@ Licensed under the MIT License.
 """
 
 import logging
+import warnings
 
 from .ai_model import AIModel
 from .chat_prompt import ChatPrompt, ChatSendResult
@@ -12,6 +13,13 @@ from .memory import ListMemory, Memory
 from .message import FunctionMessage, Message, ModelMessage, SystemMessage, UserMessage
 
 logging.getLogger(__name__).addHandler(logging.NullHandler())
+
+warnings.warn(
+    "microsoft-teams-ai is deprecated and will no longer be maintained. "
+    "Use the Agent Framework instead: https://learn.microsoft.com/en-us/agent-framework/overview/?pivots=programming-language-python",
+    FutureWarning,
+    stacklevel=2,
+)
 
 __all__ = [
     "ChatSendResult",

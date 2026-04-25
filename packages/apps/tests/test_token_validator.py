@@ -7,6 +7,7 @@ from unittest.mock import MagicMock, patch
 
 import jwt
 import pytest
+from microsoft_teams.api.auth.cloud_environment import PUBLIC, US_GOV
 from microsoft_teams.apps.auth.token_validator import TokenValidator
 
 # pyright: basic
@@ -336,3 +337,252 @@ class TestTokenValidator:
         ):
             with pytest.raises(jwt.InvalidTokenError):
                 await validator_entra.validate_token(token)
+
+    # --- Finding 4: Scope validation uses exact match, not substring ---
+
+    @pytest.mark.asyncio
+    async def test_scope_validation_rejects_substring_match(self, mock_jwks_client):
+        """Scope 'User.Read' should NOT match 'User.ReadBasic.All' (substring)."""
+        validator = TokenValidator.for_entra(app_id="test-app-id", tenant_id="test-tenant-id", scope="User.Read")
+        validator._jwks_client = mock_jwks_client
+        payload = {
+            "iss": "https://login.microsoftonline.com/test-tenant-id/v2.0",
+            "aud": "test-app-id",
+            "scp": "User.ReadBasic.All",
+            "exp": 9999999999,
+            "iat": 1000000000,
+        }
+
+        with patch("jwt.decode", return_value=payload):
+            with pytest.raises(jwt.InvalidTokenError, match="Token missing required scope: User.Read"):
+                await validator.validate_token("valid.jwt.token")
+
+    @pytest.mark.asyncio
+    async def test_scope_validation_accepts_exact_match_among_multiple(self, mock_jwks_client):
+        """Scope 'User.Read' should match when present among multiple scopes."""
+        validator = TokenValidator.for_entra(app_id="test-app-id", tenant_id="test-tenant-id", scope="User.Read")
+        validator._jwks_client = mock_jwks_client
+        payload = {
+            "iss": "https://login.microsoftonline.com/test-tenant-id/v2.0",
+            "aud": "test-app-id",
+            "scp": "Mail.Read User.Read Files.ReadWrite",
+            "exp": 9999999999,
+            "iat": 1000000000,
+        }
+
+        with patch("jwt.decode", return_value=payload):
+            result = await validator.validate_token("valid.jwt.token")
+            assert result["scp"] == "Mail.Read User.Read Files.ReadWrite"
+
+    # --- Finding 10: Issuer validation bypass ---
+
+    def test_for_entra_without_tenant_id_logs_warning(self, caplog):
+        """Creating Entra validator without tenant_id should log a warning."""
+        import logging
+
+        with caplog.at_level(logging.WARNING):
+            validator = TokenValidator.for_entra(app_id="test-app-id", tenant_id=None)
+            assert validator.options.valid_issuers == []
+            assert "Issuer validation will be skipped" in caplog.text
+
+    # --- Finding 1: Service URL domain allowlist ---
+
+    @pytest.mark.asyncio
+    @pytest.mark.asyncio
+    async def test_service_url_rejects_botframework_by_default(self, validator, mock_jwks_client, valid_payload):
+        """botframework.com should be rejected by default (non-Teams channel)."""
+        validator._jwks_client = mock_jwks_client
+        with patch("jwt.decode", return_value=valid_payload):
+            with pytest.raises(jwt.InvalidTokenError, match="is not from an allowed domain"):
+                await validator.validate_token("valid.jwt.token", "https://webchat.botframework.com")
+
+    @pytest.mark.asyncio
+    async def test_service_url_rejects_non_allowed_domain(self, validator, mock_jwks_client, valid_payload):
+        """Service URL from unknown domain should be rejected."""
+        validator._jwks_client = mock_jwks_client
+        with patch("jwt.decode", return_value=valid_payload):
+            with pytest.raises(jwt.InvalidTokenError, match="is not from an allowed domain"):
+                await validator.validate_token("valid.jwt.token", "https://evil.com/api")
+
+    @pytest.mark.asyncio
+    async def test_service_url_accepts_cloud_preset_fqdn(self, validator, mock_jwks_client):
+        """Service URL from cloud preset should be accepted."""
+        payload = {
+            "iss": "https://api.botframework.com",
+            "aud": "test-app-id",
+            "serviceurl": "https://smba.trafficmanager.net/amer/",
+            "exp": 9999999999,
+            "iat": 1000000000,
+        }
+        validator._jwks_client = mock_jwks_client
+        with patch("jwt.decode", return_value=payload):
+            result = await validator.validate_token("valid.jwt.token", "https://smba.trafficmanager.net/amer/")
+            assert result["serviceurl"] == "https://smba.trafficmanager.net/amer/"
+
+    @pytest.mark.asyncio
+    async def test_service_url_accepts_localhost(self, validator, mock_jwks_client):
+        """Localhost service URL should be accepted for development."""
+        payload = {
+            "iss": "https://api.botframework.com",
+            "aud": "test-app-id",
+            "serviceurl": "http://localhost:3978",
+            "exp": 9999999999,
+            "iat": 1000000000,
+        }
+        validator._jwks_client = mock_jwks_client
+        with patch("jwt.decode", return_value=payload):
+            result = await validator.validate_token("valid.jwt.token", "http://localhost:3978")
+            assert result["serviceurl"] == "http://localhost:3978"
+
+    @pytest.mark.asyncio
+    async def test_service_url_accepts_gov_cloud_with_us_gov_preset(self, mock_jwks_client):
+        """US Government cloud service URL should be accepted with US_GOV cloud."""
+        validator = TokenValidator.for_service("test-app-id", cloud=US_GOV)
+        payload = {
+            "iss": "https://api.botframework.us",
+            "aud": "test-app-id",
+            "serviceurl": "https://smba.infra.gov.teams.microsoft.us/",
+            "exp": 9999999999,
+            "iat": 1000000000,
+        }
+        validator._jwks_client = mock_jwks_client
+        with patch("jwt.decode", return_value=payload):
+            result = await validator.validate_token("valid.jwt.token", "https://smba.infra.gov.teams.microsoft.us/")
+            assert isinstance(result, dict)
+
+    @pytest.mark.asyncio
+    async def test_service_url_rejects_spoofed_suffix(self, validator, mock_jwks_client, valid_payload):
+        """Domain containing allowed suffix as substring should be rejected."""
+        validator._jwks_client = mock_jwks_client
+        with patch("jwt.decode", return_value=valid_payload):
+            with pytest.raises(jwt.InvalidTokenError, match="is not from an allowed domain"):
+                await validator.validate_token("valid.jwt.token", "https://botframework.com.evil.com")
+
+    @pytest.mark.asyncio
+    async def test_service_url_rejects_attacker_trafficmanager(self, validator, mock_jwks_client, valid_payload):
+        """Attacker-controlled trafficmanager subdomain should be rejected."""
+        validator._jwks_client = mock_jwks_client
+        with patch("jwt.decode", return_value=valid_payload):
+            with pytest.raises(jwt.InvalidTokenError, match="is not from an allowed domain"):
+                await validator.validate_token("valid.jwt.token", "https://attacker.trafficmanager.net")
+
+    @pytest.mark.asyncio
+    async def test_service_url_accepts_smba_onyx_trafficmanager(self, validator, mock_jwks_client):
+        """smba.onyx.prod.teams.trafficmanager.net should be accepted."""
+        payload = {
+            "iss": "https://api.botframework.com",
+            "aud": "test-app-id",
+            "serviceurl": "https://smba.onyx.prod.teams.trafficmanager.net",
+            "exp": 9999999999,
+            "iat": 1000000000,
+        }
+        validator._jwks_client = mock_jwks_client
+        with patch("jwt.decode", return_value=payload):
+            result = await validator.validate_token(
+                "valid.jwt.token", "https://smba.onyx.prod.teams.trafficmanager.net"
+            )
+            assert isinstance(result, dict)
+
+    def test_is_allowed_service_url_invalid_url(self):
+        """Invalid URL should return False."""
+        from microsoft_teams.apps.auth.token_validator import is_allowed_service_url
+
+        assert is_allowed_service_url("not-a-url", PUBLIC) is False
+
+    def test_is_allowed_service_url_empty(self):
+        """Empty string should return False (no hostname to match)."""
+        from microsoft_teams.apps.auth.token_validator import is_allowed_service_url
+
+        assert is_allowed_service_url("", PUBLIC) is False
+
+    def test_is_allowed_service_url_with_additional_domains(self):
+        """Additional domains should be accepted."""
+        from microsoft_teams.apps.auth.token_validator import is_allowed_service_url
+
+        assert is_allowed_service_url("https://api.custom.com", PUBLIC, ["api.custom.com"]) is True
+        assert is_allowed_service_url("https://api.custom.com", PUBLIC) is False
+
+    def test_is_allowed_service_url_wildcard(self):
+        """Wildcard '*' should accept any domain."""
+        from microsoft_teams.apps.auth.token_validator import is_allowed_service_url
+
+        assert is_allowed_service_url("https://anything.example.com", PUBLIC, ["*"]) is True
+
+    # ----- additional_allowed_domains plumbing through validate_token -----
+
+    @pytest.mark.asyncio
+    async def test_validate_token_honors_additional_allowed_domains(self, mock_jwks_client):
+        """validate_token must accept a service URL listed in additional_allowed_domains.
+
+        Regression: for_service previously dropped the allowlist, so non-default channels
+        (canary, custom) were rejected even when the user configured them.
+        """
+        validator = TokenValidator.for_service("test-app-id", additional_allowed_domains=["canary.botapi.skype.com"])
+        validator._jwks_client = mock_jwks_client
+        payload = {
+            "iss": "https://api.botframework.com",
+            "aud": "test-app-id",
+            "serviceurl": "https://canary.botapi.skype.com/amer",
+            "exp": 9999999999,
+            "iat": 1000000000,
+        }
+        with patch("jwt.decode", return_value=payload):
+            result = await validator.validate_token("valid.jwt.token", "https://canary.botapi.skype.com/amer")
+            assert isinstance(result, dict)
+
+    @pytest.mark.asyncio
+    async def test_validate_token_rejects_when_domain_not_in_allowlist(self, mock_jwks_client):
+        """Sanity check: without additional_allowed_domains, canary is rejected."""
+        validator = TokenValidator.for_service("test-app-id")
+        validator._jwks_client = mock_jwks_client
+        payload = {
+            "iss": "https://api.botframework.com",
+            "aud": "test-app-id",
+            "serviceurl": "https://canary.botapi.skype.com/amer",
+            "exp": 9999999999,
+            "iat": 1000000000,
+        }
+        with patch("jwt.decode", return_value=payload):
+            with pytest.raises(jwt.InvalidTokenError, match="Service URL is not from an allowed domain"):
+                await validator.validate_token("valid.jwt.token", "https://canary.botapi.skype.com/amer")
+
+    @pytest.mark.asyncio
+    async def test_validate_token_wildcard_allows_arbitrary_domain(self, mock_jwks_client):
+        """additional_allowed_domains=['*'] must disable the allowlist check at validate_token level."""
+        validator = TokenValidator.for_service("test-app-id", additional_allowed_domains=["*"])
+        validator._jwks_client = mock_jwks_client
+        payload = {
+            "iss": "https://api.botframework.com",
+            "aud": "test-app-id",
+            "serviceurl": "https://anything.example.com/",
+            "exp": 9999999999,
+            "iat": 1000000000,
+        }
+        with patch("jwt.decode", return_value=payload):
+            result = await validator.validate_token("valid.jwt.token", "https://anything.example.com/")
+            assert isinstance(result, dict)
+
+    def test_for_service_stores_additional_allowed_domains(self):
+        """Factory must surface the allowlist on the instance so validate_token can use it."""
+        validator = TokenValidator.for_service(
+            "test-app-id", additional_allowed_domains=["a.example.com", "b.example.com"]
+        )
+        assert validator.additional_allowed_domains == ["a.example.com", "b.example.com"]
+
+    def test_for_entra_stores_additional_allowed_domains(self):
+        """Same plumbing check for the Entra factory."""
+        validator = TokenValidator.for_entra(
+            app_id="test-app-id",
+            tenant_id="test-tenant-id",
+            additional_allowed_domains=["custom.example.com"],
+        )
+        assert validator.additional_allowed_domains == ["custom.example.com"]
+
+    def test_init_copies_additional_allowed_domains(self):
+        """Mutating the caller's list after construction must not change validator behavior."""
+        caller_list = ["a.example.com"]
+        validator = TokenValidator.for_service("test-app-id", additional_allowed_domains=caller_list)
+
+        caller_list.append("b.example.com")
+
+        assert validator.additional_allowed_domains == ["a.example.com"]

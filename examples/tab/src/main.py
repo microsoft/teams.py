@@ -8,9 +8,8 @@ from pathlib import Path
 from typing import Any
 
 from microsoft_teams.apps import App, FunctionContext
-from microsoft_teams.devtools import DevToolsPlugin
 
-app = App(plugins=[DevToolsPlugin()])
+app = App()
 app.tab("test", str(Path("Web/dist").resolve()))
 
 

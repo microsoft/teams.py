@@ -4,12 +4,20 @@ Licensed under the MIT License.
 """
 
 import logging
+import warnings
 
 from . import chat_prompt, server
 from .chat_prompt import *  # noqa: F403
 from .server import *  # noqa: F401, F403
 
 logging.getLogger(__name__).addHandler(logging.NullHandler())
+
+warnings.warn(
+    "microsoft-teams-a2a is deprecated and will no longer be maintained. "
+    "Use the official A2A Python SDK instead: https://github.com/a2aproject/a2a-python",
+    FutureWarning,
+    stacklevel=2,
+)
 
 # Combine all exports from submodules
 __all__: list[str] = []
