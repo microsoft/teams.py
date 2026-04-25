@@ -9,6 +9,7 @@
 "microsoft-teams-mcpplugin" = { workspace = true }
 "microsoft-teams-a2a" = { workspace = true }
 "microsoft-teams-botbuilder" = { workspace = true }
+"microsoft-teams-devtools" = { workspace = true }
 "hatch-teams-build" = { path = "tools/hatch-teams-build" }
 
 [tool.uv.workspace]
