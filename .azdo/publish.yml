@@ -129,7 +129,7 @@ extends:
               # Always use internal feed for dependency resolution (avoids firewall issues on 1ES pool)
               $env:UV_INDEX_URL = "https://build:$($env:SYSTEM_ACCESSTOKEN)@pkgs.dev.azure.com/DomoreexpGithub/Github_Pipelines/_packaging/TeamsSDKPreviews/pypi/simple/"
               Write-Host "Using authenticated Azure Artifacts feed"
-              uv pip install -e packages/common -e packages/api -e packages/cards -e packages/apps -e packages/botbuilder -e packages/devtools -e packages/graph -e packages/ai -e packages/openai -e packages/mcpplugin -e packages/a2aprotocol
+              uv pip install -e packages/common -e packages/api -e packages/cards -e packages/apps -e packages/botbuilder -e packages/graph
           env:
             SYSTEM_ACCESSTOKEN: $(System.AccessToken)
           target:
