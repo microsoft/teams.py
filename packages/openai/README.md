@@ -1,5 +1,8 @@
 # Microsoft Teams OpenAI
 
+> [!WARNING]
+> **Deprecated** — This package was originally in preview, but we have decided to stop maintaining it before General Availability. We recommend using the official [OpenAI Python SDK](https://github.com/openai/openai-python) instead, which provides better long-term support for OpenAI integrations.
+
 <p>
     <a href="https://pypi.org/project/microsoft-teams-openai/" target="_blank">
         <img src="https://img.shields.io/pypi/v/microsoft-teams-openai" />
