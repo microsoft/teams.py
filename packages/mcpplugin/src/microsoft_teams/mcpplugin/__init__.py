@@ -16,7 +16,7 @@ logging.getLogger(__name__).addHandler(logging.NullHandler())
 warnings.warn(
     "microsoft-teams-mcpplugin is deprecated and will no longer be maintained. "
     "Use the official MCP Python SDK instead: https://github.com/modelcontextprotocol/python-sdk",
-    DeprecationWarning,
+    FutureWarning,
     stacklevel=2,
 )
 

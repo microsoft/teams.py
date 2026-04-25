@@ -1,7 +1,7 @@
 # Microsoft Teams SDK
 
 > [!WARNING]
-> **Deprecated** — This package was originally in preview, but we have decided to stop maintaining it before General Availability. We recommend using the [Agent Framework](https://microsoft.github.io/teams-sdk/python/in-depth-guides/ai/) instead, which provides better long-term support for building AI-powered Teams applications.
+> **Deprecated** — This package was originally in preview, but we have decided to stop maintaining it before General Availability. We recommend using the [Agent Framework](https://learn.microsoft.com/en-us/agent-framework/overview/?pivots=programming-language-python) instead, which provides better long-term support for building AI-powered Teams applications.
 
 <p>
     <a href="https://pypi.org/project/microsoft-teams-ai/" target="_blank">
@@ -18,7 +18,7 @@
 AI-powered conversational experiences for Microsoft Teams applications.
 Provides prompt management, action planning, and model integration for building intelligent Teams bots.
 
-[📖 Documentation](https://microsoft.github.io/teams-sdk/python/in-depth-guides/ai/)
+[📖 Documentation](https://learn.microsoft.com/en-us/agent-framework/overview/?pivots=programming-language-python)
 
 ## Installation
 

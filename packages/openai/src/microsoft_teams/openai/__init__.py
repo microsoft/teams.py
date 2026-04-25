@@ -14,7 +14,7 @@ logging.getLogger(__name__).addHandler(logging.NullHandler())
 warnings.warn(
     "microsoft-teams-openai is deprecated and will no longer be maintained. "
     "Use the official OpenAI Python SDK instead: https://github.com/openai/openai-python",
-    DeprecationWarning,
+    FutureWarning,
     stacklevel=2,
 )
 

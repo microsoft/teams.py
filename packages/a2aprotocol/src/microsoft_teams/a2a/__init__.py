@@ -15,7 +15,7 @@ logging.getLogger(__name__).addHandler(logging.NullHandler())
 warnings.warn(
     "microsoft-teams-a2a is deprecated and will no longer be maintained. "
     "Use the official A2A Python SDK instead: https://github.com/a2aproject/a2a-python",
-    DeprecationWarning,
+    FutureWarning,
     stacklevel=2,
 )
 
