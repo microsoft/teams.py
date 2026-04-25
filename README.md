@@ -62,6 +62,7 @@ A comprehensive SDK for building Microsoft Teams applications, bots, and AI agen
 - [`microsoft-teams-api`](./packages/api/README.md)
 - [`microsoft-teams-cards`](./packages/cards/README.md)
 - [`microsoft-teams-common`](./packages/common/README.md)
+- [`microsoft-teams-devtools`](./packages/devtools/README.md)
 - [`microsoft-teams-graph`](./packages/graph/README.md)
 - [`microsoft-teams-openai`](./packages/openai/README.md)
 - [`microsoft-teams-botbuilder`](./packages/botbuilder/README.md)

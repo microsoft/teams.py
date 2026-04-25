@@ -2,7 +2,7 @@
 a sample showcasing an a2a server / client
 
 
-Open up the client, and send a message:
+Open up devtools for the client, and send a message:
 
 ```
 C: What's the weather like?

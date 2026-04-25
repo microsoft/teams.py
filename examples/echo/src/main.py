@@ -9,8 +9,9 @@ import re
 from microsoft_teams.api import MessageActivity
 from microsoft_teams.api.activities.typing import TypingActivityInput
 from microsoft_teams.apps import ActivityContext, App
+from microsoft_teams.devtools import DevToolsPlugin
 
-app = App()
+app = App(plugins=[DevToolsPlugin()])
 
 
 @app.on_message_pattern(re.compile(r"hello|hi|greetings"))

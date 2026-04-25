@@ -12,6 +12,7 @@
       "packages/cards/src",
       "packages/apps/src",
       "packages/graph/src",
+      "packages/devtools/src",
       "packages/ai/src",
       "packages/openai/src",
       "packages/mcpplugin/src",
@@ -26,9 +27,9 @@
          "reportIncompatibleMethodOverride": "none"
       },
       {
-         "root": "packages/botbuilder/src",
-         "reportMissingTypeStubs": "none",
-         "reportUnknownMemberType": "none"
+      "root": "packages/botbuilder/src",
+      "reportMissingTypeStubs": "none",
+      "reportUnknownMemberType": "none"
       },
       {
          "root": "examples/botbuilder/src",
