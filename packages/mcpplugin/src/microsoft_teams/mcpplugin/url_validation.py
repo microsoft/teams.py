@@ -67,6 +67,8 @@ async def validate_mcp_server_url(url: str, params: Optional[UrlValidationParams
         return url
 
     addresses = await _resolve_host(parsed.hostname)
+    if not addresses:
+        raise UrlValidationError(f"URL {url} did not resolve to any address")
     for address in addresses:
         if is_private_address(address):
             raise UrlValidationError(
@@ -77,12 +79,19 @@ async def validate_mcp_server_url(url: str, params: Optional[UrlValidationParams
 
 
 def is_private_address(address: str) -> bool:
-    """True if an IP address is loopback, private, link-local, or unspecified."""
+    """True if an IP address is loopback, private, link-local, unspecified, or IPv6 site-local."""
     try:
         ip = ipaddress.ip_address(address)
     except ValueError:
         return True  # Unknown: fail closed.
-    return ip.is_loopback or ip.is_private or ip.is_link_local or ip.is_unspecified
+    if ip.is_loopback or ip.is_private or ip.is_link_local or ip.is_unspecified:
+        return True
+    # RFC 4291 deprecated IPv6 site-local (fec0::/10). Python's is_private does
+    # not classify it, but we reject for parity with the C# SDK.
+    if isinstance(ip, ipaddress.IPv6Address):
+        packed = int(ip)
+        return (packed >> 118) == 0x3FB  # top 10 bits == 1111111011
+    return False
 
 
 async def _resolve_host(host: str) -> List[str]:

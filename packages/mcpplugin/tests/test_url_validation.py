@@ -34,7 +34,11 @@ RESOLVE_HOST = "microsoft_teams.mcpplugin.url_validation._resolve_host"
         ("fc00::1", True),
         ("fd00::1", True),
         ("fe80::1", True),
+        ("fec0::1", True),
+        ("::", True),
         ("2001:4860:4860::8888", False),
+        ("::ffff:127.0.0.1", True),
+        ("::ffff:8.8.8.8", False),
         ("not-an-ip", True),
     ],
 )
@@ -140,4 +144,35 @@ async def test_validate_url_rejects_when_returning_false() -> None:
         await validate_mcp_server_url(
             "https://example.com/mcp",
             UrlValidationParams(validate_url=lambda _url: False),
+        )
+
+
+@pytest.mark.asyncio
+async def test_rejects_when_dns_lookup_fails() -> None:
+    # _resolve_host wraps socket.gaierror as UrlValidationError; verify the
+    # caller surfaces that rather than swallowing it.
+    with patch(
+        RESOLVE_HOST,
+        new=AsyncMock(side_effect=UrlValidationError("Could not resolve nonexistent.invalid")),
+    ):
+        with pytest.raises(UrlValidationError, match="Could not resolve"):
+            await validate_mcp_server_url("https://nonexistent.invalid/mcp")
+
+
+@pytest.mark.asyncio
+async def test_rejects_when_dns_returns_empty_list() -> None:
+    with patch(RESOLVE_HOST, new=AsyncMock(return_value=[])):
+        with pytest.raises(UrlValidationError, match="did not resolve"):
+            await validate_mcp_server_url("https://example.com/mcp")
+
+
+@pytest.mark.asyncio
+async def test_propagates_exceptions_from_validate_url() -> None:
+    def boom(_url: str) -> bool:
+        raise RuntimeError("custom failure")
+
+    with pytest.raises(RuntimeError, match="custom failure"):
+        await validate_mcp_server_url(
+            "https://example.com/mcp",
+            UrlValidationParams(validate_url=boom),
         )
