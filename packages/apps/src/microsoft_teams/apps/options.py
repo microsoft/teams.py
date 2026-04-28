@@ -46,8 +46,6 @@ class AppOptions(TypedDict, total=False):
     storage: Optional[Storage[str, Any]]
     plugins: Optional[List[PluginBase]]
     skip_auth: Optional[bool]
-    additional_allowed_domains: Optional[List[str]]
-    """Additional allowed service URL hostnames beyond the built-in defaults."""
 
     # HTTP adapter
     http_server_adapter: Optional[HttpServerAdapter]
@@ -88,8 +86,6 @@ class InternalAppOptions:
 
     # Fields with defaults
     skip_auth: bool = False
-    additional_allowed_domains: Optional[List[str]] = None
-    """Additional allowed service URL hostnames beyond the built-in defaults."""
     default_connection_name: str = "graph"
     """The OAuth connection name to use for authentication."""
     plugins: List[PluginBase] = field(default_factory=lambda: [])

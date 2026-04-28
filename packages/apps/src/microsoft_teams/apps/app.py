@@ -170,7 +170,6 @@ class App(ActivityHandlerMixin):
                 self.credentials.tenant_id,
                 application_id_uri=self.options.application_id_uri,
                 cloud=self.cloud,
-                additional_allowed_domains=self.options.additional_allowed_domains,
             )
 
     @property
@@ -218,7 +217,6 @@ class App(ActivityHandlerMixin):
             self.server.initialize(
                 credentials=self.credentials,
                 skip_auth=self.options.skip_auth,
-                additional_allowed_domains=self.options.additional_allowed_domains,
                 cloud=self.cloud,
             )
 
