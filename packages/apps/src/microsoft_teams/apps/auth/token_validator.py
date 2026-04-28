@@ -44,14 +44,12 @@ class TokenValidator:
     def __init__(
         self,
         jwt_validation_options: JwtValidationOptions,
-        cloud: Optional[CloudEnvironment] = None,
     ):
         """
         Initialize the token validator.
 
         Args:
             jwt_validation_options: Configuration for JWT validation
-            cloud: Optional cloud environment for service URL validation
         """
         self.options = jwt_validation_options
         self._jwks_client = jwt.PyJWKClient(jwt_validation_options.jwks_uri)
@@ -86,7 +84,7 @@ class TokenValidator:
             jwks_uri=jwks_keys_uri,
             service_url=service_url,
         )
-        return cls(options, cloud=env)
+        return cls(options)
 
     @classmethod
     def for_entra(
@@ -126,7 +124,7 @@ class TokenValidator:
             jwks_uri=f"{env.login_endpoint}/{tenant_id}/discovery/v2.0/keys",
             scope=scope,
         )
-        return cls(options, cloud=env)
+        return cls(options)
 
     async def validate_token(
         self, raw_token: str, service_url: Optional[str] = None, scope: Optional[str] = None
