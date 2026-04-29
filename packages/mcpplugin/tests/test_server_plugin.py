@@ -445,6 +445,7 @@ class TestAuthMiddleware:
         start_call = send.await_args_list[0]
         assert start_call.args[0]["type"] == "http.response.start"
         assert start_call.args[0]["status"] == 401
+        assert (b"www-authenticate", b"Bearer") in start_call.args[0]["headers"]
 
     async def test_rejects_with_401_when_raising(self):
         app = AsyncMock()

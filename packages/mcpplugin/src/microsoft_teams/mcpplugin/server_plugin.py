@@ -53,15 +53,18 @@ class _AuthMiddleware:
             if isawaitable(result):
                 result = await result
             ok = bool(result)
-        except Exception as err:  # noqa: BLE001
-            logger.debug("require_auth raised: %s", err)
+        except Exception:  # noqa: BLE001
+            logger.debug("require_auth raised", exc_info=True)
 
         if not ok:
             await send(
                 {
                     "type": "http.response.start",
                     "status": 401,
-                    "headers": [(b"content-type", b"text/plain")],
+                    "headers": [
+                        (b"content-type", b"text/plain"),
+                        (b"www-authenticate", b"Bearer"),
+                    ],
                 }
             )
             await send({"type": "http.response.body", "body": b"unauthorized"})
