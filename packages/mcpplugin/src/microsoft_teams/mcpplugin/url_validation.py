@@ -7,7 +7,6 @@ import asyncio
 import ipaddress
 import logging
 import re
-import socket
 from dataclasses import dataclass
 from inspect import isawaitable
 from typing import Awaitable, Callable, List, Optional, Union
@@ -16,6 +15,7 @@ from urllib.parse import urlparse
 logger = logging.getLogger(__name__)
 
 _CGNAT_NETWORK = ipaddress.IPv4Network("100.64.0.0/10")
+_IPV6_SITE_LOCAL = ipaddress.IPv6Network("fec0::/10")
 _CREDS_PATTERN = re.compile(r"(\b[a-z][a-z0-9+.-]*://)[^@/?#]*@", re.IGNORECASE)
 
 
@@ -71,6 +71,17 @@ async def validate_mcp_server_url(url: str, params: Optional[UrlValidationParams
     if not parsed.hostname:
         raise UrlValidationError(f"Invalid URL: {_redact_creds(url)!r}")
 
+    # Always reject unspecified addresses (0.0.0.0 / ::) — even with allow_private_network.
+    # These aren't valid destinations and route to the local host on some platforms.
+    try:
+        literal_ip = ipaddress.ip_address(parsed.hostname)
+    except ValueError:
+        literal_ip = None
+    if literal_ip is not None and literal_ip.is_unspecified:
+        raise UrlValidationError(
+            f"URL {_redact_creds(url)} resolves to unspecified address {parsed.hostname}"
+        )
+
     if params.allow_private_network:
         return url
 
@@ -107,9 +118,8 @@ def is_private_address(address: str) -> bool:
         return True
     # RFC 4291 deprecated IPv6 site-local (fec0::/10). Python's is_private does
     # not classify it, but we reject for parity with the C# SDK.
-    if isinstance(ip, ipaddress.IPv6Address):
-        packed = int(ip)
-        return (packed >> 118) == 0x3FB  # top 10 bits == 1111111011
+    if isinstance(ip, ipaddress.IPv6Address) and ip in _IPV6_SITE_LOCAL:
+        return True
     return False
 
 
@@ -124,7 +134,7 @@ async def _resolve_host(host: str) -> List[str]:
     loop = asyncio.get_running_loop()
     try:
         results = await loop.getaddrinfo(host, None)
-    except socket.gaierror as err:
+    except (OSError, UnicodeError) as err:
         raise UrlValidationError(f"Could not resolve {host}: {err}") from err
 
     return list({entry[4][0] for entry in results})

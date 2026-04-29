@@ -109,6 +109,24 @@ async def test_accepts_private_ip_when_allow_private_network() -> None:
 
 
 @pytest.mark.asyncio
+async def test_rejects_unspecified_ipv4_even_when_allow_private_network() -> None:
+    with pytest.raises(UrlValidationError, match="unspecified"):
+        await validate_mcp_server_url(
+            "http://0.0.0.0:3000",
+            UrlValidationParams(allow_private_network=True),
+        )
+
+
+@pytest.mark.asyncio
+async def test_rejects_unspecified_ipv6_even_when_allow_private_network() -> None:
+    with pytest.raises(UrlValidationError, match="unspecified"):
+        await validate_mcp_server_url(
+            "http://[::]:3000",
+            UrlValidationParams(allow_private_network=True),
+        )
+
+
+@pytest.mark.asyncio
 async def test_accepts_private_hostname_when_allow_private_network_skips_dns() -> None:
     resolve = AsyncMock()
     with patch(RESOLVE_HOST, new=resolve):

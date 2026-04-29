@@ -46,7 +46,11 @@ class _AuthMiddleware:
             await self.app(scope, receive, send)
             return
 
-        request = Request(scope, receive=receive)
+        # Construct Request without `receive=` so that downstream apps still get the
+        # original receive channel intact. require_auth callbacks can read headers/scope
+        # but should NOT consume the body — doing so would deprive the downstream app
+        # of the request body it expects.
+        request = Request(scope)
         ok = False
         try:
             result = self.require_auth(request)
