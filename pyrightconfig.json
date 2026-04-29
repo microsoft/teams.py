@@ -12,12 +12,7 @@
       "packages/cards/src",
       "packages/apps/src",
       "packages/graph/src",
-      "packages/ai/src",
-      "packages/openai/src",
-      "packages/mcpplugin/src",
-      "packages/a2aprotocol/src",
-      "packages/botbuilder/src",
-      "packages/devtools/src"
+      "packages/botbuilder/src"
    ],
    "typeCheckingMode": "strict",
    "executionEnvironments": [
