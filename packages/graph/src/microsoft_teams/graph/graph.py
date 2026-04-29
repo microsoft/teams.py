@@ -18,6 +18,7 @@ from .auth_provider import AuthProvider
 
 def get_graph_client(
     token: Optional[Token] = None,
+    *,
     base_url: Optional[str] = None,
 ) -> GraphServiceClient:
     """

@@ -295,7 +295,7 @@ class TestGraphClientFactory:
         """Without a base_url override, the client routes to the public Graph endpoint."""
         client = get_graph_client("tok")
         assert isinstance(client, GraphServiceClient)
-        assert client.request_adapter.base_url.startswith("https://graph.microsoft.com/")
+        assert client.request_adapter.base_url == "https://graph.microsoft.com/v1.0/"
 
     @pytest.mark.parametrize(
         "base_url,expected_prefix",
