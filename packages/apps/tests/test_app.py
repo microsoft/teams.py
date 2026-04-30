@@ -657,12 +657,14 @@ class TestApp:
 
     def test_app_init_with_client_options(self, mock_storage):
         """Test that a ClientOptions passed via options is used to create the http_client."""
-        custom_options = ClientOptions(base_url="https://custom.api", timeout=99)
+        custom_options = ClientOptions(base_url="https://custom.api", timeout=99, headers={"User-Agent": "my-app/1.0"})
         app = App(storage=mock_storage, client_id="id", client_secret="secret", client=custom_options)
 
         assert app.http_client._options.base_url == "https://custom.api"
         assert app.http_client._options.timeout == 99
-        assert "User-Agent" in app.http_client._options.headers
+        ua = app.http_client._options.headers["User-Agent"]
+        assert "my-app/1.0" in ua
+        assert "teams.py[apps]/" in ua
 
     def test_app_init_with_client_instance(self, mock_storage):
         """Test that a Client instance passed via options is cloned with User-Agent."""

@@ -374,23 +374,16 @@ class App(ActivityHandlerMixin):
     def _init_http_client(self) -> Client:
         """Initialize the HTTP client from options or create a default one.
 
-        Always injects the app's User-Agent header.
+        Always injects the app's User-Agent header via clone, which merges
+        User-Agent values rather than overwriting them.
         """
+        ua_options = ClientOptions(headers={"User-Agent": USER_AGENT})
         client_opt = self.options.client
         if isinstance(client_opt, Client):
-            return client_opt.clone(ClientOptions(headers={"User-Agent": USER_AGENT}))
+            return client_opt.clone(ua_options)
         if isinstance(client_opt, ClientOptions):
-            merged_headers = {**client_opt.headers, "User-Agent": USER_AGENT}
-            return Client(
-                ClientOptions(
-                    base_url=client_opt.base_url,
-                    headers=merged_headers,
-                    timeout=client_opt.timeout,
-                    token=client_opt.token,
-                    interceptors=client_opt.interceptors,
-                )
-            )
-        return Client(ClientOptions(headers={"User-Agent": USER_AGENT}))
+            return Client(client_opt).clone(ua_options)
+        return Client(ua_options)
 
     def _init_credentials(self) -> Optional[Credentials]:
         """Initialize authentication credentials from options and environment."""
