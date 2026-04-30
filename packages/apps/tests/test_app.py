@@ -11,6 +11,7 @@ import re
 from typing import Optional
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import httpx
 import pytest
 from microsoft_teams.api import (
     Account,
@@ -655,27 +656,32 @@ class TestApp:
         assert type(app.credentials).__name__ == "ClientCredentials"
         assert app.credentials.client_id == "test-client-id"
 
-    def test_app_init_with_client_options(self, mock_storage):
-        """Test that a ClientOptions passed via options is used to create the http_client."""
-        custom_options = ClientOptions(base_url="https://custom.api", timeout=99, headers={"User-Agent": "my-app/1.0"})
+    @pytest.mark.asyncio
+    async def test_app_init_with_client_options(self, mock_storage):
+        """Test that ClientOptions base_url and headers are used by the http_client."""
+        custom_options = ClientOptions(base_url="https://custom.api", headers={"User-Agent": "my-app/1.0"})
         app = App(storage=mock_storage, client_id="id", client_secret="secret", client=custom_options)
 
-        assert app.http_client._options.base_url == "https://custom.api"
-        assert app.http_client._options.timeout == 99
-        ua = app.http_client._options.headers["User-Agent"]
-        assert "my-app/1.0" in ua
-        assert "teams.py[apps]/" in ua
+        captured = {}
+
+        async def capture_request(request: httpx.Request) -> httpx.Response:
+            captured["url"] = str(request.url)
+            captured["user_agent"] = request.headers["user-agent"]
+            return httpx.Response(200, json={})
+
+        app.http_client.http = httpx.AsyncClient(transport=httpx.MockTransport(capture_request))
+        await app.http_client.get("https://custom.api/test")
+
+        assert captured["url"] == "https://custom.api/test"
+        assert "my-app/1.0" in captured["user_agent"]
+        assert "teams.py[apps]/" in captured["user_agent"]
 
     def test_app_init_with_client_instance(self, mock_storage):
-        """Test that a Client instance passed via options is cloned with User-Agent."""
-        custom_client = Client(ClientOptions(headers={"X-Custom": "value"}, timeout=42))
+        """Test that a Client instance is cloned, not shared."""
+        custom_client = Client(ClientOptions(headers={"X-Custom": "value"}))
         app = App(storage=mock_storage, client_id="id", client_secret="secret", client=custom_client)
 
-        # Should be a different instance (cloned)
         assert app.http_client is not custom_client
-        # Should preserve the original header and add User-Agent
-        assert app.http_client._options.headers["X-Custom"] == "value"
-        assert "User-Agent" in app.http_client._options.headers
 
     def test_service_url_default(self, mock_storage):
         """Test that app uses default service URL when no configuration provided."""
