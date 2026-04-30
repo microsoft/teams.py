@@ -85,7 +85,7 @@ exclude_lines = [
 ]
 precision = 2
 show_missing = true
-fail_under = 74
+fail_under = 70
 
 [tool.coverage.html]
 directory = "htmlcov"

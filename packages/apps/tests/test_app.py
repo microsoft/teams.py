@@ -792,6 +792,44 @@ class TestApp:
         assert result.id == "sent-activity-id"
 
 
+class TestAppInitialize:
+    """Test cases for App.initialize() method."""
+
+    @pytest.mark.asyncio
+    async def test_initialize_enables_send(self):
+        """After initialize(), app.send() should work without starting the server."""
+        app = App(client_id="test-id", client_secret="test-secret", skip_auth=True)
+        app.activity_sender.send = AsyncMock(
+            return_value=SentActivity(id="msg-1", activity_params=MessageActivityInput(text="hi"))
+        )
+
+        with pytest.raises(ValueError, match="app not initialized"):
+            await app.send("conv-1", "hello")
+
+        await app.initialize()
+        result = await app.send("conv-1", "hello")
+        assert result.id == "msg-1"
+
+    @pytest.mark.asyncio
+    async def test_initialize_emits_error_on_plugin_failure(self):
+        """If a plugin's on_init raises, the error event fires and the exception propagates."""
+
+        @Plugin(name="BadPlugin", version="1.0", description="test")
+        class BadPlugin(PluginBase):
+            async def on_init(self):
+                raise RuntimeError("plugin init failed")
+
+        app = App(client_id="test-id", client_secret="test-secret", skip_auth=True, plugins=[BadPlugin()])
+        errors = []
+        app.events.on("error", lambda e: errors.append(e))
+
+        with pytest.raises(RuntimeError, match="plugin init failed"):
+            await app.initialize()
+
+        assert len(errors) == 1
+        assert errors[0].context["method"] == "initialize"
+
+
 class TestAppReply:
     """Test cases for App.reply() method."""
 
