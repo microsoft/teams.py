@@ -21,7 +21,7 @@ def _derive_graph_base_url(cloud: Optional[CloudEnvironment]) -> Optional[str]:
     """Derive the Graph API base URL from a cloud's graph_scope, or None if unavailable."""
     if cloud is None:
         return None
-    scope = (cloud.graph_scope or "").strip()
+    scope = cloud.graph_scope.strip()
     if not scope:
         return None
     match = _GRAPH_BASE_URL_RE.match(scope)
