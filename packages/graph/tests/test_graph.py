@@ -101,6 +101,19 @@ class TestAuthProvider:
         assert isinstance(token, AccessToken)
         assert token.expires_on == exp_time  # Should use JWT expiration, not default
 
+    def test_get_token_with_jwt_missing_exp_claim_uses_default(self) -> None:
+        """JWT without 'exp' claim falls back to 1-hour default expiration."""
+        payload = {"aud": "test"}  # no 'exp'
+        jwt_token = jwt.encode(payload, "secret", algorithm="HS256")
+        credential = AuthProvider(jwt_token)
+
+        token = credential.get_token("https://graph.microsoft.com/.default")
+
+        assert isinstance(token, AccessToken)
+        # Should use default 1-hour expiration (within tolerance)
+        now = int(time.time())
+        assert abs(token.expires_on - (now + 3600)) < 60
+
     def test_get_token_with_non_jwt_uses_default_expiration(self) -> None:
         """Test that non-JWT tokens use default 1-hour expiration."""
 
@@ -315,3 +328,9 @@ class TestGraphClientFactory:
         """Trailing slash on the input base_url is normalized to avoid '//v1.0/'."""
         client = get_graph_client("tok", base_url="https://graph.microsoft.us/")
         assert client.request_adapter.base_url == "https://graph.microsoft.us/v1.0/"
+
+    def test_get_graph_client_wraps_unexpected_exceptions(self) -> None:
+        """Non-auth exceptions during construction are wrapped in ClientAuthenticationError."""
+        # Pass a non-string base_url so .rstrip raises AttributeError (a non-auth exception)
+        with pytest.raises(ClientAuthenticationError, match="Failed to create Microsoft Graph client"):
+            get_graph_client("tok", base_url=12345)  # type: ignore[arg-type]

@@ -314,6 +314,52 @@ class TestActivityContextUserGraph:
             with pytest.raises(RuntimeError, match="Failed to create user graph client"):
                 _ = ctx.user_graph
 
+    def test_user_graph_returns_client_when_signed_in_with_token(self) -> None:
+        """user_graph returns the created Graph client on success."""
+        mock_graph_client = MagicMock()
+        ctx, _ = _create_activity_context(is_signed_in=True, user_token="header.payload.sig")
+
+        with (
+            patch("microsoft_teams.apps.routing.activity_context.JsonWebToken", return_value=MagicMock()),
+            patch(
+                "microsoft_teams.apps.routing.activity_context.create_graph_client",
+                return_value=mock_graph_client,
+            ),
+        ):
+            assert ctx.user_graph is mock_graph_client
+
+    def test_user_graph_returns_cached_client_on_second_access(self) -> None:
+        """user_graph caches the client on first call (lazy initialization)."""
+        mock_graph_client = MagicMock()
+        ctx, _ = _create_activity_context(is_signed_in=True, user_token="header.payload.sig")
+
+        with (
+            patch("microsoft_teams.apps.routing.activity_context.JsonWebToken", return_value=MagicMock()),
+            patch(
+                "microsoft_teams.apps.routing.activity_context.create_graph_client",
+                return_value=mock_graph_client,
+            ) as mock_factory,
+        ):
+            first = ctx.user_graph
+            second = ctx.user_graph
+
+        assert first is second
+        mock_factory.assert_called_once()
+
+    def test_user_graph_re_raises_import_error_without_wrapping(self) -> None:
+        """user_graph re-raises ImportError directly (does not wrap in RuntimeError)."""
+        ctx, _ = _create_activity_context(is_signed_in=True, user_token="header.payload.sig")
+
+        with (
+            patch("microsoft_teams.apps.routing.activity_context.JsonWebToken", return_value=MagicMock()),
+            patch(
+                "microsoft_teams.apps.routing.activity_context.create_graph_client",
+                side_effect=ImportError("graph not installed"),
+            ),
+        ):
+            with pytest.raises(ImportError, match="graph not installed"):
+                _ = ctx.user_graph
+
 
 class TestActivityContextAppGraph:
     """Tests for ActivityContext.app_graph property."""
@@ -368,9 +414,151 @@ class TestActivityContextSignIn:
         assert result == "existing-token-value"
         ctx.api.users.token.get.assert_called_once()
 
+    @pytest.mark.asyncio
+    async def test_sign_in_sends_oauth_card_when_no_existing_token(self) -> None:
+        """sign_in falls through to OAuth card flow when token API fails, returns None."""
+        mock_activity = MagicMock()
+        mock_activity.channel_id = "msteams"
+        mock_activity.from_.id = "user-001"
+        mock_activity.conversation.is_group = False
+
+        ctx, mock_sender = _create_activity_context(activity=mock_activity)
+        ctx.api.users.token.get = AsyncMock(side_effect=Exception("no token"))
+
+        resource_response = MagicMock()
+        resource_response.token_exchange_resource = MagicMock()
+        resource_response.token_post_resource = MagicMock()
+        resource_response.sign_in_link = "https://login.example.com"
+        ctx.api.bots.sign_in.get_resource = AsyncMock(return_value=resource_response)
+
+        token_state = MagicMock()
+        token_state.model_dump = MagicMock(return_value={"connection_name": "test-connection"})
+        with (
+            patch(
+                "microsoft_teams.apps.routing.activity_context.TokenExchangeState",
+                return_value=token_state,
+            ),
+            patch("microsoft_teams.apps.routing.activity_context.MessageActivityInput"),
+            patch("microsoft_teams.apps.routing.activity_context.card_attachment"),
+            patch("microsoft_teams.apps.routing.activity_context.OAuthCardAttachment"),
+            patch("microsoft_teams.apps.routing.activity_context.OAuthCard"),
+            patch("microsoft_teams.apps.routing.activity_context.CardAction"),
+            patch("microsoft_teams.apps.routing.activity_context.GetBotSignInResourceParams"),
+        ):
+            result = await ctx.sign_in()
+
+        assert result is None
+        ctx.api.bots.sign_in.get_resource.assert_called_once()
+        assert mock_sender.send.called
+
+    @pytest.mark.asyncio
+    async def test_sign_in_creates_one_on_one_conversation_for_group_chat(self) -> None:
+        """For group conversations, sign_in creates a 1:1 conversation before sending the OAuth card."""
+        mock_activity = MagicMock()
+        mock_activity.channel_id = "msteams"
+        mock_activity.from_.id = "user-001"
+        mock_activity.conversation.is_group = True
+        mock_activity.conversation.tenant_id = "tenant-001"
+
+        ctx, mock_sender = _create_activity_context(activity=mock_activity)
+        ctx.api.users.token.get = AsyncMock(side_effect=Exception("no token"))
+
+        one_on_one = MagicMock()
+        one_on_one.id = "1on1-conv-id"
+        ctx.api.conversations.create = AsyncMock(return_value=one_on_one)
+
+        resource_response = MagicMock()
+        resource_response.token_exchange_resource = MagicMock()
+        resource_response.token_post_resource = MagicMock()
+        resource_response.sign_in_link = "https://login.example.com"
+        ctx.api.bots.sign_in.get_resource = AsyncMock(return_value=resource_response)
+
+        token_state = MagicMock()
+        token_state.model_dump = MagicMock(return_value={"connection_name": "test-connection"})
+        with (
+            patch(
+                "microsoft_teams.apps.routing.activity_context.TokenExchangeState",
+                return_value=token_state,
+            ),
+            patch("microsoft_teams.apps.routing.activity_context.MessageActivityInput"),
+            patch("microsoft_teams.apps.routing.activity_context.CreateConversationParams"),
+            patch("microsoft_teams.apps.routing.activity_context.card_attachment"),
+            patch("microsoft_teams.apps.routing.activity_context.OAuthCardAttachment"),
+            patch("microsoft_teams.apps.routing.activity_context.OAuthCard"),
+            patch("microsoft_teams.apps.routing.activity_context.CardAction"),
+            patch("microsoft_teams.apps.routing.activity_context.GetBotSignInResourceParams"),
+        ):
+            result = await ctx.sign_in()
+
+        assert result is None
+        ctx.api.conversations.create.assert_called_once()
+        # one greeting message before the OAuth card, plus the OAuth card itself
+        assert mock_sender.send.call_count >= 2
+
+    @pytest.mark.asyncio
+    async def test_sign_in_uses_signin_options_connection_name_override(self) -> None:
+        """sign_in respects SignInOptions.connection_name override when fetching the existing token."""
+        from microsoft_teams.apps.routing.activity_context import SignInOptions
+
+        mock_activity = MagicMock()
+        mock_activity.channel_id = "msteams"
+        mock_activity.from_.id = "user-001"
+        mock_activity.conversation.is_group = False
+
+        ctx, _ = _create_activity_context(activity=mock_activity)
+        ctx.api.users.token.get = AsyncMock(side_effect=Exception("no token"))
+
+        resource_response = MagicMock()
+        resource_response.token_exchange_resource = MagicMock()
+        resource_response.token_post_resource = MagicMock()
+        resource_response.sign_in_link = "https://login.example.com"
+        ctx.api.bots.sign_in.get_resource = AsyncMock(return_value=resource_response)
+
+        custom_options = SignInOptions(
+            oauth_card_text="Custom prompt",
+            sign_in_button_text="Login",
+            connection_name="custom-connection",
+        )
+
+        token_state = MagicMock()
+        token_state.model_dump = MagicMock(return_value={"connection_name": "custom-connection"})
+        with (
+            patch(
+                "microsoft_teams.apps.routing.activity_context.TokenExchangeState",
+                return_value=token_state,
+            ),
+            patch("microsoft_teams.apps.routing.activity_context.MessageActivityInput"),
+            patch("microsoft_teams.apps.routing.activity_context.card_attachment"),
+            patch("microsoft_teams.apps.routing.activity_context.OAuthCardAttachment"),
+            patch("microsoft_teams.apps.routing.activity_context.OAuthCard"),
+            patch("microsoft_teams.apps.routing.activity_context.CardAction"),
+            patch("microsoft_teams.apps.routing.activity_context.GetBotSignInResourceParams"),
+        ):
+            result = await ctx.sign_in(options=custom_options)
+
+        assert result is None
+        token_get_params = ctx.api.users.token.get.call_args[0][0]
+        assert token_get_params.connection_name == "custom-connection"
+
 
 class TestActivityContextSignOut:
     """Tests for ActivityContext.sign_out()."""
+
+    @pytest.mark.asyncio
+    async def test_sign_out_logs_debug_on_success(self) -> None:
+        """sign_out completes silently and logs a debug message when the API call succeeds."""
+        mock_activity = MagicMock()
+        mock_activity.channel_id = "msteams"
+        mock_activity.from_.id = "user-success"
+
+        ctx, _ = _create_activity_context(activity=mock_activity)
+        ctx.api.users.token.sign_out = AsyncMock(return_value=None)
+
+        with patch.object(ctx.logger, "debug") as mock_log_debug:
+            await ctx.sign_out()
+            mock_log_debug.assert_called_once()
+            logged = mock_log_debug.call_args[0][0]
+            assert "user-success" in logged
 
     @pytest.mark.asyncio
     async def test_sign_out_logs_error_and_does_not_raise_on_failure(self) -> None:
