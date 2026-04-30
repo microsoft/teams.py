@@ -27,6 +27,7 @@ from microsoft_teams.api import (
     TokenExchangeState,
     TokenPostResource,
 )
+from microsoft_teams.api.auth.cloud_environment import PUBLIC, CloudEnvironment
 from microsoft_teams.api.models.attachment.card_attachment import (
     OAuthCardAttachment,
     card_attachment,
@@ -37,24 +38,13 @@ from microsoft_teams.common import Storage
 from microsoft_teams.common.http.client_token import Token
 
 from ..activity_sender import ActivitySender
+from ..utils import create_graph_client
 
 if TYPE_CHECKING:
     from msgraph.graph_service_client import GraphServiceClient
 
 T = TypeVar("T", bound=ActivityBase, contravariant=True)
 logger = logging.getLogger(__name__)
-
-
-def _get_graph_client(token: Token):
-    """Lazy import and call get_graph_client when needed."""
-    try:
-        from microsoft_teams.graph import get_graph_client
-
-        return get_graph_client(token)
-    except ImportError as exc:
-        raise ImportError(
-            "Graph functionality not available. Install with 'pip install microsoft-teams-apps[graph]'"
-        ) from exc
 
 
 @dataclass
@@ -94,6 +84,7 @@ class ActivityContext(Generic[T]):
         connection_name: str,
         activity_sender: ActivitySender,
         app_token: Token,
+        cloud: CloudEnvironment = PUBLIC,
     ):
         self.activity = activity
         self.app_id = app_id
@@ -104,6 +95,7 @@ class ActivityContext(Generic[T]):
         self.user_token = user_token
         self.connection_name = connection_name
         self.is_signed_in = is_signed_in
+        self.cloud = cloud
         self._activity_sender = activity_sender
         self._app_token = app_token
         self.stream = activity_sender.create_stream(conversation_ref)
@@ -134,7 +126,9 @@ class ActivityContext(Generic[T]):
         if self._user_graph is None:
             try:
                 user_token = JsonWebToken(self.user_token)
-                self._user_graph = _get_graph_client(user_token)
+                self._user_graph = create_graph_client(user_token, cloud=self.cloud)
+            except ImportError:
+                raise
             except Exception as e:
                 self.logger.error(f"Failed to create user graph client: {e}")
                 raise RuntimeError(f"Failed to create user graph client: {e}") from e
@@ -156,7 +150,9 @@ class ActivityContext(Generic[T]):
         """
         if self._app_graph is None:
             try:
-                self._app_graph = _get_graph_client(self._app_token)
+                self._app_graph = create_graph_client(self._app_token, cloud=self.cloud)
+            except ImportError:
+                raise
             except Exception as e:
                 self.logger.error(f"Failed to create app graph client: {e}")
                 raise RuntimeError(f"Failed to create app graph client: {e}") from e
@@ -168,12 +164,15 @@ class ActivityContext(Generic[T]):
         message: str | ActivityParams | AdaptiveCard,
         conversation_ref: Optional[ConversationReference] = None,
     ) -> SentActivity:
-        """
-        Send a message to the conversation.
+        """Send a message in the current conversation without quoting.
+
+        In channels, sends to the current thread. In scopes that do not
+        support threading (group chat, meetings), sends as a normal message.
+        To send with a visual quote of the inbound message, use :meth:`reply`.
 
         Args:
             message: The message to send, can be a string, ActivityParams, or AdaptiveCard
-            conversation_ref: Optional conversation reference to override the current conversation reference
+            conversation_ref: Optional conversation reference to send to a different conversation or thread
         """
         if isinstance(message, str):
             activity = MessageActivityInput(text=message)
@@ -187,7 +186,12 @@ class ActivityContext(Generic[T]):
         return res
 
     async def reply(self, input: str | ActivityParams) -> SentActivity:
-        """Send a reply to the activity."""
+        """Send a message in the current conversation with a visual quote of the inbound message.
+
+        In channels, sends to the current thread with a quoted reply.
+        In other scopes, sends with a quoted reply.
+        To send without quoting, use :meth:`send`.
+        """
         activity = MessageActivityInput(text=input) if isinstance(input, str) else input
         if isinstance(activity, MessageActivityInput):
             block_quote = self._build_block_quote_for_activity()

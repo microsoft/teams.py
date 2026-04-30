@@ -7,7 +7,7 @@ import asyncio
 import importlib.metadata
 import logging
 import os
-from typing import Any, Awaitable, Callable, List, Optional, TypeVar, Union, Unpack, cast, overload
+from typing import TYPE_CHECKING, Any, Awaitable, Callable, List, Optional, TypeVar, Union, Unpack, cast, overload
 
 from dependency_injector import providers
 from dotenv import find_dotenv, load_dotenv
@@ -23,10 +23,17 @@ from microsoft_teams.api import (
     FederatedIdentityCredentials,
     ManagedIdentityCredentials,
     MessageActivityInput,
+    SentActivity,
     TokenCredentials,
+    TokenProtocol,
 )
+from microsoft_teams.api.auth.cloud_environment import PUBLIC
+from microsoft_teams.api.auth.cloud_environment import from_name as cloud_from_name
 from microsoft_teams.cards import AdaptiveCard
 from microsoft_teams.common import Client, ClientOptions, EventEmitter, LocalStorage
+
+if TYPE_CHECKING:
+    from msgraph.graph_service_client import GraphServiceClient
 
 from .activity_sender import ActivitySender
 from .app_events import EventManager
@@ -52,6 +59,8 @@ from .plugins import PluginBase, PluginStartEvent
 from .routing import ActivityHandlerMixin, ActivityRouter
 from .routing.activity_context import ActivityContext
 from .token_manager import TokenManager
+from .utils import create_graph_client
+from .utils.thread import to_threaded_conversation_id
 
 version = importlib.metadata.version("microsoft-teams-apps")
 
@@ -74,13 +83,13 @@ class App(ActivityHandlerMixin):
     def __init__(self, **options: Unpack[AppOptions]):
         self.options = InternalAppOptions.from_typeddict(options)
 
+        # Resolve cloud environment from options or CLOUD env var
+        cloud_env_name = os.getenv("CLOUD")
+        self.cloud = self.options.cloud or (cloud_from_name(cloud_env_name) if cloud_env_name else PUBLIC)
+
         self.storage = self.options.storage or LocalStorage()
 
-        self.http_client = Client(
-            ClientOptions(
-                headers={"User-Agent": USER_AGENT},
-            )
-        )
+        self.http_client = self._init_http_client()
 
         self._events = EventEmitter[EventType]()
         self._router = ActivityRouter()
@@ -89,6 +98,7 @@ class App(ActivityHandlerMixin):
 
         self._token_manager = TokenManager(
             credentials=self.credentials,
+            cloud=self.cloud,
         )
 
         self.container = Container()
@@ -106,6 +116,7 @@ class App(ActivityHandlerMixin):
             service_url,
             self.http_client.clone(ClientOptions(token=self._get_bot_token)),
             self.options.api_client_settings,
+            cloud=self.cloud,
         )
 
         plugins: List[PluginBase] = list(self.options.plugins)
@@ -131,6 +142,7 @@ class App(ActivityHandlerMixin):
             self._token_manager,
             self.options.api_client_settings,
             self.activity_sender,
+            self.cloud,
         )
         self.event_manager = EventManager(self._events)
         self.activity_processor.event_manager = self.event_manager
@@ -154,6 +166,7 @@ class App(ActivityHandlerMixin):
                 self.credentials.client_id,
                 self.credentials.tenant_id,
                 application_id_uri=self.options.application_id_uri,
+                cloud=self.cloud,
             )
 
     @property
@@ -198,7 +211,11 @@ class App(ActivityHandlerMixin):
 
             # Initialize HttpServer (JWT validation + messaging endpoint route)
             self.server.on_request = self._process_activity_event
-            self.server.initialize(credentials=self.credentials, skip_auth=self.options.skip_auth)
+            self.server.initialize(
+                credentials=self.credentials,
+                skip_auth=self.options.skip_auth,
+                cloud=self.cloud,
+            )
 
             self._initialized = True
             logger.info("Teams app initialized successfully")
@@ -278,7 +295,12 @@ class App(ActivityHandlerMixin):
             raise
 
     async def send(self, conversation_id: str, activity: str | ActivityParams | AdaptiveCard):
-        """Send an activity proactively."""
+        """Send an activity proactively to a conversation.
+
+        Sends to the exact conversation ID provided. For channel threads,
+        the conversation ID must include ``;messageid=`` - use :func:`to_threaded_conversation_id`
+        to construct it, or use :meth:`reply` which handles this automatically.
+        """
 
         if not self._initialized:
             raise ValueError("app not initialized - call app.initialize() or app.start() first")
@@ -290,7 +312,7 @@ class App(ActivityHandlerMixin):
             channel_id="msteams",
             service_url=self.api.service_url,
             bot=Account(id=self.id),
-            conversation=ConversationAccount(id=conversation_id, conversation_type="personal"),
+            conversation=ConversationAccount(id=conversation_id),
         )
 
         if isinstance(activity, str):
@@ -302,9 +324,67 @@ class App(ActivityHandlerMixin):
 
         return await self.activity_sender.send(activity, conversation_ref)
 
+    @overload
+    async def reply(
+        self,
+        conversation_id: str,
+        message_id: str,
+        activity: str | ActivityParams | AdaptiveCard,
+    ) -> SentActivity: ...
+
+    @overload
+    async def reply(
+        self,
+        conversation_id: str,
+        message_id: str | ActivityParams | AdaptiveCard,
+    ) -> SentActivity: ...
+
+    async def reply(  # type: ignore[reportInconsistentOverload]
+        self,
+        conversation_id: str,
+        message_id: str | ActivityParams | AdaptiveCard = "",
+        activity: str | ActivityParams | AdaptiveCard | None = None,
+    ) -> SentActivity:
+        """Send an activity proactively to a conversation, optionally as a threaded reply.
+
+        **3-arg form** ``reply(conversation_id, message_id, activity)``:
+        Constructs a threaded conversation ID via :func:`to_threaded_conversation_id`
+        and sends to that thread. The service determines whether threading is
+        supported for the given conversation type.
+
+        **2-arg form** ``reply(conversation_id, activity)``:
+        Sends to the exact conversation ID provided - threaded if it contains
+        ``;messageid=``, flat otherwise.
+
+        Args:
+            conversation_id: The conversation ID
+            message_id: The thread root message ID (3-arg form) or the activity (2-arg form)
+            activity: The activity to send (only in 3-arg form)
+        """
+        if activity is not None:
+            if not isinstance(message_id, str):
+                raise TypeError("message_id must be a string when activity is provided")
+            return await self.send(to_threaded_conversation_id(conversation_id, message_id), activity)
+
+        return await self.send(conversation_id, message_id)
+
     def use(self, middleware: Callable[[ActivityContext[ActivityBase]], Awaitable[None]]) -> None:
         """Add middleware to run on all activities."""
         self.router.add_handler(lambda _: True, middleware)
+
+    def _init_http_client(self) -> Client:
+        """Initialize the HTTP client from options or create a default one.
+
+        Always injects the app's User-Agent header via clone, which merges
+        User-Agent values rather than overwriting them.
+        """
+        ua_options = ClientOptions(headers={"User-Agent": USER_AGENT})
+        client_opt = self.options.client
+        if isinstance(client_opt, Client):
+            return client_opt.clone(ua_options)
+        if isinstance(client_opt, ClientOptions):
+            return Client(client_opt).clone(ua_options)
+        return Client(ua_options)
 
     def _init_credentials(self) -> Optional[Credentials]:
         """Initialize authentication credentials from options and environment."""
@@ -519,3 +599,22 @@ class App(ActivityHandlerMixin):
 
     async def _get_bot_token(self):
         return await self._token_manager.get_bot_token()
+
+    async def _get_graph_token(self, tenant_id: Optional[str] = None) -> Optional[TokenProtocol]:
+        return await self._token_manager.get_graph_token(tenant_id)
+
+    def get_app_graph(self, tenant_id: Optional[str] = None) -> "GraphServiceClient":
+        """
+        Get a Microsoft Graph client configured with the app's token.
+
+        This client can be used for app-only operations that don't require user context.
+        For multi-tenant apps, pass a tenant_id to get a tenant-specific token.
+
+        Args:
+            tenant_id: Optional tenant ID. If not provided, uses the app's default tenant.
+
+        Raises:
+            ImportError: If the graph dependencies are not installed.
+
+        """
+        return create_graph_client(lambda: self._get_graph_token(tenant_id), cloud=self.cloud)

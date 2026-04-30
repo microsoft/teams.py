@@ -9,7 +9,8 @@ from dataclasses import dataclass, field
 from typing import Any, Awaitable, Callable, List, Optional, TypedDict, Union, cast
 
 from microsoft_teams.api import ApiClientSettings
-from microsoft_teams.common import Storage
+from microsoft_teams.api.auth.cloud_environment import CloudEnvironment
+from microsoft_teams.common import Client, ClientOptions, Storage
 from typing_extensions import Unpack
 
 from .http.adapter import HttpServerAdapter
@@ -41,6 +42,11 @@ class AppOptions(TypedDict, total=False):
     If not set or equals client_id, uses direct managed identity (no federation).
     """
 
+    # HTTP client
+    client: Optional[Union[Client, ClientOptions]]
+    """HTTP client or client options used to make API requests.
+    Accepts a Client instance or ClientOptions. The app always injects its own User-Agent header."""
+
     # Infrastructure
     storage: Optional[Storage[str, Any]]
     plugins: Optional[List[PluginBase]]
@@ -69,6 +75,15 @@ class AppOptions(TypedDict, total=False):
     and defaults to https://smba.trafficmanager.net/teams
     """
 
+    # Cloud environment
+    cloud: Optional[CloudEnvironment]
+    """
+    Cloud environment for sovereign cloud support.
+    Accepts a CloudEnvironment instance or uses CLOUD environment variable.
+    Valid env var values: "Public", "USGov", "USGovDoD", "China".
+    Defaults to PUBLIC (commercial cloud).
+    """
+
 
 @dataclass
 class InternalAppOptions:
@@ -81,6 +96,10 @@ class InternalAppOptions:
     plugins: List[PluginBase] = field(default_factory=lambda: [])
     api_client_settings: Optional[ApiClientSettings] = None
     """API client settings used for overriding."""
+
+    # HTTP client
+    client: Optional[Union[Client, ClientOptions]] = None
+    """HTTP client or client options used to make API requests."""
 
     # Optional fields
     client_id: Optional[str] = None
@@ -112,6 +131,8 @@ class InternalAppOptions:
     """Custom HTTP server adapter. Defaults to FastAPIAdapter if not provided."""
     messaging_endpoint: str = "/api/messages"
     """URL path for the Teams messaging endpoint. Defaults to '/api/messages'."""
+    cloud: Optional[CloudEnvironment] = None
+    """Cloud environment for sovereign cloud support."""
 
     @classmethod
     def from_typeddict(cls, options: AppOptions) -> "InternalAppOptions":

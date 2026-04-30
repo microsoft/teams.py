@@ -6,7 +6,12 @@ This project uses [Nerdbank.GitVersioning](https://github.com/dotnet/Nerdbank.Gi
 
 ## Prerequisites
 
+The .NET SDK and `nbgv` CLI are **required for publishing** but **optional for local development**. Without them, packages fall back to version `0.0.0` so you can still build and test locally.
+
+CI pipelines set `NBGV_REQUIRED=1` to ensure builds fail if `nbgv` is unavailable.
+
 ```bash
+# Optional for local dev, required for releases
 dotnet tool install -g nbgv
 ```
 
@@ -58,8 +63,8 @@ Builds on `alpha/v2.0.0` produce alpha versions like `2.0.0a10`, `2.0.0a11`, etc
 
 | Branch | Package Name |
 |--------|--------------|
-| `alpha/v2.0.0` | `microsoft_teams_ai-2.0.0a11.tar.gz` |
-| `release/v2.0.0` | `microsoft_teams_ai-2.0.0.tar.gz` |
+| `alpha/v2.0.0` | `microsoft_teams_apps-2.0.0a11.tar.gz` |
+| `release/v2.0.0` | `microsoft_teams_apps-2.0.0.tar.gz` |
 
 > **Note:** Running the pipeline on a branch not in `publicReleaseRefSpec` (e.g., a feature branch) produces versions with the commit hash appended, like `2.0.0a11.dev5+g1a2b3c4`. This is expected and useful for testing.
 
@@ -103,12 +108,12 @@ The [publish pipeline](https://dev.azure.com/DomoreexpGithub/Github_Pipelines/_b
    - **Public** — signs packages via ESRP and publishes to PyPI. Requires approval via the `teams-sdk-publish` ADO environment before the ESRP release proceeds.
 5. Pipeline runs: Build > Test > Publish
 
-> **Note:** The `devtools` package is excluded from publishing. The pipeline filters out packages matching the `ExcludePackageFolders` variable. Prerelease versions are tagged `next` on PyPI; stable versions are tagged `latest`.
+> **Note:** The pipeline filters out packages matching the `ExcludePackageFolders` variable. Prerelease versions are tagged `next` on PyPI; stable versions are tagged `latest`.
 
 #### Installing Published Packages
 
 ```bash
-pip install microsoft-teams-ai==2.0.0a11
+pip install microsoft-teams-apps==2.0.0a11
 ```
 
 ## Approvers

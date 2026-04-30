@@ -336,3 +336,51 @@ class TestTokenValidator:
         ):
             with pytest.raises(jwt.InvalidTokenError):
                 await validator_entra.validate_token(token)
+
+    # --- Finding 4: Scope validation uses exact match, not substring ---
+
+    @pytest.mark.asyncio
+    async def test_scope_validation_rejects_substring_match(self, mock_jwks_client):
+        """Scope 'User.Read' should NOT match 'User.ReadBasic.All' (substring)."""
+        validator = TokenValidator.for_entra(app_id="test-app-id", tenant_id="test-tenant-id", scope="User.Read")
+        validator._jwks_client = mock_jwks_client
+        payload = {
+            "iss": "https://login.microsoftonline.com/test-tenant-id/v2.0",
+            "aud": "test-app-id",
+            "scp": "User.ReadBasic.All",
+            "exp": 9999999999,
+            "iat": 1000000000,
+        }
+
+        with patch("jwt.decode", return_value=payload):
+            with pytest.raises(jwt.InvalidTokenError, match="Token missing required scope: User.Read"):
+                await validator.validate_token("valid.jwt.token")
+
+    @pytest.mark.asyncio
+    async def test_scope_validation_accepts_exact_match_among_multiple(self, mock_jwks_client):
+        """Scope 'User.Read' should match when present among multiple scopes."""
+        validator = TokenValidator.for_entra(app_id="test-app-id", tenant_id="test-tenant-id", scope="User.Read")
+        validator._jwks_client = mock_jwks_client
+        payload = {
+            "iss": "https://login.microsoftonline.com/test-tenant-id/v2.0",
+            "aud": "test-app-id",
+            "scp": "Mail.Read User.Read Files.ReadWrite",
+            "exp": 9999999999,
+            "iat": 1000000000,
+        }
+
+        with patch("jwt.decode", return_value=payload):
+            result = await validator.validate_token("valid.jwt.token")
+            assert result["scp"] == "Mail.Read User.Read Files.ReadWrite"
+
+    # --- Finding 10: Issuer validation bypass ---
+
+    def test_for_entra_without_tenant_id_logs_warning(self, caplog):
+        """Creating Entra validator without tenant_id should log a warning."""
+        import logging
+
+        with caplog.at_level(logging.WARNING):
+            validator = TokenValidator.for_entra(app_id="test-app-id", tenant_id=None)
+            assert validator.options.valid_issuers == []
+            assert "Issuer validation will be skipped" in caplog.text
+

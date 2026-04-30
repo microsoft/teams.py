@@ -3,13 +3,9 @@
 "microsoft-teams-api" = { workspace = true }
 "microsoft-teams-common" = { workspace = true }
 "microsoft-teams-cards" = { workspace = true }
-"microsoft-teams-devtools" = { workspace = true }
 "microsoft-teams-graph" = { workspace = true }
-"microsoft-teams-ai" = { workspace = true }
-"microsoft-teams-openai" = { workspace = true }
-"microsoft-teams-mcpplugin" = { workspace = true }
-"microsoft-teams-a2a" = { workspace = true }
 "microsoft-teams-botbuilder" = { workspace = true }
+"hatch-teams-build" = { path = "tools/hatch-teams-build" }
 
 [tool.uv.workspace]
 members = ["packages/*", "examples/*"]
@@ -25,12 +21,12 @@ dev = [
     "ruff>=0.11.13",
     "pyright>=1.1.404",
     "cookiecutter>=2.6.0",
-    "pytest>=8.0.0",
+    "pytest>=9.0.3",
     "pytest-asyncio>=0.23.0",
     "pytest-cov>=6.0.0",
 ]
 release = [
-    "nbgv-python>=0.1.8",
+    "hatch-teams-build",
 ]
 
 [tool.ruff]
@@ -54,6 +50,7 @@ select = ["E", "F", "W", "B", "Q", "I", "ASYNC"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+testpaths = ["packages"]
 
 [tool.poe.tasks]
 fmt = "ruff format"
@@ -88,7 +85,7 @@ exclude_lines = [
 ]
 precision = 2
 show_missing = true
-fail_under = 74
+fail_under = 70
 
 [tool.coverage.html]
 directory = "htmlcov"

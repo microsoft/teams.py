@@ -18,6 +18,7 @@ from microsoft_teams.api import (
     TokenProtocol,
     is_invoke_response,
 )
+from microsoft_teams.api.auth.cloud_environment import PUBLIC, CloudEnvironment
 from microsoft_teams.api.clients.user.params import GetUserTokenParams
 from microsoft_teams.cards import AdaptiveCard
 from microsoft_teams.common import Client, ClientOptions, LocalStorage, Storage
@@ -27,7 +28,7 @@ if TYPE_CHECKING:
 
 from .activity_sender import ActivitySender
 from .events import ActivityEvent, ActivityResponseEvent, ActivitySentEvent, ErrorEvent
-from .plugins import PluginActivityEvent, PluginBase
+from .plugins import PluginActivityEvent, PluginBase, StreamCancelledError
 from .routing.activity_context import ActivityContext
 from .routing.router import ActivityHandler, ActivityRouter
 from .token_manager import TokenManager
@@ -49,6 +50,7 @@ class ActivityProcessor:
         token_manager: TokenManager,
         api_client_settings: Optional[ApiClientSettings],
         activity_sender: ActivitySender,
+        cloud: CloudEnvironment = PUBLIC,
     ) -> None:
         self.router = router
         self.id = id
@@ -58,6 +60,7 @@ class ActivityProcessor:
         self.token_manager = token_manager
         self.api_client_settings = api_client_settings
         self.activity_sender = activity_sender
+        self.cloud = cloud
 
         # This will be set after the EventManager is initialized due to
         # a circular dependency
@@ -126,6 +129,7 @@ class ActivityProcessor:
             self.default_connection_name,
             activity_sender=self.activity_sender,
             app_token=lambda: self.token_manager.get_graph_token(tenant_id),
+            cloud=self.cloud,
         )
 
         send = activityCtx.send
@@ -224,6 +228,10 @@ class ActivityProcessor:
                 ),
                 plugins=plugins,
             )
+        except StreamCancelledError:
+            logger.debug("Activity processing was cancelled (stream stopped)")
+            await activityCtx.stream.close()
+            response = InvokeResponse[Any](status=200)
         except Exception as error:
             await self.event_manager.on_error(ErrorEvent(error=error, activity=activity), plugins)
             raise error

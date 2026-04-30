@@ -19,6 +19,36 @@ from .interceptor import Interceptor, InterceptorRequestContext, InterceptorResp
 logger = logging.getLogger(__name__)
 
 
+def _merge_headers(base: Dict[str, str], overrides: Dict[str, str]) -> Dict[str, str]:
+    """
+    Merge two header dicts, concatenating User-Agent values when both sides define it.
+
+    For User-Agent headers (case-insensitive key match), the values are merged by
+    concatenating with a space, skipping tokens that are already present. All other
+    headers from overrides take precedence over base headers.
+
+    Args:
+        base: The base headers dict.
+        overrides: Headers to merge in (may override base headers).
+
+    Returns:
+        Merged headers dict.
+    """
+    result = dict(base)
+    for key, value in overrides.items():
+        if key.lower() == "user-agent":
+            base_ua_key = next((k for k in result if k.lower() == "user-agent"), None)
+            if base_ua_key is not None:
+                existing = result[base_ua_key]
+                if value not in existing.split():
+                    result[base_ua_key] = f"{existing} {value}"
+            else:
+                result["User-Agent"] = value
+        else:
+            result[key] = value
+    return result
+
+
 def _wrap_response_json(response: httpx.Response) -> None:
     """
     Wrap the response.json method to handle JSONDecodeError gracefully.
@@ -421,7 +451,7 @@ class Client:
         overrides = overrides or ClientOptions()
         merged_options = ClientOptions(
             base_url=overrides.base_url if overrides.base_url is not None else self._options.base_url,
-            headers={**self._options.headers, **(overrides.headers or {})},
+            headers=_merge_headers(self._options.headers, overrides.headers or {}),
             timeout=overrides.timeout if overrides.timeout is not None else self._options.timeout,
             token=overrides.token if overrides.token is not None else self._options.token,
             interceptors=list(overrides.interceptors)

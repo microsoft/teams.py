@@ -39,6 +39,18 @@ class TestHttpServer:
         assert server.adapter is mock_adapter
         assert server.on_request is None
 
+    def test_initialize_idempotent(self, server, mock_adapter):
+        """Test that initialize can be called multiple times safely."""
+        server.initialize(skip_auth=True)
+        server.initialize(skip_auth=True)
+        # Should only register route once
+        assert mock_adapter.register_route.call_count == 1
+
+    def test_invalid_messaging_endpoint_raises(self, mock_adapter):
+        """Test that invalid messaging endpoint raises ValueError."""
+        with pytest.raises(ValueError, match="must be a non-empty path"):
+            HttpServer(mock_adapter, messaging_endpoint="no-slash")
+
     def test_messaging_endpoint_default(self, server):
         """Test default messaging endpoint."""
         assert server.messaging_endpoint == "/api/messages"
@@ -129,6 +141,40 @@ class TestHttpServer:
         result = await server.handle_request(request)
 
         assert result["status"] == 500
+
+    @pytest.mark.asyncio
+    async def test_rejects_missing_bearer_token(self, server, mock_adapter):
+        """Test that auth-enabled server rejects requests without Bearer token."""
+        from unittest.mock import MagicMock
+
+        creds = MagicMock()
+        creds.client_id = "test-app-id"
+        server.initialize(credentials=creds)
+
+        request = HttpRequest(
+            body={"type": "message", "id": "test-123"},
+            headers={"authorization": "Basic invalid"},
+        )
+
+        result = await server.handle_request(request)
+        assert result["status"] == 401
+
+    @pytest.mark.asyncio
+    async def test_rejects_invalid_jwt(self, server, mock_adapter):
+        """Test that auth-enabled server rejects invalid JWT tokens."""
+        from unittest.mock import MagicMock
+
+        creds = MagicMock()
+        creds.client_id = "test-app-id"
+        server.initialize(credentials=creds)
+
+        request = HttpRequest(
+            body={"type": "message", "id": "test-123"},
+            headers={"authorization": "Bearer invalid.jwt.token"},
+        )
+
+        result = await server.handle_request(request)
+        assert result["status"] == 401
 
 
 class TestFastAPIAdapter:

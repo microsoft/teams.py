@@ -25,6 +25,7 @@ A comprehensive SDK for building Microsoft Teams applications, bots, and AI agen
 
 - UV version is >= 0.8.11. Install and upgrade from [docs.astral.sh/uv](https://docs.astral.sh/uv/getting-started/installation/).
 - Python version is >= 3.12. Install or upgrade from [python.org/downloads](https://www.python.org/downloads/).
+- (Optional) .NET SDK + `nbgv` CLI for real version numbers. Without it, packages build as `0.0.0` which is fine for local development. See [RELEASE.md](RELEASE.md) for details.
 
 ### Installation
 
@@ -57,19 +58,11 @@ A comprehensive SDK for building Microsoft Teams applications, bots, and AI agen
 > ℹ️ core packages used to build client/server apps for Teams.
 
 - [`microsoft-teams-apps`](./packages/apps/README.md)
-- [`microsoft-teams-ai`](./packages/ai/README.md)
 - [`microsoft-teams-api`](./packages/api/README.md)
 - [`microsoft-teams-cards`](./packages/cards/README.md)
 - [`microsoft-teams-common`](./packages/common/README.md)
-- [`microsoft-teams-devtools`](./packages/devtools/README.md)
 - [`microsoft-teams-graph`](./packages/graph/README.md)
-- [`microsoft-teams-openai`](./packages/openai/README.md)
 - [`microsoft-teams-botbuilder`](./packages/botbuilder/README.md)
-
-> external packages to integrate with external protocols and microsoft-teams-cards
-
-- [`microsoft-teams-mcpplugin`](./packages/mcpplugin/README.md)
-- [`microsoft-teams-a2a`](./packages/a2aprotocol/README.md)
 
 ### Create a New Package
 
@@ -83,10 +76,10 @@ Follow the prompts to name the package and the directory. It should create the p
 
 ### Create A New Test Package
 
-Similarly, to create a new test package, run:
+Similarly, to create a new test app, run:
 
 ```bash
-cookiecutter templates/test -o tests
+cookiecutter templates/examples -o examples
 ```
 
 ## Test Apps
@@ -102,7 +95,6 @@ cookiecutter templates/test -o tests
 - [`@examples/message-extensions`](./examples/message-extensions/README.md)
 - [`@examples/dialogs`](./examples/dialogs/README.md)
 - [`@examples/graph`](./examples/graph/README.md)
-- [`@examples/ai-test`](./examples/ai-test/README.md)
 - [`@examples/stream`](./examples/stream/README.md)
 - [`@examples/oauth`](./examples/oauth/README.md)
 - [`@examples/meetings`](./examples/meetings/README.md)

@@ -1,34 +1,39 @@
 # Teams Graph Integration Demo
 
-This demo application showcases how to use Microsoft Graph APIs within a Teams bot.
+This demo application showcases how to use Microsoft Graph APIs within a Teams bot, including both delegated (user) and app-only access patterns.
 
 ## Features
 
 - **User Authentication**: Teams OAuth integration with automatic token management
-- **Token Implementation**: Uses callable-based tokens for exact expiration handling
-- **Profile Information**: Retrieve and display user profile data
+- **Profile Information**: Retrieve and display user profile data via delegated access
 - **Email Access**: List recent emails with Mail.Read scope
-- **Automatic Token Refresh**: Intelligent token lifecycle management
+- **App-Level Graph Access**: Query organization data using app-only permissions (no user sign-in needed) via `app.get_app_graph()` or `ctx.app_graph`
 
 ## Commands
 
 - `signin` - Authenticate with Microsoft Graph
 - `profile` - Display user profile information (requires User.Read)
 - `emails` - Show recent emails (requires Mail.Read permission)
+- `app-users` - List organization users via `app.get_app_graph()` (app-only, no sign-in needed)
+- `app-users ctx` - List organization users via `ctx.app_graph` (app-only, no sign-in needed)
 - `signout` - Sign out of Microsoft Graph
 - `help` - Show available commands and implementation details
 
 ## Setup
 
 1. Configure OAuth connection in Azure Bot registration
-2. Set connection name to "graph" (or update `default_connection_name` in app options)
+2. Set connection name to "graph" (or update `CONNECTION_NAME` env var)
 3. Configure appropriate Microsoft Graph permissions:
    - `User.Read` (for profile access)
    - `Mail.Read` (for email access)
-4. Create a `.env` file with required environment variables (copy from `sample.env`):
+   - `User.Read.All` application permission (for app-users commands)
+4. Create a `.env` file in `examples/graph/src/` with required environment variables (copy from `sample.env`):
    ```
+   CLIENT_ID=<your-azure-bot-app-id>
+   CLIENT_SECRET=<your-azure-bot-app-secret>
+   TENANT_ID=<your-tenant-id>
    CONNECTION_NAME=graph
-   # PORT=3979  # Optional: specify custom port (defaults to 3979)
+   # PORT=3978  # Optional: specify custom port (defaults to 3978)
    ```
 
 ## Configuring a Regional Bot
@@ -50,105 +55,27 @@ app = App(
 
 ## Running
 
-### Option 1: Using the PowerShell Script (Recommended)
-
-From the `examples/graph/` directory:
-
-```powershell
-.\run_demo.ps1
-```
-
-### Option 2: Manual PYTHONPATH Setup
-
-From the `examples/graph/` directory:
-
-```powershell
-# PowerShell
-$env:PYTHONPATH="..\..\packages\graph\src;..\..\packages\api\src;..\..\packages\apps\src;..\..\packages\common\src"
-python src\main.py
-```
+From the `examples/graph/` directory (so `.env` is discovered automatically):
 
 ```bash
-# Bash (Linux/macOS)
-PYTHONPATH="../../packages/graph/src:../../packages/api/src:../../packages/apps/src:../../packages/common/src" python src/main.py
+cd examples/graph
+uv run src/main.py
 ```
-
-### Option 3: Install Packages in Development Mode
-
-From the repository root:
-
-```bash
-# Install the graph package in development mode
-pip install -e packages/graph
-pip install -e packages/api
-pip install -e packages/app
-pip install -e packages/common
-
-# Then run the demo
-python examples/graph/src/main.py
-```
-
-## Architecture
-
-The demo uses the `microsoft_teams.graph` package which provides:
-
-- **Token Integration**: Uses callable tokens for exact expiration handling
-- **Automatic Token Resolution**: Seamless integration with Teams OAuth tokens
-- **Graph Client Factory**: `get_graph_client()` function for creating authenticated clients
 
 ## Example Usage
 
 ```python
 from microsoft_teams.graph import get_graph_client
 
-# Get user's Graph client using their token
+# Delegated access — create Graph client using the user's token
 graph = get_graph_client(ctx.user_token)
-
-# Access user profile
 me = await graph.me.get()
-
-# Access Teams membership
-teams = await graph.me.joined_teams.get()
-
-# Access emails
 messages = await graph.me.messages.get()
-```
 
-## Token Lifecycle
+# App-only access — no user sign-in needed
+graph = app.get_app_graph()
+users = await graph.users.get()
 
-1. User initiates `signin` command
-2. Teams OAuth flow completes and stores user token
-3. Graph client created with callable token that:
-   - Fetches fresh token on each call
-   - Includes exact expiration metadata
-   - Handles token refresh automatically
-4. Graph API calls use current valid token
-5. User can `signout` to clear tokens
-
-This approach provides better reliability and eliminates common token expiration issues.
-
-- **`get_graph_client()`** - Main factory function accepting Token values (strings, callables, etc.)
-- **`DirectTokenCredential`** - Azure TokenCredential implementation using the unified Token type
-
-### Key Implementation Details
-
-```python
-from microsoft_teams.api.clients.user.params import GetUserTokenParams
-from microsoft_teams.graph import get_graph_client
-
-# Get token directly from Teams API
-token_params = GetUserTokenParams(
-    channel_id=ctx.activity.channel_id,
-    user_id=ctx.activity.from_.id,
-    connection_name=ctx.connection_name,
-)
-
-# Get user token and create Graph client directly
-token_response = await ctx.api.users.token.get(token_params)
-
-# Create Graph client with string token (simplest approach)
-graph = get_graph_client(token_response.token, connection_name=ctx.connection_name)
-
-# Make Graph API calls
-me = await graph.me.get()
+# Or via context
+users = await ctx.app_graph.users.get()
 ```

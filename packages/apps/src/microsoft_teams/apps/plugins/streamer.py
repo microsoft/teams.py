@@ -3,6 +3,7 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
+import asyncio
 from typing import Awaitable, Callable, Literal, Optional, Protocol, Union
 
 from microsoft_teams.api import MessageActivityInput, SentActivity, TypingActivityInput
@@ -10,8 +11,22 @@ from microsoft_teams.api import MessageActivityInput, SentActivity, TypingActivi
 StreamerEvent = Literal["chunk", "close"]
 
 
+class StreamCancelledError(asyncio.CancelledError):
+    """Raised when a stream operation is attempted after the stream has been cancelled."""
+
+    pass
+
+
 class StreamerProtocol(Protocol):
     """Component that can send streamed chunks of an activity."""
+
+    @property
+    def canceled(self) -> bool:
+        """
+        Whether the stream has been canceled.
+        For example when the user pressed the Stop button or the 2-minute timeout has exceeded.
+        """
+        ...
 
     @property
     def closed(self) -> bool:

@@ -8,15 +8,21 @@ import asyncio
 from unittest.mock import MagicMock, patch
 
 import pytest
+from httpx import HTTPStatusError, Request, Response
 from microsoft_teams.api import (
     Account,
     ApiClient,
+    CardAction,
+    CardActionType,
     ConversationAccount,
     ConversationReference,
+    MessageActivityInput,
     SentActivity,
+    SuggestedActions,
     TypingActivityInput,
 )
 from microsoft_teams.apps import HttpStream
+from microsoft_teams.apps.plugins import StreamCancelledError
 
 
 class TestHttpStream:
@@ -89,10 +95,9 @@ class TestHttpStream:
                 http_stream.emit(f"Message {i + 1}")
 
             await asyncio.sleep(0)
+            # First flush drains the entire queue, no second flush needed
             assert http_stream._client.send_call_count == 1
-
-            await self._run_scheduled_flushes(scheduled)
-            assert http_stream._client.send_call_count == 2
+            assert len(scheduled) == 0
 
     @pytest.mark.asyncio
     async def test_stream_error_handled_gracefully(
@@ -219,3 +224,205 @@ class TestHttpStream:
             await self._run_scheduled_flushes(scheduled)
 
             assert max_concurrent_entries == 1
+
+    @pytest.mark.asyncio
+    async def test_stream_canceled_on_403(self, mock_api_client, conversation_reference, patch_loop_call_later):
+        loop = asyncio.get_running_loop()
+        patcher, scheduled = patch_loop_call_later(loop)
+        with patcher:
+
+            async def mock_send_403(activity):
+                raise HTTPStatusError(
+                    "Forbidden",
+                    request=Request("POST", "https://example.com"),
+                    response=Response(403),
+                )
+
+            mock_api_client.conversations.activities().create = mock_send_403
+            stream = HttpStream(mock_api_client, conversation_reference)
+
+            stream.emit("Test message")
+            await asyncio.sleep(0)
+            await self._run_scheduled_flushes(scheduled)
+
+            assert stream.canceled is True
+
+    @pytest.mark.asyncio
+    async def test_emit_blocked_after_cancel(self, mock_api_client, conversation_reference, patch_loop_call_later):
+        loop = asyncio.get_running_loop()
+        patcher, scheduled = patch_loop_call_later(loop)
+        with patcher:
+
+            async def mock_send_403(activity):
+                raise HTTPStatusError(
+                    "Forbidden",
+                    request=Request("POST", "https://example.com"),
+                    response=Response(403),
+                )
+
+            mock_api_client.conversations.activities().create = mock_send_403
+            stream = HttpStream(mock_api_client, conversation_reference)
+
+            stream.emit("First message")
+            await asyncio.sleep(0)
+            await self._run_scheduled_flushes(scheduled)
+
+            assert stream.canceled is True
+
+            # Emit after cancel should raise
+            with pytest.raises(StreamCancelledError, match="Stream has been cancelled."):
+                stream.emit("Should be ignored")
+
+    @pytest.mark.asyncio
+    async def test_send_blocked_after_cancel(self, mock_api_client, conversation_reference):
+        stream = HttpStream(mock_api_client, conversation_reference)
+        stream._canceled = True
+
+        with pytest.raises(StreamCancelledError, match="Teams channel stopped the stream."):
+            await stream._send(TypingActivityInput(text="test"))
+
+    @pytest.mark.asyncio
+    async def test_stream_canceled_after_successful_message(
+        self, mock_api_client, conversation_reference, patch_loop_call_later
+    ):
+        call_count = 0
+        loop = asyncio.get_running_loop()
+        patcher, scheduled = patch_loop_call_later(loop)
+        with patcher:
+
+            async def mock_send_then_403(activity):
+                nonlocal call_count
+                call_count += 1
+                if call_count == 1:
+                    return SentActivity(id="activity-1", activity_params=activity)
+                raise HTTPStatusError(
+                    "Forbidden",
+                    request=Request("POST", "https://example.com"),
+                    response=Response(403),
+                )
+
+            mock_api_client.conversations.activities().create = mock_send_then_403
+            stream = HttpStream(mock_api_client, conversation_reference)
+
+            # First emit succeeds
+            stream.emit("First message")
+            await asyncio.sleep(0)
+            await self._run_scheduled_flushes(scheduled)
+
+            assert stream.canceled is False
+            assert call_count == 1
+
+            # Second emit triggers 403
+            stream.emit("Second message")
+            await asyncio.sleep(0)
+            await self._run_scheduled_flushes(scheduled)
+
+            assert stream.canceled is True
+            assert call_count == 2
+
+            # Further emits raise
+            with pytest.raises(StreamCancelledError, match="Stream has been cancelled."):
+                stream.emit("Should be ignored")
+
+    @pytest.mark.asyncio
+    async def test_close_returns_none_when_canceled(self, mock_api_client, conversation_reference):
+        stream = HttpStream(mock_api_client, conversation_reference)
+        stream._canceled = True
+
+        result = await stream.close()
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_final_activity_last_wins(self, mock_api_client, conversation_reference, patch_loop_call_later):
+        """When multiple MessageActivityInputs are emitted, the last one's non-text fields are used."""
+        loop = asyncio.get_running_loop()
+        patcher, scheduled = patch_loop_call_later(loop)
+
+        update_call_count = 0
+        original_create = mock_api_client.conversations.activities().create
+
+        async def mock_send(activity):
+            nonlocal update_call_count
+            if (
+                hasattr(activity, "id")
+                and activity.id
+                and not any(e.type == "streaminfo" for e in (activity.entities or []))
+            ):
+                update_call_count += 1
+                return SentActivity(id=activity.id, activity_params=activity)
+            return await original_create(activity)
+
+        mock_api_client.conversations.activities().create = mock_send
+        mock_api_client.conversations.activities().update = mock_send
+
+        with patcher:
+            stream = HttpStream(mock_api_client, conversation_reference)
+
+            early_actions = SuggestedActions(
+                to=[],
+                actions=[CardAction(type=CardActionType.IM_BACK, title="Early", value="early")],
+            )
+            late_actions = SuggestedActions(
+                to=[],
+                actions=[CardAction(type=CardActionType.IM_BACK, title="Late", value="late")],
+            )
+
+            stream.emit("Hello ")
+            stream.emit(MessageActivityInput(text="world").with_suggested_actions(early_actions))
+            stream.emit(MessageActivityInput().add_ai_generated().with_suggested_actions(late_actions))
+            await asyncio.sleep(0)
+            await self._run_scheduled_flushes(scheduled)
+
+            result = await stream.close()
+            assert result is not None
+            # The final activity should use the last emitted MessageActivityInput's suggested actions
+            assert result.activity_params.suggested_actions == late_actions
+            # Text should be accumulated from all emits
+            assert result.activity_params.text == "Hello world"
+
+    @pytest.mark.asyncio
+    async def test_suggested_actions_on_final_message(
+        self, mock_api_client, conversation_reference, patch_loop_call_later
+    ):
+        """Suggested actions emitted mid-stream appear on the final close() message."""
+        loop = asyncio.get_running_loop()
+        patcher, scheduled = patch_loop_call_later(loop)
+
+        update_call_count = 0
+        original_create = mock_api_client.conversations.activities().create
+
+        async def mock_send(activity):
+            nonlocal update_call_count
+            if (
+                hasattr(activity, "id")
+                and activity.id
+                and not any(e.type == "streaminfo" for e in (activity.entities or []))
+            ):
+                update_call_count += 1
+                return SentActivity(id=activity.id, activity_params=activity)
+            return await original_create(activity)
+
+        mock_api_client.conversations.activities().create = mock_send
+        mock_api_client.conversations.activities().update = mock_send
+
+        with patcher:
+            stream = HttpStream(mock_api_client, conversation_reference)
+
+            actions = SuggestedActions(
+                to=[],
+                actions=[
+                    CardAction(type=CardActionType.IM_BACK, title="Option A", value="a"),
+                    CardAction(type=CardActionType.IM_BACK, title="Option B", value="b"),
+                ],
+            )
+
+            stream.emit("Streaming content...")
+            stream.emit(MessageActivityInput().with_suggested_actions(actions))
+            await asyncio.sleep(0)
+            await self._run_scheduled_flushes(scheduled)
+
+            result = await stream.close()
+            assert result is not None
+            assert result.activity_params.suggested_actions is not None
+            assert len(result.activity_params.suggested_actions.actions) == 2
+            assert result.activity_params.suggested_actions.actions[0].title == "Option A"
