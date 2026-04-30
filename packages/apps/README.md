@@ -1,6 +1,3 @@
-> [!CAUTION]
-> This project is in public preview. We’ll do our best to maintain compatibility, but there may be breaking changes in upcoming releases.
-
 # Microsoft Teams Apps Framework
 
 <p>

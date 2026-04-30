@@ -1,5 +1,5 @@
-> [!CAUTION]
-> This project is in public preview. We’ll do our best to maintain compatibility, but there may be breaking changes in upcoming releases.
+> [!NOTE]
+> Our Python SDK is now Generally Available!
 
 # Microsoft Teams SDK for Python
 
