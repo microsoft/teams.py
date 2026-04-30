@@ -8,7 +8,51 @@ from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from microsoft_teams.api.auth.cloud_environment import (
+    CHINA,
+    PUBLIC,
+    US_GOV,
+    US_GOV_DOD,
+    CloudEnvironment,
+)
 from microsoft_teams.apps.routing.activity_context import ActivityContext
+from microsoft_teams.apps.utils.graph import _derive_graph_base_url
+
+
+class TestDeriveGraphBaseUrl:
+    """Tests for the cloud -> Graph base URL derivation used by create_graph_client."""
+
+    def test_none_cloud_returns_none(self) -> None:
+        assert _derive_graph_base_url(None) is None
+
+    @pytest.mark.parametrize(
+        "cloud,expected",
+        [
+            (PUBLIC, "https://graph.microsoft.com"),
+            (US_GOV, "https://graph.microsoft.us"),
+            (US_GOV_DOD, "https://dod-graph.microsoft.us"),
+            (CHINA, "https://microsoftgraph.chinacloudapi.cn"),
+        ],
+    )
+    def test_preset_cloud_derives_base_url(self, cloud: CloudEnvironment, expected: str) -> None:
+        assert _derive_graph_base_url(cloud) == expected
+
+    def test_non_url_scope_returns_none(self, caplog: pytest.LogCaptureFixture) -> None:
+        # Construct a cloud whose graph_scope isn't a URL.
+        class _FakeCloud:
+            graph_scope = "user.read"
+
+        with caplog.at_level("WARNING"):
+            assert _derive_graph_base_url(_FakeCloud()) is None  # type: ignore[arg-type]
+        assert any("not a URL" in record.message for record in caplog.records)
+
+    def test_empty_scope_returns_none_no_warning(self, caplog: pytest.LogCaptureFixture) -> None:
+        class _FakeCloud:
+            graph_scope = ""
+
+        with caplog.at_level("WARNING"):
+            assert _derive_graph_base_url(_FakeCloud()) is None  # type: ignore[arg-type]
+        assert not any("not a URL" in record.message for record in caplog.records)
 
 
 class TestOptionalGraphDependencies:
@@ -36,6 +80,7 @@ class TestOptionalGraphDependencies:
             connection_name="test-connection",
             activity_sender=mock_activity_sender,
             app_token=mock_app_token,  # This is needed for app_graph to work
+            cloud=PUBLIC,
         )
 
     def test_app_graph_property_without_graph_available(self) -> None:
@@ -61,7 +106,7 @@ class TestOptionalGraphDependencies:
             if name == "microsoft_teams.graph":
                 # Create a mock module with get_graph_client
                 mock_module = SimpleNamespace()
-                mock_module.get_graph_client = lambda x: "MockGraphClient"  # type: ignore
+                mock_module.get_graph_client = lambda x, base_url=None: "MockGraphClient"  # type: ignore
                 return mock_module
             return __import__(name, *args, **kwargs)
 
@@ -83,6 +128,7 @@ class TestOptionalGraphDependencies:
             connection_name="test-connection",
             activity_sender=MagicMock(),
             app_token=None,
+            cloud=PUBLIC,
         )
 
         # user_graph should raise ValueError when user is not signed in
@@ -102,6 +148,7 @@ class TestOptionalGraphDependencies:
             connection_name="test-connection",
             activity_sender=MagicMock(),
             app_token=None,
+            cloud=PUBLIC,
         )
 
         # user_graph should raise ValueError when no user token is available
@@ -121,6 +168,7 @@ class TestOptionalGraphDependencies:
             connection_name="test-connection",
             activity_sender=MagicMock(),
             app_token=None,  # No app token
+            cloud=PUBLIC,
         )
 
         # app_graph should raise RuntimeError when no app token is available
@@ -173,7 +221,7 @@ class TestAppGetAppGraph:
         mock_client = MagicMock()
         captured_token_arg = []
 
-        def capture_token(token):
+        def capture_token(token, cloud=None):
             captured_token_arg.append(token)
             return mock_client
 

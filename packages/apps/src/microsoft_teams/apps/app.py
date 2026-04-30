@@ -142,6 +142,7 @@ class App(ActivityHandlerMixin):
             self._token_manager,
             self.options.api_client_settings,
             self.activity_sender,
+            self.cloud,
         )
         self.event_manager = EventManager(self._events)
         self.activity_processor.event_manager = self.event_manager
@@ -616,4 +617,4 @@ class App(ActivityHandlerMixin):
             ImportError: If the graph dependencies are not installed.
 
         """
-        return create_graph_client(lambda: self._get_graph_token(tenant_id))
+        return create_graph_client(lambda: self._get_graph_token(tenant_id), cloud=self.cloud)
