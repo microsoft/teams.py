@@ -3,6 +3,6 @@
   "version": "2.0.1-dev.{height}",
   "versionHeightOffset": 1,
   "publicReleaseRefSpec": [
-    "^refs/heads/release/v\\d+\\.\\d+\\.\\d+$"
+    "^refs/heads/release$"
   ]
 }
