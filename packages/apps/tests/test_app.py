@@ -27,6 +27,7 @@ from microsoft_teams.api import (
 )
 from microsoft_teams.apps import ActivityContext, ActivityEvent, App, AppOptions, Plugin, PluginBase, PluginStartEvent
 from microsoft_teams.apps.events import CoreActivity
+from microsoft_teams.common import Client, ClientOptions
 
 
 class FakeToken(TokenProtocol):
@@ -653,6 +654,26 @@ class TestApp:
         # Should use ClientCredentials, not ManagedIdentityCredentials
         assert type(app.credentials).__name__ == "ClientCredentials"
         assert app.credentials.client_id == "test-client-id"
+
+    def test_app_init_with_client_options(self, mock_storage):
+        """Test that a ClientOptions passed via options is used to create the http_client."""
+        custom_options = ClientOptions(base_url="https://custom.api", timeout=99)
+        app = App(storage=mock_storage, client_id="id", client_secret="secret", client=custom_options)
+
+        assert app.http_client._options.base_url == "https://custom.api"
+        assert app.http_client._options.timeout == 99
+        assert "User-Agent" in app.http_client._options.headers
+
+    def test_app_init_with_client_instance(self, mock_storage):
+        """Test that a Client instance passed via options is cloned with User-Agent."""
+        custom_client = Client(ClientOptions(headers={"X-Custom": "value"}, timeout=42))
+        app = App(storage=mock_storage, client_id="id", client_secret="secret", client=custom_client)
+
+        # Should be a different instance (cloned)
+        assert app.http_client is not custom_client
+        # Should preserve the original header and add User-Agent
+        assert app.http_client._options.headers["X-Custom"] == "value"
+        assert "User-Agent" in app.http_client._options.headers
 
     def test_service_url_default(self, mock_storage):
         """Test that app uses default service URL when no configuration provided."""
