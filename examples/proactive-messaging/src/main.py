@@ -20,6 +20,7 @@ Key points:
 import argparse
 import asyncio
 
+from microsoft_teams.api import MessageActivityInput
 from microsoft_teams.apps import App
 from microsoft_teams.cards import ActionSet, AdaptiveCard, OpenUrlAction, TextBlock
 
@@ -68,6 +69,30 @@ async def send_proactive_card(app: App, conversation_id: str) -> None:
     print(f"✓ Card sent successfully! Activity ID: {result.id}")
 
 
+async def send_and_update_proactive_message(app: App, conversation_id: str) -> None:
+    """
+    Send a message proactively and then update it proactively.
+
+    Args:
+        app: The initialized App instance
+        conversation_id: The Teams conversation ID
+    """
+    # First, send a message proactively
+    original_text = "Status: Pending... (sent proactively without a running server)"
+    print(f"Sending message to update: {original_text}")
+    result = await app.send(conversation_id, original_text)
+    activity_id = result.id
+    print(f"✓ Original message sent! Activity ID: {activity_id}")
+
+    # Wait so the user can see the original
+    await asyncio.sleep(3)
+
+    # Now update the same message proactively using the ConversationClient
+    updated = MessageActivityInput(text="Status: Complete ✅ (updated proactively without a running server)")
+    await app.api.conversations.activities(conversation_id).update(activity_id, updated)
+    print(f"✓ Message updated successfully! Activity ID: {activity_id}")
+
+
 async def main():
     """
     Main function demonstrating proactive messaging.
@@ -102,6 +127,12 @@ async def main():
 
     # Example 2: Send an Adaptive Card
     await send_proactive_card(app, args.conversation_id)
+
+    # Wait a bit between messages
+    await asyncio.sleep(2)
+
+    # Example 3: Update an existing message
+    await send_and_update_proactive_message(app, args.conversation_id)
 
     print("\n✓ All proactive messages sent successfully!")
 

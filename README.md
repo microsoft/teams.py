@@ -58,18 +58,11 @@ A comprehensive SDK for building Microsoft Teams applications, bots, and AI agen
 > ℹ️ core packages used to build client/server apps for Teams.
 
 - [`microsoft-teams-apps`](./packages/apps/README.md)
-- [`microsoft-teams-ai`](./packages/ai/README.md)
 - [`microsoft-teams-api`](./packages/api/README.md)
 - [`microsoft-teams-cards`](./packages/cards/README.md)
 - [`microsoft-teams-common`](./packages/common/README.md)
 - [`microsoft-teams-graph`](./packages/graph/README.md)
-- [`microsoft-teams-openai`](./packages/openai/README.md)
 - [`microsoft-teams-botbuilder`](./packages/botbuilder/README.md)
-
-> external packages to integrate with external protocols and microsoft-teams-cards
-
-- [`microsoft-teams-mcpplugin`](./packages/mcpplugin/README.md)
-- [`microsoft-teams-a2a`](./packages/a2aprotocol/README.md)
 
 ### Create a New Package
 
@@ -102,7 +95,6 @@ cookiecutter templates/examples -o examples
 - [`@examples/message-extensions`](./examples/message-extensions/README.md)
 - [`@examples/dialogs`](./examples/dialogs/README.md)
 - [`@examples/graph`](./examples/graph/README.md)
-- [`@examples/ai-test`](./examples/ai-test/README.md)
 - [`@examples/stream`](./examples/stream/README.md)
 - [`@examples/oauth`](./examples/oauth/README.md)
 - [`@examples/meetings`](./examples/meetings/README.md)

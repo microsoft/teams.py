@@ -217,7 +217,6 @@ class App(ActivityHandlerMixin):
             self.server.initialize(
                 credentials=self.credentials,
                 skip_auth=self.options.skip_auth,
-                additional_allowed_domains=self.options.additional_allowed_domains,
                 cloud=self.cloud,
             )
 
