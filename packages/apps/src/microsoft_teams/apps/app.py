@@ -383,6 +383,8 @@ class App(ActivityHandlerMixin):
             return client_opt.clone(ua_options)
         if isinstance(client_opt, ClientOptions):
             return Client(client_opt).clone(ua_options)
+        if client_opt is not None:
+            raise TypeError("options.client must be a Client, ClientOptions, or None")
         return Client(ua_options)
 
     def _init_credentials(self) -> Optional[Credentials]:
