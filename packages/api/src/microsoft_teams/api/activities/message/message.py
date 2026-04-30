@@ -423,6 +423,10 @@ class MessageActivityInput(_MessageBase, ActivityInputBase):
         If an entity with type ``"targetedMessageInfo"`` already exists,
         it is not added again (one prompt preview per message).
 
+        When adding the entity, any ``quotedReply`` entities and matching
+        ``<quoted messageId="..."/>`` placeholder text are removed to avoid
+        collision with prompt preview.
+
         Args:
             message_id: The message ID of the targeted message.
 
@@ -431,6 +435,14 @@ class MessageActivityInput(_MessageBase, ActivityInputBase):
         """
         has_entity = any(isinstance(e, TargetedMessageInfoEntity) for e in (self.entities or []))
         if not has_entity:
+            # Remove any quotedReply entities to avoid collision with prompt preview
+            if self.entities is not None:
+                self.entities = [e for e in self.entities if getattr(e, "type", None) != "quotedReply"]
+
+            # Strip <quoted messageId="..."/> placeholder from text
+            if self.text is not None:
+                self.text = self.text.replace(f'<quoted messageId="{message_id}"/>', "").strip()
+
             self.add_entity(TargetedMessageInfoEntity(message_id=message_id))
         return self
 

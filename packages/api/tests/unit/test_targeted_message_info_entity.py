@@ -5,6 +5,7 @@ Licensed under the MIT License.
 # pyright: basic
 
 import pytest
+from microsoft_teams.api import MessageActivityInput
 from microsoft_teams.api.models.entity.targeted_message_info_entity import TargetedMessageInfoEntity
 
 
@@ -37,3 +38,50 @@ class TestTargetedMessageInfoEntity:
         )
         assert entity.type == "targetedMessageInfo"
         assert entity.message_id == "1772129782775"
+
+
+@pytest.mark.unit
+class TestAddTargetedMessageInfo:
+    """Tests for MessageActivityInput.add_targeted_message_info including QR collision guard."""
+
+    def test_adds_entity(self) -> None:
+        activity = MessageActivityInput(text="test")
+        activity.add_targeted_message_info("12345")
+
+        targeted = [e for e in (activity.entities or []) if isinstance(e, TargetedMessageInfoEntity)]
+        assert len(targeted) == 1
+        assert targeted[0].message_id == "12345"
+
+    def test_does_not_duplicate_when_entity_exists(self) -> None:
+        activity = MessageActivityInput(text="test")
+        activity.add_entity(TargetedMessageInfoEntity(message_id="9999"))
+        activity.add_targeted_message_info("12345")
+
+        targeted = [e for e in (activity.entities or []) if isinstance(e, TargetedMessageInfoEntity)]
+        assert len(targeted) == 1
+        assert targeted[0].message_id == "9999"
+
+    def test_strips_quoted_reply_entities(self) -> None:
+        activity = MessageActivityInput(text="test", entities=[])
+        # Simulate a quotedReply entity (generic entity with type="quotedReply")
+
+        # Use a mock-like approach: create a simple object with type="quotedReply"
+        from unittest.mock import MagicMock
+
+        qr_entity = MagicMock()
+        qr_entity.type = "quotedReply"
+        activity.entities = [qr_entity]  # type: ignore[list-item]
+
+        activity.add_targeted_message_info("12345")
+
+        assert not any(getattr(e, "type", None) == "quotedReply" for e in (activity.entities or []))
+        targeted = [e for e in (activity.entities or []) if isinstance(e, TargetedMessageInfoEntity)]
+        assert len(targeted) == 1
+
+    def test_strips_quoted_placeholder_from_text(self) -> None:
+        activity = MessageActivityInput(text='<quoted messageId="12345"/> Here is my reply')
+        activity.add_targeted_message_info("12345")
+
+        assert activity.text == "Here is my reply"
+        targeted = [e for e in (activity.entities or []) if isinstance(e, TargetedMessageInfoEntity)]
+        assert len(targeted) == 1

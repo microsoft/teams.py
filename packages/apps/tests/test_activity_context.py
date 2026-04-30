@@ -454,7 +454,9 @@ class TestActivityContextPromptPreview:
 
     @pytest.mark.asyncio
     async def test_reply_auto_adds_targeted_message_info_entity(self) -> None:
-        """reply() also auto-adds targetedMessageInfo for targeted messages."""
+        """reply() also auto-adds targetedMessageInfo for targeted messages.
+        The blockquote is added by reply(), then stripped by add_targeted_message_info
+        in send() to avoid collision with prompt preview."""
         activity = self._make_targeted_activity("1772129782775")
         ctx, mock_sender = _create_activity_context(activity=activity)
 
@@ -465,6 +467,9 @@ class TestActivityContextPromptPreview:
         targeted_entities = [e for e in sent_activity.entities if isinstance(e, TargetedMessageInfoEntity)]
         assert len(targeted_entities) == 1
         assert targeted_entities[0].message_id == "1772129782775"
+
+        # quotedReply entities should be stripped by add_targeted_message_info
+        assert not any(getattr(e, "type", None) == "quotedReply" for e in sent_activity.entities)
 
     @pytest.mark.asyncio
     async def test_send_does_not_add_entity_for_non_message_activity(self) -> None:

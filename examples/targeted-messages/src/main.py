@@ -30,7 +30,7 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
     # ============================================
     # Test targeted UPDATE
     # ============================================
-    if "update" in text:
+    if "test update" in text:
         # First send a targeted message
         targeted_message = MessageActivityInput(text="🔒 [UPDATE] Original targeted message...").with_recipient(
             ctx.activity.from_, is_targeted=True
@@ -62,7 +62,7 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
     # ============================================
     # Test targeted DELETE
     # ============================================
-    if "delete" in text:
+    if "test delete" in text:
         # First send a targeted message
         targeted_message = MessageActivityInput(
             text="🔒 [DELETE] This targeted message will be DELETED in 5 seconds..."
@@ -87,16 +87,14 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
     # Test public reply
     # Everyone in the chat sees the reply.
     # ============================================
-    if "public" in text:
-        await ctx.send(
-            MessageActivityInput(text="📋 Here is the public result — everyone can see this!")
-        )
+    if "test public" in text:
+        await ctx.send(MessageActivityInput(text="📋 Here is the public result — everyone can see this!"))
         return
 
     # ============================================
     # Test targeted SEND
     # ============================================
-    if "send" in text:
+    if "test send" in text:
         targeted_reply = MessageActivityInput(
             text="This is a **targeted message** — only YOU can see this!"
         ).with_recipient(ctx.activity.from_, is_targeted=True)
@@ -109,10 +107,10 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
     await ctx.reply(
         "**Targeted Messages Test Bot**\n\n"
         "**Commands:**\n"
-        "- `send` - Send a targeted message\n"
-        "- `update` - Send a targeted message, then update it after 3 seconds\n"
-        "- `delete` - Send a targeted message, then delete it after 5 seconds\n"
-        "- `public` - Send a public message (visible to all)\n\n"
+        "- `test send` - Send a targeted message\n"
+        "- `test update` - Send a targeted message, then update it after 3 seconds\n"
+        "- `test delete` - Send a targeted message, then delete it after 5 seconds\n"
+        "- `test public` - Send a public message (visible to all)\n\n"
         "💡 *Test in a group chat to verify others don't see targeted messages!*"
     )
 

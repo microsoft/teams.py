@@ -192,12 +192,9 @@ class ActivityContext(Generic[T]):
         In channels, sends to the current thread with a quoted reply.
         In other scopes, sends with a quoted reply.
         To send without quoting, use :meth:`send`.
-
-        When the incoming activity is a targeted message, the blockquote is
-        skipped because prompt preview owns the preview surface.
         """
         activity = MessageActivityInput(text=input) if isinstance(input, str) else input
-        if isinstance(activity, MessageActivityInput) and not self._is_incoming_targeted():
+        if isinstance(activity, MessageActivityInput):
             block_quote = self._build_block_quote_for_activity()
             if block_quote:
                 activity.text = f"{block_quote}\n\n{activity.text}" if activity.text else block_quote
