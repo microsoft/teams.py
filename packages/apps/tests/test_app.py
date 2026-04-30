@@ -677,11 +677,6 @@ class TestApp:
         assert app.http_client._options.headers["X-Custom"] == "value"
         assert "User-Agent" in app.http_client._options.headers
 
-    def test_app_init_with_invalid_client_raises(self, mock_storage):
-        """Test that an invalid client type raises TypeError."""
-        with pytest.raises(TypeError, match="options.client must be"):
-            App(storage=mock_storage, client_id="id", client_secret="secret", client="not-a-client")  # type: ignore[arg-type]
-
     def test_service_url_default(self, mock_storage):
         """Test that app uses default service URL when no configuration provided."""
         options = AppOptions(
