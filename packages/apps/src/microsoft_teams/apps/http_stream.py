@@ -131,10 +131,10 @@ class HttpStream(StreamerProtocol):
         self.emit(TypingActivityInput().with_text(text).with_channel_data(ChannelData(stream_type="informative")))
 
     async def _wait_for_id_and_queue(self):
-        """Wait until _id is set and the queue is empty, with a total timeout."""
+        """Wait until _id is set, the queue is empty, and no flush is in progress, with a total timeout."""
 
         async def _poll():
-            while (self._queue or not self._id) and not self._canceled:
+            while (self._queue or not self._id or self._lock.locked()) and not self._canceled:
                 await self._state_changed.wait()
                 self._state_changed.clear()
 
@@ -161,7 +161,9 @@ class HttpStream(StreamerProtocol):
         # Wait until _id is set and queue is empty
         result = await self._wait_for_id_and_queue()
         if not result:
-            logger.warning("Timeout while waiting for _id to be set and queue to be empty, cannot close stream")
+            logger.warning(
+                "Timeout while waiting for _id to be set, queue to be empty, and flush to complete, cannot close stream"
+            )
             return None
 
         has_content = (
