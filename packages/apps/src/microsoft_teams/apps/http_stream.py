@@ -158,7 +158,7 @@ class HttpStream(StreamerProtocol):
             logger.debug("stream has no content to send, returning None")
             return None
 
-        # Wait until _id is set and queue is empty
+        # Wait until _id is set, queue is empty, and no flush is in progress
         result = await self._wait_for_id_and_queue()
         if not result:
             logger.warning(
