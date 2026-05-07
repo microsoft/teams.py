@@ -10,7 +10,7 @@ from typing import Any, Awaitable, Callable, List, Optional, TypedDict, Union, c
 
 from microsoft_teams.api import ApiClientSettings
 from microsoft_teams.api.auth.cloud_environment import CloudEnvironment
-from microsoft_teams.common import Storage
+from microsoft_teams.common import Client, ClientOptions, Storage
 from typing_extensions import Unpack
 
 from .http.adapter import HttpServerAdapter
@@ -41,6 +41,11 @@ class AppOptions(TypedDict, total=False):
     If set to a different client ID than client_id, triggers Federated Identity Credentials with user-assigned MI.
     If not set or equals client_id, uses direct managed identity (no federation).
     """
+
+    # HTTP client
+    client: Optional[Union[Client, ClientOptions]]
+    """HTTP client or client options used to make API requests.
+    Accepts a Client instance or ClientOptions. The app always injects its own User-Agent header."""
 
     # Infrastructure
     storage: Optional[Storage[str, Any]]
@@ -91,6 +96,10 @@ class InternalAppOptions:
     plugins: List[PluginBase] = field(default_factory=lambda: [])
     api_client_settings: Optional[ApiClientSettings] = None
     """API client settings used for overriding."""
+
+    # HTTP client
+    client: Optional[Union[Client, ClientOptions]] = None
+    """HTTP client or client options used to make API requests."""
 
     # Optional fields
     client_id: Optional[str] = None

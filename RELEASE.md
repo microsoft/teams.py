@@ -19,19 +19,16 @@ dotnet tool install -g nbgv
 
 | Branch | Versions | Published |
 |--------|----------|-----------|
-| `main` | `2.0.0.dev1`, `2.0.0.dev2`, ... | No |
-| `alpha/v2.0.0` | `2.0.0a10`, `2.0.0a11`, ... | Yes |
-| `release/v2.0.0` | `2.0.0` | Yes |
+| `main` | `2.0.1.dev1`, `2.0.1.dev2`, ... | No |
+| `release` | `2.0.0` | Yes |
 
 ## Workflow
 
-Development happens on `main`. When ready to release, merge via PR:
+Development happens on `main`. When ready to release, create a `release` branch from `main`:
 
 ```
-main → alpha/v2.0.0 → release/v2.0.0
+main → release
 ```
-
-Each merge increments the version automatically.
 
 ## Versioning
 
@@ -41,38 +38,27 @@ Versions are managed by **Nerdbank.GitVersioning** via [version.json](version.js
 
 ```json
 {
-  "version": "2.0.0-dev.{height}",
+  "version": "2.0.1-dev.{height}",
   "versionHeightOffset": 1
 }
 ```
 
-Builds on `main` produce dev versions like `2.0.0.dev1`, `2.0.0.dev2`, etc. These are not published.
-
-### Alpha Branch (`alpha/v2.0.0`)
-
-```json
-{
-  "version": "2.0.0-alpha.{height}",
-  "versionHeightOffset": 10
-}
-```
-
-Builds on `alpha/v2.0.0` produce alpha versions like `2.0.0a10`, `2.0.0a11`, etc. These are published.
+Builds on `main` produce dev versions like `2.0.1.dev1`, `2.0.1.dev2`, etc. These are not published.
 
 ### Example Package Names
 
 | Branch | Package Name |
 |--------|--------------|
-| `alpha/v2.0.0` | `microsoft_teams_apps-2.0.0a11.tar.gz` |
-| `release/v2.0.0` | `microsoft_teams_apps-2.0.0.tar.gz` |
+| `main` | `microsoft_teams_apps-2.0.1.dev2.tar.gz` |
+| `release` | `microsoft_teams_apps-2.0.0.tar.gz` |
 
-> **Note:** Running the pipeline on a branch not in `publicReleaseRefSpec` (e.g., a feature branch) produces versions with the commit hash appended, like `2.0.0a11.dev5+g1a2b3c4`. This is expected and useful for testing.
+> **Note:** Running the pipeline on a branch not in `publicReleaseRefSpec` (e.g., a feature branch) produces versions with the commit hash appended, like `2.0.1.dev5+g1a2b3c4`. This is expected and useful for testing.
 
 ### Producing a Stable Release
 
 To produce a stable release (e.g., `2.0.0` without any suffix):
 
-1. Create a `release/v2.0.0` branch from `alpha/v2.0.0`
+1. Create a `release` branch from `main`
 2. Update its `version.json`:
    ```json
    {
@@ -82,27 +68,13 @@ To produce a stable release (e.g., `2.0.0` without any suffix):
    ```
 3. Run the publish pipeline with **Public** to release to PyPI
 
-## Creating a New Alpha Branch
-
-When starting a new version (e.g., 2.1.0):
-
-1. Create `alpha/v2.1.0` from `main`
-2. Update its `version.json`:
-   ```json
-   {
-     "version": "2.1.0-alpha.{height}",
-     "versionHeightOffset": 1
-   }
-   ```
-3. Set up branch protection (require PRs)
-
 ## Publishing
 
 The [publish pipeline](https://dev.azure.com/DomoreexpGithub/Github_Pipelines/_build?definitionId=49&_a=summary) (`.azdo/publish.yml`) is manually triggered and requires selecting a **Publish Type**: `Internal` or `Public`.
 
 1. Go to **Pipelines** > **teams.py** in ADO
 2. Click **Run pipeline**
-3. Select the branch to build from (e.g., `alpha/v2.0.0`)
+3. Select the `release` branch
 4. Choose a **Publish Type**:
    - **Internal** — publishes unsigned packages to the Azure Artifacts `TeamsSDKPreviews` feed. No approval required. Packages are available immediately.
    - **Public** — signs packages via ESRP and publishes to PyPI. Requires approval via the `teams-sdk-publish` ADO environment before the ESRP release proceeds.
@@ -113,7 +85,7 @@ The [publish pipeline](https://dev.azure.com/DomoreexpGithub/Github_Pipelines/_b
 #### Installing Published Packages
 
 ```bash
-pip install microsoft-teams-apps==2.0.0a11
+pip install microsoft-teams-apps==2.0.0
 ```
 
 ## Approvers

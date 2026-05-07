@@ -250,7 +250,10 @@ class TestTokenValidator:
     def test_for_entra_initialization(self, validator_entra):
         """Check Entra-specific initialization."""
         options = validator_entra.options
-        assert options.valid_issuers == ["https://login.microsoftonline.com/test-tenant-id/v2.0"]
+        assert options.valid_issuers == [
+            "https://login.microsoftonline.com/test-tenant-id/v2.0",
+            "https://sts.windows.net/test-tenant-id/",
+        ]
         assert options.valid_audiences == ["test-app-id", "api://test-app-id", "api://botid-test-app-id"]
         assert options.jwks_uri == "https://login.microsoftonline.com/test-tenant-id/discovery/v2.0/keys"
         assert options.scope == "user.read"
@@ -384,3 +387,23 @@ class TestTokenValidator:
             assert validator.options.valid_issuers == []
             assert "Issuer validation will be skipped" in caplog.text
 
+    @pytest.mark.asyncio
+    async def test_validate_entra_token_v1_sts_issuer(self, mock_jwks_client):
+        """Validator should accept the Azure AD v1 sts.windows.net issuer."""
+        validator = TokenValidator.for_entra(app_id="test-app-id", tenant_id="test-tenant-id", scope="user.read")
+        validator._jwks_client = mock_jwks_client
+        payload_v1 = {
+            "iss": "https://sts.windows.net/test-tenant-id/",
+            "aud": "test-app-id",
+            "scp": "user.read",
+            "appid": "test-app-id",
+            "tid": "test-tenant-id",
+            "ver": "1.0",
+            "exp": 9999999999,
+            "iat": 1000000000,
+        }
+
+        with patch("jwt.decode", return_value=payload_v1):
+            result = await validator.validate_token("v1.entra.token")
+            assert result["iss"] == "https://sts.windows.net/test-tenant-id/"
+            assert result["ver"] == "1.0"

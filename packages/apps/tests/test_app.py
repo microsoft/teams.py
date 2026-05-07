@@ -11,6 +11,7 @@ import re
 from typing import Optional
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import httpx
 import pytest
 from microsoft_teams.api import (
     Account,
@@ -27,6 +28,7 @@ from microsoft_teams.api import (
 )
 from microsoft_teams.apps import ActivityContext, ActivityEvent, App, AppOptions, Plugin, PluginBase, PluginStartEvent
 from microsoft_teams.apps.events import CoreActivity
+from microsoft_teams.common import Client, ClientOptions
 
 
 class FakeToken(TokenProtocol):
@@ -654,6 +656,33 @@ class TestApp:
         assert type(app.credentials).__name__ == "ClientCredentials"
         assert app.credentials.client_id == "test-client-id"
 
+    @pytest.mark.asyncio
+    async def test_app_init_with_client_options(self, mock_storage):
+        """Test that ClientOptions base_url and headers are used by the http_client."""
+        custom_options = ClientOptions(base_url="https://custom.api", headers={"User-Agent": "my-app/1.0"})
+        app = App(storage=mock_storage, client_id="id", client_secret="secret", client=custom_options)
+
+        captured = {}
+
+        async def capture_request(request: httpx.Request) -> httpx.Response:
+            captured["url"] = str(request.url)
+            captured["user_agent"] = request.headers["user-agent"]
+            return httpx.Response(200, json={})
+
+        app.http_client.http = httpx.AsyncClient(transport=httpx.MockTransport(capture_request))
+        await app.http_client.get("https://custom.api/test")
+
+        assert captured["url"] == "https://custom.api/test"
+        assert "my-app/1.0" in captured["user_agent"]
+        assert "teams.py[apps]/" in captured["user_agent"]
+
+    def test_app_init_with_client_instance(self, mock_storage):
+        """Test that a Client instance is cloned, not shared."""
+        custom_client = Client(ClientOptions(headers={"X-Custom": "value"}))
+        app = App(storage=mock_storage, client_id="id", client_secret="secret", client=custom_client)
+
+        assert app.http_client is not custom_client
+
     def test_service_url_default(self, mock_storage):
         """Test that app uses default service URL when no configuration provided."""
         options = AppOptions(
@@ -762,6 +791,44 @@ class TestApp:
 
         app.activity_sender.send.assert_called_once()
         assert result.id == "sent-activity-id"
+
+
+class TestAppInitialize:
+    """Test cases for App.initialize() method."""
+
+    @pytest.mark.asyncio
+    async def test_initialize_enables_send(self):
+        """After initialize(), app.send() should work without starting the server."""
+        app = App(client_id="test-id", client_secret="test-secret", skip_auth=True)
+        app.activity_sender.send = AsyncMock(
+            return_value=SentActivity(id="msg-1", activity_params=MessageActivityInput(text="hi"))
+        )
+
+        with pytest.raises(ValueError, match="app not initialized"):
+            await app.send("conv-1", "hello")
+
+        await app.initialize()
+        result = await app.send("conv-1", "hello")
+        assert result.id == "msg-1"
+
+    @pytest.mark.asyncio
+    async def test_initialize_emits_error_on_plugin_failure(self):
+        """If a plugin's on_init raises, the error event fires and the exception propagates."""
+
+        @Plugin(name="BadPlugin", version="1.0", description="test")
+        class BadPlugin(PluginBase):
+            async def on_init(self):
+                raise RuntimeError("plugin init failed")
+
+        app = App(client_id="test-id", client_secret="test-secret", skip_auth=True, plugins=[BadPlugin()])
+        errors = []
+        app.events.on("error", lambda e: errors.append(e))
+
+        with pytest.raises(RuntimeError, match="plugin init failed"):
+            await app.initialize()
+
+        assert len(errors) == 1
+        assert errors[0].context["method"] == "initialize"
 
 
 class TestAppReply:

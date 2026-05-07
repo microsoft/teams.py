@@ -89,11 +89,7 @@ class App(ActivityHandlerMixin):
 
         self.storage = self.options.storage or LocalStorage()
 
-        self.http_client = Client(
-            ClientOptions(
-                headers={"User-Agent": USER_AGENT},
-            )
-        )
+        self.http_client = self._init_http_client()
 
         self._events = EventEmitter[EventType]()
         self._router = ActivityRouter()
@@ -146,6 +142,7 @@ class App(ActivityHandlerMixin):
             self._token_manager,
             self.options.api_client_settings,
             self.activity_sender,
+            self.cloud,
         )
         self.event_manager = EventManager(self._events)
         self.activity_processor.event_manager = self.event_manager
@@ -374,6 +371,20 @@ class App(ActivityHandlerMixin):
     def use(self, middleware: Callable[[ActivityContext[ActivityBase]], Awaitable[None]]) -> None:
         """Add middleware to run on all activities."""
         self.router.add_handler(lambda _: True, middleware)
+
+    def _init_http_client(self) -> Client:
+        """Initialize the HTTP client from options or create a default one.
+
+        Always injects the app's User-Agent header via clone, which merges
+        User-Agent values rather than overwriting them.
+        """
+        ua_options = ClientOptions(headers={"User-Agent": USER_AGENT})
+        client_opt = self.options.client
+        if isinstance(client_opt, Client):
+            return client_opt.clone(ua_options)
+        if isinstance(client_opt, ClientOptions):
+            return Client(client_opt).clone(ua_options)
+        return Client(ua_options)
 
     def _init_credentials(self) -> Optional[Credentials]:
         """Initialize authentication credentials from options and environment."""
@@ -606,4 +617,4 @@ class App(ActivityHandlerMixin):
             ImportError: If the graph dependencies are not installed.
 
         """
-        return create_graph_client(lambda: self._get_graph_token(tenant_id))
+        return create_graph_client(lambda: self._get_graph_token(tenant_id), cloud=self.cloud)

@@ -426,3 +426,30 @@ class TestHttpStream:
             assert result.activity_params.suggested_actions is not None
             assert len(result.activity_params.suggested_actions.actions) == 2
             assert result.activity_params.suggested_actions.actions[0].title == "Option A"
+
+    @pytest.mark.asyncio
+    async def test_close_waits_for_flush_to_complete(self, mock_api_client, conversation_reference):
+        """close() must not send the final message while a flush is still mid-await."""
+        stream = HttpStream(mock_api_client, conversation_reference)
+
+        # Simulate a flush in progress: lock held, _id assigned, text accumulated.
+        # This mirrors the window after the inner queue drain but before SendActivity awaits resolve.
+        await stream._lock.acquire()
+        stream._id = "activity-1"
+        stream._text = "Response text"
+
+        close_task = asyncio.create_task(stream.close())
+
+        # Give close() a chance to enter its wait loop, then confirm it has not sent the final message yet.
+        await asyncio.sleep(0.05)
+        assert mock_api_client.send_call_count == 0
+        assert not close_task.done()
+
+        # Release the lock and signal — close() should now proceed.
+        stream._lock.release()
+        stream._state_changed.set()
+
+        result = await close_task
+        assert result is not None
+        assert mock_api_client.send_call_count == 1
+        assert mock_api_client.sent_activities[0].text == "Response text"
