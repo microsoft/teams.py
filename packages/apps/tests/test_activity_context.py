@@ -11,6 +11,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from microsoft_teams.api import Account, MessageActivityInput, SentActivity
 from microsoft_teams.api.auth.cloud_environment import PUBLIC
+from microsoft_teams.api.models.entity import QuotedReplyEntity
 from microsoft_teams.apps.routing.activity_context import ActivityContext
 
 
@@ -200,8 +201,6 @@ class TestActivityContextReply:
     @pytest.mark.asyncio
     async def test_reply_with_string(self) -> None:
         """reply() with a plain string stamps a quotedReply entity and placeholder."""
-        from microsoft_teams.api.models.entity import QuotedReplyEntity
-
         mock_activity = MagicMock()
         mock_activity.type = "message"
         mock_activity.id = "original-id"
@@ -224,8 +223,6 @@ class TestActivityContextReply:
     @pytest.mark.asyncio
     async def test_reply_with_activity_params(self) -> None:
         """reply() with a MessageActivityInput stamps a quotedReply entity."""
-        from microsoft_teams.api.models.entity import QuotedReplyEntity
-
         mock_activity = MagicMock()
         mock_activity.type = "message"
         mock_activity.id = "evt-id-999"
