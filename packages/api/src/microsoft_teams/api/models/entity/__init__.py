@@ -18,6 +18,7 @@ from .entity import Entity  # noqa: F401
 from .mention_entity import MentionEntity
 from .message_entity import MessageEntity
 from .product_info_entity import ProductInfoEntity
+from .quoted_reply_entity import QuotedReplyData, QuotedReplyEntity
 from .sensitive_usage_entity import SensitiveUsage, SensitiveUsageEntity, SensitiveUsagePattern
 from .stream_info_entity import StreamInfoEntity
 
@@ -34,6 +35,8 @@ __all__ = [
     "MentionEntity",
     "MessageEntity",
     "ProductInfoEntity",
+    "QuotedReplyData",
+    "QuotedReplyEntity",
     "SensitiveUsageEntity",
     "SensitiveUsage",
     "SensitiveUsagePattern",
