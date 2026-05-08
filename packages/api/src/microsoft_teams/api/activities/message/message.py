@@ -509,7 +509,8 @@ class MessageActivityInput(_MessageBase, ActivityInputBase):
             if self.text is not None:
                 self.text = self.text.replace(f'<quoted messageId="{message_id}"/>', "").strip()
 
-            self.add_entity(TargetedMessageInfoEntity(message_id=message_id))  
+            self.add_entity(TargetedMessageInfoEntity(message_id=message_id))
+        return self
 
     def with_recipient(self, value: Account, is_targeted: Optional[bool] = None) -> Self:
         """
