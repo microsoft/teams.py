@@ -106,7 +106,6 @@ class HttpServer:
 
             entry_type = _safe_log_field(body.get("type"))
             entry_id = _safe_log_field(body.get("id"))
-            logger.info("received activity: type=%s, id=%s", entry_type, entry_id)
 
             # Validate JWT token
             authorization = headers.get("authorization") or headers.get("Authorization") or ""
