@@ -8,7 +8,7 @@ import json
 import logging
 import warnings
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Awaitable, Callable, Generic, Optional, TypeVar, cast
+from typing import TYPE_CHECKING, Any, Awaitable, Callable, Generic, Optional, TypeVar
 
 from microsoft_teams.api import (
     ActivityBase,
@@ -36,6 +36,7 @@ from microsoft_teams.api.models.attachment.card_attachment import (
 from microsoft_teams.api.models.oauth import OAuthCard
 from microsoft_teams.cards import AdaptiveCard
 from microsoft_teams.common import Storage
+from microsoft_teams.common.experimental import experimental
 from microsoft_teams.common.experimental import ExperimentalWarning
 from microsoft_teams.common.http.client_token import Token
 
@@ -196,12 +197,31 @@ class ActivityContext(Generic[T]):
         In other scopes, sends with a quoted reply.
         To send without quoting, use :meth:`send`.
         """
+        if self.activity.id:
+            return await self.quote(self.activity.id, input)
+        activity = MessageActivityInput(text=input) if isinstance(input, str) else input
+        return await self.send(activity)
+
+    @experimental("ExperimentalTeamsQuotedReplies")
+    async def quote(self, message_id: str, input: str | ActivityParams) -> SentActivity:
+        """
+        Send a message to the conversation with a quoted message reference prepended to the text.
+        Teams renders the quoted message as a preview bubble above the response text.
+
+        Args:
+            message_id: The ID of the message to quote
+            input: The response text or activity — a quote placeholder for message_id will be prepended to its text
+
+        Returns:
+            The sent activity
+
+        .. warning:: Coming Soon
+            This API is coming soon and may change in the future.
+            Diagnostic: ExperimentalTeamsQuotedReplies
+        """
         activity = MessageActivityInput(text=input) if isinstance(input, str) else input
         if isinstance(activity, MessageActivityInput):
-            block_quote = self._build_block_quote_for_activity()
-            if block_quote:
-                activity.text = f"{block_quote}\n\n{activity.text}" if activity.text else block_quote
-        activity.reply_to_id = self.activity.id
+            activity.prepend_quote(message_id)
         return await self.send(activity)
 
     async def next(self) -> None:
@@ -212,31 +232,6 @@ class ActivityContext(Generic[T]):
     def set_next(self, handler: Callable[[], Awaitable[None]]) -> None:
         """Set the next handler in the middleware chain."""
         self._next_handler = handler
-
-    def _build_block_quote_for_activity(self) -> Optional[str]:
-        if self.activity.type == "message" and hasattr(self.activity, "text"):
-            activity = cast(MessageActivityInput, self.activity)
-            max_length = 120
-            text = activity.text or ""
-            truncated_text = f"{text[:max_length]}..." if len(text) > max_length else text
-
-            activity_id = activity.id
-            from_id = activity.from_.id if activity.from_ else ""
-            from_name = activity.from_.name if activity.from_ else ""
-
-            return (
-                f'<blockquote itemscope="" itemtype="http://schema.skype.com/Reply" itemid="{activity_id}">'
-                f'<strong itemprop="mri" itemid="{from_id}">{from_name}</strong>'
-                f'<span itemprop="time" itemid="{activity_id}"></span>'
-                f'<p itemprop="preview">{truncated_text}</p>'
-                f"</blockquote>"
-            )
-        else:
-            self.logger.debug(
-                "Skipping building blockquote for activity type: %s",
-                type(self.activity).__name__,
-            )
-        return None
 
     def _is_incoming_targeted(self) -> bool:
         """Check if the incoming activity is a targeted message."""
@@ -262,7 +257,7 @@ class ActivityContext(Generic[T]):
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", ExperimentalWarning)
             activity_params.add_targeted_message_info(self.activity.id)
-
+    
     async def sign_in(self, options: Optional[SignInOptions] = None) -> Optional[str]:
         """
         Initiate a sign-in flow for the user.

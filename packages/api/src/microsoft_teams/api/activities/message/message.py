@@ -19,6 +19,8 @@ from ...models import (
     CustomBaseModel,
     DeliveryMode,
     MentionEntity,
+    QuotedReplyData,
+    QuotedReplyEntity,
     StreamInfoEntity,
     SuggestedActions,
     TextFormat,
@@ -73,6 +75,20 @@ class MessageActivity(_MessageBase, ActivityBase):
 
     text: str = ""  # pyright: ignore [reportGeneralTypeIssues, reportIncompatibleVariableOverride]
     """The text content of the message."""
+
+    @experimental("ExperimentalTeamsQuotedReplies")
+    def get_quoted_messages(self) -> list[QuotedReplyEntity]:
+        """
+        Get all quoted reply entities from this message.
+
+        Returns:
+            List of quoted reply entities, empty if none
+
+        .. warning:: Coming Soon
+            This API is coming soon and may change in the future.
+            Diagnostic: ExperimentalTeamsQuotedReplies
+        """
+        return [e for e in (self.entities or []) if isinstance(e, QuotedReplyEntity)]
 
     def is_recipient_mentioned(self) -> bool:
         """
@@ -416,6 +432,56 @@ class MessageActivityInput(_MessageBase, ActivityInputBase):
         self.channel_data.feedback_loop_enabled = None
         return self
 
+    @experimental("ExperimentalTeamsQuotedReplies")
+    def prepend_quote(self, message_id: str) -> Self:
+        """
+        Prepend a quotedReply entity and placeholder before existing text.
+        Used by reply()/quote() for quote-above-response.
+
+        Args:
+            message_id: The IC3 message ID of the message to quote
+
+        Returns:
+            Self for method chaining
+
+        .. warning:: Coming Soon
+            This API is coming soon and may change in the future.
+            Diagnostic: ExperimentalTeamsQuotedReplies
+        """
+        if not self.entities:
+            self.entities = []
+        self.entities.append(QuotedReplyEntity(quoted_reply=QuotedReplyData(message_id=message_id)))
+        placeholder = f'<quoted messageId="{message_id}"/>'
+        has_text = bool((self.text or "").strip())
+        self.text = f"{placeholder} {self.text}" if has_text else placeholder
+        return self
+
+    @experimental("ExperimentalTeamsQuotedReplies")
+    def add_quote(self, message_id: str, text: str | None = None) -> Self:
+        """
+        Add a quoted message reference and append a placeholder to text.
+        Teams renders the quoted message as a preview bubble above the response text.
+        If text is provided, it is appended to the quoted message placeholder.
+
+        Args:
+            message_id: The ID of the message to quote
+            text: Optional text, appended to the quoted message placeholder
+
+        Returns:
+            Self for method chaining
+
+        .. warning:: Coming Soon
+            This API is coming soon and may change in the future.
+            Diagnostic: ExperimentalTeamsQuotedReplies
+        """
+        if not self.entities:
+            self.entities = []
+        self.entities.append(QuotedReplyEntity(quoted_reply=QuotedReplyData(message_id=message_id)))
+        self.add_text(f'<quoted messageId="{message_id}"/>')
+        if text:
+            self.add_text(f" {text}")
+        return self
+      
     @experimental("ExperimentalTeamsTargeted")
     def add_targeted_message_info(self, message_id: str) -> Self:
         """Add a targetedMessageInfo entity for prompt preview.
@@ -443,8 +509,7 @@ class MessageActivityInput(_MessageBase, ActivityInputBase):
             if self.text is not None:
                 self.text = self.text.replace(f'<quoted messageId="{message_id}"/>', "").strip()
 
-            self.add_entity(TargetedMessageInfoEntity(message_id=message_id))
-        return self
+            self.add_entity(TargetedMessageInfoEntity(message_id=message_id))  
 
     def with_recipient(self, value: Account, is_targeted: Optional[bool] = None) -> Self:
         """
