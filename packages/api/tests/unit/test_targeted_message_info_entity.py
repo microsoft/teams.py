@@ -61,6 +61,28 @@ class TestAddTargetedMessageInfo:
         assert len(targeted) == 1
         assert targeted[0].message_id == "9999"
 
+    def test_strips_qr_even_when_entity_already_exists(self) -> None:
+        """When developer pre-attaches targetedMessageInfo and reply() adds quotedReply,
+        add_targeted_message_info should still strip the quotedReply artifacts."""
+        from unittest.mock import MagicMock
+
+        qr_entity = MagicMock()
+        qr_entity.type = "quotedReply"
+
+        activity = MessageActivityInput(text='<quoted messageId="12345"/> Here is my reply')
+        activity.add_entity(TargetedMessageInfoEntity(message_id="9999"))
+        activity.entities.append(qr_entity)  # type: ignore[arg-type]
+
+        activity.add_targeted_message_info("12345")
+
+        # Should not duplicate the entity
+        targeted = [e for e in (activity.entities or []) if isinstance(e, TargetedMessageInfoEntity)]
+        assert len(targeted) == 1
+        assert targeted[0].message_id == "9999"
+        # Should still strip quotedReply
+        assert not any(getattr(e, "type", None) == "quotedReply" for e in (activity.entities or []))
+        assert activity.text == "Here is my reply"
+
     def test_strips_quoted_reply_entities(self) -> None:
         activity = MessageActivityInput(text="test", entities=[])
         # Simulate a quotedReply entity (generic entity with type="quotedReply")
