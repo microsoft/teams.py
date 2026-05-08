@@ -36,8 +36,7 @@ from microsoft_teams.api.models.attachment.card_attachment import (
 from microsoft_teams.api.models.oauth import OAuthCard
 from microsoft_teams.cards import AdaptiveCard
 from microsoft_teams.common import Storage
-from microsoft_teams.common.experimental import experimental
-from microsoft_teams.common.experimental import ExperimentalWarning
+from microsoft_teams.common.experimental import ExperimentalWarning, experimental
 from microsoft_teams.common.http.client_token import Token
 
 from ..activity_sender import ActivitySender
@@ -257,7 +256,7 @@ class ActivityContext(Generic[T]):
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", ExperimentalWarning)
             activity_params.add_targeted_message_info(self.activity.id)
-    
+
     async def sign_in(self, options: Optional[SignInOptions] = None) -> Optional[str]:
         """
         Initiate a sign-in flow for the user.

@@ -481,7 +481,7 @@ class MessageActivityInput(_MessageBase, ActivityInputBase):
         if text:
             self.add_text(f" {text}")
         return self
-      
+
     @experimental("ExperimentalTeamsTargeted")
     def add_targeted_message_info(self, message_id: str) -> Self:
         """Add a targetedMessageInfo entity for prompt preview.
