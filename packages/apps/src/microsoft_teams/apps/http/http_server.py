@@ -95,11 +95,18 @@ class HttpServer:
             body = request["body"]
             headers = request["headers"]
 
+            entry_type = body.get("type", "unknown")
+            entry_id = body.get("id", "unknown")
+            logger.info("received activity: type=%s, id=%s", entry_type, entry_id)
+
             # Validate JWT token
             authorization = headers.get("authorization") or headers.get("Authorization") or ""
 
             if self._token_validator and not self._skip_auth:
                 if not authorization.startswith("Bearer "):
+                    logger.warning(
+                        "inbound activity rejected: missing or malformed Authorization header (responding 401)"
+                    )
                     return HttpResponse(status=401, body={"error": "Unauthorized"})
 
                 raw_token = authorization.removeprefix("Bearer ")
