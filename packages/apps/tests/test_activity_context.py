@@ -9,7 +9,8 @@ from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from microsoft_teams.api import Account, MessageActivityInput, SentActivity
+from microsoft_teams.api import Account, MessageActivityInput, SentActivity, TargetedMessageInfoEntity
+from microsoft_teams.api.activities.typing import TypingActivityInput
 from microsoft_teams.api.auth.cloud_environment import PUBLIC
 from microsoft_teams.api.models.entity import QuotedReplyEntity
 from microsoft_teams.apps.routing.activity_context import ActivityContext
@@ -530,3 +531,96 @@ class TestActivityContextSignOut:
             mock_log_error.assert_called_once()
             logged_message = mock_log_error.call_args[0][0]
             assert "Failed to sign out user" in logged_message
+
+
+class TestActivityContextPromptPreview:
+    """Tests for reactive auto-population of targetedMessageInfo entity."""
+
+    def _make_targeted_activity(self, activity_id: str = "1772129782775") -> MagicMock:
+        mock_activity = MagicMock()
+        mock_activity.type = "message"
+        mock_activity.id = activity_id
+        mock_activity.text = "Hello from slash command"
+        mock_activity.from_ = Account(id="user-123", name="Test User")
+        mock_activity.recipient = Account(id="bot-456", name="Bot", is_targeted=True)
+        return mock_activity
+
+    def _make_non_targeted_activity(self) -> MagicMock:
+        mock_activity = MagicMock()
+        mock_activity.type = "message"
+        mock_activity.id = "normal-msg-id"
+        mock_activity.text = "Normal message"
+        mock_activity.from_ = Account(id="user-123", name="Test User")
+        mock_activity.recipient = Account(id="bot-456", name="Bot")
+        return mock_activity
+
+    @pytest.mark.asyncio
+    async def test_send_auto_adds_targeted_message_info_entity(self) -> None:
+        """When replying to a targeted message, the SDK auto-adds targetedMessageInfo."""
+        activity = self._make_targeted_activity("1772129782775")
+        ctx, mock_sender = _create_activity_context(activity=activity)
+
+        await ctx.send("Here is your agenda")
+
+        sent_activity = mock_sender.send.call_args[0][0]
+        assert sent_activity.entities is not None
+        assert len(sent_activity.entities) == 1
+        entity = sent_activity.entities[0]
+        assert isinstance(entity, TargetedMessageInfoEntity)
+        assert entity.message_id == "1772129782775"
+        assert entity.type == "targetedMessageInfo"
+
+    @pytest.mark.asyncio
+    async def test_send_does_not_add_entity_for_non_targeted(self) -> None:
+        """When replying to a normal message, no targetedMessageInfo is added."""
+        activity = self._make_non_targeted_activity()
+        ctx, mock_sender = _create_activity_context(activity=activity)
+
+        await ctx.send("Normal reply")
+
+        sent_activity = mock_sender.send.call_args[0][0]
+        assert sent_activity.entities is None
+
+    @pytest.mark.asyncio
+    async def test_send_does_not_duplicate_entity_if_already_present(self) -> None:
+        """If the developer already added targetedMessageInfo, the SDK does not duplicate it."""
+        activity = self._make_targeted_activity("1772129782775")
+        ctx, mock_sender = _create_activity_context(activity=activity)
+
+        msg = MessageActivityInput(text="Reply").add_entity(TargetedMessageInfoEntity(message_id="custom-id"))
+        await ctx.send(msg)
+
+        sent_activity = mock_sender.send.call_args[0][0]
+        assert sent_activity.entities is not None
+        assert len(sent_activity.entities) == 1
+        assert sent_activity.entities[0].message_id == "custom-id"
+
+    @pytest.mark.asyncio
+    async def test_reply_auto_adds_targeted_message_info_entity(self) -> None:
+        """reply() also auto-adds targetedMessageInfo for targeted messages.
+        The blockquote is added by reply(), then stripped by add_targeted_message_info
+        in send() to avoid collision with prompt preview."""
+        activity = self._make_targeted_activity("1772129782775")
+        ctx, mock_sender = _create_activity_context(activity=activity)
+
+        await ctx.reply("Reply with prompt preview")
+
+        sent_activity = mock_sender.send.call_args[0][0]
+        assert sent_activity.entities is not None
+        targeted_entities = [e for e in sent_activity.entities if isinstance(e, TargetedMessageInfoEntity)]
+        assert len(targeted_entities) == 1
+        assert targeted_entities[0].message_id == "1772129782775"
+
+        # quotedReply entities should be stripped by add_targeted_message_info
+        assert not any(getattr(e, "type", None) == "quotedReply" for e in sent_activity.entities)
+
+    @pytest.mark.asyncio
+    async def test_send_does_not_add_entity_for_non_message_activity(self) -> None:
+        """Non-message activities (e.g. typing) should not get targetedMessageInfo attached."""
+        activity = self._make_targeted_activity("1772129782775")
+        ctx, mock_sender = _create_activity_context(activity=activity)
+
+        await ctx.send(TypingActivityInput())
+
+        sent_activity = mock_sender.send.call_args[0][0]
+        assert sent_activity.entities is None

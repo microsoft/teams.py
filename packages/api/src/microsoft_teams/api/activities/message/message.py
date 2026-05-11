@@ -35,6 +35,7 @@ from ...models.entity import (
     Entity,
     Image,
     MessageEntity,
+    TargetedMessageInfoEntity,
 )
 from ..utils import StripMentionsTextOptions, strip_mentions_text
 
@@ -479,6 +480,36 @@ class MessageActivityInput(_MessageBase, ActivityInputBase):
         self.add_text(f'<quoted messageId="{message_id}"/>')
         if text:
             self.add_text(f" {text}")
+        return self
+
+    @experimental("ExperimentalTeamsTargeted")
+    def add_targeted_message_info(self, message_id: str) -> Self:
+        """Add a targetedMessageInfo entity for prompt preview.
+
+        If an entity with type ``"targetedMessageInfo"`` already exists,
+        it is not added again (one prompt preview per message).
+
+        When adding the entity, any ``quotedReply`` entities and matching
+        ``<quoted messageId="..."/>`` placeholder text are removed to avoid
+        collision with prompt preview.
+
+        Args:
+            message_id: The message ID of the targeted message.
+
+        Returns:
+            Self for method chaining
+        """
+        has_entity = any(isinstance(e, TargetedMessageInfoEntity) for e in (self.entities or []))
+
+        # Always strip quotedReply artifacts to avoid collision with prompt preview,
+        # if the developer already attached a targetedMessageInfo entity.
+        if self.entities is not None:
+            self.entities = [e for e in self.entities if getattr(e, "type", None) != "quotedReply"]
+        if self.text is not None:
+            self.text = self.text.replace(f'<quoted messageId="{message_id}"/>', "").strip()
+
+        if not has_entity:
+            self.add_entity(TargetedMessageInfoEntity(message_id=message_id))
         return self
 
     def with_recipient(self, value: Account, is_targeted: Optional[bool] = None) -> Self:
