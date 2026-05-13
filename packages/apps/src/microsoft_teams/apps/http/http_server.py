@@ -85,6 +85,12 @@ class HttpServer:
                 cloud=self._cloud,
             )
             logger.debug("JWT validation enabled for %s", self._messaging_endpoint)
+        elif not skip_auth:
+            logger.warning(
+                "No credentials configured and skip_auth is not enabled. "
+                "All incoming requests will be rejected. Configure client authentication "
+                "to securely receive messages, or set skip_auth=True for local development."
+            )
 
         self._adapter.register_route("POST", self._messaging_endpoint, self.handle_request)
         self._initialized = True
@@ -98,24 +104,10 @@ class HttpServer:
             # Validate JWT token
             authorization = headers.get("authorization") or headers.get("Authorization") or ""
 
-            if self._token_validator and not self._skip_auth:
-                if not authorization.startswith("Bearer "):
-                    return HttpResponse(status=401, body={"error": "Unauthorized"})
-
-                raw_token = authorization.removeprefix("Bearer ")
+            if self._skip_auth:
+                # Auth explicitly skipped — use a default token
                 service_url = cast(Optional[str], body.get("serviceUrl"))
-
-                try:
-                    await self._token_validator.validate_token(raw_token, service_url)
-                except Exception as e:
-                    logger.warning(f"JWT token validation failed: {e}")
-                    return HttpResponse(status=401, body={"error": "Unauthorized"})
-
-                token: TokenProtocol = cast(TokenProtocol, JsonWebToken(value=raw_token))
-            else:
-                # No auth — use a default token
-                service_url = cast(Optional[str], body.get("serviceUrl"))
-                token = cast(
+                token: TokenProtocol = cast(
                     TokenProtocol,
                     SimpleNamespace(
                         app_id="",
@@ -127,6 +119,28 @@ class HttpServer:
                         is_expired=lambda: False,
                     ),
                 )
+            elif not self._token_validator:
+                # No credentials configured — reject the request
+                logger.error(
+                    "No credentials configured. Configure client authentication "
+                    "to securely receive messages, or set skip_auth=True to allow "
+                    "unauthenticated requests."
+                )
+                return HttpResponse(status=401, body={"error": "Authentication not configured"})
+            else:
+                if not authorization.startswith("Bearer "):
+                    return HttpResponse(status=401, body={"error": "Unauthorized"})
+
+                raw_token = authorization.removeprefix("Bearer ")
+                service_url = cast(Optional[str], body.get("serviceUrl"))
+
+                try:
+                    await self._token_validator.validate_token(raw_token, service_url)
+                except Exception as e:
+                    logger.warning("JWT token validation failed: %s", e)
+                    return HttpResponse(status=401, body={"error": "Unauthorized"})
+
+                token = cast(TokenProtocol, JsonWebToken(value=raw_token))
 
             core_activity = CoreActivity.model_validate(body)
             activity_type = core_activity.type or "unknown"
