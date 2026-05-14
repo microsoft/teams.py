@@ -47,6 +47,15 @@ class ActivitySender:
         Returns:
             The sent activity with id and other server-populated fields
         """
+        is_targeted = (
+            isinstance(activity, MessageActivityInput)
+            and activity.recipient is not None
+            and activity.recipient.is_targeted is True
+        )
+
+        if is_targeted and ref.conversation.conversation_type == "personal":
+            raise ValueError("Targeted messages are not supported in 1:1 (personal) chats.")
+
         # Create API client for this conversation's service URL
         api = ApiClient(service_url=ref.service_url, options=self._client)
 
@@ -54,11 +63,6 @@ class ActivitySender:
         activity.from_ = ref.bot
         activity.conversation = ref.conversation
 
-        is_targeted = (
-            isinstance(activity, MessageActivityInput)
-            and activity.recipient is not None
-            and activity.recipient.is_targeted is True
-        )
         is_update = hasattr(activity, "id") and activity.id
         activities = api.conversations.activities(ref.conversation.id)
 

@@ -4,9 +4,9 @@ Licensed under the MIT License.
 """
 
 import asyncio
+from datetime import datetime, timezone
 
-from microsoft_teams.api import Account, MessageActivity, MessageActivityInput
-from microsoft_teams.api.activities.typing import TypingActivityInput
+from microsoft_teams.api import MessageActivity, MessageActivityInput
 from microsoft_teams.apps import ActivityContext, App
 
 """
@@ -23,112 +23,93 @@ app = App()
 @app.on_message
 async def handle_message(ctx: ActivityContext[MessageActivity]):
     """Handle message activities."""
-    await ctx.reply(TypingActivityInput())
+    activity = ctx.activity
+    text = (activity.text or "").lower()
 
-    text = (ctx.activity.text or "").lower()
+    print(f"[MESSAGE] Received: {text}")
 
-    # ============================================
-    # Test targeted SEND (create)
-    # ============================================
-    if "test send" in text:
-        members = await ctx.api.conversations.members(ctx.activity.conversation.id).get_all()
-
-        for member in members:
-            print(f"Member: {member.name} - {member.id}")
-
-            targeted_message = MessageActivityInput(
-                text="🔒 [SEND] This is a targeted message - only YOU can see this!"
-            ).with_recipient(Account(id=member.id, name=member.name), is_targeted=True)
-
-            result = await ctx.send(targeted_message)
-        print("[SEND] Sent targeted message")
-        return
-
-    # ============================================
-    # Test targeted REPLY
-    # ============================================
-    if "test reply" in text:
-        targeted_reply = MessageActivityInput(text="🔒 [REPLY] Targeted reply - only YOU can see this!").with_recipient(
-            ctx.activity.from_, is_targeted=True
-        )
-
-        result = await ctx.reply(targeted_reply)
-        print(f"Targeted REPLY result: {result}")
-        return
-
-    # ============================================
-    # Test targeted UPDATE
-    # ============================================
     if "test update" in text:
-        # First send a targeted message
-        targeted_message = MessageActivityInput(text="🔒 [UPDATE] Original targeted message...").with_recipient(
-            ctx.activity.from_, is_targeted=True
-        )
+        # UPDATE: Send a targeted message, then update it after 3 seconds
+        conversation_id = activity.conversation.id
 
-        result = await ctx.send(targeted_message)
-        print(f"Initial targeted message ID: {result.id}")
-
-        # Wait then update
-        async def update_after_delay():
-            await asyncio.sleep(3)
-            try:
-                # For targeted updates, do not include recipient in the payload.
-                updated_message = MessageActivityInput(
-                    text="🔒 [UPDATE] ✅ UPDATED targeted message! (only you see this)"
-                )
-                updated_message.id = result.id
-
-                await ctx.api.conversations.activities(ctx.activity.conversation.id).update_targeted(
-                    result.id, updated_message
-                )
-                print("Targeted UPDATE completed")
-            except Exception as err:
-                print(f"Targeted UPDATE error: {err}")
-
-        asyncio.create_task(update_after_delay())
-        return
-
-    # ============================================
-    # Test targeted DELETE
-    # ============================================
-    if "test delete" in text:
-        # First send a targeted message
         targeted_message = MessageActivityInput(
-            text="🔒 [DELETE] This targeted message will be DELETED in 5 seconds..."
-        ).with_recipient(ctx.activity.from_, is_targeted=True)
+            text="📝 This message will be **updated** in 3 seconds..."
+        ).with_recipient(activity.from_, is_targeted=True)
 
         result = await ctx.send(targeted_message)
-        print(f"Targeted message to delete, ID: {result.id}")
 
-        # Wait then delete using the targeted API
-        async def delete_after_delay():
-            await asyncio.sleep(5)
-            try:
-                await ctx.api.conversations.activities(ctx.activity.conversation.id).delete_targeted(result.id)
-                print("Targeted DELETE completed")
-            except Exception as err:
-                print(f"Targeted DELETE error: {err}")
+        if result.id:
+            message_id = result.id
 
-        asyncio.create_task(delete_after_delay())
-        return
+            async def update_after_delay():
+                await asyncio.sleep(3)
+                try:
+                    timestamp = datetime.now(timezone.utc).strftime("%H:%M:%S")
+                    updated_message = MessageActivityInput(
+                        text=f"✏️ **Updated!** This message was modified at {timestamp}"
+                    )
+                    updated_message.id = message_id
 
-    # ============================================
-    # Help / Default
-    # ============================================
-    if "help" in text:
-        await ctx.reply(
-            "**Targeted Messages Test Bot**\n\n"
+                    await ctx.api.conversations.activities(conversation_id).update_targeted(message_id, updated_message)
+                    print("[UPDATE] Updated targeted message")
+                except Exception as err:
+                    print(f"[UPDATE] Error: {err}")
+
+            asyncio.create_task(update_after_delay())
+
+        print("[UPDATE] Scheduled update in 3 seconds")
+
+    elif "test delete" in text:
+        # DELETE: Send a targeted message, then delete it after 3 seconds
+        conversation_id = activity.conversation.id
+
+        targeted_message = MessageActivityInput(
+            text="🗑️ This message will be **deleted** in 3 seconds..."
+        ).with_recipient(activity.from_, is_targeted=True)
+
+        result = await ctx.send(targeted_message)
+
+        if result.id:
+            message_id = result.id
+
+            async def delete_after_delay():
+                await asyncio.sleep(3)
+                try:
+                    await ctx.api.conversations.activities(conversation_id).delete_targeted(message_id)
+                    print("[DELETE] Deleted targeted message")
+                except Exception as err:
+                    print(f"[DELETE] Error: {err}")
+
+            asyncio.create_task(delete_after_delay())
+
+        print("[DELETE] Scheduled delete in 3 seconds")
+
+    elif "test public" in text:
+        # PUBLIC: Send a public message visible to everyone in the chat.
+        await ctx.send(MessageActivityInput(text="📋 Here is the public result — everyone can see this!"))
+        print("[PUBLIC] Sent public message")
+
+    elif "test send" in text:
+        # SEND: Send a targeted message visible only to the sender.
+        targeted_message = MessageActivityInput(
+            text="👋 This is a **targeted message** — only YOU can see this!"
+        ).with_recipient(activity.from_, is_targeted=True)
+        await ctx.send(targeted_message)
+        print("[SEND] Sent targeted message")
+
+    elif "help" in text:
+        await ctx.send(
+            "**🎯 Targeted Messages Demo**\n\n"
             "**Commands:**\n"
-            "- `test send` - Send a targeted message\n"
-            "- `test reply` - Reply with a targeted message\n"
-            "- `test update` - Send then update a targeted message\n"
-            "- `test delete` - Send then delete a targeted message\n\n"
-            "💡 *Test in a group chat to verify others don't see targeted messages!*"
+            "- `test send` - Send a targeted message (only visible to you)\n"
+            "- `test update` - Send a targeted message, then update it after 3 seconds\n"
+            "- `test delete` - Send a targeted message, then delete it after 3 seconds\n"
+            "- `test public` - Send a public reply (visible to all)\n\n"
+            "_Targeted messages are only visible to you, even in group chats!_"
         )
-        return
 
-    # Default
-    await ctx.reply('Say "help" for available commands.')
+    else:
+        await ctx.send(f"You said: '{activity.text}'\n\nType `help` to see available commands.")
 
 
 if __name__ == "__main__":

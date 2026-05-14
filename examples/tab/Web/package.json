@@ -13,7 +13,7 @@
     "build": "npx vite build"
   },
   "dependencies": {
-    "@microsoft/teams.client": "^2.0.0",
+    "@microsoft/teams.client": "^2.0.9",
     "@microsoft/teams.common": "^2.0.0",
     "@microsoft/teams.graph": "^2.0.0",
     "@microsoft/teams.graph-endpoints": "^2.0.0",

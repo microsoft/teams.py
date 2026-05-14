@@ -36,6 +36,16 @@ class TestActivitySender:
             service_url="https://test.service.url",
         )
 
+    @pytest.fixture
+    def group_conversation_ref(self):
+        """Create a group chat conversation reference for testing."""
+        return ConversationReference(
+            bot=Account(id="bot-123", name="Test Bot", role="bot"),
+            conversation=ConversationAccount(id="conv-789", conversation_type="groupChat"),
+            channel_id="msteams",
+            service_url="https://test.service.url",
+        )
+
     def _create_sent_activity(self, activity, activity_id="msg-123"):
         """Helper to create a proper SentActivity mock."""
         return SentActivity(id=activity_id, activity_params=activity)
@@ -94,7 +104,7 @@ class TestActivitySender:
             assert activity.conversation == conversation_ref.conversation
 
     @pytest.mark.asyncio
-    async def test_send_targeted_message_calls_create_targeted(self, sender, conversation_ref):
+    async def test_send_targeted_message_calls_create_targeted(self, sender, group_conversation_ref):
         """Test that targeted messages use the create_targeted method."""
         recipient = Account(id="user-123", name="Test User", role="user")
         activity = MessageActivityInput(text="Hello").with_recipient(recipient, is_targeted=True)
@@ -107,7 +117,7 @@ class TestActivitySender:
             mock_api.conversations.activities.return_value = mock_activities
             mock_api_client.return_value = mock_api
 
-            await sender.send(activity, conversation_ref)
+            await sender.send(activity, group_conversation_ref)
 
             mock_activities.create_targeted.assert_called_once_with(activity)
             mock_activities.create.assert_not_called()
@@ -131,7 +141,7 @@ class TestActivitySender:
             mock_activities.create_targeted.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_update_targeted_message_calls_update_targeted(self, sender, conversation_ref):
+    async def test_update_targeted_message_calls_update_targeted(self, sender, group_conversation_ref):
         """Test that targeted message updates use the update_targeted method."""
         activity = MessageActivityInput(text="Updated targeted message")
         activity.recipient = Account(id="user-123", name="Test User", role="user", is_targeted=True)
@@ -147,7 +157,7 @@ class TestActivitySender:
             mock_api.conversations.activities.return_value = mock_activities
             mock_api_client.return_value = mock_api
 
-            await sender.send(activity, conversation_ref)
+            await sender.send(activity, group_conversation_ref)
 
             mock_activities.update_targeted.assert_called_once_with("existing-msg-id", activity)
             mock_activities.update.assert_not_called()
@@ -170,3 +180,32 @@ class TestActivitySender:
 
             mock_activities.update.assert_called_once_with("existing-msg-id", activity)
             mock_activities.update_targeted.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_send_targeted_in_personal_chat_raises(self, sender, conversation_ref):
+        """Test that sending a targeted message in a personal (1:1) chat raises ValueError."""
+        activity = MessageActivityInput(text="Hello").with_recipient(
+            Account(id="user-1", name="User"), is_targeted=True
+        )
+
+        with pytest.raises(ValueError, match="Targeted messages are not supported in 1:1"):
+            await sender.send(activity, conversation_ref)
+
+    @pytest.mark.asyncio
+    async def test_send_targeted_in_group_chat_succeeds(self, sender, group_conversation_ref):
+        """Test that sending a targeted message in a group chat proceeds normally."""
+        activity = MessageActivityInput(text="Hello").with_recipient(
+            Account(id="user-1", name="User"), is_targeted=True
+        )
+
+        mock_activities = MagicMock()
+        mock_activities.create_targeted = AsyncMock(return_value=self._create_sent_activity(activity))
+
+        with patch("microsoft_teams.apps.activity_sender.ApiClient") as mock_api_client:
+            mock_api = MagicMock()
+            mock_api.conversations.activities.return_value = mock_activities
+            mock_api_client.return_value = mock_api
+
+            await sender.send(activity, group_conversation_ref)
+
+            mock_activities.create_targeted.assert_called_once()
