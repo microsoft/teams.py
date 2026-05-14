@@ -46,19 +46,24 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
         return
 
     # ============================================
-    # Remove Reaction
+    # Remove Reaction (adds first so there's something to remove)
     # ============================================
     if text.startswith("unreact "):
         reaction_type = text[8:].strip()
 
+        await ctx.api.reactions.add(
+            conversation_id=conversation_id,
+            activity_id=activity_id,
+            reaction_type=reaction_type,
+        )
+        await ctx.reply(f"✅ Added {reaction_type} reaction, removing in 2s...")
+        await asyncio.sleep(2)
         await ctx.api.reactions.delete(
             conversation_id=conversation_id,
             activity_id=activity_id,
             reaction_type=reaction_type,
         )
-
-        await ctx.reply(f"✅ Removed {reaction_type} reaction from your message!")
-        print(f"[REACTION] Removed '{reaction_type}' from activity {activity_id}")
+        print(f"[REACTION] Cycled '{reaction_type}' on activity {activity_id}")
         return
 
     # ============================================
@@ -69,9 +74,9 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
             "**Message Reactions Bot**\n\n"
             "**Commands:**\n"
             "- `react <type>` - Add a reaction to your message\n"
-            "- `unreact <type>` - Remove a reaction from your message\n\n"
+            "- `unreact <type>` - Add then remove a reaction (2s cycle) to demo deletion\n\n"
             "- `react like` - Adds a 👍 to your message\n"
-            "- `unreact like` - Removes the 👍 from your message"
+            "- `unreact like` - Adds a 👍 then removes it after 2 seconds"
         )
         return
 
