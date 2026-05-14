@@ -6,6 +6,7 @@ Licensed under the MIT License.
 import base64
 import json
 import logging
+import warnings
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Awaitable, Callable, Generic, Optional, TypeVar, cast
 
@@ -35,6 +36,7 @@ from microsoft_teams.api.models.attachment.card_attachment import (
 from microsoft_teams.api.models.oauth import OAuthCard
 from microsoft_teams.cards import AdaptiveCard
 from microsoft_teams.common import Storage
+from microsoft_teams.common.experimental import ExperimentalWarning
 from microsoft_teams.common.http.client_token import Token
 
 from ..activity_sender import ActivitySender
@@ -181,6 +183,8 @@ class ActivityContext(Generic[T]):
         else:
             activity = message
 
+        self._add_targeted_message_info_entity(activity)
+
         ref = conversation_ref or self.conversation_ref
         res = await self._activity_sender.send(activity, ref)
         return res
@@ -208,6 +212,31 @@ class ActivityContext(Generic[T]):
     def set_next(self, handler: Callable[[], Awaitable[None]]) -> None:
         """Set the next handler in the middleware chain."""
         self._next_handler = handler
+
+    def _is_incoming_targeted(self) -> bool:
+        """Check if the incoming activity is a targeted message."""
+        activity = self.activity
+        return (
+            hasattr(activity, "recipient")
+            and hasattr(activity.recipient, "is_targeted")
+            and activity.recipient.is_targeted is True
+        )
+
+    def _add_targeted_message_info_entity(self, activity_params: ActivityParams) -> None:
+        """Auto-populate targetedMessageInfo entity when replying to a targeted message.
+
+        In the reactive flow, the SDK reads the incoming targeted message ID
+        and attaches the entity automatically so the developer doesn't need to.
+        Skips if the developer already attached a targetedMessageInfo entity.
+        """
+        if not self._is_incoming_targeted():
+            return
+        if not isinstance(activity_params, MessageActivityInput):
+            return
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", ExperimentalWarning)
+            activity_params.add_targeted_message_info(self.activity.id)
 
     def _build_block_quote_for_activity(self) -> Optional[str]:
         if self.activity.type == "message" and hasattr(self.activity, "text"):

@@ -108,7 +108,12 @@ class TokenValidator:
         env = cloud or PUBLIC
         valid_issuers: List[str] = []
         if tenant_id:
+            # Accept both Azure AD v2 (login.microsoftonline.com/.../v2.0) and
+            # v1 (sts.windows.net/.../) issuer formats. Some valid Entra tokens
+            # are still issued with the v1 issuer.
+            # See: https://learn.microsoft.com/en-us/entra/identity-platform/access-tokens
             valid_issuers.append(f"{env.login_endpoint}/{tenant_id}/v2.0")
+            valid_issuers.append(f"https://sts.windows.net/{tenant_id}/")
         else:
             logger.warning(
                 "No tenant_id provided for Entra token validation. "
