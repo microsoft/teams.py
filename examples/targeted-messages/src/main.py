@@ -101,7 +101,7 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
         # INBOUND: Detect whether the inbound message was itself targeted at the bot
         # (i.e. delivered as a slash command). Slash commands arrive as message
         # activities with `activity.recipient.is_targeted == True`.
-        was_targeted = activity.recipient is not None and activity.recipient.is_targeted is True
+        was_targeted = activity.recipient.is_targeted is True
         await ctx.send(
             "✅ Your message was delivered to me as a targeted message."
             if was_targeted
