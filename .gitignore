@@ -45,6 +45,11 @@ examples/**/infra/
 examples/**/teamsapp*
 examples/**/aad.manifest.json
 
+# Targeted-messages sample ships a manifest to demonstrate the slash-commands
+# opt-in fields (supportsTargetedMessages, commandLists[].triggers).
+!examples/targeted-messages/appPackage/
+!examples/targeted-messages/appPackage/manifest.json
+
 # Node (from tab)
 node_modules
 dist/
