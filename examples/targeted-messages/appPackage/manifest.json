@@ -1,0 +1,55 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/teams/vDevPreview/MicrosoftTeams.schema.json",
+  "version": "1.0.0",
+  "manifestVersion": "devPreview",
+  "id": "${{TEAMS_APP_ID}}",
+  "name": {
+    "short": "targeted-messages",
+    "full": "Targeted Messages Example"
+  },
+  "developer": {
+    "name": "Microsoft",
+    "mpnId": "",
+    "websiteUrl": "https://microsoft.com",
+    "privacyUrl": "https://privacy.microsoft.com/privacystatement",
+    "termsOfUseUrl": "https://www.microsoft.com/legal/terms-of-use"
+  },
+  "description": {
+    "short": "Bot demonstrating targeted (ephemeral) messages",
+    "full": "A sample bot that demonstrates how to send targeted messages that are only visible to specific recipients in Microsoft Teams."
+  },
+  "icons": {
+    "outline": "outline.png",
+    "color": "color.png"
+  },
+  "accentColor": "#FFFFFF",
+  "bots": [
+    {
+      "botId": "${{BOT_ID}}",
+      "scopes": ["personal", "team", "groupChat"],
+      "isNotificationOnly": false,
+      "supportsCalling": false,
+      "supportsVideo": false,
+      "supportsFiles": false,
+      "supportsTargetedMessages": true,
+      "commandLists": [
+        {
+          "scopes": ["team", "groupChat"],
+          "triggers": ["slash"],
+          "commands": [
+            { "title": "test send", "description": "Send a targeted message visible only to you" },
+            { "title": "test update", "description": "Send a targeted message then update it after 3 seconds" },
+            { "title": "test delete", "description": "Send a targeted message then delete it after 3 seconds" },
+            { "title": "test public", "description": "Send a public message visible to everyone" },
+            { "title": "test inbound", "description": "Show whether the inbound message was targeted at the bot" }
+          ]
+        }
+      ]
+    }
+  ],
+  "validDomains": ["${{BOT_DOMAIN}}", "*.botframework.com"],
+  "webApplicationInfo": {
+    "id": "${{BOT_ID}}",
+    "resource": "api://botid-${{BOT_ID}}"
+  }
+}
