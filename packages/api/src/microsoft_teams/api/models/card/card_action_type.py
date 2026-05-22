@@ -19,3 +19,4 @@ class CardActionType(str, Enum):
     SIGN_IN = "signin"
     CALL = "call"
     INVOKE = "invoke"
+    SUBMIT = "Action.Submit"

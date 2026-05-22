@@ -25,6 +25,7 @@ from .message_extension import *  # noqa: F403
 from .message_extension import MessageExtensionInvokeActivity
 from .sign_in import *  # noqa: F403
 from .sign_in import SignInInvokeActivity
+from .suggested_action_submit import SuggestedActionSubmitInvokeActivity
 from .tab import *  # noqa: F403
 from .tab import TabInvokeActivity
 from .task import *  # noqa: F403
@@ -43,6 +44,7 @@ InvokeActivity = Annotated[
         HandoffActionInvokeActivity,
         SignInInvokeActivity,
         AdaptiveCardInvokeActivity,
+        SuggestedActionSubmitInvokeActivity,
     ],
     Field(discriminator="name"),
 ]
@@ -63,6 +65,7 @@ __all__ = [
     "HandoffActionInvokeActivity",
     "SignInInvokeActivity",
     "AdaptiveCardInvokeActivity",
+    "SuggestedActionSubmitInvokeActivity",
 ]
 
 __all__.extend(config.__all__)
