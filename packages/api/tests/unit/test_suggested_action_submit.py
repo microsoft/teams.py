@@ -40,7 +40,9 @@ class TestSuggestedActionSubmitInvokeActivity:
 
     def test_deserialize_dispatched_from_activity_base(self, fixture_json: dict) -> None:
         """Test that the activity is dispatched correctly from the Activity discriminated union."""
-        activity = ActivityTypeAdapter.validate_python(fixture_json)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", ExperimentalWarning)
+            activity = ActivityTypeAdapter.validate_python(fixture_json)
 
         assert isinstance(activity, SuggestedActionSubmitInvokeActivity)
         assert activity.name == "suggestedActions/submit"
