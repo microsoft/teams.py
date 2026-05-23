@@ -49,7 +49,8 @@ class _ConversationUpdateBase(CustomBaseModel):
 
 
 class ConversationUpdateActivity(_ConversationUpdateBase, ActivityBase):
-    """Output model for received conversation update activities with required fields and read-only properties."""
-
-    channel_data: Optional[ConversationChannelData] = None
-    """Channel data with event type information."""
+    """Output model for received conversation update activities with read-only properties.
+    
+    Note: channel_data may be absent for some conversationUpdate payloads
+    (e.g. Direct Line activities) and should be treated as optional.
+    """
