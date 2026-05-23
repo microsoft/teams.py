@@ -7,6 +7,9 @@ Licensed under the MIT License.
 from datetime import datetime
 
 import pytest
+from microsoft_teams.api.activities import ActivityTypeAdapter
+from microsoft_teams.api.activities.conversation import ConversationUpdateActivity
+from microsoft_teams.api.activities.message import MessageActivity
 from microsoft_teams.api.models import (
     Account,
     ActivityInputBase,
@@ -14,9 +17,11 @@ from microsoft_teams.api.models import (
     ChannelInfo,
     ConversationAccount,
     MeetingInfo,
+    MentionEntity,
     NotificationInfo,
     TeamInfo,
     TenantInfo,
+    UnknownEntity,
 )
 
 
@@ -106,3 +111,54 @@ class TestActivity:
         assert activity.team and activity.team.id == "team-id"
         assert activity.meeting and activity.meeting.id == "meeting-id"
         assert activity.notification and activity.notification.alert is True
+
+
+@pytest.mark.unit
+class TestActivityTypeAdapter:
+    """Unit tests for ActivityTypeAdapter behavior."""
+
+    def test_accepts_unknown_entity_types(self) -> None:
+        payload = {
+            "type": "message",
+            "id": "msg-unknown-1",
+            "from": {"id": "user-123", "name": "Test User"},
+            "conversation": {"id": "conv-456", "conversationType": "personal"},
+            "recipient": {"id": "bot-789", "name": "Test Bot"},
+            "entities": [
+                {
+                    "type": "ClientCapabilities",
+                    "supportsListening": True,
+                    "supportsSplashScreen": True,
+                    "supportsTts": True,
+                },
+                {
+                    "type": "mention",
+                    "mentioned": {"id": "user-123", "name": "Test User"},
+                    "text": "<at>Test User</at>",
+                },
+            ],
+        }
+
+        activity = ActivityTypeAdapter.validate_python(payload)
+
+        assert isinstance(activity, MessageActivity)
+        assert activity.entities is not None
+        assert len(activity.entities) == 2
+        assert isinstance(activity.entities[0], UnknownEntity)
+        assert activity.entities[0].type == "ClientCapabilities"
+        assert activity.entities[0].model_dump().get("supportsListening") is True
+        assert isinstance(activity.entities[1], MentionEntity)
+
+    def test_conversation_update_without_channel_data(self) -> None:
+        payload = {
+            "type": "conversationUpdate",
+            "id": "conv-update-1",
+            "from": {"id": "user-123", "name": "Test User"},
+            "conversation": {"id": "conv-456", "conversationType": "personal"},
+            "recipient": {"id": "bot-789", "name": "Test Bot"},
+        }
+
+        activity = ActivityTypeAdapter.validate_python(payload)
+
+        assert isinstance(activity, ConversationUpdateActivity)
+        assert activity.channel_data is None

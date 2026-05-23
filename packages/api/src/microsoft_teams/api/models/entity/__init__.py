@@ -22,6 +22,7 @@ from .quoted_reply_entity import QuotedReplyData, QuotedReplyEntity
 from .sensitive_usage_entity import SensitiveUsage, SensitiveUsageEntity, SensitiveUsagePattern
 from .stream_info_entity import StreamInfoEntity
 from .targeted_message_info_entity import TargetedMessageInfoEntity
+from .unknown_entity import UnknownEntity
 
 __all__ = [
     "AIMessageEntity",
@@ -43,5 +44,6 @@ __all__ = [
     "SensitiveUsagePattern",
     "StreamInfoEntity",
     "TargetedMessageInfoEntity",
+    "UnknownEntity",
     "Entity",
 ]

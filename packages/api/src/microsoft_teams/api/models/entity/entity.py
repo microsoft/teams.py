@@ -15,6 +15,7 @@ from .quoted_reply_entity import QuotedReplyEntity
 from .sensitive_usage_entity import SensitiveUsageEntity
 from .stream_info_entity import StreamInfoEntity
 from .targeted_message_info_entity import TargetedMessageInfoEntity
+from .unknown_entity import UnknownEntity
 
 Entity = Union[
     ClientInfoEntity,
@@ -27,4 +28,5 @@ Entity = Union[
     ProductInfoEntity,
     QuotedReplyEntity,
     TargetedMessageInfoEntity,
+    UnknownEntity,
 ]
