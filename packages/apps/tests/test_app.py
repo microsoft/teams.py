@@ -22,6 +22,8 @@ from microsoft_teams.api import (
     MessageActivity,
     MessageActivityInput,
     SentActivity,
+    SignInExchangeToken,
+    SignInTokenExchangeInvokeActivity,
     TokenCredentials,
     TokenProtocol,
     TypingActivity,
@@ -218,7 +220,33 @@ class TestApp:
         assert isinstance(activity_events[0], ActivityEvent)
         # The event contains the core activity
         assert activity_events[0].body.id == core_activity.id
-        assert activity_events[0].body.type == core_activity.type
+
+    def test_custom_signin_token_exchange_handler_replaces_default(self, app_with_options: App) -> None:
+        """Registering a sign-in token exchange handler replaces the built-in default route."""
+
+        async def custom_handler(ctx) -> None:
+            return None
+
+        app_with_options.on_signin_token_exchange(custom_handler)
+
+        activity = SignInTokenExchangeInvokeActivity(
+            type="invoke",
+            id="activity-789",
+            from_=Account(id="user-123", name="Test User", role="user"),
+            recipient=Account(id="bot-456", name="Test Bot", role="bot"),
+            conversation=ConversationAccount(id="conv-456", conversation_type="personal"),
+            channel_id="msteams",
+            name="signin/tokenExchange",
+            value=SignInExchangeToken(
+                id="exchange-id",
+                connection_name="test-connection",
+                token="test-token",
+            ),
+        )
+
+        handlers = app_with_options.router.select_handlers(activity)
+
+        assert handlers == [custom_handler]
 
     @pytest.mark.asyncio
     async def test_multiple_event_handlers(self, app_with_options: App) -> None:

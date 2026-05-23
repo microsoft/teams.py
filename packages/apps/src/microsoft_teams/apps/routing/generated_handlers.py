@@ -100,7 +100,7 @@ class GeneratedActivityHandlerMixin(ABC):
         def decorator(func: BasicHandler[MessageActivity]) -> BasicHandler[MessageActivity]:
             validate_handler_type(func, MessageActivity, "on_message", "MessageActivity")
             config = ACTIVITY_ROUTES["message"]
-            self.router.add_handler(config.selector, func)
+            self.router.add_handler(config.selector, func, route_name=config.name)
             return func
 
         if handler is not None:
@@ -125,7 +125,7 @@ class GeneratedActivityHandlerMixin(ABC):
         def decorator(func: BasicHandler[MessageDeleteActivity]) -> BasicHandler[MessageDeleteActivity]:
             validate_handler_type(func, MessageDeleteActivity, "on_message_delete", "MessageDeleteActivity")
             config = ACTIVITY_ROUTES["message_delete"]
-            self.router.add_handler(config.selector, func)
+            self.router.add_handler(config.selector, func, route_name=config.name)
             return func
 
         if handler is not None:
@@ -150,7 +150,7 @@ class GeneratedActivityHandlerMixin(ABC):
         def decorator(func: BasicHandler[MessageDeleteActivity]) -> BasicHandler[MessageDeleteActivity]:
             validate_handler_type(func, MessageDeleteActivity, "on_soft_delete_message", "MessageDeleteActivity")
             config = ACTIVITY_ROUTES["soft_delete_message"]
-            self.router.add_handler(config.selector, func)
+            self.router.add_handler(config.selector, func, route_name=config.name)
             return func
 
         if handler is not None:
@@ -175,7 +175,7 @@ class GeneratedActivityHandlerMixin(ABC):
         def decorator(func: BasicHandler[MessageReactionActivity]) -> BasicHandler[MessageReactionActivity]:
             validate_handler_type(func, MessageReactionActivity, "on_message_reaction", "MessageReactionActivity")
             config = ACTIVITY_ROUTES["message_reaction"]
-            self.router.add_handler(config.selector, func)
+            self.router.add_handler(config.selector, func, route_name=config.name)
             return func
 
         if handler is not None:
@@ -200,7 +200,7 @@ class GeneratedActivityHandlerMixin(ABC):
         def decorator(func: BasicHandler[MessageUpdateActivity]) -> BasicHandler[MessageUpdateActivity]:
             validate_handler_type(func, MessageUpdateActivity, "on_message_update", "MessageUpdateActivity")
             config = ACTIVITY_ROUTES["message_update"]
-            self.router.add_handler(config.selector, func)
+            self.router.add_handler(config.selector, func, route_name=config.name)
             return func
 
         if handler is not None:
@@ -225,7 +225,7 @@ class GeneratedActivityHandlerMixin(ABC):
         def decorator(func: BasicHandler[MessageUpdateActivity]) -> BasicHandler[MessageUpdateActivity]:
             validate_handler_type(func, MessageUpdateActivity, "on_undelete_message", "MessageUpdateActivity")
             config = ACTIVITY_ROUTES["undelete_message"]
-            self.router.add_handler(config.selector, func)
+            self.router.add_handler(config.selector, func, route_name=config.name)
             return func
 
         if handler is not None:
@@ -248,7 +248,7 @@ class GeneratedActivityHandlerMixin(ABC):
         def decorator(func: BasicHandler[MessageUpdateActivity]) -> BasicHandler[MessageUpdateActivity]:
             validate_handler_type(func, MessageUpdateActivity, "on_edit_message", "MessageUpdateActivity")
             config = ACTIVITY_ROUTES["edit_message"]
-            self.router.add_handler(config.selector, func)
+            self.router.add_handler(config.selector, func, route_name=config.name)
             return func
 
         if handler is not None:
@@ -269,7 +269,7 @@ class GeneratedActivityHandlerMixin(ABC):
         def decorator(func: BasicHandler[CommandSendActivity]) -> BasicHandler[CommandSendActivity]:
             validate_handler_type(func, CommandSendActivity, "on_command", "CommandSendActivity")
             config = ACTIVITY_ROUTES["command"]
-            self.router.add_handler(config.selector, func)
+            self.router.add_handler(config.selector, func, route_name=config.name)
             return func
 
         if handler is not None:
@@ -294,7 +294,7 @@ class GeneratedActivityHandlerMixin(ABC):
         def decorator(func: BasicHandler[CommandResultActivity]) -> BasicHandler[CommandResultActivity]:
             validate_handler_type(func, CommandResultActivity, "on_command_result", "CommandResultActivity")
             config = ACTIVITY_ROUTES["command_result"]
-            self.router.add_handler(config.selector, func)
+            self.router.add_handler(config.selector, func, route_name=config.name)
             return func
 
         if handler is not None:
@@ -321,7 +321,7 @@ class GeneratedActivityHandlerMixin(ABC):
                 func, ConversationUpdateActivity, "on_conversation_update", "ConversationUpdateActivity"
             )
             config = ACTIVITY_ROUTES["conversation_update"]
-            self.router.add_handler(config.selector, func)
+            self.router.add_handler(config.selector, func, route_name=config.name)
             return func
 
         if handler is not None:
@@ -346,7 +346,7 @@ class GeneratedActivityHandlerMixin(ABC):
         def decorator(func: BasicHandler[ConversationUpdateActivity]) -> BasicHandler[ConversationUpdateActivity]:
             validate_handler_type(func, ConversationUpdateActivity, "on_channel_created", "ConversationUpdateActivity")
             config = ACTIVITY_ROUTES["channel_created"]
-            self.router.add_handler(config.selector, func)
+            self.router.add_handler(config.selector, func, route_name=config.name)
             return func
 
         if handler is not None:
@@ -371,7 +371,7 @@ class GeneratedActivityHandlerMixin(ABC):
         def decorator(func: BasicHandler[ConversationUpdateActivity]) -> BasicHandler[ConversationUpdateActivity]:
             validate_handler_type(func, ConversationUpdateActivity, "on_channel_deleted", "ConversationUpdateActivity")
             config = ACTIVITY_ROUTES["channel_deleted"]
-            self.router.add_handler(config.selector, func)
+            self.router.add_handler(config.selector, func, route_name=config.name)
             return func
 
         if handler is not None:
@@ -396,7 +396,7 @@ class GeneratedActivityHandlerMixin(ABC):
         def decorator(func: BasicHandler[ConversationUpdateActivity]) -> BasicHandler[ConversationUpdateActivity]:
             validate_handler_type(func, ConversationUpdateActivity, "on_channel_renamed", "ConversationUpdateActivity")
             config = ACTIVITY_ROUTES["channel_renamed"]
-            self.router.add_handler(config.selector, func)
+            self.router.add_handler(config.selector, func, route_name=config.name)
             return func
 
         if handler is not None:
@@ -421,7 +421,7 @@ class GeneratedActivityHandlerMixin(ABC):
         def decorator(func: BasicHandler[ConversationUpdateActivity]) -> BasicHandler[ConversationUpdateActivity]:
             validate_handler_type(func, ConversationUpdateActivity, "on_channel_restored", "ConversationUpdateActivity")
             config = ACTIVITY_ROUTES["channel_restored"]
-            self.router.add_handler(config.selector, func)
+            self.router.add_handler(config.selector, func, route_name=config.name)
             return func
 
         if handler is not None:
@@ -446,7 +446,7 @@ class GeneratedActivityHandlerMixin(ABC):
         def decorator(func: BasicHandler[ConversationUpdateActivity]) -> BasicHandler[ConversationUpdateActivity]:
             validate_handler_type(func, ConversationUpdateActivity, "on_team_archived", "ConversationUpdateActivity")
             config = ACTIVITY_ROUTES["team_archived"]
-            self.router.add_handler(config.selector, func)
+            self.router.add_handler(config.selector, func, route_name=config.name)
             return func
 
         if handler is not None:
@@ -471,7 +471,7 @@ class GeneratedActivityHandlerMixin(ABC):
         def decorator(func: BasicHandler[ConversationUpdateActivity]) -> BasicHandler[ConversationUpdateActivity]:
             validate_handler_type(func, ConversationUpdateActivity, "on_team_deleted", "ConversationUpdateActivity")
             config = ACTIVITY_ROUTES["team_deleted"]
-            self.router.add_handler(config.selector, func)
+            self.router.add_handler(config.selector, func, route_name=config.name)
             return func
 
         if handler is not None:
@@ -498,7 +498,7 @@ class GeneratedActivityHandlerMixin(ABC):
                 func, ConversationUpdateActivity, "on_team_hard_deleted", "ConversationUpdateActivity"
             )
             config = ACTIVITY_ROUTES["team_hard_deleted"]
-            self.router.add_handler(config.selector, func)
+            self.router.add_handler(config.selector, func, route_name=config.name)
             return func
 
         if handler is not None:
@@ -523,7 +523,7 @@ class GeneratedActivityHandlerMixin(ABC):
         def decorator(func: BasicHandler[ConversationUpdateActivity]) -> BasicHandler[ConversationUpdateActivity]:
             validate_handler_type(func, ConversationUpdateActivity, "on_team_renamed", "ConversationUpdateActivity")
             config = ACTIVITY_ROUTES["team_renamed"]
-            self.router.add_handler(config.selector, func)
+            self.router.add_handler(config.selector, func, route_name=config.name)
             return func
 
         if handler is not None:
@@ -548,7 +548,7 @@ class GeneratedActivityHandlerMixin(ABC):
         def decorator(func: BasicHandler[ConversationUpdateActivity]) -> BasicHandler[ConversationUpdateActivity]:
             validate_handler_type(func, ConversationUpdateActivity, "on_team_restored", "ConversationUpdateActivity")
             config = ACTIVITY_ROUTES["team_restored"]
-            self.router.add_handler(config.selector, func)
+            self.router.add_handler(config.selector, func, route_name=config.name)
             return func
 
         if handler is not None:
@@ -573,7 +573,7 @@ class GeneratedActivityHandlerMixin(ABC):
         def decorator(func: BasicHandler[ConversationUpdateActivity]) -> BasicHandler[ConversationUpdateActivity]:
             validate_handler_type(func, ConversationUpdateActivity, "on_team_unarchived", "ConversationUpdateActivity")
             config = ACTIVITY_ROUTES["team_unarchived"]
-            self.router.add_handler(config.selector, func)
+            self.router.add_handler(config.selector, func, route_name=config.name)
             return func
 
         if handler is not None:
@@ -592,7 +592,7 @@ class GeneratedActivityHandlerMixin(ABC):
         def decorator(func: BasicHandler[EventActivity]) -> BasicHandler[EventActivity]:
             validate_handler_type(func, EventActivity, "on_event", "EventActivity")
             config = ACTIVITY_ROUTES["event"]
-            self.router.add_handler(config.selector, func)
+            self.router.add_handler(config.selector, func, route_name=config.name)
             return func
 
         if handler is not None:
@@ -617,7 +617,7 @@ class GeneratedActivityHandlerMixin(ABC):
         def decorator(func: BasicHandler[ReadReceiptEventActivity]) -> BasicHandler[ReadReceiptEventActivity]:
             validate_handler_type(func, ReadReceiptEventActivity, "on_read_receipt", "ReadReceiptEventActivity")
             config = ACTIVITY_ROUTES["read_receipt"]
-            self.router.add_handler(config.selector, func)
+            self.router.add_handler(config.selector, func, route_name=config.name)
             return func
 
         if handler is not None:
@@ -642,7 +642,7 @@ class GeneratedActivityHandlerMixin(ABC):
         def decorator(func: BasicHandler[MeetingStartEventActivity]) -> BasicHandler[MeetingStartEventActivity]:
             validate_handler_type(func, MeetingStartEventActivity, "on_meeting_start", "MeetingStartEventActivity")
             config = ACTIVITY_ROUTES["meeting_start"]
-            self.router.add_handler(config.selector, func)
+            self.router.add_handler(config.selector, func, route_name=config.name)
             return func
 
         if handler is not None:
@@ -667,7 +667,7 @@ class GeneratedActivityHandlerMixin(ABC):
         def decorator(func: BasicHandler[MeetingEndEventActivity]) -> BasicHandler[MeetingEndEventActivity]:
             validate_handler_type(func, MeetingEndEventActivity, "on_meeting_end", "MeetingEndEventActivity")
             config = ACTIVITY_ROUTES["meeting_end"]
-            self.router.add_handler(config.selector, func)
+            self.router.add_handler(config.selector, func, route_name=config.name)
             return func
 
         if handler is not None:
@@ -701,7 +701,7 @@ class GeneratedActivityHandlerMixin(ABC):
                 "MeetingParticipantJoinEventActivity",
             )
             config = ACTIVITY_ROUTES["meeting_participant_join"]
-            self.router.add_handler(config.selector, func)
+            self.router.add_handler(config.selector, func, route_name=config.name)
             return func
 
         if handler is not None:
@@ -735,7 +735,7 @@ class GeneratedActivityHandlerMixin(ABC):
                 "MeetingParticipantLeaveEventActivity",
             )
             config = ACTIVITY_ROUTES["meeting_participant_leave"]
-            self.router.add_handler(config.selector, func)
+            self.router.add_handler(config.selector, func, route_name=config.name)
             return func
 
         if handler is not None:
@@ -765,7 +765,7 @@ class GeneratedActivityHandlerMixin(ABC):
         ) -> InvokeHandler[ConfigFetchInvokeActivity, ConfigInvokeResponse]:
             validate_handler_type(func, ConfigFetchInvokeActivity, "on_config_open", "ConfigFetchInvokeActivity")
             config = ACTIVITY_ROUTES["config.open"]
-            self.router.add_handler(config.selector, func)
+            self.router.add_handler(config.selector, func, route_name=config.name)
             return func
 
         if handler is not None:
@@ -795,7 +795,7 @@ class GeneratedActivityHandlerMixin(ABC):
         ) -> InvokeHandler[ConfigSubmitInvokeActivity, ConfigInvokeResponse]:
             validate_handler_type(func, ConfigSubmitInvokeActivity, "on_config_submit", "ConfigSubmitInvokeActivity")
             config = ACTIVITY_ROUTES["config.submit"]
-            self.router.add_handler(config.selector, func)
+            self.router.add_handler(config.selector, func, route_name=config.name)
             return func
 
         if handler is not None:
@@ -822,7 +822,7 @@ class GeneratedActivityHandlerMixin(ABC):
         ) -> VoidInvokeHandler[FileConsentInvokeActivity]:
             validate_handler_type(func, FileConsentInvokeActivity, "on_file_consent", "FileConsentInvokeActivity")
             config = ACTIVITY_ROUTES["file.consent"]
-            self.router.add_handler(config.selector, func)
+            self.router.add_handler(config.selector, func, route_name=config.name)
             return func
 
         if handler is not None:
@@ -851,7 +851,7 @@ class GeneratedActivityHandlerMixin(ABC):
                 func, ExecuteActionInvokeActivity, "on_message_execute", "ExecuteActionInvokeActivity"
             )
             config = ACTIVITY_ROUTES["message.execute"]
-            self.router.add_handler(config.selector, func)
+            self.router.add_handler(config.selector, func, route_name=config.name)
             return func
 
         if handler is not None:
@@ -889,7 +889,7 @@ class GeneratedActivityHandlerMixin(ABC):
                 "MessageExtensionQueryLinkInvokeActivity",
             )
             config = ACTIVITY_ROUTES["message.ext.query-link"]
-            self.router.add_handler(config.selector, func)
+            self.router.add_handler(config.selector, func, route_name=config.name)
             return func
 
         if handler is not None:
@@ -927,7 +927,7 @@ class GeneratedActivityHandlerMixin(ABC):
                 "MessageExtensionAnonQueryLinkInvokeActivity",
             )
             config = ACTIVITY_ROUTES["message.ext.anon-query-link"]
-            self.router.add_handler(config.selector, func)
+            self.router.add_handler(config.selector, func, route_name=config.name)
             return func
 
         if handler is not None:
@@ -960,7 +960,7 @@ class GeneratedActivityHandlerMixin(ABC):
                 func, MessageExtensionQueryInvokeActivity, "on_message_ext_query", "MessageExtensionQueryInvokeActivity"
             )
             config = ACTIVITY_ROUTES["message.ext.query"]
-            self.router.add_handler(config.selector, func)
+            self.router.add_handler(config.selector, func, route_name=config.name)
             return func
 
         if handler is not None:
@@ -998,7 +998,7 @@ class GeneratedActivityHandlerMixin(ABC):
                 "MessageExtensionSelectItemInvokeActivity",
             )
             config = ACTIVITY_ROUTES["message.ext.select-item"]
-            self.router.add_handler(config.selector, func)
+            self.router.add_handler(config.selector, func, route_name=config.name)
             return func
 
         if handler is not None:
@@ -1036,7 +1036,7 @@ class GeneratedActivityHandlerMixin(ABC):
                 "MessageExtensionSubmitActionInvokeActivity",
             )
             config = ACTIVITY_ROUTES["message.ext.submit"]
-            self.router.add_handler(config.selector, func)
+            self.router.add_handler(config.selector, func, route_name=config.name)
             return func
 
         if handler is not None:
@@ -1074,7 +1074,7 @@ class GeneratedActivityHandlerMixin(ABC):
                 "MessageExtensionFetchTaskInvokeActivity",
             )
             config = ACTIVITY_ROUTES["message.ext.open"]
-            self.router.add_handler(config.selector, func)
+            self.router.add_handler(config.selector, func, route_name=config.name)
             return func
 
         if handler is not None:
@@ -1112,7 +1112,7 @@ class GeneratedActivityHandlerMixin(ABC):
                 "MessageExtensionQuerySettingUrlInvokeActivity",
             )
             config = ACTIVITY_ROUTES["message.ext.query-settings-url"]
-            self.router.add_handler(config.selector, func)
+            self.router.add_handler(config.selector, func, route_name=config.name)
             return func
 
         if handler is not None:
@@ -1150,7 +1150,7 @@ class GeneratedActivityHandlerMixin(ABC):
                 "MessageExtensionSettingInvokeActivity",
             )
             config = ACTIVITY_ROUTES["message.ext.setting"]
-            self.router.add_handler(config.selector, func)
+            self.router.add_handler(config.selector, func, route_name=config.name)
             return func
 
         if handler is not None:
@@ -1185,7 +1185,7 @@ class GeneratedActivityHandlerMixin(ABC):
                 "MessageExtensionCardButtonClickedInvokeActivity",
             )
             config = ACTIVITY_ROUTES["message.ext.card-button-clicked"]
-            self.router.add_handler(config.selector, func)
+            self.router.add_handler(config.selector, func, route_name=config.name)
             return func
 
         if handler is not None:
@@ -1215,7 +1215,7 @@ class GeneratedActivityHandlerMixin(ABC):
         ) -> InvokeHandler[TabFetchInvokeActivity, TabInvokeResponse]:
             validate_handler_type(func, TabFetchInvokeActivity, "on_tab_open", "TabFetchInvokeActivity")
             config = ACTIVITY_ROUTES["tab.open"]
-            self.router.add_handler(config.selector, func)
+            self.router.add_handler(config.selector, func, route_name=config.name)
             return func
 
         if handler is not None:
@@ -1245,7 +1245,7 @@ class GeneratedActivityHandlerMixin(ABC):
         ) -> InvokeHandler[TabSubmitInvokeActivity, TabInvokeResponse]:
             validate_handler_type(func, TabSubmitInvokeActivity, "on_tab_submit", "TabSubmitInvokeActivity")
             config = ACTIVITY_ROUTES["tab.submit"]
-            self.router.add_handler(config.selector, func)
+            self.router.add_handler(config.selector, func, route_name=config.name)
             return func
 
         if handler is not None:
@@ -1277,7 +1277,7 @@ class GeneratedActivityHandlerMixin(ABC):
                 func, MessageFetchTaskInvokeActivity, "on_message_fetch_task", "MessageFetchTaskInvokeActivity"
             )
             config = ACTIVITY_ROUTES["message.fetch-task"]
-            self.router.add_handler(config.selector, func)
+            self.router.add_handler(config.selector, func, route_name=config.name)
             return func
 
         if handler is not None:
@@ -1308,7 +1308,7 @@ class GeneratedActivityHandlerMixin(ABC):
                 func, MessageSubmitActionInvokeActivity, "on_message_submit", "MessageSubmitActionInvokeActivity"
             )
             config = ACTIVITY_ROUTES["message.submit"]
-            self.router.add_handler(config.selector, func)
+            self.router.add_handler(config.selector, func, route_name=config.name)
             return func
 
         if handler is not None:
@@ -1342,7 +1342,7 @@ class GeneratedActivityHandlerMixin(ABC):
                 "MessageSubmitActionInvokeActivity",
             )
             config = ACTIVITY_ROUTES["message.submit.feedback"]
-            self.router.add_handler(config.selector, func)
+            self.router.add_handler(config.selector, func, route_name=config.name)
             return func
 
         if handler is not None:
@@ -1369,7 +1369,7 @@ class GeneratedActivityHandlerMixin(ABC):
         ) -> VoidInvokeHandler[HandoffActionInvokeActivity]:
             validate_handler_type(func, HandoffActionInvokeActivity, "on_handoff_action", "HandoffActionInvokeActivity")
             config = ACTIVITY_ROUTES["handoff.action"]
-            self.router.add_handler(config.selector, func)
+            self.router.add_handler(config.selector, func, route_name=config.name)
             return func
 
         if handler is not None:
@@ -1437,7 +1437,7 @@ class GeneratedActivityHandlerMixin(ABC):
                 func, SignInTokenExchangeInvokeActivity, "on_signin_token_exchange", "SignInTokenExchangeInvokeActivity"
             )
             config = ACTIVITY_ROUTES["signin.token-exchange"]
-            self.router.add_handler(config.selector, func)
+            self.router.add_handler(config.selector, func, route_name=config.name)
             return func
 
         if handler is not None:
@@ -1468,7 +1468,7 @@ class GeneratedActivityHandlerMixin(ABC):
                 func, SignInVerifyStateInvokeActivity, "on_signin_verify_state", "SignInVerifyStateInvokeActivity"
             )
             config = ACTIVITY_ROUTES["signin.verify-state"]
-            self.router.add_handler(config.selector, func)
+            self.router.add_handler(config.selector, func, route_name=config.name)
             return func
 
         if handler is not None:
@@ -1495,7 +1495,7 @@ class GeneratedActivityHandlerMixin(ABC):
         ) -> VoidInvokeHandler[SignInFailureInvokeActivity]:
             validate_handler_type(func, SignInFailureInvokeActivity, "on_signin_failure", "SignInFailureInvokeActivity")
             config = ACTIVITY_ROUTES["signin.failure"]
-            self.router.add_handler(config.selector, func)
+            self.router.add_handler(config.selector, func, route_name=config.name)
             return func
 
         if handler is not None:
@@ -1525,7 +1525,7 @@ class GeneratedActivityHandlerMixin(ABC):
         ) -> InvokeHandler[AdaptiveCardInvokeActivity, AdaptiveCardInvokeResponse]:
             validate_handler_type(func, AdaptiveCardInvokeActivity, "on_card_action", "AdaptiveCardInvokeActivity")
             config = ACTIVITY_ROUTES["card.action"]
-            self.router.add_handler(config.selector, func)
+            self.router.add_handler(config.selector, func, route_name=config.name)
             return func
 
         if handler is not None:
@@ -1544,7 +1544,7 @@ class GeneratedActivityHandlerMixin(ABC):
         def decorator(func: BasicHandler[InvokeActivity]) -> BasicHandler[InvokeActivity]:
             validate_handler_type(func, InvokeActivity, "on_invoke", "InvokeActivity")
             config = ACTIVITY_ROUTES["invoke"]
-            self.router.add_handler(config.selector, func)
+            self.router.add_handler(config.selector, func, route_name=config.name)
             return func
 
         if handler is not None:
@@ -1569,7 +1569,7 @@ class GeneratedActivityHandlerMixin(ABC):
         def decorator(func: BasicHandler[InstallUpdateActivity]) -> BasicHandler[InstallUpdateActivity]:
             validate_handler_type(func, InstallUpdateActivity, "on_installation_update", "InstallUpdateActivity")
             config = ACTIVITY_ROUTES["installation_update"]
-            self.router.add_handler(config.selector, func)
+            self.router.add_handler(config.selector, func, route_name=config.name)
             return func
 
         if handler is not None:
@@ -1590,7 +1590,7 @@ class GeneratedActivityHandlerMixin(ABC):
         def decorator(func: BasicHandler[InstalledActivity]) -> BasicHandler[InstalledActivity]:
             validate_handler_type(func, InstalledActivity, "on_install_add", "InstalledActivity")
             config = ACTIVITY_ROUTES["install.add"]
-            self.router.add_handler(config.selector, func)
+            self.router.add_handler(config.selector, func, route_name=config.name)
             return func
 
         if handler is not None:
@@ -1611,7 +1611,7 @@ class GeneratedActivityHandlerMixin(ABC):
         def decorator(func: BasicHandler[UninstalledActivity]) -> BasicHandler[UninstalledActivity]:
             validate_handler_type(func, UninstalledActivity, "on_install_remove", "UninstalledActivity")
             config = ACTIVITY_ROUTES["install.remove"]
-            self.router.add_handler(config.selector, func)
+            self.router.add_handler(config.selector, func, route_name=config.name)
             return func
 
         if handler is not None:
@@ -1630,7 +1630,7 @@ class GeneratedActivityHandlerMixin(ABC):
         def decorator(func: BasicHandler[TypingActivity]) -> BasicHandler[TypingActivity]:
             validate_handler_type(func, TypingActivity, "on_typing", "TypingActivity")
             config = ACTIVITY_ROUTES["typing"]
-            self.router.add_handler(config.selector, func)
+            self.router.add_handler(config.selector, func, route_name=config.name)
             return func
 
         if handler is not None:
@@ -1649,7 +1649,7 @@ class GeneratedActivityHandlerMixin(ABC):
         def decorator(func: BasicHandler[Activity]) -> BasicHandler[Activity]:
             validate_handler_type(func, Activity, "on_activity", "Activity")
             config = ACTIVITY_ROUTES["activity"]
-            self.router.add_handler(config.selector, func)
+            self.router.add_handler(config.selector, func, route_name=config.name)
             return func
 
         if handler is not None:

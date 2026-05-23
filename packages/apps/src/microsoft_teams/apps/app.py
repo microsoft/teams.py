@@ -58,6 +58,7 @@ from .options import AppOptions, InternalAppOptions
 from .plugins import PluginBase, PluginStartEvent
 from .routing import ActivityHandlerMixin, ActivityRouter
 from .routing.activity_context import ActivityContext
+from .routing.activity_route_configs import ACTIVITY_ROUTES
 from .token_manager import TokenManager
 from .utils import create_graph_client
 from .utils.thread import to_threaded_conversation_id
@@ -156,8 +157,18 @@ class App(ActivityHandlerMixin):
             default_connection_name=self.options.default_connection_name,
             event_emitter=self._events,
         )
-        self.on_signin_token_exchange(oauth_handlers.sign_in_token_exchange)
-        self.on_signin_verify_state(oauth_handlers.sign_in_verify_state)
+        self.router.add_handler(
+            ACTIVITY_ROUTES["signin.token-exchange"].selector,
+            oauth_handlers.sign_in_token_exchange,
+            route_name="signin.token-exchange",
+            route_type="system",
+        )
+        self.router.add_handler(
+            ACTIVITY_ROUTES["signin.verify-state"].selector,
+            oauth_handlers.sign_in_verify_state,
+            route_name="signin.verify-state",
+            route_type="system",
+        )
         self.on_signin_failure(oauth_handlers.sign_in_failure)
 
         self.entra_token_validator: Optional[TokenValidator] = None

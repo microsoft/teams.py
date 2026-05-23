@@ -121,7 +121,7 @@ def generate_method(config: ActivityConfig, config_key: str) -> str:
         def decorator(func: {handler_type}) -> {handler_type}:
             validate_handler_type(func, {input_class_name}, "{method_name}", "{input_class_name}")
             config = ACTIVITY_ROUTES["{config_key}"]
-            self.router.add_handler(config.selector, func)
+            self.router.add_handler(config.selector, func, route_name=config.name)
             return func
 
         if handler is not None:

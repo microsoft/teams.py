@@ -513,6 +513,51 @@ class TestSignInFailureMiddlewareChain:
         assert result is not None and result.status == 200
 
     @pytest.mark.asyncio
+    async def test_developer_signin_override_replaces_system_default(self, router, processor):
+        """User sign-in token exchange handler replaces the default system route."""
+        called = []
+        token_exchange_activity = SignInTokenExchangeInvokeActivity(
+            type="invoke",
+            id="activity-789",
+            from_=Account(id="user-123", name="Test User", role="user"),
+            recipient=Account(id="bot-456", name="Test Bot", role="bot"),
+            conversation=ConversationAccount(id="conv-456", conversation_type="personal"),
+            channel_id="msteams",
+            name="signin/tokenExchange",
+            value=SignInExchangeToken(
+                id="exchange-id",
+                connection_name="test-connection",
+                token="test-token",
+            ),
+        )
+
+        async def system_handler(ctx):
+            called.append("system")
+            await ctx.next()
+            return InvokeResponse(status=200)
+
+        async def developer_handler(ctx):
+            called.append("developer")
+            await ctx.next()
+            return InvokeResponse(status=201)
+
+        config = ACTIVITY_ROUTES["signin.token-exchange"]
+        router.add_handler(
+            config.selector,
+            system_handler,
+            route_name=config.name,
+            route_type="system",
+        )
+        router.add_handler(config.selector, developer_handler, route_name=config.name)
+
+        handlers = router.select_handlers(token_exchange_activity)
+        ctx = self._make_ctx(token_exchange_activity)
+        result = await processor.execute_middleware_chain(ctx, handlers)
+
+        assert called == ["developer"]
+        assert result is not None and result.status == 201
+
+    @pytest.mark.asyncio
     async def test_catchall_on_invoke_without_next_blocks_developer_handler(self, router, processor, failure_activity):
         """A catch-all on_invoke that omits ctx.next() blocks later handlers."""
         called = []
