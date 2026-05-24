@@ -20,7 +20,7 @@ RouteType = Literal["system", "user"]
 class RouteEntry:
     selector: RouteSelector
     handler: ActivityHandler
-    route_name: str | None = None
+    route_name: Optional[str] = None
     route_type: RouteType = "user"
 
 
@@ -35,10 +35,14 @@ class ActivityRouter:
         selector: RouteSelector,
         handler: ActivityHandler,
         *,
-        route_name: str | None = None,
+        route_name: Optional[str] = None,
         route_type: RouteType = "user",
     ) -> None:
-        """Add a handler for a specific activity configuration."""
+        """Add handler for activity config.
+
+        Registering `route_type="user"` with matching `route_name` removes
+        previously registered system route of same name so user handler wins.
+        """
         if route_type == "user" and route_name is not None:
             self._routes = [
                 route for route in self._routes if not (route.route_name == route_name and route.route_type == "system")

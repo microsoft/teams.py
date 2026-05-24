@@ -220,6 +220,7 @@ class TestApp:
         assert isinstance(activity_events[0], ActivityEvent)
         # The event contains the core activity
         assert activity_events[0].body.id == core_activity.id
+        assert activity_events[0].body.type == core_activity.type
 
     def test_custom_signin_token_exchange_handler_replaces_default(self, app_with_options: App) -> None:
         """Registering a sign-in token exchange handler replaces the built-in default route."""
