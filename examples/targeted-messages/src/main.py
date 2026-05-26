@@ -27,13 +27,7 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
     text = (activity.text or "").lower()
     is_targeted_inbound = activity.recipient.is_targeted is True
 
-    print(
-        "[MESSAGE] Received:",
-        {"text": text, "is_targeted": is_targeted_inbound, "from": activity.from_.id},
-    )
-
     if "send public" in text:
-        print("[send public]", {"is_targeted": is_targeted_inbound})
         if not is_targeted_inbound:
             await ctx.send("Send it to me privately first!")
         else:
@@ -44,7 +38,6 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
             )
 
     elif "send private" in text:
-        print("[send private]", {"is_targeted": is_targeted_inbound})
         if not is_targeted_inbound:
             await ctx.send("Send it to me privately first!")
         else:
