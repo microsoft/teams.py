@@ -7,9 +7,10 @@ import base64
 import json
 import logging
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Awaitable, Callable, Generic, Optional, TypeVar, cast
+from typing import TYPE_CHECKING, Any, Awaitable, Callable, Generic, Optional, TypeGuard, TypeVar, cast
 
 from microsoft_teams.api import (
+    Account,
     ActivityBase,
     ActivityParams,
     ApiClient,
@@ -20,9 +21,11 @@ from microsoft_teams.api import (
     GetBotSignInResourceParams,
     GetUserTokenParams,
     JsonWebToken,
+    MessageActivity,
     MessageActivityInput,
     SentActivity,
     SignOutUserParams,
+    TargetedMessageInfoEntity,
     TokenExchangeResource,
     TokenExchangeState,
     TokenPostResource,
@@ -45,6 +48,7 @@ if TYPE_CHECKING:
 
 T = TypeVar("T", bound=ActivityBase, contravariant=True)
 logger = logging.getLogger(__name__)
+_MessageActivityInputType = MessageActivityInput
 
 
 @dataclass
@@ -181,6 +185,18 @@ class ActivityContext(Generic[T]):
         else:
             activity = message
 
+        if self._should_outbound_be_auto_targeted(activity, conversation_ref):
+            self._apply_targeted_recipient(activity)
+
+        if self._is_targeted_outbound(activity):
+            self._strip_quoted_reply_metadata(activity)
+
+            # `targetedMessageInfo` points at the original targeted inbound message for prompt preview.
+            # Do not add it for generic targeted sends; Teams can reject it if the referenced activity
+            # was not itself delivered as a targeted message.
+            if self._incoming_targeted_sender() is not None:
+                self._add_targeted_message_info(activity)
+
         ref = conversation_ref or self.conversation_ref
         res = await self._activity_sender.send(activity, ref)
         return res
@@ -233,6 +249,70 @@ class ActivityContext(Generic[T]):
                 type(self.activity).__name__,
             )
         return None
+
+    def _incoming_targeted_sender(self) -> Optional[Account]:
+        if not isinstance(self.activity, MessageActivity):
+            return None
+
+        if self.activity.recipient.is_targeted is not True:
+            return None
+
+        return self.activity.from_
+
+    def _should_outbound_be_auto_targeted(
+        self,
+        activity: ActivityParams,
+        conversation_ref: Optional[ConversationReference] = None,
+    ) -> bool:
+        if not isinstance(activity, _MessageActivityInputType):
+            return False
+
+        if self._incoming_targeted_sender() is None:
+            return False
+
+        if not self._is_same_conversation(conversation_ref):
+            return False
+
+        return not activity.id and activity.recipient is None
+
+    def _is_same_conversation(self, conversation_ref: Optional[ConversationReference] = None) -> bool:
+        if conversation_ref is None:
+            return True
+
+        return conversation_ref.conversation.id == self.conversation_ref.conversation.id
+
+    def _apply_targeted_recipient(self, activity: ActivityParams) -> None:
+        sender = self._incoming_targeted_sender()
+        if sender is None:
+            return
+
+        recipient = sender.model_copy()
+        recipient.is_targeted = True
+        activity.recipient = recipient
+
+    def _is_targeted_outbound(self, activity: ActivityParams) -> TypeGuard[MessageActivityInput]:
+        return (
+            isinstance(activity, _MessageActivityInputType)
+            and activity.recipient is not None
+            and activity.recipient.is_targeted is True
+        )
+
+    def _strip_quoted_reply_metadata(self, activity: MessageActivityInput) -> None:
+        if activity.entities:
+            activity.entities = [entity for entity in activity.entities if entity.type != "quotedReply"]
+
+        quoted_reply_placeholder = f'<quoted messageId="{self.activity.id}"/>'
+        if activity.text:
+            activity.text = activity.text.replace(quoted_reply_placeholder, "").strip()
+
+    def _add_targeted_message_info(self, activity: MessageActivityInput) -> None:
+        if activity.entities and any(entity.type == "targetedMessageInfo" for entity in activity.entities):
+            return
+
+        if not activity.entities:
+            activity.entities = []
+
+        activity.entities.append(TargetedMessageInfoEntity(message_id=self.activity.id))
 
     async def sign_in(self, options: Optional[SignInOptions] = None) -> Optional[str]:
         """

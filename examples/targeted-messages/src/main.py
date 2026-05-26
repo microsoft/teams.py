@@ -26,6 +26,35 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
     await ctx.reply(TypingActivityInput())
 
     text = (ctx.activity.text or "").lower()
+    is_targeted_inbound = ctx.activity.recipient.is_targeted is True
+    print(
+        "[message received]",
+        {"text": ctx.activity.text, "is_targeted": is_targeted_inbound, "from": ctx.activity.from_.id},
+    )
+
+    # ============================================
+    # Send public/private from targeted inbound messages
+    # ============================================
+    if "send public" in text:
+        print("[send public]", {"is_targeted": is_targeted_inbound})
+        if not is_targeted_inbound:
+            await ctx.send("Send it to me privately first!")
+        else:
+            await ctx.send(
+                MessageActivityInput(text="🌍 This is a public message — everyone can see this!").with_recipient(
+                    ctx.activity.from_
+                )
+            )
+        return
+
+    if "send private" in text:
+        print("[send private]", {"is_targeted": is_targeted_inbound})
+        if not is_targeted_inbound:
+            await ctx.send("Send it to me privately first!")
+        else:
+            # No explicit recipient needed: targeted inbound messages make ctx.send() default to targeted.
+            await ctx.send("🔒 This is a private message — only YOU can see this!")
+        return
 
     # ============================================
     # Test targeted SEND (create)
@@ -122,7 +151,9 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
             "- `test send` - Send a targeted message\n"
             "- `test reply` - Reply with a targeted message\n"
             "- `test update` - Send then update a targeted message\n"
-            "- `test delete` - Send then delete a targeted message\n\n"
+            "- `test delete` - Send then delete a targeted message\n"
+            "- `send public` - Only send a public message if the incoming message is targeted\n"
+            "- `send private` - Only send a private message if the incoming message is targeted\n\n"
             "💡 *Test in a group chat to verify others don't see targeted messages!*"
         )
         return
