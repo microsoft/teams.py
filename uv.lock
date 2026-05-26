@@ -31,6 +31,7 @@ members = [
     "quoting",
     "reactions",
     "stream",
+    "suggested-actions",
     "tab",
     "targeted-messages",
     "threading",
@@ -2833,6 +2834,23 @@ wheels = [
 name = "stream"
 version = "0.1.0"
 source = { virtual = "examples/stream" }
+dependencies = [
+    { name = "dotenv" },
+    { name = "microsoft-teams-api" },
+    { name = "microsoft-teams-apps" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "dotenv", specifier = ">=0.9.9" },
+    { name = "microsoft-teams-api", editable = "packages/api" },
+    { name = "microsoft-teams-apps", editable = "packages/apps" },
+]
+
+[[package]]
+name = "suggested-actions"
+version = "0.1.0"
+source = { virtual = "examples/suggested-actions" }
 dependencies = [
     { name = "dotenv" },
     { name = "microsoft-teams-api" },
