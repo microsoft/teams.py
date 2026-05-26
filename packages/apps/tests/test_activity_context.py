@@ -487,7 +487,7 @@ class TestActivityContextSignIn:
         """sign_in returns the existing token when the API call succeeds."""
         mock_activity = MagicMock()
         mock_activity.channel_id = "msteams"
-        mock_activity.from_.id = "user-001"
+        mock_activity.from_ = Account(id="user-001")
         mock_activity.conversation.is_group = False
 
         ctx, _ = _create_activity_context(activity=mock_activity)
@@ -506,7 +506,7 @@ class TestActivityContextSignIn:
         """sign_in falls through to OAuth card flow when token API fails, returns None."""
         mock_activity = MagicMock()
         mock_activity.channel_id = "msteams"
-        mock_activity.from_.id = "user-001"
+        mock_activity.from_ = Account(id="user-001")
         mock_activity.conversation.is_group = False
 
         ctx, mock_sender = _create_activity_context(activity=mock_activity)
@@ -525,7 +525,6 @@ class TestActivityContextSignIn:
                 "microsoft_teams.apps.routing.activity_context.TokenExchangeState",
                 return_value=token_state,
             ),
-            patch("microsoft_teams.apps.routing.activity_context.MessageActivityInput"),
             patch("microsoft_teams.apps.routing.activity_context.card_attachment"),
             patch("microsoft_teams.apps.routing.activity_context.OAuthCardAttachment"),
             patch("microsoft_teams.apps.routing.activity_context.OAuthCard"),
@@ -543,7 +542,7 @@ class TestActivityContextSignIn:
         """For group conversations, sign_in creates a 1:1 conversation before sending the OAuth card."""
         mock_activity = MagicMock()
         mock_activity.channel_id = "msteams"
-        mock_activity.from_.id = "user-001"
+        mock_activity.from_ = Account(id="user-001")
         mock_activity.conversation.is_group = True
         mock_activity.conversation.tenant_id = "tenant-001"
 
@@ -567,7 +566,6 @@ class TestActivityContextSignIn:
                 "microsoft_teams.apps.routing.activity_context.TokenExchangeState",
                 return_value=token_state,
             ),
-            patch("microsoft_teams.apps.routing.activity_context.MessageActivityInput"),
             patch("microsoft_teams.apps.routing.activity_context.CreateConversationParams"),
             patch("microsoft_teams.apps.routing.activity_context.card_attachment"),
             patch("microsoft_teams.apps.routing.activity_context.OAuthCardAttachment"),
@@ -589,7 +587,7 @@ class TestActivityContextSignIn:
 
         mock_activity = MagicMock()
         mock_activity.channel_id = "msteams"
-        mock_activity.from_.id = "user-001"
+        mock_activity.from_ = Account(id="user-001")
         mock_activity.conversation.is_group = False
 
         ctx, _ = _create_activity_context(activity=mock_activity)
@@ -614,7 +612,6 @@ class TestActivityContextSignIn:
                 "microsoft_teams.apps.routing.activity_context.TokenExchangeState",
                 return_value=token_state,
             ),
-            patch("microsoft_teams.apps.routing.activity_context.MessageActivityInput"),
             patch("microsoft_teams.apps.routing.activity_context.card_attachment"),
             patch("microsoft_teams.apps.routing.activity_context.OAuthCardAttachment"),
             patch("microsoft_teams.apps.routing.activity_context.OAuthCard"),

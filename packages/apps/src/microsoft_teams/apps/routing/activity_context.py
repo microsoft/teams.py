@@ -49,7 +49,6 @@ if TYPE_CHECKING:
 
 T = TypeVar("T", bound=ActivityBase, contravariant=True)
 logger = logging.getLogger(__name__)
-_MessageActivityInputType = MessageActivityInput
 
 
 @dataclass
@@ -252,7 +251,7 @@ class ActivityContext(Generic[T]):
         activity: ActivityParams,
         conversation_ref: Optional[ConversationReference] = None,
     ) -> bool:
-        if not isinstance(activity, _MessageActivityInputType):
+        if not isinstance(activity, MessageActivityInput):
             return False
 
         if self._incoming_targeted_sender() is None:
@@ -280,7 +279,7 @@ class ActivityContext(Generic[T]):
 
     def _is_targeted_outbound(self, activity: ActivityParams) -> TypeGuard[MessageActivityInput]:
         return (
-            isinstance(activity, _MessageActivityInputType)
+            isinstance(activity, MessageActivityInput)
             and activity.recipient is not None
             and activity.recipient.is_targeted is True
         )
