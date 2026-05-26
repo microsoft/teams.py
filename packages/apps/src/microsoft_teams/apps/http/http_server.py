@@ -4,6 +4,7 @@ Licensed under the MIT License.
 """
 
 import logging
+import re
 from types import SimpleNamespace
 from typing import Any, Awaitable, Callable, Dict, Optional, cast
 
@@ -17,6 +18,14 @@ from ..events import ActivityEvent, CoreActivity
 from .adapter import HttpRequest, HttpResponse, HttpServerAdapter
 
 logger = logging.getLogger(__name__)
+
+_LOG_CONTROL_CHARS = re.compile(r"[\r\n\t\x00-\x1f\x7f]")
+
+
+def _safe_log_field(value: object) -> str:
+    """Strip control characters and cap length so an attacker-controlled activity
+    field cannot forge multi-line log entries (log injection)."""
+    return _LOG_CONTROL_CHARS.sub("", str(value if value is not None else "unknown"))[:64]
 
 
 class HttpServer:
@@ -85,6 +94,12 @@ class HttpServer:
                 cloud=self._cloud,
             )
             logger.debug("JWT validation enabled for %s", self._messaging_endpoint)
+        elif not app_id:
+            logger.warning(
+                "No credentials configured (CLIENT_ID / CLIENT_SECRET / TENANT_ID). "
+                "Bot will accept unauthenticated requests on %s.",
+                self._messaging_endpoint,
+            )
 
         self._adapter.register_route("POST", self._messaging_endpoint, self.handle_request)
         self._initialized = True
@@ -95,11 +110,20 @@ class HttpServer:
             body = request["body"]
             headers = request["headers"]
 
+            entry_type = _safe_log_field(body.get("type"))
+            entry_id = _safe_log_field(body.get("id"))
+
             # Validate JWT token
             authorization = headers.get("authorization") or headers.get("Authorization") or ""
 
             if self._token_validator and not self._skip_auth:
                 if not authorization.startswith("Bearer "):
+                    logger.warning(
+                        "inbound activity rejected (type=%s, id=%s): missing or malformed "
+                        "Authorization header (responding 401)",
+                        entry_type,
+                        entry_id,
+                    )
                     return HttpResponse(status=401, body={"error": "Unauthorized"})
 
                 raw_token = authorization.removeprefix("Bearer ")

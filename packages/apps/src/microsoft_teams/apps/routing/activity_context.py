@@ -6,8 +6,9 @@ Licensed under the MIT License.
 import base64
 import json
 import logging
+import warnings
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Awaitable, Callable, Generic, Optional, TypeGuard, TypeVar, cast
+from typing import TYPE_CHECKING, Any, Awaitable, Callable, Generic, Optional, TypeGuard, TypeVar
 
 from microsoft_teams.api import (
     Account,
@@ -25,7 +26,6 @@ from microsoft_teams.api import (
     MessageActivityInput,
     SentActivity,
     SignOutUserParams,
-    TargetedMessageInfoEntity,
     TokenExchangeResource,
     TokenExchangeState,
     TokenPostResource,
@@ -38,6 +38,7 @@ from microsoft_teams.api.models.attachment.card_attachment import (
 from microsoft_teams.api.models.oauth import OAuthCard
 from microsoft_teams.cards import AdaptiveCard
 from microsoft_teams.common import Storage
+from microsoft_teams.common.experimental import ExperimentalWarning, experimental
 from microsoft_teams.common.http.client_token import Token
 
 from ..activity_sender import ActivitySender
@@ -188,14 +189,7 @@ class ActivityContext(Generic[T]):
         if self._should_outbound_be_auto_targeted(activity, conversation_ref):
             self._apply_targeted_recipient(activity)
 
-        if self._is_targeted_outbound(activity):
-            self._strip_quoted_reply_metadata(activity)
-
-            # `targetedMessageInfo` points at the original targeted inbound message for prompt preview.
-            # Do not add it for generic targeted sends; Teams can reject it if the referenced activity
-            # was not itself delivered as a targeted message.
-            if self._incoming_targeted_sender() is not None:
-                self._add_targeted_message_info(activity)
+        self._add_targeted_message_info_entity(activity)
 
         ref = conversation_ref or self.conversation_ref
         res = await self._activity_sender.send(activity, ref)
@@ -208,12 +202,31 @@ class ActivityContext(Generic[T]):
         In other scopes, sends with a quoted reply.
         To send without quoting, use :meth:`send`.
         """
+        if self.activity.id:
+            return await self.quote(self.activity.id, input)
+        activity = MessageActivityInput(text=input) if isinstance(input, str) else input
+        return await self.send(activity)
+
+    @experimental("ExperimentalTeamsQuotedReplies")
+    async def quote(self, message_id: str, input: str | ActivityParams) -> SentActivity:
+        """
+        Send a message to the conversation with a quoted message reference prepended to the text.
+        Teams renders the quoted message as a preview bubble above the response text.
+
+        Args:
+            message_id: The ID of the message to quote
+            input: The response text or activity — a quote placeholder for message_id will be prepended to its text
+
+        Returns:
+            The sent activity
+
+        .. warning:: Coming Soon
+            This API is coming soon and may change in the future.
+            Diagnostic: ExperimentalTeamsQuotedReplies
+        """
         activity = MessageActivityInput(text=input) if isinstance(input, str) else input
         if isinstance(activity, MessageActivityInput):
-            block_quote = self._build_block_quote_for_activity()
-            if block_quote:
-                activity.text = f"{block_quote}\n\n{activity.text}" if activity.text else block_quote
-        activity.reply_to_id = self.activity.id
+            activity.prepend_quote(message_id)
         return await self.send(activity)
 
     async def next(self) -> None:
@@ -224,31 +237,6 @@ class ActivityContext(Generic[T]):
     def set_next(self, handler: Callable[[], Awaitable[None]]) -> None:
         """Set the next handler in the middleware chain."""
         self._next_handler = handler
-
-    def _build_block_quote_for_activity(self) -> Optional[str]:
-        if self.activity.type == "message" and hasattr(self.activity, "text"):
-            activity = cast(MessageActivityInput, self.activity)
-            max_length = 120
-            text = activity.text or ""
-            truncated_text = f"{text[:max_length]}..." if len(text) > max_length else text
-
-            activity_id = activity.id
-            from_id = activity.from_.id if activity.from_ else ""
-            from_name = activity.from_.name if activity.from_ else ""
-
-            return (
-                f'<blockquote itemscope="" itemtype="http://schema.skype.com/Reply" itemid="{activity_id}">'
-                f'<strong itemprop="mri" itemid="{from_id}">{from_name}</strong>'
-                f'<span itemprop="time" itemid="{activity_id}"></span>'
-                f'<p itemprop="preview">{truncated_text}</p>'
-                f"</blockquote>"
-            )
-        else:
-            self.logger.debug(
-                "Skipping building blockquote for activity type: %s",
-                type(self.activity).__name__,
-            )
-        return None
 
     def _incoming_targeted_sender(self) -> Optional[Account]:
         if not isinstance(self.activity, MessageActivity):
@@ -297,22 +285,21 @@ class ActivityContext(Generic[T]):
             and activity.recipient.is_targeted is True
         )
 
-    def _strip_quoted_reply_metadata(self, activity: MessageActivityInput) -> None:
-        if activity.entities:
-            activity.entities = [entity for entity in activity.entities if entity.type != "quotedReply"]
+    def _add_targeted_message_info_entity(self, activity_params: ActivityParams) -> None:
+        """Auto-populate targetedMessageInfo entity when replying to a targeted message.
 
-        quoted_reply_placeholder = f'<quoted messageId="{self.activity.id}"/>'
-        if activity.text:
-            activity.text = activity.text.replace(quoted_reply_placeholder, "").strip()
-
-    def _add_targeted_message_info(self, activity: MessageActivityInput) -> None:
-        if activity.entities and any(entity.type == "targetedMessageInfo" for entity in activity.entities):
+        In the reactive flow, the SDK reads the incoming targeted message ID
+        and attaches the entity automatically so the developer doesn't need to.
+        Skips if the developer already attached a targetedMessageInfo entity.
+        """
+        if self._incoming_targeted_sender() is None:
+            return
+        if not self._is_targeted_outbound(activity_params):
             return
 
-        if not activity.entities:
-            activity.entities = []
-
-        activity.entities.append(TargetedMessageInfoEntity(message_id=self.activity.id))
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", ExperimentalWarning)
+            activity_params.add_targeted_message_info(self.activity.id)
 
     async def sign_in(self, options: Optional[SignInOptions] = None) -> Optional[str]:
         """

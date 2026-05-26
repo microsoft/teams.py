@@ -15,11 +15,12 @@ from microsoft_teams.api import (
     ConversationReference,
     MessageActivity,
     MessageActivityInput,
-    QuotedReplyEntity,
     SentActivity,
     TargetedMessageInfoEntity,
 )
+from microsoft_teams.api.activities.typing import TypingActivityInput
 from microsoft_teams.api.auth.cloud_environment import PUBLIC
+from microsoft_teams.api.models.entity import QuotedReplyData, QuotedReplyEntity
 from microsoft_teams.apps.routing.activity_context import ActivityContext
 
 
@@ -109,7 +110,7 @@ class TestActivityContextSendTargeted:
         mock_sender.send.assert_called_once()
         sent_activity = mock_sender.send.call_args[0][0]
         assert isinstance(sent_activity, MessageActivityInput)
-        assert sent_activity.reply_to_id == "incoming-activity-id"
+        assert sent_activity.reply_to_id is None
         assert sent_activity.recipient is not None
         assert sent_activity.recipient.id == incoming_sender.id
         assert sent_activity.recipient.is_targeted is True
@@ -177,7 +178,7 @@ class TestActivityContextSendTargeted:
         ctx, mock_sender = self._create_activity_context(from_account=incoming_sender, is_incoming_targeted=True)
         activity = MessageActivityInput(
             text='<quoted messageId="incoming-activity-id"/> Secret',
-            entities=[QuotedReplyEntity(message_id="incoming-activity-id")],
+            entities=[QuotedReplyEntity(quoted_reply=QuotedReplyData(message_id="incoming-activity-id"))],
         )
 
         await ctx.send(activity)
@@ -333,14 +334,11 @@ class TestActivityContextReply:
 
     @pytest.mark.asyncio
     async def test_reply_with_string(self) -> None:
-        """reply() with a plain string sends a message with reply_to_id set."""
+        """reply() with a plain string stamps a quotedReply entity and placeholder."""
         mock_activity = MagicMock()
         mock_activity.type = "message"
         mock_activity.id = "original-id"
         mock_activity.text = "Original message"
-        mock_activity.from_ = MagicMock()
-        mock_activity.from_.id = "user-1"
-        mock_activity.from_.name = "User One"
 
         ctx, mock_sender = _create_activity_context(activity=mock_activity)
 
@@ -349,14 +347,18 @@ class TestActivityContextReply:
         mock_sender.send.assert_called_once()
         sent_activity = mock_sender.send.call_args[0][0]
         assert isinstance(sent_activity, MessageActivityInput)
-        assert sent_activity.reply_to_id == "original-id"
+        assert sent_activity.entities is not None
+        assert len(sent_activity.entities) == 1
+        assert isinstance(sent_activity.entities[0], QuotedReplyEntity)
+        assert sent_activity.entities[0].quoted_reply.message_id == "original-id"
+        assert '<quoted messageId="original-id"/>' in (sent_activity.text or "")
         assert "My reply" in (sent_activity.text or "")
 
     @pytest.mark.asyncio
     async def test_reply_with_activity_params(self) -> None:
-        """reply() with an ActivityParams instance sets reply_to_id and delegates to send."""
+        """reply() with a MessageActivityInput stamps a quotedReply entity."""
         mock_activity = MagicMock()
-        mock_activity.type = "event"
+        mock_activity.type = "message"
         mock_activity.id = "evt-id-999"
 
         ctx, mock_sender = _create_activity_context(activity=mock_activity)
@@ -366,58 +368,9 @@ class TestActivityContextReply:
 
         mock_sender.send.assert_called_once()
         sent_activity = mock_sender.send.call_args[0][0]
-        assert sent_activity.reply_to_id == "evt-id-999"
-
-
-class TestActivityContextBuildBlockQuote:
-    """Tests for ActivityContext._build_block_quote_for_activity()."""
-
-    def _make_message_activity(self, text: str, activity_id: str = "act-1") -> MagicMock:
-        mock_activity = MagicMock()
-        mock_activity.type = "message"
-        mock_activity.id = activity_id
-        mock_activity.text = text
-        mock_activity.from_ = MagicMock()
-        mock_activity.from_.id = "user-xyz"
-        mock_activity.from_.name = "Test User"
-        return mock_activity
-
-    def test_message_activity_returns_html_blockquote(self) -> None:
-        """Activity type 'message' with text produces a blockquote HTML string."""
-        activity = self._make_message_activity("Hello blockquote")
-        ctx, _ = _create_activity_context(activity=activity)
-
-        result = ctx._build_block_quote_for_activity()
-
-        assert result is not None
-        assert "<blockquote" in result
-        assert "Hello blockquote" in result
-        assert "Test User" in result
-        assert "act-1" in result
-
-    def test_long_text_is_truncated(self) -> None:
-        """Text longer than 120 characters is truncated with an ellipsis."""
-        long_text = "A" * 130
-        activity = self._make_message_activity(long_text)
-        ctx, _ = _create_activity_context(activity=activity)
-
-        result = ctx._build_block_quote_for_activity()
-
-        assert result is not None
-        # Truncated text should be 120 chars + "..."
-        assert "A" * 120 + "..." in result
-        # The full text should not be present
-        assert long_text not in result
-
-    def test_non_message_activity_returns_none(self) -> None:
-        """Activity type other than 'message' returns None."""
-        mock_activity = MagicMock()
-        mock_activity.type = "event"
-        ctx, _ = _create_activity_context(activity=mock_activity)
-
-        result = ctx._build_block_quote_for_activity()
-
-        assert result is None
+        assert sent_activity.entities is not None
+        assert isinstance(sent_activity.entities[0], QuotedReplyEntity)
+        assert sent_activity.entities[0].quoted_reply.message_id == "evt-id-999"
 
 
 class TestActivityContextUserGraph:
@@ -711,3 +664,96 @@ class TestActivityContextSignOut:
             mock_log_error.assert_called_once()
             logged_message = mock_log_error.call_args[0][0]
             assert "Failed to sign out user" in logged_message
+
+
+class TestActivityContextPromptPreview:
+    """Tests for reactive auto-population of targetedMessageInfo entity."""
+
+    def _make_targeted_activity(self, activity_id: str = "1772129782775") -> MessageActivity:
+        return MessageActivity(
+            id=activity_id,
+            text="Hello from slash command",
+            from_=Account(id="user-123", name="Test User"),
+            recipient=Account(id="bot-456", name="Bot", is_targeted=True),
+            conversation=ConversationAccount(id="test-conversation"),
+        )
+
+    def _make_non_targeted_activity(self) -> MessageActivity:
+        return MessageActivity(
+            id="normal-msg-id",
+            text="Normal message",
+            from_=Account(id="user-123", name="Test User"),
+            recipient=Account(id="bot-456", name="Bot"),
+            conversation=ConversationAccount(id="test-conversation"),
+        )
+
+    @pytest.mark.asyncio
+    async def test_send_auto_adds_targeted_message_info_entity(self) -> None:
+        """When replying to a targeted message, the SDK auto-adds targetedMessageInfo."""
+        activity = self._make_targeted_activity("1772129782775")
+        ctx, mock_sender = _create_activity_context(activity=activity)
+
+        await ctx.send("Here is your agenda")
+
+        sent_activity = mock_sender.send.call_args[0][0]
+        assert sent_activity.entities is not None
+        assert len(sent_activity.entities) == 1
+        entity = sent_activity.entities[0]
+        assert isinstance(entity, TargetedMessageInfoEntity)
+        assert entity.message_id == "1772129782775"
+        assert entity.type == "targetedMessageInfo"
+
+    @pytest.mark.asyncio
+    async def test_send_does_not_add_entity_for_non_targeted(self) -> None:
+        """When replying to a normal message, no targetedMessageInfo is added."""
+        activity = self._make_non_targeted_activity()
+        ctx, mock_sender = _create_activity_context(activity=activity)
+
+        await ctx.send("Normal reply")
+
+        sent_activity = mock_sender.send.call_args[0][0]
+        assert sent_activity.entities is None
+
+    @pytest.mark.asyncio
+    async def test_send_does_not_duplicate_entity_if_already_present(self) -> None:
+        """If the developer already added targetedMessageInfo, the SDK does not duplicate it."""
+        activity = self._make_targeted_activity("1772129782775")
+        ctx, mock_sender = _create_activity_context(activity=activity)
+
+        msg = MessageActivityInput(text="Reply").add_entity(TargetedMessageInfoEntity(message_id="custom-id"))
+        await ctx.send(msg)
+
+        sent_activity = mock_sender.send.call_args[0][0]
+        assert sent_activity.entities is not None
+        assert len(sent_activity.entities) == 1
+        assert sent_activity.entities[0].message_id == "custom-id"
+
+    @pytest.mark.asyncio
+    async def test_reply_auto_adds_targeted_message_info_entity(self) -> None:
+        """reply() also auto-adds targetedMessageInfo for targeted messages.
+        The blockquote is added by reply(), then stripped by add_targeted_message_info
+        in send() to avoid collision with prompt preview."""
+        activity = self._make_targeted_activity("1772129782775")
+        ctx, mock_sender = _create_activity_context(activity=activity)
+
+        await ctx.reply("Reply with prompt preview")
+
+        sent_activity = mock_sender.send.call_args[0][0]
+        assert sent_activity.entities is not None
+        targeted_entities = [e for e in sent_activity.entities if isinstance(e, TargetedMessageInfoEntity)]
+        assert len(targeted_entities) == 1
+        assert targeted_entities[0].message_id == "1772129782775"
+
+        # quotedReply entities should be stripped by add_targeted_message_info
+        assert not any(getattr(e, "type", None) == "quotedReply" for e in sent_activity.entities)
+
+    @pytest.mark.asyncio
+    async def test_send_does_not_add_entity_for_non_message_activity(self) -> None:
+        """Non-message activities (e.g. typing) should not get targetedMessageInfo attached."""
+        activity = self._make_targeted_activity("1772129782775")
+        ctx, mock_sender = _create_activity_context(activity=activity)
+
+        await ctx.send(TypingActivityInput())
+
+        sent_activity = mock_sender.send.call_args[0][0]
+        assert sent_activity.entities is None
