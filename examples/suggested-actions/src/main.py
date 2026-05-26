@@ -40,7 +40,7 @@ async def handle_message(ctx: ActivityContext[MessageActivity]) -> None:
 # Handle the resulting suggestedActions/submit invoke when the user clicks a chip.
 @app.on_suggested_action_submit
 async def handle_suggested_action_submit(ctx: ActivityContext[SuggestedActionSubmitInvokeActivity]) -> None:
-    serialized_value = json.dumps(ctx.activity.value) if ctx.activity.value is not None else "<none>"
+    serialized_value = json.dumps(ctx.activity.value)
 
     ctx.logger.info(f"[SUGGESTED_ACTION_SUBMIT] value={serialized_value}")
     await ctx.send(f"Got suggestedActions/submit with value: {serialized_value}")

@@ -3,7 +3,7 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from typing import Any, Literal, Optional
+from typing import Any, Literal
 
 from microsoft_teams.common.experimental import experimental
 
@@ -21,5 +21,5 @@ class SuggestedActionSubmitInvokeActivity(InvokeActivity):
     name: Literal["suggestedActions/submit"] = "suggestedActions/submit"
     """The name of the invoke operation."""
 
-    value: Optional[Any] = None
+    value: Any
     """The structured value from the suggested action."""

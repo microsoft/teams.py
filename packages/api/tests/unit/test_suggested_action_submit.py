@@ -74,6 +74,7 @@ class TestSuggestedActionSubmitInvokeActivity:
                 from_={"id": "u1", "name": "U"},
                 conversation={"id": "c1"},
                 recipient={"id": "b1", "name": "B"},
+                value={"vote": "approve"},
             )
 
         experimental_warnings = [x for x in w if issubclass(x.category, ExperimentalWarning)]
