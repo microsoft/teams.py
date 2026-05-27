@@ -46,6 +46,7 @@ from microsoft_teams.api import (
     SignInFailureInvokeActivity,
     SignInTokenExchangeInvokeActivity,
     SignInVerifyStateInvokeActivity,
+    SuggestedActionSubmitInvokeActivity,
     TabFetchInvokeActivity,
     TabInvokeResponse,
     TabSubmitInvokeActivity,
@@ -485,6 +486,15 @@ ACTIVITY_ROUTES: Dict[str, ActivityConfig] = {
         method_name="on_handoff_action",
         input_model=HandoffActionInvokeActivity,
         selector=lambda activity: activity.type == "invoke" and cast(InvokeActivity, activity).name == "handoff/action",
+        output_model=None,
+        is_invoke=True,
+    ),
+    "suggested_action.submit": ActivityConfig(
+        name="suggested_action.submit",
+        method_name="on_suggested_action_submit",
+        input_model=SuggestedActionSubmitInvokeActivity,
+        selector=lambda activity: activity.type == "invoke"
+        and cast(InvokeActivity, activity).name == "suggestedActions/submit",
         output_model=None,
         is_invoke=True,
     ),

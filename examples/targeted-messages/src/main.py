@@ -25,10 +25,26 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
     """Handle message activities."""
     activity = ctx.activity
     text = (activity.text or "").lower()
+    is_targeted_inbound = activity.recipient.is_targeted is True
 
-    print(f"[MESSAGE] Received: {text}")
+    if "send public" in text:
+        if not is_targeted_inbound:
+            await ctx.send("Send it to me privately first!")
+        else:
+            await ctx.send(
+                MessageActivityInput(text="🌍 This is a public message — everyone can see this!").with_recipient(
+                    activity.from_
+                )
+            )
 
-    if "test update" in text:
+    elif "send private" in text:
+        if not is_targeted_inbound:
+            await ctx.send("Send it to me privately first!")
+        else:
+            # No explicit recipient needed: targeted inbound messages make ctx.send() default to targeted.
+            await ctx.send("🔒 This is a private message — only YOU can see this!")
+
+    elif "test update" in text:
         # UPDATE: Send a targeted message, then update it after 3 seconds
         conversation_id = activity.conversation.id
 
@@ -97,6 +113,17 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
         await ctx.send(targeted_message)
         print("[SEND] Sent targeted message")
 
+    elif "test inbound" in text:
+        # INBOUND: Detect whether the inbound message was itself targeted at the bot
+        # (i.e. delivered as a slash command). Slash commands arrive as message
+        # activities with `activity.recipient.is_targeted == True`.
+        await ctx.send(
+            "✅ Your message was delivered to me as a targeted message."
+            if is_targeted_inbound
+            else "ℹ️ Your message was delivered to me as a regular (broadcast) message."
+        )
+        print(f"[INBOUND] is_targeted={is_targeted_inbound}")
+
     elif "help" in text:
         await ctx.send(
             "**🎯 Targeted Messages Demo**\n\n"
@@ -104,7 +131,10 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
             "- `test send` - Send a targeted message (only visible to you)\n"
             "- `test update` - Send a targeted message, then update it after 3 seconds\n"
             "- `test delete` - Send a targeted message, then delete it after 3 seconds\n"
-            "- `test public` - Send a public reply (visible to all)\n\n"
+            "- `test public` - Send a public reply (visible to all)\n"
+            "- `send public` - Only send a public message if the incoming message is targeted\n"
+            "- `send private` - Only send a private message if the incoming message is targeted\n"
+            "- `test inbound` - Show whether the inbound message was targeted at the bot\n\n"
             "_Targeted messages are only visible to you, even in group chats!_"
         )
 

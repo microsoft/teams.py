@@ -34,13 +34,27 @@ class JsonWebToken(TokenProtocol):
 
     def __init__(self, value: str):
         """
-        Initialize JWT from token string.
+        Initialize a typed accessor over an already-validated JWT payload.
+
+        This constructor performs no signature verification, no issuer/audience
+        checks, and no expiry enforcement. Constructing it from an untrusted
+        token does NOT establish trust in the contained claims.
+
+        Signature verification happens at the HTTP trust boundary via
+        ``TokenValidator.validate_token`` (packages/apps/src/microsoft_teams/
+        apps/auth/token_validator.py). Internal callers may also construct from
+        tokens sourced from trusted identity infrastructure (MSAL, Bot Framework
+        API responses).
+
+        Callers must not construct this class from raw network input.
 
         Args:
             value: The JWT token string.
         """
         self._value = value
-        # Decode without verification for payload extraction
+        # Decode without verification for payload extraction.
+        # Signature verification happens upstream in TokenValidator; see the
+        # class docstring for the trust-boundary contract.
         self._payload = JsonWebTokenPayload(
             **jwt.decode(value, algorithms=["RS256"], options={"verify_signature": False})
         )
