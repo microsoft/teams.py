@@ -9,7 +9,7 @@ resolution-markers = [
 
 [manifest]
 members = [
-    "a2a-test",
+    "a2a",
     "ai-agentframework",
     "botbuilder",
     "cards",
@@ -31,6 +31,7 @@ members = [
     "quoting",
     "reactions",
     "stream",
+    "suggested-actions",
     "tab",
     "targeted-messages",
     "threading",
@@ -50,32 +51,9 @@ dev = [
 release = [{ name = "hatch-teams-build", directory = "tools/hatch-teams-build" }]
 
 [[package]]
-name = "a2a-sdk"
-version = "0.3.9"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "google-api-core" },
-    { name = "httpx" },
-    { name = "httpx-sse" },
-    { name = "protobuf" },
-    { name = "pydantic" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/65/0b/80671e784f61b55ac4c340d125d121ba91eba58ad7ba0f03b53b3831cd32/a2a_sdk-0.3.9.tar.gz", hash = "sha256:1dff7b5b1cab0b221519d0faed50176e200a1a87a8de8b64308d876505cc7c77", size = 224528, upload-time = "2025-10-15T17:35:28.299Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/34/ee/53b2da6d2768b136f996b8c6ab00ebcc44852f9a33816a64deaca6b279fe/a2a_sdk-0.3.9-py3-none-any.whl", hash = "sha256:7ed03a915bae98def46ea0313786da0a7a488346c3dc8af88407bb0b2a763926", size = 139027, upload-time = "2025-10-15T17:35:26.628Z" },
-]
-
-[package.optional-dependencies]
-http-server = [
-    { name = "fastapi" },
-    { name = "sse-starlette" },
-    { name = "starlette" },
-]
-
-[[package]]
-name = "a2a-test"
+name = "a2a"
 version = "0.1.0"
-source = { virtual = "examples/a2a-test" }
+source = { virtual = "examples/a2a" }
 dependencies = [
     { name = "a2a-sdk", extra = ["http-server"] },
     { name = "agent-framework-core" },
@@ -99,6 +77,29 @@ requires-dist = [
     { name = "microsoft-teams-cards", editable = "packages/cards" },
     { name = "microsoft-teams-common", editable = "packages/common" },
     { name = "uvicorn", specifier = ">=0.30" },
+]
+
+[[package]]
+name = "a2a-sdk"
+version = "0.3.9"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "google-api-core" },
+    { name = "httpx" },
+    { name = "httpx-sse" },
+    { name = "protobuf" },
+    { name = "pydantic" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/65/0b/80671e784f61b55ac4c340d125d121ba91eba58ad7ba0f03b53b3831cd32/a2a_sdk-0.3.9.tar.gz", hash = "sha256:1dff7b5b1cab0b221519d0faed50176e200a1a87a8de8b64308d876505cc7c77", size = 224528, upload-time = "2025-10-15T17:35:28.299Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/34/ee/53b2da6d2768b136f996b8c6ab00ebcc44852f9a33816a64deaca6b279fe/a2a_sdk-0.3.9-py3-none-any.whl", hash = "sha256:7ed03a915bae98def46ea0313786da0a7a488346c3dc8af88407bb0b2a763926", size = 139027, upload-time = "2025-10-15T17:35:26.628Z" },
+]
+
+[package.optional-dependencies]
+http-server = [
+    { name = "fastapi" },
+    { name = "sse-starlette" },
+    { name = "starlette" },
 ]
 
 [[package]]
@@ -132,7 +133,7 @@ wheels = [
 [[package]]
 name = "ai-agentframework"
 version = "0.1.0"
-source = { virtual = "examples/ai-agentframework" }
+source = { virtual = "examples/ai-mcp" }
 dependencies = [
     { name = "agent-framework-core" },
     { name = "agent-framework-openai" },
@@ -1459,6 +1460,7 @@ dependencies = [
     { name = "dotenv" },
     { name = "mcp" },
     { name = "microsoft-teams-apps" },
+    { name = "microsoft-teams-graph" },
 ]
 
 [package.metadata]
@@ -1466,6 +1468,7 @@ requires-dist = [
     { name = "dotenv", specifier = ">=0.9.9" },
     { name = "mcp", specifier = ">=1.13.1" },
     { name = "microsoft-teams-apps", editable = "packages/apps" },
+    { name = "microsoft-teams-graph", editable = "packages/graph" },
 ]
 
 [[package]]
@@ -2833,6 +2836,23 @@ wheels = [
 name = "stream"
 version = "0.1.0"
 source = { virtual = "examples/stream" }
+dependencies = [
+    { name = "dotenv" },
+    { name = "microsoft-teams-api" },
+    { name = "microsoft-teams-apps" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "dotenv", specifier = ">=0.9.9" },
+    { name = "microsoft-teams-api", editable = "packages/api" },
+    { name = "microsoft-teams-apps", editable = "packages/apps" },
+]
+
+[[package]]
+name = "suggested-actions"
+version = "0.1.0"
+source = { virtual = "examples/suggested-actions" }
 dependencies = [
     { name = "dotenv" },
     { name = "microsoft-teams-api" },

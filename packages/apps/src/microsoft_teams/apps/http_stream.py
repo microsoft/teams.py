@@ -130,6 +130,21 @@ class HttpStream(StreamerProtocol):
         """
         self.emit(TypingActivityInput().with_text(text).with_channel_data(ChannelData(stream_type="informative")))
 
+    def clear_text(self) -> None:
+        """
+        Discard any text accumulated so far so the final activity is card-only.
+        Equivalent to ``stream.clearText()`` in the TypeScript SDK.
+
+        Clears the in-memory text buffer and drops any queued text-only
+        MessageActivityInput items that have not been flushed yet.
+        """
+        self._text = ""
+        self._queue = deque(
+            item for item in self._queue if not isinstance(item, MessageActivityInput) or item.attachments
+        )
+        if self._final_activity is not None:
+            self._final_activity.text = None
+
     async def _wait_for_id_and_queue(self):
         """Wait until _id is set, the queue is empty, and no flush is in progress, with a total timeout."""
 

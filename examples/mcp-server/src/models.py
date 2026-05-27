@@ -35,3 +35,13 @@ class ApprovalRequestResult(BaseModel):
 class ApprovalResult(BaseModel):
     approval_id: str
     status: Literal["pending", "approved", "rejected"]
+
+
+class UserMatch(BaseModel):
+    id: str
+    display_name: Optional[str]
+    user_principal_name: Optional[str]
+
+
+class FindUserResult(BaseModel):
+    matches: list[UserMatch]
