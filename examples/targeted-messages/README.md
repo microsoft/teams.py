@@ -9,24 +9,40 @@ Targeted messages are messages that only a specific recipient can see - other pa
 | Command | Behavior |
 |---------|----------|
 | `test send` | Sends a targeted message (only you see it) |
-| `test reply` | Replies with a targeted message |
 | `test update` | Sends a targeted message, then updates it after 3 seconds |
-| `test delete` | Sends a targeted message, then deletes it after 5 seconds |
+| `test delete` | Sends a targeted message, then deletes it after 3 seconds |
+| `test public` | Sends a public reply (visible to everyone) |
+| `send public` | Only sends a public message if the incoming message is targeted |
+| `send private` | Only sends a private message if the incoming message is targeted |
+| `test inbound` | Reads `activity.recipient.is_targeted` and reports whether the inbound message was targeted at the bot |
 | `help` | Shows available commands |
 
 ## How It Works
 
-When sending targeted messages, use `with_recipient(Account(...), is_targeted=True)` to mark the recipient as targeted.
+When sending targeted messages explicitly, use `with_recipient(Account(...), is_targeted=True)` to mark the recipient as targeted.
+
+When the inbound message is targeted at the bot, `ctx.send()` and `ctx.reply()` default to targeted for the same conversation. Pass a non-targeted recipient (for example, `with_recipient(ctx.activity.from_)`) to opt out and send publicly.
+
+## Manifest configuration
+
+The `appPackage/manifest.json` uses `manifestVersion: "devPreview"` because the slash-command opt-in fields are only defined in the devPreview schema:
+
+- `bots[].supportsTargetedMessages: true` — opts the bot into receiving slash-command-style targeted messages.
+- `bots[].commandLists[].triggers: ["slash"]` — declares the listed commands as slash commands. They appear in the Teams `/` picker for group chats and channels.
+
+Slash commands arrive at the bot as regular `MessageActivity` events with `activity.recipient.is_targeted == True`, which the `test inbound` handler in this sample demonstrates.
 
 ## Testing in a Group Chat
 
 To properly test targeted messages:
 
 1. Add the bot to a **group chat** with 2+ people
-2. Send `test send`
+2. Send `test send`, or invoke `send private` as a targeted/slash command
 3. **Expected result**: 
-   - You (the sender) should see the "🔒 Targeted message"
+   - You (the sender) should see the targeted message
    - Other participants should **NOT** see it
+
+The `send public` and `send private` commands are useful for verifying whether the inbound message was targeted. If it isn't, the bot says `Send it to me privately first!`.
 
 ## Run
 

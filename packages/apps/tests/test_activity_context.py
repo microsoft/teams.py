@@ -9,9 +9,18 @@ from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from microsoft_teams.api import Account, MessageActivityInput, SentActivity, TargetedMessageInfoEntity
+from microsoft_teams.api import (
+    Account,
+    ConversationAccount,
+    ConversationReference,
+    MessageActivity,
+    MessageActivityInput,
+    SentActivity,
+    TargetedMessageInfoEntity,
+)
 from microsoft_teams.api.activities.typing import TypingActivityInput
 from microsoft_teams.api.auth.cloud_environment import PUBLIC
+from microsoft_teams.api.models.entity import QuotedReplyData, QuotedReplyEntity
 from microsoft_teams.apps.routing.activity_context import ActivityContext
 
 
@@ -31,13 +40,20 @@ def _create_activity_context(
     )
     mock_activity_sender.create_stream = MagicMock(return_value=MagicMock())
 
+    conversation_ref = ConversationReference(
+        bot=Account(id="bot-id", name="Test Bot"),
+        conversation=ConversationAccount(id="test-conversation"),
+        channel_id="msteams",
+        service_url="https://service.example",
+    )
+
     ctx = ActivityContext(
         activity=mock_activity,
         app_id="test-app-id",
         storage=MagicMock(),
         api=MagicMock(),
         user_token=user_token,
-        conversation_ref=MagicMock(),
+        conversation_ref=conversation_ref,
         is_signed_in=is_signed_in,
         connection_name="test-connection",
         activity_sender=mock_activity_sender,
@@ -50,11 +66,129 @@ def _create_activity_context(
 class TestActivityContextSendTargeted:
     """Tests for ActivityContext.send() with targeted message recipient inference."""
 
-    def _create_activity_context(self, from_account: Account) -> tuple[ActivityContext[Any], MagicMock]:
+    def _create_activity_context(
+        self, from_account: Account, *, is_incoming_targeted: bool = False
+    ) -> tuple[ActivityContext[Any], MagicMock]:
         """Create an ActivityContext for testing with a mock activity sender."""
-        mock_activity = MagicMock()
-        mock_activity.from_ = from_account
-        return _create_activity_context(activity=mock_activity)
+        recipient = Account(id="bot-id", name="Test Bot", is_targeted=True if is_incoming_targeted else None)
+        activity = MessageActivity(
+            id="incoming-activity-id",
+            text="Incoming message",
+            from_=from_account,
+            recipient=recipient,
+            conversation=ConversationAccount(id="test-conversation"),
+        )
+        return _create_activity_context(activity=activity)
+
+    @pytest.mark.asyncio
+    async def test_defaults_send_to_targeted_when_inbound_message_is_targeted(self) -> None:
+        """A plain send from a targeted inbound message defaults to targeted."""
+        incoming_sender = Account(id="user-123", name="Test User")
+        ctx, mock_sender = self._create_activity_context(from_account=incoming_sender, is_incoming_targeted=True)
+
+        await ctx.send("Secret message")
+
+        mock_sender.send.assert_called_once()
+        sent_activity = mock_sender.send.call_args[0][0]
+        assert isinstance(sent_activity, MessageActivityInput)
+        assert sent_activity.text == "Secret message"
+        assert sent_activity.recipient is not None
+        assert sent_activity.recipient.id == incoming_sender.id
+        assert sent_activity.recipient.name == incoming_sender.name
+        assert sent_activity.recipient.is_targeted is True
+        assert sent_activity.entities is not None
+        assert any(isinstance(entity, TargetedMessageInfoEntity) for entity in sent_activity.entities)
+
+    @pytest.mark.asyncio
+    async def test_reply_defaults_to_targeted_when_inbound_message_is_targeted(self) -> None:
+        """reply() also defaults to targeted for targeted inbound messages."""
+        incoming_sender = Account(id="user-123", name="Test User")
+        ctx, mock_sender = self._create_activity_context(from_account=incoming_sender, is_incoming_targeted=True)
+
+        await ctx.reply("Private reply")
+
+        mock_sender.send.assert_called_once()
+        sent_activity = mock_sender.send.call_args[0][0]
+        assert isinstance(sent_activity, MessageActivityInput)
+        assert sent_activity.reply_to_id is None
+        assert sent_activity.recipient is not None
+        assert sent_activity.recipient.id == incoming_sender.id
+        assert sent_activity.recipient.is_targeted is True
+        assert sent_activity.entities is not None
+        assert any(
+            isinstance(entity, TargetedMessageInfoEntity) and entity.message_id == "incoming-activity-id"
+            for entity in sent_activity.entities
+        )
+
+    @pytest.mark.asyncio
+    async def test_explicit_public_send_opts_out_from_targeted_inbound_message(self) -> None:
+        """Supplying a non-targeted recipient keeps the send public."""
+        incoming_sender = Account(id="user-123", name="Test User")
+        ctx, mock_sender = self._create_activity_context(from_account=incoming_sender, is_incoming_targeted=True)
+
+        await ctx.send(MessageActivityInput(text="Public message").with_recipient(incoming_sender))
+
+        mock_sender.send.assert_called_once()
+        sent_activity = mock_sender.send.call_args[0][0]
+        assert sent_activity.recipient is not None
+        assert sent_activity.recipient.id == incoming_sender.id
+        assert sent_activity.recipient.is_targeted is None
+        assert sent_activity.entities is None
+
+    @pytest.mark.asyncio
+    async def test_different_conversation_does_not_default_to_targeted(self) -> None:
+        """Sending to a different conversation should not inherit targeted routing."""
+        incoming_sender = Account(id="user-123", name="Test User")
+        ctx, mock_sender = self._create_activity_context(from_account=incoming_sender, is_incoming_targeted=True)
+        other_ref = ConversationReference(
+            bot=Account(id="bot-id", name="Test Bot"),
+            conversation=ConversationAccount(id="other-conversation"),
+            channel_id="msteams",
+            service_url="https://service.example",
+        )
+
+        await ctx.send("Cross-post", other_ref)
+
+        mock_sender.send.assert_called_once()
+        sent_activity = mock_sender.send.call_args[0][0]
+        sent_ref = mock_sender.send.call_args[0][1]
+        assert sent_ref == other_ref
+        assert sent_activity.recipient is None
+        assert sent_activity.entities is None
+
+    @pytest.mark.asyncio
+    async def test_explicit_targeted_send_from_public_inbound_does_not_add_targeted_message_info(self) -> None:
+        """Generic targeted sends should not reference a public inbound message."""
+        incoming_sender = Account(id="user-123", name="Test User")
+        ctx, mock_sender = self._create_activity_context(from_account=incoming_sender)
+        activity = MessageActivityInput(text="Targeted send").with_recipient(incoming_sender, is_targeted=True)
+
+        await ctx.send(activity)
+
+        mock_sender.send.assert_called_once()
+        sent_activity = mock_sender.send.call_args[0][0]
+        assert sent_activity.recipient is not None
+        assert sent_activity.recipient.is_targeted is True
+        assert sent_activity.entities is None
+
+    @pytest.mark.asyncio
+    async def test_targeted_outbound_strips_quoted_reply_metadata(self) -> None:
+        """Targeted responses remove quotedReply entities and quoted placeholders."""
+        incoming_sender = Account(id="user-123", name="Test User")
+        ctx, mock_sender = self._create_activity_context(from_account=incoming_sender, is_incoming_targeted=True)
+        activity = MessageActivityInput(
+            text='<quoted messageId="incoming-activity-id"/> Secret',
+            entities=[QuotedReplyEntity(quoted_reply=QuotedReplyData(message_id="incoming-activity-id"))],
+        )
+
+        await ctx.send(activity)
+
+        mock_sender.send.assert_called_once()
+        sent_activity = mock_sender.send.call_args[0][0]
+        assert sent_activity.text == "Secret"
+        assert sent_activity.entities is not None
+        assert all(not isinstance(entity, QuotedReplyEntity) for entity in sent_activity.entities)
+        assert any(isinstance(entity, TargetedMessageInfoEntity) for entity in sent_activity.entities)
 
     @pytest.mark.asyncio
     async def test_targeted_message_with_explicit_recipient(self) -> None:
@@ -200,14 +334,11 @@ class TestActivityContextReply:
 
     @pytest.mark.asyncio
     async def test_reply_with_string(self) -> None:
-        """reply() with a plain string sends a message with reply_to_id set."""
+        """reply() with a plain string stamps a quotedReply entity and placeholder."""
         mock_activity = MagicMock()
         mock_activity.type = "message"
         mock_activity.id = "original-id"
         mock_activity.text = "Original message"
-        mock_activity.from_ = MagicMock()
-        mock_activity.from_.id = "user-1"
-        mock_activity.from_.name = "User One"
 
         ctx, mock_sender = _create_activity_context(activity=mock_activity)
 
@@ -216,14 +347,18 @@ class TestActivityContextReply:
         mock_sender.send.assert_called_once()
         sent_activity = mock_sender.send.call_args[0][0]
         assert isinstance(sent_activity, MessageActivityInput)
-        assert sent_activity.reply_to_id == "original-id"
+        assert sent_activity.entities is not None
+        assert len(sent_activity.entities) == 1
+        assert isinstance(sent_activity.entities[0], QuotedReplyEntity)
+        assert sent_activity.entities[0].quoted_reply.message_id == "original-id"
+        assert '<quoted messageId="original-id"/>' in (sent_activity.text or "")
         assert "My reply" in (sent_activity.text or "")
 
     @pytest.mark.asyncio
     async def test_reply_with_activity_params(self) -> None:
-        """reply() with an ActivityParams instance sets reply_to_id and delegates to send."""
+        """reply() with a MessageActivityInput stamps a quotedReply entity."""
         mock_activity = MagicMock()
-        mock_activity.type = "event"
+        mock_activity.type = "message"
         mock_activity.id = "evt-id-999"
 
         ctx, mock_sender = _create_activity_context(activity=mock_activity)
@@ -233,58 +368,9 @@ class TestActivityContextReply:
 
         mock_sender.send.assert_called_once()
         sent_activity = mock_sender.send.call_args[0][0]
-        assert sent_activity.reply_to_id == "evt-id-999"
-
-
-class TestActivityContextBuildBlockQuote:
-    """Tests for ActivityContext._build_block_quote_for_activity()."""
-
-    def _make_message_activity(self, text: str, activity_id: str = "act-1") -> MagicMock:
-        mock_activity = MagicMock()
-        mock_activity.type = "message"
-        mock_activity.id = activity_id
-        mock_activity.text = text
-        mock_activity.from_ = MagicMock()
-        mock_activity.from_.id = "user-xyz"
-        mock_activity.from_.name = "Test User"
-        return mock_activity
-
-    def test_message_activity_returns_html_blockquote(self) -> None:
-        """Activity type 'message' with text produces a blockquote HTML string."""
-        activity = self._make_message_activity("Hello blockquote")
-        ctx, _ = _create_activity_context(activity=activity)
-
-        result = ctx._build_block_quote_for_activity()
-
-        assert result is not None
-        assert "<blockquote" in result
-        assert "Hello blockquote" in result
-        assert "Test User" in result
-        assert "act-1" in result
-
-    def test_long_text_is_truncated(self) -> None:
-        """Text longer than 120 characters is truncated with an ellipsis."""
-        long_text = "A" * 130
-        activity = self._make_message_activity(long_text)
-        ctx, _ = _create_activity_context(activity=activity)
-
-        result = ctx._build_block_quote_for_activity()
-
-        assert result is not None
-        # Truncated text should be 120 chars + "..."
-        assert "A" * 120 + "..." in result
-        # The full text should not be present
-        assert long_text not in result
-
-    def test_non_message_activity_returns_none(self) -> None:
-        """Activity type other than 'message' returns None."""
-        mock_activity = MagicMock()
-        mock_activity.type = "event"
-        ctx, _ = _create_activity_context(activity=mock_activity)
-
-        result = ctx._build_block_quote_for_activity()
-
-        assert result is None
+        assert sent_activity.entities is not None
+        assert isinstance(sent_activity.entities[0], QuotedReplyEntity)
+        assert sent_activity.entities[0].quoted_reply.message_id == "evt-id-999"
 
 
 class TestActivityContextUserGraph:
@@ -401,7 +487,7 @@ class TestActivityContextSignIn:
         """sign_in returns the existing token when the API call succeeds."""
         mock_activity = MagicMock()
         mock_activity.channel_id = "msteams"
-        mock_activity.from_.id = "user-001"
+        mock_activity.from_ = Account(id="user-001")
         mock_activity.conversation.is_group = False
 
         ctx, _ = _create_activity_context(activity=mock_activity)
@@ -420,7 +506,7 @@ class TestActivityContextSignIn:
         """sign_in falls through to OAuth card flow when token API fails, returns None."""
         mock_activity = MagicMock()
         mock_activity.channel_id = "msteams"
-        mock_activity.from_.id = "user-001"
+        mock_activity.from_ = Account(id="user-001")
         mock_activity.conversation.is_group = False
 
         ctx, mock_sender = _create_activity_context(activity=mock_activity)
@@ -439,7 +525,6 @@ class TestActivityContextSignIn:
                 "microsoft_teams.apps.routing.activity_context.TokenExchangeState",
                 return_value=token_state,
             ),
-            patch("microsoft_teams.apps.routing.activity_context.MessageActivityInput"),
             patch("microsoft_teams.apps.routing.activity_context.card_attachment"),
             patch("microsoft_teams.apps.routing.activity_context.OAuthCardAttachment"),
             patch("microsoft_teams.apps.routing.activity_context.OAuthCard"),
@@ -457,7 +542,7 @@ class TestActivityContextSignIn:
         """For group conversations, sign_in creates a 1:1 conversation before sending the OAuth card."""
         mock_activity = MagicMock()
         mock_activity.channel_id = "msteams"
-        mock_activity.from_.id = "user-001"
+        mock_activity.from_ = Account(id="user-001")
         mock_activity.conversation.is_group = True
         mock_activity.conversation.tenant_id = "tenant-001"
 
@@ -481,7 +566,6 @@ class TestActivityContextSignIn:
                 "microsoft_teams.apps.routing.activity_context.TokenExchangeState",
                 return_value=token_state,
             ),
-            patch("microsoft_teams.apps.routing.activity_context.MessageActivityInput"),
             patch("microsoft_teams.apps.routing.activity_context.CreateConversationParams"),
             patch("microsoft_teams.apps.routing.activity_context.card_attachment"),
             patch("microsoft_teams.apps.routing.activity_context.OAuthCardAttachment"),
@@ -503,7 +587,7 @@ class TestActivityContextSignIn:
 
         mock_activity = MagicMock()
         mock_activity.channel_id = "msteams"
-        mock_activity.from_.id = "user-001"
+        mock_activity.from_ = Account(id="user-001")
         mock_activity.conversation.is_group = False
 
         ctx, _ = _create_activity_context(activity=mock_activity)
@@ -528,7 +612,6 @@ class TestActivityContextSignIn:
                 "microsoft_teams.apps.routing.activity_context.TokenExchangeState",
                 return_value=token_state,
             ),
-            patch("microsoft_teams.apps.routing.activity_context.MessageActivityInput"),
             patch("microsoft_teams.apps.routing.activity_context.card_attachment"),
             patch("microsoft_teams.apps.routing.activity_context.OAuthCardAttachment"),
             patch("microsoft_teams.apps.routing.activity_context.OAuthCard"),
@@ -583,23 +666,23 @@ class TestActivityContextSignOut:
 class TestActivityContextPromptPreview:
     """Tests for reactive auto-population of targetedMessageInfo entity."""
 
-    def _make_targeted_activity(self, activity_id: str = "1772129782775") -> MagicMock:
-        mock_activity = MagicMock()
-        mock_activity.type = "message"
-        mock_activity.id = activity_id
-        mock_activity.text = "Hello from slash command"
-        mock_activity.from_ = Account(id="user-123", name="Test User")
-        mock_activity.recipient = Account(id="bot-456", name="Bot", is_targeted=True)
-        return mock_activity
+    def _make_targeted_activity(self, activity_id: str = "1772129782775") -> MessageActivity:
+        return MessageActivity(
+            id=activity_id,
+            text="Hello from slash command",
+            from_=Account(id="user-123", name="Test User"),
+            recipient=Account(id="bot-456", name="Bot", is_targeted=True),
+            conversation=ConversationAccount(id="test-conversation"),
+        )
 
-    def _make_non_targeted_activity(self) -> MagicMock:
-        mock_activity = MagicMock()
-        mock_activity.type = "message"
-        mock_activity.id = "normal-msg-id"
-        mock_activity.text = "Normal message"
-        mock_activity.from_ = Account(id="user-123", name="Test User")
-        mock_activity.recipient = Account(id="bot-456", name="Bot")
-        return mock_activity
+    def _make_non_targeted_activity(self) -> MessageActivity:
+        return MessageActivity(
+            id="normal-msg-id",
+            text="Normal message",
+            from_=Account(id="user-123", name="Test User"),
+            recipient=Account(id="bot-456", name="Bot"),
+            conversation=ConversationAccount(id="test-conversation"),
+        )
 
     @pytest.mark.asyncio
     async def test_send_auto_adds_targeted_message_info_entity(self) -> None:

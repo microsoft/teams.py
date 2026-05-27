@@ -8,9 +8,10 @@ import json
 import logging
 import warnings
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Awaitable, Callable, Generic, Optional, TypeVar, cast
+from typing import TYPE_CHECKING, Any, Awaitable, Callable, Generic, Optional, TypeGuard, TypeVar
 
 from microsoft_teams.api import (
+    Account,
     ActivityBase,
     ActivityParams,
     ApiClient,
@@ -21,6 +22,7 @@ from microsoft_teams.api import (
     GetBotSignInResourceParams,
     GetUserTokenParams,
     JsonWebToken,
+    MessageActivity,
     MessageActivityInput,
     SentActivity,
     SignOutUserParams,
@@ -36,7 +38,7 @@ from microsoft_teams.api.models.attachment.card_attachment import (
 from microsoft_teams.api.models.oauth import OAuthCard
 from microsoft_teams.cards import AdaptiveCard
 from microsoft_teams.common import Storage
-from microsoft_teams.common.experimental import ExperimentalWarning
+from microsoft_teams.common.experimental import ExperimentalWarning, experimental
 from microsoft_teams.common.http.client_token import Token
 
 from ..activity_sender import ActivitySender
@@ -183,6 +185,9 @@ class ActivityContext(Generic[T]):
         else:
             activity = message
 
+        if self._should_outbound_be_auto_targeted(activity, conversation_ref):
+            self._apply_targeted_recipient(activity)
+
         self._add_targeted_message_info_entity(activity)
 
         ref = conversation_ref or self.conversation_ref
@@ -196,12 +201,31 @@ class ActivityContext(Generic[T]):
         In other scopes, sends with a quoted reply.
         To send without quoting, use :meth:`send`.
         """
+        if self.activity.id:
+            return await self.quote(self.activity.id, input)
+        activity = MessageActivityInput(text=input) if isinstance(input, str) else input
+        return await self.send(activity)
+
+    @experimental("ExperimentalTeamsQuotedReplies")
+    async def quote(self, message_id: str, input: str | ActivityParams) -> SentActivity:
+        """
+        Send a message to the conversation with a quoted message reference prepended to the text.
+        Teams renders the quoted message as a preview bubble above the response text.
+
+        Args:
+            message_id: The ID of the message to quote
+            input: The response text or activity — a quote placeholder for message_id will be prepended to its text
+
+        Returns:
+            The sent activity
+
+        .. warning:: Coming Soon
+            This API is coming soon and may change in the future.
+            Diagnostic: ExperimentalTeamsQuotedReplies
+        """
         activity = MessageActivityInput(text=input) if isinstance(input, str) else input
         if isinstance(activity, MessageActivityInput):
-            block_quote = self._build_block_quote_for_activity()
-            if block_quote:
-                activity.text = f"{block_quote}\n\n{activity.text}" if activity.text else block_quote
-        activity.reply_to_id = self.activity.id
+            activity.prepend_quote(message_id)
         return await self.send(activity)
 
     async def next(self) -> None:
@@ -213,12 +237,50 @@ class ActivityContext(Generic[T]):
         """Set the next handler in the middleware chain."""
         self._next_handler = handler
 
-    def _is_incoming_targeted(self) -> bool:
-        """Check if the incoming activity is a targeted message."""
-        activity = self.activity
+    def _incoming_targeted_sender(self) -> Optional[Account]:
+        if not isinstance(self.activity, MessageActivity):
+            return None
+
+        if self.activity.recipient.is_targeted is not True:
+            return None
+
+        return self.activity.from_
+
+    def _should_outbound_be_auto_targeted(
+        self,
+        activity: ActivityParams,
+        conversation_ref: Optional[ConversationReference] = None,
+    ) -> bool:
+        if not isinstance(activity, MessageActivityInput):
+            return False
+
+        if self._incoming_targeted_sender() is None:
+            return False
+
+        if not self._is_same_conversation(conversation_ref):
+            return False
+
+        return not activity.id and activity.recipient is None
+
+    def _is_same_conversation(self, conversation_ref: Optional[ConversationReference] = None) -> bool:
+        if conversation_ref is None:
+            return True
+
+        return conversation_ref.conversation.id == self.conversation_ref.conversation.id
+
+    def _apply_targeted_recipient(self, activity: ActivityParams) -> None:
+        sender = self._incoming_targeted_sender()
+        if sender is None:
+            return
+
+        recipient = sender.model_copy()
+        recipient.is_targeted = True
+        activity.recipient = recipient
+
+    def _is_targeted_outbound(self, activity: ActivityParams) -> TypeGuard[MessageActivityInput]:
         return (
-            hasattr(activity, "recipient")
-            and hasattr(activity.recipient, "is_targeted")
+            isinstance(activity, MessageActivityInput)
+            and activity.recipient is not None
             and activity.recipient.is_targeted is True
         )
 
@@ -229,39 +291,14 @@ class ActivityContext(Generic[T]):
         and attaches the entity automatically so the developer doesn't need to.
         Skips if the developer already attached a targetedMessageInfo entity.
         """
-        if not self._is_incoming_targeted():
+        if self._incoming_targeted_sender() is None:
             return
-        if not isinstance(activity_params, MessageActivityInput):
+        if not self._is_targeted_outbound(activity_params):
             return
 
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", ExperimentalWarning)
             activity_params.add_targeted_message_info(self.activity.id)
-
-    def _build_block_quote_for_activity(self) -> Optional[str]:
-        if self.activity.type == "message" and hasattr(self.activity, "text"):
-            activity = cast(MessageActivityInput, self.activity)
-            max_length = 120
-            text = activity.text or ""
-            truncated_text = f"{text[:max_length]}..." if len(text) > max_length else text
-
-            activity_id = activity.id
-            from_id = activity.from_.id if activity.from_ else ""
-            from_name = activity.from_.name if activity.from_ else ""
-
-            return (
-                f'<blockquote itemscope="" itemtype="http://schema.skype.com/Reply" itemid="{activity_id}">'
-                f'<strong itemprop="mri" itemid="{from_id}">{from_name}</strong>'
-                f'<span itemprop="time" itemid="{activity_id}"></span>'
-                f'<p itemprop="preview">{truncated_text}</p>'
-                f"</blockquote>"
-            )
-        else:
-            self.logger.debug(
-                "Skipping building blockquote for activity type: %s",
-                type(self.activity).__name__,
-            )
-        return None
 
     async def sign_in(self, options: Optional[SignInOptions] = None) -> Optional[str]:
         """

@@ -74,6 +74,28 @@ class TestHttpServer:
         assert call_args[0][0] == "POST"
         assert call_args[0][1] == "/bot/incoming"
 
+    def test_initialize_warns_when_no_credentials(self, server, caplog):
+        """Bot started without credentials should log a warning about anonymous traffic."""
+        import logging
+
+        with caplog.at_level(logging.WARNING, logger="microsoft_teams.apps.http.http_server"):
+            server.initialize(credentials=None)
+
+        assert any("No credentials configured" in record.message for record in caplog.records)
+
+    def test_initialize_does_not_warn_with_credentials(self, server, caplog):
+        """Bot started with credentials should not log the anonymous warning."""
+        import logging
+
+        creds = MagicMock()
+        creds.client_id = "test-app"
+        creds.tenant_id = "test-tenant"
+
+        with caplog.at_level(logging.WARNING, logger="microsoft_teams.apps.http.http_server"):
+            server.initialize(credentials=creds)
+
+        assert not any("No credentials configured" in record.message for record in caplog.records)
+
     def test_on_request_setter(self, server):
         """Test on_request callback setter."""
 
