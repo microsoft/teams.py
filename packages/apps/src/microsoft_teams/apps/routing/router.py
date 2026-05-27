@@ -40,8 +40,9 @@ class ActivityRouter:
     ) -> None:
         """Add handler for activity config.
 
-        Registering `route_type="user"` with matching `route_name` removes
-        previously registered system route of same name so user handler wins.
+        Registering `route_type="user"` with matching `route_name` removes any
+        previously registered `route_type="system"` entry with same route name.
+        This lets app-defined handlers override built-in defaults for that route.
         """
         if route_type == "user" and route_name is not None:
             self._routes = [

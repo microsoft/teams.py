@@ -157,16 +157,18 @@ class App(ActivityHandlerMixin):
             default_connection_name=self.options.default_connection_name,
             event_emitter=self._events,
         )
+        signin_token_exchange_route = ACTIVITY_ROUTES["signin.token-exchange"]
         self.router.add_handler(
-            ACTIVITY_ROUTES["signin.token-exchange"].selector,
+            signin_token_exchange_route.selector,
             oauth_handlers.sign_in_token_exchange,
-            route_name=ACTIVITY_ROUTES["signin.token-exchange"].name,
+            route_name=signin_token_exchange_route.name,
             route_type="system",
         )
+        signin_verify_state_route = ACTIVITY_ROUTES["signin.verify-state"]
         self.router.add_handler(
-            ACTIVITY_ROUTES["signin.verify-state"].selector,
+            signin_verify_state_route.selector,
             oauth_handlers.sign_in_verify_state,
-            route_name=ACTIVITY_ROUTES["signin.verify-state"].name,
+            route_name=signin_verify_state_route.name,
             route_type="system",
         )
         self.on_signin_failure(oauth_handlers.sign_in_failure)
