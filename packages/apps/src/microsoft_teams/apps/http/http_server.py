@@ -138,12 +138,9 @@ class HttpServer:
                     ),
                 )
             elif not self._token_validator:
-                # No credentials configured — reject the request
-                logger.error(
-                    "No credentials configured. Configure client authentication "
-                    "to securely receive messages, or set skip_auth=True to allow "
-                    "unauthenticated requests."
-                )
+                # No credentials configured: reject the request. A startup
+                # warning was already emitted; logging per request would
+                # just add noise without new information.
                 return HttpResponse(status=401, body={"error": "Authentication not configured"})
             else:
                 if not authorization.startswith("Bearer "):
@@ -169,7 +166,7 @@ class HttpServer:
             core_activity = CoreActivity.model_validate(body)
             activity_type = core_activity.type or "unknown"
             activity_id = core_activity.id or "unknown"
-            logger.debug(f"Received activity: {activity_type} (ID: {activity_id})")
+            logger.debug("Received activity: %s (ID: %s)", activity_type, activity_id)
 
             # Process the activity via the App callback
             result = await self._process_activity(core_activity, token)
