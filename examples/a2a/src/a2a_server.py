@@ -43,7 +43,7 @@ def _extract_handoff(context: RequestContext) -> HandoffMessage | None:
         if isinstance(part.root, DataPart):
             try:
                 return HandoffMessage.model_validate(part.root.data)
-            except (ValidationError, Exception) as exc:
+            except ValidationError as exc:
                 logger.warning("invalid handoff payload: %s", exc)
                 return None
     return None
@@ -107,7 +107,7 @@ class HandoffAgentExecutor(AgentExecutor):
         )
         result = await conv_client.create(
             CreateConversationParams(
-                members=[Account(id=handoff.aad_object_id, name=handoff.user_name, type="bot")],
+                members=[Account(id=handoff.aad_object_id, name=handoff.user_name)],
                 tenant_id=handoff.tenant_id,
             )
         )

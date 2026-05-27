@@ -152,7 +152,6 @@ async def handle_clarification(ctx: ActivityContext[AdaptiveCardInvokeActivity])
     """Handle the user's choice from a clarification card."""
     data = ctx.activity.value.action.data or {}
     choice = data.get(CLARIFICATION_INPUT_ID, "")
-    print(f"Clarification choice: {choice}")
     if not choice:
         logger.warning("Clarification submit had no clarificationChoice.")
         return AdaptiveCardActionMessageResponse(
@@ -160,7 +159,6 @@ async def handle_clarification(ctx: ActivityContext[AdaptiveCardInvokeActivity])
             type="application/vnd.microsoft.activity.message",
             value="OK",
         )
-    print(f"Running agent with clarification choice: {choice}")
     conversation_id = ctx.activity.conversation.id
     if conversation_id not in _sessions:
         _sessions[conversation_id] = agent.create_session()

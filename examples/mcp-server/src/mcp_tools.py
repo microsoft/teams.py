@@ -133,7 +133,7 @@ async def wait_for_reply(request_id: str, timeout_seconds: int = 30) -> ReplyRes
     if entry.status == "answered":
         return ReplyResult(status=entry.status, reply=entry.reply)
 
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     if request_id not in reply_waiters or reply_waiters[request_id].done():
         reply_waiters[request_id] = loop.create_future()
 
@@ -197,7 +197,7 @@ async def wait_for_approval(approval_id: str, timeout_seconds: int = 30) -> Appr
     if status != "pending":
         return ApprovalResult(approval_id=approval_id, status=status)
 
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     if approval_id not in approval_waiters or approval_waiters[approval_id].done():
         approval_waiters[approval_id] = loop.create_future()
 
