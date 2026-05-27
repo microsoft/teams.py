@@ -3,15 +3,19 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
+import asyncio
 from typing import Literal, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class PendingAsk(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
     user_id: str
     status: Literal["pending", "answered"] = "pending"
     reply: Optional[str] = None
+    event: asyncio.Event = Field(default_factory=asyncio.Event)
 
 
 class NotifyResult(BaseModel):

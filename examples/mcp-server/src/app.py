@@ -14,7 +14,7 @@ from microsoft_teams.api import (
 )
 from microsoft_teams.apps import ActivityContext, App
 from microsoft_teams.cards import AdaptiveCard, TextBlock
-from state import approval_waiters, approvals, pending_asks, personal_conversations, reply_waiters
+from state import approval_events, approvals, pending_asks, personal_conversations
 
 app = App()
 logger = logging.getLogger(__name__)
@@ -46,10 +46,7 @@ async def handle_ask_reply(ctx: ActivityContext[AdaptiveCardInvokeActivity]) -> 
     if request_id and request_id in pending_asks and pending_asks[request_id].status == "pending":
         pending_asks[request_id].reply = reply
         pending_asks[request_id].status = "answered"
-        # Signal any wait_for_reply callers.
-        waiter = reply_waiters.get(request_id)
-        if waiter and not waiter.done():
-            waiter.set_result(pending_asks[request_id])
+        pending_asks[request_id].event.set()
         return AdaptiveCardActionCardResponse(
             value=AdaptiveCard(
                 version="1.4",
@@ -76,9 +73,9 @@ async def handle_approval_response(ctx: ActivityContext[AdaptiveCardInvokeActivi
     if approval_id and approval_id in approvals and decision in ("approved", "rejected"):
         approvals[approval_id] = decision
         # Signal any wait_for_approval callers.
-        waiter = approval_waiters.get(approval_id)
-        if waiter and not waiter.done():
-            waiter.set_result(decision)
+        event = approval_events.get(approval_id)
+        if event:
+            event.set()
         color = "Good" if decision == "approved" else "Attention"
         label = "Approved" if decision == "approved" else "Rejected"
         return AdaptiveCardActionCardResponse(
