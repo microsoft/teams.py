@@ -137,6 +137,13 @@ async def wait_for_reply(request_id: str, timeout_seconds: int = 30) -> ReplyRes
     if request_id not in reply_waiters or reply_waiters[request_id].done():
         reply_waiters[request_id] = loop.create_future()
 
+    # Re-check after creating the future: handle_ask_reply may have fired in the
+    # gap between the earlier status check and the future being registered.
+    entry = pending_asks.get(request_id)
+    if entry and entry.status == "answered":
+        reply_waiters.pop(request_id, None)
+        return ReplyResult(status=entry.status, reply=entry.reply)
+
     try:
         result = await asyncio.wait_for(asyncio.shield(reply_waiters[request_id]), timeout=float(timeout_seconds))
         return ReplyResult(status=result.status, reply=result.reply)
@@ -146,6 +153,8 @@ async def wait_for_reply(request_id: str, timeout_seconds: int = 30) -> ReplyRes
             status=current.status if current else "pending",
             reply=current.reply if current else None,
         )
+    finally:
+        reply_waiters.pop(request_id, None)
 
 
 @mcp.tool()
@@ -201,9 +210,18 @@ async def wait_for_approval(approval_id: str, timeout_seconds: int = 30) -> Appr
     if approval_id not in approval_waiters or approval_waiters[approval_id].done():
         approval_waiters[approval_id] = loop.create_future()
 
+    # Re-check after creating the future: handle_approval_response may have fired
+    # in the gap between the earlier status check and the future being registered.
+    current_status = approvals.get(approval_id, "pending")
+    if current_status != "pending":
+        approval_waiters.pop(approval_id, None)
+        return ApprovalResult(approval_id=approval_id, status=current_status)  # type: ignore[arg-type]
+
     try:
         result = await asyncio.wait_for(asyncio.shield(approval_waiters[approval_id]), timeout=float(timeout_seconds))
         return ApprovalResult(approval_id=approval_id, status=result)  # type: ignore[arg-type]
     except asyncio.TimeoutError:
         current_status = approvals.get(approval_id, "pending")
         return ApprovalResult(approval_id=approval_id, status=current_status)  # type: ignore[arg-type]
+    finally:
+        approval_waiters.pop(approval_id, None)
