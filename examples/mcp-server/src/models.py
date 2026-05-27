@@ -32,6 +32,14 @@ class ReplyResult(BaseModel):
     reply: Optional[str]
 
 
+class PendingApproval(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    user_id: str
+    status: Literal["pending", "approved", "rejected"] = "pending"
+    event: asyncio.Event = Field(default_factory=asyncio.Event)
+
+
 class ApprovalRequestResult(BaseModel):
     approval_id: str
 

@@ -14,7 +14,7 @@ from microsoft_teams.api import (
 )
 from microsoft_teams.apps import ActivityContext, App
 from microsoft_teams.cards import AdaptiveCard, TextBlock
-from state import approval_events, approvals, pending_asks, personal_conversations
+from state import pending_approvals, pending_asks, personal_conversations
 
 app = App()
 logger = logging.getLogger(__name__)
@@ -70,12 +70,14 @@ async def handle_approval_response(ctx: ActivityContext[AdaptiveCardInvokeActivi
     data = ctx.activity.value.action.data
     approval_id = data.get("approval_id")
     decision = data.get("decision")
-    if approval_id and approval_id in approvals and decision in ("approved", "rejected"):
-        approvals[approval_id] = decision
-        # Signal any wait_for_approval callers.
-        event = approval_events.get(approval_id)
-        if event:
-            event.set()
+    if (
+        approval_id
+        and approval_id in pending_approvals
+        and decision in ("approved", "rejected")
+        and pending_approvals[approval_id].status == "pending"
+    ):
+        pending_approvals[approval_id].status = decision
+        pending_approvals[approval_id].event.set()
         color = "Good" if decision == "approved" else "Attention"
         label = "Approved" if decision == "approved" else "Rejected"
         return AdaptiveCardActionCardResponse(

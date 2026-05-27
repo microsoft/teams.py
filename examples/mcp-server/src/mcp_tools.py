@@ -17,12 +17,13 @@ from models import (
     AskResult,
     FindUserResult,
     NotifyResult,
+    PendingApproval,
     PendingAsk,
     ReplyResult,
     UserMatch,
 )
 from msgraph.generated.users.users_request_builder import UsersRequestBuilder  # type: ignore[import-untyped]
-from state import approval_events, approvals, pending_asks, personal_conversations
+from state import pending_approvals, pending_asks, personal_conversations
 
 mcp = FastMCP("teams-bot")
 
@@ -113,15 +114,6 @@ async def ask(user_id: str, question: str) -> AskResult:
 
 
 @mcp.tool()
-async def get_reply(request_id: str) -> ReplyResult:
-    """Snapshot the current reply state for an ask. Returns status 'pending' until the user responds."""
-    entry = pending_asks.get(request_id)
-    if not entry:
-        raise ValueError(f"No ask found with request_id {request_id}.")
-    return ReplyResult(status=entry.status, reply=entry.reply)
-
-
-@mcp.tool()
 async def wait_for_reply(request_id: str, timeout_seconds: int = 30) -> ReplyResult:
     """Wait for the user's reply to an earlier ask. Blocks up to timeout_seconds (default 30).
 
@@ -163,24 +155,13 @@ async def request_approval(user_id: str, title: str, description: str) -> Approv
             ),
         ],
     )
-    approvals[approval_id] = "pending"
-    approval_events[approval_id] = asyncio.Event()
+    pending_approvals[approval_id] = PendingApproval(user_id=user_id)
     try:
         await app.send(conversation_id=conversation_id, activity=card)
     except Exception:
-        approvals.pop(approval_id, None)
-        approval_events.pop(approval_id, None)
+        pending_approvals.pop(approval_id, None)
         raise
     return ApprovalRequestResult(approval_id=approval_id)
-
-
-@mcp.tool()
-async def get_approval(approval_id: str) -> ApprovalResult:
-    """Snapshot the current status of an approval request. Returns 'pending', 'approved', or 'rejected'."""
-    status = approvals.get(approval_id)
-    if status is None:
-        raise ValueError(f"No approval found with approval_id {approval_id}.")
-    return ApprovalResult(approval_id=approval_id, status=status)
 
 
 @mcp.tool()
@@ -189,16 +170,15 @@ async def wait_for_approval(approval_id: str, timeout_seconds: int = 30) -> Appr
 
     Returns 'approved' or 'rejected' when the user clicks, or 'pending' if the timeout fires.
     """
-    status = approvals.get(approval_id)
-    if status is None:
+    entry = pending_approvals.get(approval_id)
+    if entry is None:
         raise ValueError(f"No approval found with approval_id {approval_id}.")
-    if status != "pending":
-        return ApprovalResult(approval_id=approval_id, status=status)
+    if entry.status != "pending":
+        return ApprovalResult(approval_id=approval_id, status=entry.status)
 
-    event = approval_events.get(approval_id)
-    if event:
-        try:
-            await asyncio.wait_for(event.wait(), timeout=float(timeout_seconds))
-        except asyncio.TimeoutError:
-            pass
-    return ApprovalResult(approval_id=approval_id, status=approvals.get(approval_id, "pending"))  # type: ignore[arg-type]
+    try:
+        await asyncio.wait_for(entry.event.wait(), timeout=float(timeout_seconds))
+    except asyncio.TimeoutError:
+        pass
+    current = pending_approvals.get(approval_id)
+    return ApprovalResult(approval_id=approval_id, status=current.status if current else "pending")  # type: ignore[arg-type]
