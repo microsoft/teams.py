@@ -70,7 +70,7 @@ To produce a stable release (e.g., `2.0.0` without any suffix):
 
 ## Publishing
 
-The [publish pipeline](https://dev.azure.com/DomoreexpGithub/Github_Pipelines/_build?definitionId=49&_a=summary) (`.azdo/publish.yml`) is manually triggered and requires selecting a **Publish Type**: `Internal` or `Public`.
+The [publish pipeline](https://dev.azure.com/DomoreexpGithub/Github_Pipelines/_build?definitionId=51&_a=summary) (`.azdo/publish.yml`) is manually triggered and requires selecting a **Publish Type**: `Internal` or `Public`.
 
 1. Go to **Pipelines** > **teams.py** in ADO
 2. Click **Run pipeline**
