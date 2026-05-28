@@ -70,7 +70,7 @@ To produce a stable release (e.g., `2.0.0` without any suffix):
 
 ## Publishing
 
-The [publish pipeline](https://dev.azure.com/DomoreexpGithub/Github_Pipelines/_build?definitionId=49&_a=summary) (`.azdo/publish.yml`) is manually triggered and requires selecting a **Publish Type**: `Internal` or `Public`.
+The [publish pipeline](https://dev.azure.com/DomoreexpGithub/Github_Pipelines/_build?definitionId=51&_a=summary) (`.azdo/publish.yml`) is manually triggered and requires selecting a **Publish Type**: `Internal` or `Public`.
 
 1. Go to **Pipelines** > **teams.py** in ADO
 2. Click **Run pipeline**
@@ -87,6 +87,27 @@ The [publish pipeline](https://dev.azure.com/DomoreexpGithub/Github_Pipelines/_b
 ```bash
 pip install microsoft-teams-apps==2.0.0
 ```
+
+## Tagging and GitHub Release
+
+After the publish pipeline finishes and packages land on PyPI, tag the release and create a GitHub Release page:
+
+```bash
+# Create a draft release at the release branch tip
+gh release create v<version> -R microsoft/teams.py \
+  --target release --title "v<version>" --draft \
+  --generate-notes --notes-start-tag v<previous-version>
+```
+
+**Note:** GitHub's auto-generated notes walk back from the `release` branch tip. Because the release PR is squash-merged, the auto-list shows only the merge PR. To get the real PR delta from `main`, query by date:
+
+```bash
+gh api -X GET search/issues \
+  -f q='repo:microsoft/teams.py is:pr is:merged base:main merged:>=<previous-release-publish-date>' \
+  --jq '.items[] | "* \(.title) by @\(.user.login) in \(.html_url)"' | tac > /tmp/notes.md
+```
+
+Paste the curated list into the draft, then publish from the GitHub UI (or via `gh release edit --draft=false`) to create the tag.
 
 ## Approvers
 
