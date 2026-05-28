@@ -5,6 +5,7 @@ Licensed under the MIT License.
 
 import asyncio
 import datetime
+import logging
 import sys
 import traceback
 
@@ -19,6 +20,10 @@ from config import DefaultConfig
 from microsoft_teams.api import MessageActivity
 from microsoft_teams.apps import ActivityContext, App
 from microsoft_teams.botbuilder import BotBuilderPlugin
+
+# Surface SDK INFO/WARNING logs (including the anonymous-mode startup warning
+# emitted when CLIENT_ID / CLIENT_SECRET / TENANT_ID are not configured).
+logging.basicConfig(level=logging.INFO)
 
 config = DefaultConfig()
 adapter = CloudAdapter(ConfigurationBotFrameworkAuthentication(config))

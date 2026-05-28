@@ -19,10 +19,15 @@ Key points:
 
 import argparse
 import asyncio
+import logging
 
 from microsoft_teams.api import MessageActivityInput
 from microsoft_teams.apps import App
 from microsoft_teams.cards import ActionSet, AdaptiveCard, OpenUrlAction, TextBlock
+
+# Surface SDK INFO/WARNING logs (including the anonymous-mode startup warning
+# emitted when CLIENT_ID / CLIENT_SECRET / TENANT_ID are not configured).
+logging.basicConfig(level=logging.INFO)
 
 
 async def send_proactive_message(app: App, conversation_id: str, message: str) -> None:

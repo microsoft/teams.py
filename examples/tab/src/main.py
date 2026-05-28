@@ -4,10 +4,15 @@ Licensed under the MIT License.
 """
 
 import asyncio
+import logging
 from pathlib import Path
 from typing import Any
 
 from microsoft_teams.apps import App, FunctionContext
+
+# Surface SDK INFO/WARNING logs (including the anonymous-mode startup warning
+# emitted when CLIENT_ID / CLIENT_SECRET / TENANT_ID are not configured).
+logging.basicConfig(level=logging.INFO)
 
 app = App()
 app.tab("test", str(Path("Web/dist").resolve()))
