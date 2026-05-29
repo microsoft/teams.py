@@ -10,7 +10,6 @@ from pydantic import Discriminator, Tag
 from .ai_message_entity import AIMessageEntity
 from .citation_entity import CitationEntity
 from .client_info_entity import ClientInfoEntity
-from .entity_base import EntityBase
 from .mention_entity import MentionEntity
 from .message_entity import MessageEntity
 from .product_info_entity import ProductInfoEntity
@@ -18,6 +17,7 @@ from .quoted_reply_entity import QuotedReplyEntity
 from .sensitive_usage_entity import SensitiveUsageEntity
 from .stream_info_entity import StreamInfoEntity
 from .targeted_message_info_entity import TargetedMessageInfoEntity
+from .unknown_entity import UnknownEntity
 
 _KNOWN_ENTITY_TYPE_TAGS = {
     "clientInfo": "clientInfo",
@@ -70,7 +70,7 @@ Entity = Annotated[
         Annotated[ProductInfoEntity, Tag("ProductInfo")],
         Annotated[QuotedReplyEntity, Tag("quotedReply")],
         Annotated[TargetedMessageInfoEntity, Tag("targetedMessageInfo")],
-        Annotated[EntityBase, Tag("_unknown")],
+        Annotated[UnknownEntity, Tag("_unknown")],
     ],
     Discriminator(_entity_discriminator),
 ]

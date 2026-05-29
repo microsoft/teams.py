@@ -14,12 +14,12 @@ from microsoft_teams.api.models import (
     ChannelData,
     ChannelInfo,
     ConversationAccount,
-    EntityBase,
     MeetingInfo,
     MentionEntity,
     NotificationInfo,
     TeamInfo,
     TenantInfo,
+    UnknownEntity,
 )
 
 
@@ -142,7 +142,7 @@ class TestActivityTypeAdapter:
         assert isinstance(activity, MessageActivity)
         assert activity.entities is not None
         assert len(activity.entities) == 2
-        assert activity.entities[0].__class__ is EntityBase
+        assert isinstance(activity.entities[0], UnknownEntity)
         assert activity.entities[0].type == "ClientCapabilities"
         assert activity.entities[0].model_dump().get("supportsListening") is True
         assert isinstance(activity.entities[1], MentionEntity)

@@ -55,5 +55,5 @@ class ConversationUpdateActivity(_ConversationUpdateBase, ActivityBase):
     (e.g. Direct Line activities) and should be treated as optional.
     """
 
-    channel_data: Optional[ConversationChannelData] = None  # pyright: ignore
+    channel_data: Optional[ConversationChannelData] = None
     """Channel data with event type information."""
