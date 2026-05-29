@@ -6,10 +6,10 @@ Licensed under the MIT License.
 from typing import Literal, Optional
 
 from ..account import Account
-from ..custom_base_model import CustomBaseModel
+from .entity_base import EntityBase
 
 
-class MentionEntity(CustomBaseModel):
+class MentionEntity(EntityBase):
     """Entity representing a mention of a user"""
 
     type: Literal["mention"] = "mention"

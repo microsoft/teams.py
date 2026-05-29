@@ -5,10 +5,10 @@ Licensed under the MIT License.
 
 from typing import Literal, Optional
 
-from ..custom_base_model import CustomBaseModel
+from .entity_base import EntityBase
 
 
-class ClientInfoEntity(CustomBaseModel):
+class ClientInfoEntity(EntityBase):
     """Client information entity"""
 
     type: Literal["clientInfo"] = "clientInfo"

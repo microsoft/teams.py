@@ -15,6 +15,7 @@ from .citation_entity import (
 )
 from .client_info_entity import ClientInfoEntity
 from .entity import Entity  # noqa: F401
+from .entity_base import EntityBase
 from .mention_entity import MentionEntity
 from .message_entity import MessageEntity
 from .product_info_entity import ProductInfoEntity
@@ -22,7 +23,6 @@ from .quoted_reply_entity import QuotedReplyData, QuotedReplyEntity
 from .sensitive_usage_entity import SensitiveUsage, SensitiveUsageEntity, SensitiveUsagePattern
 from .stream_info_entity import StreamInfoEntity
 from .targeted_message_info_entity import TargetedMessageInfoEntity
-from .unknown_entity import UnknownEntity
 
 __all__ = [
     "AIMessageEntity",
@@ -34,6 +34,7 @@ __all__ = [
     "CitationUsageInfo",
     "Claim",
     "ClientInfoEntity",
+    "EntityBase",
     "MentionEntity",
     "MessageEntity",
     "ProductInfoEntity",
@@ -44,6 +45,5 @@ __all__ = [
     "SensitiveUsagePattern",
     "StreamInfoEntity",
     "TargetedMessageInfoEntity",
-    "UnknownEntity",
     "Entity",
 ]

@@ -50,7 +50,10 @@ class _ConversationUpdateBase(CustomBaseModel):
 
 class ConversationUpdateActivity(_ConversationUpdateBase, ActivityBase):
     """Output model for received conversation update activities with read-only properties.
-    
+
     Note: channel_data may be absent for some conversationUpdate payloads
     (e.g. Direct Line activities) and should be treated as optional.
     """
+
+    channel_data: Optional[ConversationChannelData] = None  # pyright: ignore
+    """Channel data with event type information."""
