@@ -8,9 +8,10 @@ import json
 import logging
 import warnings
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Awaitable, Callable, Generic, Optional, TypeVar
+from typing import TYPE_CHECKING, Any, Awaitable, Callable, Generic, Optional, TypeGuard, TypeVar
 
 from microsoft_teams.api import (
+    Account,
     ActivityBase,
     ActivityParams,
     ApiClient,
@@ -21,6 +22,7 @@ from microsoft_teams.api import (
     GetBotSignInResourceParams,
     GetUserTokenParams,
     JsonWebToken,
+    MessageActivity,
     MessageActivityInput,
     SentActivity,
     SignOutUserParams,
@@ -183,6 +185,9 @@ class ActivityContext(Generic[T]):
         else:
             activity = message
 
+        if self._should_outbound_be_auto_targeted(activity, conversation_ref):
+            self._apply_targeted_recipient(activity)
+
         self._add_targeted_message_info_entity(activity)
 
         ref = conversation_ref or self.conversation_ref
@@ -232,12 +237,50 @@ class ActivityContext(Generic[T]):
         """Set the next handler in the middleware chain."""
         self._next_handler = handler
 
-    def _is_incoming_targeted(self) -> bool:
-        """Check if the incoming activity is a targeted message."""
-        activity = self.activity
+    def _incoming_targeted_sender(self) -> Optional[Account]:
+        if not isinstance(self.activity, MessageActivity):
+            return None
+
+        if self.activity.recipient.is_targeted is not True:
+            return None
+
+        return self.activity.from_
+
+    def _should_outbound_be_auto_targeted(
+        self,
+        activity: ActivityParams,
+        conversation_ref: Optional[ConversationReference] = None,
+    ) -> bool:
+        if not isinstance(activity, MessageActivityInput):
+            return False
+
+        if self._incoming_targeted_sender() is None:
+            return False
+
+        if not self._is_same_conversation(conversation_ref):
+            return False
+
+        return not activity.id and activity.recipient is None
+
+    def _is_same_conversation(self, conversation_ref: Optional[ConversationReference] = None) -> bool:
+        if conversation_ref is None:
+            return True
+
+        return conversation_ref.conversation.id == self.conversation_ref.conversation.id
+
+    def _apply_targeted_recipient(self, activity: ActivityParams) -> None:
+        sender = self._incoming_targeted_sender()
+        if sender is None:
+            return
+
+        recipient = sender.model_copy()
+        recipient.is_targeted = True
+        activity.recipient = recipient
+
+    def _is_targeted_outbound(self, activity: ActivityParams) -> TypeGuard[MessageActivityInput]:
         return (
-            hasattr(activity, "recipient")
-            and hasattr(activity.recipient, "is_targeted")
+            isinstance(activity, MessageActivityInput)
+            and activity.recipient is not None
             and activity.recipient.is_targeted is True
         )
 
@@ -248,9 +291,9 @@ class ActivityContext(Generic[T]):
         and attaches the entity automatically so the developer doesn't need to.
         Skips if the developer already attached a targetedMessageInfo entity.
         """
-        if not self._is_incoming_targeted():
+        if self._incoming_targeted_sender() is None:
             return
-        if not isinstance(activity_params, MessageActivityInput):
+        if not self._is_targeted_outbound(activity_params):
             return
 
         with warnings.catch_warnings():

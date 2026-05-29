@@ -19,3 +19,6 @@ class CardActionType(str, Enum):
     SIGN_IN = "signin"
     CALL = "call"
     INVOKE = "invoke"
+    SUBMIT = "Action.Submit"
+    """Suggested action of type Action.Submit. The action's value is delivered to the bot
+    as a suggestedActions/submit invoke without sending a chat-visible message."""

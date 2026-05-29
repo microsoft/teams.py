@@ -9,11 +9,13 @@ from typing import Type
 
 import pytest
 from microsoft_teams.api.activities.invoke.sign_in import SignInFailureInvokeActivity
+from microsoft_teams.api.activities.invoke.suggested_action_submit import SuggestedActionSubmitInvokeActivity
 from pydantic import BaseModel
 
 # Map fixture filenames to their expected activity types
 FIXTURE_ACTIVITY_MAP = {
     "signin_failure_invoke_activity.json": SignInFailureInvokeActivity,
+    "suggested_action_submit_invoke_activity.json": SuggestedActionSubmitInvokeActivity,
 }
 
 

@@ -50,6 +50,7 @@ from microsoft_teams.api.activities import (
     SignInFailureInvokeActivity,
     SignInTokenExchangeInvokeActivity,
     SignInVerifyStateInvokeActivity,
+    SuggestedActionSubmitInvokeActivity,
     TabFetchInvokeActivity,
     TabSubmitInvokeActivity,
     TypingActivity,
@@ -1368,6 +1369,41 @@ class GeneratedActivityHandlerMixin(ABC):
         ) -> VoidInvokeHandler[HandoffActionInvokeActivity]:
             validate_handler_type(func, HandoffActionInvokeActivity, "on_handoff_action", "HandoffActionInvokeActivity")
             config = ACTIVITY_ROUTES["handoff.action"]
+            self.router.add_handler(config.selector, func)
+            return func
+
+        if handler is not None:
+            return decorator(handler)
+        return decorator
+
+    @overload
+    def on_suggested_action_submit(
+        self, handler: VoidInvokeHandler[SuggestedActionSubmitInvokeActivity]
+    ) -> VoidInvokeHandler[SuggestedActionSubmitInvokeActivity]: ...
+
+    @overload
+    def on_suggested_action_submit(
+        self,
+    ) -> Callable[
+        [VoidInvokeHandler[SuggestedActionSubmitInvokeActivity]],
+        VoidInvokeHandler[SuggestedActionSubmitInvokeActivity],
+    ]: ...
+
+    def on_suggested_action_submit(
+        self, handler: Optional[VoidInvokeHandler[SuggestedActionSubmitInvokeActivity]] = None
+    ) -> VoidInvokeHandlerUnion[SuggestedActionSubmitInvokeActivity]:
+        """Register a suggested_action.submit activity handler."""
+
+        def decorator(
+            func: VoidInvokeHandler[SuggestedActionSubmitInvokeActivity],
+        ) -> VoidInvokeHandler[SuggestedActionSubmitInvokeActivity]:
+            validate_handler_type(
+                func,
+                SuggestedActionSubmitInvokeActivity,
+                "on_suggested_action_submit",
+                "SuggestedActionSubmitInvokeActivity",
+            )
+            config = ACTIVITY_ROUTES["suggested_action.submit"]
             self.router.add_handler(config.selector, func)
             return func
 

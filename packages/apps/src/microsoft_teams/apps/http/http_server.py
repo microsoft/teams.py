@@ -94,6 +94,12 @@ class HttpServer:
                 cloud=self._cloud,
             )
             logger.debug("JWT validation enabled for %s", self._messaging_endpoint)
+        elif not app_id:
+            logger.warning(
+                "No credentials configured (CLIENT_ID / CLIENT_SECRET / TENANT_ID). "
+                "Bot will accept unauthenticated requests on %s.",
+                self._messaging_endpoint,
+            )
 
         self._adapter.register_route("POST", self._messaging_endpoint, self.handle_request)
         self._initialized = True
