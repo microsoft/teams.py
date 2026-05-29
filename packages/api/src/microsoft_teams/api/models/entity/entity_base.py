@@ -7,7 +7,7 @@ from ..custom_base_model import CustomBaseModel
 
 
 class EntityBase(CustomBaseModel):
-    """Base entity for unknown and forward-compatible entity types."""
+    """Base entity for entity types."""
 
     type: str
     "Type identifier for the entity."
