@@ -4,7 +4,7 @@ Hatchling plugin for the Teams Python SDK. Provides two build-time hooks:
 
 ## Version Source (`teams-build`)
 
-Wraps [nbgv-python](https://pypi.org/project/nbgv-python/) to resolve package versions from git history via [Nerdbank.GitVersioning](https://github.com/dotnet/Nerdbank.GitVersioning). Falls back to `0.0.0` when the `nbgv` CLI is not installed, so local development works without .NET SDK. Set `NBGV_REQUIRED=1` to make the missing CLI a hard error (used in CI).
+Calls the `nbgv` CLI directly to resolve package versions from git history via [Nerdbank.GitVersioning](https://github.com/dotnet/Nerdbank.GitVersioning), then normalizes the result with PyPA `packaging`. Falls back to `0.0.0` when the `nbgv` CLI is not installed, so local development works without .NET SDK. Set `NBGV_REQUIRED=1` to make a missing or failing CLI a hard error (used in CI).
 
 ```toml
 [tool.hatch.version]
