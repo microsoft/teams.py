@@ -5,10 +5,10 @@ Licensed under the MIT License.
 
 from typing import List, Literal, Optional
 
-from ..custom_base_model import CustomBaseModel
+from .entity_base import EntityBase
 
 
-class MessageEntity(CustomBaseModel):
+class MessageEntity(EntityBase):
     """
     Base message entity following schema.org Message schema
     """

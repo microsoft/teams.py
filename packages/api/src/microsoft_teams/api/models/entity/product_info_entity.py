@@ -5,10 +5,10 @@ Licensed under the MIT License.
 
 from typing import Literal
 
-from ..custom_base_model import CustomBaseModel
+from .entity_base import EntityBase
 
 
-class ProductInfoEntity(CustomBaseModel):
+class ProductInfoEntity(EntityBase):
     """Product information entity"""
 
     id: str

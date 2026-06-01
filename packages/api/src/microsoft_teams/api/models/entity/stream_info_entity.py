@@ -5,10 +5,10 @@ Licensed under the MIT License.
 
 from typing import Literal, Optional
 
-from ..custom_base_model import CustomBaseModel
+from .entity_base import EntityBase
 
 
-class StreamInfoEntity(CustomBaseModel):
+class StreamInfoEntity(EntityBase):
     """Entity containing streaming information"""
 
     type: Literal["streaminfo"] = "streaminfo"

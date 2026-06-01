@@ -58,6 +58,14 @@ from microsoft_teams.api import (
 RouteSelector = Callable[[ActivityBase], bool]
 
 
+def _conversation_update_has_event_type(activity: ActivityBase, event_type: str) -> bool:
+    return (
+        isinstance(activity, ConversationUpdateActivity)
+        and activity.channel_data is not None
+        and activity.channel_data.event_type == event_type
+    )
+
+
 @dataclass(frozen=True)
 class ActivityConfig:
     """Configuration for an activity handler."""
@@ -165,80 +173,70 @@ ACTIVITY_ROUTES: Dict[str, ActivityConfig] = {
         name="channel_created",
         method_name="on_channel_created",
         input_model=ConversationUpdateActivity,
-        selector=lambda activity: isinstance(activity, ConversationUpdateActivity)
-        and activity.channel_data.event_type == "channelCreated",
+        selector=lambda activity: _conversation_update_has_event_type(activity, "channelCreated"),
         output_model=None,
     ),
     "channel_deleted": ActivityConfig(
         name="channel_deleted",
         method_name="on_channel_deleted",
         input_model=ConversationUpdateActivity,
-        selector=lambda activity: isinstance(activity, ConversationUpdateActivity)
-        and activity.channel_data.event_type == "channelDeleted",
+        selector=lambda activity: _conversation_update_has_event_type(activity, "channelDeleted"),
         output_model=None,
     ),
     "channel_renamed": ActivityConfig(
         name="channel_renamed",
         method_name="on_channel_renamed",
         input_model=ConversationUpdateActivity,
-        selector=lambda activity: isinstance(activity, ConversationUpdateActivity)
-        and activity.channel_data.event_type == "channelRenamed",
+        selector=lambda activity: _conversation_update_has_event_type(activity, "channelRenamed"),
         output_model=None,
     ),
     "channel_restored": ActivityConfig(
         name="channel_restored",
         method_name="on_channel_restored",
         input_model=ConversationUpdateActivity,
-        selector=lambda activity: isinstance(activity, ConversationUpdateActivity)
-        and activity.channel_data.event_type == "channelRestored",
+        selector=lambda activity: _conversation_update_has_event_type(activity, "channelRestored"),
         output_model=None,
     ),
     "team_archived": ActivityConfig(
         name="team_archived",
         method_name="on_team_archived",
         input_model=ConversationUpdateActivity,
-        selector=lambda activity: isinstance(activity, ConversationUpdateActivity)
-        and activity.channel_data.event_type == "teamArchived",
+        selector=lambda activity: _conversation_update_has_event_type(activity, "teamArchived"),
         output_model=None,
     ),
     "team_deleted": ActivityConfig(
         name="team_deleted",
         method_name="on_team_deleted",
         input_model=ConversationUpdateActivity,
-        selector=lambda activity: isinstance(activity, ConversationUpdateActivity)
-        and activity.channel_data.event_type == "teamDeleted",
+        selector=lambda activity: _conversation_update_has_event_type(activity, "teamDeleted"),
         output_model=None,
     ),
     "team_hard_deleted": ActivityConfig(
         name="team_hard_deleted",
         method_name="on_team_hard_deleted",
         input_model=ConversationUpdateActivity,
-        selector=lambda activity: isinstance(activity, ConversationUpdateActivity)
-        and activity.channel_data.event_type == "teamHardDeleted",
+        selector=lambda activity: _conversation_update_has_event_type(activity, "teamHardDeleted"),
         output_model=None,
     ),
     "team_renamed": ActivityConfig(
         name="team_renamed",
         method_name="on_team_renamed",
         input_model=ConversationUpdateActivity,
-        selector=lambda activity: isinstance(activity, ConversationUpdateActivity)
-        and activity.channel_data.event_type == "teamRenamed",
+        selector=lambda activity: _conversation_update_has_event_type(activity, "teamRenamed"),
         output_model=None,
     ),
     "team_restored": ActivityConfig(
         name="team_restored",
         method_name="on_team_restored",
         input_model=ConversationUpdateActivity,
-        selector=lambda activity: isinstance(activity, ConversationUpdateActivity)
-        and activity.channel_data.event_type == "teamRestored",
+        selector=lambda activity: _conversation_update_has_event_type(activity, "teamRestored"),
         output_model=None,
     ),
     "team_unarchived": ActivityConfig(
         name="team_unarchived",
         method_name="on_team_unarchived",
         input_model=ConversationUpdateActivity,
-        selector=lambda activity: isinstance(activity, ConversationUpdateActivity)
-        and activity.channel_data.event_type == "teamUnarchived",
+        selector=lambda activity: _conversation_update_has_event_type(activity, "teamUnarchived"),
         output_model=None,
     ),
     # Complex Union Activities (discriminated by sub-fields)
