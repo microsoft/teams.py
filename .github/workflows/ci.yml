@@ -31,7 +31,7 @@ jobs:
 
     strategy:
       matrix:
-        python-version: ["3.12", "3.13", "3.14"]
+        python-version: ["3.11", "3.12", "3.13", "3.14"]
 
     env:
       NBGV_REQUIRED: "1"
@@ -63,8 +63,8 @@ jobs:
         run: |
           uv python install ${{ matrix.python-version }}
           uv python list
-          uv run python --version
-          uv sync --frozen --all-packages --group dev
+          uv run --python ${{ matrix.python-version }} python --version
+          uv sync --python ${{ matrix.python-version }} --frozen --all-packages --group dev
 
       - name: Lint (Ruff)
         uses: astral-sh/ruff-action@d0a0e814ec17e92d33be7d24dd922b479f1bcd38 # v1.1.1

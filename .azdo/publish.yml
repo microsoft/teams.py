@@ -173,8 +173,9 @@ extends:
               $env:PIP_INDEX_URL = $indexUrl
               $env:UV_INDEX_URL = $indexUrl
               Write-Host "Using authenticated Azure Artifacts feed for build"
-              Write-Host "Building packages (version determined by nbgv)..."
-              uv build --all-packages --python $pythonPath
+              Write-Host "Building wheels and source distributions (version determined by nbgv)..."
+              uv build --all-packages --wheel --python $pythonPath
+              uv build --all-packages --sdist --python $pythonPath
           env:
             SYSTEM_ACCESSTOKEN: $(System.AccessToken)
           target:
