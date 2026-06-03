@@ -14,6 +14,7 @@ from microsoft_teams.apps import ActivityContext, App
 # Surface SDK INFO/WARNING logs (including the anonymous-mode startup warning
 # emitted when CLIENT_ID / CLIENT_SECRET / TENANT_ID are not configured).
 logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 app = App()
 
@@ -27,8 +28,8 @@ async def handle_greeting(ctx: ActivityContext[MessageActivity]) -> None:
 @app.on_message
 async def handle_message(ctx: ActivityContext[MessageActivity]):
     """Handle message activities using the new generated handler system."""
-    print(f"[GENERATED onMessage] Message received: {ctx.activity.text}")
-    print(f"[GENERATED onMessage] From: {ctx.activity.from_}")
+    logger.info(f"[GENERATED onMessage] Message received: {ctx.activity.text}")
+    logger.info(f"[GENERATED onMessage] From: {ctx.activity.from_}")
     await ctx.reply(TypingActivityInput())
 
     if "reply" in ctx.activity.text.lower():

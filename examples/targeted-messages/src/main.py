@@ -13,6 +13,7 @@ from microsoft_teams.apps import ActivityContext, App
 # Surface SDK INFO/WARNING logs (including the anonymous-mode startup warning
 # emitted when CLIENT_ID / CLIENT_SECRET / TENANT_ID are not configured).
 logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 """
 Example: Targeted Messages
@@ -72,13 +73,13 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
                     updated_message.id = message_id
 
                     await ctx.api.conversations.activities(conversation_id).update_targeted(message_id, updated_message)
-                    print("[UPDATE] Updated targeted message")
+                    logger.info("[UPDATE] Updated targeted message")
                 except Exception as err:
-                    print(f"[UPDATE] Error: {err}")
+                    logger.error(f"[UPDATE] Error: {err}")
 
             asyncio.create_task(update_after_delay())
 
-        print("[UPDATE] Scheduled update in 3 seconds")
+        logger.info("[UPDATE] Scheduled update in 3 seconds")
 
     elif "test delete" in text:
         # DELETE: Send a targeted message, then delete it after 3 seconds
@@ -97,18 +98,18 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
                 await asyncio.sleep(3)
                 try:
                     await ctx.api.conversations.activities(conversation_id).delete_targeted(message_id)
-                    print("[DELETE] Deleted targeted message")
+                    logger.info("[DELETE] Deleted targeted message")
                 except Exception as err:
-                    print(f"[DELETE] Error: {err}")
+                    logger.error(f"[DELETE] Error: {err}")
 
             asyncio.create_task(delete_after_delay())
 
-        print("[DELETE] Scheduled delete in 3 seconds")
+        logger.info("[DELETE] Scheduled delete in 3 seconds")
 
     elif "test public" in text:
         # PUBLIC: Send a public message visible to everyone in the chat.
         await ctx.send(MessageActivityInput(text="📋 Here is the public result — everyone can see this!"))
-        print("[PUBLIC] Sent public message")
+        logger.info("[PUBLIC] Sent public message")
 
     elif "test send" in text:
         # SEND: Send a targeted message visible only to the sender.
@@ -116,7 +117,7 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
             text="👋 This is a **targeted message** — only YOU can see this!"
         ).with_recipient(activity.from_, is_targeted=True)
         await ctx.send(targeted_message)
-        print("[SEND] Sent targeted message")
+        logger.info("[SEND] Sent targeted message")
 
     elif "test inbound" in text:
         # INBOUND: Detect whether the inbound message was itself targeted at the bot
@@ -127,7 +128,7 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
             if is_targeted_inbound
             else "ℹ️ Your message was delivered to me as a regular (broadcast) message."
         )
-        print(f"[INBOUND] is_targeted={is_targeted_inbound}")
+        logger.info(f"[INBOUND] is_targeted={is_targeted_inbound}")
 
     elif "help" in text:
         await ctx.send(

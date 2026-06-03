@@ -13,6 +13,7 @@ from microsoft_teams.apps import ActivityContext, App
 # Surface SDK INFO/WARNING logs (including the anonymous-mode startup warning
 # emitted when CLIENT_ID / CLIENT_SECRET / TENANT_ID are not configured).
 logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 app = App()
 
