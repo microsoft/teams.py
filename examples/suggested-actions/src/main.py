@@ -5,6 +5,7 @@ Licensed under the MIT License.
 
 import asyncio
 import json
+import logging
 import warnings
 
 from microsoft_teams.api import MessageActivity, MessageActivityInput
@@ -14,6 +15,11 @@ from microsoft_teams.api.models.card.card_action_type import CardActionType
 from microsoft_teams.api.models.suggested_actions import SuggestedActions
 from microsoft_teams.apps import ActivityContext, App
 from microsoft_teams.common.experimental import ExperimentalWarning
+
+# Surface SDK INFO/WARNING logs (including the anonymous-mode startup warning
+# emitted when CLIENT_ID / CLIENT_SECRET / TENANT_ID are not configured).
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # SuggestedActionSubmit and on_suggested_action_submit are marked
 # @experimental("ExperimentalTeamsSuggestedAction"). See README.md.
