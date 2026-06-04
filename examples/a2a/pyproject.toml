@@ -1,7 +1,7 @@
 [project]
-name = "a2a-test"
+name = "a2a"
 version = "0.1.0"
-description = "Two Teams bots talking to each other via the official a2a-sdk, exchanging Adaptive Cards"
+description = "Two Teams bots (Alice and Bob) that hand users off to each other over A2A with proactive DM"
 readme = "README.md"
 requires-python = ">=3.11,<4.0"
 dependencies = [

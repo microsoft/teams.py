@@ -144,6 +144,6 @@ class ConversationClient(BaseClient):
         """
         response = await self.http.post(
             f"{self.service_url}/v3/conversations",
-            json=params.model_dump(by_alias=True),
+            json=params.model_dump(by_alias=True, exclude_none=True),
         )
         return ConversationResource.model_validate(response.json())

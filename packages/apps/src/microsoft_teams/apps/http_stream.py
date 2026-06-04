@@ -130,6 +130,24 @@ class HttpStream(StreamerProtocol):
         """
         self.emit(TypingActivityInput().with_text(text).with_channel_data(ChannelData(stream_type="informative")))
 
+    def clear_text(self) -> None:
+        """
+        Discard everything accumulated so far so the caller can emit a fresh
+        card-only final activity.
+
+        Clears the text buffer, drops queued message items so the next flush
+        doesn't repopulate it, and discards the promoted final activity so any
+        previously-flushed attachments/suggested actions aren't sent if the
+        caller never emits a replacement. The stream id and channel data are
+        kept intact so the new final activity still updates the stream in place.
+        """
+        # Safe without the lock: no await points here, so this runs atomically
+        # w.r.t. the event loop and can't interleave with _flush's critical
+        # section (_flush drains the queue before it ever awaits).
+        self._text = ""
+        self._queue = deque(item for item in self._queue if not isinstance(item, MessageActivityInput))
+        self._final_activity = None
+
     async def _wait_for_id_and_queue(self):
         """Wait until _id is set, the queue is empty, and no flush is in progress, with a total timeout."""
 

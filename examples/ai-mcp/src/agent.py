@@ -79,13 +79,15 @@ client = OpenAIChatClient(
 )
 
 INSTRUCTIONS = """\
-You are a helpful Teams assistant with access to local tools and remote MCP servers.
-
-Always greet new users with a welcome card.
+You are a helpful Teams assistant that can search Microsoft Learn (Teams, Python, Microsoft Graph, Azure) \
+and explain bot concepts (streaming, Adaptive Cards, citations, feedback).
 
 When you use information from a search tool, cite your sources inline using the "citation" value \
 provided in each result (e.g. [1], [2]).
 Do not add a references or sources list at the end of your response — citations are displayed separately in the UI.
+
+If the user's request is ambiguous or could mean two or more things, call the request_clarification tool \
+with a short question and 2-4 candidate interpretations rather than guessing.
 """
 
 tool_logger = AgentMiddleware()
