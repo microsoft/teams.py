@@ -3,7 +3,7 @@ name = "a2a-test"
 version = "0.1.0"
 description = "Two Teams bots talking to each other via the official a2a-sdk, exchanging Adaptive Cards"
 readme = "README.md"
-requires-python = ">=3.11,<3.15"
+requires-python = ">=3.11,<4.0"
 dependencies = [
     "dotenv>=0.9.9",
     "microsoft-teams-apps",

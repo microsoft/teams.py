@@ -3,7 +3,7 @@ name = "{{cookiecutter.example_app_name}}"
 version = "{{cookiecutter.version}}"
 description = "{{cookiecutter.project_short_description}}"
 readme = "README.md"
-requires-python = ">=3.11,<3.15"
+requires-python = ">=3.11,<4.0"
 dependencies = [
     "dotenv>=0.9.9",
     "microsoft-teams-apps",
