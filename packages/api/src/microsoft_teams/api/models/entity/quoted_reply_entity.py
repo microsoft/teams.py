@@ -8,6 +8,7 @@ from typing import Literal, Optional
 from microsoft_teams.common.experimental import experimental
 
 from ..custom_base_model import CustomBaseModel
+from .entity_base import EntityBase
 
 
 @experimental("ExperimentalTeamsQuotedReplies")
@@ -42,7 +43,7 @@ class QuotedReplyData(CustomBaseModel):
 
 
 @experimental("ExperimentalTeamsQuotedReplies")
-class QuotedReplyEntity(CustomBaseModel):
+class QuotedReplyEntity(EntityBase):
     """Entity containing quoted reply information
 
     .. warning:: Coming Soon

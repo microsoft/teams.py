@@ -17,7 +17,7 @@ A Teams bot powered by [agent-framework](https://github.com/microsoft/agent-fram
 
 ## Prerequisites
 
-- Python >= 3.12, < 3.15
+- Python >= 3.11
 - UV >= 0.8.11
 - An Azure OpenAI resource with a deployed model
 - A Teams bot registration (App ID + password)

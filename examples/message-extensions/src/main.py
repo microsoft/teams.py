@@ -4,6 +4,7 @@ Licensed under the MIT License.
 """
 
 import asyncio
+import logging
 import os
 from pathlib import Path
 from typing import cast
@@ -51,6 +52,11 @@ from microsoft_teams.api.models import (
 from microsoft_teams.api.models.card.thumbnail_card import ThumbnailCard
 from microsoft_teams.apps import ActivityContext, App
 from typing_extensions import Any, Dict
+
+# Surface SDK INFO/WARNING logs (including the anonymous-mode startup warning
+# emitted when CLIENT_ID / CLIENT_SECRET / TENANT_ID are not configured).
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 app = App()
 

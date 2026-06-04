@@ -7,11 +7,11 @@ from typing import Literal
 
 from microsoft_teams.common.experimental import experimental
 
-from ..custom_base_model import CustomBaseModel
+from .entity_base import EntityBase
 
 
 @experimental("ExperimentalTeamsTargeted")
-class TargetedMessageInfoEntity(CustomBaseModel):
+class TargetedMessageInfoEntity(EntityBase):
     """Entity containing targeted message information for prompt preview.
 
     .. warning:: Preview

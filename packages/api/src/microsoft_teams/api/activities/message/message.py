@@ -401,7 +401,11 @@ class MessageActivityInput(_MessageBase, ActivityInputBase):
         There should only be one root level message entity.
         """
         message_entity = next(
-            (e for e in (self.entities or []) if e.type == "https://schema.org/Message" and e.at_type == "Message"),
+            (
+                e
+                for e in (self.entities or [])
+                if isinstance(e, MessageEntity) and e.type == "https://schema.org/Message" and e.at_type == "Message"
+            ),
             None,
         )
 
