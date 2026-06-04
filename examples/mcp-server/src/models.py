@@ -4,18 +4,20 @@ Licensed under the MIT License.
 """
 
 import asyncio
+from dataclasses import dataclass, field
 from typing import Literal, Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel
 
 
-class PendingAsk(BaseModel):
-    model_config = ConfigDict(arbitrary_types_allowed=True)
+@dataclass
+class PendingAsk:
+    """In-process state for a pending ask. Holds a live asyncio.Event, never serialized."""
 
     user_id: str
     status: Literal["pending", "answered"] = "pending"
     reply: Optional[str] = None
-    event: asyncio.Event = Field(default_factory=asyncio.Event)
+    event: asyncio.Event = field(default_factory=asyncio.Event)
 
 
 class NotifyResult(BaseModel):
@@ -32,12 +34,13 @@ class ReplyResult(BaseModel):
     reply: Optional[str]
 
 
-class PendingApproval(BaseModel):
-    model_config = ConfigDict(arbitrary_types_allowed=True)
+@dataclass
+class PendingApproval:
+    """In-process state for a pending approval. Holds a live asyncio.Event, never serialized."""
 
     user_id: str
     status: Literal["pending", "approved", "rejected"] = "pending"
-    event: asyncio.Event = Field(default_factory=asyncio.Event)
+    event: asyncio.Event = field(default_factory=asyncio.Event)
 
 
 class ApprovalRequestResult(BaseModel):

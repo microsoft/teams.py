@@ -40,9 +40,6 @@ config = Config(
 fastapi_app = FastAPI()
 app = App(
     http_server_adapter=FastAPIAdapter(app=fastapi_app),
-    client_id=getenv("BOT_APP_ID"),
-    client_secret=getenv("BOT_APP_PASSWORD"),
-    tenant_id=getenv("TENANT_ID"),
 )
 
 a2a_client = A2APeerClient(config)

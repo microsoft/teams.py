@@ -128,7 +128,7 @@ async def wait_for_reply(request_id: str, timeout_seconds: int = 30) -> ReplyRes
     try:
         await asyncio.wait_for(entry.event.wait(), timeout=float(timeout_seconds))
     except asyncio.TimeoutError:
-        pass
+        pass  # Timeout occurred, return status='pending'
     current = pending_asks.get(request_id)
     return ReplyResult(
         status=current.status if current else "pending",
@@ -179,6 +179,6 @@ async def wait_for_approval(approval_id: str, timeout_seconds: int = 30) -> Appr
     try:
         await asyncio.wait_for(entry.event.wait(), timeout=float(timeout_seconds))
     except asyncio.TimeoutError:
-        pass
+        pass  # Timeout occurred, return status='pending'
     current = pending_approvals.get(approval_id)
     return ApprovalResult(approval_id=approval_id, status=current.status if current else "pending")  # type: ignore[arg-type]

@@ -32,8 +32,15 @@ class A2APeerClient:
         if self._cached_card:
             return self._cached_card
         if self._init_task is None:
-            self._init_task = asyncio.get_event_loop().create_task(self._resolve())
-        return await self._init_task
+            self._init_task = asyncio.create_task(self._resolve())
+        try:
+            return await self._init_task
+        except Exception:
+            # Don't cache the failure — a peer that wasn't up yet should resolve
+            # on the next attempt instead of failing for the process lifetime.
+            self._init_task = None
+            logger.warning("Failed to resolve peer AgentCard at %s; will retry on next call", self._config.peer_url)
+            raise
 
     async def send_handoff(self, payload: HandoffMessage) -> None:
         """Ship a HandoffMessage as an A2A DataPart to the peer."""

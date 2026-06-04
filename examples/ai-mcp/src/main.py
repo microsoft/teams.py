@@ -94,9 +94,9 @@ async def _generate_follow_ups(last_user_text: str, last_ai_text: str) -> list[C
         completion = await client.chat.completions.create(
             model=model,
             messages=[
+                {"role": "system", "content": _FOLLOW_UPS_PROMPT},
                 {"role": "user", "content": last_user_text},
                 {"role": "assistant", "content": last_ai_text},
-                {"role": "system", "content": _FOLLOW_UPS_PROMPT},
             ],
             response_format=_FOLLOW_UPS_SCHEMA,  # type: ignore[arg-type]
             max_tokens=200,
