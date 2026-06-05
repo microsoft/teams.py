@@ -22,13 +22,42 @@ dotnet tool install -g nbgv
 | `main` | `2.0.1.dev1`, `2.0.1.dev2`, ... | No |
 | `release` | `2.0.0` | Yes |
 
+`release` is a **long-lived branch** — it already exists. You don't create it; you bring `main` into it.
+
 ## Workflow
 
-Development happens on `main`. When ready to release, create a `release` branch from `main`:
+Development happens on `main`. When ready to release:
 
-```
-main → release
-```
+1. Open a PR from a feature branch (e.g. `<you>/release-2.0.13`) into the existing `release` branch
+2. The PR should make `release` equal `main` plus the version bump in `version.json`
+3. Merge the PR, then run the publish pipeline
+
+### Preparing the release branch
+
+Start from `main`, bump the version, then use `git merge -s ours origin/release` to mark `release` as merged without pulling in any of its content.
+
+1. Start a branch from latest `main`:
+   ```bash
+   git fetch origin
+   git checkout -b <you>/prep-release-<version> origin/main
+   ```
+
+2. Edit `version.json` and change `"version"` from `"X.Y.Z-dev.{height}"` to `"X.Y.Z"` (the stable version you're releasing), then commit:
+   ```bash
+   git add version.json
+   git commit -m "Release <version>: set version to <version> stable"
+   ```
+
+3. Merge `release` into your branch using `-s ours` (records release as a parent but keeps main's tree):
+   ```bash
+   git merge -s ours origin/release -m "Release <version>: merge main into release"
+   ```
+
+4. Push and open a PR targeting `release`:
+   ```bash
+   git push -u origin <you>/prep-release-<version>
+   gh pr create --base release --title "Release <version>: merge main into release"
+   ```
 
 ## Versioning
 
@@ -38,7 +67,7 @@ Versions are managed by **Nerdbank.GitVersioning** via [version.json](version.js
 
 ```json
 {
-  "version": "2.0.1-dev.{height}",
+  "version": "2.0.13-dev.{height}",
   "versionHeightOffset": 1
 }
 ```
@@ -56,17 +85,16 @@ Builds on `main` produce dev versions like `2.0.1.dev1`, `2.0.1.dev2`, etc. Thes
 
 ### Producing a Stable Release
 
-To produce a stable release (e.g., `2.0.0` without any suffix):
+The version on `release` should be a plain stable string (e.g. `2.0.0`, no `-dev` suffix). The PR opened in the [Workflow](#workflow) section above already handles this — just edit `version.json` before pushing:
 
-1. Create a `release` branch from `main`
-2. Update its `version.json`:
-   ```json
-   {
-     "version": "2.0.0",
-     "versionHeightOffset": 1
-   }
-   ```
-3. Run the publish pipeline with **Public** to release to PyPI
+```json
+{
+  "version": "2.0.0",
+  "versionHeightOffset": 1
+}
+```
+
+After the PR merges, run the publish pipeline with **Public** to release to PyPI.
 
 ## Publishing
 
@@ -82,12 +110,6 @@ The [publish pipeline](https://dev.azure.com/DomoreexpGithub/Github_Pipelines/_b
 
 > **Note:** The pipeline filters out packages matching the `ExcludePackageFolders` variable. Prerelease versions are tagged `next` on PyPI; stable versions are tagged `latest`.
 
-#### Installing Published Packages
-
-```bash
-pip install microsoft-teams-apps==2.0.0
-```
-
 ## Tagging and GitHub Release
 
 After the publish pipeline finishes and packages land on PyPI, tag the release and create a GitHub Release page:
@@ -102,9 +124,12 @@ gh release create v<version> -R microsoft/teams.py \
 **Note:** GitHub's auto-generated notes walk back from the `release` branch tip. Because the release PR is squash-merged, the auto-list shows only the merge PR. To get the real PR delta from `main`, query by date:
 
 ```bash
+# Note: macOS has no `tac` — the awk one-liner below works everywhere
 gh api -X GET search/issues \
   -f q='repo:microsoft/teams.py is:pr is:merged base:main merged:>=<previous-release-publish-date>' \
-  --jq '.items[] | "* \(.title) by @\(.user.login) in \(.html_url)"' | tac > /tmp/notes.md
+  --jq '.items[] | "* \(.title) by @\(.user.login) in \(.html_url)"' \
+  | awk '{ a[NR] = $0 } END { for (i = NR; i >= 1; i--) print a[i] }' \
+  > /tmp/notes.md
 ```
 
 Paste the curated list into the draft, then publish from the GitHub UI (or via `gh release edit --draft=false`) to create the tag.
