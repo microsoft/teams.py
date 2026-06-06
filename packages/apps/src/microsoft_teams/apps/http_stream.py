@@ -57,7 +57,8 @@ class HttpStream(StreamerProtocol):
         Args:
             client (ApiClient): The API client used to send activities to Microsoft Teams.
             ref (ConversationReference): Reference to the Teams conversation.
-            min_send_interval (float): Minimum seconds between sends (Teams limits streaming to 1 req/s).
+            min_send_interval (float): Minimum seconds between sends, including retries and the final
+                close() send (Teams limits streaming to 1 req/s). Set 0 to disable pacing.
             coalesce_informative_updates (bool): When True (default), a burst of informative updates in
                 one flush collapses to the latest one. Set False to pace out every update at 1 req/s
                 instead; a long burst then holds the flush lock and can delay or drop close()'s final
@@ -297,9 +298,6 @@ class HttpStream(StreamerProtocol):
         Args:
             activity: The activity to send.
         """
-        # Paces sends to the Teams 1 req/s limit. This sleeps while _flush holds
-        # self._lock, so a long informative burst delays close() (see _total_wait_timeout).
-        await self._acquire()
         if self._id:
             to_send = to_send.with_id(self._id)
         to_send = to_send.add_stream_update(self._index)
@@ -324,6 +322,16 @@ class HttpStream(StreamerProtocol):
         if self._canceled:
             logger.warning("Teams channel stopped the stream.")
             raise StreamCancelledError("Teams channel stopped the stream.")
+
+        # Pace every HTTP attempt to the Teams 1 req/s streaming limit. Gating here
+        # rather than in _send_activity also paces retries and close()'s final send,
+        # so a retry storm or a final message sent right behind the last chunk can't
+        # trip the throttle. acquire() only waits when a send would actually be too
+        # soon (next_slot is in the past after any idle gap), so close() pays no
+        # latency unless it lands within the interval. While _flush holds self._lock
+        # this sleeps under it, so a long informative burst still delays close()
+        # (see _total_wait_timeout). Pass min_send_interval=0 to disable pacing.
+        await self._acquire()
 
         to_send.from_ = self._ref.bot
         to_send.conversation = self._ref.conversation

@@ -64,7 +64,7 @@ class TestHttpStream:
 
     @pytest.fixture
     def http_stream(self, mock_api_client, conversation_reference):
-        return HttpStream(mock_api_client, conversation_reference)
+        return HttpStream(mock_api_client, conversation_reference, min_send_interval=0)
 
     @pytest.fixture
     def patch_loop_call_later(self):
@@ -117,7 +117,7 @@ class TestHttpStream:
                 return SentActivity(id=f"success-after-timeout-{call_count}", activity_params=activity)
 
             mock_api_client.conversations.activities().create = mock_send_with_timeout
-            stream = HttpStream(mock_api_client, conversation_reference)
+            stream = HttpStream(mock_api_client, conversation_reference, min_send_interval=0)
 
             stream.emit("Test message with timeout")
             await asyncio.sleep(0)
@@ -142,7 +142,7 @@ class TestHttpStream:
                 raise TimeoutError("All operations timed out")
 
             mock_api_client.conversations.activities().create = mock_send_all_timeout
-            stream = HttpStream(mock_api_client, conversation_reference)
+            stream = HttpStream(mock_api_client, conversation_reference, min_send_interval=0)
 
             stream.emit("Test message with all timeouts")
             await asyncio.sleep(0)
@@ -157,7 +157,7 @@ class TestHttpStream:
         loop = asyncio.get_running_loop()
         patcher, scheduled = patch_loop_call_later(loop)
         with patcher:
-            stream = HttpStream(mock_api_client, conversation_reference)
+            stream = HttpStream(mock_api_client, conversation_reference, min_send_interval=0)
             stream.update("Thinking...")
             await asyncio.sleep(0)
             await self._run_scheduled_flushes(scheduled)
@@ -215,7 +215,7 @@ class TestHttpStream:
         mock_api_client.conversations.activities().create = mock_send
 
         with patcher:
-            stream = HttpStream(mock_api_client, conversation_reference)
+            stream = HttpStream(mock_api_client, conversation_reference, min_send_interval=0)
 
             async def emit_task():
                 stream.emit("Concurrent message")
@@ -240,7 +240,7 @@ class TestHttpStream:
                 )
 
             mock_api_client.conversations.activities().create = mock_send_403
-            stream = HttpStream(mock_api_client, conversation_reference)
+            stream = HttpStream(mock_api_client, conversation_reference, min_send_interval=0)
 
             stream.emit("Test message")
             await asyncio.sleep(0)
@@ -262,7 +262,7 @@ class TestHttpStream:
                 )
 
             mock_api_client.conversations.activities().create = mock_send_403
-            stream = HttpStream(mock_api_client, conversation_reference)
+            stream = HttpStream(mock_api_client, conversation_reference, min_send_interval=0)
 
             stream.emit("First message")
             await asyncio.sleep(0)
@@ -276,7 +276,7 @@ class TestHttpStream:
 
     @pytest.mark.asyncio
     async def test_send_blocked_after_cancel(self, mock_api_client, conversation_reference):
-        stream = HttpStream(mock_api_client, conversation_reference)
+        stream = HttpStream(mock_api_client, conversation_reference, min_send_interval=0)
         stream._canceled = True
 
         with pytest.raises(StreamCancelledError, match="Teams channel stopped the stream."):
@@ -327,7 +327,7 @@ class TestHttpStream:
 
     @pytest.mark.asyncio
     async def test_close_returns_none_when_canceled(self, mock_api_client, conversation_reference):
-        stream = HttpStream(mock_api_client, conversation_reference)
+        stream = HttpStream(mock_api_client, conversation_reference, min_send_interval=0)
         stream._canceled = True
 
         result = await stream.close()
@@ -357,7 +357,7 @@ class TestHttpStream:
         mock_api_client.conversations.activities().update = mock_send
 
         with patcher:
-            stream = HttpStream(mock_api_client, conversation_reference)
+            stream = HttpStream(mock_api_client, conversation_reference, min_send_interval=0)
 
             early_actions = SuggestedActions(
                 to=[],
@@ -407,7 +407,7 @@ class TestHttpStream:
         mock_api_client.conversations.activities().update = mock_send
 
         with patcher:
-            stream = HttpStream(mock_api_client, conversation_reference)
+            stream = HttpStream(mock_api_client, conversation_reference, min_send_interval=0)
 
             actions = SuggestedActions(
                 to=[],
@@ -431,7 +431,7 @@ class TestHttpStream:
     @pytest.mark.asyncio
     async def test_close_waits_for_flush_to_complete(self, mock_api_client, conversation_reference):
         """close() must not send the final message while a flush is still mid-await."""
-        stream = HttpStream(mock_api_client, conversation_reference)
+        stream = HttpStream(mock_api_client, conversation_reference, min_send_interval=0)
 
         # Simulate a flush in progress: lock held, _id assigned, text accumulated.
         # This mirrors the window after the inner queue drain but before SendActivity awaits resolve.
@@ -547,3 +547,29 @@ class TestHttpStream:
 
             texts = [a.text for a in mock_api_client.sent_activities]
             assert texts == ["Thinking...", "The answer"]  # informative + text both sent
+
+    @pytest.mark.asyncio
+    async def test_close_final_send_is_paced(self, mock_api_client, conversation_reference):
+        # The final close() send goes through the limiter too, so it can't land
+        # right behind the last chunk and trip the throttle.
+        interval = 0.05
+        send_times: list[float] = []
+
+        async def mock_send(activity):
+            send_times.append(monotonic())
+            mock_api_client.send_call_count += 1
+            mock_api_client.sent_activities.append(activity)
+            return SentActivity(id=f"activity-{mock_api_client.send_call_count}", activity_params=activity)
+
+        mock_api_client.conversations.activities().create = mock_send
+        mock_api_client.conversations.activities().update = mock_send
+
+        stream = HttpStream(mock_api_client, conversation_reference, min_send_interval=interval)
+        stream.emit("chunk")
+        task = stream._pending
+        assert task is not None
+        await task
+        await stream.close()
+
+        assert len(send_times) == 2  # chunk + final
+        assert send_times[1] - send_times[0] >= interval * 0.9
