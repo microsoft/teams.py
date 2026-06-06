@@ -20,7 +20,7 @@ from microsoft_teams.api import (
 from microsoft_teams.common import EventEmitter
 
 from .plugins.streamer import StreamCancelledError, StreamerEvent, StreamerProtocol
-from .utils import RetryOptions, retry
+from .utils import RetryOptions, make_limiter, retry
 
 logger = logging.getLogger(__name__)
 
@@ -32,27 +32,43 @@ class HttpStream(StreamerProtocol):
     Flow:
     1. emit() adds activities to a queue
     2. _flush() drains the entire queue under a lock.
-    3. Informative typing updates are sent immediately if no message started.
+    3. Informative typing updates are sent if no message started.
     4. Message text are combined into a typing chunk.
     5. Another flush is scheduled if more items remain.
     6. close() waits for queue to empty, then sends final message with stream_type='stream_final'
 
     The timeout cancellation ensures only one flush operation is scheduled at a time.
-    The delays between flushes is to ensure we dont hit API rate limits with Microsoft Teams.
+    Every send goes through a per-stream limiter (min_send_interval) so we stay within
+    the Teams 1 req/s streaming limit. By default a burst of informative updates in one
+    flush collapses to the latest (coalesce_informative_updates); set it False to pace
+    out every update instead.
     """
 
-    def __init__(self, client: ApiClient, ref: ConversationReference):
+    def __init__(
+        self,
+        client: ApiClient,
+        ref: ConversationReference,
+        min_send_interval: float = 1.0,
+        coalesce_informative_updates: bool = True,
+    ):
         """
         Initialize a new HttpStream instance.
 
         Args:
             client (ApiClient): The API client used to send activities to Microsoft Teams.
             ref (ConversationReference): Reference to the Teams conversation.
+            min_send_interval (float): Minimum seconds between sends (Teams limits streaming to 1 req/s).
+            coalesce_informative_updates (bool): When True (default), a burst of informative updates in
+                one flush collapses to the latest one. Set False to pace out every update at 1 req/s
+                instead; a long burst then holds the flush lock and can delay or drop close()'s final
+                message (see _total_wait_timeout).
         """
         super().__init__()
         self._client = client
         self._ref = ref
         self._events = EventEmitter[StreamerEvent]()
+        self._acquire = make_limiter(rate=1, period=min_send_interval)
+        self._coalesce_informative_updates = coalesce_informative_updates
 
         self._result: Optional[SentActivity] = None
         self._lock = asyncio.Lock()
@@ -252,7 +268,10 @@ class HttpStream(StreamerProtocol):
                 logger.debug("No activities to flush")
                 return
 
-            # Send informative updates immediately
+            if self._coalesce_informative_updates and len(informative_updates) > 1:
+                informative_updates = informative_updates[-1:]
+
+            # Send informative updates, paced by the limiter
             for typing_update in informative_updates:
                 await self._send_activity(typing_update)
 
@@ -278,6 +297,9 @@ class HttpStream(StreamerProtocol):
         Args:
             activity: The activity to send.
         """
+        # Paces sends to the Teams 1 req/s limit. This sleeps while _flush holds
+        # self._lock, so a long informative burst delays close() (see _total_wait_timeout).
+        await self._acquire()
         if self._id:
             to_send = to_send.with_id(self._id)
         to_send = to_send.add_stream_update(self._index)

@@ -5,6 +5,7 @@ Licensed under the MIT License.
 # pyright: basic
 
 import asyncio
+from time import monotonic
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -176,7 +177,7 @@ class TestHttpStream:
         loop = asyncio.get_running_loop()
         patcher, scheduled = patch_loop_call_later(loop)
         with patcher:
-            stream = HttpStream(mock_api_client, conversation_reference)
+            stream = HttpStream(mock_api_client, conversation_reference, min_send_interval=0.01)
             stream.update("Preparing response...")
             stream.emit("Final response message")
             await asyncio.sleep(0)
@@ -302,7 +303,7 @@ class TestHttpStream:
                 )
 
             mock_api_client.conversations.activities().create = mock_send_then_403
-            stream = HttpStream(mock_api_client, conversation_reference)
+            stream = HttpStream(mock_api_client, conversation_reference, min_send_interval=0.01)
 
             # First emit succeeds
             stream.emit("First message")
@@ -453,3 +454,96 @@ class TestHttpStream:
         assert result is not None
         assert mock_api_client.send_call_count == 1
         assert mock_api_client.sent_activities[0].text == "Response text"
+
+    @pytest.mark.asyncio
+    async def test_rapid_updates_are_paced_not_dropped_when_coalesce_off(self, mock_api_client, conversation_reference):
+        interval = 0.05
+        send_times: list[float] = []
+
+        async def mock_send(activity):
+            send_times.append(monotonic())
+            mock_api_client.send_call_count += 1
+            mock_api_client.sent_activities.append(activity)
+            return SentActivity(id=f"activity-{mock_api_client.send_call_count}", activity_params=activity)
+
+        mock_api_client.conversations.activities().create = mock_send
+
+        stream = HttpStream(
+            mock_api_client,
+            conversation_reference,
+            min_send_interval=interval,
+            coalesce_informative_updates=False,
+        )
+        for i in range(8):
+            stream.update(f"progress {i}")
+
+        task = stream._pending
+        assert task is not None
+        await task
+
+        texts = [a.text for a in mock_api_client.sent_activities]
+        assert texts == [f"progress {i}" for i in range(8)]  # all sent, in order, none dropped
+        gaps = [b - a for a, b in zip(send_times, send_times[1:], strict=False)]
+        assert min(gaps) >= interval * 0.9  # each subsequent send waited ~one interval
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("interval", [0.05, 0.15])
+    async def test_consecutive_emits_are_paced_across_flushes(self, mock_api_client, conversation_reference, interval):
+        send_times: list[float] = []
+
+        async def mock_send(activity):
+            send_times.append(monotonic())
+            mock_api_client.send_call_count += 1
+            mock_api_client.sent_activities.append(activity)
+            return SentActivity(id=f"activity-{mock_api_client.send_call_count}", activity_params=activity)
+
+        mock_api_client.conversations.activities().create = mock_send
+
+        stream = HttpStream(mock_api_client, conversation_reference, min_send_interval=interval)
+        # Each update drains its own flush, so pacing must hold across flushes (bug 2).
+        for i in range(3):
+            stream.update(f"step {i}")
+            task = stream._pending
+            assert task is not None
+            await task
+
+        texts = [a.text for a in mock_api_client.sent_activities]
+        assert texts == ["step 0", "step 1", "step 2"]
+        gaps = [b - a for a, b in zip(send_times, send_times[1:], strict=False)]
+        assert min(gaps) >= interval * 0.9
+
+    @pytest.mark.asyncio
+    async def test_coalesce_drops_intermediate_informative_in_burst_by_default(
+        self, mock_api_client, conversation_reference
+    ):
+        # Coalescing is the default, so a burst must not be paced one-by-one.
+        stream = HttpStream(mock_api_client, conversation_reference, min_send_interval=0.05)
+        for i in range(8):
+            stream.update(f"progress {i}")
+
+        task = stream._pending
+        assert task is not None
+        await task
+
+        # A burst collapses to the latest informative bubble.
+        assert mock_api_client.send_call_count == 1
+        assert mock_api_client.sent_activities[0].text == "progress 7"
+
+    @pytest.mark.asyncio
+    async def test_coalesce_does_not_drop_text(self, mock_api_client, conversation_reference, patch_loop_call_later):
+        loop = asyncio.get_running_loop()
+        patcher, scheduled = patch_loop_call_later(loop)
+        with patcher:
+            stream = HttpStream(
+                mock_api_client,
+                conversation_reference,
+                min_send_interval=0.01,
+                coalesce_informative_updates=True,
+            )
+            stream.update("Thinking...")
+            stream.emit("The answer")
+            await asyncio.sleep(0)
+            await self._run_scheduled_flushes(scheduled)
+
+            texts = [a.text for a in mock_api_client.sent_activities]
+            assert texts == ["Thinking...", "The answer"]  # informative + text both sent
