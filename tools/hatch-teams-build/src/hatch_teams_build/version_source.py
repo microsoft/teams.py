@@ -11,12 +11,19 @@ import warnings
 from typing import Any
 
 from hatchling.version.source.plugin.interface import VersionSourceInterface
-from packaging.version import Version
+from packaging.version import InvalidVersion, Version
 
 logger = logging.getLogger(__name__)
 
 FALLBACK_VERSION = "0.0.0"
-_VERSION_FIELD_NAMES = ("CloudBuildNumber", "AssemblyInformationalVersion", "Version")
+# Field priority for picking a PEP 440-compatible version from nbgv's output.
+#   - SemVer2 is the right choice on release ("2.0.13"). On non-release branches it
+#     emits a "+gHASH" suffix that's not PEP 440-valid, so we fall through.
+#   - CloudBuildNumber is the fallback for dev/non-release builds where nbgv emits
+#     "2.0.13-dev.11+eaec265930" (PEP 440-valid). Avoid as a primary on release —
+#     it would give "2.0.13.4" because nbgv appends git height as a 4th component.
+#   - SimpleVersion is the final fallback (loses dev info but always parses).
+_VERSION_FIELD_NAMES = ("SemVer2", "CloudBuildNumber", "SimpleVersion")
 
 
 def _normalize_version(version: str) -> str:
@@ -37,10 +44,16 @@ def _get_nbgv_version(root: str) -> dict[str, Any]:
 def _select_version(version_data: dict[str, Any]) -> str:
     for field_name in _VERSION_FIELD_NAMES:
         value = version_data.get(field_name)
-        if isinstance(value, str) and value:
-            return value
+        if not isinstance(value, str) or not value:
+            continue
+        try:
+            Version(value)
+        except InvalidVersion:
+            logger.debug("nbgv field %s value %r is not PEP 440-compatible, trying next", field_name, value)
+            continue
+        return value
 
-    raise RuntimeError("nbgv did not return a usable version field")
+    raise RuntimeError("nbgv did not return a PEP 440-compatible version in any expected field")
 
 
 class TeamsBuildVersionSource(VersionSourceInterface):
