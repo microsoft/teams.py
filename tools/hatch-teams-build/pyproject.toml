@@ -3,9 +3,9 @@ name = "hatch-teams-build"
 version = "0.1.0"
 description = "Hatchling plugin for Teams SDK: nbgv version source with graceful fallback and workspace dependency versioning"
 authors = [{ name = "Microsoft", email = "TeamsAISDKFeedback@microsoft.com" }]
-requires-python = ">=3.12"
+requires-python = ">=3.11"
 license = "MIT"
-dependencies = ["hatchling>=1.25.0", "nbgv-python>=2.0.0"]
+dependencies = ["hatchling>=1.25.0", "packaging>=24.0"]
 
 [build-system]
 requires = ["hatchling"]

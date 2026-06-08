@@ -4,6 +4,7 @@ Licensed under the MIT License.
 """
 
 import asyncio
+import logging
 from datetime import datetime
 
 from microsoft_teams.api import AdaptiveCardInvokeActivity, MessageActivity, MessageActivityInput
@@ -23,6 +24,11 @@ from microsoft_teams.cards import (
     ToggleInput,
 )
 from microsoft_teams.cards.core import Choice, ChoiceSetInput, DateInput, TextInput
+
+# Surface SDK INFO/WARNING logs (including the anonymous-mode startup warning
+# emitted when CLIENT_ID / CLIENT_SECRET / TENANT_ID are not configured).
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 app = App()
 
@@ -185,7 +191,7 @@ def create_feedback_card() -> AdaptiveCard:
 @app.on_message_pattern("card")
 async def handle_card_message(ctx: ActivityContext[MessageActivity]):
     """Handle card request messages - specific action routing."""
-    print(f"[CARD] Card with specific action routing requested by: {ctx.activity.from_}")
+    logger.info(f"[CARD] Card with specific action routing requested by: {ctx.activity.from_}")
     card = create_basic_adaptive_card()
     await ctx.send(card)
 
@@ -193,7 +199,7 @@ async def handle_card_message(ctx: ActivityContext[MessageActivity]):
 @app.on_message_pattern("generic")
 async def handle_generic_card_message(ctx: ActivityContext[MessageActivity]):
     """Handle generic card request messages - global handler."""
-    print(f"[GENERIC] Card with global handler requested by: {ctx.activity.from_}")
+    logger.info(f"[GENERIC] Card with global handler requested by: {ctx.activity.from_}")
     card = create_generic_execute_card()
     await ctx.send(card)
 
@@ -201,7 +207,7 @@ async def handle_generic_card_message(ctx: ActivityContext[MessageActivity]):
 @app.on_message_pattern("json")
 async def handle_validate_card_message(ctx: ActivityContext[MessageActivity]):
     """Handle model validation card request messages."""
-    print(f"[VALIDATE] Model validate card requested by: {ctx.activity.from_}")
+    logger.info(f"[VALIDATE] Model validate card requested by: {ctx.activity.from_}")
     card = create_model_validate_card()
     message = MessageActivityInput(text="Hello text!").add_card(card)
     await ctx.send(message)
@@ -246,7 +252,7 @@ async def handle_form(ctx: ActivityContext[MessageActivity]):
 @app.on_message_pattern("profile")
 async def handle_profile_card(ctx: ActivityContext[MessageActivity]):
     """Handle profile card request messages."""
-    print(f"[PROFILE] Profile card requested by: {ctx.activity.from_}")
+    logger.info(f"[PROFILE] Profile card requested by: {ctx.activity.from_}")
     card = create_profile_card()
     await ctx.send(card)
 
@@ -254,7 +260,7 @@ async def handle_profile_card(ctx: ActivityContext[MessageActivity]):
 @app.on_message_pattern("validation")
 async def handle_validation_card(ctx: ActivityContext[MessageActivity]):
     """Handle profile validation card request messages."""
-    print(f"[VALIDATION] Profile validation card requested by: {ctx.activity.from_}")
+    logger.info(f"[VALIDATION] Profile validation card requested by: {ctx.activity.from_}")
     card = create_profile_card_input_validation()
     await ctx.send(card)
 
@@ -262,7 +268,7 @@ async def handle_validation_card(ctx: ActivityContext[MessageActivity]):
 @app.on_message_pattern("feedback")
 async def handle_feedback_card(ctx: ActivityContext[MessageActivity]):
     """Handle feedback card request messages."""
-    print(f"[FEEDBACK] Feedback card requested by: {ctx.activity.from_}")
+    logger.info(f"[FEEDBACK] Feedback card requested by: {ctx.activity.from_}")
     card = create_feedback_card()
     await ctx.send(card)
 
@@ -271,7 +277,7 @@ async def handle_feedback_card(ctx: ActivityContext[MessageActivity]):
 async def handle_all_execute_actions(ctx: ActivityContext[AdaptiveCardInvokeActivity]) -> AdaptiveCardInvokeResponse:
     """Handle all Action.Execute events without specific action routing (global handler)."""
     data = ctx.activity.value.action.data
-    print(f"[GLOBAL HANDLER] Received Action.Execute data: {data}")
+    logger.info(f"[GLOBAL HANDLER] Received Action.Execute data: {data}")
     await ctx.send(f"Global handler processed Action.Execute. Data: {data}")
     return AdaptiveCardActionMessageResponse(
         status_code=200,
@@ -285,7 +291,7 @@ async def handle_submit_basic(ctx: ActivityContext[AdaptiveCardInvokeActivity]) 
     """Handle basic card submission - specific action routing."""
     data = ctx.activity.value.action.data
     notify_value = data.get("notify", "false")
-    print(f"[SPECIFIC HANDLER] Received submit_basic action. Notify: {notify_value}")
+    logger.info(f"[SPECIFIC HANDLER] Received submit_basic action. Notify: {notify_value}")
     await ctx.send(f"Specific handler: submit_basic. Notify setting: {notify_value}")
     return AdaptiveCardActionMessageResponse(
         status_code=200,
@@ -298,7 +304,7 @@ async def handle_submit_basic(ctx: ActivityContext[AdaptiveCardInvokeActivity]) 
 async def handle_submit_feedback(ctx: ActivityContext[AdaptiveCardInvokeActivity]) -> AdaptiveCardInvokeResponse:
     """Handle feedback submission."""
     data = ctx.activity.value.action.data
-    print("Received submit_feedback action data:", data)
+    logger.info("Received submit_feedback action data: %s", data)
     feedback_text = data.get("feedback", "No feedback provided")
     await ctx.send(f"Feedback received: {feedback_text}")
     return AdaptiveCardActionMessageResponse(
@@ -312,7 +318,7 @@ async def handle_submit_feedback(ctx: ActivityContext[AdaptiveCardInvokeActivity
 async def handle_create_task(ctx: ActivityContext[AdaptiveCardInvokeActivity]) -> AdaptiveCardInvokeResponse:
     """Handle task creation."""
     data = ctx.activity.value.action.data
-    print("Received create_task action data:", data)
+    logger.info("Received create_task action data: %s", data)
     title = data.get("title", "Untitled")
     priority = data.get("priority", "medium")
     due_date = data.get("due_date", "No date")
@@ -328,7 +334,7 @@ async def handle_create_task(ctx: ActivityContext[AdaptiveCardInvokeActivity]) -
 async def handle_save_profile(ctx: ActivityContext[AdaptiveCardInvokeActivity]) -> AdaptiveCardInvokeResponse:
     """Handle profile save."""
     data = ctx.activity.value.action.data
-    print("Received save_profile action data:", data)
+    logger.info("Received save_profile action data: %s", data)
     entity_id = data.get("entity_id")
     name = data.get("name", "Unknown")
     email = data.get("email", "No email")
@@ -355,8 +361,8 @@ async def handle_save_profile(ctx: ActivityContext[AdaptiveCardInvokeActivity]) 
 @app.on_message
 async def handle_message(ctx: ActivityContext[MessageActivity]):
     """Handle general message activities."""
-    print(f"[GENERAL] Message received: {ctx.activity.text}")
-    print(f"[GENERAL] From: {ctx.activity.from_}")
+    logger.info(f"[GENERAL] Message received: {ctx.activity.text}")
+    logger.info(f"[GENERAL] From: {ctx.activity.from_}")
 
     if "reply" in ctx.activity.text.lower():
         await ctx.reply("Hello! How can I assist you today?")

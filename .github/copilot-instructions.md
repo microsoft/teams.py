@@ -8,7 +8,7 @@ Microsoft Teams SDK for Python is a comprehensive SDK for building Microsoft Tea
 
 ### Prerequisites and Setup
 - Install UV: `python -m pip install uv` (curl method fails due to network restrictions)
-- Python version: 3.12+ (confirmed working with 3.12.3)
+- Python version: 3.11+ (confirmed working with 3.11, 3.12, 3.13, and 3.14 in CI)
 - Verify versions: `uv --version && python --version`
 
 ### Bootstrap, Build, and Test Repository

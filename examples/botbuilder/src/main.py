@@ -5,7 +5,7 @@ Licensed under the MIT License.
 
 import asyncio
 import datetime
-import sys
+import logging
 import traceback
 
 from botbuilder.core import TurnContext
@@ -20,13 +20,18 @@ from microsoft_teams.api import MessageActivity
 from microsoft_teams.apps import ActivityContext, App
 from microsoft_teams.botbuilder import BotBuilderPlugin
 
+# Surface SDK INFO/WARNING logs (including the anonymous-mode startup warning
+# emitted when CLIENT_ID / CLIENT_SECRET / TENANT_ID are not configured).
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 config = DefaultConfig()
 adapter = CloudAdapter(ConfigurationBotFrameworkAuthentication(config))
 
 
 # Catch-all for errors.
 async def on_error(context: TurnContext, error: Exception):
-    print(f"\n [on_turn_error] unhandled error: {error}", file=sys.stderr)
+    logger.error(f"[on_turn_error] unhandled error: {error}")
     traceback.print_exc()
 
     # Send a message to the user

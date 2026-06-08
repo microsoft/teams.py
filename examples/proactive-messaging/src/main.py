@@ -19,10 +19,16 @@ Key points:
 
 import argparse
 import asyncio
+import logging
 
 from microsoft_teams.api import MessageActivityInput
 from microsoft_teams.apps import App
 from microsoft_teams.cards import ActionSet, AdaptiveCard, OpenUrlAction, TextBlock
+
+# Surface SDK INFO/WARNING logs (including the anonymous-mode startup warning
+# emitted when CLIENT_ID / CLIENT_SECRET / TENANT_ID are not configured).
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 async def send_proactive_message(app: App, conversation_id: str, message: str) -> None:
@@ -34,13 +40,13 @@ async def send_proactive_message(app: App, conversation_id: str, message: str) -
         conversation_id: The Teams conversation ID to send the message to
         message: The message text to send
     """
-    print(f"Sending proactive message to conversation: {conversation_id}")
-    print(f"Message: {message}")
+    logger.info(f"Sending proactive message to conversation: {conversation_id}")
+    logger.info(f"Message: {message}")
 
     # Send the message
     result = await app.send(conversation_id, message)
 
-    print(f"✓ Message sent successfully! Activity ID: {result.id}")
+    logger.info(f"✓ Message sent successfully! Activity ID: {result.id}")
 
 
 async def send_proactive_card(app: App, conversation_id: str) -> None:
@@ -62,11 +68,11 @@ async def send_proactive_card(app: App, conversation_id: str) -> None:
         ],
     )
 
-    print(f"Sending proactive card to conversation: {conversation_id}")
+    logger.info(f"Sending proactive card to conversation: {conversation_id}")
 
     result = await app.send(conversation_id, card)
 
-    print(f"✓ Card sent successfully! Activity ID: {result.id}")
+    logger.info(f"✓ Card sent successfully! Activity ID: {result.id}")
 
 
 async def send_and_update_proactive_message(app: App, conversation_id: str) -> None:
@@ -79,10 +85,10 @@ async def send_and_update_proactive_message(app: App, conversation_id: str) -> N
     """
     # First, send a message proactively
     original_text = "Status: Pending... (sent proactively without a running server)"
-    print(f"Sending message to update: {original_text}")
+    logger.info(f"Sending message to update: {original_text}")
     result = await app.send(conversation_id, original_text)
     activity_id = result.id
-    print(f"✓ Original message sent! Activity ID: {activity_id}")
+    logger.info(f"✓ Original message sent! Activity ID: {activity_id}")
 
     # Wait so the user can see the original
     await asyncio.sleep(3)
@@ -90,7 +96,7 @@ async def send_and_update_proactive_message(app: App, conversation_id: str) -> N
     # Now update the same message proactively using the ConversationClient
     updated = MessageActivityInput(text="Status: Complete ✅ (updated proactively without a running server)")
     await app.api.conversations.activities(conversation_id).update(activity_id, updated)
-    print(f"✓ Message updated successfully! Activity ID: {activity_id}")
+    logger.info(f"✓ Message updated successfully! Activity ID: {activity_id}")
 
 
 async def main():
@@ -113,9 +119,9 @@ async def main():
 
     # Initialize the app without starting the HTTP server
     # This sets up credentials, token manager, and activity sender
-    print("Initializing app (without starting server)...")
+    logger.info("Initializing app (without starting server)...")
     await app.initialize()
-    print("✓ App initialized\n")
+    logger.info("✓ App initialized\n")
 
     # Example 1: Send a simple text message
     await send_proactive_message(
@@ -134,7 +140,7 @@ async def main():
     # Example 3: Update an existing message
     await send_and_update_proactive_message(app, args.conversation_id)
 
-    print("\n✓ All proactive messages sent successfully!")
+    logger.info("\n✓ All proactive messages sent successfully!")
 
 
 if __name__ == "__main__":

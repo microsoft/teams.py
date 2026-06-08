@@ -81,6 +81,12 @@ class StreamerProtocol(Protocol):
         """
         ...
 
+    def clear_text(self) -> None:
+        """
+        Discard any text accumulated so far so the final activity is card-only.
+        """
+        ...
+
     async def close(self) -> Optional[SentActivity]:
         """
         Close the stream.

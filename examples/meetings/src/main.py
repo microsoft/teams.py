@@ -4,6 +4,7 @@ Licensed under the MIT License.
 """
 
 import asyncio
+import logging
 
 from microsoft_teams.api.activities.event import (
     MeetingEndEventActivity,
@@ -15,6 +16,11 @@ from microsoft_teams.api.activities.message import MessageActivity
 from microsoft_teams.api.activities.typing import TypingActivityInput
 from microsoft_teams.apps import ActivityContext, App
 from microsoft_teams.cards import AdaptiveCard, OpenUrlAction, TextBlock
+
+# Surface SDK INFO/WARNING logs (including the anonymous-mode startup warning
+# emitted when CLIENT_ID / CLIENT_SECRET / TENANT_ID are not configured).
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 app = App()
 

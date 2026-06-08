@@ -4,10 +4,16 @@ Licensed under the MIT License.
 """
 
 import asyncio
+import logging
 
 from microsoft_teams.api import MessageActivity
 from microsoft_teams.api.activities.typing import TypingActivityInput
 from microsoft_teams.apps import ActivityContext, App
+
+# Surface SDK INFO/WARNING logs (including the anonymous-mode startup warning
+# emitted when CLIENT_ID / CLIENT_SECRET / TENANT_ID are not configured).
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 """
 Example: Message Reactions
@@ -42,7 +48,7 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
         )
 
         await ctx.reply(f"✅ Added {reaction_type} reaction to your message!")
-        print(f"[REACTION] Added '{reaction_type}' to activity {activity_id}")
+        logger.info(f"[REACTION] Added '{reaction_type}' to activity {activity_id}")
         return
 
     # ============================================
@@ -63,7 +69,7 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
             activity_id=activity_id,
             reaction_type=reaction_type,
         )
-        print(f"[REACTION] Cycled '{reaction_type}' on activity {activity_id}")
+        logger.info(f"[REACTION] Cycled '{reaction_type}' on activity {activity_id}")
         return
 
     # ============================================
