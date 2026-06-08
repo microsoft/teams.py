@@ -18,10 +18,12 @@ logger = logging.getLogger(__name__)
 FALLBACK_VERSION = "0.0.0"
 # Field priority for picking a PEP 440-compatible version from nbgv's output.
 #   - SemVer2 is the right choice on release ("2.0.13"). On non-release branches it
-#     emits a "+gHASH" suffix that's not PEP 440-valid, so we fall through.
+#     emits the commit hash as an extra prerelease segment (e.g. "2.0.13-dev.11.geaec265930"),
+#     which is not PEP 440-valid, so we fall through.
 #   - CloudBuildNumber is the fallback for dev/non-release builds where nbgv emits
-#     "2.0.13-dev.11+eaec265930" (PEP 440-valid). Avoid as a primary on release —
-#     it would give "2.0.13.4" because nbgv appends git height as a 4th component.
+#     "2.0.13-dev.11+eaec265930" (PEP 440-valid — the "+geaec265930" is a local
+#     version segment). Avoid as a primary on release — it would give "2.0.13.4"
+#     because nbgv appends git height as a 4th component.
 #   - SimpleVersion is the final fallback (loses dev info but always parses).
 _VERSION_FIELD_NAMES = ("SemVer2", "CloudBuildNumber", "SimpleVersion")
 
