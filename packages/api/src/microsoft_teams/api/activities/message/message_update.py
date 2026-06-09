@@ -34,7 +34,7 @@ class _MessageUpdateBase(CustomBaseModel):
     """The text to display if the channel cannot render cards."""
 
     attachment_layout: Optional[AttachmentLayout] = None
-    """The layout hint for multiple attachments. Default: list."""
+    """The layout hint for multiple attachments. Optional, omitted when not provided."""
 
     attachments: Optional[List[Attachment]] = None
     """Attachments included in the updated message."""

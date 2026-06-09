@@ -621,17 +621,24 @@ class TestMessageUpdateActivity:
         assert activity.expiration == expiration
         assert activity.value == {"custom": "data"}
 
-    def test_message_update_with_attachments_from_json(self):
-        """Test that inbound messageUpdate with attachments parses them as Attachment objects"""
+    def _make_message_update_payload(self, msg_id: str = "msg-123", **overrides) -> dict:
+        """Helper factory to create messageUpdate payloads with sensible defaults."""
         payload = {
             "type": "messageUpdate",
-            "id": "msg-123",
+            "id": msg_id,
             "from": {"id": "user-123", "name": "Test User"},
             "conversation": {"id": "conv-456", "conversationType": "personal"},
             "recipient": {"id": "bot-789", "name": "Test Bot"},
             "channelData": {"eventType": "editMessage"},
-            "attachments": [{"contentType": "text/html", "content": "hey\n\n"}],
         }
+        payload.update(overrides)
+        return payload
+
+    def test_message_update_with_attachments_from_json(self):
+        """Test that inbound messageUpdate with attachments parses them as Attachment objects."""
+        payload = self._make_message_update_payload(
+            attachments=[{"contentType": "text/html", "content": "hey\n\n"}]
+        )
 
         activity = ActivityTypeAdapter.validate_python(payload)
 
@@ -644,19 +651,14 @@ class TestMessageUpdateActivity:
         assert activity.attachments[0].content == "hey\n\n"
 
     def test_message_update_with_multiple_attachments(self):
-        """Test that messageUpdate with multiple attachments are all parsed correctly"""
-        payload = {
-            "type": "messageUpdate",
-            "id": "msg-456",
-            "from": {"id": "user-123", "name": "Test User"},
-            "conversation": {"id": "conv-456", "conversationType": "personal"},
-            "recipient": {"id": "bot-789", "name": "Test Bot"},
-            "channelData": {"eventType": "editMessage"},
-            "attachments": [
+        """Test that messageUpdate with multiple attachments is parsed correctly."""
+        payload = self._make_message_update_payload(
+            msg_id="msg-456",
+            attachments=[
                 {"contentType": "text/html", "content": "first"},
                 {"contentType": "application/json", "content": '{"key": "value"}'},
             ],
-        }
+        )
 
         activity = ActivityTypeAdapter.validate_python(payload)
 
@@ -668,17 +670,12 @@ class TestMessageUpdateActivity:
         assert activity.attachments[1].content_type == "application/json"
 
     def test_message_update_with_attachment_layout(self):
-        """Test that messageUpdate with attachment_layout is parsed correctly"""
-        payload = {
-            "type": "messageUpdate",
-            "id": "msg-789",
-            "from": {"id": "user-123", "name": "Test User"},
-            "conversation": {"id": "conv-456", "conversationType": "personal"},
-            "recipient": {"id": "bot-789", "name": "Test Bot"},
-            "channelData": {"eventType": "editMessage"},
-            "attachmentLayout": "carousel",
-            "attachments": [{"contentType": "text/html", "content": "card1"}],
-        }
+        """Test that messageUpdate with attachment_layout is parsed correctly."""
+        payload = self._make_message_update_payload(
+            msg_id="msg-789",
+            attachmentLayout="carousel",
+            attachments=[{"contentType": "text/html", "content": "card1"}],
+        )
 
         activity = ActivityTypeAdapter.validate_python(payload)
 
