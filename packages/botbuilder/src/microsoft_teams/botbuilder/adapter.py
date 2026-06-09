@@ -135,9 +135,9 @@ class BotBuilderAdapter:
                 )
 
             return await teams_handler(request)
-        except Exception as err:
-            logger.error("Error processing activity: %s", err, exc_info=True)
-            return HttpResponse(status=500, body={"detail": str(err)})
+        except Exception:
+            logger.exception("Error processing activity")
+            return HttpResponse(status=500, body={"error": "Internal server error"})
 
     def _auth_header(self, headers: dict[str, str]) -> str:
         return headers.get("authorization") or headers.get("Authorization") or ""

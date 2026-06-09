@@ -147,6 +147,20 @@ class TestBotBuilderAdapter:
         teams_handler.assert_awaited_once()
         assert result == HttpResponse(status=200, body="teams")
 
+    @pytest.mark.asyncio
+    async def test_returns_generic_error_when_botbuilder_processing_fails(
+        self, botbuilder_adapter, underlying_adapter, cloud_adapter, caplog
+    ):
+        cloud_adapter.process_activity.side_effect = Exception("secret failure detail")
+        teams_handler = AsyncMock(return_value=HttpResponse(status=200, body="teams"))
+        botbuilder_adapter.register_route("POST", "/api/messages", teams_handler)
+        route_handler: HttpRouteHandler = underlying_adapter.routes[0][2]
+
+        result = await route_handler(HttpRequest(body={"type": "message", "id": "activity-id"}, headers={}))
+
+        assert result == HttpResponse(status=500, body={"error": "Internal server error"})
+        assert any("Error processing activity" in record.message for record in caplog.records)
+
     def test_constructs_cloud_adapter_from_microsoft_app_environment(self, monkeypatch):
         monkeypatch.setenv("MicrosoftAppId", "app-id")
         monkeypatch.setenv("MicrosoftAppPassword", "secret")
