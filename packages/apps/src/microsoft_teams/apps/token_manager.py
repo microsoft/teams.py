@@ -29,6 +29,8 @@ from msal import (
 )
 
 DEFAULT_TENANT_FOR_GRAPH_TOKEN = "common"
+TOKEN_EXCHANGE_SCOPE = "api://AzureADTokenExchange/.default"
+AGENT_BOT_API_SCOPE = "https://botapi.skype.com/.default"
 
 logger = logging.getLogger(__name__)
 
@@ -67,6 +69,79 @@ class TokenManager:
         return await self._get_token(
             self._cloud.graph_scope, tenant_id=self._resolve_tenant_id(tenant_id, DEFAULT_TENANT_FOR_GRAPH_TOKEN)
         )
+
+    async def get_agent_bot_token(
+        self,
+        tenant_id: str,
+        agent_identity_app_id: str,
+        *,
+        agent_user_id: str | None = None,
+        agent_user_upn: str | None = None,
+    ) -> Optional[TokenProtocol]:
+        """Get a Teams bot API token for an agent identity acting through its agent user."""
+        return await self.get_agent_user_token(
+            tenant_id,
+            agent_identity_app_id,
+            AGENT_BOT_API_SCOPE,
+            agent_user_id=agent_user_id,
+            agent_user_upn=agent_user_upn,
+        )
+
+    async def get_agent_user_token(
+        self,
+        tenant_id: str,
+        agent_identity_app_id: str,
+        scope: str,
+        *,
+        agent_user_id: str | None = None,
+        agent_user_upn: str | None = None,
+    ) -> Optional[TokenProtocol]:
+        """Get a resource token for an agent identity acting through its agent user."""
+        if not agent_user_id and not agent_user_upn:
+            raise ValueError("one of agent user id or agent user upn needs to be provided")
+        if agent_user_id and agent_user_upn:
+            raise ValueError("agent user id and agent user upn are mutually exclusive")
+        if self._credentials is None:
+            logger.debug("No credentials provided for get_agent_user_token")
+            return None
+
+        credentials = self._credentials
+        if not isinstance(credentials, ClientCredentials):
+            raise ValueError("agent tokens require client credentials")
+        confidential_client = self._get_confidential_client(credentials, tenant_id)
+
+        def get_t1_assertion(_context: dict[str, Any]) -> str:
+            t1_raw: dict[str, Any] = confidential_client.acquire_token_for_client(
+                [TOKEN_EXCHANGE_SCOPE], fmi_path=agent_identity_app_id
+            )
+            if t1_raw.get("access_token", None):
+                return t1_raw["access_token"]
+
+            raise ValueError(f"t1: {t1_raw}")
+
+        t2_confidential_client = ConfidentialClientApplication(
+            agent_identity_app_id,
+            client_credential={"client_assertion": get_t1_assertion},
+            authority=f"{self._cloud.login_endpoint}/{tenant_id}",
+        )
+
+        t2_raw: dict[str, Any] = await asyncio.to_thread(
+            lambda: t2_confidential_client.acquire_token_for_client([TOKEN_EXCHANGE_SCOPE])
+        )
+
+        if t2_raw.get("access_token", None):
+            t2 = t2_raw["access_token"]
+        else:
+            raise ValueError(f"t2: {t2_raw}")
+
+        t3_raw = t2_confidential_client.acquire_token_by_user_federated_identity_credential(
+            [scope],
+            assertion=t2,
+            user_object_id=agent_user_id,
+            username=agent_user_upn,
+            data={"requested_token_use": "on_behalf_of"},
+        )
+        return self._handle_token_response(t3_raw, "get_agent_token")
 
     async def _get_token(
         self, scope: str, tenant_id: str, *, caller_name: str | None = None
