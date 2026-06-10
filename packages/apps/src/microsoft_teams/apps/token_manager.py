@@ -98,26 +98,23 @@ class TokenManager:
     ) -> Optional[TokenProtocol]:
         """Get a resource token for an agent identity acting through its agent user."""
         if not agent_user_id and not agent_user_upn:
-            raise ValueError("one of agent user id or agent user upn needs to be provided")
+            raise ValueError("Either agent_user_id or agent_user_upn must be provided")
         if agent_user_id and agent_user_upn:
-            raise ValueError("agent user id and agent user upn are mutually exclusive")
+            raise ValueError("agent_user_id and agent_user_upn are mutually exclusive")
         if self._credentials is None:
             logger.debug("No credentials provided for get_agent_user_token")
             return None
 
         credentials = self._credentials
         if not isinstance(credentials, ClientCredentials):
-            raise ValueError("agent tokens require client credentials")
+            raise ValueError("Agent user tokens require ClientCredentials")
         confidential_client = self._get_confidential_client(credentials, tenant_id)
 
         def get_t1_assertion(_context: dict[str, Any]) -> str:
             t1_raw: dict[str, Any] = confidential_client.acquire_token_for_client(
                 [TOKEN_EXCHANGE_SCOPE], fmi_path=agent_identity_app_id
             )
-            if t1_raw.get("access_token", None):
-                return t1_raw["access_token"]
-
-            raise ValueError(f"t1: {t1_raw}")
+            return self._get_access_token_or_raise(t1_raw, "Agent token exchange step 1 failed")
 
         t2_confidential_client = ConfidentialClientApplication(
             agent_identity_app_id,
@@ -129,10 +126,7 @@ class TokenManager:
             lambda: t2_confidential_client.acquire_token_for_client([TOKEN_EXCHANGE_SCOPE])
         )
 
-        if t2_raw.get("access_token", None):
-            t2 = t2_raw["access_token"]
-        else:
-            raise ValueError(f"t2: {t2_raw}")
+        t2 = self._get_access_token_or_raise(t2_raw, "Agent token exchange step 2 failed")
 
         t3_raw = t2_confidential_client.acquire_token_by_user_federated_identity_credential(
             [scope],
@@ -142,6 +136,15 @@ class TokenManager:
             data={"requested_token_use": "on_behalf_of"},
         )
         return self._handle_token_response(t3_raw, "get_agent_token")
+
+    def _get_access_token_or_raise(self, token_res: dict[str, Any], error_prefix: str) -> str:
+        if token_res.get("access_token", None):
+            return token_res["access_token"]
+
+        error_description = token_res.get("error_description") or token_res.get("error") or "Could not acquire token"
+        logger.error(f"{error_prefix}: {error_description}")
+        logger.debug(f"TokenRes: {token_res}")
+        raise ValueError(f"{error_prefix}: {error_description}")
 
     async def _get_token(
         self, scope: str, tenant_id: str, *, caller_name: str | None = None
