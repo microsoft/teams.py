@@ -456,7 +456,7 @@ class TestHttpStream:
         assert mock_api_client.sent_activities[0].text == "Response text"
 
     @pytest.mark.asyncio
-    async def test_rapid_updates_are_paced_not_dropped_when_coalesce_off(self, mock_api_client, conversation_reference):
+    async def test_rapid_updates_are_paced_not_dropped_by_default(self, mock_api_client, conversation_reference):
         interval = 0.05
         send_times: list[float] = []
 
@@ -468,12 +468,7 @@ class TestHttpStream:
 
         mock_api_client.conversations.activities().create = mock_send
 
-        stream = HttpStream(
-            mock_api_client,
-            conversation_reference,
-            min_send_interval=interval,
-            coalesce_informative_updates=False,
-        )
+        stream = HttpStream(mock_api_client, conversation_reference, min_send_interval=interval)
         for i in range(8):
             stream.update(f"progress {i}")
 
@@ -513,11 +508,16 @@ class TestHttpStream:
         assert min(gaps) >= interval * 0.9
 
     @pytest.mark.asyncio
-    async def test_coalesce_drops_intermediate_informative_in_burst_by_default(
+    async def test_coalesce_drops_intermediate_informative_in_burst_when_opted_in(
         self, mock_api_client, conversation_reference
     ):
-        # Coalescing is the default, so a burst must not be paced one-by-one.
-        stream = HttpStream(mock_api_client, conversation_reference, min_send_interval=0.05)
+        # Coalescing is opt-in; when enabled, a burst is not paced one-by-one.
+        stream = HttpStream(
+            mock_api_client,
+            conversation_reference,
+            min_send_interval=0.05,
+            coalesce_informative_updates=True,
+        )
         for i in range(8):
             stream.update(f"progress {i}")
 

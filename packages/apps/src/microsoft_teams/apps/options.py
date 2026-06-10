@@ -84,6 +84,14 @@ class AppOptions(TypedDict, total=False):
     Defaults to PUBLIC (commercial cloud).
     """
 
+    # Streaming
+    stream_min_send_interval: Optional[float]
+    """Minimum seconds between sends on a stream, including retries and the final close() send.
+    Defaults to 1.0 (Teams limits streaming to 1 req/s). Set 0 to disable pacing."""
+    stream_coalesce_informative_updates: Optional[bool]
+    """When True, a burst of informative updates in one flush collapses to the latest one.
+    Defaults to False: every informative update is kept and paced out at stream_min_send_interval."""
+
 
 @dataclass
 class InternalAppOptions:
@@ -133,6 +141,12 @@ class InternalAppOptions:
     """URL path for the Teams messaging endpoint. Defaults to '/api/messages'."""
     cloud: Optional[CloudEnvironment] = None
     """Cloud environment for sovereign cloud support."""
+    stream_min_send_interval: float = 1.0
+    """Minimum seconds between sends on a stream, including retries and the final close() send.
+    Defaults to 1.0 (Teams limits streaming to 1 req/s). Set 0 to disable pacing."""
+    stream_coalesce_informative_updates: bool = False
+    """When True, a burst of informative updates in one flush collapses to the latest one.
+    Defaults to False: every informative update is kept and paced out at stream_min_send_interval."""
 
     @classmethod
     def from_typeddict(cls, options: AppOptions) -> "InternalAppOptions":

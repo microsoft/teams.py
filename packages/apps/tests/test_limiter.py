@@ -11,7 +11,7 @@ from microsoft_teams.apps.utils import make_limiter
 
 @pytest.mark.asyncio
 async def test_make_limiter_spaces_calls():
-    acquire = make_limiter(rate=1, period=0.05)
+    acquire = make_limiter(0.05)
 
     start = monotonic()
     await acquire()  # first call returns immediately
@@ -24,7 +24,7 @@ async def test_make_limiter_spaces_calls():
     assert elapsed >= 0.10  # two subsequent calls each waited one interval
 
 
-@pytest.mark.parametrize("rate, period", [(0, 1.0), (-1, 1.0), (1, -0.5)])
-def test_make_limiter_rejects_invalid_args(rate, period):
+@pytest.mark.parametrize("interval", [-0.5, -1])
+def test_make_limiter_rejects_negative_interval(interval: float):
     with pytest.raises(ValueError):
-        make_limiter(rate=rate, period=period)
+        make_limiter(interval)

@@ -8,19 +8,17 @@ from time import monotonic
 from typing import Awaitable, Callable
 
 
-def make_limiter(rate: int, period: float = 1.0) -> Callable[[], Awaitable[None]]:
-    """Leaky-slot limiter: at most `rate` acquisitions per `period` seconds.
+def make_limiter(interval: float) -> Callable[[], Awaitable[None]]:
+    """Fixed-interval gate (a token bucket of size 1): consecutive
+    acquisitions are spaced at least `interval` seconds apart.
 
     The slot is reserved (read then write of `next_slot`) with no await in
     between, so reservations are race-free under single-threaded asyncio. The
-    first call never waits.
+    first call never waits, and `interval=0` disables pacing.
     """
-    if rate < 1:
-        raise ValueError("rate must be >= 1")
-    if period < 0:
-        raise ValueError("period must be >= 0")
+    if interval < 0:
+        raise ValueError("interval must be >= 0")
 
-    interval = period / rate
     next_slot = monotonic()
 
     async def acquire() -> None:

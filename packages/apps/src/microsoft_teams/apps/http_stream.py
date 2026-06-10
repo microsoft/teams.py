@@ -39,9 +39,9 @@ class HttpStream(StreamerProtocol):
 
     The timeout cancellation ensures only one flush operation is scheduled at a time.
     Every send goes through a per-stream limiter (min_send_interval) so we stay within
-    the Teams 1 req/s streaming limit. By default a burst of informative updates in one
-    flush collapses to the latest (coalesce_informative_updates); set it False to pace
-    out every update instead.
+    the Teams 1 req/s streaming limit. By default every informative update is kept and
+    paced out; set coalesce_informative_updates=True to collapse a burst of informative
+    updates in one flush to the latest one instead.
     """
 
     def __init__(
@@ -49,7 +49,7 @@ class HttpStream(StreamerProtocol):
         client: ApiClient,
         ref: ConversationReference,
         min_send_interval: float = 1.0,
-        coalesce_informative_updates: bool = True,
+        coalesce_informative_updates: bool = False,
     ):
         """
         Initialize a new HttpStream instance.
@@ -59,16 +59,16 @@ class HttpStream(StreamerProtocol):
             ref (ConversationReference): Reference to the Teams conversation.
             min_send_interval (float): Minimum seconds between sends, including retries and the final
                 close() send (Teams limits streaming to 1 req/s). Set 0 to disable pacing.
-            coalesce_informative_updates (bool): When True (default), a burst of informative updates in
-                one flush collapses to the latest one. Set False to pace out every update at 1 req/s
-                instead; a long burst then holds the flush lock and can delay or drop close()'s final
-                message (see _total_wait_timeout).
+            coalesce_informative_updates (bool): When False (default), every informative update is
+                paced out at min_send_interval; a long burst then holds the flush lock and can delay
+                or drop close()'s final message (see _total_wait_timeout). Set True to collapse a
+                burst of informative updates in one flush to the latest one instead.
         """
         super().__init__()
         self._client = client
         self._ref = ref
         self._events = EventEmitter[StreamerEvent]()
-        self._acquire = make_limiter(rate=1, period=min_send_interval)
+        self._acquire = make_limiter(min_send_interval)
         self._coalesce_informative_updates = coalesce_informative_updates
 
         self._result: Optional[SentActivity] = None
