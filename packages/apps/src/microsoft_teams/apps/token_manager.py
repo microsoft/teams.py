@@ -44,6 +44,7 @@ class TokenManager:
         self._credentials = credentials
         self._cloud = cloud or PUBLIC
         self._confidential_clients_by_tenant: dict[str, ConfidentialClientApplication] = {}
+        self._federated_identity_clients_by_tenant: dict[str, ConfidentialClientApplication] = {}
         self._managed_identity_client: Optional[ManagedIdentityClient] = None
 
     async def get_bot_token(self) -> Optional[TokenProtocol]:
@@ -126,15 +127,7 @@ class TokenManager:
     ) -> TokenProtocol:
         """Get token using Federated Identity Credentials (two-step flow)."""
 
-        # Step 1: Get MI token from api://AzureADTokenExchange
-        mi_token = await self._acquire_managed_identity_token(credentials)
-
-        # Step 2: Use MI token as client_assertion to get final access token
-        confidential_client = ConfidentialClientApplication(
-            credentials.client_id,
-            client_credential={"client_assertion": mi_token},
-            authority=f"{self._cloud.login_endpoint}/{tenant_id}",
-        )
+        confidential_client = self._get_federated_identity_client(credentials, tenant_id)
 
         token_res: dict[str, Any] = await asyncio.to_thread(
             lambda: confidential_client.acquire_token_for_client([scope])
@@ -144,12 +137,14 @@ class TokenManager:
 
     async def _acquire_managed_identity_token(self, credentials: FederatedIdentityCredentials) -> str:
         """Acquire managed identity token for federated identity credentials."""
+        return await asyncio.to_thread(lambda: self._acquire_managed_identity_token_sync(credentials))
+
+    def _acquire_managed_identity_token_sync(self, credentials: FederatedIdentityCredentials) -> str:
+        """Acquire managed identity token for federated identity credentials."""
         # Use shared method to get or create the managed identity client
         mi_client = self._get_managed_identity_client(credentials)
 
-        mi_token_res: dict[str, Any] = await asyncio.to_thread(
-            lambda: mi_client.acquire_token_for_client(resource="api://AzureADTokenExchange")
-        )
+        mi_token_res: dict[str, Any] = mi_client.acquire_token_for_client(resource="api://AzureADTokenExchange")
 
         if not mi_token_res.get("access_token"):
             logger.error("FIC Step 1 failed: Could not acquire MI token")
@@ -207,6 +202,22 @@ class TokenManager:
             authority=f"{self._cloud.login_endpoint}/{tenant_id}",
         )
         self._confidential_clients_by_tenant[tenant_id] = client
+        return client
+
+    def _get_federated_identity_client(
+        self, credentials: FederatedIdentityCredentials, tenant_id: str
+    ) -> ConfidentialClientApplication:
+        """Get or create ConfidentialClientApplication for FederatedIdentityCredentials."""
+        cached_client = self._federated_identity_clients_by_tenant.get(tenant_id)
+        if cached_client:
+            return cached_client
+
+        client: ConfidentialClientApplication = ConfidentialClientApplication(
+            credentials.client_id,
+            client_credential={"client_assertion": lambda: self._acquire_managed_identity_token_sync(credentials)},
+            authority=f"{self._cloud.login_endpoint}/{tenant_id}",
+        )
+        self._federated_identity_clients_by_tenant[tenant_id] = client
         return client
 
     def _get_managed_identity_client(

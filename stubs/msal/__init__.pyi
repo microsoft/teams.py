@@ -1,6 +1,8 @@
 """Type stubs for msal"""
 
-from typing import Any
+from typing import Any, Callable, TypeAlias
+
+ClientCredential: TypeAlias = str | dict[str, str | Callable[[], str]] | None
 
 class ConfidentialClientApplication:
     """MSAL Confidential Client Application"""
@@ -9,7 +11,7 @@ class ConfidentialClientApplication:
         self,
         client_id: str,
         *,
-        client_credential: str | dict[str, str] | None = None,
+        client_credential: ClientCredential = None,
         authority: str | None = None,
         **kwargs: Any,
     ) -> None: ...
