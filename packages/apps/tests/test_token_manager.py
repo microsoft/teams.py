@@ -272,9 +272,9 @@ class TestTokenManager:
 
         manager = TokenManager(credentials=mock_credentials)
 
-        # Mock the managed identity token acquisition (step 1)
+        # Mock the managed identity token acquisition used by the lazy client_assertion callback
         mi_token = "mi_token_from_step_1"
-        with patch.object(manager, "_acquire_managed_identity_token", return_value=mi_token):
+        with patch.object(manager, "_acquire_managed_identity_token_sync", return_value=mi_token):
             # Mock ConfidentialClientApplication for step 2
             with patch("microsoft_teams.apps.token_manager.ConfidentialClientApplication") as mock_confidential_app:
                 mock_app_instance = MagicMock()
@@ -287,10 +287,12 @@ class TestTokenManager:
                 assert isinstance(token, JsonWebToken), f"Failed for: {description}"
                 assert str(token) == VALID_TEST_TOKEN, f"Failed for: {description}"
 
-                # Verify ConfidentialClientApplication was called with MI token as client_assertion
+                # Verify ConfidentialClientApplication was called with a lazy client_assertion callback
                 mock_confidential_app.assert_called_once()
                 call_kwargs = mock_confidential_app.call_args[1]
-                assert call_kwargs["client_credential"] == {"client_assertion": mi_token}, f"Failed for: {description}"
+                client_assertion = call_kwargs["client_credential"]["client_assertion"]
+                assert callable(client_assertion), f"Failed for: {description}"
+                assert client_assertion() == mi_token, f"Failed for: {description}"
 
     @pytest.mark.asyncio
     async def test_get_token_with_federated_identity_step1_failure(self):
@@ -304,12 +306,22 @@ class TestTokenManager:
 
         manager = TokenManager(credentials=mock_credentials)
 
-        # Mock step 1 to fail
+        # Mock step 1 to fail when MSAL invokes the lazy client_assertion callback
         with patch.object(
-            manager, "_acquire_managed_identity_token", side_effect=ValueError("MI token acquisition failed")
+            manager, "_acquire_managed_identity_token_sync", side_effect=ValueError("MI token acquisition failed")
         ):
-            with pytest.raises(ValueError) as exc_info:
-                await manager.get_bot_token()
+            with patch("microsoft_teams.apps.token_manager.ConfidentialClientApplication") as mock_confidential_app:
+                mock_app_instance = MagicMock()
+
+                def acquire_token_for_client(_scopes):
+                    client_credential = mock_confidential_app.call_args.kwargs["client_credential"]
+                    client_credential["client_assertion"]()
+
+                mock_app_instance.acquire_token_for_client.side_effect = acquire_token_for_client
+                mock_confidential_app.return_value = mock_app_instance
+
+                with pytest.raises(ValueError) as exc_info:
+                    await manager.get_bot_token()
 
             assert "MI token acquisition failed" in str(exc_info.value)
 
@@ -327,7 +339,7 @@ class TestTokenManager:
 
         # Mock step 1 to succeed
         mi_token = "mi_token_from_step_1"
-        with patch.object(manager, "_acquire_managed_identity_token", return_value=mi_token):
+        with patch.object(manager, "_acquire_managed_identity_token_sync", return_value=mi_token):
             # Mock step 2 to fail
             with patch("microsoft_teams.apps.token_manager.ConfidentialClientApplication") as mock_confidential_app:
                 mock_app_instance = MagicMock()
@@ -471,6 +483,27 @@ class TestTokenManager:
 
         # ManagedIdentityClient should only be constructed once
         mock_mi_client_class.assert_called_once()
+        assert client_first is client_second
+
+    @pytest.mark.asyncio
+    async def test_get_federated_identity_client_uses_cache(self):
+        """Test that _get_federated_identity_client returns cached client on second call."""
+        mock_credentials = FederatedIdentityCredentials(
+            client_id="test-app-client-id",
+            managed_identity_type="user",
+            managed_identity_client_id="test-mi-client-id",
+            tenant_id="test-tenant-id",
+        )
+
+        manager = TokenManager(credentials=mock_credentials)
+
+        with patch("microsoft_teams.apps.token_manager.ConfidentialClientApplication") as mock_msal_class:
+            mock_msal_class.return_value = MagicMock()
+
+            client_first = manager._get_federated_identity_client(mock_credentials, "test-tenant-id")
+            client_second = manager._get_federated_identity_client(mock_credentials, "test-tenant-id")
+
+        mock_msal_class.assert_called_once()
         assert client_first is client_second
 
     @pytest.mark.asyncio

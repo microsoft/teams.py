@@ -4,9 +4,9 @@ Licensed under the MIT License.
 """
 
 from datetime import datetime
-from typing import Any, Literal, Optional
+from typing import Any, List, Literal, Optional
 
-from ...models import ActivityBase, ChannelData
+from ...models import ActivityBase, Attachment, AttachmentLayout, ChannelData
 from ...models.custom_base_model import CustomBaseModel
 
 MessageEventType = Literal["undeleteMessage", "editMessage"]
@@ -32,6 +32,12 @@ class _MessageUpdateBase(CustomBaseModel):
 
     summary: Optional[str] = None
     """The text to display if the channel cannot render cards."""
+
+    attachment_layout: Optional[AttachmentLayout] = None
+    """The layout hint for multiple attachments. Optional, omitted when not provided."""
+
+    attachments: Optional[List[Attachment]] = None
+    """Attachments included in the updated message."""
 
     expiration: Optional[datetime] = None
     """

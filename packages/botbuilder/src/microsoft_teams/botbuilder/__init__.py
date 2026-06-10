@@ -5,8 +5,8 @@ Licensed under the MIT License.
 
 import logging
 
-from .botbuilder_plugin import BotBuilderPlugin, BotBuilderPluginOptions
+from .adapter import BotBuilderAdapter, BotBuilderAdapterOptions
 
 logging.getLogger(__name__).addHandler(logging.NullHandler())
 
-__all__ = ["BotBuilderPlugin", "BotBuilderPluginOptions"]
+__all__ = ["BotBuilderAdapter", "BotBuilderAdapterOptions"]

@@ -16,9 +16,12 @@ from botbuilder.integration.aiohttp import (
 from botbuilder.schema import Activity, ActivityTypes
 from bots.echo_bot import EchoBot
 from config import DefaultConfig
-from microsoft_teams.api import MessageActivity
+from microsoft_teams.api import AdaptiveCardInvokeActivity, MessageActivity
+from microsoft_teams.api.models.adaptive_card import AdaptiveCardActionMessageResponse
+from microsoft_teams.api.models.invoke_response import AdaptiveCardInvokeResponse
 from microsoft_teams.apps import ActivityContext, App
-from microsoft_teams.botbuilder import BotBuilderPlugin
+from microsoft_teams.botbuilder import BotBuilderAdapter
+from microsoft_teams.cards import ActionSet, AdaptiveCard, ExecuteAction, SubmitData, TextBlock
 
 # Surface SDK INFO/WARNING logs (including the anonymous-mode startup warning
 # emitted when CLIENT_ID / CLIENT_SECRET / TENANT_ID are not configured).
@@ -51,17 +54,37 @@ async def on_error(context: TurnContext, error: Exception):
 
 adapter.on_turn_error = on_error
 
-# Provide the Bot Framework's adapter and activity handler to `BotBuilderPlugin`
-# BotBuilderPlugin will route incoming Teams messages through the adapter
-# and invoke the handler to process and respond to each activity.
+
+def botbuilder_card() -> AdaptiveCard:
+    return AdaptiveCard(
+        body=[
+            TextBlock(text="Handled by BotBuilder", weight="Bolder", wrap=True),
+            TextBlock(text="This Action.Execute invoke is handled before the Teams SDK route.", wrap=True),
+            ActionSet(
+                actions=[ExecuteAction(title="Run BotBuilder action").with_data(SubmitData("botbuilder_action"))]
+            ),
+        ],
+    )
+
+
+def teams_app_card() -> AdaptiveCard:
+    return AdaptiveCard(
+        body=[
+            TextBlock(text="Handled by Teams App", weight="Bolder", wrap=True),
+            TextBlock(text="This Action.Execute invoke falls through to the Teams SDK app route.", wrap=True),
+            ActionSet(actions=[ExecuteAction(title="Run Teams action").with_data(SubmitData("teams_action"))]),
+        ],
+    )
+
+
+# Provide the Bot Framework's adapter and activity handler to `BotBuilderAdapter`.
+# The adapter runs BotBuilder at the HTTP boundary before forwarding to Teams SDK routes.
 app = App(
-    plugins=[
-        BotBuilderPlugin(
-            adapter=adapter,
-            # This is the Bot Framework handler
-            handler=EchoBot(),
-        ),
-    ]
+    http_server_adapter=BotBuilderAdapter(
+        cloud_adapter=adapter,
+        # This is the Bot Framework handler
+        handler=EchoBot(),
+    ),
 )
 
 
@@ -69,6 +92,14 @@ app = App(
 @app.on_message
 async def handle_message(ctx: ActivityContext[MessageActivity]):
     await ctx.send(f"TeamsSDK: You said {ctx.activity.text}")
+    await ctx.send(botbuilder_card())
+    await ctx.send(teams_app_card())
+
+
+@app.on_card_action_execute("teams_action")
+async def handle_teams_action(ctx: ActivityContext[AdaptiveCardInvokeActivity]) -> AdaptiveCardInvokeResponse:
+    await ctx.send("Teams SDK handled the card action.")
+    return AdaptiveCardActionMessageResponse(value="Action processed successfully")
 
 
 if __name__ == "__main__":
