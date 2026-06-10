@@ -32,16 +32,21 @@ class HttpStream(StreamerProtocol):
     Flow:
     1. emit() adds activities to a queue
     2. _flush() drains the entire queue under a lock.
-    3. Informative typing updates are sent if no message started.
-    4. Message text are combined into a typing chunk.
-    5. Another flush is scheduled if more items remain.
-    6. close() waits for queue to empty, then sends final message with stream_type='stream_final'
+    3. Message text are combined into a typing chunk.
+    4. Another flush is scheduled if more items remain.
+    5. close() waits for queue to empty, then sends final message with stream_type='stream_final'
+
+    The stream has two modes:
+    - Informative mode (initial): each flush sends only the latest pending informative
+      update — they are status replacements, not cumulative content, so intermediate
+      ones are skipped (count logged at debug level).
+    - Text mode: entered once text streaming starts, permanently. Informative updates
+      are no longer sent (count logged at debug level).
 
     The timeout cancellation ensures only one flush operation is scheduled at a time.
-    Every send goes through a per-stream limiter (min_send_interval) so we stay within
-    the Teams 1 req/s streaming limit. By default every informative update is kept and
-    paced out; set coalesce_informative_updates=True to collapse a burst of informative
-    updates in one flush to the latest one instead.
+    Every send — informative updates, text chunks, retries, and the final close() send —
+    goes through the same per-stream limiter (min_send_interval) so we stay within the
+    Teams 1 req/s streaming limit.
     """
 
     def __init__(
@@ -49,7 +54,6 @@ class HttpStream(StreamerProtocol):
         client: ApiClient,
         ref: ConversationReference,
         min_send_interval: float = 1.0,
-        coalesce_informative_updates: bool = False,
     ):
         """
         Initialize a new HttpStream instance.
@@ -59,17 +63,12 @@ class HttpStream(StreamerProtocol):
             ref (ConversationReference): Reference to the Teams conversation.
             min_send_interval (float): Minimum seconds between sends, including retries and the final
                 close() send (Teams limits streaming to 1 req/s). Set 0 to disable pacing.
-            coalesce_informative_updates (bool): When False (default), every informative update is
-                paced out at min_send_interval; a long burst then holds the flush lock and can delay
-                or drop close()'s final message (see _total_wait_timeout). Set True to collapse a
-                burst of informative updates in one flush to the latest one instead.
         """
         super().__init__()
         self._client = client
         self._ref = ref
         self._events = EventEmitter[StreamerEvent]()
         self._acquire = make_limiter(min_send_interval)
-        self._coalesce_informative_updates = coalesce_informative_updates
 
         self._result: Optional[SentActivity] = None
         self._lock = asyncio.Lock()
@@ -86,6 +85,7 @@ class HttpStream(StreamerProtocol):
         self._index = 1
         self._id: Optional[str] = None
         self._text: str = ""
+        self._text_mode: bool = False
         self._channel_data: ChannelData = ChannelData()
         self._final_activity: Optional[MessageActivityInput] = None
         self._queue: deque[Union[MessageActivityInput, TypingActivityInput, str]] = deque()
@@ -157,6 +157,9 @@ class HttpStream(StreamerProtocol):
         previously-flushed attachments/suggested actions aren't sent if the
         caller never emits a replacement. The stream id and channel data are
         kept intact so the new final activity still updates the stream in place.
+
+        Text mode is NOT reset: once text streaming has started, informative
+        updates stay disabled even if the text buffer is cleared.
         """
         # Safe without the lock: no await points here, so this runs atomically
         # w.r.t. the event loop and can't interleave with _flush's critical
@@ -259,22 +262,29 @@ class HttpStream(StreamerProtocol):
                 if (
                     isinstance(activity, TypingActivityInput)
                     and getattr(activity.channel_data, "stream_type", None) == "informative"
-                    and self._text == ""
                 ):
-                    # If `_text` is not empty then it's possible that streaming has started.
-                    # And so informative updates cannot be sent.
                     informative_updates.append(activity)
 
             if start_length == 0:
                 logger.debug("No activities to flush")
                 return
 
-            if self._coalesce_informative_updates and len(informative_updates) > 1:
+            # Any accumulated text — even from this same flush — switches the stream
+            # to text mode for good: the streamed text replaces the status bubble in
+            # the Teams UI, so informative updates are pointless from then on.
+            if self._text:
+                self._text_mode = True
+
+            if informative_updates and self._text_mode:
+                logger.debug("Dropped %d informative update(s): text streaming has started", len(informative_updates))
+                informative_updates = []
+            elif len(informative_updates) > 1:
+                logger.debug("Coalesced %d informative update(s) into the latest", len(informative_updates) - 1)
                 informative_updates = informative_updates[-1:]
 
-            # Send informative updates, paced by the limiter
-            for typing_update in informative_updates:
-                await self._send_activity(typing_update)
+            # Send the surviving informative update (at most one), paced by the limiter
+            if informative_updates:
+                await self._send_activity(informative_updates[-1])
 
             # Send the combined text chunk
             if self._text:
@@ -328,9 +338,8 @@ class HttpStream(StreamerProtocol):
         # so a retry storm or a final message sent right behind the last chunk can't
         # trip the throttle. acquire() only waits when a send would actually be too
         # soon (next_slot is in the past after any idle gap), so close() pays no
-        # latency unless it lands within the interval. While _flush holds self._lock
-        # this sleeps under it, so a long informative burst still delays close()
-        # (see _total_wait_timeout). Pass min_send_interval=0 to disable pacing.
+        # latency unless it lands within the interval. Pass min_send_interval=0 to
+        # disable pacing.
         await self._acquire()
 
         to_send.from_ = self._ref.bot

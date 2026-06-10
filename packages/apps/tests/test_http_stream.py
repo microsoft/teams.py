@@ -5,6 +5,7 @@ Licensed under the MIT License.
 # pyright: basic
 
 import asyncio
+import logging
 from time import monotonic
 from unittest.mock import MagicMock, patch
 
@@ -171,26 +172,28 @@ class TestHttpStream:
             assert stream.sequence >= 2
 
     @pytest.mark.asyncio
-    async def test_stream_sequence_of_update_and_emit(
-        self, mock_api_client, conversation_reference, patch_loop_call_later
-    ):
-        loop = asyncio.get_running_loop()
-        patcher, scheduled = patch_loop_call_later(loop)
-        with patcher:
-            stream = HttpStream(mock_api_client, conversation_reference, min_send_interval=0.01)
-            stream.update("Preparing response...")
-            stream.emit("Final response message")
-            await asyncio.sleep(0)
-            await self._run_scheduled_flushes(scheduled)
+    async def test_stream_sequence_of_update_and_emit(self, mock_api_client, conversation_reference):
+        # Informative mode then text mode: the informative update flushes first,
+        # then text streaming starts in a later flush.
+        stream = HttpStream(mock_api_client, conversation_reference, min_send_interval=0.01)
+        stream.update("Preparing response...")
+        task = stream._pending
+        assert task is not None
+        await task
 
-            assert len(mock_api_client.sent_activities) >= 2
-            typing_activity = mock_api_client.sent_activities[0]
-            message_activity = mock_api_client.sent_activities[1]
+        stream.emit("Final response message")
+        task = stream._pending
+        assert task is not None
+        await task
 
-            assert isinstance(typing_activity, TypingActivityInput)
-            assert typing_activity.text == "Preparing response..."
-            assert message_activity.text == "Final response message"
-            assert stream.sequence >= 3
+        assert len(mock_api_client.sent_activities) == 2
+        typing_activity = mock_api_client.sent_activities[0]
+        message_activity = mock_api_client.sent_activities[1]
+
+        assert isinstance(typing_activity, TypingActivityInput)
+        assert typing_activity.text == "Preparing response..."
+        assert message_activity.text == "Final response message"
+        assert stream.sequence >= 3
 
     @pytest.mark.asyncio
     async def test_stream_concurrent_emits_do_not_flush_simultaneously(
@@ -456,30 +459,21 @@ class TestHttpStream:
         assert mock_api_client.sent_activities[0].text == "Response text"
 
     @pytest.mark.asyncio
-    async def test_rapid_updates_are_paced_not_dropped_by_default(self, mock_api_client, conversation_reference):
-        interval = 0.05
-        send_times: list[float] = []
+    async def test_informative_burst_coalesces_to_latest(self, mock_api_client, conversation_reference, caplog):
+        # Informative updates are status replacements, not cumulative content:
+        # a burst in one flush collapses to the latest one.
+        stream = HttpStream(mock_api_client, conversation_reference, min_send_interval=0.05)
+        with caplog.at_level(logging.DEBUG, logger="microsoft_teams.apps.http_stream"):
+            for i in range(8):
+                stream.update(f"progress {i}")
 
-        async def mock_send(activity):
-            send_times.append(monotonic())
-            mock_api_client.send_call_count += 1
-            mock_api_client.sent_activities.append(activity)
-            return SentActivity(id=f"activity-{mock_api_client.send_call_count}", activity_params=activity)
+            task = stream._pending
+            assert task is not None
+            await task
 
-        mock_api_client.conversations.activities().create = mock_send
-
-        stream = HttpStream(mock_api_client, conversation_reference, min_send_interval=interval)
-        for i in range(8):
-            stream.update(f"progress {i}")
-
-        task = stream._pending
-        assert task is not None
-        await task
-
-        texts = [a.text for a in mock_api_client.sent_activities]
-        assert texts == [f"progress {i}" for i in range(8)]  # all sent, in order, none dropped
-        gaps = [b - a for a, b in zip(send_times, send_times[1:], strict=False)]
-        assert min(gaps) >= interval * 0.9  # each subsequent send waited ~one interval
+        assert mock_api_client.send_call_count == 1
+        assert mock_api_client.sent_activities[0].text == "progress 7"
+        assert "Coalesced 7 informative update(s) into the latest" in caplog.text
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize("interval", [0.05, 0.15])
@@ -508,45 +502,56 @@ class TestHttpStream:
         assert min(gaps) >= interval * 0.9
 
     @pytest.mark.asyncio
-    async def test_coalesce_drops_intermediate_informative_in_burst_when_opted_in(
-        self, mock_api_client, conversation_reference
-    ):
-        # Coalescing is opt-in; when enabled, a burst is not paced one-by-one.
-        stream = HttpStream(
-            mock_api_client,
-            conversation_reference,
-            min_send_interval=0.05,
-            coalesce_informative_updates=True,
-        )
-        for i in range(8):
-            stream.update(f"progress {i}")
-
+    async def test_text_supersedes_informative_in_same_flush(self, mock_api_client, conversation_reference):
+        # When text lands in the same flush as informative updates, the text wins:
+        # it replaces the status bubble immediately anyway, so the informative
+        # update would only burn a paced slot before real content.
+        stream = HttpStream(mock_api_client, conversation_reference, min_send_interval=0.01)
+        stream.update("Thinking...")
+        stream.emit("The answer")
         task = stream._pending
         assert task is not None
         await task
 
-        # A burst collapses to the latest informative bubble.
-        assert mock_api_client.send_call_count == 1
-        assert mock_api_client.sent_activities[0].text == "progress 7"
+        texts = [a.text for a in mock_api_client.sent_activities]
+        assert texts == ["The answer"]
 
     @pytest.mark.asyncio
-    async def test_coalesce_does_not_drop_text(self, mock_api_client, conversation_reference, patch_loop_call_later):
-        loop = asyncio.get_running_loop()
-        patcher, scheduled = patch_loop_call_later(loop)
-        with patcher:
-            stream = HttpStream(
-                mock_api_client,
-                conversation_reference,
-                min_send_interval=0.01,
-                coalesce_informative_updates=True,
-            )
-            stream.update("Thinking...")
-            stream.emit("The answer")
-            await asyncio.sleep(0)
-            await self._run_scheduled_flushes(scheduled)
+    async def test_informative_dropped_after_text_started(self, mock_api_client, conversation_reference, caplog):
+        stream = HttpStream(mock_api_client, conversation_reference, min_send_interval=0.01)
+        stream.emit("chunk")
+        task = stream._pending
+        assert task is not None
+        await task
 
-            texts = [a.text for a in mock_api_client.sent_activities]
-            assert texts == ["Thinking...", "The answer"]  # informative + text both sent
+        with caplog.at_level(logging.DEBUG, logger="microsoft_teams.apps.http_stream"):
+            stream.update("status")
+            task = stream._pending
+            assert task is not None
+            await task
+
+        texts = [a.text for a in mock_api_client.sent_activities]
+        assert "status" not in texts
+        assert "Dropped 1 informative update(s): text streaming has started" in caplog.text
+
+    @pytest.mark.asyncio
+    async def test_text_mode_latch_survives_clear_text(self, mock_api_client, conversation_reference):
+        # Once text streaming has started, clearing the text buffer must not
+        # re-enable informative updates.
+        stream = HttpStream(mock_api_client, conversation_reference, min_send_interval=0.01)
+        stream.emit("chunk")
+        task = stream._pending
+        assert task is not None
+        await task
+
+        stream.clear_text()
+        stream.update("status")
+        task = stream._pending
+        assert task is not None
+        await task
+
+        texts = [a.text for a in mock_api_client.sent_activities]
+        assert texts == ["chunk"]
 
     @pytest.mark.asyncio
     async def test_close_final_send_is_paced(self, mock_api_client, conversation_reference):

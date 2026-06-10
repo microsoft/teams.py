@@ -27,25 +27,14 @@ class ActivitySender:
     Separate from transport concerns (HTTP, WebSocket, etc.)
     """
 
-    def __init__(
-        self,
-        client: Client,
-        stream_min_send_interval: float = 1.0,
-        stream_coalesce_informative_updates: bool = False,
-    ):
+    def __init__(self, client: Client):
         """
         Initialize ActivitySender.
 
         Args:
             client: HTTP client with token provider configured
-            stream_min_send_interval: Minimum seconds between sends on streams created by
-                create_stream() (Teams limits streaming to 1 req/s). Set 0 to disable pacing.
-            stream_coalesce_informative_updates: When True, a burst of informative updates in one
-                flush collapses to the latest one instead of pacing out every update.
         """
         self._client = client
-        self._stream_min_send_interval = stream_min_send_interval
-        self._stream_coalesce_informative_updates = stream_coalesce_informative_updates
 
     async def send(self, activity: ActivityParams, ref: ConversationReference) -> SentActivity:
         """
@@ -103,9 +92,4 @@ class ActivitySender:
         """
         # Create API client for this conversation's service URL
         api = ApiClient(ref.service_url, self._client)
-        return HttpStream(
-            api,
-            ref,
-            min_send_interval=self._stream_min_send_interval,
-            coalesce_informative_updates=self._stream_coalesce_informative_updates,
-        )
+        return HttpStream(api, ref)

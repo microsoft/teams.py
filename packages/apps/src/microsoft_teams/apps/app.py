@@ -130,11 +130,7 @@ class App(ActivityHandlerMixin):
         self._initialized = False
 
         # initialize ActivitySender for sending activities
-        self.activity_sender = ActivitySender(
-            self.http_client.clone(ClientOptions(token=self._get_bot_token)),
-            stream_min_send_interval=self.options.stream_min_send_interval,
-            stream_coalesce_informative_updates=self.options.stream_coalesce_informative_updates,
-        )
+        self.activity_sender = ActivitySender(self.http_client.clone(ClientOptions(token=self._get_bot_token)))
 
         # initialize all event, activity, and plugin processors
         self.activity_processor = ActivityProcessor(
