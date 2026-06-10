@@ -102,11 +102,7 @@ class App(ActivityHandlerMixin):
         )
 
         self.container = Container()
-        self.container.set_provider("id", providers.Object(self.id))
-        self.container.set_provider("credentials", providers.Object(self.credentials))
-        self.container.set_provider("bot_token", providers.Factory(lambda: self._get_bot_token))
         self.container.set_provider("storage", providers.Object(self.storage))
-        self.container.set_provider(self.http_client.__class__.__name__, providers.Factory(lambda: self.http_client))
 
         service_url = (
             self.options.service_url or os.getenv("SERVICE_URL") or "https://smba.trafficmanager.net/teams"

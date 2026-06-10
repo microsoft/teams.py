@@ -392,6 +392,7 @@ dependencies = [
     { name = "dotenv" },
     { name = "microsoft-teams-apps" },
     { name = "microsoft-teams-botbuilder" },
+    { name = "microsoft-teams-cards" },
 ]
 
 [package.metadata]
@@ -400,6 +401,7 @@ requires-dist = [
     { name = "dotenv", specifier = ">=0.9.9" },
     { name = "microsoft-teams-apps", editable = "packages/apps" },
     { name = "microsoft-teams-botbuilder", editable = "packages/botbuilder" },
+    { name = "microsoft-teams-cards", editable = "packages/cards" },
 ]
 
 [[package]]
