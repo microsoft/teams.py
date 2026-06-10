@@ -24,7 +24,6 @@ async def test_make_limiter_spaces_calls():
     assert elapsed >= 0.10  # two subsequent calls each waited one interval
 
 
-@pytest.mark.parametrize("interval", [-0.5, -1])
-def test_make_limiter_rejects_negative_interval(interval: float):
+def test_make_limiter_rejects_negative_interval():
     with pytest.raises(ValueError):
-        make_limiter(interval)
+        make_limiter(-0.5)

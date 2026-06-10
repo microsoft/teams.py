@@ -247,8 +247,9 @@ class HttpStream(StreamerProtocol):
                 self._timeout.cancel()
                 self._timeout = None
 
-            informative_updates: list[TypingActivityInput] = []
-            start_length = len(self._queue)
+            last_informative: Optional[TypingActivityInput] = None
+            informative_count = 0
+            text_before = self._text
 
             while self._queue:
                 activity = self._queue.popleft()
@@ -261,13 +262,11 @@ class HttpStream(StreamerProtocol):
                     self._channel_data = ChannelData(**merged)
                 if (
                     isinstance(activity, TypingActivityInput)
-                    and getattr(activity.channel_data, "stream_type", None) == "informative"
+                    and activity.channel_data is not None
+                    and activity.channel_data.stream_type == "informative"
                 ):
-                    informative_updates.append(activity)
-
-            if start_length == 0:
-                logger.debug("No activities to flush")
-                return
+                    last_informative = activity
+                    informative_count += 1
 
             # Any accumulated text — even from this same flush — switches the stream
             # to text mode for good: the streamed text replaces the status bubble in
@@ -275,19 +274,18 @@ class HttpStream(StreamerProtocol):
             if self._text:
                 self._text_mode = True
 
-            if informative_updates and self._text_mode:
-                logger.debug("Dropped %d informative update(s): text streaming has started", len(informative_updates))
-                informative_updates = []
-            elif len(informative_updates) > 1:
-                logger.debug("Coalesced %d informative update(s) into the latest", len(informative_updates) - 1)
-                informative_updates = informative_updates[-1:]
+            if self._text_mode:
+                if informative_count:
+                    logger.debug("Dropped %d informative update(s): text streaming has started", informative_count)
+            elif last_informative is not None:
+                if informative_count > 1:
+                    logger.debug("Coalesced %d informative update(s) into the latest", informative_count - 1)
+                await self._send_activity(last_informative)
 
-            # Send the surviving informative update (at most one), paced by the limiter
-            if informative_updates:
-                await self._send_activity(informative_updates[-1])
-
-            # Send the combined text chunk
-            if self._text:
+            # Send the combined text as a chunk, but only when this flush added text —
+            # an informative-only flush must not re-send (and re-pace) the unchanged
+            # cumulative text.
+            if self._text != text_before:
                 to_send = TypingActivityInput(text=self._text)
                 await self._send_activity(to_send)
 
@@ -334,12 +332,7 @@ class HttpStream(StreamerProtocol):
             raise StreamCancelledError("Teams channel stopped the stream.")
 
         # Pace every HTTP attempt to the Teams 1 req/s streaming limit. Gating here
-        # rather than in _send_activity also paces retries and close()'s final send,
-        # so a retry storm or a final message sent right behind the last chunk can't
-        # trip the throttle. acquire() only waits when a send would actually be too
-        # soon (next_slot is in the past after any idle gap), so close() pays no
-        # latency unless it lands within the interval. Pass min_send_interval=0 to
-        # disable pacing.
+        # rather than in _send_activity also paces retries and close()'s final send.
         await self._acquire()
 
         to_send.from_ = self._ref.bot
