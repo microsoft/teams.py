@@ -3,51 +3,59 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
+# Agent 365 Reactive Example
+# ==========================
+# This example echoes messages back as the concrete AgentUser from the inbound activity.
+
 import asyncio
-import os
+import logging
+import re
 
-from dotenv import load_dotenv
-from microsoft_teams.api import ClientCredentials
-from microsoft_teams.apps.token_manager import AGENT_BOT_API_SCOPE, TokenManager
+from microsoft_teams.api import AdaptiveCardInvokeActivity, MessageActivity
+from microsoft_teams.api.activities.typing import TypingActivityInput
+from microsoft_teams.api.models.adaptive_card import AdaptiveCardActionMessageResponse
+from microsoft_teams.api.models.invoke_response import AdaptiveCardInvokeResponse
+from microsoft_teams.apps import ActivityContext, App
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+app = App()
 
 
-def get_required_env(name: str) -> str:
-    value = os.getenv(name)
-    if not value:
-        raise ValueError(f"{name} must be set")
-
-    return value
+@app.on_message_pattern(re.compile(r"hello|hi|greetings"))
+async def handle_greeting(ctx: ActivityContext[MessageActivity]) -> None:
+    """Handle greeting messages as the inbound agent user."""
+    await ctx.reply("Hello! How can I assist you today?")
 
 
-async def main():
-    load_dotenv()
+@app.on_message
+async def handle_message(ctx: ActivityContext[MessageActivity]):
+    """Echo incoming messages as the inbound agent user."""
+    logger.info(f"[Agent365 onMessage] Message received: {ctx.activity.text}")
+    logger.info(f"[Agent365 onMessage] From: {ctx.activity.from_}")
+    logger.info(f"[Agent365 onMessage] Agent user: {ctx.agent_user}")
 
-    tenant_id = get_required_env("AGENT365_TENANT_ID")
-    blueprint_client_id = get_required_env("AGENT365_BLUEPRINT_CLIENT_ID")
-    blueprint_client_secret = get_required_env("AGENT365_BLUEPRINT_CLIENT_SECRET")
-    agent_identity_app_id = get_required_env("AGENT365_AGENT_IDENTITY_APP_ID")
-    agent_user_id = os.getenv("AGENT365_AGENT_USER_ID")
-    agent_user_upn = os.getenv("AGENT365_AGENT_USER_UPN")
-    scope = os.getenv("AGENT365_SCOPE", AGENT_BOT_API_SCOPE)
+    await ctx.reply(TypingActivityInput())
 
-    credentials = ClientCredentials(
-        client_id=blueprint_client_id,
-        client_secret=blueprint_client_secret,
-        tenant_id=tenant_id,
+    if "reply" in ctx.activity.text.lower():
+        await ctx.reply("Hello! How can I assist you today?")
+    else:
+        await ctx.send(f"You said '{ctx.activity.text}'")
+
+
+@app.on_card_action_execute("ack_agent365_card")
+async def handle_agent365_card_ack(ctx: ActivityContext[AdaptiveCardInvokeActivity]) -> AdaptiveCardInvokeResponse:
+    """Handle the Action.Execute button from the proactive AgentUser card."""
+    data = ctx.activity.value.action.data
+    logger.info(f"[Agent365 card] Acknowledged with data: {data}")
+    await ctx.send(f"Acknowledged Agent 365 card. Data: {data}")
+    return AdaptiveCardActionMessageResponse(
+        status_code=200,
+        type="application/vnd.microsoft.activity.message",
+        value="Acknowledged",
     )
-    token_manager = TokenManager(credentials=credentials)
-
-    token = await token_manager.get_agent_user_token(
-        tenant_id,
-        agent_identity_app_id,
-        scope,
-        agent_user_id=agent_user_id,
-        agent_user_upn=agent_user_upn,
-    )
-
-    print(f"Acquired agent user token for {scope}")
-    print(f"Token preview: {str(token)[:20]}...")
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    asyncio.run(app.start())

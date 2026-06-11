@@ -42,6 +42,8 @@ from microsoft_teams.common.experimental import ExperimentalWarning, experimenta
 from microsoft_teams.common.http.client_token import Token
 
 from ..activity_sender import ActivitySender
+from ..agent_user import AgentUser, AgentUserIdentity
+from ..token_manager import TokenManager
 from ..utils import create_graph_client
 
 if TYPE_CHECKING:
@@ -88,6 +90,7 @@ class ActivityContext(Generic[T]):
         connection_name: str,
         activity_sender: ActivitySender,
         app_token: Token,
+        token_manager: Optional[TokenManager] = None,
         cloud: CloudEnvironment = PUBLIC,
     ):
         self.activity = activity
@@ -102,6 +105,8 @@ class ActivityContext(Generic[T]):
         self.cloud = cloud
         self._activity_sender = activity_sender
         self._app_token = app_token
+        self._token_manager = token_manager
+        self.agent_user = self._get_agent_user()
         self.stream = activity_sender.create_stream(conversation_ref)
 
         self._next_handler: Optional[Callable[[], Awaitable[None]]] = None
@@ -191,7 +196,10 @@ class ActivityContext(Generic[T]):
         self._add_targeted_message_info_entity(activity)
 
         ref = conversation_ref or self.conversation_ref
-        res = await self._activity_sender.send(activity, ref)
+        if self.agent_user is not None:
+            return await self.agent_user.send(ref, activity)
+
+        res = await self._activity_sender.send(ref, activity)
         return res
 
     async def reply(self, input: str | ActivityParams) -> SentActivity:
@@ -245,6 +253,33 @@ class ActivityContext(Generic[T]):
             return None
 
         return self.activity.from_
+
+    def _get_agent_user(self) -> Optional[AgentUser]:
+        recipient = getattr(self.activity, "recipient", None)
+        if recipient is None or recipient.role != "agenticUser":
+            return None
+
+        if self._token_manager is None:
+            raise ValueError("token_manager is required for agenticUser activities")
+        if not recipient.agentic_user_id:
+            raise ValueError("agenticUser recipient is missing agenticUserId")
+        if not recipient.agentic_app_id:
+            raise ValueError("agenticUser recipient is missing agenticAppId")
+
+        tenant_id = recipient.tenant_id or getattr(self.activity.conversation, "tenant_id", None)
+        if not tenant_id:
+            raise ValueError("agenticUser recipient is missing tenantId")
+
+        return AgentUser(
+            AgentUserIdentity(
+                id=recipient.agentic_user_id,
+                agent_identity_app_id=recipient.agentic_app_id,
+                tenant_id=tenant_id,
+            ),
+            service_url=self.conversation_ref.service_url,
+            http_client=self.api.http,
+            token_manager=self._token_manager,
+        )
 
     def _should_outbound_be_auto_targeted(
         self,

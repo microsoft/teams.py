@@ -6,6 +6,7 @@ Licensed under the MIT License.
 import logging
 
 from . import auth, contexts, events, plugins
+from .agent_user import AgentUser, AgentUserIdentity
 from .app import App
 from .auth import *  # noqa: F403
 from .contexts import *  # noqa: F403
@@ -23,6 +24,8 @@ logging.getLogger(__name__).addHandler(logging.NullHandler())
 __all__: list[str] = [
     "App",
     "AppOptions",
+    "AgentUser",
+    "AgentUserIdentity",
     "HttpServer",
     "HttpServerAdapter",
     "FastAPIAdapter",

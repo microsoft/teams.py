@@ -1,31 +1,36 @@
 # agent365
 
-Acquire an Agent 365 agent user token using an agent identity blueprint, an agent identity app ID, and an agent user.
+Demonstrates Agent 365 `AgentUser` support in reactive and proactive modes.
 
-## Run
+## Reactive Echo
 
-Set these environment variables or add them to `.env`:
-
-```bash
-AGENT365_TENANT_ID=<tenant-id>
-AGENT365_BLUEPRINT_CLIENT_ID=<agent-identity-blueprint-app-id>
-AGENT365_BLUEPRINT_CLIENT_SECRET=<agent-identity-blueprint-secret>
-AGENT365_AGENT_IDENTITY_APP_ID=<agent-identity-app-id>
-AGENT365_AGENT_USER_ID=<agent-user-object-id>
-```
-
-Then run:
+`src/main.py` mimics the echo example. Incoming messages are handled normally, but when the inbound activity recipient has `role="agenticUser"`, `ctx.send()` and `ctx.reply()` send as that concrete `AgentUser` using the inbound activity's service URL.
 
 ```bash
+export CLIENT_ID=<agent-identity-blueprint-app-id>
+export CLIENT_SECRET=<agent-identity-blueprint-secret>
+export TENANT_ID=<tenant-id>
+
 uv run --project examples/agent365 python src/main.py
 ```
 
-By default this requests a Teams bot API token for `https://botapi.skype.com/.default`.
+## Proactive AgentUser Send
 
-To request another resource, set `AGENT365_SCOPE`, for example:
+`src/proactive.py` mimics the proactive messaging example, but sends as a specific AgentUser. Supply the concrete agent identity app ID and agent user ID.
 
 ```bash
-AGENT365_SCOPE=https://graph.microsoft.com/.default
+export CLIENT_ID=<agent-identity-blueprint-app-id>
+export CLIENT_SECRET=<agent-identity-blueprint-secret>
+export TENANT_ID=<tenant-id>
+
+uv run --project examples/agent365 python src/proactive.py \
+  <conversation-id> \
+  <agent-identity-app-id> \
+  <agent-user-id>
 ```
 
-You can use `AGENT365_AGENT_USER_UPN` instead of `AGENT365_AGENT_USER_ID`.
+## Identity Model
+
+- `CLIENT_ID`: blueprint client/app ID.
+- `agent_identity_app_id`: concrete agent identity app/client ID.
+- `agent_user_id`: user-shaped account/persona object ID for the agent.

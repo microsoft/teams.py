@@ -36,6 +36,7 @@ if TYPE_CHECKING:
     from msgraph.graph_service_client import GraphServiceClient
 
 from .activity_sender import ActivitySender
+from .agent_user import AgentUser, AgentUserIdentity
 from .app_events import EventManager
 from .app_oauth import OauthHandlers
 from .app_plugins import PluginProcessor
@@ -318,7 +319,30 @@ class App(ActivityHandlerMixin):
         else:
             activity = activity
 
-        return await self.activity_sender.send(activity, conversation_ref)
+        return await self.activity_sender.send(conversation_ref, activity)
+
+    def get_agent_user(
+        self,
+        agent_identity_app_id: str,
+        agent_user_id: str,
+        *,
+        tenant_id: Optional[str] = None,
+    ) -> AgentUser:
+        """Get a sendable handle for an Agent ID user identity."""
+        resolved_tenant_id = tenant_id or (self.credentials.tenant_id if self.credentials else None)
+        if resolved_tenant_id is None:
+            raise ValueError("tenant_id is required to get an agent user")
+
+        return AgentUser(
+            AgentUserIdentity(
+                id=agent_user_id,
+                agent_identity_app_id=agent_identity_app_id,
+                tenant_id=resolved_tenant_id,
+            ),
+            service_url=self.api.service_url,
+            http_client=self.http_client,
+            token_manager=self._token_manager,
+        )
 
     @overload
     async def reply(

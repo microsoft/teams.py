@@ -36,13 +36,13 @@ class ActivitySender:
         """
         self._client = client
 
-    async def send(self, activity: ActivityParams, ref: ConversationReference) -> SentActivity:
+    async def send(self, ref: ConversationReference, activity: ActivityParams) -> SentActivity:
         """
         Send an activity to the Bot Framework.
 
         Args:
-            activity: The activity to send
             ref: The conversation reference
+            activity: The activity to send
 
         Returns:
             The sent activity with id and other server-populated fields

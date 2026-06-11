@@ -129,6 +129,7 @@ class ActivityProcessor:
             self.default_connection_name,
             activity_sender=self.activity_sender,
             app_token=lambda: self.token_manager.get_graph_token(tenant_id),
+            token_manager=self.token_manager,
             cloud=self.cloud,
         )
 

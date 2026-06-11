@@ -10,6 +10,7 @@ from pydantic import AliasChoices, Field
 from .custom_base_model import CustomBaseModel
 
 AccountType = Literal["person", "tag", "channel", "team", "bot"]
+AccountRole = Literal["agenticUser"]
 
 
 class Account(CustomBaseModel):
@@ -44,6 +45,18 @@ class Account(CustomBaseModel):
     """
     The name of the account.
     """
+    role: Optional[AccountRole | str] = None
+    """The role of the account in the activity."""
+    agentic_user_id: Optional[str] = None
+    """The Agent ID user-shaped identity object ID."""
+    agentic_app_id: Optional[str] = None
+    """The Agent ID app/client ID for the concrete agent identity."""
+    agentic_app_blueprint_id: Optional[str] = None
+    """The Agent ID blueprint app/client ID."""
+    callback_uri: Optional[str] = None
+    """The callback URI associated with the agent identity."""
+    tenant_id: Optional[str] = None
+    """The tenant ID associated with the account."""
 
 
 class TeamsChannelAccount(CustomBaseModel):

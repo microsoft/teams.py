@@ -79,7 +79,7 @@ class FunctionContext(ClientContext, Generic[T]):
         else:
             activity = activity
 
-        return await self.activity_sender.send(activity, conversation_ref)
+        return await self.activity_sender.send(conversation_ref, activity)
 
     async def _resolve_conversation_id(self, activity: str | ActivityParams | AdaptiveCard) -> Optional[str]:
         """Resolve or create a conversation ID for the current user/context.
