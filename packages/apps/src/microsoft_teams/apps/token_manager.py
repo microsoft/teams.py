@@ -135,12 +135,14 @@ class TokenManager:
 
         t2 = self._get_access_token_or_raise(t2_raw, "Agent token exchange step 2 failed")
 
-        t3_raw = t2_confidential_client.acquire_token_by_user_federated_identity_credential(
-            [scope],
-            assertion=t2,
-            user_object_id=agent_user_id,
-            username=agent_user_upn,
-            data={"requested_token_use": "on_behalf_of"},
+        t3_raw: dict[str, Any] = await asyncio.to_thread(
+            lambda: t2_confidential_client.acquire_token_by_user_federated_identity_credential(
+                [scope],
+                assertion=t2,
+                user_object_id=agent_user_id,
+                username=agent_user_upn,
+                data={"requested_token_use": "on_behalf_of"},
+            )
         )
         return self._handle_token_response(t3_raw, caller_name or "get_agent_user_token")
 
