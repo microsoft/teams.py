@@ -13,7 +13,7 @@ from microsoft_teams.api.auth.cloud_environment import PUBLIC, CloudEnvironment
 from microsoft_teams.api.auth.json_web_token import JsonWebToken
 from pydantic import BaseModel
 
-from ..auth import TokenValidator
+from ..auth import InboundActivityTokenValidator
 from ..events import ActivityEvent, CoreActivity
 from .adapter import HttpRequest, HttpResponse, HttpServerAdapter
 
@@ -43,7 +43,7 @@ class HttpServer:
             raise ValueError("messaging_endpoint must be a non-empty path starting with '/'.")
         self._messaging_endpoint = normalized_endpoint
         self._on_request: Optional[Callable[[ActivityEvent], Awaitable[InvokeResponse[Any]]]] = None
-        self._token_validator: Optional[TokenValidator] = None
+        self._token_validator: Optional[InboundActivityTokenValidator] = None
         self._skip_auth: bool = False
         self._cloud: CloudEnvironment = PUBLIC
         self._initialized: bool = False
@@ -89,7 +89,7 @@ class HttpServer:
 
         app_id = getattr(credentials, "client_id", None) if credentials else None
         if app_id and not skip_auth:
-            self._token_validator = TokenValidator.for_service(
+            self._token_validator = InboundActivityTokenValidator(
                 app_id,
                 cloud=self._cloud,
             )
