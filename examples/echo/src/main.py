@@ -8,6 +8,7 @@ import logging
 import re
 
 from microsoft_teams.api import MessageActivity
+from microsoft_teams.api.activities.message import MessageActivityInput
 from microsoft_teams.api.activities.typing import TypingActivityInput
 from microsoft_teams.apps import ActivityContext, App
 
@@ -32,7 +33,22 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
     logger.info(f"[GENERATED onMessage] From: {ctx.activity.from_}")
     await ctx.reply(TypingActivityInput())
 
-    if "reply" in ctx.activity.text.lower():
+    if "extended" in ctx.activity.text.lower():
+        rich_content = "\n".join([
+            "# Extended Markdown Demo",
+            "",
+            "## Table",
+            "| Feature | Status |",
+            "|---------|--------|",
+            "| Tables  | Supported |",
+            "| Math    | Supported |",
+            "",
+            "## Math",
+            "$$E = mc^2$$",
+        ])
+        reply = MessageActivityInput(text=rich_content).with_text_format("extendedmarkdown")
+        await ctx.reply(reply)
+    elif "reply" in ctx.activity.text.lower():
         await ctx.reply("Hello! How can I assist you today?")
     else:
         await ctx.send(f"You said '{ctx.activity.text}'")

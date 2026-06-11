@@ -478,6 +478,18 @@ class TestMessageActivity:
         result = activity.get_account_mention("nonexistent-id")
         assert result is None
 
+    def test_extended_markdown_text_format(self):
+        """Test setting extendedmarkdown text format"""
+        activity = self.create_message_activity("Hello world!")
+        result = activity.with_text_format("extendedmarkdown")
+
+        assert result is activity
+        assert activity.text_format == "extendedmarkdown"
+
+        # Verify serialization
+        data = activity.model_dump(by_alias=True, exclude_none=True)
+        assert data["textFormat"] == "extendedmarkdown"
+
     def test_strip_mentions_text_updates_text_received(self):
         """Test MessageActivity.strip_mentions_text sets text when stripped_text is not None"""
         activity = self.create_incoming_message_activity("Hi <at>Test User</at>! How are you?")

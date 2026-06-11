@@ -5,4 +5,4 @@ Licensed under the MIT License.
 
 from typing import Literal
 
-TextFormat = Literal["markdown", "plain", "xml"]
+TextFormat = Literal["markdown", "plain", "xml", "extendedmarkdown"]
