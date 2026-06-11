@@ -6,7 +6,7 @@ Licensed under the MIT License.
 import asyncio
 import logging
 from inspect import isawaitable
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 
 import requests
 from microsoft_teams.api import (
@@ -47,6 +47,7 @@ class TokenManager:
         self._cloud = cloud or PUBLIC
         self._confidential_clients_by_tenant: dict[str, ConfidentialClientApplication] = {}
         self._federated_identity_clients_by_tenant: dict[str, ConfidentialClientApplication] = {}
+        self._agent_identity_clients_by_tenant_and_app_id: dict[tuple[str, str], ConfidentialClientApplication] = {}
         self._managed_identity_client: Optional[ManagedIdentityClient] = None
 
     async def get_bot_token(self) -> Optional[TokenProtocol]:
@@ -116,10 +117,10 @@ class TokenManager:
             )
             return self._get_access_token_or_raise(t1_raw, "Agent token exchange step 1 failed")
 
-        t2_confidential_client = ConfidentialClientApplication(
+        t2_confidential_client = self._get_agent_identity_client(
+            tenant_id,
             agent_identity_app_id,
-            client_credential={"client_assertion": get_t1_assertion},
-            authority=f"{self._cloud.login_endpoint}/{tenant_id}",
+            get_t1_assertion,
         )
 
         t2_raw: dict[str, Any] = await asyncio.to_thread(
@@ -296,6 +297,24 @@ class TokenManager:
             authority=f"{self._cloud.login_endpoint}/{tenant_id}",
         )
         self._federated_identity_clients_by_tenant[tenant_id] = client
+        return client
+
+    def _get_agent_identity_client(
+        self,
+        tenant_id: str,
+        agent_identity_app_id: str,
+        client_assertion: Callable[[dict[str, Any]], str],
+    ) -> ConfidentialClientApplication:
+        cached_client = self._agent_identity_clients_by_tenant_and_app_id.get((tenant_id, agent_identity_app_id))
+        if cached_client:
+            return cached_client
+
+        client: ConfidentialClientApplication = ConfidentialClientApplication(
+            agent_identity_app_id,
+            client_credential={"client_assertion": client_assertion},
+            authority=f"{self._cloud.login_endpoint}/{tenant_id}",
+        )
+        self._agent_identity_clients_by_tenant_and_app_id[(tenant_id, agent_identity_app_id)] = client
         return client
 
     def _get_managed_identity_client(
