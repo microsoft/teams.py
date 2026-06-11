@@ -78,6 +78,7 @@ class TokenManager:
         *,
         agent_user_id: str | None = None,
         agent_user_upn: str | None = None,
+        caller_name: str | None = None,
     ) -> Optional[TokenProtocol]:
         """Get a Teams bot API token for an agent identity acting through its agent user."""
         return await self.get_agent_user_token(
@@ -86,6 +87,7 @@ class TokenManager:
             AGENT_BOT_API_SCOPE,
             agent_user_id=agent_user_id,
             agent_user_upn=agent_user_upn,
+            caller_name=caller_name,
         )
 
     async def get_agent_user_token(
@@ -96,6 +98,7 @@ class TokenManager:
         *,
         agent_user_id: str | None = None,
         agent_user_upn: str | None = None,
+        caller_name: str | None = None,
     ) -> Optional[TokenProtocol]:
         """Get a resource token for an agent identity acting through its agent user."""
         if not agent_user_id and not agent_user_upn:
@@ -103,7 +106,8 @@ class TokenManager:
         if agent_user_id and agent_user_upn:
             raise ValueError("agent_user_id and agent_user_upn are mutually exclusive")
         if self._credentials is None:
-            logger.debug("No credentials provided for get_agent_user_token")
+            if caller_name:
+                logger.debug(f"No credentials provided for {caller_name}")
             return None
 
         credentials = self._credentials
@@ -117,6 +121,8 @@ class TokenManager:
             )
             return self._get_access_token_or_raise(t1_raw, "Agent token exchange step 1 failed")
 
+        # The agent identity app needs its own MSAL client. It uses the Federated Managed
+        # Identity assertion from step 1 as its client assertion for the next exchanges.
         t2_confidential_client = self._get_agent_identity_client(
             tenant_id,
             agent_identity_app_id,
@@ -136,7 +142,7 @@ class TokenManager:
             username=agent_user_upn,
             data={"requested_token_use": "on_behalf_of"},
         )
-        return self._handle_token_response(t3_raw, "get_agent_token")
+        return self._handle_token_response(t3_raw, caller_name or "get_agent_user_token")
 
     def _get_access_token_or_raise(self, token_res: dict[str, Any], error_prefix: str) -> str:
         if token_res.get("access_token", None):
@@ -144,7 +150,6 @@ class TokenManager:
 
         error_description = token_res.get("error_description") or token_res.get("error") or "Could not acquire token"
         logger.error(f"{error_prefix}: {error_description}")
-        logger.debug(f"TokenRes: {token_res}")
         raise ValueError(f"{error_prefix}: {error_description}")
 
     async def _get_token(
