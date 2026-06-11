@@ -89,7 +89,7 @@ class HttpServer:
 
         app_id = getattr(credentials, "client_id", None) if credentials else None
         if app_id and not skip_auth:
-            self._token_validator = TokenValidator.for_service(
+            self._token_validator = TokenValidator.for_inbound_activity(
                 app_id,
                 cloud=self._cloud,
             )
@@ -156,7 +156,7 @@ class HttpServer:
                 service_url = cast(Optional[str], body.get("serviceUrl"))
 
                 try:
-                    await self._token_validator.validate_token(raw_token, service_url)
+                    await self._token_validator.validate_inbound_activity_token(raw_token, service_url)
                 except Exception as e:
                     logger.warning("JWT token validation failed: %s", e)
                     return HttpResponse(status=401, body={"error": "Unauthorized"})

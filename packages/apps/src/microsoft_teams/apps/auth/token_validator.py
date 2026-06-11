@@ -34,6 +34,10 @@ class JwtValidationOptions:
     """ Optional scope that must be present in the token """
     clock_tolerance: int = JWT_LEEWAY_SECONDS
     """ Allowable clock skew when validating JWTs """
+    app_id: Optional[str] = None
+    """ Optional app ID used to select per-token validators for inbound activities """
+    cloud: CloudEnvironment = PUBLIC
+    """ Cloud environment used to select issuer and JWKS endpoints """
 
 
 class TokenValidator:
@@ -83,8 +87,23 @@ class TokenValidator:
             valid_audiences=cls._default_audiences(app_id),
             jwks_uri=jwks_keys_uri,
             service_url=service_url,
+            app_id=app_id,
+            cloud=env,
         )
         return cls(options)
+
+    @classmethod
+    def for_inbound_activity(
+        cls,
+        app_id: str,
+        cloud: Optional[CloudEnvironment] = None,
+    ) -> TokenValidator:
+        """Create a validator for inbound Teams activities.
+
+        Classic bot activities use Bot Framework connector tokens. Agent ID activities use
+        Entra tokens whose audience is the agent identity blueprint app ID.
+        """
+        return cls.for_service(app_id, cloud=cloud)
 
     @classmethod
     def for_entra(
@@ -128,8 +147,37 @@ class TokenValidator:
             valid_audiences=valid_audiences,
             jwks_uri=f"{env.login_endpoint}/{tenant_id}/discovery/v2.0/keys",
             scope=scope,
+            app_id=app_id,
+            cloud=env,
         )
         return cls(options)
+
+    async def validate_inbound_activity_token(
+        self, raw_token: str, service_url: Optional[str] = None
+    ) -> Dict[str, Any]:
+        unverified_payload = jwt.decode(raw_token, options={"verify_signature": False})
+        issuer = unverified_payload.get("iss", "")
+        if isinstance(issuer, str) and issuer.startswith(self.options.cloud.login_endpoint):
+            return await self._validate_entra_inbound_activity_token(raw_token, unverified_payload)
+
+        return await self.validate_token(raw_token, service_url)
+
+    async def _validate_entra_inbound_activity_token(
+        self, raw_token: str, unverified_payload: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        if not self.options.app_id:
+            raise ValueError("App ID is required for Entra inbound token validation")
+
+        tenant_id = unverified_payload.get("tid")
+        if not tenant_id or not isinstance(tenant_id, str):
+            raise jwt.InvalidTokenError("Entra inbound token is missing tid")
+
+        validator = TokenValidator.for_entra(
+            self.options.app_id,
+            tenant_id,
+            cloud=self.options.cloud,
+        )
+        return await validator.validate_token(raw_token)
 
     async def validate_token(
         self, raw_token: str, service_url: Optional[str] = None, scope: Optional[str] = None
