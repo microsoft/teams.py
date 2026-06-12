@@ -37,12 +37,12 @@ from microsoft_teams.api.models.attachment.card_attachment import (
 )
 from microsoft_teams.api.models.oauth import OAuthCard
 from microsoft_teams.cards import AdaptiveCard
-from microsoft_teams.common import Storage
+from microsoft_teams.common import ClientOptions, Storage
 from microsoft_teams.common.experimental import ExperimentalWarning, experimental
 from microsoft_teams.common.http.client_token import Token
 
 from ..activity_sender import ActivitySender
-from ..agent_user import AgentUser, AgentUserIdentity
+from ..agent_user import AgentUserIdentity
 from ..token_manager import TokenManager
 from ..utils import create_graph_client
 
@@ -106,7 +106,7 @@ class ActivityContext(Generic[T]):
         self._activity_sender = activity_sender
         self._app_token = app_token
         self._token_manager = token_manager
-        self.agent_user = self._get_agent_user()
+        self.agent_user_identity = self._get_agent_user_identity()
         self.stream = activity_sender.create_stream(conversation_ref)
 
         self._next_handler: Optional[Callable[[], Awaitable[None]]] = None
@@ -196,8 +196,10 @@ class ActivityContext(Generic[T]):
         self._add_targeted_message_info_entity(activity)
 
         ref = conversation_ref or self.conversation_ref
-        if self.agent_user is not None:
-            return await self.agent_user.send(ref, activity)
+        if self.agent_user_identity is not None:
+            ref = ref.model_copy(deep=True)
+            ref.bot = self._get_agent_user_account(self.agent_user_identity)
+            return await self._get_agent_user_sender(self.agent_user_identity).send(ref, activity)
 
         res = await self._activity_sender.send(ref, activity)
         return res
@@ -254,13 +256,11 @@ class ActivityContext(Generic[T]):
 
         return self.activity.from_
 
-    def _get_agent_user(self) -> Optional[AgentUser]:
+    def _get_agent_user_identity(self) -> Optional[AgentUserIdentity]:
         recipient = getattr(self.activity, "recipient", None)
         if recipient is None or recipient.role != "agenticUser":
             return None
 
-        if self._token_manager is None:
-            raise ValueError("token_manager is required for agenticUser activities")
         if not recipient.agentic_user_id:
             raise ValueError("agenticUser recipient is missing agenticUserId")
         if not recipient.agentic_app_id:
@@ -270,16 +270,29 @@ class ActivityContext(Generic[T]):
         if not tenant_id:
             raise ValueError("agenticUser recipient is missing tenantId")
 
-        return AgentUser(
-            AgentUserIdentity(
-                id=recipient.agentic_user_id,
-                agent_identity_app_id=recipient.agentic_app_id,
-                tenant_id=tenant_id,
-            ),
-            service_url=self.conversation_ref.service_url,
-            http_client=self.api.http,
-            token_manager=self._token_manager,
+        return AgentUserIdentity(
+            id=recipient.agentic_user_id,
+            agent_identity_app_id=recipient.agentic_app_id,
+            tenant_id=tenant_id,
         )
+
+    def _get_agent_user_account(self, agent_user: AgentUserIdentity) -> Account:
+        return Account(id=agent_user.id if agent_user.id.startswith("8:") else f"8:orgid:{agent_user.id}")
+
+    def _get_agent_user_sender(self, agent_user: AgentUserIdentity) -> ActivitySender:
+        if self._token_manager is None:
+            raise ValueError("token_manager is required for agenticUser activities")
+        token_manager = self._token_manager
+
+        async def get_token():
+            return await token_manager.get_agent_bot_token(
+                agent_user.tenant_id,
+                agent_user.agent_identity_app_id,
+                agent_user_id=agent_user.id,
+                caller_name="get_agent_bot_token",
+            )
+
+        return ActivitySender(self.api.http.clone(ClientOptions(token=get_token)))
 
     def _should_outbound_be_auto_targeted(
         self,

@@ -5,7 +5,7 @@ Licensed under the MIT License.
 
 # Agent 365 Reactive Example
 # ==========================
-# This example echoes messages back as the concrete AgentUser from the inbound activity.
+# This example echoes messages back from the concrete AgentUserIdentity in the inbound activity.
 
 import asyncio
 import logging
@@ -34,7 +34,7 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
     """Echo incoming messages as the inbound agent user."""
     logger.info(f"[Agent365 onMessage] Message received: {ctx.activity.text}")
     logger.info(f"[Agent365 onMessage] From: {ctx.activity.from_}")
-    logger.info(f"[Agent365 onMessage] Agent user: {ctx.agent_user}")
+    logger.info(f"[Agent365 onMessage] Agent user identity: {ctx.agent_user_identity}")
 
     await ctx.reply(TypingActivityInput())
 
@@ -46,7 +46,7 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
 
 @app.on_card_action_execute("ack_agent365_card")
 async def handle_agent365_card_ack(ctx: ActivityContext[AdaptiveCardInvokeActivity]) -> AdaptiveCardInvokeResponse:
-    """Handle the Action.Execute button from the proactive AgentUser card."""
+    """Handle the Action.Execute button from the proactive AgentUserIdentity card."""
     data = ctx.activity.value.action.data
     logger.info(f"[Agent365 card] Acknowledged with data: {data}")
     await ctx.send(f"Acknowledged Agent 365 card. Data: {data}")

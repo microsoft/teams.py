@@ -1,10 +1,10 @@
 # agent365
 
-Demonstrates Agent 365 `AgentUser` support in reactive and proactive modes.
+Demonstrates Agent 365 `AgentUserIdentity` support in reactive and proactive modes.
 
 ## Reactive Echo
 
-`src/main.py` mimics the echo example. Incoming messages are handled normally, but when the inbound activity recipient has `role="agenticUser"`, `ctx.send()` and `ctx.reply()` send as that concrete `AgentUser` using the inbound activity's service URL.
+`src/main.py` mimics the echo example. Incoming messages are handled normally, but when the inbound activity recipient has `role="agenticUser"`, `ctx.send()` and `ctx.reply()` send from that concrete `AgentUserIdentity` using the inbound activity's service URL.
 
 ```bash
 export CLIENT_ID=<agent-identity-blueprint-app-id>
@@ -14,9 +14,9 @@ export TENANT_ID=<tenant-id>
 uv run --project examples/agent365 python src/main.py
 ```
 
-## Proactive AgentUser Send
+## Proactive AgentUserIdentity Send
 
-`src/proactive.py` mimics the proactive messaging example, but sends as a specific AgentUser. Supply the concrete agent identity app ID and agent user ID.
+`src/proactive.py` mimics the proactive messaging example, but sends from a specific AgentUserIdentity. Supply the concrete agent identity app ID and agent user ID.
 
 ```bash
 export CLIENT_ID=<agent-identity-blueprint-app-id>

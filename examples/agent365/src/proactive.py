@@ -5,7 +5,7 @@ Licensed under the MIT License.
 
 # Agent 365 Proactive Example
 # ===========================
-# This example sends proactive messages as a specific AgentUser.
+# This example sends proactive messages from a specific AgentUserIdentity.
 
 import argparse
 import asyncio
@@ -25,12 +25,11 @@ async def send_proactive_message(
     agent_user_id: str,
     message: str,
 ) -> None:
-    """Send a proactive message as an AgentUser."""
-    agent_user = app.get_agent_user(agent_identity_app_id, agent_user_id)
-    logger.info(f"Sending proactive message as agent user: {agent_user.id}")
+    """Send a proactive message from an AgentUserIdentity."""
+    agent_user_identity = app.get_agent_user_identity(agent_identity_app_id, agent_user_id)
+    logger.info(f"Sending proactive message as agent user: {agent_user_identity.id}")
     logger.info(f"Message: {message}")
-
-    result = await agent_user.send(conversation_id, message)
+    result = await app.send(conversation_id, agent_user_identity, message)
 
     logger.info(f"Message sent successfully. Activity ID: {result.id}")
 
@@ -41,33 +40,33 @@ async def send_proactive_card(
     agent_identity_app_id: str,
     agent_user_id: str,
 ) -> None:
-    """Send a proactive Adaptive Card as an AgentUser."""
-    agent_user = app.get_agent_user(agent_identity_app_id, agent_user_id)
+    """Send a proactive Adaptive Card from an AgentUserIdentity."""
+    agent_user_identity = app.get_agent_user_identity(agent_identity_app_id, agent_user_id)
     card = AdaptiveCard(
         schema="http://adaptivecards.io/schemas/adaptive-card.json",
         body=[
             TextBlock(text="Agent 365 Notification", size="Large", weight="Bolder"),
-            TextBlock(text="This message was sent proactively as an AgentUser.", wrap=True),
-            TextBlock(text=f"Agent user: {agent_user.id}", wrap=True, is_subtle=True),
+            TextBlock(text="This message was sent proactively from an AgentUserIdentity.", wrap=True),
+            TextBlock(text=f"Agent user: {agent_user_identity.id}", wrap=True, is_subtle=True),
             ActionSet(
                 actions=[
                     ExecuteAction(title="Acknowledge")
-                    .with_data(SubmitData("ack_agent365_card", {"agent_user_id": agent_user.id}))
+                    .with_data(SubmitData("ack_agent365_card", {"agent_user_id": agent_user_identity.id}))
                     .with_associated_inputs("auto")
                 ]
             ),
         ],
     )
 
-    logger.info(f"Sending proactive card as agent user: {agent_user.id}")
+    logger.info(f"Sending proactive card as agent user: {agent_user_identity.id}")
 
-    result = await agent_user.send(conversation_id, card)
+    result = await app.send(conversation_id, agent_user_identity, card)
 
     logger.info(f"Card sent successfully. Activity ID: {result.id}")
 
 
 async def main():
-    parser = argparse.ArgumentParser(description="Send proactive messages as an Agent 365 AgentUser")
+    parser = argparse.ArgumentParser(description="Send proactive messages from an Agent 365 AgentUserIdentity")
     parser.add_argument("conversation_id", help="The Teams conversation ID to send messages to")
     parser.add_argument("agent_identity_app_id", help="The concrete agent identity app/client ID")
     parser.add_argument("agent_user_id", help="The agent user object ID")
@@ -84,7 +83,7 @@ async def main():
         args.conversation_id,
         args.agent_identity_app_id,
         args.agent_user_id,
-        "Hello! This is a proactive message sent as an AgentUser.",
+        "Hello! This is a proactive message sent from an AgentUserIdentity.",
     )
 
     await asyncio.sleep(2)
@@ -96,7 +95,7 @@ async def main():
         args.agent_user_id,
     )
 
-    logger.info("All proactive AgentUser messages sent successfully")
+    logger.info("All proactive AgentUserIdentity messages sent successfully")
 
 
 if __name__ == "__main__":

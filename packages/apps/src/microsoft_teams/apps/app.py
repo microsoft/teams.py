@@ -36,7 +36,7 @@ if TYPE_CHECKING:
     from msgraph.graph_service_client import GraphServiceClient
 
 from .activity_sender import ActivitySender
-from .agent_user import AgentUser, AgentUserIdentity
+from .agent_user import AgentUserIdentity
 from .app_events import EventManager
 from .app_oauth import OauthHandlers
 from .app_plugins import PluginProcessor
@@ -291,7 +291,27 @@ class App(ActivityHandlerMixin):
             self._events.emit("error", ErrorEvent(error, context={"method": "stop"}))
             raise
 
-    async def send(self, conversation_id: str, activity: str | ActivityParams | AdaptiveCard):
+    @overload
+    async def send(
+        self,
+        conversation_id: str,
+        activity: str | ActivityParams | AdaptiveCard,
+    ) -> SentActivity: ...
+
+    @overload
+    async def send(
+        self,
+        conversation_id: str,
+        from_: AgentUserIdentity,
+        activity: str | ActivityParams | AdaptiveCard,
+    ) -> SentActivity: ...
+
+    async def send(  # type: ignore[reportInconsistentOverload]
+        self,
+        conversation_id: str,
+        from_or_activity: AgentUserIdentity | str | ActivityParams | AdaptiveCard,
+        activity: str | ActivityParams | AdaptiveCard | None = None,
+    ) -> SentActivity:
         """Send an activity proactively to a conversation.
 
         Sends to the exact conversation ID provided. For channel threads,
@@ -302,46 +322,91 @@ class App(ActivityHandlerMixin):
         if not self._initialized:
             raise ValueError("app not initialized - call app.initialize() or app.start() first")
 
-        if self.id is None:
-            raise ValueError("app credentials not configured")
+        if isinstance(from_or_activity, AgentUserIdentity):
+            from_ = from_or_activity
+            activity_params = activity
+            if activity_params is None:
+                raise TypeError("activity is required when sending as an agent user")
+        else:
+            from_ = None
+            activity_params = from_or_activity
 
         conversation_ref = ConversationReference(
             channel_id="msteams",
             service_url=self.api.service_url,
-            bot=Account(id=self.id),
+            bot=self._get_outbound_account(from_),
             conversation=ConversationAccount(id=conversation_id),
         )
 
-        if isinstance(activity, str):
-            activity = MessageActivityInput(text=activity)
-        elif isinstance(activity, AdaptiveCard):
-            activity = MessageActivityInput().add_card(activity)
+        if isinstance(activity_params, str):
+            activity_params = MessageActivityInput(text=activity_params)
+        elif isinstance(activity_params, AdaptiveCard):
+            activity_params = MessageActivityInput().add_card(activity_params)
         else:
-            activity = activity
+            activity_params = activity_params
 
-        return await self.activity_sender.send(conversation_ref, activity)
+        return await self._get_activity_sender(from_).send(conversation_ref, activity_params)
 
-    def get_agent_user(
+    def get_agent_user_identity(
         self,
         agent_identity_app_id: str,
         agent_user_id: str,
         *,
         tenant_id: Optional[str] = None,
-    ) -> AgentUser:
-        """Get a sendable handle for an Agent ID user identity."""
+    ) -> AgentUserIdentity:
+        """Get an Agent ID user identity."""
         resolved_tenant_id = tenant_id or (self.credentials.tenant_id if self.credentials else None)
         if resolved_tenant_id is None:
             raise ValueError("tenant_id is required to get an agent user")
 
-        return AgentUser(
-            AgentUserIdentity(
-                id=agent_user_id,
-                agent_identity_app_id=agent_identity_app_id,
-                tenant_id=resolved_tenant_id,
-            ),
-            service_url=self.api.service_url,
-            http_client=self.http_client,
-            token_manager=self._token_manager,
+        return AgentUserIdentity(
+            id=agent_user_id,
+            agent_identity_app_id=agent_identity_app_id,
+            tenant_id=resolved_tenant_id,
+        )
+
+    def get_scoped_api(self, agent_user: AgentUserIdentity, service_url: Optional[str] = None) -> ApiClient:
+        """Get a Teams API client scoped to an Agent ID user identity."""
+        return ApiClient(
+            service_url or self.api.service_url,
+            self.http_client.clone(ClientOptions(token=lambda: self._get_agent_bot_token(agent_user))),
+            self.options.api_client_settings,
+            cloud=self.cloud,
+        )
+
+    def get_scoped_graph(self, agent_user: AgentUserIdentity) -> "GraphServiceClient":
+        """Get a Graph client scoped to an Agent ID user identity."""
+        return create_graph_client(lambda: self._get_agent_graph_token(agent_user), cloud=self.cloud)
+
+    def _get_outbound_account(self, from_: AgentUserIdentity | None = None) -> Account:
+        if from_ is None:
+            if self.id is None:
+                raise ValueError("app credentials not configured")
+            return Account(id=self.id)
+
+        return Account(id=from_.id if from_.id.startswith("8:") else f"8:orgid:{from_.id}")
+
+    def _get_activity_sender(self, from_: AgentUserIdentity | None = None) -> ActivitySender:
+        if from_ is None:
+            return self.activity_sender
+
+        return ActivitySender(self.http_client.clone(ClientOptions(token=lambda: self._get_agent_bot_token(from_))))
+
+    async def _get_agent_bot_token(self, agent_user: AgentUserIdentity) -> Optional[TokenProtocol]:
+        return await self._token_manager.get_agent_bot_token(
+            agent_user.tenant_id,
+            agent_user.agent_identity_app_id,
+            agent_user_id=agent_user.id,
+            caller_name="get_agent_bot_token",
+        )
+
+    async def _get_agent_graph_token(self, agent_user: AgentUserIdentity) -> Optional[TokenProtocol]:
+        return await self._token_manager.get_agent_user_token(
+            agent_user.tenant_id,
+            agent_user.agent_identity_app_id,
+            self.cloud.graph_scope,
+            agent_user_id=agent_user.id,
+            caller_name="get_agent_graph_token",
         )
 
     @overload
@@ -359,10 +424,28 @@ class App(ActivityHandlerMixin):
         message_id: str | ActivityParams | AdaptiveCard,
     ) -> SentActivity: ...
 
+    @overload
+    async def reply(
+        self,
+        conversation_id: str,
+        from_: AgentUserIdentity,
+        message_id: str,
+        activity: str | ActivityParams | AdaptiveCard,
+    ) -> SentActivity: ...
+
+    @overload
+    async def reply(
+        self,
+        conversation_id: str,
+        from_: AgentUserIdentity,
+        message_id: str | ActivityParams | AdaptiveCard,
+    ) -> SentActivity: ...
+
     async def reply(  # type: ignore[reportInconsistentOverload]
         self,
         conversation_id: str,
-        message_id: str | ActivityParams | AdaptiveCard = "",
+        from_or_message_id: AgentUserIdentity | str | ActivityParams | AdaptiveCard = "",
+        message_id_or_activity: str | ActivityParams | AdaptiveCard | None = None,
         activity: str | ActivityParams | AdaptiveCard | None = None,
     ) -> SentActivity:
         """Send an activity proactively to a conversation, optionally as a threaded reply.
@@ -381,12 +464,26 @@ class App(ActivityHandlerMixin):
             message_id: The thread root message ID (3-arg form) or the activity (2-arg form)
             activity: The activity to send (only in 3-arg form)
         """
-        if activity is not None:
-            if not isinstance(message_id, str):
-                raise TypeError("message_id must be a string when activity is provided")
-            return await self.send(to_threaded_conversation_id(conversation_id, message_id), activity)
+        if isinstance(from_or_message_id, AgentUserIdentity):
+            if activity is not None:
+                if not isinstance(message_id_or_activity, str):
+                    raise TypeError("message_id must be a string when activity is provided")
+                return await self.send(
+                    to_threaded_conversation_id(conversation_id, message_id_or_activity), from_or_message_id, activity
+                )
 
-        return await self.send(conversation_id, message_id)
+            if message_id_or_activity is None:
+                raise TypeError("activity is required when replying as an agent user")
+            return await self.send(conversation_id, from_or_message_id, message_id_or_activity)
+
+        if message_id_or_activity is not None:
+            if not isinstance(from_or_message_id, str):
+                raise TypeError("message_id must be a string when activity is provided")
+            return await self.send(
+                to_threaded_conversation_id(conversation_id, from_or_message_id), message_id_or_activity
+            )
+
+        return await self.send(conversation_id, from_or_message_id)
 
     def use(self, middleware: Callable[[ActivityContext[ActivityBase]], Awaitable[None]]) -> None:
         """Add middleware to run on all activities."""
