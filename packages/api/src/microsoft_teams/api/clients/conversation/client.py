@@ -3,16 +3,19 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from typing import Optional, Union
+from typing import TYPE_CHECKING, Optional, Union
 
 from microsoft_teams.common.http import Client, ClientOptions
 
-from ...models import ConversationResource
+from ...models import AgenticIdentity, ConversationResource
 from ..api_client_settings import ApiClientSettings
-from ..base_client import BaseClient
+from ..base_client import AuthProvider, BaseClient
 from .activity import ActivityParams, ConversationActivityClient
 from .member import ConversationMemberClient
 from .params import CreateConversationParams
+
+if TYPE_CHECKING:
+    from ...auth.cloud_environment import CloudEnvironment
 
 
 class ConversationOperations:
@@ -26,32 +29,40 @@ class ConversationOperations:
 class ActivityOperations(ConversationOperations):
     """Operations for managing activities in a conversation."""
 
-    async def create(self, activity: ActivityParams):
-        return await self._client.activities_client.create(self._conversation_id, activity)
+    async def create(self, activity: ActivityParams, agentic_identity: AgenticIdentity | None = None):
+        return await self._client.activities_client.create(self._conversation_id, activity, agentic_identity)
 
-    async def update(self, activity_id: str, activity: ActivityParams):
-        return await self._client.activities_client.update(self._conversation_id, activity_id, activity)
+    async def update(self, activity_id: str, activity: ActivityParams, agentic_identity: AgenticIdentity | None = None):
+        return await self._client.activities_client.update(
+            self._conversation_id, activity_id, activity, agentic_identity
+        )
 
-    async def reply(self, activity_id: str, activity: ActivityParams):
-        return await self._client.activities_client.reply(self._conversation_id, activity_id, activity)
+    async def reply(self, activity_id: str, activity: ActivityParams, agentic_identity: AgenticIdentity | None = None):
+        return await self._client.activities_client.reply(
+            self._conversation_id, activity_id, activity, agentic_identity
+        )
 
-    async def delete(self, activity_id: str):
-        await self._client.activities_client.delete(self._conversation_id, activity_id)
+    async def delete(self, activity_id: str, agentic_identity: AgenticIdentity | None = None):
+        await self._client.activities_client.delete(self._conversation_id, activity_id, agentic_identity)
 
     async def get_members(self, activity_id: str):
         return await self._client.activities_client.get_members(self._conversation_id, activity_id)
 
-    async def create_targeted(self, activity: ActivityParams):
+    async def create_targeted(self, activity: ActivityParams, agentic_identity: AgenticIdentity | None = None):
         """Create a new targeted activity visible only to the specified recipient."""
-        return await self._client.activities_client.create_targeted(self._conversation_id, activity)
+        return await self._client.activities_client.create_targeted(self._conversation_id, activity, agentic_identity)
 
-    async def update_targeted(self, activity_id: str, activity: ActivityParams):
+    async def update_targeted(
+        self, activity_id: str, activity: ActivityParams, agentic_identity: AgenticIdentity | None = None
+    ):
         """Update an existing targeted activity."""
-        return await self._client.activities_client.update_targeted(self._conversation_id, activity_id, activity)
+        return await self._client.activities_client.update_targeted(
+            self._conversation_id, activity_id, activity, agentic_identity
+        )
 
-    async def delete_targeted(self, activity_id: str):
+    async def delete_targeted(self, activity_id: str, agentic_identity: AgenticIdentity | None = None):
         """Delete a targeted activity."""
-        await self._client.activities_client.delete_targeted(self._conversation_id, activity_id)
+        await self._client.activities_client.delete_targeted(self._conversation_id, activity_id, agentic_identity)
 
 
 class MemberOperations(ConversationOperations):
@@ -75,6 +86,9 @@ class ConversationClient(BaseClient):
         service_url: str,
         options: Optional[Union[Client, ClientOptions]] = None,
         api_client_settings: Optional[ApiClientSettings] = None,
+        *,
+        auth_provider: Optional[AuthProvider] = None,
+        cloud: Optional["CloudEnvironment"] = None,
     ) -> None:
         """Initialize the client.
 
@@ -83,10 +97,16 @@ class ConversationClient(BaseClient):
             options: Either an HTTP client instance or client options. If None, a default client is created.
             api_client_settings: Optional API client settings.
         """
-        super().__init__(options, api_client_settings)
+        super().__init__(options, api_client_settings, auth_provider=auth_provider, cloud=cloud)
         self.service_url = service_url.rstrip("/")
 
-        self._activities_client = ConversationActivityClient(self.service_url, self.http, self._api_client_settings)
+        self._activities_client = ConversationActivityClient(
+            self.service_url,
+            self.http,
+            self._api_client_settings,
+            auth_provider=auth_provider,
+            cloud=cloud,
+        )
         self._members_client = ConversationMemberClient(self.service_url, self.http, self._api_client_settings)
 
     @property

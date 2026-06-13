@@ -5,11 +5,12 @@ Licensed under the MIT License.
 
 import asyncio
 import logging
-from inspect import isawaitable
-from typing import Any, Callable, Optional
+from inspect import Parameter, isawaitable, signature
+from typing import Any, Awaitable, Callable, Optional, cast
 
 import requests
 from microsoft_teams.api import (
+    AgenticIdentity,
     ClientCredentials,
     Credentials,
     JsonWebToken,
@@ -111,6 +112,14 @@ class TokenManager:
             return None
 
         credentials = self._credentials
+        agentic_identity = AgenticIdentity(
+            agentic_app_id=agent_identity_app_id,
+            agentic_user_id=agent_user_id or agent_user_upn or "",
+            tenant_id=tenant_id,
+        )
+        if isinstance(credentials, TokenCredentials):
+            return await self._get_token_with_token_provider(credentials, scope, tenant_id, agentic_identity)
+
         if not isinstance(credentials, ClientCredentials):
             raise ValueError("Agent user tokens require ClientCredentials")
         confidential_client = self._get_confidential_client(credentials, tenant_id)
@@ -246,9 +255,10 @@ class TokenManager:
         credentials: TokenCredentials,
         scope: str,
         tenant_id: str,
+        agentic_identity: AgenticIdentity | None = None,
     ) -> TokenProtocol:
         """Get token using custom token provider function."""
-        token = credentials.token(scope, tenant_id)
+        token = self._call_token_provider(credentials, scope, tenant_id, agentic_identity)
 
         if isawaitable(token):
             access_token = await token
@@ -256,6 +266,27 @@ class TokenManager:
             access_token = token
 
         return JsonWebToken(access_token)
+
+    def _call_token_provider(
+        self,
+        credentials: TokenCredentials,
+        scope: str,
+        tenant_id: str,
+        agentic_identity: AgenticIdentity | None = None,
+    ) -> str | Awaitable[str]:
+        token_provider = cast(Any, credentials.token)
+        try:
+            parameters = list(signature(token_provider).parameters.values())
+        except (TypeError, ValueError):
+            return cast(str | Awaitable[str], token_provider(scope, tenant_id, agentic_identity))
+
+        accepts_agentic_identity = (
+            any(parameter.kind == Parameter.VAR_POSITIONAL for parameter in parameters) or len(parameters) >= 3
+        )
+        if accepts_agentic_identity:
+            return cast(str | Awaitable[str], token_provider(scope, tenant_id, agentic_identity))
+
+        return cast(str | Awaitable[str], token_provider(scope, tenant_id))
 
     def _handle_token_response(self, token_res: dict[str, Any], error_prefix: str = "") -> TokenProtocol:
         """Handle token response from MSAL client."""

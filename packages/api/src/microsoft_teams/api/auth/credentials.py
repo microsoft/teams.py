@@ -5,7 +5,7 @@ Licensed under the MIT License.
 
 from typing import Awaitable, Callable, Literal, Optional, Union
 
-from ..models import CustomBaseModel
+from ..models import AgenticIdentity, CustomBaseModel
 
 
 class ClientCredentials(CustomBaseModel):
@@ -36,8 +36,11 @@ class TokenCredentials(CustomBaseModel):
     """
     The tenant ID.
     """
-    # (scope: string | string[], tenantId?: string) => string | Promise<string>
-    token: Callable[[Union[str, list[str]], Optional[str]], Union[str, Awaitable[str]]]
+    # (scope: string | string[], tenantId?: string, agenticIdentity?: AgenticIdentity) => string | Promise<string>
+    token: Callable[
+        [Union[str, list[str]], Optional[str], Optional[AgenticIdentity]],
+        Union[str, Awaitable[str]],
+    ]
     """
     The token function.
     """

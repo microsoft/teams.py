@@ -1,31 +1,18 @@
 # agent365
 
-Acquire an Agent 365 agent user token using an agent identity blueprint, an agent identity app ID, and an agent user.
+Demonstrates passing `AgenticIdentity` directly to Teams API surfaces.
 
-## Run
+## Proactive API Send
 
-Set these environment variables or add them to `.env`:
-
-```bash
-AGENT365_TENANT_ID=<tenant-id>
-AGENT365_BLUEPRINT_CLIENT_ID=<agent-identity-blueprint-app-id>
-AGENT365_BLUEPRINT_CLIENT_SECRET=<agent-identity-blueprint-secret>
-AGENT365_AGENT_IDENTITY_APP_ID=<agent-identity-app-id>
-AGENT365_AGENT_USER_ID=<agent-user-object-id>
-```
-
-Then run:
+`src/main.py` sends through the normal API client, but supplies `agentic_identity` to the activity create operation. The API layer uses the agentic token provider to put the right Agent ID token in the request header.
 
 ```bash
-uv run --project examples/agent365 python src/main.py
+export CLIENT_ID=<agent-identity-blueprint-app-id>
+export CLIENT_SECRET=<agent-identity-blueprint-secret>
+export TENANT_ID=<tenant-id>
+
+uv run --project examples/agent365 python src/main.py \
+  <conversation-id> \
+  <agentic-app-id> \
+  <agentic-user-id>
 ```
-
-By default this requests a Teams bot API token for `https://botapi.skype.com/.default`.
-
-To request another resource, set `AGENT365_SCOPE`, for example:
-
-```bash
-AGENT365_SCOPE=https://graph.microsoft.com/.default
-```
-
-You can use `AGENT365_AGENT_USER_UPN` instead of `AGENT365_AGENT_USER_ID`.

@@ -27,6 +27,7 @@ if TYPE_CHECKING:
     from .app_events import EventManager
 
 from .activity_sender import ActivitySender
+from .auth_provider import AppAuthProvider
 from .events import ActivityEvent, ActivityResponseEvent, ActivitySentEvent, ErrorEvent
 from .plugins import PluginActivityEvent, PluginBase, StreamCancelledError
 from .routing.activity_context import ActivityContext
@@ -58,6 +59,7 @@ class ActivityProcessor:
         self.default_connection_name = default_connection_name
         self.http_client = http_client
         self.token_manager = token_manager
+        self.auth_provider = AppAuthProvider(token_manager)
         self.api_client_settings = api_client_settings
         self.activity_sender = activity_sender
         self.cloud = cloud
@@ -95,6 +97,7 @@ class ActivityProcessor:
             service_url,
             self.http_client.clone(ClientOptions(token=self.token_manager.get_bot_token)),
             self.api_client_settings,
+            auth_provider=self.auth_provider,
         )
 
         # Check if user is signed in

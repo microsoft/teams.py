@@ -14,6 +14,7 @@ from microsoft_teams.api import (
     Account,
     ActivityBase,
     ActivityParams,
+    AgenticIdentity,
     ApiClient,
     CardAction,
     CardActionType,
@@ -102,6 +103,7 @@ class ActivityContext(Generic[T]):
         self.cloud = cloud
         self._activity_sender = activity_sender
         self._app_token = app_token
+        self.agentic_identity = self._get_agentic_identity()
         self.stream = activity_sender.create_stream(conversation_ref)
 
         self._next_handler: Optional[Callable[[], Awaitable[None]]] = None
@@ -191,7 +193,11 @@ class ActivityContext(Generic[T]):
         self._add_targeted_message_info_entity(activity)
 
         ref = conversation_ref or self.conversation_ref
-        res = await self._activity_sender.send(activity, ref)
+        if self.agentic_identity is not None:
+            ref = ref.model_copy(deep=True)
+            ref.bot = Account(id=self.agentic_identity.channel_account_id)
+
+        res = await self._activity_sender.send(activity, ref, self.agentic_identity)
         return res
 
     async def reply(self, input: str | ActivityParams) -> SentActivity:
@@ -245,6 +251,27 @@ class ActivityContext(Generic[T]):
             return None
 
         return self.activity.from_
+
+    def _get_agentic_identity(self) -> Optional[AgenticIdentity]:
+        recipient = getattr(self.activity, "recipient", None)
+        if recipient is None or recipient.role != "agenticUser":
+            return None
+
+        if not recipient.agentic_user_id:
+            raise ValueError("agenticUser recipient is missing agenticUserId")
+        if not recipient.agentic_app_id:
+            raise ValueError("agenticUser recipient is missing agenticAppId")
+
+        tenant_id = recipient.tenant_id or getattr(self.activity.conversation, "tenant_id", None)
+        if not tenant_id:
+            raise ValueError("agenticUser recipient is missing tenantId")
+
+        return AgenticIdentity(
+            agentic_app_id=recipient.agentic_app_id,
+            agentic_user_id=recipient.agentic_user_id,
+            tenant_id=tenant_id,
+            agentic_app_blueprint_id=recipient.agentic_app_blueprint_id,
+        )
 
     def _should_outbound_be_auto_targeted(
         self,

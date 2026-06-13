@@ -8,11 +8,13 @@ from typing import cast
 
 from microsoft_teams.api import (
     ActivityParams,
+    AgenticIdentity,
     ApiClient,
     ConversationReference,
     MessageActivityInput,
     SentActivity,
 )
+from microsoft_teams.api.clients.base_client import AuthProvider
 from microsoft_teams.common import Client
 
 from .http_stream import HttpStream
@@ -27,7 +29,7 @@ class ActivitySender:
     Separate from transport concerns (HTTP, WebSocket, etc.)
     """
 
-    def __init__(self, client: Client):
+    def __init__(self, client: Client, auth_provider: AuthProvider | None = None):
         """
         Initialize ActivitySender.
 
@@ -35,8 +37,14 @@ class ActivitySender:
             client: HTTP client with token provider configured
         """
         self._client = client
+        self._auth_provider = auth_provider
 
-    async def send(self, activity: ActivityParams, ref: ConversationReference) -> SentActivity:
+    async def send(
+        self,
+        activity: ActivityParams,
+        ref: ConversationReference,
+        agentic_identity: AgenticIdentity | None = None,
+    ) -> SentActivity:
         """
         Send an activity to the Bot Framework.
 
@@ -57,7 +65,7 @@ class ActivitySender:
             raise ValueError("Targeted messages are not supported in 1:1 (personal) chats.")
 
         # Create API client for this conversation's service URL
-        api = ApiClient(service_url=ref.service_url, options=self._client)
+        api = ApiClient(service_url=ref.service_url, options=self._client, auth_provider=self._auth_provider)
 
         # Merge activity with conversation reference
         activity.from_ = ref.bot
@@ -69,15 +77,15 @@ class ActivitySender:
         if is_update:
             activity_id = cast(str, activity.id)
             if is_targeted:
-                res = await activities.update_targeted(activity_id, activity)
+                res = await activities.update_targeted(activity_id, activity, agentic_identity)
             else:
-                res = await activities.update(activity_id, activity)
+                res = await activities.update(activity_id, activity, agentic_identity)
             return SentActivity.merge(activity, res)
 
         if is_targeted:
-            res = await activities.create_targeted(activity)
+            res = await activities.create_targeted(activity, agentic_identity)
         else:
-            res = await activities.create(activity)
+            res = await activities.create(activity, agentic_identity)
         return SentActivity.merge(activity, res)
 
     def create_stream(self, ref: ConversationReference) -> StreamerProtocol:

@@ -11,7 +11,7 @@ from microsoft_teams.common import Client as HttpClient
 from microsoft_teams.common import ClientOptions
 
 from .api_client_settings import ApiClientSettings
-from .base_client import BaseClient
+from .base_client import AuthProvider, BaseClient
 from .bot import BotClient
 from .conversation import ConversationClient
 from .meeting import MeetingClient
@@ -32,6 +32,8 @@ class ApiClient(BaseClient):
         options: Optional[Union[HttpClient, ClientOptions]] = None,
         api_client_settings: Optional[ApiClientSettings] = None,
         cloud: Optional[CloudEnvironment] = None,
+        *,
+        auth_provider: Optional[AuthProvider] = None,
     ) -> None:
         """Initialize the unified Teams API client.
 
@@ -41,13 +43,19 @@ class ApiClient(BaseClient):
             api_client_settings: Optional API client settings.
             cloud: Optional cloud environment for sovereign cloud support.
         """
-        super().__init__(options, api_client_settings)
+        super().__init__(options, api_client_settings, auth_provider=auth_provider, cloud=cloud)
         self.service_url = service_url.rstrip("/")
 
         # Initialize all client types
         self.bots = BotClient(self._http, self._api_client_settings, cloud=cloud)
         self.users = UserClient(self._http, self._api_client_settings)
-        self.conversations = ConversationClient(self.service_url, self._http, self._api_client_settings)
+        self.conversations = ConversationClient(
+            self.service_url,
+            self._http,
+            self._api_client_settings,
+            auth_provider=auth_provider,
+            cloud=cloud,
+        )
         self.teams = TeamClient(self.service_url, self._http, self._api_client_settings)
         self.meetings = MeetingClient(self.service_url, self._http, self._api_client_settings)
         self._reactions: Optional[ReactionClient] = None
