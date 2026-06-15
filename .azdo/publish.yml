@@ -233,6 +233,13 @@ extends:
             artifact: pypi-packages
             targetPath: $(Pipeline.Workspace)/pypi-packages
         steps:
+        - task: UsePythonVersion@0
+          displayName: 'Use Python 3.13'
+          inputs:
+            versionSpec: '3.13'
+          target:
+            container: host
+
         - task: PowerShell@2
           displayName: 'Install uv'
           inputs:
