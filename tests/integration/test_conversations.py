@@ -1,11 +1,8 @@
 """Integration tests for conversation creation (1:1 and group)."""
 
 import pytest
-
 from microsoft_teams.api.clients.conversation.params import CreateConversationParams
 from microsoft_teams.api.models import Account
-
-
 
 
 class TestConversations:

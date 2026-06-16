@@ -1,10 +1,7 @@
 """Integration tests for teams and reactions operations."""
 
 import pytest
-
 from microsoft_teams.api.activities import MessageActivityInput
-
-
 
 
 class TestTeams:
@@ -46,6 +43,7 @@ class TestReactions:
         # Send a message to react to
         activity = MessageActivityInput().with_text("[PY Integration] reaction target")
         sent = await api.conversations.activities(conv_id).create(activity)
+        assert sent.id != "DO_NOT_USE_PLACEHOLDER_ID", "Activity creation returned placeholder ID"
 
         # Add reaction
         await api.reactions.add(conv_id, sent.id, "like")

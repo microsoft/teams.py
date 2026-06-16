@@ -3,10 +3,7 @@
 from datetime import datetime, timezone
 
 import pytest
-
 from microsoft_teams.api.activities import MessageActivityInput
-
-
 
 
 class TestActivities:
@@ -23,7 +20,7 @@ class TestActivities:
         )
         result = await api.conversations.activities(conv_id).create(activity)
         assert result.id is not None
-        assert result.id != ""
+        assert result.id != "DO_NOT_USE_PLACEHOLDER_ID"
 
     @pytest.mark.asyncio
     async def test_update_activity(self, fixture):
@@ -41,6 +38,7 @@ class TestActivities:
         )
         result = await api.conversations.activities(conv_id).update(sent.id, updated)
         assert result.id is not None
+        assert result.id != "DO_NOT_USE_PLACEHOLDER_ID"
 
     @pytest.mark.asyncio
     async def test_reply_to_activity(self, fixture):
@@ -53,11 +51,10 @@ class TestActivities:
         )
         sent = await api.conversations.activities(conv_id).create(original)
 
-        reply = MessageActivityInput().with_text(
-            f"[PY Integration] reply at {datetime.now(timezone.utc).isoformat()}"
-        )
+        reply = MessageActivityInput().with_text(f"[PY Integration] reply at {datetime.now(timezone.utc).isoformat()}")
         result = await api.conversations.activities(conv_id).reply(sent.id, reply)
         assert result.id is not None
+        assert result.id != "DO_NOT_USE_PLACEHOLDER_ID"
 
     @pytest.mark.asyncio
     async def test_delete_activity(self, fixture):

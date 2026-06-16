@@ -3,8 +3,6 @@
 import pytest
 
 
-
-
 class TestMembers:
     """Tests for conversation member operations."""
 

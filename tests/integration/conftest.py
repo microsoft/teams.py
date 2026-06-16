@@ -123,8 +123,9 @@ async def fixture():
         members = await api.conversations.members(config.conversation_id).get_all()
         bot_prefix = f"28:{config.client_id}"
         _cached_members = [m for m in members if m.id and not m.id.startswith(bot_prefix)]
-        if _cached_members:
-            _cached_member_mri_1 = _cached_members[0].id
+        if not _cached_members:
+            raise RuntimeError("No non-bot members found in conversation — tests require at least one human member")
+        _cached_member_mri_1 = _cached_members[0].id
         if len(_cached_members) > 1:
             _cached_member_mri_2 = _cached_members[1].id
 

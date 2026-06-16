@@ -4,7 +4,7 @@ This directory contains integration tests that make real API calls against the T
 
 ## Prerequisites
 
-- Python >= 3.12
+- Python >= 3.11
 - UV installed
 - A `.env.botid-prod` file with valid credentials (see `.env.example`)
 
@@ -19,10 +19,7 @@ uv sync --all-packages --group dev --group integration
 
 ```bash
 # From repo root — load env and run
-dotenv -f tests/integration/.env.botid-prod run -- pytest tests/integration -v
-
-# Or export vars manually
-export $(cat tests/integration/.env.botid-prod | xargs)
+set -a; source tests/integration/.env.botid-prod; set +a
 pytest tests/integration -v
 
 # Run a specific test file
@@ -34,8 +31,7 @@ pytest tests/integration -k "test_create_activity" -v
 
 ## Architecture
 
-- **`conftest.py`** — Shared fixture with async token acquisition (azure-identity), member caching, and config loading.
-- Tests use a singleton fixture pattern — auth and member lookup happen once per session.
+- **`conftest.py`** — Per-test fixture that creates a fresh credential and API client on each test's event loop. Config and member lists are cached at module level to avoid repeated API calls.
 - Tests are async (`pytest-asyncio` with `asyncio_mode = "auto"`).
 
 ## Known Limitations

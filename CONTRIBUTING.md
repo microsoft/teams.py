@@ -14,6 +14,6 @@ Integration tests live in `tests/integration/` and make real API calls against t
 
 ```bash
 uv sync --all-packages --group dev --group integration
-export $(cat tests/integration/.env.botid-prod | xargs)
+set -a; source tests/integration/.env.botid-prod; set +a
 pytest tests/integration -v
 ```
