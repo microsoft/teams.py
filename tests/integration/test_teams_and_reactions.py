@@ -13,9 +13,6 @@ class TestTeams:
     @pytest.mark.asyncio
     async def test_get_team_details(self, fixture):
         """Get details of the test team."""
-        # TODO: TeamDetails.type is required but service doesn't always return it.
-        # Fix the model (make type Optional) then remove this skip.
-        pytest.skip("TeamDetails model requires 'type' field but service omits it")
         api = fixture.api
         team_id = fixture.config.team_id
 
