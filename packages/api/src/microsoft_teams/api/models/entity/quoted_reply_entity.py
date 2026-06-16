@@ -11,9 +11,6 @@ from .entity_base import EntityBase
 
 class QuotedReplyData(CustomBaseModel):
     """Data for a quoted reply entity
-
-    .. warning:: Coming Soon
-        This API is coming soon and may change in the future.
     """
 
     message_id: str
@@ -40,9 +37,6 @@ class QuotedReplyData(CustomBaseModel):
 
 class QuotedReplyEntity(EntityBase):
     """Entity containing quoted reply information
-
-    .. warning:: Coming Soon
-        This API is coming soon and may change in the future.
     """
 
     type: Literal["quotedReply"] = "quotedReply"

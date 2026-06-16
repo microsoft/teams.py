@@ -82,9 +82,6 @@ class MessageActivity(_MessageBase, ActivityBase):
 
         Returns:
             List of quoted reply entities, empty if none
-
-        .. warning:: Coming Soon
-            This API is coming soon and may change in the future.
         """
         return [e for e in (self.entities or []) if isinstance(e, QuotedReplyEntity)]
 
@@ -444,9 +441,6 @@ class MessageActivityInput(_MessageBase, ActivityInputBase):
 
         Returns:
             Self for method chaining
-
-        .. warning:: Coming Soon
-            This API is coming soon and may change in the future.
         """
         if not self.entities:
             self.entities = []
@@ -468,9 +462,6 @@ class MessageActivityInput(_MessageBase, ActivityInputBase):
 
         Returns:
             Self for method chaining
-
-        .. warning:: Coming Soon
-            This API is coming soon and may change in the future.
         """
         if not self.entities:
             self.entities = []

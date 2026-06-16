@@ -217,9 +217,6 @@ class ActivityContext(Generic[T]):
 
         Returns:
             The sent activity
-
-        .. warning:: Coming Soon
-            This API is coming soon and may change in the future.
         """
         activity = MessageActivityInput(text=input) if isinstance(input, str) else input
         if isinstance(activity, MessageActivityInput):
