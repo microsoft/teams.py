@@ -5,19 +5,15 @@ Licensed under the MIT License.
 
 from typing import Literal, Optional
 
-from microsoft_teams.common.experimental import experimental
-
 from ..custom_base_model import CustomBaseModel
 from .entity_base import EntityBase
 
 
-@experimental("ExperimentalTeamsQuotedReplies")
 class QuotedReplyData(CustomBaseModel):
     """Data for a quoted reply entity
 
     .. warning:: Coming Soon
         This API is coming soon and may change in the future.
-        Diagnostic: ExperimentalTeamsQuotedReplies
     """
 
     message_id: str
@@ -42,13 +38,11 @@ class QuotedReplyData(CustomBaseModel):
     "Whether the message reference has been validated"
 
 
-@experimental("ExperimentalTeamsQuotedReplies")
 class QuotedReplyEntity(EntityBase):
     """Entity containing quoted reply information
 
     .. warning:: Coming Soon
         This API is coming soon and may change in the future.
-        Diagnostic: ExperimentalTeamsQuotedReplies
     """
 
     type: Literal["quotedReply"] = "quotedReply"
