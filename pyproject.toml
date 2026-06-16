@@ -25,6 +25,10 @@ dev = [
     "pytest-asyncio>=0.23.0",
     "pytest-cov>=6.0.0",
 ]
+integration = [
+    "azure-identity>=1.17.0",
+    "python-dotenv>=1.0.0",
+]
 release = [
     "hatch-teams-build",
 ]
