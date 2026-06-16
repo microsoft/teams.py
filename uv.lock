@@ -47,6 +47,10 @@ dev = [
     { name = "pytest-cov", specifier = ">=6.0.0" },
     { name = "ruff", specifier = ">=0.11.13" },
 ]
+integration = [
+    { name = "azure-identity", specifier = ">=1.17.0" },
+    { name = "python-dotenv", specifier = ">=1.0.0" },
+]
 release = [{ name = "hatch-teams-build", directory = "tools/hatch-teams-build" }]
 
 [[package]]
