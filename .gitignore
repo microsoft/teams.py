@@ -52,6 +52,9 @@ examples/**/aad.manifest.json
 !examples/targeted-messages/appPackage/
 !examples/targeted-messages/appPackage/manifest.json
 
+# Sphinx docs build output
+docs/_build/
+
 # Node (from tab)
 node_modules
 dist/
