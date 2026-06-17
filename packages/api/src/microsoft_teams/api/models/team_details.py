@@ -19,7 +19,7 @@ class TeamDetails(CustomBaseModel):
     name: Optional[str] = None
     "Name of team."
 
-    type: Literal["standard", "sharedChannel", "privateChannel"]
+    type: Optional[Literal["standard", "sharedChannel", "privateChannel"]] = None
     "The type of the team. Valid values are standard, sharedChannel and privateChannel."
 
     aad_group_id: Optional[str] = None
