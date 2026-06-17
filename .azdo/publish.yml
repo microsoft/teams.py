@@ -230,7 +230,7 @@ extends:
         templateContext:
           inputs:
           - input: pipelineArtifact
-            artifact: pypi-packages
+            artifactName: pypi-packages
             targetPath: $(Pipeline.Workspace)/pypi-packages
         steps:
         - task: UsePythonVersion@0
@@ -276,7 +276,7 @@ extends:
           isProduction: true
           inputs:
           - input: pipelineArtifact
-            artifact: pypi-packages
+            artifactName: pypi-packages
             targetPath: $(Pipeline.Workspace)/pypi-packages
         steps:
         - task: EsrpRelease@10
