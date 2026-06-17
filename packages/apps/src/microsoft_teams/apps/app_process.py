@@ -26,7 +26,6 @@ from microsoft_teams.common import Client, ClientOptions, LocalStorage, Storage
 if TYPE_CHECKING:
     from .app_events import EventManager
 
-from .activity_sender import ActivitySender
 from .events import ActivityEvent, ActivityResponseEvent, ActivitySentEvent, ErrorEvent
 from .plugins import PluginActivityEvent, PluginBase, StreamCancelledError
 from .routing.activity_context import ActivityContext
@@ -49,7 +48,6 @@ class ActivityProcessor:
         http_client: Client,
         token_manager: TokenManager,
         api_client_settings: Optional[ApiClientSettings],
-        activity_sender: ActivitySender,
         cloud: CloudEnvironment = PUBLIC,
     ) -> None:
         self.router = router
@@ -59,7 +57,6 @@ class ActivityProcessor:
         self.http_client = http_client
         self.token_manager = token_manager
         self.api_client_settings = api_client_settings
-        self.activity_sender = activity_sender
         self.cloud = cloud
 
         # This will be set after the EventManager is initialized due to
@@ -127,7 +124,6 @@ class ActivityProcessor:
             conversation_ref,
             is_signed_in,
             self.default_connection_name,
-            activity_sender=self.activity_sender,
             app_token=lambda: self.token_manager.get_graph_token(tenant_id),
             cloud=self.cloud,
         )

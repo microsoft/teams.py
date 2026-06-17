@@ -446,7 +446,6 @@ class TestSignInFailureMiddlewareChain:
             http_client=MagicMock(),
             token_manager=MagicMock(),
             api_client_settings=None,
-            activity_sender=MagicMock(),
             cloud=PUBLIC,
         )
 
@@ -462,7 +461,6 @@ class TestSignInFailureMiddlewareChain:
             conversation_ref=MagicMock(),
             is_signed_in=False,
             connection_name="graph",
-            activity_sender=MagicMock(),
             app_token=MagicMock(),
             cloud=PUBLIC,
         )

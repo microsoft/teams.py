@@ -12,13 +12,10 @@ from typing import TYPE_CHECKING, Any, Awaitable, Callable, List, Optional, Type
 from dependency_injector import providers
 from dotenv import find_dotenv, load_dotenv
 from microsoft_teams.api import (
-    Account,
     ActivityBase,
     ActivityParams,
     ApiClient,
     ClientCredentials,
-    ConversationAccount,
-    ConversationReference,
     Credentials,
     FederatedIdentityCredentials,
     ManagedIdentityCredentials,
@@ -35,7 +32,6 @@ from microsoft_teams.common import Client, ClientOptions, EventEmitter, LocalSto
 if TYPE_CHECKING:
     from msgraph.graph_service_client import GraphServiceClient
 
-from .activity_sender import ActivitySender
 from .app_events import EventManager
 from .app_oauth import OauthHandlers
 from .app_plugins import PluginProcessor
@@ -128,9 +124,6 @@ class App(ActivityHandlerMixin):
         self._port: Optional[int] = None
         self._initialized = False
 
-        # initialize ActivitySender for sending activities
-        self.activity_sender = ActivitySender(self.http_client.clone(ClientOptions(token=self._get_bot_token)))
-
         # initialize all event, activity, and plugin processors
         self.activity_processor = ActivityProcessor(
             self._router,
@@ -140,7 +133,6 @@ class App(ActivityHandlerMixin):
             self.http_client,
             self._token_manager,
             self.options.api_client_settings,
-            self.activity_sender,
             self.cloud,
         )
         self.event_manager = EventManager(self._events)
@@ -304,16 +296,6 @@ class App(ActivityHandlerMixin):
         if not self._initialized:
             raise ValueError("app not initialized - call app.initialize() or app.start() first")
 
-        if self.id is None:
-            raise ValueError("app credentials not configured")
-
-        conversation_ref = ConversationReference(
-            channel_id="msteams",
-            service_url=self.api.service_url,
-            bot=Account(id=self.id),
-            conversation=ConversationAccount(id=conversation_id),
-        )
-
         if isinstance(activity, str):
             activity = MessageActivityInput(text=activity)
         elif isinstance(activity, AdaptiveCard):
@@ -321,7 +303,7 @@ class App(ActivityHandlerMixin):
         else:
             activity = activity
 
-        return await self.activity_sender.send(activity, conversation_ref)
+        return await self.api.conversations.activities(conversation_id).create(activity)
 
     @overload
     async def reply(
@@ -574,7 +556,6 @@ class App(ActivityHandlerMixin):
                 ctx = FunctionContext(
                     id=self.id,
                     api=self.api,
-                    activity_sender=self.activity_sender,
                     data=request["body"],
                     **client_context.__dict__,
                 )

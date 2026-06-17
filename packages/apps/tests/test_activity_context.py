@@ -39,6 +39,10 @@ def _create_activity_context(
         )
     )
     mock_activity_sender.create_stream = MagicMock(return_value=MagicMock())
+    activities = MagicMock()
+    activities.create = mock_activity_sender.send
+    api = MagicMock()
+    api.conversations.activities.return_value = activities
 
     conversation_ref = ConversationReference(
         bot=Account(id="bot-id", name="Test Bot"),
@@ -51,12 +55,11 @@ def _create_activity_context(
         activity=mock_activity,
         app_id="test-app-id",
         storage=MagicMock(),
-        api=MagicMock(),
+        api=api,
         user_token=user_token,
         conversation_ref=conversation_ref,
         is_signed_in=is_signed_in,
         connection_name="test-connection",
-        activity_sender=mock_activity_sender,
         app_token=MagicMock(),
         cloud=PUBLIC,
     )
@@ -151,8 +154,8 @@ class TestActivityContextSendTargeted:
 
         mock_sender.send.assert_called_once()
         sent_activity = mock_sender.send.call_args[0][0]
-        sent_ref = mock_sender.send.call_args[0][1]
-        assert sent_ref == other_ref
+        ctx.api.conversations.activities.assert_called_once_with("other-conversation")
+        assert mock_sender.send.call_args.kwargs["service_url"] == other_ref.service_url
         assert sent_activity.recipient is None
         assert sent_activity.entities is None
 
