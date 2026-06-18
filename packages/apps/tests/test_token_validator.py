@@ -7,7 +7,11 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import jwt
 import pytest
-from microsoft_teams.apps.auth.token_validator import InboundActivityTokenValidator, TokenValidator
+from microsoft_teams.apps.auth.token_validator import (
+    MAX_ENTRA_VALIDATOR_CACHE_SIZE,
+    InboundActivityTokenValidator,
+    TokenValidator,
+)
 
 # pyright: basic
 
@@ -415,10 +419,11 @@ class TestInboundActivityTokenValidator:
         validator = InboundActivityTokenValidator("test-app-id")
         validator._service_validator.validate_token = AsyncMock(return_value={"iss": "https://api.botframework.com"})
 
-        with patch("jwt.decode", return_value={"iss": "https://api.botframework.com"}):
+        with patch("jwt.decode", return_value={"iss": "https://api.botframework.com"}) as decode:
             result = await validator.validate_token("bot-token", "https://service.example")
 
         assert result == {"iss": "https://api.botframework.com"}
+        decode.assert_called_once_with("bot-token", algorithms=["RS256"], options={"verify_signature": False})
         validator._service_validator.validate_token.assert_called_once_with("bot-token", "https://service.example")
 
     @pytest.mark.asyncio
@@ -473,3 +478,16 @@ class TestInboundActivityTokenValidator:
 
         assert first is second
         for_entra.assert_called_once_with("test-app-id", "tenant-id", cloud=validator._cloud)
+
+    def test_get_entra_validator_cache_is_bounded(self):
+        validator = InboundActivityTokenValidator("test-app-id")
+
+        with patch("microsoft_teams.apps.auth.token_validator.TokenValidator.for_entra") as for_entra:
+            for_entra.side_effect = lambda _app_id, tenant_id, **_kwargs: MagicMock(name=tenant_id)
+
+            for index in range(MAX_ENTRA_VALIDATOR_CACHE_SIZE + 1):
+                validator._get_entra_validator(f"tenant-{index}")
+
+        assert len(validator._entra_validators_by_tenant) == MAX_ENTRA_VALIDATOR_CACHE_SIZE
+        assert "tenant-0" not in validator._entra_validators_by_tenant
+        assert f"tenant-{MAX_ENTRA_VALIDATOR_CACHE_SIZE}" in validator._entra_validators_by_tenant

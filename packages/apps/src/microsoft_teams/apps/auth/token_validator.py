@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import logging
 import re
+from collections import OrderedDict
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
@@ -14,6 +15,7 @@ import jwt
 from microsoft_teams.api.auth.cloud_environment import PUBLIC, CloudEnvironment
 
 JWT_LEEWAY_SECONDS = 300  # Allowable clock skew when validating JWTs
+MAX_ENTRA_VALIDATOR_CACHE_SIZE = 100
 
 logger = logging.getLogger(__name__)
 
@@ -243,10 +245,10 @@ class InboundActivityTokenValidator:
         self._app_id = app_id
         self._cloud = cloud or PUBLIC
         self._service_validator = TokenValidator.for_service(app_id, cloud=self._cloud)
-        self._entra_validators_by_tenant: dict[str, TokenValidator] = {}
+        self._entra_validators_by_tenant: OrderedDict[str, TokenValidator] = OrderedDict()
 
     async def validate_token(self, raw_token: str, service_url: Optional[str] = None) -> Dict[str, Any]:
-        unverified_payload = jwt.decode(raw_token, options={"verify_signature": False})
+        unverified_payload = jwt.decode(raw_token, algorithms=["RS256"], options={"verify_signature": False})
         issuer = unverified_payload.get("iss", "")
         if self._is_entra_issuer(issuer):
             return await self._validate_entra_token(raw_token, unverified_payload)
@@ -272,6 +274,7 @@ class InboundActivityTokenValidator:
     def _get_entra_validator(self, tenant_id: str) -> TokenValidator:
         cached_validator = self._entra_validators_by_tenant.get(tenant_id)
         if cached_validator:
+            self._entra_validators_by_tenant.move_to_end(tenant_id)
             return cached_validator
 
         validator = TokenValidator.for_entra(
@@ -280,4 +283,6 @@ class InboundActivityTokenValidator:
             cloud=self._cloud,
         )
         self._entra_validators_by_tenant[tenant_id] = validator
+        if len(self._entra_validators_by_tenant) > MAX_ENTRA_VALIDATOR_CACHE_SIZE:
+            self._entra_validators_by_tenant.popitem(last=False)
         return validator
