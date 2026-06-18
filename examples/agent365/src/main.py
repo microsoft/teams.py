@@ -25,9 +25,9 @@ async def main():
     tenant_id = get_required_env("AGENT365_TENANT_ID")
     blueprint_client_id = get_required_env("AGENT365_BLUEPRINT_CLIENT_ID")
     blueprint_client_secret = get_required_env("AGENT365_BLUEPRINT_CLIENT_SECRET")
-    agent_identity_app_id = get_required_env("AGENT365_AGENT_IDENTITY_APP_ID")
-    agent_user_id = os.getenv("AGENT365_AGENT_USER_ID")
-    agent_user_upn = os.getenv("AGENT365_AGENT_USER_UPN")
+    agentic_app_id = get_required_env("AGENT365_AGENTIC_APP_ID")
+    agentic_user_id = os.getenv("AGENT365_AGENTIC_USER_ID")
+    agentic_user_upn = os.getenv("AGENT365_AGENTIC_USER_UPN")
     scope = os.getenv("AGENT365_SCOPE", AGENT_BOT_API_SCOPE)
 
     credentials = ClientCredentials(
@@ -37,12 +37,12 @@ async def main():
     )
     token_manager = TokenManager(credentials=credentials)
 
-    token = await token_manager.get_agent_user_token(
+    token = await token_manager.get_agentic_token(
         tenant_id,
-        agent_identity_app_id,
+        agentic_app_id,
         scope,
-        agent_user_id=agent_user_id,
-        agent_user_upn=agent_user_upn,
+        agentic_user_id=agentic_user_id,
+        agentic_user_upn=agentic_user_upn,
     )
 
     print(f"Acquired agent user token for {scope}")
