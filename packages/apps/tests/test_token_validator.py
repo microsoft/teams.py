@@ -3,11 +3,11 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import jwt
 import pytest
-from microsoft_teams.apps.auth.token_validator import TokenValidator
+from microsoft_teams.apps.auth.token_validator import InboundActivityTokenValidator, TokenValidator
 
 # pyright: basic
 
@@ -407,3 +407,69 @@ class TestTokenValidator:
             result = await validator.validate_token("v1.entra.token")
             assert result["iss"] == "https://sts.windows.net/test-tenant-id/"
             assert result["ver"] == "1.0"
+
+
+class TestInboundActivityTokenValidator:
+    @pytest.mark.asyncio
+    async def test_validate_token_uses_service_validator_for_bot_framework_tokens(self):
+        validator = InboundActivityTokenValidator("test-app-id")
+        validator._service_validator.validate_token = AsyncMock(return_value={"iss": "https://api.botframework.com"})
+
+        with patch("jwt.decode", return_value={"iss": "https://api.botframework.com"}):
+            result = await validator.validate_token("bot-token", "https://service.example")
+
+        assert result == {"iss": "https://api.botframework.com"}
+        validator._service_validator.validate_token.assert_called_once_with("bot-token", "https://service.example")
+
+    @pytest.mark.asyncio
+    async def test_validate_token_uses_entra_validator_for_v2_issuer(self):
+        validator = InboundActivityTokenValidator("test-app-id")
+        validator._service_validator.validate_token = AsyncMock()
+        entra_validator = MagicMock()
+        entra_validator.validate_token = AsyncMock(return_value={"tid": "tenant-id"})
+
+        with patch.object(validator, "_get_entra_validator", return_value=entra_validator) as get_validator:
+            with patch(
+                "jwt.decode",
+                return_value={"iss": "https://login.microsoftonline.com/tenant-id/v2.0", "tid": "tenant-id"},
+            ):
+                result = await validator.validate_token("entra-token", "https://service.example")
+
+        assert result == {"tid": "tenant-id"}
+        get_validator.assert_called_once_with("tenant-id")
+        entra_validator.validate_token.assert_called_once_with("entra-token")
+        validator._service_validator.validate_token.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_validate_token_uses_entra_validator_for_v1_sts_issuer(self):
+        validator = InboundActivityTokenValidator("test-app-id")
+        entra_validator = MagicMock()
+        entra_validator.validate_token = AsyncMock(return_value={"tid": "tenant-id"})
+
+        with patch.object(validator, "_get_entra_validator", return_value=entra_validator) as get_validator:
+            with patch("jwt.decode", return_value={"iss": "https://sts.windows.net/tenant-id/", "tid": "tenant-id"}):
+                result = await validator.validate_token("entra-v1-token")
+
+        assert result == {"tid": "tenant-id"}
+        get_validator.assert_called_once_with("tenant-id")
+        entra_validator.validate_token.assert_called_once_with("entra-v1-token")
+
+    @pytest.mark.asyncio
+    async def test_validate_token_rejects_entra_token_without_tid(self):
+        validator = InboundActivityTokenValidator("test-app-id")
+
+        with patch("jwt.decode", return_value={"iss": "https://login.microsoftonline.com/tenant-id/v2.0"}):
+            with pytest.raises(jwt.InvalidTokenError, match="missing tid"):
+                await validator.validate_token("entra-token")
+
+    def test_get_entra_validator_caches_by_tenant(self):
+        validator = InboundActivityTokenValidator("test-app-id")
+
+        with patch("microsoft_teams.apps.auth.token_validator.TokenValidator.for_entra") as for_entra:
+            for_entra.return_value = MagicMock()
+
+            first = validator._get_entra_validator("tenant-id")
+            second = validator._get_entra_validator("tenant-id")
+
+        assert first is second
+        for_entra.assert_called_once_with("test-app-id", "tenant-id", cloud=validator._cloud)
