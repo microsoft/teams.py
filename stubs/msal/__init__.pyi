@@ -1,8 +1,8 @@
 """Type stubs for msal"""
 
-from typing import Any, Callable, TypeAlias
+from typing import Any, Callable, Optional, TypeAlias
 
-ClientCredential: TypeAlias = str | dict[str, str | Callable[[], str]] | None
+ClientCredential: TypeAlias = str | dict[str, str | Callable[[], str] | Callable[[dict[str, Any]], str]] | None
 
 class ConfidentialClientApplication:
     """MSAL Confidential Client Application"""
@@ -16,7 +16,22 @@ class ConfidentialClientApplication:
         **kwargs: Any,
     ) -> None: ...
     def acquire_token_for_client(
-        self, scopes: list[str] | str, claims_challenge: str | None = None, **kwargs: Any
+        self,
+        scopes: list[str] | str,
+        claims_challenge: str | None = None,
+        *,
+        fmi_path: str | None = None,
+        **kwargs: Any,
+    ) -> dict[str, Any]: ...
+    def acquire_token_by_user_federated_identity_credential(
+        self,
+        scopes: list[str],
+        assertion: str | Callable[[], str],
+        *,
+        username: Optional[str] = None,
+        user_object_id: Optional[str] = None,
+        claims_challenge: Optional[None] = None,
+        **kwargs: Any,
     ) -> dict[str, Any]: ...
 
 class SystemAssignedManagedIdentity:
