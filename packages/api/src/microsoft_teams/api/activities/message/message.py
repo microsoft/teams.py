@@ -52,7 +52,7 @@ class _MessageBase(CustomBaseModel):
     """The text to display if the channel cannot render cards."""
 
     text_format: Optional[TextFormat] = None
-    """Format of text fields. Default: markdown."""
+    """Format of text fields. Default: markdown. Possible values: 'markdown', 'plain', 'xml', 'extendedmarkdown'."""
 
     attachment_layout: Optional[AttachmentLayout] = None
     """The layout hint for multiple attachments. Default: list."""
@@ -172,7 +172,7 @@ class MessageActivityInput(_MessageBase, ActivityInputBase):
         Set the format of text fields.
 
         Args:
-            text_format: Text format (markdown, plain, xml)
+            text_format: Text format (markdown, plain, xml, extendedmarkdown)
 
         Returns:
             Self for method chaining
