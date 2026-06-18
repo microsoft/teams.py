@@ -32,6 +32,15 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
 
     await ctx.reply(TypingActivityInput())
 
+    if "react" in ctx.activity.text.lower():
+        await ctx.api.reactions.add(
+            conversation_id=ctx.activity.conversation.id,
+            activity_id=ctx.activity.id,
+            reaction_type="like",
+        )
+        await ctx.reply("Added a like reaction to your message.")
+        return
+
     if "reply" in ctx.activity.text.lower():
         await ctx.reply("Hello! How can I assist you today?")
     else:
