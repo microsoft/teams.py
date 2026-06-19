@@ -16,6 +16,7 @@ from microsoft_teams.api.auth.cloud_environment import PUBLIC, CloudEnvironment
 
 JWT_LEEWAY_SECONDS = 300  # Allowable clock skew when validating JWTs
 MAX_ENTRA_VALIDATOR_CACHE_SIZE = 100
+ENTRA_V1_ISSUER_PREFIX = "https://sts.windows.net/"
 
 logger = logging.getLogger(__name__)
 
@@ -121,7 +122,7 @@ class TokenValidator:
             # are still issued with the v1 issuer.
             # See: https://learn.microsoft.com/en-us/entra/identity-platform/access-tokens
             valid_issuers.append(f"{env.login_endpoint}/{tenant_id}/v2.0")
-            valid_issuers.append(f"https://sts.windows.net/{tenant_id}/")
+            valid_issuers.append(f"{ENTRA_V1_ISSUER_PREFIX}{tenant_id}/")
         else:
             logger.warning(
                 "No tenant_id provided for Entra token validation. "
@@ -259,7 +260,7 @@ class InboundActivityTokenValidator:
         if not isinstance(issuer, str):
             return False
 
-        return issuer.startswith(self._cloud.login_endpoint) or issuer.startswith("https://sts.windows.net/")
+        return issuer.startswith(self._cloud.login_endpoint) or issuer.startswith(ENTRA_V1_ISSUER_PREFIX)
 
     async def _validate_entra_token(self, raw_token: str, unverified_payload: Dict[str, Any]) -> Dict[str, Any]:
         tenant_id = unverified_payload.get("tid")
