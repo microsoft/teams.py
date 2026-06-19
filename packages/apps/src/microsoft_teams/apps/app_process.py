@@ -21,11 +21,12 @@ from microsoft_teams.api import (
 from microsoft_teams.api.auth.cloud_environment import PUBLIC, CloudEnvironment
 from microsoft_teams.api.clients.user.params import GetUserTokenParams
 from microsoft_teams.cards import AdaptiveCard
-from microsoft_teams.common import Client, ClientOptions, LocalStorage, Storage
+from microsoft_teams.common import Client, LocalStorage, Storage
 
 if TYPE_CHECKING:
     from .app_events import EventManager
 
+from .auth_provider import AppAuthProvider
 from .events import ActivityEvent, ActivityResponseEvent, ActivitySentEvent, ErrorEvent
 from .plugins import PluginActivityEvent, PluginBase, StreamCancelledError
 from .routing.activity_context import ActivityContext
@@ -56,6 +57,7 @@ class ActivityProcessor:
         self.default_connection_name = default_connection_name
         self.http_client = http_client
         self.token_manager = token_manager
+        self.auth_provider = AppAuthProvider(token_manager)
         self.api_client_settings = api_client_settings
         self.cloud = cloud
 
@@ -90,8 +92,9 @@ class ActivityProcessor:
         )
         api_client = ApiClient(
             service_url,
-            self.http_client.clone(ClientOptions(token=self.token_manager.get_bot_token)),
+            self.http_client,
             self.api_client_settings,
+            auth_provider=self.auth_provider,
         )
 
         # Check if user is signed in
