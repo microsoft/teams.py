@@ -7,11 +7,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import jwt
 import pytest
-from microsoft_teams.apps.auth.token_validator import (
-    MAX_ENTRA_VALIDATOR_CACHE_SIZE,
-    InboundActivityTokenValidator,
-    TokenValidator,
-)
+from microsoft_teams.apps.auth import token_validator as token_validator_module
+from microsoft_teams.apps.auth.token_validator import InboundActivityTokenValidator, TokenValidator
 
 # pyright: basic
 
@@ -485,9 +482,10 @@ class TestInboundActivityTokenValidator:
         with patch("microsoft_teams.apps.auth.token_validator.TokenValidator.for_entra") as for_entra:
             for_entra.side_effect = lambda _app_id, tenant_id, **_kwargs: MagicMock(name=tenant_id)
 
-            for index in range(MAX_ENTRA_VALIDATOR_CACHE_SIZE + 1):
+            for index in range(token_validator_module._MAX_ENTRA_VALIDATOR_CACHE_SIZE + 1):
                 validator._get_entra_validator(f"tenant-{index}")
 
-        assert len(validator._entra_validators_by_tenant) == MAX_ENTRA_VALIDATOR_CACHE_SIZE
+        assert len(validator._entra_validators_by_tenant) == token_validator_module._MAX_ENTRA_VALIDATOR_CACHE_SIZE
         assert "tenant-0" not in validator._entra_validators_by_tenant
-        assert f"tenant-{MAX_ENTRA_VALIDATOR_CACHE_SIZE}" in validator._entra_validators_by_tenant
+        last_tenant_id = f"tenant-{token_validator_module._MAX_ENTRA_VALIDATOR_CACHE_SIZE}"
+        assert last_tenant_id in validator._entra_validators_by_tenant

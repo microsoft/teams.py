@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import logging
 import re
-from collections import OrderedDict
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
@@ -15,7 +14,7 @@ import jwt
 from microsoft_teams.api.auth.cloud_environment import PUBLIC, CloudEnvironment
 
 JWT_LEEWAY_SECONDS = 300  # Allowable clock skew when validating JWTs
-MAX_ENTRA_VALIDATOR_CACHE_SIZE = 100
+_MAX_ENTRA_VALIDATOR_CACHE_SIZE = 100
 ENTRA_V1_ISSUER_PREFIX = "https://sts.windows.net/"
 
 logger = logging.getLogger(__name__)
@@ -246,7 +245,7 @@ class InboundActivityTokenValidator:
         self._app_id = app_id
         self._cloud = cloud or PUBLIC
         self._service_validator = TokenValidator.for_service(app_id, cloud=self._cloud)
-        self._entra_validators_by_tenant: OrderedDict[str, TokenValidator] = OrderedDict()
+        self._entra_validators_by_tenant: dict[str, TokenValidator] = {}
 
     async def validate_token(self, raw_token: str, service_url: Optional[str] = None) -> Dict[str, Any]:
         unverified_payload = jwt.decode(raw_token, algorithms=["RS256"], options={"verify_signature": False})
@@ -275,7 +274,6 @@ class InboundActivityTokenValidator:
     def _get_entra_validator(self, tenant_id: str) -> TokenValidator:
         cached_validator = self._entra_validators_by_tenant.get(tenant_id)
         if cached_validator:
-            self._entra_validators_by_tenant.move_to_end(tenant_id)
             return cached_validator
 
         validator = TokenValidator.for_entra(
@@ -284,6 +282,7 @@ class InboundActivityTokenValidator:
             cloud=self._cloud,
         )
         self._entra_validators_by_tenant[tenant_id] = validator
-        if len(self._entra_validators_by_tenant) > MAX_ENTRA_VALIDATOR_CACHE_SIZE:
-            self._entra_validators_by_tenant.popitem(last=False)
+        if len(self._entra_validators_by_tenant) > _MAX_ENTRA_VALIDATOR_CACHE_SIZE:
+            oldest_tenant_id = next(iter(self._entra_validators_by_tenant))
+            self._entra_validators_by_tenant.pop(oldest_tenant_id)
         return validator
