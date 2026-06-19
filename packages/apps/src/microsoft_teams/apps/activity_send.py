@@ -3,8 +3,14 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from microsoft_teams.api import ActivityParams, AgenticIdentity, ApiClient, ConversationReference, MessageActivityInput
-from microsoft_teams.api.activities.sent_activity import SentActivity
+from microsoft_teams.api import (
+    ActivityParams,
+    AgenticIdentity,
+    ApiClient,
+    ConversationReference,
+    MessageActivityInput,
+    SentActivity,
+)
 
 
 async def send_or_update_activity(
