@@ -14,12 +14,14 @@ from microsoft_teams.api import (
     ActivityParams,
     ApiClient,
     ConversationAccount,
+    ConversationReference,
     CreateConversationParams,
     MessageActivityInput,
     SentActivity,
 )
 from microsoft_teams.cards import AdaptiveCard
 
+from ..activity_send import send_or_update_activity
 from .client_context import ClientContext
 
 T = TypeVar("T")
@@ -67,9 +69,13 @@ class FunctionContext(ClientContext, Generic[T]):
         else:
             activity = activity
 
-        activity.from_ = Account(id=self.id, name=self.name)
-        activity.conversation = ConversationAccount(id=conversation_id, conversation_type="personal")
-        return await self.api.conversations.activities(conversation_id).create(activity)
+        conversation_ref = ConversationReference(
+            channel_id="msteams",
+            service_url=self.api.service_url,
+            bot=Account(id=self.id, name=self.name),
+            conversation=ConversationAccount(id=conversation_id, conversation_type="personal"),
+        )
+        return await send_or_update_activity(self.api, activity, conversation_ref)
 
     async def _resolve_conversation_id(self, activity: str | ActivityParams | AdaptiveCard) -> Optional[str]:
         """Resolve or create a conversation ID for the current user/context.

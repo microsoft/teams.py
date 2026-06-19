@@ -7,7 +7,7 @@ from typing import Any, Optional
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from microsoft_teams.api import Account, MessageActivityInput, SentActivity
+from microsoft_teams.api import Account, ConversationAccount, ConversationReference, MessageActivityInput, SentActivity
 from microsoft_teams.api.models.entity import QuotedReplyEntity
 from microsoft_teams.apps.routing.activity_context import ActivityContext
 
@@ -41,7 +41,12 @@ class TestActivityContextReply:
         api = MagicMock()
         api.conversations.activities.return_value = activities
 
-        mock_conversation_ref = MagicMock()
+        conversation_ref = ConversationReference(
+            bot=Account(id="bot-id", name="Test Bot"),
+            conversation=ConversationAccount(id="test-conversation"),
+            channel_id="msteams",
+            service_url="https://service.example",
+        )
 
         return ActivityContext(
             activity=mock_activity,
@@ -49,7 +54,7 @@ class TestActivityContextReply:
             storage=MagicMock(),
             api=api,
             user_token=None,
-            conversation_ref=mock_conversation_ref,
+            conversation_ref=conversation_ref,
             is_signed_in=False,
             connection_name="test-connection",
             app_token=MagicMock(),
@@ -156,7 +161,12 @@ class TestActivityContextQuoteReply:
         api = MagicMock()
         api.conversations.activities.return_value = activities
 
-        mock_conversation_ref = MagicMock()
+        conversation_ref = ConversationReference(
+            bot=Account(id="bot-id", name="Test Bot"),
+            conversation=ConversationAccount(id="test-conversation"),
+            channel_id="msteams",
+            service_url="https://service.example",
+        )
 
         return ActivityContext(
             activity=mock_activity,
@@ -164,7 +174,7 @@ class TestActivityContextQuoteReply:
             storage=MagicMock(),
             api=api,
             user_token=None,
-            conversation_ref=mock_conversation_ref,
+            conversation_ref=conversation_ref,
             is_signed_in=False,
             connection_name="test-connection",
             app_token=MagicMock(),

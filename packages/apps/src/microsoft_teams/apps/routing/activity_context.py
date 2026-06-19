@@ -41,6 +41,7 @@ from microsoft_teams.common import Storage
 from microsoft_teams.common.experimental import ExperimentalWarning
 from microsoft_teams.common.http.client_token import Token
 
+from ..activity_send import send_or_update_activity
 from ..http_stream import HttpStream
 from ..plugins.streamer import StreamerProtocol
 from ..utils import create_graph_client
@@ -196,11 +197,7 @@ class ActivityContext(Generic[T]):
         self._add_targeted_message_info_entity(activity)
 
         ref = conversation_ref or self.conversation_ref
-        res = await self.api.conversations.activities(ref.conversation.id).create(
-            activity,
-            service_url=ref.service_url,
-        )
-        return res
+        return await send_or_update_activity(self.api, activity, ref)
 
     async def reply(self, input: str | ActivityParams) -> SentActivity:
         """Send a message in the current conversation with a visual quote of the inbound message.

@@ -29,6 +29,9 @@ class TestFunctionContextSend:
         mock_activities.create = AsyncMock(
             return_value=SentActivity(id="sent-activity", activity_params=MessageActivityInput(text="sent"))
         )
+        mock_activities.update = AsyncMock(
+            return_value=SentActivity(id="updated-activity", activity_params=MessageActivityInput(text="updated"))
+        )
         mock_conversations.activities.return_value = mock_activities
 
         api.conversations = mock_conversations
@@ -70,6 +73,8 @@ class TestFunctionContextSend:
 
         assert isinstance(sent_activity, MessageActivityInput)
         assert sent_activity.text == "Hello world"
+        assert sent_activity.from_.id == "bot-123"
+        assert sent_activity.conversation.id == "conv-123"
         function_context.api.conversations.activities.assert_called_once_with("conv-123")
 
     async def test_send_adaptive_card(
@@ -106,3 +111,19 @@ class TestFunctionContextSend:
         sent_activity = function_context.api.conversations.activities.return_value.create.call_args[0][0]
         assert sent_activity.text == "Hello new conversation"
         function_context.api.conversations.activities.assert_called_with("new-conv")
+
+    async def test_send_existing_activity_updates(self, function_context: FunctionContext[Any]) -> None:
+        activity = MessageActivityInput(text="Updated message")
+        activity.id = "existing-msg-id"
+
+        result = await function_context.send(activity)
+
+        assert result is not None
+        assert result.id == "updated-activity"
+        function_context.api.conversations.activities.return_value.update.assert_called_once_with(
+            "existing-msg-id",
+            activity,
+            service_url="https://test.service.url",
+            agentic_identity=None,
+        )
+        function_context.api.conversations.activities.return_value.create.assert_not_called()

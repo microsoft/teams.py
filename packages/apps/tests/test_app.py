@@ -783,6 +783,9 @@ class TestApp:
         )
         activities = MagicMock()
         activities.create = create
+        activities.create_targeted = AsyncMock(
+            return_value=SentActivity(id="sent-activity-id", activity_params=MessageActivityInput(text="sent"))
+        )
         app.api.conversations.activities = MagicMock(return_value=activities)
 
         # Create a targeted message with explicit recipient
@@ -792,8 +795,12 @@ class TestApp:
         # Should not raise - explicit recipient provided
         result = await app.send("conv-123", activity)
 
-        create.assert_called_once()
+        activities.create_targeted.assert_called_once()
+        create.assert_not_called()
         assert result.id == "sent-activity-id"
+        sent_activity = activities.create_targeted.call_args.args[0]
+        assert sent_activity.from_.id == "test-client-id"
+        assert sent_activity.conversation.id == "conv-123"
 
 
 class TestAppInitialize:
@@ -806,6 +813,9 @@ class TestAppInitialize:
         create = AsyncMock(return_value=SentActivity(id="msg-1", activity_params=MessageActivityInput(text="hi")))
         activities = MagicMock()
         activities.create = create
+        activities.update = AsyncMock(
+            return_value=SentActivity(id="existing-msg-id", activity_params=MessageActivityInput(text="updated"))
+        )
         app.api.conversations.activities = MagicMock(return_value=activities)
 
         with pytest.raises(ValueError, match="app not initialized"):
@@ -814,6 +824,17 @@ class TestAppInitialize:
         await app.initialize()
         result = await app.send("conv-1", "hello")
         assert result.id == "msg-1"
+
+        activity = MessageActivityInput(text="updated")
+        activity.id = "existing-msg-id"
+        result = await app.send("conv-1", activity)
+        assert result.id == "existing-msg-id"
+        activities.update.assert_called_once_with(
+            "existing-msg-id",
+            activity,
+            service_url=app.api.service_url,
+            agentic_identity=None,
+        )
 
     @pytest.mark.asyncio
     async def test_initialize_emits_error_on_plugin_failure(self):
@@ -848,6 +869,9 @@ class TestAppReply:
         )
         activities = MagicMock()
         activities.create = create
+        activities.update = AsyncMock(
+            return_value=SentActivity(id="updated-activity-id", activity_params=MessageActivityInput(text="updated"))
+        )
         app.api.conversations.activities = MagicMock(return_value=activities)
         return app
 

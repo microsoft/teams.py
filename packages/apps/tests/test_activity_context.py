@@ -41,6 +41,24 @@ def _create_activity_context(
     mock_activity_sender.create_stream = MagicMock(return_value=MagicMock())
     activities = MagicMock()
     activities.create = mock_activity_sender.send
+    activities.update = AsyncMock(
+        return_value=SentActivity(
+            id="updated-activity-id",
+            activity_params=MessageActivityInput(text="updated"),
+        )
+    )
+    activities.create_targeted = AsyncMock(
+        return_value=SentActivity(
+            id="targeted-activity-id",
+            activity_params=MessageActivityInput(text="targeted"),
+        )
+    )
+    activities.update_targeted = AsyncMock(
+        return_value=SentActivity(
+            id="updated-targeted-activity-id",
+            activity_params=MessageActivityInput(text="updated targeted"),
+        )
+    )
     api = MagicMock()
     api.conversations.activities.return_value = activities
 
@@ -91,16 +109,21 @@ class TestActivityContextSendTargeted:
 
         await ctx.send("Secret message")
 
-        mock_sender.send.assert_called_once()
-        sent_activity = mock_sender.send.call_args[0][0]
+        mock_sender.send.assert_not_called()
+        ctx.api.conversations.activities.return_value.create_targeted.assert_called_once()
+        sent_activity = ctx.api.conversations.activities.return_value.create_targeted.call_args.args[0]
         assert isinstance(sent_activity, MessageActivityInput)
         assert sent_activity.text == "Secret message"
+        assert sent_activity.from_ == ctx.conversation_ref.bot
+        assert sent_activity.conversation == ctx.conversation_ref.conversation
         assert sent_activity.recipient is not None
         assert sent_activity.recipient.id == incoming_sender.id
         assert sent_activity.recipient.name == incoming_sender.name
         assert sent_activity.recipient.is_targeted is True
         assert sent_activity.entities is not None
         assert any(isinstance(entity, TargetedMessageInfoEntity) for entity in sent_activity.entities)
+        ctx.api.conversations.activities.return_value.create_targeted.assert_called_once()
+        ctx.api.conversations.activities.return_value.create.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_reply_defaults_to_targeted_when_inbound_message_is_targeted(self) -> None:
@@ -110,8 +133,9 @@ class TestActivityContextSendTargeted:
 
         await ctx.reply("Private reply")
 
-        mock_sender.send.assert_called_once()
-        sent_activity = mock_sender.send.call_args[0][0]
+        mock_sender.send.assert_not_called()
+        ctx.api.conversations.activities.return_value.create_targeted.assert_called_once()
+        sent_activity = ctx.api.conversations.activities.return_value.create_targeted.call_args.args[0]
         assert isinstance(sent_activity, MessageActivityInput)
         assert sent_activity.reply_to_id is None
         assert sent_activity.recipient is not None
@@ -168,8 +192,9 @@ class TestActivityContextSendTargeted:
 
         await ctx.send(activity)
 
-        mock_sender.send.assert_called_once()
-        sent_activity = mock_sender.send.call_args[0][0]
+        mock_sender.send.assert_not_called()
+        ctx.api.conversations.activities.return_value.create_targeted.assert_called_once()
+        sent_activity = ctx.api.conversations.activities.return_value.create_targeted.call_args.args[0]
         assert sent_activity.recipient is not None
         assert sent_activity.recipient.is_targeted is True
         assert sent_activity.entities is None
@@ -186,8 +211,9 @@ class TestActivityContextSendTargeted:
 
         await ctx.send(activity)
 
-        mock_sender.send.assert_called_once()
-        sent_activity = mock_sender.send.call_args[0][0]
+        mock_sender.send.assert_not_called()
+        ctx.api.conversations.activities.return_value.create_targeted.assert_called_once()
+        sent_activity = ctx.api.conversations.activities.return_value.create_targeted.call_args.args[0]
         assert sent_activity.text == "Secret"
         assert sent_activity.entities is not None
         assert all(not isinstance(entity, QuotedReplyEntity) for entity in sent_activity.entities)
@@ -210,10 +236,10 @@ class TestActivityContextSendTargeted:
         await ctx.send(activity)
 
         # Verify send was called
-        mock_sender.send.assert_called_once()
+        ctx.api.conversations.activities.return_value.create_targeted.assert_called_once()
+        mock_sender.send.assert_not_called()
 
-        # Get the activity that was passed to send
-        sent_activity = mock_sender.send.call_args[0][0]
+        sent_activity = ctx.api.conversations.activities.return_value.create_targeted.call_args.args[0]
 
         # Verify recipient was preserved
         assert sent_activity.recipient is not None
@@ -235,17 +261,41 @@ class TestActivityContextSendTargeted:
 
         await ctx.send(activity)
 
-        # Verify send was called
-        mock_sender.send.assert_called_once()
-
-        # Get the activity that was passed to send
-        sent_activity = mock_sender.send.call_args[0][0]
+        ctx.api.conversations.activities.return_value.update_targeted.assert_called_once()
+        sent_activity = ctx.api.conversations.activities.return_value.update_targeted.call_args.args[1]
 
         # Verify recipient was preserved
         assert sent_activity.recipient is not None
         assert sent_activity.recipient.id == incoming_sender.id
         assert sent_activity.recipient.name == incoming_sender.name
         assert sent_activity.recipient.is_targeted is True
+
+    @pytest.mark.asyncio
+    async def test_send_existing_activity_updates(self) -> None:
+        incoming_sender = Account(id="user-123", name="Test User")
+        ctx, mock_sender = self._create_activity_context(from_account=incoming_sender)
+        activity = MessageActivityInput(text="Updated message")
+        activity.id = "existing-msg-id"
+
+        await ctx.send(activity)
+
+        ctx.api.conversations.activities.return_value.update.assert_called_once_with(
+            "existing-msg-id",
+            activity,
+            service_url=ctx.conversation_ref.service_url,
+            agentic_identity=None,
+        )
+        mock_sender.send.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_targeted_send_in_personal_chat_raises(self) -> None:
+        incoming_sender = Account(id="user-123", name="Test User")
+        ctx, _ = self._create_activity_context(from_account=incoming_sender)
+        ctx.conversation_ref.conversation.conversation_type = "personal"
+        activity = MessageActivityInput(text="Nope").with_recipient(incoming_sender, is_targeted=True)
+
+        with pytest.raises(ValueError, match="Targeted messages are not supported in 1:1"):
+            await ctx.send(activity)
 
     @pytest.mark.asyncio
     async def test_targeted_with_different_recipient(self) -> None:
@@ -264,10 +314,9 @@ class TestActivityContextSendTargeted:
         await ctx.send(activity)
 
         # Verify send was called
-        mock_sender.send.assert_called_once()
-
-        # Get the activity that was passed to send
-        sent_activity = mock_sender.send.call_args[0][0]
+        mock_sender.send.assert_not_called()
+        ctx.api.conversations.activities.return_value.create_targeted.assert_called_once()
+        sent_activity = ctx.api.conversations.activities.return_value.create_targeted.call_args.args[0]
 
         # Verify recipient was preserved
         assert sent_activity.recipient is not None
