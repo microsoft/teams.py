@@ -464,6 +464,16 @@ class TestInboundActivityTokenValidator:
             with pytest.raises(jwt.InvalidTokenError, match="missing tid"):
                 await validator.validate_token("entra-token")
 
+    @pytest.mark.asyncio
+    async def test_validate_token_rejects_empty_token_before_routing_decode(self):
+        validator = InboundActivityTokenValidator("test-app-id")
+
+        with patch("jwt.decode") as decode:
+            with pytest.raises(jwt.InvalidTokenError, match="No token provided"):
+                await validator.validate_token("")
+
+        decode.assert_not_called()
+
     def test_get_entra_validator_caches_by_tenant(self):
         validator = InboundActivityTokenValidator("test-app-id")
 

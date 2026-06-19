@@ -36,10 +36,6 @@ class JwtValidationOptions:
     """ Optional scope that must be present in the token """
     clock_tolerance: int = JWT_LEEWAY_SECONDS
     """ Allowable clock skew when validating JWTs """
-    app_id: Optional[str] = None
-    """ Optional app ID used to select per-token validators for inbound activities """
-    cloud: CloudEnvironment = PUBLIC
-    """ Cloud environment used to select issuer and JWKS endpoints """
 
 
 class TokenValidator:
@@ -89,8 +85,6 @@ class TokenValidator:
             valid_audiences=cls._default_audiences(app_id),
             jwks_uri=jwks_keys_uri,
             service_url=service_url,
-            app_id=app_id,
-            cloud=env,
         )
         return cls(options)
 
@@ -136,8 +130,6 @@ class TokenValidator:
             valid_audiences=valid_audiences,
             jwks_uri=f"{env.login_endpoint}/{tenant_id}/discovery/v2.0/keys",
             scope=scope,
-            app_id=app_id,
-            cloud=env,
         )
         return cls(options)
 
@@ -248,6 +240,10 @@ class InboundActivityTokenValidator:
         self._entra_validators_by_tenant: dict[str, TokenValidator] = {}
 
     async def validate_token(self, raw_token: str, service_url: Optional[str] = None) -> Dict[str, Any]:
+        if not raw_token:
+            logger.error("No token provided")
+            raise jwt.InvalidTokenError("No token provided")
+
         unverified_payload = jwt.decode(raw_token, algorithms=["RS256"], options={"verify_signature": False})
         issuer = unverified_payload.get("iss", "")
         if self._is_entra_issuer(issuer):
