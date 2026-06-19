@@ -197,7 +197,12 @@ class ActivityContext(Generic[T]):
         self._add_targeted_message_info_entity(activity)
 
         ref = conversation_ref or self.conversation_ref
-        return await send_or_update_activity(self.api, activity, ref)
+        return await send_or_update_activity(
+            self.api,
+            activity,
+            ref,
+            agentic_identity=self.activity.recipient.agentic_identity,
+        )
 
     async def reply(self, input: str | ActivityParams) -> SentActivity:
         """Send a message in the current conversation with a visual quote of the inbound message.
