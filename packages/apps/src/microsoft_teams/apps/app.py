@@ -137,6 +137,7 @@ class App(ActivityHandlerMixin):
             self.options.default_connection_name,
             self.http_client,
             self._token_manager,
+            self._auth_provider,
             self.options.api_client_settings,
             self.cloud,
         )

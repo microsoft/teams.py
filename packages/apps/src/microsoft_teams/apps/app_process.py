@@ -48,6 +48,7 @@ class ActivityProcessor:
         default_connection_name: str,
         http_client: Client,
         token_manager: TokenManager,
+        auth_provider: AppAuthProvider,
         api_client_settings: Optional[ApiClientSettings],
         cloud: CloudEnvironment = PUBLIC,
     ) -> None:
@@ -57,7 +58,7 @@ class ActivityProcessor:
         self.default_connection_name = default_connection_name
         self.http_client = http_client
         self.token_manager = token_manager
-        self.auth_provider = AppAuthProvider(token_manager)
+        self.auth_provider = auth_provider
         self.api_client_settings = api_client_settings
         self.cloud = cloud
 

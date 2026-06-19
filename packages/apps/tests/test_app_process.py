@@ -19,6 +19,7 @@ from microsoft_teams.api.auth.cloud_environment import PUBLIC
 from microsoft_teams.apps import ActivityContext, ActivityEvent
 from microsoft_teams.apps.app_events import EventManager
 from microsoft_teams.apps.app_process import ActivityProcessor
+from microsoft_teams.apps.auth_provider import AppAuthProvider
 from microsoft_teams.apps.events import CoreActivity
 from microsoft_teams.apps.routing.router import ActivityHandler, ActivityRouter
 from microsoft_teams.apps.token_manager import TokenManager
@@ -42,6 +43,7 @@ class TestActivityProcessor:
         mock_storage = MagicMock(spec=LocalStorage)
         mock_activity_router = MagicMock(spec=ActivityRouter)
         mock_token_manager = MagicMock(spec=TokenManager)
+        mock_auth_provider = MagicMock(spec=AppAuthProvider)
         return ActivityProcessor(
             mock_activity_router,
             "id",
@@ -49,6 +51,7 @@ class TestActivityProcessor:
             "default_connection",
             mock_http_client,
             mock_token_manager,
+            mock_auth_provider,
             None,
             PUBLIC,
         )
@@ -339,6 +342,7 @@ class TestActivityProcessor:
         with patch("microsoft_teams.apps.app_process.ApiClient", return_value=mock_api_client) as mock_api_client_type:
             await activity_processor.process_activity([], mock_activity_event)
 
+        assert mock_api_client_type.call_args.kwargs["auth_provider"] is activity_processor.auth_provider
         agentic_identity = mock_api_client_type.call_args.kwargs["agentic_identity"]
         assert agentic_identity.agentic_app_id == "agentic-app-id"
         assert agentic_identity.agentic_user_id == "agentic-user-id"
