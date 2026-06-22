@@ -1,12 +1,12 @@
 # HTTP Adapters Examples
 
-Examples showing how to use custom `HttpServerAdapter` implementations and non-managed server patterns with the Teams Python SDK.
+Examples showing how to use shipped `HttpServerAdapter` implementations and non-managed server patterns with the Teams Python SDK.
 
 ## Examples
 
 ### 1. Starlette Adapter (`starlette_echo.py`)
 
-A custom `HttpServerAdapter` implementation for [Starlette](https://www.starlette.io/). Demonstrates how to write an adapter for any ASGI framework.
+The shipped `StarletteAdapter` implementation for [Starlette](https://www.starlette.io/).
 
 **Pattern**: Custom adapter, SDK-managed server lifecycle (`app.start()`)
 
@@ -18,7 +18,7 @@ python src/starlette_echo.py
 
 Use your own FastAPI app with your own routes, and let the SDK register `/api/messages` on it. You manage the server lifecycle yourself.
 
-**Pattern**: Default `FastAPIAdapter` with user-provided FastAPI instance, user-managed server (`app.initialize()` + your own `uvicorn.Server`)
+**Pattern**: Default `FastAPIAdapter` with user-provided FastAPI instance, user-managed server (`app.register_routes()` + `await app.start_plugins()` + your own `uvicorn.Server`)
 
 ```bash
 python src/fastapi_non_managed.py
@@ -30,9 +30,13 @@ python src/fastapi_non_managed.py
 
 | | Managed | Non-Managed |
 |---|---|---|
-| **Entry point** | `app.start(port)` | `app.initialize()` + start server yourself |
+| **Entry point** | `app.start(port)` | `app.register_routes()` + `await app.start_plugins()` + start server yourself |
 | **Who starts the server** | The SDK (via adapter) | You |
 | **When to use** | New apps, simple setup | Existing apps, custom server config |
+
+`app.register_routes()` is synchronous and registers the Teams messaging route
+without running async plugin initialization. Run `await app.start_plugins()` from
+your host's startup hook when the event loop is available.
 
 ### Writing a Custom Adapter
 

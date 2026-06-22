@@ -15,7 +15,7 @@ from pydantic import BaseModel
 
 from ..auth import TokenValidator
 from ..events import ActivityEvent, CoreActivity
-from .adapter import HttpRequest, HttpResponse, HttpServerAdapter
+from .adapter import HttpRequest, HttpResponse, HttpRoute, HttpServerAdapter
 
 logger = logging.getLogger(__name__)
 
@@ -47,6 +47,7 @@ class HttpServer:
         self._skip_auth: bool = False
         self._cloud: CloudEnvironment = PUBLIC
         self._initialized: bool = False
+        self._routes: list[HttpRoute] = []
 
     @property
     def adapter(self) -> HttpServerAdapter:
@@ -57,6 +58,11 @@ class HttpServer:
     def messaging_endpoint(self) -> str:
         """The URL path for the Teams messaging endpoint."""
         return self._messaging_endpoint
+
+    @property
+    def routes(self) -> list[HttpRoute]:
+        """Routes registered by this server."""
+        return list(self._routes)
 
     @property
     def on_request(self) -> Optional[Callable[[ActivityEvent], Awaitable[InvokeResponse[Any]]]]:
@@ -72,7 +78,7 @@ class HttpServer:
         credentials: Optional[Credentials] = None,
         skip_auth: bool = False,
         cloud: Optional[CloudEnvironment] = None,
-    ) -> None:
+    ) -> list[HttpRoute]:
         """
         Set up JWT validation and register the messaging endpoint route.
 
@@ -82,7 +88,7 @@ class HttpServer:
             cloud: Optional cloud environment for sovereign cloud support.
         """
         if self._initialized:
-            return
+            return self.routes
 
         self._skip_auth = skip_auth
         self._cloud = cloud or PUBLIC
@@ -107,8 +113,11 @@ class HttpServer:
                 self._messaging_endpoint,
             )
 
-        self._adapter.register_route("POST", self._messaging_endpoint, self.handle_request)
+        route = HttpRoute("POST", self._messaging_endpoint, self.handle_request)
+        self._adapter.register_route(route.method, route.path, route.handler)
+        self._routes.append(route)
         self._initialized = True
+        return self.routes
 
     async def handle_request(self, request: HttpRequest) -> HttpResponse:
         """Handle incoming activity request. Public so plugins (e.g. BotBuilder) can route through SDK auth."""

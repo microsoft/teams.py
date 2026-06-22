@@ -80,6 +80,11 @@ async def handle_message(ctx: ActivityContext[MessageActivity]) -> None:
         await ctx.reply(reply)
 
 
+# Register Teams routes synchronously so the host-owned FastAPI route table is
+# complete before the server starts.
+app.register_routes()
+
+
 async def main() -> None:
     # Build this bot's own AgentCard — equivalent to AgentCardFactory.Build(config) in C#.
     agent_card = build_agent_card(config)
@@ -89,7 +94,7 @@ async def main() -> None:
     a2a_starlette = make_a2a_app(teams_app=app, agent=bot_agent, config=config, agent_card=agent_card)
     fastapi_app.mount("/a2a", a2a_starlette.build())
 
-    await app.initialize()
+    await app.start_plugins()
 
     port = int(getenv("PORT", "3978"))
     server = uvicorn.Server(uvicorn.Config(fastapi_app, host="0.0.0.0", port=port, log_level="info"))

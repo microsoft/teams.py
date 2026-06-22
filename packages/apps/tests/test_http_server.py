@@ -12,7 +12,7 @@ from microsoft_teams.api import (
     ConfigResponse,
     InvokeResponse,
 )
-from microsoft_teams.apps.http import FastAPIAdapter, HttpServer
+from microsoft_teams.apps.http import FastAPIAdapter, HttpServer, StarletteAdapter
 from microsoft_teams.apps.http.adapter import HttpRequest, HttpResponse
 
 
@@ -41,10 +41,11 @@ class TestHttpServer:
 
     def test_initialize_idempotent(self, server, mock_adapter):
         """Test that initialize can be called multiple times safely."""
-        server.initialize(skip_auth=True)
-        server.initialize(skip_auth=True)
+        routes = server.initialize(skip_auth=True)
+        second_routes = server.initialize(skip_auth=True)
         # Should only register route once
         assert mock_adapter.register_route.call_count == 1
+        assert second_routes == routes
 
     def test_invalid_messaging_endpoint_raises(self, mock_adapter):
         """Test that invalid messaging endpoint raises ValueError."""
@@ -57,11 +58,14 @@ class TestHttpServer:
 
     def test_initialize_registers_route(self, server, mock_adapter):
         """Test that initialize registers the /api/messages route."""
-        server.initialize()
+        routes = server.initialize()
         mock_adapter.register_route.assert_called_once()
         call_args = mock_adapter.register_route.call_args
         assert call_args[0][0] == "POST"
         assert call_args[0][1] == "/api/messages"
+        assert routes == server.routes
+        assert routes[0].method == "POST"
+        assert routes[0].path == "/api/messages"
 
     def test_initialize_registers_custom_messaging_endpoint(self, mock_adapter):
         """Test that initialize registers a custom messaging endpoint."""
@@ -347,3 +351,65 @@ class TestFastAPIAdapter:
 
         with pytest.raises(ValueError, match="server_factory must return"):
             FastAPIAdapter(server_factory=factory)
+
+
+class TestStarletteAdapter:
+    """Test cases for StarletteAdapter."""
+
+    def test_init_creates_starlette_app(self):
+        """Test StarletteAdapter creates a Starlette app."""
+        from starlette.applications import Starlette
+
+        adapter = StarletteAdapter()
+        assert isinstance(adapter.app, Starlette)
+
+    def test_register_route(self):
+        """Test route registration on Starlette app."""
+        adapter = StarletteAdapter()
+
+        async def handler(request: HttpRequest) -> HttpResponse:
+            return HttpResponse(status=200, body=None)
+
+        adapter.register_route("POST", "/test", handler)
+
+        routes = [r for r in adapter.app.routes if hasattr(r, "path") and r.path == "/test"]
+        assert len(routes) == 1
+
+    def test_registered_route_handles_request(self):
+        """Test Starlette request/response translation."""
+        from starlette.testclient import TestClient
+
+        adapter = StarletteAdapter()
+        captured: dict[str, object] = {}
+
+        async def handler(request: HttpRequest) -> HttpResponse:
+            captured["body"] = request["body"]
+            captured["headers"] = request["headers"]
+            return HttpResponse(status=202, body={"ok": True})
+
+        adapter.register_route("POST", "/test", handler)
+
+        response = TestClient(adapter.app).post("/test", json={"type": "message"}, headers={"x-test": "value"})
+
+        assert response.status_code == 202
+        assert response.json() == {"ok": True}
+        assert captured["body"] == {"type": "message"}
+        assert cast(dict[str, str], captured["headers"])["x-test"] == "value"
+
+    def test_serve_static(self, tmp_path):
+        """Test static file mounting."""
+        adapter = StarletteAdapter()
+        adapter.serve_static("/static", str(tmp_path))
+
+        mounts = [r for r in adapter.app.routes if hasattr(r, "path") and r.path == "/static"]
+        assert len(mounts) == 1
+
+    @pytest.mark.asyncio
+    async def test_start_with_user_provided_app_raises(self):
+        """StarletteAdapter does not own lifecycle when the app is caller-provided."""
+        from starlette.applications import Starlette
+
+        adapter = StarletteAdapter(app=Starlette())
+
+        with pytest.raises(RuntimeError, match="Manage the server lifecycle yourself"):
+            await adapter.start(3978)

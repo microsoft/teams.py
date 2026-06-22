@@ -3,7 +3,7 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from typing import Dict, Literal, Protocol, TypedDict, runtime_checkable
+from typing import Dict, Literal, NamedTuple, Protocol, TypedDict, runtime_checkable
 
 HttpMethod = Literal["POST"]
 
@@ -20,6 +20,14 @@ class HttpResponse(TypedDict):
 
 class HttpRouteHandler(Protocol):
     async def __call__(self, request: HttpRequest) -> HttpResponse: ...
+
+
+class HttpRoute(NamedTuple):
+    """Framework-agnostic HTTP route registered by the Teams app."""
+
+    method: HttpMethod
+    path: str
+    handler: HttpRouteHandler
 
 
 @runtime_checkable

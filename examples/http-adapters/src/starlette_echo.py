@@ -5,7 +5,7 @@ Licensed under the MIT License.
 
 # Starlette Echo Bot
 # ==================
-# Teams echo bot using a custom StarletteAdapter.
+# Teams echo bot using the shipped StarletteAdapter.
 #
 # This demonstrates the "managed" pattern — the SDK manages the server lifecycle
 # via app.start(). The adapter creates its own Starlette app and uvicorn server.
@@ -17,10 +17,9 @@ import asyncio
 import re
 
 from microsoft_teams.api import MessageActivity
-from microsoft_teams.apps import ActivityContext, App
+from microsoft_teams.apps import ActivityContext, App, StarletteAdapter
 from starlette.requests import Request
 from starlette.responses import JSONResponse
-from starlette_adapter import StarletteAdapter
 
 # 1. Create adapter
 adapter = StarletteAdapter()

@@ -796,6 +796,87 @@ class TestApp:
 class TestAppInitialize:
     """Test cases for App.initialize() method."""
 
+    def test_register_routes_is_sync_and_does_not_initialize_plugins(self):
+        """register_routes() wires the messaging route without running async plugin init."""
+
+        @Plugin(name="RouteRegistrationPlugin", version="1.0", description="test")
+        class RouteRegistrationPlugin(PluginBase):
+            def __init__(self):
+                self.init_called = False
+
+            async def on_init(self):
+                self.init_called = True
+
+        plugin = RouteRegistrationPlugin()
+        app = App(client_id="test-id", client_secret="test-secret", skip_auth=True, plugins=[plugin])
+        register_route = MagicMock()
+        app.server.adapter.register_route = register_route  # type: ignore[method-assign]
+
+        routes = app.register_routes()
+
+        assert len(routes) == 1
+        route = routes[0]
+        assert route.method == "POST"
+        assert route.path == "/api/messages"
+        assert route.handler == app.server.handle_request
+        register_route.assert_called_once_with("POST", "/api/messages", route.handler)
+        assert app.server.on_request is not None
+        assert plugin.init_called is False
+        assert app._routes_registered is True
+        assert app._plugins_initialized is False
+        assert app._initialized is False
+
+    @pytest.mark.asyncio
+    async def test_start_plugins_after_register_routes_completes_initialization(self):
+        """Hosts can contribute routes synchronously, then initialize plugins at startup."""
+
+        @Plugin(name="HostStartupPlugin", version="1.0", description="test")
+        class HostStartupPlugin(PluginBase):
+            def __init__(self):
+                self.init_called = False
+
+            async def on_init(self):
+                self.init_called = True
+
+        plugin = HostStartupPlugin()
+        app = App(client_id="test-id", client_secret="test-secret", skip_auth=True, plugins=[plugin])
+        register_route = MagicMock()
+        app.server.adapter.register_route = register_route  # type: ignore[method-assign]
+
+        app.register_routes()
+        await app.start_plugins()
+
+        assert plugin.init_called is True
+        assert app._routes_registered is True
+        assert app._plugins_initialized is True
+        assert app._initialized is True
+        register_route.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_initialize_after_register_routes_does_not_duplicate_route(self):
+        """initialize() should only run the async plugin step when routes were already registered."""
+
+        @Plugin(name="NoDuplicateRoutePlugin", version="1.0", description="test")
+        class NoDuplicateRoutePlugin(PluginBase):
+            def __init__(self):
+                self.init_called = False
+
+            async def on_init(self):
+                self.init_called = True
+
+        plugin = NoDuplicateRoutePlugin()
+        app = App(client_id="test-id", client_secret="test-secret", skip_auth=True, plugins=[plugin])
+        register_route = MagicMock()
+        app.server.adapter.register_route = register_route  # type: ignore[method-assign]
+
+        routes = app.register_routes()
+        await app.initialize()
+
+        assert plugin.init_called is True
+        assert app._initialized is True
+        assert app.server.routes == routes
+        register_route.assert_called_once()
+
     @pytest.mark.asyncio
     async def test_initialize_enables_send(self):
         """After initialize(), app.send() should work without starting the server."""

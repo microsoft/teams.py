@@ -10,7 +10,7 @@ from .app import App
 from .auth import *  # noqa: F403
 from .contexts import *  # noqa: F403
 from .events import *  # noqa: F401, F403
-from .http import FastAPIAdapter, HttpServer, HttpServerAdapter
+from .http import FastAPIAdapter, HttpRoute, HttpServer, HttpServerAdapter, StarletteAdapter
 from .http_stream import HttpStream
 from .options import AppOptions
 from .plugins import *  # noqa: F401, F403
@@ -26,6 +26,8 @@ __all__: list[str] = [
     "HttpServer",
     "HttpServerAdapter",
     "FastAPIAdapter",
+    "StarletteAdapter",
+    "HttpRoute",
     "HttpStream",
     "ActivityContext",
     "to_threaded_conversation_id",
