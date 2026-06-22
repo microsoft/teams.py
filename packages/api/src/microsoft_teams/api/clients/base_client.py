@@ -5,7 +5,7 @@ Licensed under the MIT License.
 
 from typing import Optional, Union
 
-from microsoft_teams.common.http import Client, ClientOptions
+from microsoft_teams.common import Client, ClientOptions
 
 from .api_client_settings import ApiClientSettings, merge_api_client_settings
 

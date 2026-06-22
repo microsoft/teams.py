@@ -7,7 +7,7 @@ import asyncio
 import os
 
 from dotenv import load_dotenv
-from microsoft_teams.api import ClientCredentials
+from microsoft_teams.api import AgenticIdentity, ClientCredentials
 from microsoft_teams.apps.token_manager import AGENT_BOT_API_SCOPE, TokenManager
 
 
@@ -26,8 +26,7 @@ async def main():
     blueprint_client_id = get_required_env("AGENT365_BLUEPRINT_CLIENT_ID")
     blueprint_client_secret = get_required_env("AGENT365_BLUEPRINT_CLIENT_SECRET")
     agentic_app_id = get_required_env("AGENT365_AGENTIC_APP_ID")
-    agentic_user_id = os.getenv("AGENT365_AGENTIC_USER_ID")
-    agentic_user_upn = os.getenv("AGENT365_AGENTIC_USER_UPN")
+    agentic_user_id = get_required_env("AGENT365_AGENTIC_USER_ID")
     scope = os.getenv("AGENT365_SCOPE", AGENT_BOT_API_SCOPE)
 
     credentials = ClientCredentials(
@@ -38,11 +37,8 @@ async def main():
     token_manager = TokenManager(credentials=credentials)
 
     token = await token_manager.get_agentic_token(
-        tenant_id,
-        agentic_app_id,
         scope,
-        agentic_user_id=agentic_user_id,
-        agentic_user_upn=agentic_user_upn,
+        AgenticIdentity(agentic_app_id=agentic_app_id, agentic_user_id=agentic_user_id, tenant_id=tenant_id),
     )
 
     print(f"Acquired agent user token for {scope}")

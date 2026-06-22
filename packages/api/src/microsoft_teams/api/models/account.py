@@ -7,9 +7,11 @@ from typing import Any, Dict, Literal, Optional
 
 from pydantic import AliasChoices, Field
 
+from .agentic_identity import AgenticIdentity
 from .custom_base_model import CustomBaseModel
 
 AccountType = Literal["person", "tag", "channel", "team", "bot"]
+AccountRole = Literal["agenticUser"]
 
 
 class Account(CustomBaseModel):
@@ -44,6 +46,30 @@ class Account(CustomBaseModel):
     """
     The name of the account.
     """
+    role: Optional[AccountRole | str] = None
+    """The role of the account in the activity."""
+    agentic_user_id: Optional[str] = None
+    """The Agent ID user-shaped identity object ID."""
+    agentic_app_id: Optional[str] = None
+    """The Agent ID app/client ID for the concrete agent identity."""
+    agentic_app_blueprint_id: Optional[str] = None
+    """The Agent ID blueprint app/client ID."""
+    callback_uri: Optional[str] = None
+    """The callback URI associated with the agent identity."""
+    tenant_id: Optional[str] = None
+    """The tenant ID associated with the account."""
+
+    @property
+    def agentic_identity(self) -> Optional[AgenticIdentity]:
+        if self.agentic_app_id is None or self.agentic_user_id is None:
+            return None
+
+        return AgenticIdentity(
+            agentic_app_id=self.agentic_app_id,
+            agentic_user_id=self.agentic_user_id,
+            tenant_id=self.tenant_id,
+            agentic_app_blueprint_id=self.agentic_app_blueprint_id,
+        )
 
 
 class TeamsChannelAccount(CustomBaseModel):

@@ -6,10 +6,11 @@ Licensed under the MIT License.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Awaitable, Callable, List, Optional, TypedDict, Union, cast
+from typing import Any, List, Optional, TypedDict, Union, cast
 
 from microsoft_teams.api import ApiClientSettings
 from microsoft_teams.api.auth.cloud_environment import CloudEnvironment
+from microsoft_teams.api.auth.credentials import TokenProvider
 from microsoft_teams.common import Client, ClientOptions, Storage
 from typing_extensions import Unpack
 
@@ -30,7 +31,7 @@ class AppOptions(TypedDict, total=False):
     """Application ID URI from the Azure portal. Used for user authentication.
     Matches webApplicationInfo.resource in the app manifest."""
     # Custom token provider function
-    token: Optional[Callable[[Union[str, list[str]], Optional[str]], Union[str, Awaitable[str]]]]
+    token: Optional[TokenProvider]
     """Custom token provider function. If provided with client_id (no client_secret), uses TokenCredentials."""
 
     # Managed identity configuration (used when client_id provided without client_secret or token)
@@ -111,7 +112,7 @@ class InternalAppOptions:
     application_id_uri: Optional[str] = None
     """Application ID URI from the Azure portal. Used for user authentication.
     Matches webApplicationInfo.resource in the app manifest."""
-    token: Optional[Callable[[Union[str, list[str]], Optional[str]], Union[str, Awaitable[str]]]] = None
+    token: Optional[TokenProvider] = None
     """Custom token provider function. If provided with client_id (no client_secret), uses TokenCredentials."""
     managed_identity_client_id: Optional[str] = None
     """
