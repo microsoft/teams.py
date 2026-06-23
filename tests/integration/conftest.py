@@ -135,4 +135,7 @@ async def fixture():
 
     yield f
 
-    await credential.close()
+    try:
+        await credential.close()
+    finally:
+        await http_client.http.aclose()
