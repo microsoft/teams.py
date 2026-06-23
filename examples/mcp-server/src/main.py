@@ -16,10 +16,10 @@ logger = logging.getLogger(__name__)
 
 
 async def main() -> None:
-    # app.initialize() must be called before mounting the MCP app so that
+    # app.register_routes() must be called before mounting the MCP app so that
     # /api/messages is registered first — FastAPI routes take priority over
     # mounted sub-applications, and the MCP mount uses a catch-all path (/).
-    await app.initialize()
+    app.register_routes()
 
     adapter = app.server.adapter
     if not isinstance(adapter, FastAPIAdapter):
