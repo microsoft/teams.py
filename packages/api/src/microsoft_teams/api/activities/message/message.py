@@ -52,7 +52,7 @@ class _MessageBase(CustomBaseModel):
     """The text to display if the channel cannot render cards."""
 
     text_format: Optional[TextFormat] = None
-    """Format of text fields. Default: markdown."""
+    """Format of text fields. Default: markdown. Possible values: 'markdown', 'plain', 'xml', 'extendedmarkdown'."""
 
     attachment_layout: Optional[AttachmentLayout] = None
     """The layout hint for multiple attachments. Default: list."""
@@ -76,17 +76,12 @@ class MessageActivity(_MessageBase, ActivityBase):
     text: str = ""  # pyright: ignore [reportGeneralTypeIssues, reportIncompatibleVariableOverride]
     """The text content of the message."""
 
-    @experimental("ExperimentalTeamsQuotedReplies")
     def get_quoted_messages(self) -> list[QuotedReplyEntity]:
         """
         Get all quoted reply entities from this message.
 
         Returns:
             List of quoted reply entities, empty if none
-
-        .. warning:: Coming Soon
-            This API is coming soon and may change in the future.
-            Diagnostic: ExperimentalTeamsQuotedReplies
         """
         return [e for e in (self.entities or []) if isinstance(e, QuotedReplyEntity)]
 
@@ -177,7 +172,7 @@ class MessageActivityInput(_MessageBase, ActivityInputBase):
         Set the format of text fields.
 
         Args:
-            text_format: Text format (markdown, plain, xml)
+            text_format: Text format (markdown, plain, xml, extendedmarkdown)
 
         Returns:
             Self for method chaining
@@ -436,7 +431,6 @@ class MessageActivityInput(_MessageBase, ActivityInputBase):
         self.channel_data.feedback_loop_enabled = None
         return self
 
-    @experimental("ExperimentalTeamsQuotedReplies")
     def prepend_quote(self, message_id: str) -> Self:
         """
         Prepend a quotedReply entity and placeholder before existing text.
@@ -447,10 +441,6 @@ class MessageActivityInput(_MessageBase, ActivityInputBase):
 
         Returns:
             Self for method chaining
-
-        .. warning:: Coming Soon
-            This API is coming soon and may change in the future.
-            Diagnostic: ExperimentalTeamsQuotedReplies
         """
         if not self.entities:
             self.entities = []
@@ -460,7 +450,6 @@ class MessageActivityInput(_MessageBase, ActivityInputBase):
         self.text = f"{placeholder} {self.text}" if has_text else placeholder
         return self
 
-    @experimental("ExperimentalTeamsQuotedReplies")
     def add_quote(self, message_id: str, text: str | None = None) -> Self:
         """
         Add a quoted message reference and append a placeholder to text.
@@ -473,10 +462,6 @@ class MessageActivityInput(_MessageBase, ActivityInputBase):
 
         Returns:
             Self for method chaining
-
-        .. warning:: Coming Soon
-            This API is coming soon and may change in the future.
-            Diagnostic: ExperimentalTeamsQuotedReplies
         """
         if not self.entities:
             self.entities = []
