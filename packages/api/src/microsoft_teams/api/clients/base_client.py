@@ -3,7 +3,7 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from typing import Optional, Union
+from typing import Optional, Union, cast
 
 from microsoft_teams.common import Client, ClientOptions
 
@@ -21,7 +21,7 @@ class BaseClient:
         """Initialize the BaseClient.
 
         Args:
-            options: Optional Client or ClientOptions instance. If not provided, a default Client will be created.
+            options: Optional Client or ClientOptions instance. If not provided, a default Client is created.
             api_client_settings: Optional API client settings.
         """
         if options is None:
@@ -42,3 +42,10 @@ class BaseClient:
     def http(self, value: Client) -> None:
         """Set the HTTP client instance."""
         self._http = value
+
+    def _get_service_url(self, service_url: str | None = None) -> str:
+        current_service_url = cast(str | None, getattr(self, "service_url", None))
+        resolved_service_url = service_url or current_service_url
+        if resolved_service_url is None:
+            raise ValueError("service_url is required")
+        return resolved_service_url.rstrip("/")

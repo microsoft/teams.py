@@ -7,7 +7,9 @@ from typing import Optional
 
 from microsoft_teams.common.http import Client
 
+from ...models import AgenticIdentity
 from ...models.message import MessageReactionType
+from .._auth_provider_interceptor import AGENTIC_IDENTITY_EXTENSION
 from ..api_client_settings import ApiClientSettings
 from ..base_client import BaseClient
 
@@ -39,6 +41,9 @@ class ReactionClient(BaseClient):
         conversation_id: str,
         activity_id: str,
         reaction_type: MessageReactionType,
+        *,
+        service_url: str | None = None,
+        agentic_identity: AgenticIdentity | None = None,
     ) -> None:
         """
         Adds a reaction on an activity in a conversation.
@@ -49,15 +54,22 @@ class ReactionClient(BaseClient):
             reaction_type: The reaction type (for example: "like", "heart", "laugh", etc.).
         """
         url = (
-            f"{self.service_url}/v3/conversations/{conversation_id}/activities/{activity_id}/reactions/{reaction_type}"
+            f"{self._get_service_url(service_url)}/v3/conversations/{conversation_id}"
+            f"/activities/{activity_id}/reactions/{reaction_type}"
         )
-        await self.http.put(url)
+        await self.http.put(
+            url,
+            extensions={AGENTIC_IDENTITY_EXTENSION: agentic_identity},
+        )
 
     async def delete(
         self,
         conversation_id: str,
         activity_id: str,
         reaction_type: MessageReactionType,
+        *,
+        service_url: str | None = None,
+        agentic_identity: AgenticIdentity | None = None,
     ) -> None:
         """
         Removes a reaction from an activity in a conversation.
@@ -68,6 +80,10 @@ class ReactionClient(BaseClient):
             reaction_type: The reaction type to remove (for example: "like", "heart", "laugh", etc.).
         """
         url = (
-            f"{self.service_url}/v3/conversations/{conversation_id}/activities/{activity_id}/reactions/{reaction_type}"
+            f"{self._get_service_url(service_url)}/v3/conversations/{conversation_id}"
+            f"/activities/{activity_id}/reactions/{reaction_type}"
         )
-        await self.http.delete(url)
+        await self.http.delete(
+            url,
+            extensions={AGENTIC_IDENTITY_EXTENSION: agentic_identity},
+        )

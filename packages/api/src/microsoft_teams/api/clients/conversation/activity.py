@@ -9,7 +9,8 @@ from microsoft_teams.common.experimental import experimental
 from microsoft_teams.common.http import Client
 
 from ...activities import ActivityParams, SentActivity
-from ...models import TeamsChannelAccount
+from ...models import AgenticIdentity, TeamsChannelAccount
+from .._auth_provider_interceptor import AGENTIC_IDENTITY_EXTENSION
 from ..api_client_settings import ApiClientSettings
 from ..base_client import BaseClient
 
@@ -38,7 +39,14 @@ class ConversationActivityClient(BaseClient):
         super().__init__(http_client, api_client_settings)
         self.service_url = service_url.rstrip("/")
 
-    async def create(self, conversation_id: str, activity: ActivityParams) -> SentActivity:
+    async def create(
+        self,
+        conversation_id: str,
+        activity: ActivityParams,
+        *,
+        service_url: str | None = None,
+        agentic_identity: AgenticIdentity | None = None,
+    ) -> SentActivity:
         """
         Create a new activity in a conversation.
 
@@ -51,8 +59,9 @@ class ConversationActivityClient(BaseClient):
         """
 
         response = await self.http.post(
-            f"{self.service_url}/v3/conversations/{conversation_id}/activities",
+            f"{self._get_service_url(service_url)}/v3/conversations/{conversation_id}/activities",
             json=activity.model_dump(by_alias=True, exclude_none=True),
+            extensions={AGENTIC_IDENTITY_EXTENSION: agentic_identity},
         )
 
         # Note: Typing activities (non-streaming) always produce empty responses.
@@ -61,7 +70,15 @@ class ConversationActivityClient(BaseClient):
         id = response.json().get("id", _PLACEHOLDER_ACTIVITY_ID)
         return SentActivity(id=id, activity_params=activity)
 
-    async def update(self, conversation_id: str, activity_id: str, activity: ActivityParams) -> SentActivity:
+    async def update(
+        self,
+        conversation_id: str,
+        activity_id: str,
+        activity: ActivityParams,
+        *,
+        service_url: str | None = None,
+        agentic_identity: AgenticIdentity | None = None,
+    ) -> SentActivity:
         """
         Update an existing activity in a conversation.
 
@@ -74,13 +91,22 @@ class ConversationActivityClient(BaseClient):
             The updated activity
         """
         response = await self.http.put(
-            f"{self.service_url}/v3/conversations/{conversation_id}/activities/{activity_id}",
+            f"{self._get_service_url(service_url)}/v3/conversations/{conversation_id}/activities/{activity_id}",
             json=activity.model_dump(by_alias=True, exclude_none=True),
+            extensions={AGENTIC_IDENTITY_EXTENSION: agentic_identity},
         )
         id = response.json()["id"]
         return SentActivity(id=id, activity_params=activity)
 
-    async def reply(self, conversation_id: str, activity_id: str, activity: ActivityParams) -> SentActivity:
+    async def reply(
+        self,
+        conversation_id: str,
+        activity_id: str,
+        activity: ActivityParams,
+        *,
+        service_url: str | None = None,
+        agentic_identity: AgenticIdentity | None = None,
+    ) -> SentActivity:
         """
         Reply to an activity in a conversation.
 
@@ -95,13 +121,21 @@ class ConversationActivityClient(BaseClient):
         activity_json = activity.model_dump(by_alias=True, exclude_none=True)
         activity_json["replyToId"] = activity_id
         response = await self.http.post(
-            f"{self.service_url}/v3/conversations/{conversation_id}/activities/{activity_id}",
+            f"{self._get_service_url(service_url)}/v3/conversations/{conversation_id}/activities/{activity_id}",
             json=activity_json,
+            extensions={AGENTIC_IDENTITY_EXTENSION: agentic_identity},
         )
         id = response.json()["id"]
         return SentActivity(id=id, activity_params=activity)
 
-    async def delete(self, conversation_id: str, activity_id: str) -> None:
+    async def delete(
+        self,
+        conversation_id: str,
+        activity_id: str,
+        *,
+        service_url: str | None = None,
+        agentic_identity: AgenticIdentity | None = None,
+    ) -> None:
         """
         Delete an activity from a conversation.
 
@@ -109,9 +143,19 @@ class ConversationActivityClient(BaseClient):
             conversation_id: The ID of the conversation
             activity_id: The ID of the activity to delete
         """
-        await self.http.delete(f"{self.service_url}/v3/conversations/{conversation_id}/activities/{activity_id}")
+        await self.http.delete(
+            f"{self._get_service_url(service_url)}/v3/conversations/{conversation_id}/activities/{activity_id}",
+            extensions={AGENTIC_IDENTITY_EXTENSION: agentic_identity},
+        )
 
-    async def get_members(self, conversation_id: str, activity_id: str) -> List[TeamsChannelAccount]:
+    async def get_members(
+        self,
+        conversation_id: str,
+        activity_id: str,
+        *,
+        service_url: str | None = None,
+        agentic_identity: AgenticIdentity | None = None,
+    ) -> List[TeamsChannelAccount]:
         """
         Get the members associated with an activity.
 
@@ -123,12 +167,19 @@ class ConversationActivityClient(BaseClient):
             List of TeamsChannelAccount objects representing the activity members
         """
         response = await self.http.get(
-            f"{self.service_url}/v3/conversations/{conversation_id}/activities/{activity_id}/members"
+            f"{self._get_service_url(service_url)}/v3/conversations/{conversation_id}/activities/{activity_id}/members",
+            extensions={AGENTIC_IDENTITY_EXTENSION: agentic_identity},
         )
         return [TeamsChannelAccount.model_validate(member) for member in response.json()]
 
     @experimental("ExperimentalTeamsTargeted")
-    async def create_targeted(self, conversation_id: str, activity: ActivityParams) -> SentActivity:
+    async def create_targeted(
+        self,
+        conversation_id: str,
+        activity: ActivityParams,
+        *,
+        service_url: str | None = None,
+    ) -> SentActivity:
         """
         Create a new targeted activity in a conversation.
 
@@ -146,14 +197,21 @@ class ConversationActivityClient(BaseClient):
             The created activity
         """
         response = await self.http.post(
-            f"{self.service_url}/v3/conversations/{conversation_id}/activities?isTargetedActivity=true",
+            f"{self._get_service_url(service_url)}/v3/conversations/{conversation_id}/activities?isTargetedActivity=true",
             json=activity.model_dump(by_alias=True, exclude_none=True),
         )
         id = response.json().get("id", _PLACEHOLDER_ACTIVITY_ID)
         return SentActivity(id=id, activity_params=activity)
 
     @experimental("ExperimentalTeamsTargeted")
-    async def update_targeted(self, conversation_id: str, activity_id: str, activity: ActivityParams) -> SentActivity:
+    async def update_targeted(
+        self,
+        conversation_id: str,
+        activity_id: str,
+        activity: ActivityParams,
+        *,
+        service_url: str | None = None,
+    ) -> SentActivity:
         """
         Update an existing targeted activity in a conversation.
 
@@ -170,14 +228,20 @@ class ConversationActivityClient(BaseClient):
             The updated activity
         """
         response = await self.http.put(
-            f"{self.service_url}/v3/conversations/{conversation_id}/activities/{activity_id}?isTargetedActivity=true",
+            f"{self._get_service_url(service_url)}/v3/conversations/{conversation_id}/activities/{activity_id}?isTargetedActivity=true",
             json=activity.model_dump(by_alias=True, exclude_none=True),
         )
         id = response.json()["id"]
         return SentActivity(id=id, activity_params=activity)
 
     @experimental("ExperimentalTeamsTargeted")
-    async def delete_targeted(self, conversation_id: str, activity_id: str) -> None:
+    async def delete_targeted(
+        self,
+        conversation_id: str,
+        activity_id: str,
+        *,
+        service_url: str | None = None,
+    ) -> None:
         """
         Delete a targeted activity from a conversation.
 
@@ -190,5 +254,5 @@ class ConversationActivityClient(BaseClient):
             activity_id: The ID of the activity to delete
         """
         await self.http.delete(
-            f"{self.service_url}/v3/conversations/{conversation_id}/activities/{activity_id}?isTargetedActivity=true"
+            f"{self._get_service_url(service_url)}/v3/conversations/{conversation_id}/activities/{activity_id}?isTargetedActivity=true"
         )

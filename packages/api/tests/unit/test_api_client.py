@@ -6,6 +6,8 @@ Licensed under the MIT License.
 
 import pytest
 from microsoft_teams.api.clients import ApiClient, ReactionClient
+from microsoft_teams.api.clients._auth_provider_interceptor import AuthProviderInterceptor
+from microsoft_teams.api.models import AgenticIdentity
 from microsoft_teams.common.http import Client, ClientOptions
 
 
@@ -22,6 +24,28 @@ class TestApiClientReactionsProperty:
 
         assert reactions is not None
         assert isinstance(reactions, ReactionClient)
+
+    def test_reactions_inherits_agentic_auth_defaults(self, mock_http_client):
+        """Test reactions inherits agentic auth defaults from ApiClient."""
+        auth_provider = object()
+        identity = AgenticIdentity("agentic-app-id", "agentic-user-id", tenant_id="tenant-id")
+        client = ApiClient(
+            "https://mock.service.url",
+            mock_http_client,
+            auth_provider=auth_provider,
+            agentic_identity=identity,
+        )
+
+        reactions = client.reactions
+
+        assert not hasattr(reactions, "_auth_provider")
+        assert not hasattr(reactions, "_agentic_identity")
+        interceptor = next(
+            interceptor
+            for interceptor in mock_http_client.interceptors
+            if isinstance(interceptor, AuthProviderInterceptor)
+        )
+        assert interceptor._default_agentic_identity is identity
 
     def test_reactions_second_access_returns_cached_client(self, mock_http_client):
         """Test that the reactions property returns the same instance on subsequent accesses."""
