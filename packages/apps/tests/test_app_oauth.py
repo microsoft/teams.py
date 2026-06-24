@@ -27,6 +27,7 @@ from microsoft_teams.api.models import (
 )
 from microsoft_teams.apps.app_oauth import OauthHandlers
 from microsoft_teams.apps.app_process import ActivityProcessor
+from microsoft_teams.apps.auth_provider import AppAuthProvider
 from microsoft_teams.apps.events import ErrorEvent, SignInEvent
 from microsoft_teams.apps.routing import ActivityContext
 from microsoft_teams.apps.routing.activity_route_configs import ACTIVITY_ROUTES
@@ -445,8 +446,8 @@ class TestSignInFailureMiddlewareChain:
             default_connection_name="graph",
             http_client=MagicMock(),
             token_manager=MagicMock(),
+            auth_provider=MagicMock(spec=AppAuthProvider),
             api_client_settings=None,
-            activity_sender=MagicMock(),
             cloud=PUBLIC,
         )
 
@@ -462,7 +463,6 @@ class TestSignInFailureMiddlewareChain:
             conversation_ref=MagicMock(),
             is_signed_in=False,
             connection_name="graph",
-            activity_sender=MagicMock(),
             app_token=MagicMock(),
             cloud=PUBLIC,
         )

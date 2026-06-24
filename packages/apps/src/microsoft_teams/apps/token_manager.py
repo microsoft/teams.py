@@ -5,11 +5,12 @@ Licensed under the MIT License.
 
 import asyncio
 import logging
-from inspect import isawaitable
-from typing import Any, Optional
+from inspect import Parameter, isawaitable, signature
+from typing import Any, Awaitable, Callable, Optional, cast
 
 import requests
 from microsoft_teams.api import (
+    AgenticIdentity,
     ClientCredentials,
     Credentials,
     JsonWebToken,
@@ -29,6 +30,8 @@ from msal import (
 )
 
 DEFAULT_TENANT_FOR_GRAPH_TOKEN = "common"
+TOKEN_EXCHANGE_SCOPE = "api://AzureADTokenExchange/.default"
+AGENT_BOT_API_SCOPE = "https://botapi.skype.com/.default"
 
 logger = logging.getLogger(__name__)
 
@@ -45,12 +48,29 @@ class TokenManager:
         self._cloud = cloud or PUBLIC
         self._confidential_clients_by_tenant: dict[str, ConfidentialClientApplication] = {}
         self._federated_identity_clients_by_tenant: dict[str, ConfidentialClientApplication] = {}
+        self._agent_identity_clients_by_tenant_and_app_id: dict[tuple[str, str], ConfidentialClientApplication] = {}
         self._managed_identity_client: Optional[ManagedIdentityClient] = None
 
     async def get_bot_token(self) -> Optional[TokenProtocol]:
         """Refresh the bot authentication token."""
+        return await self.get_app_token(self._cloud.bot_scope, default_tenant_id=self._cloud.login_tenant)
+
+    async def get_app_token(
+        self,
+        scope: str,
+        tenant_id: Optional[str] = None,
+        *,
+        default_tenant_id: str | None = None,
+        caller_name: str | None = None,
+    ) -> Optional[TokenProtocol]:
+        """Get an app token for the requested scope."""
+        resolved_tenant_id = self._resolve_tenant_id(tenant_id, default_tenant_id or self._cloud.login_tenant)
+        if resolved_tenant_id is None:
+            raise ValueError("tenant_id is required to get an app token")
         return await self._get_token(
-            self._cloud.bot_scope, tenant_id=self._resolve_tenant_id(None, self._cloud.login_tenant)
+            scope,
+            tenant_id=resolved_tenant_id,
+            caller_name=caller_name,
         )
 
     async def get_graph_token(self, tenant_id: Optional[str] = None) -> Optional[TokenProtocol]:
@@ -64,9 +84,77 @@ class TokenManager:
         Returns:
             The graph token or None if not available
         """
-        return await self._get_token(
-            self._cloud.graph_scope, tenant_id=self._resolve_tenant_id(tenant_id, DEFAULT_TENANT_FOR_GRAPH_TOKEN)
+        return await self.get_app_token(
+            self._cloud.graph_scope,
+            tenant_id=tenant_id,
+            default_tenant_id=DEFAULT_TENANT_FOR_GRAPH_TOKEN,
         )
+
+    async def get_agentic_token(
+        self,
+        scope: str,
+        agentic_identity: AgenticIdentity,
+        *,
+        caller_name: str | None = None,
+    ) -> Optional[TokenProtocol]:
+        """Get a resource token for an agentic identity acting through its agentic user."""
+        if not agentic_identity.agentic_user_id:
+            raise ValueError("agentic_identity.agentic_user_id is required to get an agentic token")
+        if self._credentials is None:
+            if caller_name:
+                logger.debug(f"No credentials provided for {caller_name}")
+            return None
+
+        tenant_id = self._resolve_tenant_id(agentic_identity.tenant_id, None)
+        if tenant_id is None:
+            raise ValueError("tenant_id is required to get an agentic token")
+
+        credentials = self._credentials
+        if isinstance(credentials, TokenCredentials):
+            return await self._get_token_with_token_provider(credentials, scope, tenant_id, agentic_identity)
+
+        if not isinstance(credentials, ClientCredentials):
+            raise ValueError("Agent user tokens require ClientCredentials")
+        confidential_client = self._get_confidential_client(credentials, tenant_id)
+
+        def get_t1_assertion(_context: dict[str, Any]) -> str:
+            t1_raw: dict[str, Any] = confidential_client.acquire_token_for_client(
+                [TOKEN_EXCHANGE_SCOPE], fmi_path=agentic_identity.agentic_app_id
+            )
+            return self._get_access_token_or_raise(t1_raw, "Agent token exchange step 1 failed")
+
+        # The agent identity app needs its own MSAL client. It uses the Federated Managed
+        # Identity assertion from step 1 as its client assertion for the next exchanges.
+        t2_confidential_client = self._get_agent_identity_client(
+            tenant_id,
+            agentic_identity.agentic_app_id,
+            get_t1_assertion,
+        )
+
+        t2_raw: dict[str, Any] = await asyncio.to_thread(
+            lambda: t2_confidential_client.acquire_token_for_client([TOKEN_EXCHANGE_SCOPE])
+        )
+
+        t2 = self._get_access_token_or_raise(t2_raw, "Agent token exchange step 2 failed")
+
+        t3_raw: dict[str, Any] = await asyncio.to_thread(
+            lambda: t2_confidential_client.acquire_token_by_user_federated_identity_credential(
+                [scope],
+                assertion=t2,
+                user_object_id=agentic_identity.agentic_user_id,
+                username=None,
+                data={"requested_token_use": "on_behalf_of"},
+            )
+        )
+        return self._handle_token_response(t3_raw, caller_name or "get_agentic_token")
+
+    def _get_access_token_or_raise(self, token_res: dict[str, Any], error_prefix: str) -> str:
+        if token_res.get("access_token", None):
+            return token_res["access_token"]
+
+        error_description = token_res.get("error_description") or token_res.get("error") or "Could not acquire token"
+        logger.error(f"{error_prefix}: {error_description}")
+        raise ValueError(f"{error_prefix}: {error_description}")
 
     async def _get_token(
         self, scope: str, tenant_id: str, *, caller_name: str | None = None
@@ -160,9 +248,10 @@ class TokenManager:
         credentials: TokenCredentials,
         scope: str,
         tenant_id: str,
+        agentic_identity: AgenticIdentity | None = None,
     ) -> TokenProtocol:
         """Get token using custom token provider function."""
-        token = credentials.token(scope, tenant_id)
+        token = self._call_token_provider(credentials, scope, tenant_id, agentic_identity)
 
         if isawaitable(token):
             access_token = await token
@@ -170,6 +259,45 @@ class TokenManager:
             access_token = token
 
         return JsonWebToken(access_token)
+
+    def _call_token_provider(
+        self,
+        credentials: TokenCredentials,
+        scope: str,
+        tenant_id: str,
+        agentic_identity: AgenticIdentity | None = None,
+    ) -> str | Awaitable[str]:
+        token_provider = cast(Any, credentials.token)
+        try:
+            parameters = list(signature(token_provider).parameters.values())
+        except (TypeError, ValueError) as error:
+            if agentic_identity is not None:
+                raise ValueError("Token provider must accept agentic_identity to mint agentic tokens") from error
+            return cast(str | Awaitable[str], token_provider(scope, tenant_id))
+
+        accepts_agentic_identity = any(
+            parameter.kind == Parameter.VAR_KEYWORD or parameter.name == "agentic_identity" for parameter in parameters
+        )
+        if accepts_agentic_identity:
+            return cast(str | Awaitable[str], token_provider(scope, tenant_id, agentic_identity=agentic_identity))
+
+        positional_parameters = [
+            parameter
+            for parameter in parameters
+            if parameter.kind in (Parameter.POSITIONAL_ONLY, Parameter.POSITIONAL_OR_KEYWORD)
+        ]
+        required_positional_parameters = [
+            parameter for parameter in positional_parameters if parameter.default is Parameter.empty
+        ]
+        if len(positional_parameters) >= 3 and (
+            agentic_identity is not None or len(required_positional_parameters) >= 3
+        ):
+            return cast(str | Awaitable[str], token_provider(scope, tenant_id, agentic_identity))
+
+        if agentic_identity is not None:
+            raise ValueError("Token provider must accept agentic_identity to mint agentic tokens")
+
+        return cast(str | Awaitable[str], token_provider(scope, tenant_id))
 
     def _handle_token_response(self, token_res: dict[str, Any], error_prefix: str = "") -> TokenProtocol:
         """Handle token response from MSAL client."""
@@ -220,6 +348,24 @@ class TokenManager:
         self._federated_identity_clients_by_tenant[tenant_id] = client
         return client
 
+    def _get_agent_identity_client(
+        self,
+        tenant_id: str,
+        agentic_app_id: str,
+        client_assertion: Callable[[dict[str, Any]], str],
+    ) -> ConfidentialClientApplication:
+        cached_client = self._agent_identity_clients_by_tenant_and_app_id.get((tenant_id, agentic_app_id))
+        if cached_client:
+            return cached_client
+
+        client: ConfidentialClientApplication = ConfidentialClientApplication(
+            agentic_app_id,
+            client_credential={"client_assertion": client_assertion},
+            authority=f"{self._cloud.login_endpoint}/{tenant_id}",
+        )
+        self._agent_identity_clients_by_tenant_and_app_id[(tenant_id, agentic_app_id)] = client
+        return client
+
     def _get_managed_identity_client(
         self, credentials: ManagedIdentityCredentials | FederatedIdentityCredentials
     ) -> ManagedIdentityClient:
@@ -247,5 +393,5 @@ class TokenManager:
         )
         return self._managed_identity_client
 
-    def _resolve_tenant_id(self, tenant_id: str | None, default_tenant_id: str):
-        return tenant_id or (self._credentials.tenant_id if self._credentials else False) or default_tenant_id
+    def _resolve_tenant_id(self, tenant_id: str | None, default_tenant_id: str | None) -> str | None:
+        return tenant_id or (self._credentials.tenant_id if self._credentials else None) or default_tenant_id

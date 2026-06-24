@@ -14,6 +14,8 @@ import jwt
 from microsoft_teams.api.auth.cloud_environment import PUBLIC, CloudEnvironment
 
 JWT_LEEWAY_SECONDS = 300  # Allowable clock skew when validating JWTs
+_MAX_ENTRA_VALIDATOR_CACHE_SIZE = 100
+ENTRA_V1_ISSUER_PREFIX = "https://sts.windows.net/"
 
 logger = logging.getLogger(__name__)
 
@@ -113,7 +115,7 @@ class TokenValidator:
             # are still issued with the v1 issuer.
             # See: https://learn.microsoft.com/en-us/entra/identity-platform/access-tokens
             valid_issuers.append(f"{env.login_endpoint}/{tenant_id}/v2.0")
-            valid_issuers.append(f"https://sts.windows.net/{tenant_id}/")
+            valid_issuers.append(f"{ENTRA_V1_ISSUER_PREFIX}{tenant_id}/")
         else:
             logger.warning(
                 "No tenant_id provided for Entra token validation. "
@@ -222,3 +224,61 @@ class TokenValidator:
         if required_scope not in scope_set:
             logger.error(f"Token missing required scope: {required_scope}")
             raise jwt.InvalidTokenError(f"Token missing required scope: {required_scope}")
+
+
+class InboundActivityTokenValidator:
+    """Validator for inbound Teams activities.
+
+    Classic bot activities use Bot Framework connector tokens. Agent ID activities use
+    Entra tokens whose audience is the agent identity blueprint app ID.
+    """
+
+    def __init__(self, app_id: str, cloud: Optional[CloudEnvironment] = None):
+        self._app_id = app_id
+        self._cloud = cloud or PUBLIC
+        self._service_validator = TokenValidator.for_service(app_id, cloud=self._cloud)
+        self._entra_validators_by_tenant: dict[str, TokenValidator] = {}
+
+    async def validate_token(self, raw_token: str, service_url: Optional[str] = None) -> Dict[str, Any]:
+        if not raw_token:
+            logger.error("No token provided")
+            raise jwt.InvalidTokenError("No token provided")
+
+        unverified_payload = jwt.decode(raw_token, algorithms=["RS256"], options={"verify_signature": False})
+        issuer = unverified_payload.get("iss", "")
+        if self._is_entra_issuer(issuer):
+            return await self._validate_entra_token(raw_token, unverified_payload)
+
+        return await self._service_validator.validate_token(raw_token, service_url)
+
+    def _is_entra_issuer(self, issuer: Any) -> bool:
+        if not isinstance(issuer, str):
+            return False
+
+        return issuer.startswith(self._cloud.login_endpoint) or issuer.startswith(ENTRA_V1_ISSUER_PREFIX)
+
+    async def _validate_entra_token(self, raw_token: str, unverified_payload: Dict[str, Any]) -> Dict[str, Any]:
+        tenant_id = unverified_payload.get("tid")
+        if not tenant_id or not isinstance(tenant_id, str):
+            raise jwt.InvalidTokenError("Entra inbound token is missing tid")
+
+        validator = self._get_entra_validator(tenant_id)
+        # TODO: Agent ID inbound Entra tokens currently do not include serviceurl. Revisit service URL
+        # validation for this path once the platform defines a signed service URL claim or equivalent.
+        return await validator.validate_token(raw_token)
+
+    def _get_entra_validator(self, tenant_id: str) -> TokenValidator:
+        cached_validator = self._entra_validators_by_tenant.get(tenant_id)
+        if cached_validator:
+            return cached_validator
+
+        validator = TokenValidator.for_entra(
+            self._app_id,
+            tenant_id,
+            cloud=self._cloud,
+        )
+        self._entra_validators_by_tenant[tenant_id] = validator
+        if len(self._entra_validators_by_tenant) > _MAX_ENTRA_VALIDATOR_CACHE_SIZE:
+            oldest_tenant_id = next(iter(self._entra_validators_by_tenant))
+            self._entra_validators_by_tenant.pop(oldest_tenant_id)
+        return validator

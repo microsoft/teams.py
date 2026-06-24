@@ -21,12 +21,12 @@ from microsoft_teams.api import (
 from microsoft_teams.api.auth.cloud_environment import PUBLIC, CloudEnvironment
 from microsoft_teams.api.clients.user.params import GetUserTokenParams
 from microsoft_teams.cards import AdaptiveCard
-from microsoft_teams.common import Client, ClientOptions, LocalStorage, Storage
+from microsoft_teams.common import Client, LocalStorage, Storage
 
 if TYPE_CHECKING:
     from .app_events import EventManager
 
-from .activity_sender import ActivitySender
+from .auth_provider import AppAuthProvider
 from .events import ActivityEvent, ActivityResponseEvent, ActivitySentEvent, ErrorEvent
 from .plugins import PluginActivityEvent, PluginBase, StreamCancelledError
 from .routing.activity_context import ActivityContext
@@ -48,8 +48,8 @@ class ActivityProcessor:
         default_connection_name: str,
         http_client: Client,
         token_manager: TokenManager,
+        auth_provider: AppAuthProvider,
         api_client_settings: Optional[ApiClientSettings],
-        activity_sender: ActivitySender,
         cloud: CloudEnvironment = PUBLIC,
     ) -> None:
         self.router = router
@@ -58,8 +58,8 @@ class ActivityProcessor:
         self.default_connection_name = default_connection_name
         self.http_client = http_client
         self.token_manager = token_manager
+        self.auth_provider = auth_provider
         self.api_client_settings = api_client_settings
-        self.activity_sender = activity_sender
         self.cloud = cloud
 
         # This will be set after the EventManager is initialized due to
@@ -93,8 +93,10 @@ class ActivityProcessor:
         )
         api_client = ApiClient(
             service_url,
-            self.http_client.clone(ClientOptions(token=self.token_manager.get_bot_token)),
+            self.http_client,
             self.api_client_settings,
+            auth_provider=self.auth_provider,
+            agentic_identity=activity.recipient.agentic_identity,
         )
 
         # Check if user is signed in
@@ -127,7 +129,6 @@ class ActivityProcessor:
             conversation_ref,
             is_signed_in,
             self.default_connection_name,
-            activity_sender=self.activity_sender,
             app_token=lambda: self.token_manager.get_graph_token(tenant_id),
             cloud=self.cloud,
         )

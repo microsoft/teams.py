@@ -21,6 +21,8 @@ class CloudEnvironment:
     """The default multi-tenant login tenant (e.g. "botframework.com")."""
     bot_scope: str
     """The Bot Framework OAuth scope (e.g. "https://api.botframework.com/.default")."""
+    agentic_bot_scope: str
+    """The Teams Bot API scope for Agent ID user-token calls."""
     token_service_url: str
     """The Bot Framework token service base URL (e.g. "https://token.botframework.com")."""
     openid_metadata_url: str
@@ -35,6 +37,7 @@ PUBLIC = CloudEnvironment(
     login_endpoint="https://login.microsoftonline.com",
     login_tenant="botframework.com",
     bot_scope="https://api.botframework.com/.default",
+    agentic_bot_scope="https://botapi.skype.com/.default",
     token_service_url="https://token.botframework.com",
     openid_metadata_url="https://login.botframework.com/v1/.well-known/openidconfiguration",
     token_issuer="https://api.botframework.com",
@@ -46,6 +49,8 @@ US_GOV = CloudEnvironment(
     login_endpoint="https://login.microsoftonline.us",
     login_tenant="MicrosoftServices.onmicrosoft.us",
     bot_scope="https://api.botframework.us/.default",
+    # TODO: confirm Agent ID Bot API scope for this cloud before enabling sovereign Agent ID scenarios.
+    agentic_bot_scope="https://botapi.skype.com/.default",
     token_service_url="https://tokengcch.botframework.azure.us",
     openid_metadata_url="https://login.botframework.azure.us/v1/.well-known/openidconfiguration",
     token_issuer="https://api.botframework.us",
@@ -57,6 +62,8 @@ US_GOV_DOD = CloudEnvironment(
     login_endpoint="https://login.microsoftonline.us",
     login_tenant="MicrosoftServices.onmicrosoft.us",
     bot_scope="https://api.botframework.us/.default",
+    # TODO: confirm Agent ID Bot API scope for this cloud before enabling sovereign Agent ID scenarios.
+    agentic_bot_scope="https://botapi.skype.com/.default",
     token_service_url="https://apiDoD.botframework.azure.us",
     openid_metadata_url="https://login.botframework.azure.us/v1/.well-known/openidconfiguration",
     token_issuer="https://api.botframework.us",
@@ -68,6 +75,8 @@ CHINA = CloudEnvironment(
     login_endpoint="https://login.partner.microsoftonline.cn",
     login_tenant="microsoftservices.partner.onmschina.cn",
     bot_scope="https://api.botframework.azure.cn/.default",
+    # TODO: confirm Agent ID Bot API scope for this cloud before enabling China cloud Agent ID scenarios.
+    agentic_bot_scope="https://botapi.skype.com/.default",
     token_service_url="https://token.botframework.azure.cn",
     openid_metadata_url="https://login.botframework.azure.cn/v1/.well-known/openidconfiguration",
     token_issuer="https://api.botframework.azure.cn",

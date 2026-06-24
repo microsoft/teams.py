@@ -5,7 +5,7 @@ Licensed under the MIT License.
 # pyright: basic
 
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from microsoft_teams.api import (
@@ -17,9 +17,9 @@ from microsoft_teams.api import (
 )
 from microsoft_teams.api.auth.cloud_environment import PUBLIC
 from microsoft_teams.apps import ActivityContext, ActivityEvent
-from microsoft_teams.apps.activity_sender import ActivitySender
 from microsoft_teams.apps.app_events import EventManager
 from microsoft_teams.apps.app_process import ActivityProcessor
+from microsoft_teams.apps.auth_provider import AppAuthProvider
 from microsoft_teams.apps.events import CoreActivity
 from microsoft_teams.apps.routing.router import ActivityHandler, ActivityRouter
 from microsoft_teams.apps.token_manager import TokenManager
@@ -43,11 +43,7 @@ class TestActivityProcessor:
         mock_storage = MagicMock(spec=LocalStorage)
         mock_activity_router = MagicMock(spec=ActivityRouter)
         mock_token_manager = MagicMock(spec=TokenManager)
-        mock_activity_sender = MagicMock(spec=ActivitySender)
-        # Mock the stream object with async close
-        mock_stream = MagicMock()
-        mock_stream.close = AsyncMock()
-        mock_activity_sender.create_stream.return_value = mock_stream
+        mock_auth_provider = MagicMock(spec=AppAuthProvider)
         return ActivityProcessor(
             mock_activity_router,
             "id",
@@ -55,8 +51,8 @@ class TestActivityProcessor:
             "default_connection",
             mock_http_client,
             mock_token_manager,
+            mock_auth_provider,
             None,
-            mock_activity_sender,
             PUBLIC,
         )
 
@@ -72,18 +68,16 @@ class TestActivityProcessor:
     @pytest.mark.asyncio
     async def test_execute_middleware_chain_with_two_handlers(self, activity_processor, mock_http_client):
         """Test the execute_middleware_chain method with two handlers."""
-        mock_activity_sender = MagicMock(spec=ActivitySender)
-        mock_activity_sender.create_stream.return_value = MagicMock()
+        api = MagicMock()
         context = ActivityContext(
             activity=MagicMock(spec=ActivityBase),
             app_id="app_id",
             storage=MagicMock(spec=LocalStorage),
-            api=mock_http_client,
+            api=api,
             user_token=None,
             conversation_ref=MagicMock(spec=ConversationReference),
             is_signed_in=True,
             connection_name="default_connection",
-            activity_sender=mock_activity_sender,
             app_token=lambda: None,
             cloud=PUBLIC,
         )
@@ -209,22 +203,29 @@ class TestActivityProcessor:
         mock_token.service_url = "https://service.url"
         mock_activity_event = ActivityEvent(body=core_activity, token=mock_token)
 
-        # Activity sender returns a SentActivity from send()
+        # ApiClient returns a SentActivity from send()
         sent = SentActivity(id="sent-1", activity_params=MessageActivityInput(text="hi"))
-        activity_processor.activity_sender.send = AsyncMock(return_value=sent)
+        activities = MagicMock()
+        activities.create = AsyncMock(return_value=sent)
+        activity_processor.http_client.clone.return_value = activity_processor.http_client
+        with patch("microsoft_teams.apps.app_process.ApiClient") as mock_api_client:
+            mock_context_api = MagicMock()
+            mock_context_api.users.token.get = AsyncMock(side_effect=Exception("no token"))
+            mock_context_api.conversations.activities.return_value = activities
+            mock_api_client.return_value = mock_context_api
 
-        # Handler that calls ctx.send to exercise the updated_send wrapper
-        async def calling_handler(ctx):
-            await ctx.send("hi")
-            return None
+            # Handler that calls ctx.send to exercise the updated_send wrapper
+            async def calling_handler(ctx):
+                await ctx.send("hi")
+                return None
 
-        activity_processor.router.select_handlers = MagicMock(return_value=[calling_handler])
-        activity_processor.event_manager = MagicMock()
-        activity_processor.event_manager.on_activity_response = AsyncMock()
-        activity_processor.event_manager.on_activity_sent = AsyncMock()
-        activity_processor.event_manager.on_error = AsyncMock()
+            activity_processor.router.select_handlers = MagicMock(return_value=[calling_handler])
+            activity_processor.event_manager = MagicMock()
+            activity_processor.event_manager.on_activity_response = AsyncMock()
+            activity_processor.event_manager.on_activity_sent = AsyncMock()
+            activity_processor.event_manager.on_error = AsyncMock()
 
-        await activity_processor.process_activity([], mock_activity_event)
+            await activity_processor.process_activity([], mock_activity_event)
 
         activity_processor.event_manager.on_activity_sent.assert_called_once()
 
@@ -248,24 +249,26 @@ class TestActivityProcessor:
         mock_token.service_url = "https://service.url"
         mock_activity_event = ActivityEvent(body=core_activity, token=mock_token)
 
-        mock_stream = activity_processor.activity_sender.create_stream.return_value
-
         activity_processor.router.select_handlers = MagicMock(return_value=[])
         activity_processor.event_manager = MagicMock()
         activity_processor.event_manager.on_activity_response = AsyncMock()
         activity_processor.event_manager.on_activity_sent = AsyncMock()
         activity_processor.event_manager.on_error = AsyncMock()
 
-        await activity_processor.process_activity([], mock_activity_event)
+        with patch("microsoft_teams.apps.routing.activity_context.HttpStream") as mock_stream_class:
+            mock_stream = mock_stream_class.return_value
+            mock_stream.close = AsyncMock()
 
-        # Stream's on_chunk and on_close were registered with the inner handlers.
-        # Invoke them to exercise their bodies.
-        chunk_handler = mock_stream.on_chunk.call_args[0][0]
-        close_handler = mock_stream.on_close.call_args[0][0]
+            await activity_processor.process_activity([], mock_activity_event)
 
-        sent = SentActivity(id="chunk-1", activity_params=MessageActivityInput(text="chunk"))
-        await chunk_handler(sent)
-        await close_handler(sent)
+            # Stream's on_chunk and on_close were registered with the inner handlers.
+            # Invoke them to exercise their bodies.
+            chunk_handler = mock_stream.on_chunk.call_args[0][0]
+            close_handler = mock_stream.on_close.call_args[0][0]
+
+            sent = SentActivity(id="chunk-1", activity_params=MessageActivityInput(text="chunk"))
+            await chunk_handler(sent)
+            await close_handler(sent)
 
         assert activity_processor.event_manager.on_activity_sent.call_count == 2
 
@@ -304,6 +307,46 @@ class TestActivityProcessor:
             await activity_processor.process_activity([], mock_activity_event)
 
         mock_api_client.users.token.get.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_build_context_scopes_api_to_inbound_agentic_identity(self, activity_processor):
+        """Inbound Agent ID activities scope ctx.api with the inbound agentic identity."""
+        core_activity = CoreActivity(
+            type="message",
+            id="activity-agentic",
+            service_url="https://service.url",
+            **{
+                "from": {"id": "user-1", "name": "Test User"},
+                "conversation": {"id": "conv-1"},
+                "recipient": {
+                    "id": "bot-1",
+                    "name": "Test Bot",
+                    "agenticAppId": "agentic-app-id",
+                    "agenticUserId": "agentic-user-id",
+                    "tenantId": "tenant-id",
+                },
+                "channelId": "msteams",
+            },
+        )
+        mock_token = MagicMock(spec=TokenProtocol)
+        mock_token.service_url = "https://service.url"
+        mock_activity_event = ActivityEvent(body=core_activity, token=mock_token)
+        mock_api_client = MagicMock()
+        mock_api_client.users.token.get = AsyncMock(side_effect=Exception("no token"))
+
+        activity_processor.router.select_handlers = MagicMock(return_value=[])
+        activity_processor.event_manager = MagicMock()
+        activity_processor.event_manager.on_activity_response = AsyncMock()
+        activity_processor.event_manager.on_error = AsyncMock()
+
+        with patch("microsoft_teams.apps.app_process.ApiClient", return_value=mock_api_client) as mock_api_client_type:
+            await activity_processor.process_activity([], mock_activity_event)
+
+        assert mock_api_client_type.call_args.kwargs["auth_provider"] is activity_processor.auth_provider
+        agentic_identity = mock_api_client_type.call_args.kwargs["agentic_identity"]
+        assert agentic_identity.agentic_app_id == "agentic-app-id"
+        assert agentic_identity.agentic_user_id == "agentic-user-id"
+        assert agentic_identity.tenant_id == "tenant-id"
 
     @pytest.mark.asyncio
     async def test_process_activity_raises_when_event_manager_missing(self, activity_processor):

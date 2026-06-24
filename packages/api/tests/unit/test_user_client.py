@@ -7,6 +7,7 @@ Licensed under the MIT License.
 
 import pytest
 from microsoft_teams.api import (
+    ApiClient,
     ApiClientSettings,
     ExchangeUserTokenParams,
     GetUserAADTokenParams,
@@ -36,6 +37,26 @@ class TestUserClient:
         assert response.token is not None
         assert response.token == "mock_access_token_123"
         assert response.connection_name == "test_connection"
+
+    @pytest.mark.asyncio
+    async def test_user_token_get_uses_auth_provider_for_bot_token(self, mock_http_client):
+        calls = []
+
+        class TestAuthProvider:
+            def token(self, *, scope=None, agentic_identity=None):
+                calls.append((scope, agentic_identity))
+                return "bot-token"
+
+        client = ApiClient("https://test.service.url", mock_http_client, auth_provider=TestAuthProvider()).users
+        params = GetUserTokenParams(
+            user_id="test_user_id",
+            connection_name="test_connection",
+            channel_id="test_channel_id",
+        )
+
+        await client.token.get(params)
+
+        assert calls == [(None, None)]
 
     @pytest.mark.asyncio
     async def test_user_token_get_aad(self, mock_http_client):
@@ -124,6 +145,15 @@ class TestUserClientHttpClientSharing:
         client.http = new_http_client
 
         assert client.token.http == new_http_client
+
+
+@pytest.mark.unit
+class TestUserClientSovereignCloud:
+    def test_user_token_client_uses_cloud_token_service_url(self):
+        from microsoft_teams.api.auth.cloud_environment import US_GOV
+
+        client = UserClient(cloud=US_GOV)
+        assert client.token._api_client_settings.oauth_url == US_GOV.token_service_url
 
 
 @pytest.mark.unit

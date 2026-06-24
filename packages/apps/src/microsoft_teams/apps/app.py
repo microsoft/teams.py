@@ -15,6 +15,7 @@ from microsoft_teams.api import (
     Account,
     ActivityBase,
     ActivityParams,
+    AgenticIdentity,
     ApiClient,
     ClientCredentials,
     ConversationAccount,
@@ -35,13 +36,14 @@ from microsoft_teams.common import Client, ClientOptions, EventEmitter, LocalSto
 if TYPE_CHECKING:
     from msgraph.graph_service_client import GraphServiceClient
 
-from .activity_sender import ActivitySender
+from .activity_send import send_or_update_activity
 from .app_events import EventManager
 from .app_oauth import OauthHandlers
 from .app_plugins import PluginProcessor
 from .app_process import ActivityProcessor
 from .auth import TokenValidator
 from .auth.remote_function_jwt_middleware import validate_remote_function_request
+from .auth_provider import AppAuthProvider
 from .container import Container
 from .contexts.function_context import FunctionContext
 from .events import (
@@ -100,6 +102,7 @@ class App(ActivityHandlerMixin):
             credentials=self.credentials,
             cloud=self.cloud,
         )
+        self._auth_provider = AppAuthProvider(self._token_manager, self.cloud)
 
         self.container = Container()
         self.container.set_provider("storage", providers.Object(self.storage))
@@ -110,9 +113,10 @@ class App(ActivityHandlerMixin):
 
         self.api = ApiClient(
             service_url,
-            self.http_client.clone(ClientOptions(token=self._get_bot_token)),
+            self.http_client.clone(),
             self.options.api_client_settings,
             cloud=self.cloud,
+            auth_provider=self._auth_provider,
         )
 
         plugins: List[PluginBase] = list(self.options.plugins)
@@ -125,9 +129,6 @@ class App(ActivityHandlerMixin):
         self._port: Optional[int] = None
         self._initialized = False
 
-        # initialize ActivitySender for sending activities
-        self.activity_sender = ActivitySender(self.http_client.clone(ClientOptions(token=self._get_bot_token)))
-
         # initialize all event, activity, and plugin processors
         self.activity_processor = ActivityProcessor(
             self._router,
@@ -136,8 +137,8 @@ class App(ActivityHandlerMixin):
             self.options.default_connection_name,
             self.http_client,
             self._token_manager,
+            self._auth_provider,
             self.options.api_client_settings,
-            self.activity_sender,
             self.cloud,
         )
         self.event_manager = EventManager(self._events)
@@ -290,7 +291,14 @@ class App(ActivityHandlerMixin):
             self._events.emit("error", ErrorEvent(error, context={"method": "stop"}))
             raise
 
-    async def send(self, conversation_id: str, activity: str | ActivityParams | AdaptiveCard):
+    async def send(
+        self,
+        conversation_id: str,
+        activity: str | ActivityParams | AdaptiveCard,
+        *,
+        service_url: Optional[str] = None,
+        agentic_identity: Optional[AgenticIdentity] = None,
+    ) -> SentActivity:
         """Send an activity proactively to a conversation.
 
         Sends to the exact conversation ID provided. For channel threads,
@@ -306,7 +314,7 @@ class App(ActivityHandlerMixin):
 
         conversation_ref = ConversationReference(
             channel_id="msteams",
-            service_url=self.api.service_url,
+            service_url=service_url or self.api.service_url,
             bot=Account(id=self.id),
             conversation=ConversationAccount(id=conversation_id),
         )
@@ -318,7 +326,32 @@ class App(ActivityHandlerMixin):
         else:
             activity = activity
 
-        return await self.activity_sender.send(activity, conversation_ref)
+        return await send_or_update_activity(
+            self.api,
+            activity,
+            conversation_ref,
+            agentic_identity=agentic_identity,
+        )
+
+    def get_agentic_identity(
+        self,
+        agentic_app_id: str,
+        agentic_user_id: str,
+        *,
+        tenant_id: Optional[str] = None,
+        agentic_app_blueprint_id: Optional[str] = None,
+    ) -> AgenticIdentity:
+        """Get an Agent ID identity for API calls."""
+        resolved_tenant_id = tenant_id or (self.credentials.tenant_id if self.credentials else None)
+        if resolved_tenant_id is None:
+            raise ValueError("tenant_id is required to get an agentic identity")
+
+        return AgenticIdentity(
+            agentic_app_id=agentic_app_id,
+            agentic_user_id=agentic_user_id,
+            tenant_id=resolved_tenant_id,
+            agentic_app_blueprint_id=agentic_app_blueprint_id,
+        )
 
     @overload
     async def reply(
@@ -326,6 +359,9 @@ class App(ActivityHandlerMixin):
         conversation_id: str,
         message_id: str,
         activity: str | ActivityParams | AdaptiveCard,
+        *,
+        service_url: Optional[str] = None,
+        agentic_identity: Optional[AgenticIdentity] = None,
     ) -> SentActivity: ...
 
     @overload
@@ -333,6 +369,9 @@ class App(ActivityHandlerMixin):
         self,
         conversation_id: str,
         message_id: str | ActivityParams | AdaptiveCard,
+        *,
+        service_url: Optional[str] = None,
+        agentic_identity: Optional[AgenticIdentity] = None,
     ) -> SentActivity: ...
 
     async def reply(  # type: ignore[reportInconsistentOverload]
@@ -340,6 +379,9 @@ class App(ActivityHandlerMixin):
         conversation_id: str,
         message_id: str | ActivityParams | AdaptiveCard = "",
         activity: str | ActivityParams | AdaptiveCard | None = None,
+        *,
+        service_url: Optional[str] = None,
+        agentic_identity: Optional[AgenticIdentity] = None,
     ) -> SentActivity:
         """Send an activity proactively to a conversation, optionally as a threaded reply.
 
@@ -360,9 +402,19 @@ class App(ActivityHandlerMixin):
         if activity is not None:
             if not isinstance(message_id, str):
                 raise TypeError("message_id must be a string when activity is provided")
-            return await self.send(to_threaded_conversation_id(conversation_id, message_id), activity)
+            return await self.send(
+                to_threaded_conversation_id(conversation_id, message_id),
+                activity,
+                service_url=service_url,
+                agentic_identity=agentic_identity,
+            )
 
-        return await self.send(conversation_id, message_id)
+        return await self.send(
+            conversation_id,
+            message_id,
+            service_url=service_url,
+            agentic_identity=agentic_identity,
+        )
 
     def use(self, middleware: Callable[[ActivityContext[ActivityBase]], Awaitable[None]]) -> None:
         """Add middleware to run on all activities."""
@@ -571,7 +623,6 @@ class App(ActivityHandlerMixin):
                 ctx = FunctionContext(
                     id=self.id,
                     api=self.api,
-                    activity_sender=self.activity_sender,
                     data=request["body"],
                     **client_context.__dict__,
                 )

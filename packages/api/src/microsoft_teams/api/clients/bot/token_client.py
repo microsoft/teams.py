@@ -6,7 +6,7 @@ Licensed under the MIT License.
 from __future__ import annotations
 
 import inspect
-from typing import TYPE_CHECKING, Literal, Optional, Union
+from typing import TYPE_CHECKING, Any, Awaitable, Literal, Optional, Union, cast
 
 from microsoft_teams.api.auth.credentials import ClientCredentials
 from microsoft_teams.common.http import Client, ClientOptions
@@ -44,7 +44,11 @@ class GetBotTokenResponse(BaseModel):
 
 
 class BotTokenClient(BaseClient):
-    """Client for managing bot tokens."""
+    """Deprecated client for managing bot tokens.
+
+    Token minting for Teams apps now happens through the MSAL-backed TokenManager
+    in microsoft-teams-apps.
+    """
 
     def __init__(
         self,
@@ -59,9 +63,9 @@ class BotTokenClient(BaseClient):
             api_client_settings: Optional API client settings.
             cloud: Optional cloud environment for sovereign cloud support.
         """
-        super().__init__(options)
         self._cloud = cloud or PUBLIC
-        self._api_client_settings = merge_api_client_settings(api_client_settings, self._cloud)
+        merged_settings = merge_api_client_settings(api_client_settings, self._cloud)
+        super().__init__(options, merged_settings)
 
     async def get(self, credentials: Credentials) -> GetBotTokenResponse:
         """Get a bot token.
@@ -73,10 +77,7 @@ class BotTokenClient(BaseClient):
             The bot token response.
         """
         if isinstance(credentials, TokenCredentials):
-            token = credentials.token(
-                self._cloud.bot_scope,
-                credentials.tenant_id,
-            )
+            token = self._call_token_provider(credentials, self._cloud.bot_scope)
             if inspect.isawaitable(token):
                 token = await token
 
@@ -114,10 +115,7 @@ class BotTokenClient(BaseClient):
             The bot token response.
         """
         if isinstance(credentials, TokenCredentials):
-            token = credentials.token(
-                self._cloud.graph_scope,
-                credentials.tenant_id,
-            )
+            token = self._call_token_provider(credentials, self._cloud.graph_scope)
             if inspect.isawaitable(token):
                 token = await token
 
@@ -144,3 +142,30 @@ class BotTokenClient(BaseClient):
         )
 
         return GetBotTokenResponse.model_validate(res.json())
+
+    def _call_token_provider(self, credentials: TokenCredentials, scope: str) -> str | Awaitable[str]:
+        token_provider = cast(Any, credentials.token)
+        try:
+            parameters = list(inspect.signature(token_provider).parameters.values())
+        except (TypeError, ValueError):
+            return cast(str | Awaitable[str], token_provider(scope, credentials.tenant_id))
+
+        accepts_agentic_identity = any(
+            parameter.kind == inspect.Parameter.VAR_KEYWORD or parameter.name == "agentic_identity"
+            for parameter in parameters
+        )
+        if accepts_agentic_identity:
+            return cast(str | Awaitable[str], token_provider(scope, credentials.tenant_id, agentic_identity=None))
+
+        positional_parameters = [
+            parameter
+            for parameter in parameters
+            if parameter.kind in (inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD)
+        ]
+        required_positional_parameters = [
+            parameter for parameter in positional_parameters if parameter.default is inspect.Parameter.empty
+        ]
+        if len(required_positional_parameters) >= 3:
+            return cast(str | Awaitable[str], token_provider(scope, credentials.tenant_id, None))
+
+        return cast(str | Awaitable[str], token_provider(scope, credentials.tenant_id))
