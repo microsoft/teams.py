@@ -41,7 +41,6 @@ async def send_or_update_activity(
                 activity_id,
                 activity,
                 service_url=ref.service_url,
-                agentic_identity=agentic_identity,
             )
         else:
             res = await activities.update(
@@ -53,7 +52,7 @@ async def send_or_update_activity(
         return SentActivity.merge(activity, res)
 
     if is_targeted:
-        res = await activities.create_targeted(activity, service_url=ref.service_url, agentic_identity=agentic_identity)
+        res = await activities.create_targeted(activity, service_url=ref.service_url)
     else:
         res = await activities.create(activity, service_url=ref.service_url, agentic_identity=agentic_identity)
     return SentActivity.merge(activity, res)
