@@ -5,8 +5,6 @@ Licensed under the MIT License.
 # pyright: basic
 
 import asyncio
-import logging
-from time import monotonic
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -65,7 +63,7 @@ class TestHttpStream:
 
     @pytest.fixture
     def http_stream(self, mock_api_client, conversation_reference):
-        return HttpStream(mock_api_client, conversation_reference, min_send_interval=0)
+        return HttpStream(mock_api_client, conversation_reference)
 
     @pytest.fixture
     def patch_loop_call_later(self):
@@ -87,25 +85,6 @@ class TestHttpStream:
             callback, args = scheduled.pop(0)
             callback(*args)
             await asyncio.sleep(0)
-
-    async def _await_pending_flush(self, stream):
-        """Await the flush task created by the last emit/update."""
-        task = stream._pending
-        assert task is not None
-        await task
-
-    def _track_send_times(self, mock_api_client):
-        """Wrap the fixture's send mock to record a timestamp per send."""
-        send_times: list[float] = []
-        original = mock_api_client.conversations.activities().create
-
-        async def timed_send(activity):
-            send_times.append(monotonic())
-            return await original(activity)
-
-        mock_api_client.conversations.activities().create = timed_send
-        mock_api_client.conversations.activities().update = timed_send
-        return send_times
 
     @pytest.mark.asyncio
     async def test_stream_multiple_emits_with_timer(self, http_stream, patch_loop_call_later):
@@ -137,7 +116,7 @@ class TestHttpStream:
                 return SentActivity(id=f"success-after-timeout-{call_count}", activity_params=activity)
 
             mock_api_client.conversations.activities().create = mock_send_with_timeout
-            stream = HttpStream(mock_api_client, conversation_reference, min_send_interval=0)
+            stream = HttpStream(mock_api_client, conversation_reference)
 
             stream.emit("Test message with timeout")
             await asyncio.sleep(0)
@@ -162,7 +141,7 @@ class TestHttpStream:
                 raise TimeoutError("All operations timed out")
 
             mock_api_client.conversations.activities().create = mock_send_all_timeout
-            stream = HttpStream(mock_api_client, conversation_reference, min_send_interval=0)
+            stream = HttpStream(mock_api_client, conversation_reference)
 
             stream.emit("Test message with all timeouts")
             await asyncio.sleep(0)
@@ -177,7 +156,7 @@ class TestHttpStream:
         loop = asyncio.get_running_loop()
         patcher, scheduled = patch_loop_call_later(loop)
         with patcher:
-            stream = HttpStream(mock_api_client, conversation_reference, min_send_interval=0)
+            stream = HttpStream(mock_api_client, conversation_reference)
             stream.update("Thinking...")
             await asyncio.sleep(0)
             await self._run_scheduled_flushes(scheduled)
@@ -191,24 +170,26 @@ class TestHttpStream:
             assert stream.sequence >= 2
 
     @pytest.mark.asyncio
-    async def test_stream_sequence_of_update_and_emit(self, mock_api_client, conversation_reference):
-        # Informative mode then text mode: the informative update flushes first,
-        # then text streaming starts in a later flush.
-        stream = HttpStream(mock_api_client, conversation_reference, min_send_interval=0)
-        stream.update("Preparing response...")
-        await self._await_pending_flush(stream)
+    async def test_stream_sequence_of_update_and_emit(
+        self, mock_api_client, conversation_reference, patch_loop_call_later
+    ):
+        loop = asyncio.get_running_loop()
+        patcher, scheduled = patch_loop_call_later(loop)
+        with patcher:
+            stream = HttpStream(mock_api_client, conversation_reference)
+            stream.update("Preparing response...")
+            stream.emit("Final response message")
+            await asyncio.sleep(0)
+            await self._run_scheduled_flushes(scheduled)
 
-        stream.emit("Final response message")
-        await self._await_pending_flush(stream)
+            assert len(mock_api_client.sent_activities) >= 2
+            typing_activity = mock_api_client.sent_activities[0]
+            message_activity = mock_api_client.sent_activities[1]
 
-        assert len(mock_api_client.sent_activities) == 2
-        typing_activity = mock_api_client.sent_activities[0]
-        message_activity = mock_api_client.sent_activities[1]
-
-        assert isinstance(typing_activity, TypingActivityInput)
-        assert typing_activity.text == "Preparing response..."
-        assert message_activity.text == "Final response message"
-        assert stream.sequence >= 3
+            assert isinstance(typing_activity, TypingActivityInput)
+            assert typing_activity.text == "Preparing response..."
+            assert message_activity.text == "Final response message"
+            assert stream.sequence >= 3
 
     @pytest.mark.asyncio
     async def test_stream_concurrent_emits_do_not_flush_simultaneously(
@@ -233,7 +214,7 @@ class TestHttpStream:
         mock_api_client.conversations.activities().create = mock_send
 
         with patcher:
-            stream = HttpStream(mock_api_client, conversation_reference, min_send_interval=0)
+            stream = HttpStream(mock_api_client, conversation_reference)
 
             async def emit_task():
                 stream.emit("Concurrent message")
@@ -258,7 +239,7 @@ class TestHttpStream:
                 )
 
             mock_api_client.conversations.activities().create = mock_send_403
-            stream = HttpStream(mock_api_client, conversation_reference, min_send_interval=0)
+            stream = HttpStream(mock_api_client, conversation_reference)
 
             stream.emit("Test message")
             await asyncio.sleep(0)
@@ -280,7 +261,7 @@ class TestHttpStream:
                 )
 
             mock_api_client.conversations.activities().create = mock_send_403
-            stream = HttpStream(mock_api_client, conversation_reference, min_send_interval=0)
+            stream = HttpStream(mock_api_client, conversation_reference)
 
             stream.emit("First message")
             await asyncio.sleep(0)
@@ -294,7 +275,7 @@ class TestHttpStream:
 
     @pytest.mark.asyncio
     async def test_send_blocked_after_cancel(self, mock_api_client, conversation_reference):
-        stream = HttpStream(mock_api_client, conversation_reference, min_send_interval=0)
+        stream = HttpStream(mock_api_client, conversation_reference)
         stream._canceled = True
 
         with pytest.raises(StreamCancelledError, match="Teams channel stopped the stream."):
@@ -321,7 +302,7 @@ class TestHttpStream:
                 )
 
             mock_api_client.conversations.activities().create = mock_send_then_403
-            stream = HttpStream(mock_api_client, conversation_reference, min_send_interval=0)
+            stream = HttpStream(mock_api_client, conversation_reference)
 
             # First emit succeeds
             stream.emit("First message")
@@ -345,7 +326,7 @@ class TestHttpStream:
 
     @pytest.mark.asyncio
     async def test_close_returns_none_when_canceled(self, mock_api_client, conversation_reference):
-        stream = HttpStream(mock_api_client, conversation_reference, min_send_interval=0)
+        stream = HttpStream(mock_api_client, conversation_reference)
         stream._canceled = True
 
         result = await stream.close()
@@ -375,7 +356,7 @@ class TestHttpStream:
         mock_api_client.conversations.activities().update = mock_send
 
         with patcher:
-            stream = HttpStream(mock_api_client, conversation_reference, min_send_interval=0)
+            stream = HttpStream(mock_api_client, conversation_reference)
 
             early_actions = SuggestedActions(
                 to=[],
@@ -425,7 +406,7 @@ class TestHttpStream:
         mock_api_client.conversations.activities().update = mock_send
 
         with patcher:
-            stream = HttpStream(mock_api_client, conversation_reference, min_send_interval=0)
+            stream = HttpStream(mock_api_client, conversation_reference)
 
             actions = SuggestedActions(
                 to=[],
@@ -449,7 +430,7 @@ class TestHttpStream:
     @pytest.mark.asyncio
     async def test_close_waits_for_flush_to_complete(self, mock_api_client, conversation_reference):
         """close() must not send the final message while a flush is still mid-await."""
-        stream = HttpStream(mock_api_client, conversation_reference, min_send_interval=0)
+        stream = HttpStream(mock_api_client, conversation_reference)
 
         # Simulate a flush in progress: lock held, _id assigned, text accumulated.
         # This mirrors the window after the inner queue drain but before SendActivity awaits resolve.
@@ -472,93 +453,3 @@ class TestHttpStream:
         assert result is not None
         assert mock_api_client.send_call_count == 1
         assert mock_api_client.sent_activities[0].text == "Response text"
-
-    @pytest.mark.asyncio
-    async def test_informative_burst_coalesces_to_latest(self, mock_api_client, conversation_reference, caplog):
-        # Informative updates are status replacements, not cumulative content:
-        # a burst in one flush collapses to the latest one.
-        stream = HttpStream(mock_api_client, conversation_reference, min_send_interval=0)
-        with caplog.at_level(logging.DEBUG, logger="microsoft_teams.apps.http_stream"):
-            for i in range(8):
-                stream.update(f"progress {i}")
-
-            await self._await_pending_flush(stream)
-
-        assert mock_api_client.send_call_count == 1
-        assert mock_api_client.sent_activities[0].text == "progress 7"
-        assert "Coalesced 7 informative update(s) into the latest" in caplog.text
-
-    @pytest.mark.asyncio
-    async def test_consecutive_emits_are_paced_across_flushes(self, mock_api_client, conversation_reference):
-        interval = 0.05
-        send_times = self._track_send_times(mock_api_client)
-
-        stream = HttpStream(mock_api_client, conversation_reference, min_send_interval=interval)
-        # Each update drains its own flush, so pacing must hold across flushes.
-        for i in range(3):
-            stream.update(f"step {i}")
-            await self._await_pending_flush(stream)
-
-        texts = [a.text for a in mock_api_client.sent_activities]
-        assert texts == ["step 0", "step 1", "step 2"]
-        gaps = [b - a for a, b in zip(send_times, send_times[1:], strict=False)]
-        assert min(gaps) >= interval * 0.9
-
-    @pytest.mark.asyncio
-    async def test_text_supersedes_informative_in_same_flush(self, mock_api_client, conversation_reference):
-        # When text lands in the same flush as informative updates, the text wins:
-        # it replaces the status bubble immediately anyway, so the informative
-        # update would only burn a paced slot before real content.
-        stream = HttpStream(mock_api_client, conversation_reference, min_send_interval=0)
-        stream.update("Thinking...")
-        stream.emit("The answer")
-        await self._await_pending_flush(stream)
-
-        texts = [a.text for a in mock_api_client.sent_activities]
-        assert texts == ["The answer"]
-
-    @pytest.mark.asyncio
-    async def test_informative_dropped_after_text_started(self, mock_api_client, conversation_reference, caplog):
-        stream = HttpStream(mock_api_client, conversation_reference, min_send_interval=0)
-        stream.emit("chunk")
-        await self._await_pending_flush(stream)
-
-        with caplog.at_level(logging.DEBUG, logger="microsoft_teams.apps.http_stream"):
-            stream.update("status")
-            await self._await_pending_flush(stream)
-
-        # The informative-only flush sends nothing: the update is dropped and the
-        # unchanged cumulative text is not re-sent.
-        texts = [a.text for a in mock_api_client.sent_activities]
-        assert texts == ["chunk"]
-        assert "Dropped 1 informative update(s): text streaming has started" in caplog.text
-
-    @pytest.mark.asyncio
-    async def test_text_mode_latch_survives_clear_text(self, mock_api_client, conversation_reference):
-        # Once text streaming has started, clearing the text buffer must not
-        # re-enable informative updates.
-        stream = HttpStream(mock_api_client, conversation_reference, min_send_interval=0)
-        stream.emit("chunk")
-        await self._await_pending_flush(stream)
-
-        stream.clear_text()
-        stream.update("status")
-        await self._await_pending_flush(stream)
-
-        texts = [a.text for a in mock_api_client.sent_activities]
-        assert texts == ["chunk"]
-
-    @pytest.mark.asyncio
-    async def test_close_final_send_is_paced(self, mock_api_client, conversation_reference):
-        # The final close() send goes through the limiter too, so it can't land
-        # right behind the last chunk and trip the throttle.
-        interval = 0.05
-        send_times = self._track_send_times(mock_api_client)
-
-        stream = HttpStream(mock_api_client, conversation_reference, min_send_interval=interval)
-        stream.emit("chunk")
-        await self._await_pending_flush(stream)
-        await stream.close()
-
-        assert len(send_times) == 2  # chunk + final
-        assert send_times[1] - send_times[0] >= interval * 0.9

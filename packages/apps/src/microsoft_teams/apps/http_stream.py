@@ -20,7 +20,7 @@ from microsoft_teams.api import (
 from microsoft_teams.common import EventEmitter
 
 from .plugins.streamer import StreamCancelledError, StreamerEvent, StreamerProtocol
-from .utils import RetryOptions, make_limiter, retry
+from .utils import RetryOptions, retry
 
 logger = logging.getLogger(__name__)
 
@@ -32,43 +32,27 @@ class HttpStream(StreamerProtocol):
     Flow:
     1. emit() adds activities to a queue
     2. _flush() drains the entire queue under a lock.
-    3. Message text are combined into a typing chunk.
-    4. Another flush is scheduled if more items remain.
-    5. close() waits for queue to empty, then sends final message with stream_type='stream_final'
-
-    The stream has two modes:
-    - Informative mode (initial): each flush sends only the latest pending informative
-      update — they are status replacements, not cumulative content, so intermediate
-      ones are skipped (count logged at debug level).
-    - Text mode: entered once text streaming starts, permanently. Informative updates
-      are no longer sent (count logged at debug level).
+    3. Informative typing updates are sent immediately if no message started.
+    4. Message text are combined into a typing chunk.
+    5. Another flush is scheduled if more items remain.
+    6. close() waits for queue to empty, then sends final message with stream_type='stream_final'
 
     The timeout cancellation ensures only one flush operation is scheduled at a time.
-    Every send — informative updates, text chunks, retries, and the final close() send —
-    goes through the same per-stream limiter (min_send_interval) so we stay within the
-    Teams 1 req/s streaming limit.
+    The delays between flushes is to ensure we dont hit API rate limits with Microsoft Teams.
     """
 
-    def __init__(
-        self,
-        client: ApiClient,
-        ref: ConversationReference,
-        min_send_interval: float = 1.0,
-    ):
+    def __init__(self, client: ApiClient, ref: ConversationReference):
         """
         Initialize a new HttpStream instance.
 
         Args:
             client (ApiClient): The API client used to send activities to Microsoft Teams.
             ref (ConversationReference): Reference to the Teams conversation.
-            min_send_interval (float): Minimum seconds between sends, including retries and the final
-                close() send (Teams limits streaming to 1 req/s). Set 0 to disable pacing.
         """
         super().__init__()
         self._client = client
         self._ref = ref
         self._events = EventEmitter[StreamerEvent]()
-        self._acquire = make_limiter(min_send_interval)
 
         self._result: Optional[SentActivity] = None
         self._lock = asyncio.Lock()
@@ -85,7 +69,6 @@ class HttpStream(StreamerProtocol):
         self._index = 1
         self._id: Optional[str] = None
         self._text: str = ""
-        self._text_mode: bool = False
         self._channel_data: ChannelData = ChannelData()
         self._final_activity: Optional[MessageActivityInput] = None
         self._queue: deque[Union[MessageActivityInput, TypingActivityInput, str]] = deque()
@@ -157,9 +140,6 @@ class HttpStream(StreamerProtocol):
         previously-flushed attachments/suggested actions aren't sent if the
         caller never emits a replacement. The stream id and channel data are
         kept intact so the new final activity still updates the stream in place.
-
-        Text mode is NOT reset: once text streaming has started, informative
-        updates stay disabled even if the text buffer is cleared.
         """
         # Safe without the lock: no await points here, so this runs atomically
         # w.r.t. the event loop and can't interleave with _flush's critical
@@ -247,9 +227,8 @@ class HttpStream(StreamerProtocol):
                 self._timeout.cancel()
                 self._timeout = None
 
-            last_informative: Optional[TypingActivityInput] = None
-            informative_count = 0
-            text_before = self._text
+            informative_updates: list[TypingActivityInput] = []
+            start_length = len(self._queue)
 
             while self._queue:
                 activity = self._queue.popleft()
@@ -262,30 +241,23 @@ class HttpStream(StreamerProtocol):
                     self._channel_data = ChannelData(**merged)
                 if (
                     isinstance(activity, TypingActivityInput)
-                    and activity.channel_data is not None
-                    and activity.channel_data.stream_type == "informative"
+                    and getattr(activity.channel_data, "stream_type", None) == "informative"
+                    and self._text == ""
                 ):
-                    last_informative = activity
-                    informative_count += 1
+                    # If `_text` is not empty then it's possible that streaming has started.
+                    # And so informative updates cannot be sent.
+                    informative_updates.append(activity)
 
-            # Any accumulated text — even from this same flush — switches the stream
-            # to text mode for good: the streamed text replaces the status bubble in
-            # the Teams UI, so informative updates are pointless from then on.
+            if start_length == 0:
+                logger.debug("No activities to flush")
+                return
+
+            # Send informative updates immediately
+            for typing_update in informative_updates:
+                await self._send_activity(typing_update)
+
+            # Send the combined text chunk
             if self._text:
-                self._text_mode = True
-
-            if self._text_mode:
-                if informative_count:
-                    logger.debug("Dropped %d informative update(s): text streaming has started", informative_count)
-            elif last_informative is not None:
-                if informative_count > 1:
-                    logger.debug("Coalesced %d informative update(s) into the latest", informative_count - 1)
-                await self._send_activity(last_informative)
-
-            # Send the combined text as a chunk, but only when this flush added text —
-            # an informative-only flush must not re-send (and re-pace) the unchanged
-            # cumulative text.
-            if self._text != text_before:
                 to_send = TypingActivityInput(text=self._text)
                 await self._send_activity(to_send)
 
@@ -330,10 +302,6 @@ class HttpStream(StreamerProtocol):
         if self._canceled:
             logger.warning("Teams channel stopped the stream.")
             raise StreamCancelledError("Teams channel stopped the stream.")
-
-        # Pace every HTTP attempt to the Teams 1 req/s streaming limit. Gating here
-        # rather than in _send_activity also paces retries and close()'s final send.
-        await self._acquire()
 
         to_send.from_ = self._ref.bot
         to_send.conversation = self._ref.conversation
