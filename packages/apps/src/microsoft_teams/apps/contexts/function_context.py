@@ -21,7 +21,7 @@ from microsoft_teams.api import (
 )
 from microsoft_teams.cards import AdaptiveCard
 
-from ..activity_sender import ActivitySender
+from ..activity_send import send_or_update_activity
 from .client_context import ClientContext
 
 T = TypeVar("T")
@@ -44,9 +44,6 @@ class FunctionContext(ClientContext, Generic[T]):
     api: ApiClient
     """The API client instance for conversation client."""
 
-    activity_sender: ActivitySender
-    """The activity sender instance for sending messages."""
-
     data: T
     """The function payload."""
 
@@ -65,13 +62,6 @@ class FunctionContext(ClientContext, Generic[T]):
             logger.warning("Cannot send activity: conversation ID could not be resolved")
             return None
 
-        conversation_ref = ConversationReference(
-            channel_id="msteams",
-            service_url=self.api.service_url,
-            bot=Account(id=self.id, name=self.name),
-            conversation=ConversationAccount(id=conversation_id, conversation_type="personal"),
-        )
-
         if isinstance(activity, str):
             activity = MessageActivityInput(text=activity)
         elif isinstance(activity, AdaptiveCard):
@@ -79,7 +69,13 @@ class FunctionContext(ClientContext, Generic[T]):
         else:
             activity = activity
 
-        return await self.activity_sender.send(activity, conversation_ref)
+        conversation_ref = ConversationReference(
+            channel_id="msteams",
+            service_url=self.api.service_url,
+            bot=Account(id=self.id, name=self.name),
+            conversation=ConversationAccount(id=conversation_id, conversation_type="personal"),
+        )
+        return await send_or_update_activity(self.api, activity, conversation_ref)
 
     async def _resolve_conversation_id(self, activity: str | ActivityParams | AdaptiveCard) -> Optional[str]:
         """Resolve or create a conversation ID for the current user/context.

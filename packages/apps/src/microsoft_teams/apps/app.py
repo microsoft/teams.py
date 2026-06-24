@@ -35,7 +35,7 @@ from microsoft_teams.common import Client, ClientOptions, EventEmitter, LocalSto
 if TYPE_CHECKING:
     from msgraph.graph_service_client import GraphServiceClient
 
-from .activity_sender import ActivitySender
+from .activity_send import send_or_update_activity
 from .app_events import EventManager
 from .app_oauth import OauthHandlers
 from .app_plugins import PluginProcessor
@@ -128,9 +128,6 @@ class App(ActivityHandlerMixin):
         self._port: Optional[int] = None
         self._initialized = False
 
-        # initialize ActivitySender for sending activities
-        self.activity_sender = ActivitySender(self.http_client.clone(ClientOptions(token=self._get_bot_token)))
-
         # initialize all event, activity, and plugin processors
         self.activity_processor = ActivityProcessor(
             self._router,
@@ -140,7 +137,6 @@ class App(ActivityHandlerMixin):
             self.http_client,
             self._token_manager,
             self.options.api_client_settings,
-            self.activity_sender,
             self.cloud,
         )
         self.event_manager = EventManager(self._events)
@@ -321,7 +317,7 @@ class App(ActivityHandlerMixin):
         else:
             activity = activity
 
-        return await self.activity_sender.send(activity, conversation_ref)
+        return await send_or_update_activity(self.api, activity, conversation_ref)
 
     @overload
     async def reply(
@@ -574,7 +570,6 @@ class App(ActivityHandlerMixin):
                 ctx = FunctionContext(
                     id=self.id,
                     api=self.api,
-                    activity_sender=self.activity_sender,
                     data=request["body"],
                     **client_context.__dict__,
                 )
