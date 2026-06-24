@@ -3,11 +3,14 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
+from __future__ import annotations
+
 from typing import List, Optional, Union
 
 from microsoft_teams.common.http import Client, ClientOptions
 
-from ...models import ChannelInfo, TeamDetails
+from ...models import AgenticIdentity, ChannelInfo, TeamDetails
+from .._auth_provider_interceptor import AGENTIC_IDENTITY_EXTENSION
 from ..api_client_settings import ApiClientSettings
 from ..base_client import BaseClient
 from .params import GetTeamConversationsResponse
@@ -33,7 +36,9 @@ class TeamClient(BaseClient):
         super().__init__(options, api_client_settings)
         self.service_url = service_url.rstrip("/")
 
-    async def get_by_id(self, id: str) -> TeamDetails:
+    async def get_by_id(
+        self, id: str, *, service_url: str | None = None, agentic_identity: AgenticIdentity | None = None
+    ) -> TeamDetails:
         """
         Get team details by ID.
 
@@ -43,10 +48,15 @@ class TeamClient(BaseClient):
         Returns:
             The team details.
         """
-        response = await self.http.get(f"{self.service_url}/v3/teams/{id}")
+        response = await self.http.get(
+            f"{self._get_service_url(service_url)}/v3/teams/{id}",
+            extensions={AGENTIC_IDENTITY_EXTENSION: agentic_identity},
+        )
         return TeamDetails.model_validate(response.json())
 
-    async def get_conversations(self, id: str) -> List[ChannelInfo]:
+    async def get_conversations(
+        self, id: str, *, service_url: str | None = None, agentic_identity: AgenticIdentity | None = None
+    ) -> List[ChannelInfo]:
         """
         Get team conversations (channels).
 
@@ -56,5 +66,8 @@ class TeamClient(BaseClient):
         Returns:
             List of channel information.
         """
-        response = await self.http.get(f"{self.service_url}/v3/teams/{id}/conversations")
+        response = await self.http.get(
+            f"{self._get_service_url(service_url)}/v3/teams/{id}/conversations",
+            extensions={AGENTIC_IDENTITY_EXTENSION: agentic_identity},
+        )
         return GetTeamConversationsResponse.model_validate(response.json()).conversations

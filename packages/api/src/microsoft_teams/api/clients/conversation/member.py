@@ -3,12 +3,15 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
+from __future__ import annotations
+
 from typing import List, Optional
 
 from microsoft_teams.common.http import Client
 
-from ...models import TeamsChannelAccount
+from ...models import AgenticIdentity, TeamsChannelAccount
 from ...models.conversation import PagedMembersResult
+from .._auth_provider_interceptor import AGENTIC_IDENTITY_EXTENSION
 from ..api_client_settings import ApiClientSettings
 from ..base_client import BaseClient
 
@@ -35,7 +38,13 @@ class ConversationMemberClient(BaseClient):
         super().__init__(http_client, api_client_settings)
         self.service_url = service_url.rstrip("/")
 
-    async def get(self, conversation_id: str) -> List[TeamsChannelAccount]:
+    async def get(
+        self,
+        conversation_id: str,
+        *,
+        service_url: str | None = None,
+        agentic_identity: AgenticIdentity | None = None,
+    ) -> List[TeamsChannelAccount]:
         """
         Get all members in a conversation.
 
@@ -45,7 +54,10 @@ class ConversationMemberClient(BaseClient):
         Returns:
             List of TeamsChannelAccount objects representing the conversation members
         """
-        response = await self.http.get(f"{self.service_url}/v3/conversations/{conversation_id}/members")
+        response = await self.http.get(
+            f"{self._get_service_url(service_url)}/v3/conversations/{conversation_id}/members",
+            extensions={AGENTIC_IDENTITY_EXTENSION: agentic_identity},
+        )
         return [TeamsChannelAccount.model_validate(member) for member in response.json()]
 
     async def get_paged(
@@ -53,6 +65,9 @@ class ConversationMemberClient(BaseClient):
         conversation_id: str,
         page_size: Optional[int] = None,
         continuation_token: Optional[str] = None,
+        *,
+        service_url: str | None = None,
+        agentic_identity: AgenticIdentity | None = None,
     ) -> PagedMembersResult:
         """
         Get a page of members in a conversation.
@@ -66,11 +81,27 @@ class ConversationMemberClient(BaseClient):
             PagedMembersResult containing the members and an optional continuation token
             for fetching subsequent pages.
         """
-        url = f"{self.service_url}/v3/conversations/{conversation_id}/pagedMembers"
-        response = await self.http.get(url, params={"pageSize": page_size, "continuationToken": continuation_token})
+        url = f"{self._get_service_url(service_url)}/v3/conversations/{conversation_id}/pagedMembers"
+        params: dict[str, int | str] = {}
+        if page_size is not None:
+            params["pageSize"] = page_size
+        if continuation_token is not None:
+            params["continuationToken"] = continuation_token
+        response = await self.http.get(
+            url,
+            params=params,
+            extensions={AGENTIC_IDENTITY_EXTENSION: agentic_identity},
+        )
         return PagedMembersResult.model_validate(response.json())
 
-    async def get_by_id(self, conversation_id: str, member_id: str) -> TeamsChannelAccount:
+    async def get_by_id(
+        self,
+        conversation_id: str,
+        member_id: str,
+        *,
+        service_url: str | None = None,
+        agentic_identity: AgenticIdentity | None = None,
+    ) -> TeamsChannelAccount:
         """
         Get a specific member in a conversation.
 
@@ -81,5 +112,8 @@ class ConversationMemberClient(BaseClient):
         Returns:
             TeamsChannelAccount object representing the conversation member
         """
-        response = await self.http.get(f"{self.service_url}/v3/conversations/{conversation_id}/members/{member_id}")
+        response = await self.http.get(
+            f"{self._get_service_url(service_url)}/v3/conversations/{conversation_id}/members/{member_id}",
+            extensions={AGENTIC_IDENTITY_EXTENSION: agentic_identity},
+        )
         return TeamsChannelAccount.model_validate(response.json())
