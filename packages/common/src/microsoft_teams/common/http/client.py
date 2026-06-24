@@ -89,7 +89,7 @@ class ClientOptions:
     headers: Dict[str, str] = field(default_factory=dict[str, str])
     timeout: Optional[float] = None
     token: Optional[Token] = None
-    interceptors: Optional[List[Interceptor]] = field(default_factory=list[Interceptor])
+    interceptors: Optional[List[Interceptor]] = None
 
 
 class Client:
@@ -124,6 +124,11 @@ class Client:
             timeout=options.timeout,
         )
         self._update_event_hooks()
+
+    @property
+    def interceptors(self) -> tuple[Interceptor, ...]:
+        """Get the registered interceptors."""
+        return tuple(self._interceptors)
 
     async def _prepare_headers(self, headers: Optional[Dict[str, str]], token: Optional[Token]) -> Dict[str, str]:
         """

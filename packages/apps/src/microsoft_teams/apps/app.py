@@ -42,6 +42,7 @@ from .app_plugins import PluginProcessor
 from .app_process import ActivityProcessor
 from .auth import TokenValidator
 from .auth.remote_function_jwt_middleware import validate_remote_function_request
+from .auth_provider import AppAuthProvider
 from .container import Container
 from .contexts.function_context import FunctionContext
 from .events import (
@@ -100,6 +101,7 @@ class App(ActivityHandlerMixin):
             credentials=self.credentials,
             cloud=self.cloud,
         )
+        self._auth_provider = AppAuthProvider(self._token_manager, self.cloud)
 
         self.container = Container()
         self.container.set_provider("storage", providers.Object(self.storage))
@@ -110,9 +112,10 @@ class App(ActivityHandlerMixin):
 
         self.api = ApiClient(
             service_url,
-            self.http_client.clone(ClientOptions(token=self._get_bot_token)),
+            self.http_client.clone(),
             self.options.api_client_settings,
             cloud=self.cloud,
+            auth_provider=self._auth_provider,
         )
 
         plugins: List[PluginBase] = list(self.options.plugins)

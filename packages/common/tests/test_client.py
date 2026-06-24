@@ -119,6 +119,36 @@ async def test_clone_merges_options_and_interceptors(mock_transport):
     assert interceptor2.request_called
 
 
+def test_interceptors_returns_read_only_copy():
+    interceptor1 = DummyAsyncInterceptor()
+    client = Client(ClientOptions(interceptors=[interceptor1]))
+
+    assert client.interceptors == (interceptor1,)
+
+
+def test_clone_copies_interceptor_list_independently():
+    interceptor1 = DummyAsyncInterceptor()
+    client = Client(ClientOptions(interceptors=[interceptor1]))
+
+    clone = client.clone()
+    interceptor2 = DummyAsyncInterceptor()
+    clone.use_interceptor(interceptor2)
+
+    assert client.interceptors == (interceptor1,)
+    assert clone.interceptors == (interceptor1, interceptor2)
+    assert client.interceptors is not clone.interceptors
+
+
+def test_clone_can_clear_interceptors_with_empty_override():
+    interceptor1 = DummyAsyncInterceptor()
+    client = Client(ClientOptions(interceptors=[interceptor1]))
+
+    clone = client.clone(ClientOptions(interceptors=[]))
+
+    assert client.interceptors == (interceptor1,)
+    assert clone.interceptors == ()
+
+
 @pytest.mark.parametrize(
     "token,expected",
     [
