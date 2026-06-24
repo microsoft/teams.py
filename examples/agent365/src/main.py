@@ -4,46 +4,48 @@ Licensed under the MIT License.
 """
 
 import asyncio
-import os
+import logging
+import re
 
-from dotenv import load_dotenv
-from microsoft_teams.api import AgenticIdentity, ClientCredentials
-from microsoft_teams.apps.token_manager import AGENT_BOT_API_SCOPE, TokenManager
+from microsoft_teams.api import MessageActivity
+from microsoft_teams.api.activities.typing import TypingActivityInput
+from microsoft_teams.apps import ActivityContext, App
 
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-def get_required_env(name: str) -> str:
-    value = os.getenv(name)
-    if not value:
-        raise ValueError(f"{name} must be set")
-
-    return value
+app = App()
 
 
-async def main():
-    load_dotenv()
+@app.on_message_pattern(re.compile(r"hello|hi|greetings"))
+async def handle_greeting(ctx: ActivityContext[MessageActivity]) -> None:
+    """Handle greeting messages using the inbound AgenticIdentity when present."""
+    await ctx.reply("Hello! How can I assist you today?")
 
-    tenant_id = get_required_env("AGENT365_TENANT_ID")
-    blueprint_client_id = get_required_env("AGENT365_BLUEPRINT_CLIENT_ID")
-    blueprint_client_secret = get_required_env("AGENT365_BLUEPRINT_CLIENT_SECRET")
-    agentic_app_id = get_required_env("AGENT365_AGENTIC_APP_ID")
-    agentic_user_id = get_required_env("AGENT365_AGENTIC_USER_ID")
-    scope = os.getenv("AGENT365_SCOPE", AGENT_BOT_API_SCOPE)
 
-    credentials = ClientCredentials(
-        client_id=blueprint_client_id,
-        client_secret=blueprint_client_secret,
-        tenant_id=tenant_id,
-    )
-    token_manager = TokenManager(credentials=credentials)
+@app.on_message
+async def handle_message(ctx: ActivityContext[MessageActivity]):
+    """Echo incoming messages using the inbound AgenticIdentity when present."""
+    logger.info("[Agent365 reactive] Message received: %s", ctx.activity.text)
+    logger.info("[Agent365 reactive] From: %s", ctx.activity.from_)
+    logger.info("[Agent365 reactive] Agentic identity: %s", ctx.activity.recipient.agentic_identity)
 
-    token = await token_manager.get_agentic_token(
-        scope,
-        AgenticIdentity(agentic_app_id=agentic_app_id, agentic_user_id=agentic_user_id, tenant_id=tenant_id),
-    )
+    await ctx.reply(TypingActivityInput())
 
-    print(f"Acquired agent user token for {scope}")
-    print(f"Token preview: {str(token)[:20]}...")
+    if "react" in ctx.activity.text.lower():
+        await ctx.api.reactions.add(
+            conversation_id=ctx.activity.conversation.id,
+            activity_id=ctx.activity.id,
+            reaction_type="like",
+        )
+        await ctx.reply("Added a like reaction to your message.")
+        return
+
+    if "reply" in ctx.activity.text.lower():
+        await ctx.reply("Hello! How can I assist you today?")
+    else:
+        await ctx.send(f"You said '{ctx.activity.text}'")
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    asyncio.run(app.start())

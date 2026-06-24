@@ -380,6 +380,30 @@ class TestActivityContextSend:
         assert len(sent_activity.attachments) > 0
         assert isinstance(result, SentActivity)
 
+    @pytest.mark.asyncio
+    async def test_send_passes_inbound_agentic_identity(self) -> None:
+        """Sending from an Agent ID activity uses the inbound agentic identity."""
+        recipient = Account(
+            id="bot-id",
+            name="Test Bot",
+            agentic_app_id="agentic-app-id",
+            agentic_user_id="agentic-user-id",
+            tenant_id="tenant-id",
+        )
+        activity = MessageActivity(
+            id="incoming-activity-id",
+            text="Incoming message",
+            from_=Account(id="user-id", name="Test User"),
+            recipient=recipient,
+            conversation=ConversationAccount(id="test-conversation"),
+        )
+        ctx, mock_sender = _create_activity_context(activity=activity)
+
+        await ctx.send("Hello")
+
+        mock_sender.send.assert_called_once()
+        assert mock_sender.send.call_args.kwargs["agentic_identity"] == recipient.agentic_identity
+
 
 class TestActivityContextReply:
     """Tests for ActivityContext.reply()."""
@@ -423,6 +447,30 @@ class TestActivityContextReply:
         assert sent_activity.entities is not None
         assert isinstance(sent_activity.entities[0], QuotedReplyEntity)
         assert sent_activity.entities[0].quoted_reply.message_id == "evt-id-999"
+
+    @pytest.mark.asyncio
+    async def test_reply_passes_inbound_agentic_identity(self) -> None:
+        """Replying to an Agent ID activity uses the inbound agentic identity."""
+        recipient = Account(
+            id="bot-id",
+            name="Test Bot",
+            agentic_app_id="agentic-app-id",
+            agentic_user_id="agentic-user-id",
+            tenant_id="tenant-id",
+        )
+        activity = MessageActivity(
+            id="incoming-activity-id",
+            text="Incoming message",
+            from_=Account(id="user-id", name="Test User"),
+            recipient=recipient,
+            conversation=ConversationAccount(id="test-conversation"),
+        )
+        ctx, mock_sender = _create_activity_context(activity=activity)
+
+        await ctx.reply("Hello")
+
+        mock_sender.send.assert_called_once()
+        assert mock_sender.send.call_args.kwargs["agentic_identity"] == recipient.agentic_identity
 
 
 class TestActivityContextUserGraph:

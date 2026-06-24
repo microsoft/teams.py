@@ -15,6 +15,7 @@ from microsoft_teams.api import (
     Account,
     ActivityBase,
     ActivityParams,
+    AgenticIdentity,
     ApiClient,
     ClientCredentials,
     ConversationAccount,
@@ -136,6 +137,7 @@ class App(ActivityHandlerMixin):
             self.options.default_connection_name,
             self.http_client,
             self._token_manager,
+            self._auth_provider,
             self.options.api_client_settings,
             self.cloud,
         )
@@ -289,7 +291,14 @@ class App(ActivityHandlerMixin):
             self._events.emit("error", ErrorEvent(error, context={"method": "stop"}))
             raise
 
-    async def send(self, conversation_id: str, activity: str | ActivityParams | AdaptiveCard):
+    async def send(
+        self,
+        conversation_id: str,
+        activity: str | ActivityParams | AdaptiveCard,
+        *,
+        service_url: Optional[str] = None,
+        agentic_identity: Optional[AgenticIdentity] = None,
+    ) -> SentActivity:
         """Send an activity proactively to a conversation.
 
         Sends to the exact conversation ID provided. For channel threads,
@@ -305,7 +314,7 @@ class App(ActivityHandlerMixin):
 
         conversation_ref = ConversationReference(
             channel_id="msteams",
-            service_url=self.api.service_url,
+            service_url=service_url or self.api.service_url,
             bot=Account(id=self.id),
             conversation=ConversationAccount(id=conversation_id),
         )
@@ -317,7 +326,32 @@ class App(ActivityHandlerMixin):
         else:
             activity = activity
 
-        return await send_or_update_activity(self.api, activity, conversation_ref)
+        return await send_or_update_activity(
+            self.api,
+            activity,
+            conversation_ref,
+            agentic_identity=agentic_identity,
+        )
+
+    def get_agentic_identity(
+        self,
+        agentic_app_id: str,
+        agentic_user_id: str,
+        *,
+        tenant_id: Optional[str] = None,
+        agentic_app_blueprint_id: Optional[str] = None,
+    ) -> AgenticIdentity:
+        """Get an Agent ID identity for API calls."""
+        resolved_tenant_id = tenant_id or (self.credentials.tenant_id if self.credentials else None)
+        if resolved_tenant_id is None:
+            raise ValueError("tenant_id is required to get an agentic identity")
+
+        return AgenticIdentity(
+            agentic_app_id=agentic_app_id,
+            agentic_user_id=agentic_user_id,
+            tenant_id=resolved_tenant_id,
+            agentic_app_blueprint_id=agentic_app_blueprint_id,
+        )
 
     @overload
     async def reply(
@@ -325,6 +359,9 @@ class App(ActivityHandlerMixin):
         conversation_id: str,
         message_id: str,
         activity: str | ActivityParams | AdaptiveCard,
+        *,
+        service_url: Optional[str] = None,
+        agentic_identity: Optional[AgenticIdentity] = None,
     ) -> SentActivity: ...
 
     @overload
@@ -332,6 +369,9 @@ class App(ActivityHandlerMixin):
         self,
         conversation_id: str,
         message_id: str | ActivityParams | AdaptiveCard,
+        *,
+        service_url: Optional[str] = None,
+        agentic_identity: Optional[AgenticIdentity] = None,
     ) -> SentActivity: ...
 
     async def reply(  # type: ignore[reportInconsistentOverload]
@@ -339,6 +379,9 @@ class App(ActivityHandlerMixin):
         conversation_id: str,
         message_id: str | ActivityParams | AdaptiveCard = "",
         activity: str | ActivityParams | AdaptiveCard | None = None,
+        *,
+        service_url: Optional[str] = None,
+        agentic_identity: Optional[AgenticIdentity] = None,
     ) -> SentActivity:
         """Send an activity proactively to a conversation, optionally as a threaded reply.
 
@@ -359,9 +402,19 @@ class App(ActivityHandlerMixin):
         if activity is not None:
             if not isinstance(message_id, str):
                 raise TypeError("message_id must be a string when activity is provided")
-            return await self.send(to_threaded_conversation_id(conversation_id, message_id), activity)
+            return await self.send(
+                to_threaded_conversation_id(conversation_id, message_id),
+                activity,
+                service_url=service_url,
+                agentic_identity=agentic_identity,
+            )
 
-        return await self.send(conversation_id, message_id)
+        return await self.send(
+            conversation_id,
+            message_id,
+            service_url=service_url,
+            agentic_identity=agentic_identity,
+        )
 
     def use(self, middleware: Callable[[ActivityContext[ActivityBase]], Awaitable[None]]) -> None:
         """Add middleware to run on all activities."""

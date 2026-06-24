@@ -19,6 +19,7 @@ from microsoft_teams.api.auth.cloud_environment import PUBLIC
 from microsoft_teams.apps import ActivityContext, ActivityEvent
 from microsoft_teams.apps.app_events import EventManager
 from microsoft_teams.apps.app_process import ActivityProcessor
+from microsoft_teams.apps.auth_provider import AppAuthProvider
 from microsoft_teams.apps.events import CoreActivity
 from microsoft_teams.apps.routing.router import ActivityHandler, ActivityRouter
 from microsoft_teams.apps.token_manager import TokenManager
@@ -42,6 +43,7 @@ class TestActivityProcessor:
         mock_storage = MagicMock(spec=LocalStorage)
         mock_activity_router = MagicMock(spec=ActivityRouter)
         mock_token_manager = MagicMock(spec=TokenManager)
+        mock_auth_provider = MagicMock(spec=AppAuthProvider)
         return ActivityProcessor(
             mock_activity_router,
             "id",
@@ -49,6 +51,7 @@ class TestActivityProcessor:
             "default_connection",
             mock_http_client,
             mock_token_manager,
+            mock_auth_provider,
             None,
             PUBLIC,
         )
@@ -304,6 +307,46 @@ class TestActivityProcessor:
             await activity_processor.process_activity([], mock_activity_event)
 
         mock_api_client.users.token.get.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_build_context_scopes_api_to_inbound_agentic_identity(self, activity_processor):
+        """Inbound Agent ID activities scope ctx.api with the inbound agentic identity."""
+        core_activity = CoreActivity(
+            type="message",
+            id="activity-agentic",
+            service_url="https://service.url",
+            **{
+                "from": {"id": "user-1", "name": "Test User"},
+                "conversation": {"id": "conv-1"},
+                "recipient": {
+                    "id": "bot-1",
+                    "name": "Test Bot",
+                    "agenticAppId": "agentic-app-id",
+                    "agenticUserId": "agentic-user-id",
+                    "tenantId": "tenant-id",
+                },
+                "channelId": "msteams",
+            },
+        )
+        mock_token = MagicMock(spec=TokenProtocol)
+        mock_token.service_url = "https://service.url"
+        mock_activity_event = ActivityEvent(body=core_activity, token=mock_token)
+        mock_api_client = MagicMock()
+        mock_api_client.users.token.get = AsyncMock(side_effect=Exception("no token"))
+
+        activity_processor.router.select_handlers = MagicMock(return_value=[])
+        activity_processor.event_manager = MagicMock()
+        activity_processor.event_manager.on_activity_response = AsyncMock()
+        activity_processor.event_manager.on_error = AsyncMock()
+
+        with patch("microsoft_teams.apps.app_process.ApiClient", return_value=mock_api_client) as mock_api_client_type:
+            await activity_processor.process_activity([], mock_activity_event)
+
+        assert mock_api_client_type.call_args.kwargs["auth_provider"] is activity_processor.auth_provider
+        agentic_identity = mock_api_client_type.call_args.kwargs["agentic_identity"]
+        assert agentic_identity.agentic_app_id == "agentic-app-id"
+        assert agentic_identity.agentic_user_id == "agentic-user-id"
+        assert agentic_identity.tenant_id == "tenant-id"
 
     @pytest.mark.asyncio
     async def test_process_activity_raises_when_event_manager_missing(self, activity_processor):
