@@ -731,7 +731,7 @@ class TestScriptInjectionPrevention:
         # Extract script content
         import re
 
-        script_match = re.search(r"<script>(.*?)</script>", result, re.DOTALL)
+        script_match = re.search(r"<script>(.*?)</script>", result, re.DOTALL | re.IGNORECASE)
         assert script_match is not None
         script_content = script_match.group(1)
         # No raw newlines inside the script
