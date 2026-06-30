@@ -41,6 +41,7 @@ from .delivery_mode import DeliveryMode
 from .entity import *  # noqa: F403
 from .error import ErrorResponse, HttpError, InnerHttpError
 from .file import *  # noqa: F403
+from .html_widget import *  # noqa: F403
 from .importance import Importance
 from .input_hint import InputHint
 from .invoke_response import (
@@ -57,7 +58,6 @@ from .invoke_response import (
     is_invoke_response,
 )
 from .meetings import *  # noqa: F403
-from .html_widget import *  # noqa: F403
 from .message import *  # noqa: F403
 from .messaging_extension import *  # noqa: F403
 from .o365 import *  # noqa: F403
