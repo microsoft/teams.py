@@ -236,25 +236,25 @@ class TestBuildHtmlWidgetMarkdown:
 class TestBuildHtmlWidgetMessage:
     def test_returns_message_with_extendedmarkdown_format(self):
         result = build_html_widget_message(MINIMAL_PAYLOAD)
-        assert result["type"] == "message"
-        assert result["textFormat"] == "extendedmarkdown"
+        assert result.type == "message"
+        assert result.text_format == "extendedmarkdown"
 
     def test_contains_widget_markdown_in_text(self):
         result = build_html_widget_message(MINIMAL_PAYLOAD)
-        assert result["text"] == build_html_widget_markdown(MINIMAL_PAYLOAD)
+        assert result.text == build_html_widget_markdown(MINIMAL_PAYLOAD)
 
     def test_passes_options_through(self):
         from microsoft_teams.apps.utils.html_widget import HtmlWidgetMarkdownOptions
 
         opts = HtmlWidgetMarkdownOptions(before="Weather today:")
         result = build_html_widget_message(FULL_PAYLOAD, opts)
-        assert result["text"] == build_html_widget_markdown(FULL_PAYLOAD, opts)
+        assert result.text == build_html_widget_markdown(FULL_PAYLOAD, opts)
 
     def test_produces_activity_like_structure(self):
         result = build_html_widget_message(MINIMAL_PAYLOAD)
-        assert "type" in result
-        assert "text" in result
-        assert "textFormat" in result
+        assert result.type == "message"
+        assert result.text is not None
+        assert result.text_format is not None
 
 
 # ---------------------------------------------------------------------------
@@ -430,9 +430,10 @@ class TestBuildHtmlWidgetMarkdownIntegration:
             domain="https://teams.microsoft.com",
         )
         msg = build_html_widget_message(payload)
-        assert msg["type"] == "message"
-        assert msg["textFormat"] == "extendedmarkdown"
-        parsed = _parse_widget_json(msg["text"])
+        assert msg.type == "message"
+        assert msg.text_format == "extendedmarkdown"
+        assert msg.text is not None
+        parsed = _parse_widget_json(msg.text)
         assert "ui/initialize" in parsed["html"]
         assert "name:'E2E Widget'" in parsed["html"]
 

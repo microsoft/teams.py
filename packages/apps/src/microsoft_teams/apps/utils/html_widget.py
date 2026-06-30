@@ -10,9 +10,10 @@ HTML widget utilities for building and validating widget messages.
 import json
 import re
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Optional
 from urllib.parse import urlparse
 
+from microsoft_teams.api.activities.message import MessageActivityInput
 from microsoft_teams.api.models.html_widget import HtmlWidgetPayload, HtmlWidgetSecurityPolicy
 
 # The MCP Apps protocol version used for the widget init handshake.
@@ -257,17 +258,16 @@ def build_html_widget_markdown(
 def build_html_widget_message(
     payload: HtmlWidgetPayload,
     options: Optional[HtmlWidgetMarkdownOptions] = None,
-) -> dict[str, Any]:
+) -> MessageActivityInput:
     """
     Builds a message activity containing an HTML widget, ready to be sent.
 
     @experimental This API is in preview and may change in the future.
     """
-    return {
-        "type": "message",
-        "text": build_html_widget_markdown(payload, options),
-        "textFormat": "extendedmarkdown",
-    }
+    return MessageActivityInput(
+        text=build_html_widget_markdown(payload, options),
+        text_format="extendedmarkdown",
+    )
 
 
 # ---------------------------------------------------------------------------
