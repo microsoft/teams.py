@@ -12,6 +12,7 @@ from . import (
     conversation,
     entity,
     file,
+    html_widget,
     meetings,
     message,
     messaging_extension,
@@ -56,6 +57,7 @@ from .invoke_response import (
     is_invoke_response,
 )
 from .meetings import *  # noqa: F403
+from .html_widget import *  # noqa: F403
 from .message import *  # noqa: F403
 from .messaging_extension import *  # noqa: F403
 from .o365 import *  # noqa: F403
@@ -111,6 +113,7 @@ __all__.extend(config.__all__)
 __all__.extend(conversation.__all__)
 __all__.extend(entity.__all__)
 __all__.extend(file.__all__)
+__all__.extend(html_widget.__all__)
 __all__.extend(meetings.__all__)
 __all__.extend(message.__all__)
 __all__.extend(messaging_extension.__all__)
