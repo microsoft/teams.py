@@ -738,3 +738,43 @@ class TestScriptInjectionPrevention:
         assert "\n" not in script_content
         assert "\\n" in script_content
         assert "\\r" in script_content
+
+
+class TestOptionsImmutability:
+    def test_does_not_mutate_protocol_options(self):
+        """buildHtmlWidgetMarkdown should not mutate the caller's protocolOptions."""
+        proto_opts = InjectWidgetProtocolOptions(version="2.0.0", notifications=["tool-result"])
+        options = HtmlWidgetMarkdownOptions(protocol_options=proto_opts)
+        payload = HtmlWidgetPayload(
+            name="MutationTest",
+            html="<body>hi</body>",
+            domain="https://example.com",
+        )
+        build_html_widget_markdown(payload, options)
+        # The original proto_opts.name should remain unchanged
+        assert proto_opts.name is None
+
+
+class TestProtocolVersion:
+    def test_embeds_correct_mcp_protocol_version(self):
+        result = inject_widget_protocol("<body></body>")
+        assert "protocolVersion:'2026-01-26'" in result
+
+
+class TestSubdomainMatching:
+    def test_allows_subdomain_when_parent_in_policy(self):
+        html = '<script src="https://cdn.example.com/lib.js"></script>'
+        warnings = validate_security_policy(html, HtmlWidgetSecurityPolicy(resource_domains=["https://example.com"]))
+        assert len(warnings) == 0
+
+    def test_does_not_allow_unrelated_domain_sharing_suffix(self):
+        html = '<script src="https://notexample.com/lib.js"></script>'
+        warnings = validate_security_policy(html, HtmlWidgetSecurityPolicy(resource_domains=["https://example.com"]))
+        assert len(warnings) == 1
+
+
+class TestUnicodeInWidgetName:
+    def test_passes_unicode_through_correctly(self):
+        opts = InjectWidgetProtocolOptions(name="Widget \u2764\ufe0f")
+        result = inject_widget_protocol("<body></body>", opts)
+        assert "name:'Widget \u2764\ufe0f'" in result
