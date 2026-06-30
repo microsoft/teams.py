@@ -4,7 +4,7 @@ Licensed under the MIT License.
 
 HTML widget utilities for building and validating widget messages.
 
-@experimental This API is in preview and may change in the future.
+Diagnostic: ExperimentalTeamsHtmlWidget
 """
 
 import json
@@ -89,7 +89,7 @@ class SecurityPolicyWarning:
     A warning produced by validate_security_policy when the widget HTML
     references an external origin not present in the declared security policy.
 
-    @experimental This API is in preview and may change in the future.
+    Diagnostic: ExperimentalTeamsHtmlWidget
     """
 
     url: str
@@ -139,7 +139,7 @@ def inject_widget_protocol(html: str, options: Optional[InjectWidgetProtocolOpti
 
     If the HTML already contains the protocol (detected by 'ui/initialize'), it is returned unchanged.
 
-    @experimental This API is in preview and may change in the future.
+    Diagnostic: ExperimentalTeamsHtmlWidget
     """
     if "ui/initialize" in html:
         return html
@@ -227,7 +227,7 @@ def build_html_widget_markdown(
     Wraps an HTML widget payload in the ```html-widget markdown code fence
     format required by Teams to render the widget in a message.
 
-    @experimental This API is in preview and may change in the future.
+    Diagnostic: ExperimentalTeamsHtmlWidget
     """
     _validate_html_widget_payload(payload)
 
@@ -266,7 +266,7 @@ def build_html_widget_message(
     """
     Builds a message activity containing an HTML widget, ready to be sent.
 
-    @experimental This API is in preview and may change in the future.
+    Diagnostic: ExperimentalTeamsHtmlWidget
     """
     return MessageActivityInput(
         text=build_html_widget_markdown(payload, options),
@@ -363,7 +363,7 @@ def validate_security_policy(html: str, policy: HtmlWidgetSecurityPolicy) -> lis
     This is a static analysis tool - it cannot catch dynamically constructed URLs.
     Use the debug_csp_violations option on inject_widget_protocol for runtime detection.
 
-    @experimental This API is in preview and may change in the future.
+    Diagnostic: ExperimentalTeamsHtmlWidget
     """
     warnings: list[SecurityPolicyWarning] = []
 
