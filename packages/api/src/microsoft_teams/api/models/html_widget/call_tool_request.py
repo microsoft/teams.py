@@ -7,7 +7,7 @@ from typing import Any, Optional
 
 from microsoft_teams.common.experimental import experimental
 
-from ...models.custom_base_model import CustomBaseModel
+from ..custom_base_model import CustomBaseModel
 
 
 @experimental("ExperimentalTeamsHtmlWidget")
