@@ -52,6 +52,7 @@ from .events import (
     get_event_type_from_signature,
     is_registered_event,
 )
+from .history import ChatMessage, get_graph_history
 from .http import FastAPIAdapter, HttpServer
 from .http.adapter import HttpRequest, HttpResponse
 from .options import AppOptions, InternalAppOptions
@@ -614,3 +615,29 @@ class App(ActivityHandlerMixin):
 
         """
         return create_graph_client(lambda: self._get_graph_token(tenant_id), cloud=self.cloud)
+
+    async def get_history(
+        self,
+        *,
+        n: int,
+        chat_id: Optional[str] = None,
+        channel_id: Optional[str] = None,
+        thread_id: Optional[str] = None,
+        team_aad_group_id: Optional[str] = None,
+        tenant_id: Optional[str] = None,
+    ) -> List[ChatMessage]:
+        """
+        Get Teams message history using Microsoft Graph app credentials.
+
+        For chats, pass ``chat_id``. For channels, pass both
+        ``team_aad_group_id`` and ``channel_id``. When ``thread_id`` is supplied,
+        the returned history is the replies for that root message.
+        """
+        return await get_graph_history(
+            self.get_app_graph(tenant_id=tenant_id),
+            n,
+            chat_id=chat_id,
+            channel_id=channel_id,
+            thread_id=thread_id,
+            team_aad_group_id=team_aad_group_id,
+        )

@@ -8,7 +8,7 @@ import json
 import logging
 import warnings
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Awaitable, Callable, Generic, Optional, TypeGuard, TypeVar
+from typing import TYPE_CHECKING, Any, Awaitable, Callable, Generic, List, Optional, TypeGuard, TypeVar
 
 from microsoft_teams.api import (
     Account,
@@ -42,6 +42,7 @@ from microsoft_teams.common.experimental import ExperimentalWarning
 from microsoft_teams.common.http.client_token import Token
 
 from ..activity_sender import ActivitySender
+from ..history import ChatMessage, get_graph_history
 from ..utils import create_graph_client
 
 if TYPE_CHECKING:
@@ -71,6 +72,15 @@ class SignInOptions:
 
 
 DEFAULT_SIGNIN_OPTIONS = SignInOptions()
+
+
+def _thread_id_from_conversation_id(conversation_id: str) -> Optional[str]:
+    _, separator, thread_id = conversation_id.partition(";messageid=")
+    return thread_id if separator and thread_id else None
+
+
+def _base_conversation_id(conversation_id: str) -> str:
+    return conversation_id.split(";messageid=", 1)[0]
 
 
 class ActivityContext(Generic[T]):
@@ -222,6 +232,30 @@ class ActivityContext(Generic[T]):
         if isinstance(activity, MessageActivityInput):
             activity.prepend_quote(message_id)
         return await self.send(activity)
+
+    async def get_history(self, n: int, *, thread_id: Optional[str] = None) -> List[ChatMessage]:
+        """
+        Get message history for the current Teams conversation using Microsoft Graph.
+
+        In chats, this reads from the current chat. In channels, this reads from the
+        current team/channel and defaults to the current thread when the incoming
+        activity is a thread reply.
+        """
+        team_aad_group_id = None
+        if self.activity.team:
+            team_aad_group_id = self.activity.team.aad_group_id
+        channel_id = self.activity.channel.id if self.activity.channel else None
+        conversation_id = self.activity.conversation.id
+        resolved_thread_id = thread_id or self.activity.reply_to_id or _thread_id_from_conversation_id(conversation_id)
+
+        return await get_graph_history(
+            self.app_graph,
+            n,
+            chat_id=None if channel_id else _base_conversation_id(conversation_id),
+            channel_id=channel_id,
+            thread_id=resolved_thread_id,
+            team_aad_group_id=team_aad_group_id,
+        )
 
     async def next(self) -> None:
         """Call the next middleware in the chain."""
