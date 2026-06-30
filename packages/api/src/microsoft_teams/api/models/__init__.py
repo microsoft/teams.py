@@ -12,6 +12,7 @@ from . import (
     conversation,
     entity,
     file,
+    html_widget,
     meetings,
     message,
     messaging_extension,
@@ -40,6 +41,7 @@ from .delivery_mode import DeliveryMode
 from .entity import *  # noqa: F403
 from .error import ErrorResponse, HttpError, InnerHttpError
 from .file import *  # noqa: F403
+from .html_widget import *  # noqa: F403
 from .importance import Importance
 from .input_hint import InputHint
 from .invoke_response import (
@@ -111,6 +113,7 @@ __all__.extend(config.__all__)
 __all__.extend(conversation.__all__)
 __all__.extend(entity.__all__)
 __all__.extend(file.__all__)
+__all__.extend(html_widget.__all__)
 __all__.extend(meetings.__all__)
 __all__.extend(message.__all__)
 __all__.extend(messaging_extension.__all__)

@@ -531,6 +531,15 @@ ACTIVITY_ROUTES: Dict[str, ActivityConfig] = {
         output_type_name="AdaptiveCardInvokeResponse",
         is_invoke=True,
     ),
+    "widget.call_tool": ActivityConfig(
+        name="widget.call_tool",
+        method_name="on_widget_call_tool",
+        input_model="HtmlWidgetCallToolInvokeActivity",
+        selector=lambda activity: activity.type == "invoke"
+        and cast(InvokeActivity, activity).name == "htmlwidget/calltool",
+        output_type_name="HtmlWidgetCallToolResponse",
+        is_invoke=True,
+    ),
     # Generic invoke handler (fallback for any invoke not matching specific aliases)
     "invoke": ActivityConfig(
         name="invoke",
