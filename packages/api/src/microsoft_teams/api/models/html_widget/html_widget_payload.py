@@ -16,7 +16,7 @@ class HtmlWidgetSecurityPolicy(CustomBaseModel):
     The security policy for an HTML widget, controlling allowed origins
     for network requests, static resources, nested iframes, and base URIs.
 
-    @experimental This API is in preview and may change in the future.
+    Diagnostic: ExperimentalTeamsHtmlWidget
     """
 
     connect_domains: Optional[list[str]] = None
