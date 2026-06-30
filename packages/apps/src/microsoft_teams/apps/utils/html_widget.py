@@ -15,6 +15,7 @@ from urllib.parse import urlparse
 
 from microsoft_teams.api.activities.message import MessageActivityInput
 from microsoft_teams.api.models.html_widget import HtmlWidgetPayload, HtmlWidgetSecurityPolicy
+from microsoft_teams.common.experimental import experimental
 
 # The MCP Apps protocol version used for the widget init handshake.
 MCP_PROTOCOL_VERSION = "2026-01-26"
@@ -126,6 +127,7 @@ def _validate_html_widget_payload(payload: HtmlWidgetPayload) -> None:
 # ---------------------------------------------------------------------------
 
 
+@experimental("ExperimentalTeamsHtmlWidget")
 def inject_widget_protocol(html: str, options: Optional[InjectWidgetProtocolOptions] = None) -> str:
     """
     Injects the MCP Apps protocol script into widget HTML.
@@ -216,6 +218,7 @@ def inject_widget_protocol(html: str, options: Optional[InjectWidgetProtocolOpti
 # ---------------------------------------------------------------------------
 
 
+@experimental("ExperimentalTeamsHtmlWidget")
 def build_html_widget_markdown(
     payload: HtmlWidgetPayload,
     options: Optional[HtmlWidgetMarkdownOptions] = None,
@@ -255,6 +258,7 @@ def build_html_widget_markdown(
     return "\n".join(parts)
 
 
+@experimental("ExperimentalTeamsHtmlWidget")
 def build_html_widget_message(
     payload: HtmlWidgetPayload,
     options: Optional[HtmlWidgetMarkdownOptions] = None,
@@ -349,6 +353,7 @@ def _find_tags(html: str, tag_name: str) -> list[str]:
     return tags
 
 
+@experimental("ExperimentalTeamsHtmlWidget")
 def validate_security_policy(html: str, policy: HtmlWidgetSecurityPolicy) -> list[SecurityPolicyWarning]:
     """
     Validates that external references in widget HTML are covered by the

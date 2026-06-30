@@ -6,6 +6,7 @@ Tests for HTML widget utilities.
 """
 
 import json
+import warnings
 from typing import Any
 
 import pytest
@@ -21,6 +22,10 @@ from microsoft_teams.apps.utils.html_widget import (
     inject_widget_protocol,
     validate_security_policy,
 )
+from microsoft_teams.common.experimental import ExperimentalWarning
+
+# Suppress ExperimentalWarning in all widget tests
+warnings.filterwarnings("ignore", category=ExperimentalWarning)
 
 # ---------------------------------------------------------------------------
 # Fixtures
