@@ -15,6 +15,15 @@ from typing import Callable, Optional, overload
 from microsoft_teams.api.activities import (
     Activity,
     AdaptiveCardInvokeActivity,
+    AgenticUserDeletedActivity,
+    AgenticUserDisabledActivity,
+    AgenticUserEnabledActivity,
+    AgenticUserIdentityCreatedActivity,
+    AgenticUserIdentityUpdatedActivity,
+    AgenticUserManagerUpdatedActivity,
+    AgenticUserUndeletedActivity,
+    AgenticUserWorkloadOnboardingUpdatedActivity,
+    AgentLifecycleEventActivity,
     CommandResultActivity,
     CommandSendActivity,
     ConfigFetchInvokeActivity,
@@ -743,6 +752,278 @@ class GeneratedActivityHandlerMixin(ABC):
         return decorator
 
     @overload
+    def on_agent_lifecycle(
+        self, handler: BasicHandler[AgentLifecycleEventActivity]
+    ) -> BasicHandler[AgentLifecycleEventActivity]: ...
+
+    @overload
+    def on_agent_lifecycle(
+        self,
+    ) -> Callable[[BasicHandler[AgentLifecycleEventActivity]], BasicHandler[AgentLifecycleEventActivity]]: ...
+
+    def on_agent_lifecycle(
+        self, handler: Optional[BasicHandler[AgentLifecycleEventActivity]] = None
+    ) -> BasicHandlerUnion[AgentLifecycleEventActivity]:
+        """Register a agent_lifecycle activity handler."""
+
+        def decorator(func: BasicHandler[AgentLifecycleEventActivity]) -> BasicHandler[AgentLifecycleEventActivity]:
+            validate_handler_type(
+                func, AgentLifecycleEventActivity, "on_agent_lifecycle", "AgentLifecycleEventActivity"
+            )
+            config = ACTIVITY_ROUTES["agent_lifecycle"]
+            self.router.add_handler(config.selector, func)
+            return func
+
+        if handler is not None:
+            return decorator(handler)
+        return decorator
+
+    @overload
+    def on_agentic_user_identity_created(
+        self, handler: BasicHandler[AgenticUserIdentityCreatedActivity]
+    ) -> BasicHandler[AgenticUserIdentityCreatedActivity]: ...
+
+    @overload
+    def on_agentic_user_identity_created(
+        self,
+    ) -> Callable[
+        [BasicHandler[AgenticUserIdentityCreatedActivity]], BasicHandler[AgenticUserIdentityCreatedActivity]
+    ]: ...
+
+    def on_agentic_user_identity_created(
+        self, handler: Optional[BasicHandler[AgenticUserIdentityCreatedActivity]] = None
+    ) -> BasicHandlerUnion[AgenticUserIdentityCreatedActivity]:
+        """Register a agentic_user_identity_created activity handler."""
+
+        def decorator(
+            func: BasicHandler[AgenticUserIdentityCreatedActivity],
+        ) -> BasicHandler[AgenticUserIdentityCreatedActivity]:
+            validate_handler_type(
+                func,
+                AgenticUserIdentityCreatedActivity,
+                "on_agentic_user_identity_created",
+                "AgenticUserIdentityCreatedActivity",
+            )
+            config = ACTIVITY_ROUTES["agentic_user_identity_created"]
+            self.router.add_handler(config.selector, func)
+            return func
+
+        if handler is not None:
+            return decorator(handler)
+        return decorator
+
+    @overload
+    def on_agentic_user_identity_updated(
+        self, handler: BasicHandler[AgenticUserIdentityUpdatedActivity]
+    ) -> BasicHandler[AgenticUserIdentityUpdatedActivity]: ...
+
+    @overload
+    def on_agentic_user_identity_updated(
+        self,
+    ) -> Callable[
+        [BasicHandler[AgenticUserIdentityUpdatedActivity]], BasicHandler[AgenticUserIdentityUpdatedActivity]
+    ]: ...
+
+    def on_agentic_user_identity_updated(
+        self, handler: Optional[BasicHandler[AgenticUserIdentityUpdatedActivity]] = None
+    ) -> BasicHandlerUnion[AgenticUserIdentityUpdatedActivity]:
+        """Register a agentic_user_identity_updated activity handler."""
+
+        def decorator(
+            func: BasicHandler[AgenticUserIdentityUpdatedActivity],
+        ) -> BasicHandler[AgenticUserIdentityUpdatedActivity]:
+            validate_handler_type(
+                func,
+                AgenticUserIdentityUpdatedActivity,
+                "on_agentic_user_identity_updated",
+                "AgenticUserIdentityUpdatedActivity",
+            )
+            config = ACTIVITY_ROUTES["agentic_user_identity_updated"]
+            self.router.add_handler(config.selector, func)
+            return func
+
+        if handler is not None:
+            return decorator(handler)
+        return decorator
+
+    @overload
+    def on_agentic_user_manager_updated(
+        self, handler: BasicHandler[AgenticUserManagerUpdatedActivity]
+    ) -> BasicHandler[AgenticUserManagerUpdatedActivity]: ...
+
+    @overload
+    def on_agentic_user_manager_updated(
+        self,
+    ) -> Callable[
+        [BasicHandler[AgenticUserManagerUpdatedActivity]], BasicHandler[AgenticUserManagerUpdatedActivity]
+    ]: ...
+
+    def on_agentic_user_manager_updated(
+        self, handler: Optional[BasicHandler[AgenticUserManagerUpdatedActivity]] = None
+    ) -> BasicHandlerUnion[AgenticUserManagerUpdatedActivity]:
+        """Register a agentic_user_manager_updated activity handler."""
+
+        def decorator(
+            func: BasicHandler[AgenticUserManagerUpdatedActivity],
+        ) -> BasicHandler[AgenticUserManagerUpdatedActivity]:
+            validate_handler_type(
+                func,
+                AgenticUserManagerUpdatedActivity,
+                "on_agentic_user_manager_updated",
+                "AgenticUserManagerUpdatedActivity",
+            )
+            config = ACTIVITY_ROUTES["agentic_user_manager_updated"]
+            self.router.add_handler(config.selector, func)
+            return func
+
+        if handler is not None:
+            return decorator(handler)
+        return decorator
+
+    @overload
+    def on_agentic_user_enabled(
+        self, handler: BasicHandler[AgenticUserEnabledActivity]
+    ) -> BasicHandler[AgenticUserEnabledActivity]: ...
+
+    @overload
+    def on_agentic_user_enabled(
+        self,
+    ) -> Callable[[BasicHandler[AgenticUserEnabledActivity]], BasicHandler[AgenticUserEnabledActivity]]: ...
+
+    def on_agentic_user_enabled(
+        self, handler: Optional[BasicHandler[AgenticUserEnabledActivity]] = None
+    ) -> BasicHandlerUnion[AgenticUserEnabledActivity]:
+        """Register a agentic_user_enabled activity handler."""
+
+        def decorator(func: BasicHandler[AgenticUserEnabledActivity]) -> BasicHandler[AgenticUserEnabledActivity]:
+            validate_handler_type(
+                func, AgenticUserEnabledActivity, "on_agentic_user_enabled", "AgenticUserEnabledActivity"
+            )
+            config = ACTIVITY_ROUTES["agentic_user_enabled"]
+            self.router.add_handler(config.selector, func)
+            return func
+
+        if handler is not None:
+            return decorator(handler)
+        return decorator
+
+    @overload
+    def on_agentic_user_disabled(
+        self, handler: BasicHandler[AgenticUserDisabledActivity]
+    ) -> BasicHandler[AgenticUserDisabledActivity]: ...
+
+    @overload
+    def on_agentic_user_disabled(
+        self,
+    ) -> Callable[[BasicHandler[AgenticUserDisabledActivity]], BasicHandler[AgenticUserDisabledActivity]]: ...
+
+    def on_agentic_user_disabled(
+        self, handler: Optional[BasicHandler[AgenticUserDisabledActivity]] = None
+    ) -> BasicHandlerUnion[AgenticUserDisabledActivity]:
+        """Register a agentic_user_disabled activity handler."""
+
+        def decorator(func: BasicHandler[AgenticUserDisabledActivity]) -> BasicHandler[AgenticUserDisabledActivity]:
+            validate_handler_type(
+                func, AgenticUserDisabledActivity, "on_agentic_user_disabled", "AgenticUserDisabledActivity"
+            )
+            config = ACTIVITY_ROUTES["agentic_user_disabled"]
+            self.router.add_handler(config.selector, func)
+            return func
+
+        if handler is not None:
+            return decorator(handler)
+        return decorator
+
+    @overload
+    def on_agentic_user_deleted(
+        self, handler: BasicHandler[AgenticUserDeletedActivity]
+    ) -> BasicHandler[AgenticUserDeletedActivity]: ...
+
+    @overload
+    def on_agentic_user_deleted(
+        self,
+    ) -> Callable[[BasicHandler[AgenticUserDeletedActivity]], BasicHandler[AgenticUserDeletedActivity]]: ...
+
+    def on_agentic_user_deleted(
+        self, handler: Optional[BasicHandler[AgenticUserDeletedActivity]] = None
+    ) -> BasicHandlerUnion[AgenticUserDeletedActivity]:
+        """Register a agentic_user_deleted activity handler."""
+
+        def decorator(func: BasicHandler[AgenticUserDeletedActivity]) -> BasicHandler[AgenticUserDeletedActivity]:
+            validate_handler_type(
+                func, AgenticUserDeletedActivity, "on_agentic_user_deleted", "AgenticUserDeletedActivity"
+            )
+            config = ACTIVITY_ROUTES["agentic_user_deleted"]
+            self.router.add_handler(config.selector, func)
+            return func
+
+        if handler is not None:
+            return decorator(handler)
+        return decorator
+
+    @overload
+    def on_agentic_user_undeleted(
+        self, handler: BasicHandler[AgenticUserUndeletedActivity]
+    ) -> BasicHandler[AgenticUserUndeletedActivity]: ...
+
+    @overload
+    def on_agentic_user_undeleted(
+        self,
+    ) -> Callable[[BasicHandler[AgenticUserUndeletedActivity]], BasicHandler[AgenticUserUndeletedActivity]]: ...
+
+    def on_agentic_user_undeleted(
+        self, handler: Optional[BasicHandler[AgenticUserUndeletedActivity]] = None
+    ) -> BasicHandlerUnion[AgenticUserUndeletedActivity]:
+        """Register a agentic_user_undeleted activity handler."""
+
+        def decorator(func: BasicHandler[AgenticUserUndeletedActivity]) -> BasicHandler[AgenticUserUndeletedActivity]:
+            validate_handler_type(
+                func, AgenticUserUndeletedActivity, "on_agentic_user_undeleted", "AgenticUserUndeletedActivity"
+            )
+            config = ACTIVITY_ROUTES["agentic_user_undeleted"]
+            self.router.add_handler(config.selector, func)
+            return func
+
+        if handler is not None:
+            return decorator(handler)
+        return decorator
+
+    @overload
+    def on_agentic_user_workload_onboarding_updated(
+        self, handler: BasicHandler[AgenticUserWorkloadOnboardingUpdatedActivity]
+    ) -> BasicHandler[AgenticUserWorkloadOnboardingUpdatedActivity]: ...
+
+    @overload
+    def on_agentic_user_workload_onboarding_updated(
+        self,
+    ) -> Callable[
+        [BasicHandler[AgenticUserWorkloadOnboardingUpdatedActivity]],
+        BasicHandler[AgenticUserWorkloadOnboardingUpdatedActivity],
+    ]: ...
+
+    def on_agentic_user_workload_onboarding_updated(
+        self, handler: Optional[BasicHandler[AgenticUserWorkloadOnboardingUpdatedActivity]] = None
+    ) -> BasicHandlerUnion[AgenticUserWorkloadOnboardingUpdatedActivity]:
+        """Register a agentic_user_workload_onboarding_updated activity handler."""
+
+        def decorator(
+            func: BasicHandler[AgenticUserWorkloadOnboardingUpdatedActivity],
+        ) -> BasicHandler[AgenticUserWorkloadOnboardingUpdatedActivity]:
+            validate_handler_type(
+                func,
+                AgenticUserWorkloadOnboardingUpdatedActivity,
+                "on_agentic_user_workload_onboarding_updated",
+                "AgenticUserWorkloadOnboardingUpdatedActivity",
+            )
+            config = ACTIVITY_ROUTES["agentic_user_workload_onboarding_updated"]
+            self.router.add_handler(config.selector, func)
+            return func
+
+        if handler is not None:
+            return decorator(handler)
+        return decorator
+
+    @overload
     def on_config_open(
         self, handler: InvokeHandler[ConfigFetchInvokeActivity, ConfigInvokeResponse]
     ) -> InvokeHandler[ConfigFetchInvokeActivity, ConfigInvokeResponse]: ...
@@ -1385,8 +1666,7 @@ class GeneratedActivityHandlerMixin(ABC):
     def on_suggested_action_submit(
         self,
     ) -> Callable[
-        [VoidInvokeHandler[SuggestedActionSubmitInvokeActivity]],
-        VoidInvokeHandler[SuggestedActionSubmitInvokeActivity],
+        [VoidInvokeHandler[SuggestedActionSubmitInvokeActivity]], VoidInvokeHandler[SuggestedActionSubmitInvokeActivity]
     ]: ...
 
     def on_suggested_action_submit(
