@@ -701,3 +701,40 @@ class TestDebugCspViolations:
         opts = InjectWidgetProtocolOptions(debug_csp_violations=False)
         result = inject_widget_protocol("<body><p>Hello</p></body>", opts)
         assert "securitypolicyviolation" not in result
+
+
+class TestScriptInjectionPrevention:
+    def test_escapes_script_close_tag_in_name(self):
+        """Prevents </script> in name from breaking out of the inline script."""
+        opts = InjectWidgetProtocolOptions(name="</script><img src=x onerror=alert(1)>")
+        result = inject_widget_protocol("<body></body>", opts)
+        # Only one </script> should exist (the injected protocol's closing tag)
+        import re
+
+        script_tags = re.findall(r"</script>", result, re.IGNORECASE)
+        assert len(script_tags) == 1
+        assert "<\\/script>" in result
+
+    def test_escapes_script_close_tag_in_version(self):
+        """Prevents </script> in version from breaking out."""
+        opts = InjectWidgetProtocolOptions(version='</script><svg onload=fetch("/steal")>')
+        result = inject_widget_protocol("<body></body>", opts)
+        import re
+
+        script_tags = re.findall(r"</script>", result, re.IGNORECASE)
+        assert len(script_tags) == 1
+
+    def test_escapes_newlines_in_name(self):
+        """Prevents newlines from breaking JS string literals."""
+        opts = InjectWidgetProtocolOptions(name="line1\nline2\rline3")
+        result = inject_widget_protocol("<body></body>", opts)
+        # Extract script content
+        import re
+
+        script_match = re.search(r"<script>(.*?)</script>", result, re.DOTALL)
+        assert script_match is not None
+        script_content = script_match.group(1)
+        # No raw newlines inside the script
+        assert "\n" not in script_content
+        assert "\\n" in script_content
+        assert "\\r" in script_content
