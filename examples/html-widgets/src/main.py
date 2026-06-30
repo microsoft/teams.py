@@ -14,6 +14,7 @@ import json
 import logging
 import random
 from datetime import datetime, timezone
+from typing import Any
 
 from microsoft_teams.api import HtmlWidgetCallToolInvokeActivity, MessageActivity
 from microsoft_teams.api.activities.message import MessageActivityInput
@@ -22,6 +23,7 @@ from microsoft_teams.api.models.html_widget import (
     HtmlWidgetPayload,
     HtmlWidgetSecurityPolicy,
     McpUiCallToolResult,
+    McpUiCallToolResultContent,
 )
 from microsoft_teams.apps import ActivityContext, App
 from microsoft_teams.apps.utils.html_widget import (
@@ -264,9 +266,7 @@ async def handle_message(ctx: ActivityContext[MessageActivity]) -> None:
                 ),
             ),
         )
-        await ctx.send(
-            MessageActivityInput(text=markdown, text_format="extendedmarkdown")
-        )
+        await ctx.send(MessageActivityInput(text=markdown, text_format="extendedmarkdown"))
         return
 
     # Help
@@ -311,16 +311,17 @@ async def handle_widget_call_tool(
 ) -> HtmlWidgetCallToolResponse:
     """Handle widget tool calls."""
     tool_name = ctx.activity.value.name
-    args = ctx.activity.value.arguments or {}
+    args: dict[str, Any] = ctx.activity.value.arguments or {}
     logger.info(f"[widget.callTool] tool={tool_name!r} args={json.dumps(args)}")
 
     call_tool_result: McpUiCallToolResult
 
     if tool_name == "refresh":
+        counter = int(args.get("counter", 0) or 0) + 1
         call_tool_result = McpUiCallToolResult(
-            content=[{"type": "text", "text": "Refreshed!"}],
+            content=[McpUiCallToolResultContent(type="text", text="Refreshed!")],
             structured_content={
-                "counter": (args.get("counter", 0) or 0) + 1,
+                "counter": counter,
                 "lastAction": "refresh",
                 "timestamp": datetime.now(tz=timezone.utc).isoformat(),
             },
@@ -330,30 +331,30 @@ async def handle_widget_call_tool(
     elif tool_name == "getTime":
         now = datetime.now(tz=timezone.utc)
         call_tool_result = McpUiCallToolResult(
-            content=[{"type": "text", "text": now.strftime("%H:%M:%S")}],
+            content=[McpUiCallToolResultContent(type="text", text=now.strftime("%H:%M:%S"))],
             structured_content={"time": now.isoformat()},
             is_error=False,
         )
 
     elif tool_name == "roll":
-        sides = args.get("sides", 6) or 6
+        sides = int(args.get("sides", 6) or 6)
         result = random.randint(1, sides)  # noqa: S311
         call_tool_result = McpUiCallToolResult(
-            content=[{"type": "text", "text": f"Rolled a {result} (d{sides})"}],
+            content=[McpUiCallToolResultContent(type="text", text=f"Rolled a {result} (d{sides})")],
             structured_content={"result": result, "sides": sides},
             is_error=False,
         )
 
     elif tool_name == "echo":
         call_tool_result = McpUiCallToolResult(
-            content=[{"type": "text", "text": json.dumps(args)}],
+            content=[McpUiCallToolResultContent(type="text", text=json.dumps(args))],
             structured_content=args,
             is_error=False,
         )
 
     else:
         call_tool_result = McpUiCallToolResult(
-            content=[{"type": "text", "text": f"Unknown tool: {tool_name}"}],
+            content=[McpUiCallToolResultContent(type="text", text=f"Unknown tool: {tool_name}")],
             is_error=True,
         )
 
