@@ -1519,9 +1519,7 @@ class GeneratedActivityHandlerMixin(ABC):
 
     def on_widget_call_tool(
         self,
-        handler: Optional[
-            InvokeHandler[HtmlWidgetCallToolInvokeActivity, HtmlWidgetCallToolResponse]
-        ] = None,
+        handler: Optional[InvokeHandler[HtmlWidgetCallToolInvokeActivity, HtmlWidgetCallToolResponse]] = None,
     ) -> InvokeHandlerUnion[HtmlWidgetCallToolInvokeActivity, HtmlWidgetCallToolResponse]:
         """Register a widget.call_tool activity handler."""
 
