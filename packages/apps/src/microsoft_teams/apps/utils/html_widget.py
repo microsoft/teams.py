@@ -127,6 +127,16 @@ def _validate_html_widget_payload(payload: HtmlWidgetPayload) -> None:
 # ---------------------------------------------------------------------------
 
 
+def _escape_for_inline_script(value: str) -> str:
+    """Escape a string for safe embedding in a single-quoted JS literal inside <script>.
+
+    Handles backslash, single-quote, </script> breakout, and newlines.
+    """
+    return (
+        value.replace("\\", "\\\\").replace("'", "\\'").replace("</", "<\\/").replace("\n", "\\n").replace("\r", "\\r")
+    )
+
+
 @experimental("ExperimentalTeamsHtmlWidget")
 def inject_widget_protocol(html: str, options: Optional[InjectWidgetProtocolOptions] = None) -> str:
     """
@@ -145,9 +155,8 @@ def inject_widget_protocol(html: str, options: Optional[InjectWidgetProtocolOpti
         return html
 
     opts = options or InjectWidgetProtocolOptions()
-    name = (opts.name or "widget").replace("\\", "\\\\").replace("'", "\\'")
-    version = (opts.version or "1.0.0").replace("\\", "\\\\").replace("'", "\\'")
-
+    name = _escape_for_inline_script(opts.name or "widget")
+    version = _escape_for_inline_script(opts.version or "1.0.0")
     caps_json = "{}"
     if opts.available_display_modes:
         caps_json = f"{{availableDisplayModes:{json.dumps(opts.available_display_modes)}}}"
