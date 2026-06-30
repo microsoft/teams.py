@@ -9,7 +9,7 @@ Diagnostic: ExperimentalTeamsHtmlWidget
 
 import json
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Optional
 from urllib.parse import urlparse
 
@@ -233,13 +233,13 @@ def build_html_widget_markdown(
 
     opts = options or HtmlWidgetMarkdownOptions()
 
-    # Build protocol options from markdown options
-    proto_opts = opts.protocol_options or InjectWidgetProtocolOptions()
-    proto_opts.name = payload.name
+    # Build protocol options from markdown options (copy to avoid mutating caller's instance)
+    base_proto = opts.protocol_options or InjectWidgetProtocolOptions()
+    proto_opts = replace(base_proto, name=payload.name)
 
-    # Inject protocol and apply default security policy
+    # Inject protocol and apply default security policy (copy default to avoid shared mutation)
     injected_html = inject_widget_protocol(payload.html, proto_opts)
-    security_policy = payload.security_policy or DEFAULT_SECURITY_POLICY
+    security_policy = payload.security_policy or DEFAULT_SECURITY_POLICY.model_copy(deep=True)
 
     # Build the serialized payload
     injected_payload = payload.model_copy(update={"html": injected_html, "security_policy": security_policy})
