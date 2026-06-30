@@ -5,6 +5,8 @@ Licensed under the MIT License.
 
 from typing import Any, Literal, Optional
 
+from microsoft_teams.common.experimental import experimental
+
 from ..custom_base_model import CustomBaseModel
 
 
@@ -18,12 +20,13 @@ class McpUiCallToolResultContent(CustomBaseModel):
     """The text content."""
 
 
+@experimental("ExperimentalTeamsHtmlWidget")
 class McpUiCallToolResult(CustomBaseModel):
     """
     The result of a widget's tools/call request, returned by the bot
     in response to an htmlwidget/calltool invoke activity.
 
-    @experimental This API is in preview and may change in the future.
+    Diagnostic: ExperimentalTeamsHtmlWidget
     """
 
     content: Optional[list[McpUiCallToolResultContent]] = None
@@ -36,13 +39,14 @@ class McpUiCallToolResult(CustomBaseModel):
     """Whether the tool call resulted in an error."""
 
 
+@experimental("ExperimentalTeamsHtmlWidget")
 class HtmlWidgetCallToolResponse(CustomBaseModel):
     """
     The wire-format response body for an htmlwidget/calltool invoke.
     Teams expects this shape (with responseType discriminator) rather than
     a bare McpUiCallToolResult.
 
-    @experimental This API is in preview and may change in the future.
+    Diagnostic: ExperimentalTeamsHtmlWidget
     """
 
     response_type: Literal["htmlwidget/calltoolresult"] = "htmlwidget/calltoolresult"
