@@ -322,10 +322,7 @@ def _is_origin_allowed(origin: str, allowed_domains: list[str]) -> bool:
 
 def _policy_message(source: str, url: str, origin: str, field: str) -> str:
     """Build a human-readable warning message for a policy violation."""
-    return (
-        f'{source} references "{url}" but origin '
-        f'"{origin}" is not in {field}.'
-    )
+    return f'{source} references "{url}" but origin "{origin}" is not in {field}.'
 
 
 def _find_tags(html: str, tag_name: str) -> list[str]:
@@ -447,9 +444,7 @@ def validate_security_policy(html: str, policy: HtmlWidgetSecurityPolicy) -> lis
                         url=attr_match.group(1),
                         source="<iframe src>",
                         policy_field="frameDomains",
-                        message=_policy_message(
-                            "<iframe src>", attr_match.group(1), origin, "frameDomains"
-                        ),
+                        message=_policy_message("<iframe src>", attr_match.group(1), origin, "frameDomains"),
                     )
                 )
 
@@ -464,9 +459,7 @@ def validate_security_policy(html: str, policy: HtmlWidgetSecurityPolicy) -> lis
                         url=attr_match.group(1),
                         source="<form action>",
                         policy_field="connectDomains",
-                        message=_policy_message(
-                            "<form action>", attr_match.group(1), origin, "connectDomains"
-                        ),
+                        message=_policy_message("<form action>", attr_match.group(1), origin, "connectDomains"),
                     )
                 )
 

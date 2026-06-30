@@ -16,6 +16,7 @@ from microsoft_teams.api.models.html_widget import (
     HtmlWidgetSecurityPolicy,
 )
 from microsoft_teams.apps.utils.html_widget import (
+    HtmlWidgetMarkdownOptions,
     InjectWidgetProtocolOptions,
     build_html_widget_markdown,
     build_html_widget_message,
@@ -105,54 +106,36 @@ class TestBuildHtmlWidgetMarkdown:
         assert "name:'Test Widget'" in parsed["html"]
 
     def test_includes_text_before_widget(self):
-        from microsoft_teams.apps.utils.html_widget import HtmlWidgetMarkdownOptions
-
         opts = HtmlWidgetMarkdownOptions(before="Check this out:")
         result = build_html_widget_markdown(MINIMAL_PAYLOAD, opts)
         assert result.startswith("Check this out:\n\n```html-widget\n")
 
     def test_includes_text_after_widget(self):
-        from microsoft_teams.apps.utils.html_widget import HtmlWidgetMarkdownOptions
-
         opts = HtmlWidgetMarkdownOptions(after="Pretty cool, right?")
         result = build_html_widget_markdown(MINIMAL_PAYLOAD, opts)
         assert result.endswith("\n```\n\nPretty cool, right?")
 
     def test_includes_text_before_and_after(self):
-        from microsoft_teams.apps.utils.html_widget import HtmlWidgetMarkdownOptions
-
         opts = HtmlWidgetMarkdownOptions(before="Before", after="After")
         result = build_html_widget_markdown(MINIMAL_PAYLOAD, opts)
         assert result.startswith("Before\n\n```html-widget\n")
         assert result.endswith("\n```\n\nAfter")
 
     def test_forwards_protocol_options(self):
-        from microsoft_teams.apps.utils.html_widget import HtmlWidgetMarkdownOptions
-
-        opts = HtmlWidgetMarkdownOptions(
-            protocol_options=InjectWidgetProtocolOptions(notifications=["tool-result"])
-        )
+        opts = HtmlWidgetMarkdownOptions(protocol_options=InjectWidgetProtocolOptions(notifications=["tool-result"]))
         result = build_html_widget_markdown(MINIMAL_PAYLOAD, opts)
         parsed = _parse_widget_json(result)
         assert "ui/notifications/tool-result" in parsed["html"]
         assert "window.onToolResult" in parsed["html"]
 
     def test_forwards_debug_csp_violations(self):
-        from microsoft_teams.apps.utils.html_widget import HtmlWidgetMarkdownOptions
-
-        opts = HtmlWidgetMarkdownOptions(
-            protocol_options=InjectWidgetProtocolOptions(debug_csp_violations=True)
-        )
+        opts = HtmlWidgetMarkdownOptions(protocol_options=InjectWidgetProtocolOptions(debug_csp_violations=True))
         result = build_html_widget_markdown(MINIMAL_PAYLOAD, opts)
         parsed = _parse_widget_json(result)
         assert "securitypolicyviolation" in parsed["html"]
 
     def test_uses_payload_name_even_with_protocol_options(self):
-        from microsoft_teams.apps.utils.html_widget import HtmlWidgetMarkdownOptions
-
-        opts = HtmlWidgetMarkdownOptions(
-            protocol_options=InjectWidgetProtocolOptions(version="2.0.0")
-        )
+        opts = HtmlWidgetMarkdownOptions(protocol_options=InjectWidgetProtocolOptions(version="2.0.0"))
         result = build_html_widget_markdown(MINIMAL_PAYLOAD, opts)
         parsed = _parse_widget_json(result)
         assert "name:'Test Widget'" in parsed["html"]
@@ -194,18 +177,14 @@ class TestBuildHtmlWidgetMarkdown:
         assert "<code>```some code```</code>" in parsed["html"]
 
     def test_handles_html_with_newlines_and_special_chars(self):
-        payload = MINIMAL_PAYLOAD.model_copy(
-            update={"html": '<div>\n  <p>"Hello" & \'world\'</p>\n</div>'}
-        )
+        payload = MINIMAL_PAYLOAD.model_copy(update={"html": "<div>\n  <p>\"Hello\" & 'world'</p>\n</div>"})
         result = build_html_widget_markdown(payload)
         # JSON is on a single line (compact), just parse the first line after fence
         json_line = result.split("\n")[1]
         parsed = json.loads(json_line)
-        assert '<div>\n  <p>"Hello" & \'world\'</p>\n</div>' in parsed["html"]
+        assert "<div>\n  <p>\"Hello\" & 'world'</p>\n</div>" in parsed["html"]
 
     def test_empty_options_no_extra_lines(self):
-        from microsoft_teams.apps.utils.html_widget import HtmlWidgetMarkdownOptions
-
         opts = HtmlWidgetMarkdownOptions(before="", after="")
         result = build_html_widget_markdown(MINIMAL_PAYLOAD, opts)
         assert result.startswith("```html-widget\n")
@@ -249,8 +228,6 @@ class TestBuildHtmlWidgetMessage:
         assert result.text == build_html_widget_markdown(MINIMAL_PAYLOAD)
 
     def test_passes_options_through(self):
-        from microsoft_teams.apps.utils.html_widget import HtmlWidgetMarkdownOptions
-
         opts = HtmlWidgetMarkdownOptions(before="Weather today:")
         result = build_html_widget_message(FULL_PAYLOAD, opts)
         assert result.text == build_html_widget_markdown(FULL_PAYLOAD, opts)
@@ -331,9 +308,7 @@ class TestInjectWidgetProtocol:
         assert script_idx > comment_idx
 
     def test_notification_hooks_opt_in(self):
-        opts = InjectWidgetProtocolOptions(
-            notifications=["tool-result", "tool-input", "host-context-changed"]
-        )
+        opts = InjectWidgetProtocolOptions(notifications=["tool-result", "tool-input", "host-context-changed"])
         with_hooks = inject_widget_protocol(self.BARE_HTML, opts)
         assert "ui/notifications/tool-result" in with_hooks
         assert "window.onToolResult" in with_hooks
@@ -375,9 +350,7 @@ class TestInjectWidgetProtocol:
         assert "window.onResourceTeardown" in result
 
     def test_includes_available_display_modes(self):
-        opts = InjectWidgetProtocolOptions(
-            available_display_modes=["inline", "fullscreen"]
-        )
+        opts = InjectWidgetProtocolOptions(available_display_modes=["inline", "fullscreen"])
         result = inject_widget_protocol(self.BARE_HTML, opts)
         assert "availableDisplayModes" in result
         assert json.dumps(["inline", "fullscreen"]) in result
