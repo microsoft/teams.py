@@ -5,15 +5,18 @@ Licensed under the MIT License.
 
 from typing import Literal
 
+from microsoft_teams.common.experimental import experimental
+
 from ....models.html_widget.call_tool_request import CallToolRequest
 from ...invoke_activity import InvokeActivity
 
 
+@experimental("ExperimentalTeamsHtmlWidget")
 class HtmlWidgetCallToolInvokeActivity(InvokeActivity):
     """
     Represents an activity that is sent when a widget calls a tool on the bot.
 
-    @experimental This API is in preview and may change in the future.
+    Diagnostic: ExperimentalTeamsHtmlWidget
     """
 
     type: Literal["invoke"] = "invoke"

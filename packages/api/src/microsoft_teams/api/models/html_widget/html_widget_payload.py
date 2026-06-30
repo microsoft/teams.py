@@ -5,9 +5,12 @@ Licensed under the MIT License.
 
 from typing import Any, Literal, Optional
 
+from microsoft_teams.common.experimental import experimental
+
 from ..custom_base_model import CustomBaseModel
 
 
+@experimental("ExperimentalTeamsHtmlWidget")
 class HtmlWidgetSecurityPolicy(CustomBaseModel):
     """
     The security policy for an HTML widget, controlling allowed origins
@@ -29,12 +32,8 @@ class HtmlWidgetSecurityPolicy(CustomBaseModel):
     """Allowed base URIs for the document."""
 
 
+@experimental("ExperimentalTeamsHtmlWidget")
 class HtmlWidgetPermissions(CustomBaseModel):
-    """
-    Permissions that the widget may request from the host.
-
-    @experimental This API is in preview and may change in the future.
-    """
 
     camera: Optional[Any] = None
     """Request camera access."""
@@ -49,13 +48,8 @@ class HtmlWidgetPermissions(CustomBaseModel):
     """Request clipboard write access."""
 
 
+@experimental("ExperimentalTeamsHtmlWidget")
 class HtmlWidgetPayload(CustomBaseModel):
-    """
-    The JSON payload for an HTML widget, sent inside a ```html-widget code block
-    within a Markdown message.
-
-    @experimental This API is in preview and may change in the future.
-    """
 
     type: Literal["widget/mcp-ui"] = "widget/mcp-ui"
     """The widget type identifier. Currently only "widget/mcp-ui" is supported."""
