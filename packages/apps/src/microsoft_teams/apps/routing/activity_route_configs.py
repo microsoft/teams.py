@@ -19,7 +19,6 @@ from microsoft_teams.api import (
     ExecuteActionInvokeActivity,
     FileConsentInvokeActivity,
     HandoffActionInvokeActivity,
-    HtmlWidgetCallToolInvokeActivity,
     InstalledActivity,
     InvokeActivity,
     MeetingEndEventActivity,
