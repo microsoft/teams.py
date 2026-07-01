@@ -117,5 +117,5 @@ async def _get_next_page(messages_builder: Any, next_link: str) -> Any:
     return await messages_builder.request_adapter.send_async(
         request_info,
         ChatMessageCollectionResponse,
-        {"XXX": ODataError},
+        {"4XX": ODataError, "5XX": ODataError},
     )
