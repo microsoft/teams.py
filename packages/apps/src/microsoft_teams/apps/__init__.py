@@ -15,7 +15,7 @@ from .http_stream import HttpStream
 from .options import AppOptions
 from .plugins import *  # noqa: F401, F403
 from .routing import ActivityContext
-from .utils.thread import to_threaded_conversation_id
+from .utils.thread import get_base_conversation_id, get_thread_message_id, to_threaded_conversation_id
 
 logging.getLogger(__name__).addHandler(logging.NullHandler())
 
@@ -28,6 +28,8 @@ __all__: list[str] = [
     "FastAPIAdapter",
     "HttpStream",
     "ActivityContext",
+    "get_base_conversation_id",
+    "get_thread_message_id",
     "to_threaded_conversation_id",
 ]
 __all__.extend(auth.__all__)

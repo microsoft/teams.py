@@ -4,6 +4,7 @@ Licensed under the MIT License.
 """
 
 import pytest
+from microsoft_teams.apps import get_base_conversation_id, get_thread_message_id
 from microsoft_teams.apps.utils.thread import to_threaded_conversation_id
 
 
@@ -43,3 +44,23 @@ class TestToThreadedConversationId:
     def test_strips_existing_messageid_and_replaces_with_thread_root(self):
         result = to_threaded_conversation_id("19:abc@thread.skype;messageid=111", "222")
         assert result == "19:abc@thread.skype;messageid=222"
+
+
+class TestConversationIdThreadHelpers:
+    def test_get_base_conversation_id_strips_thread_message_id(self):
+        result = get_base_conversation_id("19:abc@thread.skype;messageid=111")
+        assert result == "19:abc@thread.skype"
+
+    def test_get_base_conversation_id_returns_unthreaded_id(self):
+        result = get_base_conversation_id("19:abc@thread.skype")
+        assert result == "19:abc@thread.skype"
+
+    def test_get_thread_message_id_extracts_thread_root(self):
+        result = get_thread_message_id("19:abc@thread.skype;messageid=111")
+        assert result == "111"
+
+    def test_get_thread_message_id_returns_none_for_unthreaded_id(self):
+        assert get_thread_message_id("19:abc@thread.skype") is None
+
+    def test_get_thread_message_id_returns_none_for_empty_thread_root(self):
+        assert get_thread_message_id("19:abc@thread.skype;messageid=") is None

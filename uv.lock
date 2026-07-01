@@ -14,7 +14,9 @@ members = [
     "cards",
     "dialogs",
     "echo",
+    "formatted-messaging",
     "graph",
+    "history",
     "http-adapters",
     "mcp-server",
     "meetings",
@@ -968,6 +970,23 @@ wheels = [
 ]
 
 [[package]]
+name = "formatted-messaging"
+version = "0.1.0"
+source = { virtual = "examples/formatted-messaging" }
+dependencies = [
+    { name = "dotenv" },
+    { name = "microsoft-teams-api" },
+    { name = "microsoft-teams-apps" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "dotenv", specifier = ">=0.9.9" },
+    { name = "microsoft-teams-api", editable = "packages/api" },
+    { name = "microsoft-teams-apps", editable = "packages/apps" },
+]
+
+[[package]]
 name = "frozenlist"
 version = "1.8.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1181,6 +1200,25 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/cf/9c/b4cfe330cd4f49cff17fd771154730555fa4123beb7f292cf0098b4e6c20/hatchling-1.29.0.tar.gz", hash = "sha256:793c31816d952cee405b83488ce001c719f325d9cda69f1fc4cd750527640ea6", size = 55656, upload-time = "2026-02-23T19:42:06.539Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/d3/8a/44032265776062a89171285ede55a0bdaadc8ac00f27f0512a71a9e3e1c8/hatchling-1.29.0-py3-none-any.whl", hash = "sha256:50af9343281f34785fab12da82e445ed987a6efb34fd8c2fc0f6e6630dbcc1b0", size = 76356, upload-time = "2026-02-23T19:42:05.197Z" },
+]
+
+[[package]]
+name = "history"
+version = "0.1.0"
+source = { virtual = "examples/history" }
+dependencies = [
+    { name = "dotenv" },
+    { name = "microsoft-teams-api" },
+    { name = "microsoft-teams-apps" },
+    { name = "microsoft-teams-graph" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "dotenv", specifier = ">=0.9.9" },
+    { name = "microsoft-teams-api", editable = "packages/api" },
+    { name = "microsoft-teams-apps", editable = "packages/apps" },
+    { name = "microsoft-teams-graph", editable = "packages/graph" },
 ]
 
 [[package]]
@@ -1816,7 +1854,7 @@ test = [
 
 [package.metadata]
 requires-dist = [
-    { name = "cryptography", specifier = ">=48.0.1" },
+    { name = "cryptography", specifier = ">=3.4.0" },
     { name = "dependency-injector", specifier = ">=4.48.1" },
     { name = "fastapi", specifier = ">=0.115.13" },
     { name = "microsoft-teams-api", editable = "packages/api" },
