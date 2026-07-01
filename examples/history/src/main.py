@@ -44,11 +44,17 @@ def _read_attr(value: Any, *names: str) -> Any:
 
 
 def _message_sender(message: Any) -> str:
-    return (
+    sender = (
         _read_attr(message, "from_", "user", "display_name")
         or _read_attr(message, "from_", "application", "display_name")
         or "Unknown"
     )
+    if sender == "Unknown":
+        logger.info(
+            "Unknown history sender payload: %s",
+            message.model_dump(by_alias=True, exclude_none=True) if hasattr(message, "model_dump") else message,
+        )
+    return sender
 
 
 def _message_text(message: Any) -> str:
