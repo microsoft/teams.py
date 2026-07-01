@@ -3,7 +3,10 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
+from importlib import import_module
 from typing import TYPE_CHECKING, Any, List, Optional, cast
+
+_GRAPH_PAGE_SIZE_LIMIT = 50
 
 if TYPE_CHECKING:
     from msgraph.generated.models.chat_message import ChatMessage  # type: ignore[reportMissingTypeStubs]
@@ -77,8 +80,42 @@ async def get_graph_history(
     if thread_id:
         messages_builder = messages_builder.by_chat_message_id(thread_id).replies
 
-    response = await messages_builder.get(_get_request_configuration(messages_builder, n))
-    if response is None or response.value is None:
-        return []
+    messages: list[ChatMessage] = []
+    response = await messages_builder.get(_get_request_configuration(messages_builder, min(n, _GRAPH_PAGE_SIZE_LIMIT)))
 
-    return list(response.value)
+    while response is not None:
+        if response.value:
+            messages.extend(response.value[: n - len(messages)])
+
+        if len(messages) >= n:
+            break
+
+        next_link = getattr(response, "odata_next_link", None)
+        if not next_link:
+            break
+
+        response = await _get_next_page(messages_builder, next_link)
+
+    return messages
+
+
+async def _get_next_page(messages_builder: Any, next_link: str) -> Any:
+    try:
+        from kiota_abstractions.method import Method
+        from kiota_abstractions.request_information import RequestInformation
+        from msgraph.generated.models.chat_message_collection_response import (  # type: ignore[reportMissingTypeStubs]
+            ChatMessageCollectionResponse,
+        )
+    except ImportError as e:
+        raise ImportError(
+            "Graph functionality not available. Install with 'pip install microsoft-teams-apps[graph]'"
+        ) from e
+
+    ODataError = import_module("msgraph.generated.models.o_data_errors.o_data_error").ODataError
+    request_info = RequestInformation(method=Method.GET)
+    request_info.path_parameters[RequestInformation.RAW_URL_KEY] = next_link
+    return await messages_builder.request_adapter.send_async(
+        request_info,
+        ChatMessageCollectionResponse,
+        {"XXX": ODataError},
+    )

@@ -34,6 +34,12 @@ class FakeRepliesBuilder:
 
     def __init__(self, value: list[Any]):
         self.get = AsyncMock(return_value=SimpleNamespace(value=value))
+        self.request_adapter = FakeRequestAdapter([])
+
+
+class FakeRequestAdapter:
+    def __init__(self, pages: list[Any]):
+        self.send_async = AsyncMock(side_effect=pages)
 
 
 class FakeMessagesBuilder:
@@ -42,6 +48,7 @@ class FakeMessagesBuilder:
     def __init__(self, value: list[Any], replies_value: list[Any] | None = None):
         self.get = AsyncMock(return_value=SimpleNamespace(value=value))
         self.replies = FakeRepliesBuilder(replies_value or [])
+        self.request_adapter = FakeRequestAdapter([])
         self.thread_id: str | None = None
 
     def by_chat_message_id(self, thread_id: str) -> SimpleNamespace:
@@ -100,6 +107,27 @@ async def test_app_get_history_reads_chat_messages_with_top() -> None:
     assert graph.chats.chat_id == "chat-id"
     config = graph.chat_messages.get.call_args.args[0]
     assert config.query_parameters.top == 3
+
+
+@pytest.mark.asyncio
+async def test_app_get_history_paginates_when_count_exceeds_graph_page_limit() -> None:
+    app = App(**AppOptions(client_id="test-id", client_secret="test-secret"))
+    graph = FakeGraph()
+    graph.chat_messages.get = AsyncMock(
+        return_value=SimpleNamespace(value=list(range(50)), odata_next_link="https://graph.example/next")
+    )
+    graph.chat_messages.request_adapter = FakeRequestAdapter(
+        [SimpleNamespace(value=list(range(50, 100)), odata_next_link=None)]
+    )
+
+    with patch.object(app, "get_app_graph", return_value=graph):
+        result = await app.get_history(n=75, chat_id="chat-id")
+
+    assert result == list(range(75))
+    config = graph.chat_messages.get.call_args.args[0]
+    assert config.query_parameters.top == 50
+    next_request = graph.chat_messages.request_adapter.send_async.call_args.args[0]
+    assert next_request.url == "https://graph.example/next"
 
 
 @pytest.mark.asyncio
