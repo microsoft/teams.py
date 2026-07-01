@@ -94,12 +94,12 @@ async def get_graph_history(
         if not next_link:
             break
 
-        response = await _get_next_page(messages_builder, next_link)
+        response = await _get_next_page(graph, next_link)
 
     return messages
 
 
-async def _get_next_page(messages_builder: Any, next_link: str) -> Any:
+async def _get_next_page(graph: "GraphServiceClient", next_link: str) -> Any:
     try:
         from kiota_abstractions.method import Method
         from kiota_abstractions.request_information import RequestInformation
@@ -114,7 +114,8 @@ async def _get_next_page(messages_builder: Any, next_link: str) -> Any:
     ODataError = import_module("msgraph.generated.models.o_data_errors.o_data_error").ODataError
     request_info = RequestInformation(method=Method.GET)
     request_info.path_parameters[RequestInformation.RAW_URL_KEY] = next_link
-    return await messages_builder.request_adapter.send_async(
+    request_adapter = cast(Any, graph).request_adapter
+    return await request_adapter.send_async(
         request_info,
         ChatMessageCollectionResponse,
         {"4XX": ODataError, "5XX": ODataError},

@@ -88,6 +88,7 @@ class FakeTeamsBuilder:
 
 class FakeGraph:
     def __init__(self):
+        self.request_adapter = FakeRequestAdapter([])
         self.chat_messages = FakeMessagesBuilder(["chat-message"], ["chat-reply"])
         self.channel_messages = FakeMessagesBuilder(["channel-message"], ["channel-reply"])
         self.chats = FakeChatsBuilder(self.chat_messages)
@@ -116,9 +117,7 @@ async def test_app_get_history_paginates_when_count_exceeds_graph_page_limit() -
     graph.chat_messages.get = AsyncMock(
         return_value=SimpleNamespace(value=list(range(50)), odata_next_link="https://graph.example/next")
     )
-    graph.chat_messages.request_adapter = FakeRequestAdapter(
-        [SimpleNamespace(value=list(range(50, 100)), odata_next_link=None)]
-    )
+    graph.request_adapter = FakeRequestAdapter([SimpleNamespace(value=list(range(50, 100)), odata_next_link=None)])
 
     with patch.object(app, "get_app_graph", return_value=graph):
         result = await app.get_history(n=75, chat_id="chat-id")
@@ -126,7 +125,7 @@ async def test_app_get_history_paginates_when_count_exceeds_graph_page_limit() -
     assert result == list(range(75))
     config = graph.chat_messages.get.call_args.args[0]
     assert config.query_parameters.top == 50
-    next_request = graph.chat_messages.request_adapter.send_async.call_args.args[0]
+    next_request = graph.request_adapter.send_async.call_args.args[0]
     assert next_request.url == "https://graph.example/next"
 
 
