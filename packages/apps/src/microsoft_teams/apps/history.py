@@ -114,8 +114,7 @@ async def _get_next_page(graph: "GraphServiceClient", next_link: str) -> Any:
     ODataError = import_module("msgraph.generated.models.o_data_errors.o_data_error").ODataError
     request_info = RequestInformation(method=Method.GET)
     request_info.path_parameters[RequestInformation.RAW_URL_KEY] = next_link
-    request_adapter: Any = object.__getattribute__(graph, "request_adapter")
-    return await request_adapter.send_async(
+    return await graph.request_adapter.send_async(  # pyright: ignore[reportUnknownMemberType]
         request_info,
         ChatMessageCollectionResponse,
         {"4XX": ODataError, "5XX": ODataError},
