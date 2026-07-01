@@ -4,7 +4,7 @@ Licensed under the MIT License.
 """
 
 from importlib import import_module
-from typing import TYPE_CHECKING, Any, List, Optional, cast
+from typing import TYPE_CHECKING, Any, List, Optional, Protocol, cast
 
 _GRAPH_PAGE_SIZE_LIMIT = 50
 
@@ -13,6 +13,10 @@ if TYPE_CHECKING:
     from msgraph.graph_service_client import GraphServiceClient
 else:
     ChatMessage = Any
+
+
+class _NextPageRequestAdapter(Protocol):
+    async def send_async(self, request_info: Any, parsable_factory: Any, error_map: dict[str, Any]) -> Any: ...
 
 
 def _validate_history_count(n: object) -> None:
@@ -94,12 +98,15 @@ async def get_graph_history(
         if not next_link:
             break
 
-        response = await _get_next_page(graph, next_link)
+        response = await _get_next_page(
+            graph.request_adapter,  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType]
+            next_link,
+        )
 
     return messages
 
 
-async def _get_next_page(graph: "GraphServiceClient", next_link: str) -> Any:
+async def _get_next_page(request_adapter: _NextPageRequestAdapter, next_link: str) -> Any:
     try:
         from kiota_abstractions.method import Method
         from kiota_abstractions.request_information import RequestInformation
@@ -114,7 +121,6 @@ async def _get_next_page(graph: "GraphServiceClient", next_link: str) -> Any:
     ODataError = import_module("msgraph.generated.models.o_data_errors.o_data_error").ODataError
     request_info = RequestInformation(method=Method.GET)
     request_info.path_parameters[RequestInformation.RAW_URL_KEY] = next_link
-    request_adapter = cast(Any, graph).request_adapter
     return await request_adapter.send_async(
         request_info,
         ChatMessageCollectionResponse,
