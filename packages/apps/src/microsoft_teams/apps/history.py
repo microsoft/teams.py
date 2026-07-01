@@ -43,6 +43,11 @@ def _get_request_configuration(messages_builder: Any, n: int) -> Any:
     return RequestConfiguration(query_parameters=_get_query_parameters(messages_builder, n))
 
 
+def _get_error_mapping() -> dict[str, Any]:
+    ODataError = import_module("msgraph.generated.models.o_data_errors.o_data_error").ODataError
+    return {"4XX": ODataError, "5XX": ODataError}
+
+
 async def get_graph_history(
     graph: "GraphServiceClient",
     n: int,
@@ -82,40 +87,21 @@ async def get_graph_history(
 
     messages: list[ChatMessage] = []
     response = await messages_builder.get(_get_request_configuration(messages_builder, min(n, _GRAPH_PAGE_SIZE_LIMIT)))
+    if response is None or response.value is None:
+        return []
 
-    while response is not None:
-        if response.value:
-            messages.extend(response.value[: n - len(messages)])
-
-        if len(messages) >= n:
-            break
-
-        next_link = getattr(response, "odata_next_link", None)
-        if not next_link:
-            break
-
-        response = await _get_next_page(graph, next_link)
-
-    return messages
-
-
-async def _get_next_page(graph: "GraphServiceClient", next_link: str) -> Any:
     try:
-        from kiota_abstractions.method import Method
-        from kiota_abstractions.request_information import RequestInformation
-        from msgraph.generated.models.chat_message_collection_response import (  # type: ignore[reportMissingTypeStubs]
-            ChatMessageCollectionResponse,
-        )
+        from msgraph_core.tasks.page_iterator import PageIterator  # type: ignore[reportMissingTypeStubs]
     except ImportError as e:
         raise ImportError(
             "Graph functionality not available. Install with 'pip install microsoft-teams-apps[graph]'"
         ) from e
 
-    ODataError = import_module("msgraph.generated.models.o_data_errors.o_data_error").ODataError
-    request_info = RequestInformation(method=Method.GET)
-    request_info.path_parameters[RequestInformation.RAW_URL_KEY] = next_link
-    return await graph.request_adapter.send_async(  # pyright: ignore[reportUnknownMemberType]
-        request_info,
-        ChatMessageCollectionResponse,
-        {"4XX": ODataError, "5XX": ODataError},
-    )
+    def collect(message: ChatMessage) -> bool:
+        messages.append(message)
+        return len(messages) < n
+
+    request_adapter: Any = graph.request_adapter  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]
+    iterator: Any = PageIterator(response, request_adapter, error_mapping=_get_error_mapping())
+    await iterator.iterate(collect)
+    return messages
