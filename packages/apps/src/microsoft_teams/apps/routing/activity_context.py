@@ -43,7 +43,7 @@ from microsoft_teams.common.http.client_token import Token
 
 from ..activity_sender import ActivitySender
 from ..history import ChatMessage, get_graph_history
-from ..utils import create_graph_client
+from ..utils import create_graph_client, get_base_conversation_id, get_thread_message_id
 
 if TYPE_CHECKING:
     from msgraph.graph_service_client import GraphServiceClient
@@ -72,15 +72,6 @@ class SignInOptions:
 
 
 DEFAULT_SIGNIN_OPTIONS = SignInOptions()
-
-
-def _thread_id_from_conversation_id(conversation_id: str) -> Optional[str]:
-    _, separator, thread_id = conversation_id.partition(";messageid=")
-    return thread_id if separator and thread_id else None
-
-
-def _base_conversation_id(conversation_id: str) -> str:
-    return conversation_id.split(";messageid=", 1)[0]
 
 
 class ActivityContext(Generic[T]):
@@ -246,12 +237,12 @@ class ActivityContext(Generic[T]):
             team_aad_group_id = self.activity.team.aad_group_id
         channel_id = self.activity.channel.id if self.activity.channel else None
         conversation_id = self.activity.conversation.id
-        resolved_thread_id = thread_id or self.activity.reply_to_id or _thread_id_from_conversation_id(conversation_id)
+        resolved_thread_id = thread_id or self.activity.reply_to_id or get_thread_message_id(conversation_id)
 
         return await get_graph_history(
             self.app_graph,
             n,
-            chat_id=None if channel_id else _base_conversation_id(conversation_id),
+            chat_id=None if channel_id else get_base_conversation_id(conversation_id),
             channel_id=channel_id,
             thread_id=resolved_thread_id,
             team_aad_group_id=team_aad_group_id,
