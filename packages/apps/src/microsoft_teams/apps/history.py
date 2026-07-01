@@ -4,20 +4,15 @@ Licensed under the MIT License.
 """
 
 from importlib import import_module
-from typing import TYPE_CHECKING, Any, List, Optional, Protocol, cast
+from typing import TYPE_CHECKING, Any, List, Optional, cast
 
 _GRAPH_PAGE_SIZE_LIMIT = 50
 
 if TYPE_CHECKING:
     from msgraph.generated.models.chat_message import ChatMessage  # type: ignore[reportMissingTypeStubs]
+    from msgraph.graph_service_client import GraphServiceClient
 else:
     ChatMessage = Any
-
-
-class _GraphClient(Protocol):
-    request_adapter: Any
-    chats: Any
-    teams: Any
 
 
 def _validate_history_count(n: object) -> None:
@@ -49,7 +44,7 @@ def _get_request_configuration(messages_builder: Any, n: int) -> Any:
 
 
 async def get_graph_history(
-    graph: _GraphClient,
+    graph: "GraphServiceClient",
     n: int,
     *,
     chat_id: Optional[str] = None,
@@ -99,12 +94,12 @@ async def get_graph_history(
         if not next_link:
             break
 
-        response = await _get_next_page(graph.request_adapter, next_link)
+        response = await _get_next_page(graph, next_link)
 
     return messages
 
 
-async def _get_next_page(request_adapter: Any, next_link: str) -> Any:
+async def _get_next_page(graph: "GraphServiceClient", next_link: str) -> Any:
     try:
         from kiota_abstractions.method import Method
         from kiota_abstractions.request_information import RequestInformation
@@ -119,6 +114,7 @@ async def _get_next_page(request_adapter: Any, next_link: str) -> Any:
     ODataError = import_module("msgraph.generated.models.o_data_errors.o_data_error").ODataError
     request_info = RequestInformation(method=Method.GET)
     request_info.path_parameters[RequestInformation.RAW_URL_KEY] = next_link
+    request_adapter: Any = object.__getattribute__(graph, "request_adapter")
     return await request_adapter.send_async(
         request_info,
         ChatMessageCollectionResponse,
