@@ -341,16 +341,21 @@ class App(ActivityHandlerMixin):
         tenant_id: Optional[str] = None,
         agentic_app_blueprint_id: Optional[str] = None,
     ) -> AgenticIdentity:
-        """Get an Agent ID identity for API calls."""
+        """Get an Agent ID identity for API calls.
+
+        When ``agentic_app_blueprint_id`` is omitted, it defaults to the app's own
+        client/app id (``self.id``).
+        """
         resolved_tenant_id = tenant_id or (self.credentials.tenant_id if self.credentials else None)
         if resolved_tenant_id is None:
             raise ValueError("tenant_id is required to get an agentic identity")
 
+        resolved_blueprint_id = agentic_app_blueprint_id or self.id
         return AgenticIdentity(
             agentic_app_id=agentic_app_id,
             agentic_user_id=agentic_user_id,
             tenant_id=resolved_tenant_id,
-            agentic_app_blueprint_id=agentic_app_blueprint_id,
+            agentic_app_blueprint_id=resolved_blueprint_id,
         )
 
     @overload

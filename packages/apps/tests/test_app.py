@@ -834,6 +834,34 @@ class TestApp:
         }
         assert result.id == "sent-activity-id"
 
+    def test_get_agentic_identity_preserves_explicit_blueprint_id(self, mock_storage) -> None:
+        """An explicitly provided agentic_app_blueprint_id should be preserved."""
+        options = AppOptions(storage=mock_storage, client_id="test-client-id", client_secret="test-secret")
+        app = App(**options)
+
+        identity = app.get_agentic_identity(
+            "agentic-app-id",
+            "agentic-user-id",
+            tenant_id="tenant-id",
+            agentic_app_blueprint_id="explicit-blueprint-id",
+        )
+
+        assert identity.agentic_app_blueprint_id == "explicit-blueprint-id"
+
+    def test_get_agentic_identity_defaults_blueprint_id_to_client_id(self, mock_storage) -> None:
+        """When agentic_app_blueprint_id is omitted, it should default to the app's client id."""
+        options = AppOptions(storage=mock_storage, client_id="test-client-id", client_secret="test-secret")
+        app = App(**options)
+
+        identity = app.get_agentic_identity(
+            "agentic-app-id",
+            "agentic-user-id",
+            tenant_id="tenant-id",
+        )
+
+        assert identity.agentic_app_blueprint_id == app.id
+        assert identity.agentic_app_blueprint_id == "test-client-id"
+
 
 class TestAppInitialize:
     """Test cases for App.initialize() method."""
