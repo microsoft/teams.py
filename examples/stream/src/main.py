@@ -97,12 +97,13 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
             await asyncio.sleep(0.5)
             ctx.stream.emit(message)
 
-        await ctx.stream.close(reset=True)
-        await asyncio.sleep(1)
-
-        card_message = MessageActivityInput(text="Adaptive Card between streams.").add_card(create_simple_card())
-        sent_message = await ctx.send(card_message)
-        logger.info("Sent checkpoint adaptive card: %s", sent_message.id)
+        card_message = MessageActivityInput(text="Adaptive Card emitted as part of stream 1.").add_card(
+            create_simple_card()
+        )
+        ctx.stream.emit(card_message)
+        sent_message = await ctx.stream.close(reset=True)
+        if sent_message:
+            logger.info("Sent stream 1 final message with adaptive card: %s", sent_message.id)
         await asyncio.sleep(2)
 
         ctx.stream.update("Starting stream 2...")
