@@ -40,7 +40,7 @@ FIRST_STREAM_MESSAGES = [
 
 SECOND_STREAM_MESSAGES = [
     "[stream 2] Reusing ctx.stream after emit reopens the closed stream. ",
-    "[stream 2] This should render after the non-stream checkpoint message. ",
+    "[stream 2] This should render after stream 1's final Adaptive Card message. ",
     "[stream 2] The app processor will close this stream when the handler returns.",
 ]
 

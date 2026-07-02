@@ -30,7 +30,7 @@ class StreamerProtocol(Protocol):
 
     @property
     def closed(self) -> bool:
-        """Whether the final stream message has been sent."""
+        """Whether the current streamed message has been finalized."""
         ...
 
     @property
