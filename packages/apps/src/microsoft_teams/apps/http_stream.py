@@ -118,7 +118,7 @@ class HttpStream(StreamerProtocol):
         if self._canceled:
             raise StreamCancelledError("Stream has been cancelled.")
 
-        if self._result is not None:
+        if self.closed:
             logger.debug("starting a new streamed message after close")
             self._reset_stream_for_next_stream()
 
@@ -179,8 +179,9 @@ class HttpStream(StreamerProtocol):
         updating after close starts a new streamed message using the same
         stream instance.
         """
-        if self._result is not None:
+        if self.closed:
             logger.debug("stream already closed with result")
+            assert self._result is not None
             return self._result
 
         if self._canceled:
