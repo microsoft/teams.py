@@ -87,17 +87,12 @@ class StreamerProtocol(Protocol):
         """
         ...
 
-    async def close(self, reset: bool = False) -> Optional[SentActivity]:
+    async def close(self) -> Optional[SentActivity]:
         """
         Finalize the current streamed message.
 
-        By default, closing is terminal and idempotent: subsequent calls return
-        the same final activity. When reset is True, the current streamed
-        message is finalized and the stream is reset so the same instance can
-        be used for another streamed message.
-
-        Args:
-            reset: Whether to reset the stream after finalizing the current
-                streamed message.
+        Closing is idempotent until the next emit or update. Emitting or
+        updating after close starts a new streamed message using the same
+        stream instance.
         """
         ...

@@ -83,7 +83,7 @@ class HttpStream(StreamerProtocol):
 
     @property
     def closed(self) -> bool:
-        """Whether the final stream message has been sent."""
+        """Whether the current streamed message has been finalized."""
         return self._result is not None
 
     @property
@@ -112,6 +112,10 @@ class HttpStream(StreamerProtocol):
 
         if self._canceled:
             raise StreamCancelledError("Stream has been cancelled.")
+
+        if self._result is not None:
+            logger.debug("starting a new streamed message after close")
+            self._result = None
 
         if isinstance(activity, str):
             activity = MessageActivityInput(text=activity, type="message")
@@ -162,25 +166,17 @@ class HttpStream(StreamerProtocol):
         except asyncio.TimeoutError:
             return False
 
-    async def close(self, reset: bool = False) -> Optional[SentActivity]:
+    async def close(self) -> Optional[SentActivity]:
         """
         Finalize the current streamed message.
 
-        By default, closing is terminal and idempotent: subsequent calls return
-        the same final activity. When reset is True, the current streamed
-        message is finalized and the stream is reset so the same instance can
-        be used for another streamed message.
-
-        Args:
-            reset: Whether to reset the stream after finalizing the current
-                streamed message.
+        Closing is idempotent until the next emit or update. Emitting or
+        updating after close starts a new streamed message using the same
+        stream instance.
         """
         if self._result is not None:
             logger.debug("stream already closed with result")
-            result = self._result
-            if reset:
-                self._result = None
-            return result
+            return self._result
 
         if self._canceled:
             logger.debug("stream was cancelled, nothing to close")
@@ -219,8 +215,7 @@ class HttpStream(StreamerProtocol):
 
         # Reset per-message state; keep event handlers and cancellation state.
         self._reset_state()
-        if not reset:
-            self._result = res
+        self._result = res
         logger.debug("stream closed with result: %s", res)
 
         return res

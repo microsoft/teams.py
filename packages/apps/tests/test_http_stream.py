@@ -455,7 +455,7 @@ class TestHttpStream:
         assert mock_api_client.sent_activities[0].text == "Response text"
 
     @pytest.mark.asyncio
-    async def test_close_reset_reuses_stream_for_next_message(
+    async def test_emit_after_close_reopens_stream_for_next_message(
         self, mock_api_client, conversation_reference, patch_loop_call_later
     ):
         loop = asyncio.get_running_loop()
@@ -475,17 +475,21 @@ class TestHttpStream:
             await asyncio.sleep(0)
             await self._run_scheduled_flushes(scheduled)
 
-            first_result = await stream.close(reset=True)
+            first_result = await stream.close()
             await close_event.wait()
             close_event.clear()
             assert first_result is not None
-            assert stream.closed is False
-            assert stream.sequence == 1
+            assert stream.closed is True
+
+            repeated_result = await stream.close()
+            assert repeated_result is first_result
+            assert stream.closed is True
 
             stream.emit("Second streamed message")
+            assert stream.closed is False
             await asyncio.sleep(0)
             await self._run_scheduled_flushes(scheduled)
-            second_result = await stream.close()
+
             second_result = await stream.close()
             await close_event.wait()
             assert second_result is not None

@@ -35,11 +35,11 @@ STREAM_MESSAGES = [
 FIRST_STREAM_MESSAGES = [
     "[stream 1] Starting the first streamed response. ",
     "[stream 1] This is using the default ctx.stream instance. ",
-    "[stream 1] Next the handler will close with reset=True.",
+    "[stream 1] Next the handler will close the current streamed message.",
 ]
 
 SECOND_STREAM_MESSAGES = [
-    "[stream 2] Reusing ctx.stream after close(reset=True). ",
+    "[stream 2] Reusing ctx.stream after emit reopens the closed stream. ",
     "[stream 2] This should render after the non-stream checkpoint message. ",
     "[stream 2] The app processor will close this stream when the handler returns.",
 ]
@@ -101,7 +101,7 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
             create_simple_card()
         )
         ctx.stream.emit(card_message)
-        sent_message = await ctx.stream.close(reset=True)
+        sent_message = await ctx.stream.close()
         if sent_message:
             logger.info("Sent stream 1 final message with adaptive card: %s", sent_message.id)
         await asyncio.sleep(2)
