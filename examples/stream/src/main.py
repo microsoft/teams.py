@@ -9,7 +9,7 @@ from random import random
 
 from microsoft_teams.api import CardAction, CardActionType, MessageActivity, MessageActivityInput, SuggestedActions
 from microsoft_teams.apps import ActivityContext, App
-from microsoft_teams.cards import AdaptiveCard
+from microsoft_teams.cards import AdaptiveCard, TextBlock
 
 # Surface SDK INFO/WARNING logs (including the anonymous-mode startup warning
 # emitted when CLIENT_ID / CLIENT_SECRET / TENANT_ID are not configured).
@@ -56,25 +56,12 @@ def should_send_simple_card(text: str | None) -> bool:
 
 
 def create_simple_card() -> AdaptiveCard:
-    return AdaptiveCard.model_validate(
-        {
-            "type": "AdaptiveCard",
-            "version": "1.4",
-            "body": [
-                {
-                    "type": "TextBlock",
-                    "text": "Simple Adaptive Card",
-                    "weight": "Bolder",
-                    "size": "Large",
-                    "wrap": True,
-                },
-                {
-                    "type": "TextBlock",
-                    "text": "If you can see this card, basic Adaptive Card delivery is working.",
-                    "wrap": True,
-                },
-            ],
-        }
+    return AdaptiveCard(
+        version="1.4",
+        body=[
+            TextBlock(text="Simple Adaptive Card", weight="Bolder", size="Large", wrap=True),
+            TextBlock(text="If you can see this card, basic Adaptive Card delivery is working.", wrap=True),
+        ],
     )
 
 
