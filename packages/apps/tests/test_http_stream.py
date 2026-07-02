@@ -453,3 +453,45 @@ class TestHttpStream:
         assert result is not None
         assert mock_api_client.send_call_count == 1
         assert mock_api_client.sent_activities[0].text == "Response text"
+
+    @pytest.mark.asyncio
+    async def test_close_reset_reuses_stream_for_next_message(
+        self, mock_api_client, conversation_reference, patch_loop_call_later
+    ):
+        loop = asyncio.get_running_loop()
+        patcher, scheduled = patch_loop_call_later(loop)
+        close_results: list[SentActivity] = []
+        close_event = asyncio.Event()
+
+        async def handle_close(activity: SentActivity) -> None:
+            close_results.append(activity)
+            close_event.set()
+
+        with patcher:
+            stream = HttpStream(mock_api_client, conversation_reference)
+            stream.on_close(handle_close)
+
+            stream.emit("First streamed message")
+            await asyncio.sleep(0)
+            await self._run_scheduled_flushes(scheduled)
+
+            first_result = await stream.close(reset=True)
+            await close_event.wait()
+            close_event.clear()
+            assert first_result is not None
+            assert stream.closed is False
+            assert stream.sequence == 1
+
+            stream.emit("Second streamed message")
+            await asyncio.sleep(0)
+            await self._run_scheduled_flushes(scheduled)
+            second_result = await stream.close()
+            second_result = await stream.close()
+            await close_event.wait()
+            assert second_result is not None
+            assert stream.closed is True
+
+            assert first_result.id != second_result.id
+            assert first_result.activity_params.text == "First streamed message"
+            assert second_result.activity_params.text == "Second streamed message"
+            assert [result.id for result in close_results] == [first_result.id, second_result.id]

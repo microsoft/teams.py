@@ -59,10 +59,10 @@ class StreamerProtocol(Protocol):
 
     def on_close(self, handler: Callable[[SentActivity], Awaitable[None]]) -> None:
         """
-        Register a handler for close events.
+        Register a handler for stream close events.
 
         Args:
-            handler: Async function that will be called when the stream closes
+            handler: Async function that will be called each time the stream closes
         """
         ...
 
@@ -87,8 +87,17 @@ class StreamerProtocol(Protocol):
         """
         ...
 
-    async def close(self) -> Optional[SentActivity]:
+    async def close(self, reset: bool = False) -> Optional[SentActivity]:
         """
-        Close the stream.
+        Finalize the current streamed message.
+
+        By default, closing is terminal and idempotent: subsequent calls return
+        the same final activity. When reset is True, the current streamed
+        message is finalized and the stream is reset so the same instance can
+        be used for another streamed message.
+
+        Args:
+            reset: Whether to reset the stream after finalizing the current
+                streamed message.
         """
         ...

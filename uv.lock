@@ -14,6 +14,7 @@ members = [
     "cards",
     "dialogs",
     "echo",
+    "formatted-messaging",
     "graph",
     "http-adapters",
     "mcp-server",
@@ -968,6 +969,23 @@ wheels = [
 ]
 
 [[package]]
+name = "formatted-messaging"
+version = "0.1.0"
+source = { virtual = "examples/formatted-messaging" }
+dependencies = [
+    { name = "dotenv" },
+    { name = "microsoft-teams-api" },
+    { name = "microsoft-teams-apps" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "dotenv", specifier = ">=0.9.9" },
+    { name = "microsoft-teams-api", editable = "packages/api" },
+    { name = "microsoft-teams-apps", editable = "packages/apps" },
+]
+
+[[package]]
 name = "frozenlist"
 version = "1.8.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1816,7 +1834,7 @@ test = [
 
 [package.metadata]
 requires-dist = [
-    { name = "cryptography", specifier = ">=48.0.1" },
+    { name = "cryptography", specifier = ">=3.4.0" },
     { name = "dependency-injector", specifier = ">=4.48.1" },
     { name = "fastapi", specifier = ">=0.115.13" },
     { name = "microsoft-teams-api", editable = "packages/api" },

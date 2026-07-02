@@ -9,6 +9,7 @@ from random import random
 
 from microsoft_teams.api import CardAction, CardActionType, MessageActivity, MessageActivityInput, SuggestedActions
 from microsoft_teams.apps import ActivityContext, App
+from microsoft_teams.cards import AdaptiveCard
 
 # Surface SDK INFO/WARNING logs (including the anonymous-mode startup warning
 # emitted when CLIENT_ID / CLIENT_SECRET / TENANT_ID are not configured).
@@ -31,10 +32,87 @@ STREAM_MESSAGES = [
     "✨ Stream test complete!",
 ]
 
+FIRST_STREAM_MESSAGES = [
+    "[stream 1] Starting the first streamed response. ",
+    "[stream 1] This is using the default ctx.stream instance. ",
+    "[stream 1] Next the handler will close with reset=True.",
+]
+
+SECOND_STREAM_MESSAGES = [
+    "[stream 2] Reusing ctx.stream after close(reset=True). ",
+    "[stream 2] This should render after the non-stream checkpoint message. ",
+    "[stream 2] The app processor will close this stream when the handler returns.",
+]
+
+
+def should_run_multi_stream(text: str | None) -> bool:
+    normalized = (text or "").lower().replace("-", " ")
+    return "multi stream" in normalized
+
+
+def should_send_simple_card(text: str | None) -> bool:
+    normalized = (text or "").lower().replace("-", " ")
+    return "simple card" in normalized
+
+
+def create_simple_card() -> AdaptiveCard:
+    return AdaptiveCard.model_validate(
+        {
+            "type": "AdaptiveCard",
+            "version": "1.4",
+            "body": [
+                {
+                    "type": "TextBlock",
+                    "text": "Simple Adaptive Card",
+                    "weight": "Bolder",
+                    "size": "Large",
+                    "wrap": True,
+                },
+                {
+                    "type": "TextBlock",
+                    "text": "If you can see this card, basic Adaptive Card delivery is working.",
+                    "wrap": True,
+                },
+            ],
+        }
+    )
+
 
 @app.on_message
 async def handle_message(ctx: ActivityContext[MessageActivity]):
     """Stream messages to the user on any message activity."""
+
+    if should_send_simple_card(ctx.activity.text):
+        sent_card = await ctx.send(
+            MessageActivityInput(text="Sending a simple Adaptive Card.").add_card(create_simple_card())
+        )
+        logger.info("Sent simple adaptive card: %s", sent_card.id)
+        return
+
+    if should_run_multi_stream(ctx.activity.text):
+        ctx.stream.update("Starting stream 1...")
+        await asyncio.sleep(1)
+
+        for message in FIRST_STREAM_MESSAGES:
+            await asyncio.sleep(0.5)
+            ctx.stream.emit(message)
+
+        card_message = MessageActivityInput(text="Adaptive Card emitted as part of stream 1.").add_card(
+            create_simple_card()
+        )
+        ctx.stream.emit(card_message)
+        sent_message = await ctx.stream.close(reset=True)
+        if sent_message:
+            logger.info("Sent stream 1 final message with adaptive card: %s", sent_message.id)
+        await asyncio.sleep(2)
+
+        ctx.stream.update("Starting stream 2...")
+        await asyncio.sleep(1)
+
+        for message in SECOND_STREAM_MESSAGES:
+            await asyncio.sleep(0.5)
+            ctx.stream.emit(message)
+        return
 
     ctx.stream.update("Stream starting...")
     await asyncio.sleep(1)
