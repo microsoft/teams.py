@@ -62,16 +62,21 @@ class HttpStream(StreamerProtocol):
         self._state_changed = asyncio.Event()
 
         self._canceled = False
-        self._reset_state()
+        self._reset_current_stream()
 
-    def _reset_state(self) -> None:
-        """Reset the stream state to initial values."""
+    def _reset_current_stream(self) -> None:
+        """Reset per-message state for the current stream cycle."""
         self._index = 1
         self._id: Optional[str] = None
         self._text: str = ""
         self._channel_data: ChannelData = ChannelData()
         self._final_activity: Optional[MessageActivityInput] = None
         self._queue: deque[Union[MessageActivityInput, TypingActivityInput, str]] = deque()
+
+    def _reset_stream_for_next_stream(self) -> None:
+        """Prepare the stream instance to start a new stream cycle."""
+        self._reset_current_stream()
+        self._result = None
 
     @property
     def canceled(self) -> bool:
@@ -115,7 +120,7 @@ class HttpStream(StreamerProtocol):
 
         if self._result is not None:
             logger.debug("starting a new streamed message after close")
-            self._result = None
+            self._reset_stream_for_next_stream()
 
         if isinstance(activity, str):
             activity = MessageActivityInput(text=activity, type="message")
@@ -214,7 +219,7 @@ class HttpStream(StreamerProtocol):
         self._events.emit("close", res)
 
         # Reset per-message state; keep event handlers and cancellation state.
-        self._reset_state()
+        self._reset_current_stream()
         self._result = res
         logger.debug("stream closed with result: %s", res)
 
