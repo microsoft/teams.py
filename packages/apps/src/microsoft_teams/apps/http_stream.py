@@ -100,7 +100,7 @@ class HttpStream(StreamerProtocol):
         self._events.on("chunk", handler)
 
     def on_close(self, handler: Callable[[SentActivity], Awaitable[None]]):
-        self._events.once("close", handler)
+        self._events.on("close", handler)
 
     def emit(self, activity: Union[MessageActivityInput, TypingActivityInput, str]) -> None:
         """
@@ -162,11 +162,25 @@ class HttpStream(StreamerProtocol):
         except asyncio.TimeoutError:
             return False
 
-    async def close(self) -> Optional[SentActivity]:
-        # wait for lock to be free
+    async def close(self, reset: bool = False) -> Optional[SentActivity]:
+        """
+        Finalize the current streamed message.
+
+        By default, closing is terminal and idempotent: subsequent calls return
+        the same final activity. When reset is True, the current streamed
+        message is finalized and the stream is reset so the same instance can
+        be used for another streamed message.
+
+        Args:
+            reset: Whether to reset the stream after finalizing the current
+                streamed message.
+        """
         if self._result is not None:
             logger.debug("stream already closed with result")
-            return self._result
+            result = self._result
+            if reset:
+                self._result = None
+            return result
 
         if self._canceled:
             logger.debug("stream was cancelled, nothing to close")
@@ -203,9 +217,10 @@ class HttpStream(StreamerProtocol):
         # Emit close event
         self._events.emit("close", res)
 
-        # Reset state
+        # Reset per-message state; keep event handlers and cancellation state.
         self._reset_state()
-        self._result = res
+        if not reset:
+            self._result = res
         logger.debug("stream closed with result: %s", res)
 
         return res
