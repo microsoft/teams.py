@@ -9,6 +9,7 @@ from random import random
 
 from microsoft_teams.api import CardAction, CardActionType, MessageActivity, MessageActivityInput, SuggestedActions
 from microsoft_teams.apps import ActivityContext, App
+from microsoft_teams.cards import AdaptiveCard
 
 # Surface SDK INFO/WARNING logs (including the anonymous-mode startup warning
 # emitted when CLIENT_ID / CLIENT_SECRET / TENANT_ID are not configured).
@@ -49,9 +50,44 @@ def should_run_multi_stream(text: str | None) -> bool:
     return "multi stream" in normalized
 
 
+def should_send_simple_card(text: str | None) -> bool:
+    normalized = (text or "").lower().replace("-", " ")
+    return "simple card" in normalized
+
+
+def create_simple_card() -> AdaptiveCard:
+    return AdaptiveCard.model_validate(
+        {
+            "type": "AdaptiveCard",
+            "version": "1.4",
+            "body": [
+                {
+                    "type": "TextBlock",
+                    "text": "Simple Adaptive Card",
+                    "weight": "Bolder",
+                    "size": "Large",
+                    "wrap": True,
+                },
+                {
+                    "type": "TextBlock",
+                    "text": "If you can see this card, basic Adaptive Card delivery is working.",
+                    "wrap": True,
+                },
+            ],
+        }
+    )
+
+
 @app.on_message
 async def handle_message(ctx: ActivityContext[MessageActivity]):
     """Stream messages to the user on any message activity."""
+
+    if should_send_simple_card(ctx.activity.text):
+        sent_card = await ctx.send(
+            MessageActivityInput(text="Sending a simple Adaptive Card.").add_card(create_simple_card())
+        )
+        logger.info("Sent simple adaptive card: %s", sent_card.id)
+        return
 
     if should_run_multi_stream(ctx.activity.text):
         ctx.stream.update("Starting stream 1...")
