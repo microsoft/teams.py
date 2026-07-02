@@ -100,8 +100,9 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
         await ctx.stream.close(reset=True)
         await asyncio.sleep(1)
 
-        sent_message = await ctx.send("NON-STREAM MESSAGE BETWEEN STREAMS")
-        logger.info("Sent checkpoint message: %s", sent_message.id)
+        card_message = MessageActivityInput(text="Adaptive Card between streams.").add_card(create_simple_card())
+        sent_message = await ctx.send(card_message)
+        logger.info("Sent checkpoint adaptive card: %s", sent_message.id)
         await asyncio.sleep(2)
 
         ctx.stream.update("Starting stream 2...")
