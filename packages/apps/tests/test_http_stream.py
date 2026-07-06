@@ -22,7 +22,12 @@ from microsoft_teams.api import (
     TypingActivityInput,
 )
 from microsoft_teams.apps import HttpStream
-from microsoft_teams.apps.plugins import StreamCancelledError
+from microsoft_teams.apps.plugins import (
+    StreamCancelledError,
+    StreamNotAllowedError,
+    StreamTimedOutError,
+    TerminalStreamError,
+)
 
 
 class TestHttpStream:
@@ -235,7 +240,7 @@ class TestHttpStream:
                 raise HTTPStatusError(
                     "Forbidden",
                     request=Request("POST", "https://example.com"),
-                    response=Response(403),
+                    response=Response(403, json={"error": {"message": "Content stream was canceled by user"}}),
                 )
 
             mock_api_client.conversations.activities().create = mock_send_403
@@ -257,7 +262,7 @@ class TestHttpStream:
                 raise HTTPStatusError(
                     "Forbidden",
                     request=Request("POST", "https://example.com"),
-                    response=Response(403),
+                    response=Response(403, json={"error": {"message": "Content stream was canceled by user"}}),
                 )
 
             mock_api_client.conversations.activities().create = mock_send_403
@@ -298,7 +303,7 @@ class TestHttpStream:
                 raise HTTPStatusError(
                     "Forbidden",
                     request=Request("POST", "https://example.com"),
-                    response=Response(403),
+                    response=Response(403, json={"error": {"message": "Content stream was canceled by user"}}),
                 )
 
             mock_api_client.conversations.activities().create = mock_send_then_403
@@ -323,6 +328,88 @@ class TestHttpStream:
             # Further emits raise
             with pytest.raises(StreamCancelledError, match="Stream has been cancelled."):
                 stream.emit("Should be ignored")
+
+    @pytest.mark.parametrize(
+        "message, expected",
+        [
+            ("Content stream finished due to exceeded streaming time.", StreamTimedOutError),
+            ("Content stream was canceled by user.", StreamCancelledError),
+            ("Content stream is not allowed", StreamNotAllowedError),
+            ("Content stream is not allowed on an already completed streamed message", TerminalStreamError),
+            ("Message size too large", TerminalStreamError),
+            ("Request streamed content should contain the previously streamed content", TerminalStreamError),
+        ],
+    )
+    @pytest.mark.asyncio
+    async def test_send_maps_403_message_to_error(self, mock_api_client, conversation_reference, message, expected):
+        async def mock_send_403(activity):
+            raise HTTPStatusError(
+                "Forbidden",
+                request=Request("POST", "https://example.com"),
+                response=Response(403, json={"error": {"message": message}}),
+            )
+
+        mock_api_client.conversations.activities().create = mock_send_403
+        stream = HttpStream(mock_api_client, conversation_reference)
+
+        with pytest.raises(expected):
+            await stream._send(TypingActivityInput(text="hi"))
+
+    @pytest.mark.asyncio
+    async def test_send_403_with_empty_body_raises_stream_error(self, mock_api_client, conversation_reference):
+        """A 403 with an empty/non-JSON body is treated as an unknown stream error instead of crashing."""
+
+        async def mock_send_403(activity):
+            raise HTTPStatusError(
+                "Forbidden",
+                request=Request("POST", "https://example.com"),
+                response=Response(403),
+            )
+
+        mock_api_client.conversations.activities().create = mock_send_403
+        stream = HttpStream(mock_api_client, conversation_reference)
+
+        with pytest.raises(TerminalStreamError):
+            await stream._send(TypingActivityInput(text="hi"))
+
+    @pytest.mark.asyncio
+    async def test_final_send_timeout_resends_as_regular_message(
+        self, mock_api_client, conversation_reference, patch_loop_call_later
+    ):
+        """If the final streamed send trips the 2-minute limit, buffered text is resent as a regular message."""
+        call_count = 0
+        loop = asyncio.get_running_loop()
+        patcher, scheduled = patch_loop_call_later(loop)
+        with patcher:
+
+            async def mock_send(activity):
+                nonlocal call_count
+                call_count += 1
+                if call_count == 2:
+                    raise HTTPStatusError(
+                        "Forbidden",
+                        request=Request("POST", "https://example.com"),
+                        response=Response(
+                            403,
+                            json={"error": {"message": "Content stream finished due to exceeded streaming time."}},
+                        ),
+                    )
+                return SentActivity(id=f"activity-{call_count}", activity_params=activity)
+
+            mock_api_client.conversations.activities().create = mock_send
+            stream = HttpStream(mock_api_client, conversation_reference)
+
+            stream.emit("Final answer")
+            await asyncio.sleep(0)
+            await self._run_scheduled_flushes(scheduled)
+
+            result = await stream.close()
+
+            # Final streamed send timed out (call 2), so buffered text was resent as a
+            # regular message (call 3) instead of erroring out.
+            assert call_count == 3
+            assert result is not None
+            assert stream._timed_out is True
 
     @pytest.mark.asyncio
     async def test_close_returns_none_when_canceled(self, mock_api_client, conversation_reference):

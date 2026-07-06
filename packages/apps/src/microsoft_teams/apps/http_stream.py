@@ -19,7 +19,14 @@ from microsoft_teams.api import (
 )
 from microsoft_teams.common import EventEmitter
 
-from .plugins.streamer import StreamCancelledError, StreamerEvent, StreamerProtocol
+from .plugins.streamer import (
+    StreamCancelledError,
+    StreamerEvent,
+    StreamerProtocol,
+    StreamNotAllowedError,
+    StreamTimedOutError,
+    TerminalStreamError,
+)
 from .utils import RetryOptions, retry
 
 logger = logging.getLogger(__name__)
@@ -207,18 +214,23 @@ class HttpStream(StreamerProtocol):
             activity = self._final_activity or MessageActivityInput()
             activity.with_text(self._text)
             activity.id = None
-            res = await retry(lambda: self._send(activity), options=RetryOptions())
+            res = await retry(
+                lambda: self._send(activity),
+                options=RetryOptions(),
+                non_retryable=(TerminalStreamError,),
+            )
         else:
             assert self._id is not None, "ID should be set by this point"
             activity = self._final_activity or MessageActivityInput()
             activity.with_text(self._text).with_id(self._id).with_channel_data(self._channel_data).add_stream_final()
             try:
-                res = await retry(lambda: self._send(activity), options=RetryOptions())
-            except StreamCancelledError:
-                # Reaches this point if the streaming time exceeded 2 minutes on the final request.
-                if not self._timed_out:
-                    raise
-                # The final stream send itself tripped the time limit; resend the
+                res = await retry(
+                    lambda: self._send(activity),
+                    options=RetryOptions(),
+                    non_retryable=(TerminalStreamError,),
+                )
+            except StreamTimedOutError:
+                # The final streamed send itself tripped the 2-minute limit; resend the
                 # buffered content as a regular message (cleared id -> create path).
                 final_message = self._final_activity or MessageActivityInput()
                 final_message.with_text(self._text)
@@ -314,11 +326,10 @@ class HttpStream(StreamerProtocol):
             res = await retry(
                 lambda: self._send(to_send),
                 options=RetryOptions(max_delay=4.0, jitter_type="none", max_attempts=8),
+                non_retryable=(TerminalStreamError,),
             )
-        except StreamCancelledError:
-            if self._timed_out:
-                return
-            raise
+        except StreamTimedOutError:
+            return
         self._events.emit("chunk", res)
         self._index += 1
         if self._id is None:
@@ -347,15 +358,32 @@ class HttpStream(StreamerProtocol):
 
             return SentActivity.merge(to_send, res)
         except HTTPStatusError as e:
+            # Various error codes are used for streaming.
+            # https://learn.microsoft.com/en-us/microsoftteams/platform/bots/streaming-ux?tabs=csharp#error-codes
             if e.response.status_code == 403:
-                error = e.response.json().get("error", {})
-                message = error.get("message", "")
-                if message != "Content stream was cancelled by user.":
-                    if message == "Content stream finished due to exceeded streaming time.":
-                        self._timed_out = True
-                    logger.warning("Teams encountered an error while streaming. Sending as a regular message.")
+                message = ""
+                try:
+                    message = e.response.json().get("error", {}).get("message", "")
+                except ValueError:
+                    # 403 with an empty or non-JSON body: treat as an unknown stream error.
+                    pass
+
+                normalized = message.lower()
+
+                if "exceeded streaming time" in normalized:
+                    self._timed_out = True
+                    logger.warning(
+                        "The bot failed to complete the streaming process within the strict time limit of two minutes."
+                    )
+                    raise StreamTimedOutError(message) from e
+                elif "cancel" in normalized:
+                    self._canceled = True
+                    logger.warning("The streaming was stopped by the user.")
                     raise StreamCancelledError(message) from e
-                self._canceled = True
-                logger.warning("Teams channel stopped the stream.")
-                raise StreamCancelledError("Teams channel stopped the stream.") from e
+                elif "not allowed" in normalized:
+                    logger.warning("The streaming API isn't allowed for the user or bot.")
+                    raise StreamNotAllowedError(message) from e
+                else:
+                    logger.warning("Teams returned a streaming error: %s", message)
+                    raise TerminalStreamError(message) from e
             raise
