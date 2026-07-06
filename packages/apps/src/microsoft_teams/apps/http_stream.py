@@ -213,7 +213,7 @@ class HttpStream(StreamerProtocol):
         if self._timed_out:
             activity = self._final_activity or MessageActivityInput()
             activity.with_text(self._text)
-            activity.id = None
+            activity.id = self._id
             res = await retry(
                 lambda: self._send(activity),
                 options=RetryOptions(),
@@ -234,7 +234,7 @@ class HttpStream(StreamerProtocol):
                 # buffered content as a regular message (cleared id -> create path).
                 final_message = self._final_activity or MessageActivityInput()
                 final_message.with_text(self._text)
-                final_message.id = None
+                final_message.id = self._id
                 res = await self._send(final_message)
 
         # Emit close event
