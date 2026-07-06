@@ -59,6 +59,30 @@ from .plugins.metadata import Plugin
 
 version = importlib.metadata.version("microsoft-teams-apps")
 
+def stringify_ints(d: dict, *keys: str):
+    for key in keys:
+        if isinstance(d.get(key), int):
+            d[key] = str(d[key])
+
+
+def drop_empty(d: dict, *keys: str):
+    for key in keys:
+        if d.get(key) in ("", {}):
+            d.pop(key, None)
+
+
+def sanitize_message_payload(body: dict):
+    """Fix known iOS Teams client type mismatches in `messagePayload` in-place."""
+    payload = (body.get("value") or {}).get("messagePayload")
+    if not isinstance(payload, dict):
+        return
+
+    stringify_ints(payload, "id", "replyToId")
+    drop_empty(payload, "importance")
+
+    if isinstance(from_ := payload.get("from"), dict):
+        drop_empty(from_, "application", "conversation", "user")
+
 
 class HttpPluginOptions(TypedDict, total=False):
     """Options for configuring the HTTP plugin."""
@@ -296,6 +320,8 @@ class HttpPlugin(Sender):
         """
         # Parse activity data
         body = await request.json()
+
+        sanitize_message_payload(body)
 
         # Get validated token from middleware (if present - will be missing if skip_auth is True)
         if hasattr(request.state, "validated_token") and request.state.validated_token:
