@@ -235,6 +235,7 @@ class HttpStream(StreamerProtocol):
                 final_message = self._final_activity or MessageActivityInput()
                 final_message.with_text(self._text)
                 final_message.id = self._id
+                final_message.entities = [e for e in (final_message.entities or []) if e.type != "streaminfo"]
                 res = await self._send(final_message)
 
         # Emit close event
