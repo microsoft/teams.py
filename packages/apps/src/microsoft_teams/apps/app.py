@@ -215,7 +215,7 @@ class App(ActivityHandlerMixin):
         try:
             await self._initialize_plugins()
         except Exception as error:
-            logger.error(f"Failed to initialize plugins: {error}")
+            logger.exception("Failed to initialize plugins")
             self._events.emit("error", ErrorEvent(error, context={"method": "start_plugins"}))
             raise
 
