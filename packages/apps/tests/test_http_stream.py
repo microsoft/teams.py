@@ -646,7 +646,7 @@ class TestHttpStream:
             await self._run_scheduled_flushes(scheduled)
 
             first_result = await stream.close()
-            await close_event.wait()
+            await asyncio.wait_for(close_event.wait(), timeout=1)
             close_event.clear()
             assert first_result is not None
             assert stream.closed is True
@@ -661,7 +661,7 @@ class TestHttpStream:
             await self._run_scheduled_flushes(scheduled)
 
             second_result = await stream.close()
-            await close_event.wait()
+            await asyncio.wait_for(close_event.wait(), timeout=1)
             assert second_result is not None
             assert stream.closed is True
 
