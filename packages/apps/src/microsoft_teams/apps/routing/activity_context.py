@@ -8,7 +8,7 @@ import json
 import logging
 import warnings
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Awaitable, Callable, Generic, List, Optional, TypeGuard, TypeVar
+from typing import TYPE_CHECKING, Any, Awaitable, Callable, Generic, Optional, TypeGuard, TypeVar
 
 from microsoft_teams.api import (
     Account,
@@ -42,7 +42,13 @@ from microsoft_teams.common.experimental import ExperimentalWarning
 from microsoft_teams.common.http.client_token import Token
 
 from ..activity_sender import ActivitySender
-from ..history import ChatMessage, get_graph_history
+from ..history import (
+    ChannelHistorySource,
+    GroupChatHistorySource,
+    MessageHistory,
+    OneOnOneHistorySource,
+    get_graph_history,
+)
 from ..utils import create_graph_client, get_base_conversation_id, get_thread_message_id
 
 if TYPE_CHECKING:
@@ -224,7 +230,7 @@ class ActivityContext(Generic[T]):
             activity.prepend_quote(message_id)
         return await self.send(activity)
 
-    async def get_history(self, n: int, *, thread_id: Optional[str] = None) -> List[ChatMessage]:
+    async def get_history(self, n: int, *, thread_id: Optional[str] = None) -> MessageHistory:
         """
         Get message history for the current Teams conversation using Microsoft Graph.
 
@@ -239,13 +245,23 @@ class ActivityContext(Generic[T]):
         conversation_id = self.activity.conversation.id
         resolved_thread_id = thread_id or self.activity.reply_to_id or get_thread_message_id(conversation_id)
 
+        if channel_id:
+            if not team_aad_group_id:
+                raise ValueError("team_aad_group_id and channel_id are required for channel history")
+            source = ChannelHistorySource(
+                team_aad_group_id=team_aad_group_id,
+                channel_id=channel_id,
+                thread_id=resolved_thread_id,
+            )
+        elif self.activity.conversation.conversation_type == "personal" or self.activity.conversation.is_group is False:
+            source = OneOnOneHistorySource(chat_id=get_base_conversation_id(conversation_id))
+        else:
+            source = GroupChatHistorySource(chat_id=get_base_conversation_id(conversation_id))
+
         return await get_graph_history(
             self.app_graph,
             n,
-            chat_id=None if channel_id else get_base_conversation_id(conversation_id),
-            channel_id=channel_id,
-            thread_id=resolved_thread_id,
-            team_aad_group_id=team_aad_group_id,
+            source=source,
         )
 
     async def next(self) -> None:

@@ -10,7 +10,7 @@ from typing import Any
 
 from microsoft_teams.api import MessageActivity
 from microsoft_teams.api.activities.typing import TypingActivityInput
-from microsoft_teams.apps import ActivityContext, App
+from microsoft_teams.apps import ActivityContext, App, ChannelHistorySource, GroupChatHistorySource, MessageHistory
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -78,8 +78,8 @@ def _format_history(title: str, messages: list[Any]) -> str:
     return "\n\n".join(lines)
 
 
-async def _send_history(ctx: ActivityContext[MessageActivity], title: str, messages: list[Any]) -> None:
-    await ctx.reply(_format_history(title, messages))
+async def _send_history(ctx: ActivityContext[MessageActivity], title: str, history: MessageHistory) -> None:
+    await ctx.reply(_format_history(title, history.messages))
 
 
 def _history_error_guidance(error: Exception) -> str:
@@ -112,7 +112,7 @@ async def handle_message(ctx: ActivityContext[MessageActivity]) -> None:
             "**Commands:**\n\n"
             "- `history` - current context history with `ctx.get_history(5)`\n\n"
             "- `history ctx <n>` - current context history with a custom count\n\n"
-            "- `history chat <chat-id> [n]` - app-level chat history\n\n"
+            "- `history chat <chat-id> [n]` - app-level group chat history from a `HistorySource`\n\n"
             "- `history channel <team-aad-group-id> <channel-id> [n]` - app-level channel history\n\n"
             "- `history thread <team-aad-group-id> <channel-id> <thread-id> [n]` - app-level channel thread replies"
         )
@@ -130,25 +130,26 @@ async def handle_message(ctx: ActivityContext[MessageActivity]) -> None:
 
         if scope == "chat" and len(args) >= 2:
             count = _parse_count(args[2] if len(args) > 2 else None)
-            messages = await app.get_history(n=count, chat_id=args[1])
-            await _send_history(ctx, f"Chat history for {args[1]}", messages)
+            history = await app.get_history(n=count, source=GroupChatHistorySource(chat_id=args[1]))
+            await _send_history(ctx, f"Chat history for {args[1]}", history)
             return
 
         if scope == "channel" and len(args) >= 3:
             count = _parse_count(args[3] if len(args) > 3 else None)
-            messages = await app.get_history(n=count, team_aad_group_id=args[1], channel_id=args[2])
-            await _send_history(ctx, f"Channel history for {args[2]}", messages)
+            history = await app.get_history(
+                n=count,
+                source=ChannelHistorySource(team_aad_group_id=args[1], channel_id=args[2]),
+            )
+            await _send_history(ctx, f"Channel history for {args[2]}", history)
             return
 
         if scope == "thread" and len(args) >= 4:
             count = _parse_count(args[4] if len(args) > 4 else None)
-            messages = await app.get_history(
+            history = await app.get_history(
                 n=count,
-                team_aad_group_id=args[1],
-                channel_id=args[2],
-                thread_id=args[3],
+                source=ChannelHistorySource(team_aad_group_id=args[1], channel_id=args[2], thread_id=args[3]),
             )
-            await _send_history(ctx, f"Thread history for {args[3]}", messages)
+            await _send_history(ctx, f"Thread history for {args[3]}", history)
             return
 
         await ctx.reply('Invalid command. Say "help" for message history commands.')

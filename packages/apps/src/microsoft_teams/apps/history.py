@@ -4,7 +4,10 @@ Licensed under the MIT License.
 """
 
 from importlib import import_module
-from typing import TYPE_CHECKING, Any, List, Optional, cast
+from typing import TYPE_CHECKING, Annotated, Any, Literal, cast
+
+from microsoft_teams.api import CustomBaseModel
+from pydantic import Field
 
 _GRAPH_PAGE_SIZE_LIMIT = 50
 
@@ -13,6 +16,42 @@ if TYPE_CHECKING:
     from msgraph.graph_service_client import GraphServiceClient
 else:
     ChatMessage = Any
+
+
+class OneOnOneHistorySource(CustomBaseModel):
+    """Message history source for a 1:1 chat."""
+
+    type: Literal["oneOnOne"] = "oneOnOne"
+    chat_id: str
+
+
+class GroupChatHistorySource(CustomBaseModel):
+    """Message history source for a group chat."""
+
+    type: Literal["groupChat"] = "groupChat"
+    chat_id: str
+
+
+class ChannelHistorySource(CustomBaseModel):
+    """Message history source for a Teams channel or channel thread."""
+
+    type: Literal["channel"] = "channel"
+    team_aad_group_id: str
+    channel_id: str
+    thread_id: str | None = None
+
+
+HistorySource = Annotated[
+    OneOnOneHistorySource | GroupChatHistorySource | ChannelHistorySource,
+    Field(discriminator="type"),
+]
+
+
+class MessageHistory(CustomBaseModel):
+    """Messages returned from Graph plus the source used to retrieve them."""
+
+    messages: list[ChatMessage]
+    source: HistorySource
 
 
 def _validate_history_count(n: object) -> None:
@@ -52,43 +91,31 @@ async def get_graph_history(
     graph: "GraphServiceClient",
     n: int,
     *,
-    chat_id: Optional[str] = None,
-    channel_id: Optional[str] = None,
-    thread_id: Optional[str] = None,
-    team_aad_group_id: Optional[str] = None,
-) -> List[ChatMessage]:
+    source: HistorySource,
+) -> MessageHistory:
     """
     Retrieve Teams message history with Microsoft Graph.
 
-    Provide either ``chat_id`` for ``/chats/{chat-id}/messages`` or both
-    ``team_aad_group_id`` and ``channel_id`` for
-    ``/teams/{team-aad-group-id}/channels/{channel-id}/messages``. When
-    ``thread_id`` is supplied, replies for that root message are returned.
+    The provided ``source`` selects either ``/chats/{chat-id}/messages`` or
+    ``/teams/{team-aad-group-id}/channels/{channel-id}/messages``. When a
+    channel source includes ``thread_id``, replies for that root message are
+    returned.
     """
     _validate_history_count(n)
 
-    has_chat = bool(chat_id)
-    has_channel = bool(team_aad_group_id or channel_id)
-
-    if has_chat == has_channel:
-        raise ValueError("provide either chat_id or both team_aad_group_id and channel_id")
-
-    if has_channel:
-        if not team_aad_group_id or not channel_id:
-            raise ValueError("team_aad_group_id and channel_id are required for channel history")
-        messages_builder = graph.teams.by_team_id(team_aad_group_id).channels.by_channel_id(channel_id).messages
+    if isinstance(source, ChannelHistorySource):
+        team_builder = graph.teams.by_team_id(source.team_aad_group_id)
+        channel_builder = team_builder.channels.by_channel_id(source.channel_id)
+        messages_builder = channel_builder.messages
+        if source.thread_id:
+            messages_builder = messages_builder.by_chat_message_id(source.thread_id).replies
     else:
-        if not chat_id:
-            raise ValueError("chat_id is required for chat history")
-        messages_builder = graph.chats.by_chat_id(chat_id).messages
-
-    if thread_id:
-        messages_builder = messages_builder.by_chat_message_id(thread_id).replies
+        messages_builder = graph.chats.by_chat_id(source.chat_id).messages
 
     messages: list[ChatMessage] = []
     response = await messages_builder.get(_get_request_configuration(messages_builder, min(n, _GRAPH_PAGE_SIZE_LIMIT)))
     if response is None or response.value is None:
-        return []
+        return MessageHistory(messages=[], source=source)
 
     try:
         from msgraph_core.tasks.page_iterator import PageIterator  # type: ignore[reportMissingTypeStubs]
@@ -104,4 +131,4 @@ async def get_graph_history(
     request_adapter: Any = graph.request_adapter  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]
     iterator: Any = PageIterator(response, request_adapter, error_mapping=_get_error_mapping())
     await iterator.iterate(collect)
-    return messages
+    return MessageHistory(messages=messages, source=source)

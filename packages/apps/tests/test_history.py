@@ -21,7 +21,15 @@ from microsoft_teams.api import (
 )
 from microsoft_teams.api.auth.cloud_environment import PUBLIC
 from microsoft_teams.apps import App, AppOptions
+from microsoft_teams.apps.history import (
+    ChannelHistorySource,
+    GroupChatHistorySource,
+    HistorySource,
+    MessageHistory,
+    OneOnOneHistorySource,
+)
 from microsoft_teams.apps.routing.activity_context import ActivityContext
+from pydantic import TypeAdapter
 
 
 @dataclass
@@ -102,9 +110,10 @@ async def test_app_get_history_reads_chat_messages_with_top() -> None:
     graph = FakeGraph()
 
     with patch.object(app, "get_app_graph", return_value=graph):
-        result = await app.get_history(n=3, chat_id="chat-id")
+        result = await app.get_history(n=3, source=OneOnOneHistorySource(chat_id="chat-id"))
 
-    assert result == ["chat-message"]
+    assert result.messages == ["chat-message"]
+    assert result.source == OneOnOneHistorySource(chat_id="chat-id")
     assert graph.chats.chat_id == "chat-id"
     config = graph.chat_messages.get.call_args.args[0]
     assert config.query_parameters.top == 3
@@ -120,9 +129,9 @@ async def test_app_get_history_paginates_when_count_exceeds_graph_page_limit() -
     graph.request_adapter = FakeRequestAdapter([SimpleNamespace(value=list(range(50, 100)), odata_next_link=None)])
 
     with patch.object(app, "get_app_graph", return_value=graph):
-        result = await app.get_history(n=75, chat_id="chat-id")
+        result = await app.get_history(n=75, source=GroupChatHistorySource(chat_id="chat-id"))
 
-    assert result == list(range(75))
+    assert result.messages == list(range(75))
     config = graph.chat_messages.get.call_args.args[0]
     assert config.query_parameters.top == 50
     next_request = graph.request_adapter.send_async.call_args.args[0]
@@ -137,12 +146,19 @@ async def test_app_get_history_reads_channel_thread_replies() -> None:
     with patch.object(app, "get_app_graph", return_value=graph):
         result = await app.get_history(
             n=5,
-            team_aad_group_id="team-aad-group-id",
-            channel_id="channel-id",
-            thread_id="root-message-id",
+            source=ChannelHistorySource(
+                team_aad_group_id="team-aad-group-id",
+                channel_id="channel-id",
+                thread_id="root-message-id",
+            ),
         )
 
-    assert result == ["channel-reply"]
+    assert result.messages == ["channel-reply"]
+    assert result.source == ChannelHistorySource(
+        team_aad_group_id="team-aad-group-id",
+        channel_id="channel-id",
+        thread_id="root-message-id",
+    )
     assert graph.teams.team_id == "team-aad-group-id"
     assert graph.channels.channel_id == "channel-id"
     assert graph.channel_messages.thread_id == "root-message-id"
@@ -190,7 +206,12 @@ async def test_activity_context_get_history_uses_current_channel_thread() -> Non
 
     result = await ctx.get_history(2)
 
-    assert result == ["channel-reply"]
+    assert result.messages == ["channel-reply"]
+    assert result.source == ChannelHistorySource(
+        team_aad_group_id="team-group-id",
+        channel_id="channel-id",
+        thread_id="root-message-id",
+    )
     assert graph.teams.team_id == "team-group-id"
     assert graph.channels.channel_id == "channel-id"
     assert graph.channel_messages.thread_id == "root-message-id"
@@ -238,7 +259,12 @@ async def test_activity_context_get_history_reads_thread_from_conversation_id() 
 
     result = await ctx.get_history(2)
 
-    assert result == ["channel-reply"]
+    assert result.messages == ["channel-reply"]
+    assert result.source == ChannelHistorySource(
+        team_aad_group_id="team-group-id",
+        channel_id="channel-id",
+        thread_id="root-message-id",
+    )
     assert graph.channel_messages.thread_id == "root-message-id"
 
 
@@ -247,15 +273,38 @@ async def test_get_history_validates_count() -> None:
     app = App(**AppOptions(client_id="test-id", client_secret="test-secret"))
 
     with pytest.raises(ValueError, match="n must be greater than 0"):
-        await app.get_history(n=0, chat_id="chat-id")
+        await app.get_history(n=0, source=OneOnOneHistorySource(chat_id="chat-id"))
 
 
-@pytest.mark.asyncio
-async def test_get_history_requires_complete_channel_target() -> None:
-    app = App(**AppOptions(client_id="test-id", client_secret="test-secret"))
+def test_history_source_serializes_and_deserializes_with_discriminator() -> None:
+    source = ChannelHistorySource(
+        team_aad_group_id="team-aad-group-id",
+        channel_id="channel-id",
+        thread_id="root-message-id",
+    )
 
-    with pytest.raises(ValueError, match="team_aad_group_id and channel_id are required"):
-        await app.get_history(n=1, channel_id="channel-id")
+    payload = source.model_dump(by_alias=True)
+    restored = TypeAdapter(HistorySource).validate_python(payload)
+
+    assert payload == {
+        "type": "channel",
+        "teamAadGroupId": "team-aad-group-id",
+        "channelId": "channel-id",
+        "threadId": "root-message-id",
+    }
+    assert restored == source
+
+
+def test_message_history_serializes_source() -> None:
+    history = MessageHistory(messages=["message"], source=GroupChatHistorySource(chat_id="chat-id"))
+
+    assert history.model_dump(by_alias=True) == {
+        "messages": ["message"],
+        "source": {
+            "type": "groupChat",
+            "chatId": "chat-id",
+        },
+    }
 
 
 @pytest.mark.asyncio
