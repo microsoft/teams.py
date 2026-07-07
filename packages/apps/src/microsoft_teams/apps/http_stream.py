@@ -70,16 +70,22 @@ class HttpStream(StreamerProtocol):
 
         self._canceled = False
         self._timed_out = False
-        self._reset_state()
+        self._reset_current_stream()
 
-    def _reset_state(self) -> None:
-        """Reset the stream state to initial values."""
+    def _reset_current_stream(self) -> None:
+        """Reset per-message state for the current stream cycle."""
         self._index = 1
         self._id: Optional[str] = None
         self._text: str = ""
         self._channel_data: ChannelData = ChannelData()
         self._final_activity: Optional[MessageActivityInput] = None
         self._queue: deque[Union[MessageActivityInput, TypingActivityInput, str]] = deque()
+
+    def _reset_stream_for_next_stream(self) -> None:
+        """Prepare the stream instance to start a new stream cycle."""
+        self._reset_current_stream()
+        self._result = None
+        self._timed_out = False
 
     @property
     def canceled(self) -> bool:
@@ -99,7 +105,7 @@ class HttpStream(StreamerProtocol):
 
     @property
     def closed(self) -> bool:
-        """Whether the final stream message has been sent."""
+        """Whether the current streamed message has been finalized."""
         return self._result is not None
 
     @property
@@ -116,7 +122,7 @@ class HttpStream(StreamerProtocol):
         self._events.on("chunk", handler)
 
     def on_close(self, handler: Callable[[SentActivity], Awaitable[None]]):
-        self._events.once("close", handler)
+        self._events.on("close", handler)
 
     def emit(self, activity: Union[MessageActivityInput, TypingActivityInput, str]) -> None:
         """
@@ -128,6 +134,10 @@ class HttpStream(StreamerProtocol):
 
         if self._canceled:
             raise StreamCancelledError("Stream has been cancelled.")
+
+        if self.closed:
+            logger.debug("starting a new streamed message after close")
+            self._reset_stream_for_next_stream()
 
         if isinstance(activity, str):
             activity = MessageActivityInput(text=activity, type="message")
@@ -179,9 +189,16 @@ class HttpStream(StreamerProtocol):
             return False
 
     async def close(self) -> Optional[SentActivity]:
-        # wait for lock to be free
-        if self._result is not None:
+        """
+        Finalize the current streamed message.
+
+        Closing is idempotent until the next emit or update. Emitting or
+        updating after close starts a new streamed message using the same
+        stream instance.
+        """
+        if self.closed:
             logger.debug("stream already closed with result")
+            assert self._result is not None
             return self._result
 
         if self._canceled:
@@ -228,8 +245,8 @@ class HttpStream(StreamerProtocol):
         # Emit close event
         self._events.emit("close", res)
 
-        # Reset state
-        self._reset_state()
+        # Reset buffered message state; keep event handlers and terminal status.
+        self._reset_current_stream()
         self._result = res
         logger.debug("stream closed with result: %s", res)
 
