@@ -51,6 +51,7 @@ dev = [
     { name = "pytest-asyncio", specifier = ">=0.23.0" },
     { name = "pytest-cov", specifier = ">=6.0.0" },
     { name = "ruff", specifier = ">=0.11.13" },
+    { name = "syrupy", specifier = ">=5.5.1" },
 ]
 integration = [
     { name = "azure-identity", specifier = ">=1.17.0" },
@@ -3136,6 +3137,18 @@ requires-dist = [
     { name = "dotenv", specifier = ">=0.9.9" },
     { name = "microsoft-teams-api", editable = "packages/api" },
     { name = "microsoft-teams-apps", editable = "packages/apps" },
+]
+
+[[package]]
+name = "syrupy"
+version = "5.5.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pytest" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/6c/2c/3fde828d4c54e2ae796b46abb18e248751f1f342ad40166c4d36665bf8d1/syrupy-5.5.1.tar.gz", hash = "sha256:835f316acad500717942988afbfb6893e21976d31710cc2701bd69f39299941a", size = 91493, upload-time = "2026-07-06T20:17:18.023Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/9b/03/7b54d2eb7763c238fd3d4ffe2a01713c076e34897345ef3345ac3e2775ed/syrupy-5.5.1-py3-none-any.whl", hash = "sha256:9270b9772e43dde8081a94507e6ea16ce6ef13c979a65bae7b9d43f7adcdd368", size = 54955, upload-time = "2026-07-06T20:17:16.729Z" },
 ]
 
 [[package]]

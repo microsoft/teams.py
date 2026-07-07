@@ -35,17 +35,17 @@ class HtmlWidgetSecurityPolicy(CustomBaseModel):
 @experimental("ExperimentalTeamsHtmlWidget")
 class HtmlWidgetPermissions(CustomBaseModel):
 
-    camera: Optional[Any] = None
-    """Request camera access."""
+    camera: Optional[dict[str, Any]] = None
+    """Request camera access. Presence means permission is requested."""
 
-    microphone: Optional[Any] = None
-    """Request microphone access."""
+    microphone: Optional[dict[str, Any]] = None
+    """Request microphone access. Presence means permission is requested."""
 
-    geolocation: Optional[Any] = None
-    """Request geolocation access."""
+    geolocation: Optional[dict[str, Any]] = None
+    """Request geolocation access. Presence means permission is requested."""
 
-    clipboard_write: Optional[Any] = None
-    """Request clipboard write access."""
+    clipboard_write: Optional[dict[str, Any]] = None
+    """Request clipboard write access. Presence means permission is requested."""
 
 
 @experimental("ExperimentalTeamsHtmlWidget")
@@ -64,7 +64,9 @@ class HtmlWidgetPayload(CustomBaseModel):
     """The HTML content that makes up the widget."""
 
     domain: str
-    """The domain associated with the widget. Must start with 'https://'."""
+    """The domain associated with the widget. Must start with 'https://'.
+    This is informational metadata, not a verified identity claim.
+    The platform does not authenticate this value."""
 
     security_policy: Optional[HtmlWidgetSecurityPolicy] = None
     """Optional security policy controlling allowed origins."""

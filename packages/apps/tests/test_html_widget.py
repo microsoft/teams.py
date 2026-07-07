@@ -778,3 +778,21 @@ class TestUnicodeInWidgetName:
         opts = InjectWidgetProtocolOptions(name="Widget \u2764\ufe0f")
         result = inject_widget_protocol("<body></body>", opts)
         assert "name:'Widget \u2764\ufe0f'" in result
+
+
+class TestSnapshotFullInjectedScript:
+    def test_matches_expected_protocol_script_output(self, snapshot):
+        opts = InjectWidgetProtocolOptions(
+            name="My Widget",
+            version="2.0.0",
+            available_display_modes=["inline", "fullscreen"],
+            notifications=["tool-result", "tool-input"],
+            debug_csp_violations=True,
+        )
+        result = inject_widget_protocol("<body><h1>Hello</h1></body>", opts)
+
+        import re
+
+        match = re.search(r"<script>(.*?)</script>", result, re.DOTALL)
+        assert match is not None
+        assert match.group(1) == snapshot
