@@ -230,12 +230,14 @@ class HttpStream(StreamerProtocol):
                     non_retryable=(TerminalStreamError,),
                 )
             except StreamTimedOutError:
-                # The final streamed send itself tripped the 2-minute limit; resend the
-                # buffered content as a regular message (cleared id -> create path).
+                # The final streamed send tripped the 2-minute limit. Update the original
+                # message in place with the buffered content: reuse the id and drop the
+                # streamInfo entity + stream channel data so this routes to update, not create.
                 final_message = self._final_activity or MessageActivityInput()
                 final_message.with_text(self._text)
                 final_message.id = self._id
                 final_message.entities = [e for e in (final_message.entities or []) if e.type != "streaminfo"]
+                final_message.channel_data = None
                 res = await self._send(final_message)
 
         # Emit close event
