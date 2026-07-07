@@ -17,6 +17,25 @@ class StreamCancelledError(asyncio.CancelledError):
     pass
 
 
+class TerminalStreamError(Exception):
+    """
+    Base class for terminal streaming errors (HTTP 403)
+    that should not be retried.
+    """
+
+
+class StreamTimedOutError(TerminalStreamError):
+    """
+    Raised when the bot failed to complete streaming within the two-minute limit.
+    """
+
+
+class StreamNotAllowedError(TerminalStreamError):
+    """
+    Raised when streaming is not allowed for this user or bot.
+    """
+
+
 class StreamerProtocol(Protocol):
     """Component that can send streamed chunks of an activity."""
 

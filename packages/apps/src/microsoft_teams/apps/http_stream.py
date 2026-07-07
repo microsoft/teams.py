@@ -19,7 +19,14 @@ from microsoft_teams.api import (
 )
 from microsoft_teams.common import EventEmitter
 
-from .plugins.streamer import StreamCancelledError, StreamerEvent, StreamerProtocol
+from .plugins.streamer import (
+    StreamCancelledError,
+    StreamerEvent,
+    StreamerProtocol,
+    StreamNotAllowedError,
+    StreamTimedOutError,
+    TerminalStreamError,
+)
 from .utils import RetryOptions, retry
 
 logger = logging.getLogger(__name__)
@@ -62,6 +69,7 @@ class HttpStream(StreamerProtocol):
         self._state_changed = asyncio.Event()
 
         self._canceled = False
+        self._timed_out = False
         self._reset_current_stream()
 
     def _reset_current_stream(self) -> None:
@@ -77,14 +85,23 @@ class HttpStream(StreamerProtocol):
         """Prepare the stream instance to start a new stream cycle."""
         self._reset_current_stream()
         self._result = None
+        self._timed_out = False
 
     @property
     def canceled(self) -> bool:
         """
         Whether the stream has been canceled.
-        For example when the user pressed the Stop button or the 2-minute timeout has exceeded.
+        For example when the user pressed the Stop button.
         """
         return self._canceled
+
+    @property
+    def timed_out(self) -> bool:
+        """
+        Whether the stream has timed out.
+        For example when the streaming has exceeded two minutes.
+        """
+        return self._timed_out
 
     @property
     def closed(self) -> bool:
@@ -210,21 +227,56 @@ class HttpStream(StreamerProtocol):
             return None
 
         # Build final message from the last emitted MessageActivityInput (last wins)
-        assert self._id is not None, "ID should be set by this point"
-        activity = self._final_activity or MessageActivityInput()
-        activity.with_text(self._text).with_id(self._id).with_channel_data(self._channel_data).add_stream_final()
-
-        res = await retry(lambda: self._send(activity), options=RetryOptions())
+        if self._timed_out:
+            res = await self._send_final()
+        else:
+            activity = self._final_activity or MessageActivityInput()
+            activity.with_text(self._text).with_channel_data(self._channel_data)
+            activity.id = self._id
+            activity.add_stream_final()
+            try:
+                res = await self._send_with_retry(activity)
+            except StreamTimedOutError:
+                # The final streamed send tripped the 2-minute limit. Update the original
+                # message in place with the buffered content: reuse the id and drop the
+                # streamInfo entity + stream channel data so this routes to update, not create.
+                res = await self._send_final()
 
         # Emit close event
         self._events.emit("close", res)
 
-        # Reset per-message state; keep event handlers and cancellation state.
+        # Reset buffered message state; keep event handlers and terminal status.
         self._reset_current_stream()
         self._result = res
         logger.debug("stream closed with result: %s", res)
 
         return res
+
+    async def _send_with_retry(
+        self,
+        activity: Union[TypingActivityInput, MessageActivityInput],
+        options: Optional[RetryOptions] = None,
+    ) -> SentActivity:
+        """Send an activity through retry, treating terminal stream errors as non-retryable."""
+        return await retry(
+            lambda: self._send(activity),
+            options=options or RetryOptions(),
+            non_retryable=(TerminalStreamError,),
+        )
+
+    async def _send_final(self) -> SentActivity:
+        """Send the buffered content as a plain final message.
+
+        Drops the ``streaminfo`` entity (added by ``add_stream_final()`` on the normal
+        close path) and the stream channel data so ``id`` is kept and the send routes
+        through the update path instead of creating a duplicate message.
+        """
+        activity = self._final_activity or MessageActivityInput()
+        activity.with_text(self._text)
+        activity.id = self._id
+        activity.entities = [e for e in (activity.entities or []) if e.type != "streaminfo"]
+        activity.channel_data = None
+        return await self._send_with_retry(activity)
 
     async def _flush(self) -> None:
         """
@@ -268,6 +320,9 @@ class HttpStream(StreamerProtocol):
                 logger.debug("No activities to flush")
                 return
 
+            if self._timed_out:
+                return
+
             # Send informative updates immediately
             for typing_update in informative_updates:
                 await self._send_activity(typing_update)
@@ -298,10 +353,13 @@ class HttpStream(StreamerProtocol):
             to_send = to_send.with_id(self._id)
         to_send = to_send.add_stream_update(self._index)
 
-        res = await retry(
-            lambda: self._send(to_send),
-            options=RetryOptions(max_delay=4.0, jitter_type="none", max_attempts=8),
-        )
+        try:
+            res = await self._send_with_retry(
+                to_send,
+                RetryOptions(max_delay=4.0, jitter_type="none", max_attempts=8),
+            )
+        except StreamTimedOutError:
+            return
         self._events.emit("chunk", res)
         self._index += 1
         if self._id is None:
@@ -330,8 +388,32 @@ class HttpStream(StreamerProtocol):
 
             return SentActivity.merge(to_send, res)
         except HTTPStatusError as e:
+            # Various error codes are used for streaming.
+            # https://learn.microsoft.com/en-us/microsoftteams/platform/bots/streaming-ux?tabs=csharp#error-codes
             if e.response.status_code == 403:
-                self._canceled = True
-                logger.warning("Teams channel stopped the stream.")
-                raise StreamCancelledError("Teams channel stopped the stream.") from e
+                message = ""
+                try:
+                    message = e.response.json().get("error", {}).get("message", "")
+                except ValueError:
+                    # 403 with an empty or non-JSON body: treat as an unknown stream error.
+                    pass
+
+                normalized = message.lower()
+
+                if "exceeded streaming time" in normalized:
+                    self._timed_out = True
+                    logger.warning(
+                        "The bot failed to complete the streaming process within the strict time limit of two minutes."
+                    )
+                    raise StreamTimedOutError(message) from e
+                elif "cancel" in normalized:
+                    self._canceled = True
+                    logger.warning("The streaming was stopped by the user.")
+                    raise StreamCancelledError(message) from e
+                elif "not allowed" in normalized:
+                    logger.warning("The streaming API isn't allowed for the user or bot.")
+                    raise StreamNotAllowedError(message) from e
+                else:
+                    logger.warning("Teams returned a streaming error: %s", message)
+                    raise TerminalStreamError(message) from e
             raise
