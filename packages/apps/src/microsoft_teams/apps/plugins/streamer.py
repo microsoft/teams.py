@@ -17,6 +17,25 @@ class StreamCancelledError(asyncio.CancelledError):
     pass
 
 
+class TerminalStreamError(Exception):
+    """
+    Base class for terminal streaming errors (HTTP 403)
+    that should not be retried.
+    """
+
+
+class StreamTimedOutError(TerminalStreamError):
+    """
+    Raised when the bot failed to complete streaming within the two-minute limit.
+    """
+
+
+class StreamNotAllowedError(TerminalStreamError):
+    """
+    Raised when streaming is not allowed for this user or bot.
+    """
+
+
 class StreamerProtocol(Protocol):
     """Component that can send streamed chunks of an activity."""
 
@@ -30,7 +49,7 @@ class StreamerProtocol(Protocol):
 
     @property
     def closed(self) -> bool:
-        """Whether the final stream message has been sent."""
+        """Whether the current streamed message has been finalized."""
         ...
 
     @property
@@ -59,10 +78,10 @@ class StreamerProtocol(Protocol):
 
     def on_close(self, handler: Callable[[SentActivity], Awaitable[None]]) -> None:
         """
-        Register a handler for close events.
+        Register a handler for stream close events.
 
         Args:
-            handler: Async function that will be called when the stream closes
+            handler: Async function that will be called each time the stream closes
         """
         ...
 
@@ -89,6 +108,10 @@ class StreamerProtocol(Protocol):
 
     async def close(self) -> Optional[SentActivity]:
         """
-        Close the stream.
+        Finalize the current streamed message.
+
+        Closing is idempotent until the next emit or update. Emitting or
+        updating after close starts a new streamed message using the same
+        stream instance.
         """
         ...

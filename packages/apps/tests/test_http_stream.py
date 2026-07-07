@@ -22,7 +22,12 @@ from microsoft_teams.api import (
     TypingActivityInput,
 )
 from microsoft_teams.apps import HttpStream
-from microsoft_teams.apps.plugins import StreamCancelledError
+from microsoft_teams.apps.plugins import (
+    StreamCancelledError,
+    StreamNotAllowedError,
+    StreamTimedOutError,
+    TerminalStreamError,
+)
 
 
 class TestHttpStream:
@@ -235,7 +240,7 @@ class TestHttpStream:
                 raise HTTPStatusError(
                     "Forbidden",
                     request=Request("POST", "https://example.com"),
-                    response=Response(403),
+                    response=Response(403, json={"error": {"message": "Content stream was canceled by user"}}),
                 )
 
             mock_api_client.conversations.activities().create = mock_send_403
@@ -257,7 +262,7 @@ class TestHttpStream:
                 raise HTTPStatusError(
                     "Forbidden",
                     request=Request("POST", "https://example.com"),
-                    response=Response(403),
+                    response=Response(403, json={"error": {"message": "Content stream was canceled by user"}}),
                 )
 
             mock_api_client.conversations.activities().create = mock_send_403
@@ -298,7 +303,7 @@ class TestHttpStream:
                 raise HTTPStatusError(
                     "Forbidden",
                     request=Request("POST", "https://example.com"),
-                    response=Response(403),
+                    response=Response(403, json={"error": {"message": "Content stream was canceled by user"}}),
                 )
 
             mock_api_client.conversations.activities().create = mock_send_then_403
@@ -323,6 +328,171 @@ class TestHttpStream:
             # Further emits raise
             with pytest.raises(StreamCancelledError, match="Stream has been cancelled."):
                 stream.emit("Should be ignored")
+
+    @pytest.mark.parametrize(
+        "message, expected",
+        [
+            ("Content stream finished due to exceeded streaming time.", StreamTimedOutError),
+            ("Content stream was canceled by user.", StreamCancelledError),
+            ("Content stream is not allowed", StreamNotAllowedError),
+            ("Content stream is not allowed on an already completed streamed message", TerminalStreamError),
+            ("Message size too large", TerminalStreamError),
+            ("Request streamed content should contain the previously streamed content", TerminalStreamError),
+        ],
+    )
+    @pytest.mark.asyncio
+    async def test_send_maps_403_message_to_error(self, mock_api_client, conversation_reference, message, expected):
+        async def mock_send_403(activity):
+            raise HTTPStatusError(
+                "Forbidden",
+                request=Request("POST", "https://example.com"),
+                response=Response(403, json={"error": {"message": message}}),
+            )
+
+        mock_api_client.conversations.activities().create = mock_send_403
+        stream = HttpStream(mock_api_client, conversation_reference)
+
+        with pytest.raises(expected):
+            await stream._send(TypingActivityInput(text="hi"))
+
+    @pytest.mark.asyncio
+    async def test_send_403_with_empty_body_raises_stream_error(self, mock_api_client, conversation_reference):
+        """A 403 with an empty/non-JSON body is treated as an unknown stream error instead of crashing."""
+
+        async def mock_send_403(activity):
+            raise HTTPStatusError(
+                "Forbidden",
+                request=Request("POST", "https://example.com"),
+                response=Response(403),
+            )
+
+        mock_api_client.conversations.activities().create = mock_send_403
+        stream = HttpStream(mock_api_client, conversation_reference)
+
+        with pytest.raises(TerminalStreamError):
+            await stream._send(TypingActivityInput(text="hi"))
+
+    @pytest.mark.asyncio
+    async def test_final_send_timeout_updates_original_message_in_place(
+        self, mock_api_client, conversation_reference, patch_loop_call_later
+    ):
+        """If the *final* streamed send trips the 2-minute limit, the buffered content updates the
+        original streamed message in place (reuses id -> update path) instead of erroring."""
+        create_calls = 0
+        updates: list[dict] = []
+        loop = asyncio.get_running_loop()
+        patcher, scheduled = patch_loop_call_later(loop)
+        with patcher:
+
+            async def mock_create(activity):
+                nonlocal create_calls
+                create_calls += 1
+                if create_calls == 2:
+                    # The final streamed send (carries streamInfo) is the first to time out.
+                    raise HTTPStatusError(
+                        "Forbidden",
+                        request=Request("POST", "https://example.com"),
+                        response=Response(
+                            403,
+                            json={"error": {"message": "Content stream finished due to exceeded streaming time."}},
+                        ),
+                    )
+                return SentActivity(id="stream-1", activity_params=activity)
+
+            async def mock_update(activity_id, activity):
+                updates.append(
+                    {
+                        "id": activity_id,
+                        "text": activity.text,
+                        "has_streaminfo": any(
+                            getattr(e, "type", None) == "streaminfo" for e in (activity.entities or [])
+                        ),
+                        "channel_data": activity.channel_data,
+                    }
+                )
+                return SentActivity(id=activity_id, activity_params=activity)
+
+            mock_api_client.conversations.activities().create = mock_create
+            mock_api_client.conversations.activities().update = mock_update
+            stream = HttpStream(mock_api_client, conversation_reference)
+
+            stream.emit("Final answer")
+            await asyncio.sleep(0)
+            await self._run_scheduled_flushes(scheduled)
+
+            result = await stream.close()
+
+            # After the timeout, close() updates the original message in place rather than
+            # posting a duplicate: exactly one update, reusing the id, with no stream markers.
+            assert stream._timed_out is True
+            assert len(updates) == 1
+            assert updates[0]["id"] == "stream-1"
+            assert updates[0]["text"] == "Final answer"
+            assert updates[0]["has_streaminfo"] is False
+            assert updates[0]["channel_data"] is None
+            assert result is not None
+
+    @pytest.mark.asyncio
+    async def test_stream_timeout_during_streaming_updates_in_place(
+        self, mock_api_client, conversation_reference, patch_loop_call_later
+    ):
+        """If a chunk send times out mid-stream, close() updates the original message in place."""
+        create_calls = 0
+        updates: list[dict] = []
+        loop = asyncio.get_running_loop()
+        patcher, scheduled = patch_loop_call_later(loop)
+        with patcher:
+
+            async def mock_create(activity):
+                nonlocal create_calls
+                create_calls += 1
+                if create_calls == 2:
+                    raise HTTPStatusError(
+                        "Forbidden",
+                        request=Request("POST", "https://example.com"),
+                        response=Response(
+                            403,
+                            json={"error": {"message": "Content stream finished due to exceeded streaming time."}},
+                        ),
+                    )
+                return SentActivity(id="stream-1", activity_params=activity)
+
+            async def mock_update(activity_id, activity):
+                updates.append(
+                    {
+                        "id": activity_id,
+                        "text": activity.text,
+                        "has_streaminfo": any(
+                            getattr(e, "type", None) == "streaminfo" for e in (activity.entities or [])
+                        ),
+                    }
+                )
+                return SentActivity(id=activity_id, activity_params=activity)
+
+            mock_api_client.conversations.activities().create = mock_create
+            mock_api_client.conversations.activities().update = mock_update
+            stream = HttpStream(mock_api_client, conversation_reference)
+
+            # First chunk streams fine (create #1 -> id assigned).
+            stream.emit("chunk 1 ")
+            await asyncio.sleep(0)
+            await self._run_scheduled_flushes(scheduled)
+
+            # Second chunk send times out (create #2 -> 403), swallowed, _timed_out set.
+            stream.emit("chunk 2")
+            await asyncio.sleep(0)
+            await self._run_scheduled_flushes(scheduled)
+
+            assert stream._timed_out is True
+
+            result = await stream.close()
+
+            # close() takes the timed-out branch and updates the original message in place.
+            assert len(updates) == 1
+            assert updates[0]["id"] == "stream-1"
+            assert updates[0]["text"] == "chunk 1 chunk 2"
+            assert updates[0]["has_streaminfo"] is False
+            assert result is not None
 
     @pytest.mark.asyncio
     async def test_close_returns_none_when_canceled(self, mock_api_client, conversation_reference):
@@ -453,3 +623,49 @@ class TestHttpStream:
         assert result is not None
         assert mock_api_client.send_call_count == 1
         assert mock_api_client.sent_activities[0].text == "Response text"
+
+    @pytest.mark.asyncio
+    async def test_emit_after_close_reopens_stream_for_next_message(
+        self, mock_api_client, conversation_reference, patch_loop_call_later
+    ):
+        loop = asyncio.get_running_loop()
+        patcher, scheduled = patch_loop_call_later(loop)
+        close_results: list[SentActivity] = []
+        close_event = asyncio.Event()
+
+        async def handle_close(activity: SentActivity) -> None:
+            close_results.append(activity)
+            close_event.set()
+
+        with patcher:
+            stream = HttpStream(mock_api_client, conversation_reference)
+            stream.on_close(handle_close)
+
+            stream.emit("First streamed message")
+            await asyncio.sleep(0)
+            await self._run_scheduled_flushes(scheduled)
+
+            first_result = await stream.close()
+            await asyncio.wait_for(close_event.wait(), timeout=1)
+            close_event.clear()
+            assert first_result is not None
+            assert stream.closed is True
+
+            repeated_result = await stream.close()
+            assert repeated_result is first_result
+            assert stream.closed is True
+
+            stream.emit("Second streamed message")
+            assert stream.closed is False
+            await asyncio.sleep(0)
+            await self._run_scheduled_flushes(scheduled)
+
+            second_result = await stream.close()
+            await asyncio.wait_for(close_event.wait(), timeout=1)
+            assert second_result is not None
+            assert stream.closed is True
+
+            assert first_result.id != second_result.id
+            assert first_result.activity_params.text == "First streamed message"
+            assert second_result.activity_params.text == "Second streamed message"
+            assert [result.id for result in close_results] == [first_result.id, second_result.id]

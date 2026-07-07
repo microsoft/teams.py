@@ -44,7 +44,10 @@ extends:
           name: 1ES-Teams-Windows-2022-DomoreexpGithub
           os: windows
         templateContext:
-          isReleaseJob: true
+          outputs:
+          - output: pipelineArtifact
+            targetPath: $(Build.SourcesDirectory)/out
+            artifactName: pypi-packages
         variables:
           ob_outputDirectory: '$(Build.SourcesDirectory)/out'
           ob_git_fetchTags: true
@@ -100,17 +103,18 @@ extends:
             Write-Host "Getting version from nbgv..."
             $version = (nbgv get-version -v SemVer2).Trim()
             Write-Host "Version from nbgv: $version"
-            Write-Host "##vso[task.setvariable variable=VersionNumber]$version"
+            Write-Host "##vso[task.setvariable variable=VersionNumber;isOutput=true]$version"
 
             # If version contains '-' it's a prerelease, use 'next' tag; otherwise 'latest'
             if ($version -match '-') {
               Write-Host "Prerelease version detected - using 'next' PyPI tag"
-              Write-Host "##vso[task.setvariable variable=PyPITag]next"
+              Write-Host "##vso[task.setvariable variable=PyPITag;isOutput=true]next"
             } else {
               Write-Host "Stable version detected - using 'latest' PyPI tag"
-              Write-Host "##vso[task.setvariable variable=PyPITag]latest"
+              Write-Host "##vso[task.setvariable variable=PyPITag;isOutput=true]latest"
             }
           displayName: 'Get version from nbgv'
+          name: versionStep
           env:
             PublicRelease: 'true'
           target:
@@ -210,25 +214,73 @@ extends:
           target:
             container: host
 
-        # Publish to internal PyPI feed (Azure Artifacts)
+    - stage: publish
+      displayName: Publish
+      dependsOn: build
+      variables:
+        VersionNumber: $[stageDependencies.build.build_test.outputs['versionStep.VersionNumber']]
+        PyPITag: $[stageDependencies.build.build_test.outputs['versionStep.PyPITag']]
+      jobs:
+      # Publish to internal PyPI feed (Azure Artifacts)
+      - job: publish_internal
+        condition: and(succeeded(), eq('${{ parameters.publishType }}', 'Internal'))
+        pool:
+          name: 1ES-Teams-Windows-2022-DomoreexpGithub
+          os: windows
+        templateContext:
+          inputs:
+          - input: pipelineArtifact
+            artifactName: pypi-packages
+            targetPath: $(Pipeline.Workspace)/pypi-packages
+        steps:
+        - task: UsePythonVersion@0
+          displayName: 'Use Python 3.13'
+          inputs:
+            versionSpec: '3.13'
+          target:
+            container: host
+
+        - task: PowerShell@2
+          displayName: 'Install uv'
+          inputs:
+            targetType: inline
+            script: |
+              irm https://astral.sh/uv/install.ps1 | iex
+              $env:Path = "$env:USERPROFILE\.local\bin;$env:Path"
+              Write-Host "##vso[task.prependpath]$env:USERPROFILE\.local\bin"
+              uv --version
+          target:
+            container: host
+
         - task: PowerShell@2
           displayName: 'Publish packages to internal PyPI feed'
-          condition: and(succeeded(), eq('${{ parameters.publishType }}', 'Internal'))
           inputs:
             targetType: inline
             script: |
               $feedUrl = "https://pkgs.dev.azure.com/DomoreexpGithub/Github_Pipelines/_packaging/TeamsSDKPreviews/pypi/upload/"
               Write-Host "Publishing packages to internal feed..."
-              uv publish --publish-url $feedUrl --token $env:SYSTEM_ACCESSTOKEN ./out/*
+              uv publish --publish-url $feedUrl --token $env:SYSTEM_ACCESSTOKEN $(Pipeline.Workspace)/pypi-packages/*
           env:
             SYSTEM_ACCESSTOKEN: $(System.AccessToken)
           target:
             container: host
 
-        # Publish to PyPI via ESRP
+      # Publish to PyPI via ESRP
+      - job: publish_public
+        condition: and(succeeded(), eq('${{ parameters.publishType }}', 'Public'))
+        pool:
+          name: 1ES-Teams-Windows-2022-DomoreexpGithub
+          os: windows
+        templateContext:
+          type: releaseJob
+          isProduction: true
+          inputs:
+          - input: pipelineArtifact
+            artifactName: pypi-packages
+            targetPath: $(Pipeline.Workspace)/pypi-packages
+        steps:
         - task: EsrpRelease@10
           displayName: 'Publish packages to PyPI via ESRP'
-          condition: and(succeeded(), eq('${{ parameters.publishType }}', 'Public'))
           inputs:
             connectedservicename: 'TeamsESRP-Release-PyPI'
             usemanagedidentity: true
@@ -238,7 +290,7 @@ extends:
             intent: 'packagedistribution'
             contenttype: 'PyPI'
             contentsource: 'Folder'
-            folderlocation: '$(Build.SourcesDirectory)/out'
+            folderlocation: '$(Pipeline.Workspace)/pypi-packages'
             waitforreleasecompletion: true
             serviceendpointurl: 'https://api.esrp.microsoft.com'
             owners: $(Release.Owners)

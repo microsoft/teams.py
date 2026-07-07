@@ -70,36 +70,6 @@ class DependencyMetadata:
 
 
 @dataclass
-class IdDependencyOptions(DependencyMetadata):
-    name = "id"
-    optional = True
-
-
-@dataclass
-class NameDependencyOptions(DependencyMetadata):
-    name = "name"
-    optional = True
-
-
-@dataclass
-class ManifestDependencyOptions:
-    name = "manifest"
-    optional: Optional[bool] = False
-
-
-@dataclass
-class CredentialsDependencyOptions(DependencyMetadata):
-    name = "credentials"
-    optional = True
-
-
-@dataclass
-class BotTokenDependencyOptions(DependencyMetadata):
-    name = "bot_token"
-    optional = True
-
-
-@dataclass
 class StorageDependencyOptions(DependencyMetadata):
     name = "storage"
     optional: Optional[bool] = False
@@ -112,11 +82,6 @@ class PluginDependencyOptions(DependencyMetadata):
 
 
 DependencyOptions = Union[
-    IdDependencyOptions,
-    NameDependencyOptions,
-    ManifestDependencyOptions,
-    CredentialsDependencyOptions,
-    BotTokenDependencyOptions,
     StorageDependencyOptions,
     PluginDependencyOptions,
 ]

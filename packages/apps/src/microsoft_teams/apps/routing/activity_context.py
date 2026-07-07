@@ -38,7 +38,7 @@ from microsoft_teams.api.models.attachment.card_attachment import (
 from microsoft_teams.api.models.oauth import OAuthCard
 from microsoft_teams.cards import AdaptiveCard
 from microsoft_teams.common import Storage
-from microsoft_teams.common.experimental import ExperimentalWarning, experimental
+from microsoft_teams.common.experimental import ExperimentalWarning
 from microsoft_teams.common.http.client_token import Token
 
 from ..activity_sender import ActivitySender
@@ -206,7 +206,6 @@ class ActivityContext(Generic[T]):
         activity = MessageActivityInput(text=input) if isinstance(input, str) else input
         return await self.send(activity)
 
-    @experimental("ExperimentalTeamsQuotedReplies")
     async def quote(self, message_id: str, input: str | ActivityParams) -> SentActivity:
         """
         Send a message to the conversation with a quoted message reference prepended to the text.
@@ -218,10 +217,6 @@ class ActivityContext(Generic[T]):
 
         Returns:
             The sent activity
-
-        .. warning:: Coming Soon
-            This API is coming soon and may change in the future.
-            Diagnostic: ExperimentalTeamsQuotedReplies
         """
         activity = MessageActivityInput(text=input) if isinstance(input, str) else input
         if isinstance(activity, MessageActivityInput):

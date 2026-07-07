@@ -54,7 +54,11 @@ def _apply_jitter(delay: float, jitter_type: JitterType, previous_delay: Optiona
         return delay
 
 
-async def retry(factory: Callable[[], Awaitable[T]], options: Optional[RetryOptions] = None) -> T:
+async def retry(
+    factory: Callable[[], Awaitable[T]],
+    options: Optional[RetryOptions] = None,
+    non_retryable: tuple[type[BaseException], ...] = (),
+) -> T:
     options = options or RetryOptions()
     max_attempts = options.max_attempts
     base_delay = options.delay
@@ -68,6 +72,10 @@ async def retry(factory: Callable[[], Awaitable[T]], options: Optional[RetryOpti
     except (asyncio.CancelledError, KeyboardInterrupt):
         # Don't retry cancellation or keyboard interrupts
         logger.debug("Operation cancelled or interrupted, not retrying")
+        raise
+    except non_retryable:
+        # Caller-specified terminal errors must not be retried
+        logger.debug("Non-retryable error, not retrying")
         raise
     except Exception as err:
         if max_attempts > 1:
@@ -94,6 +102,7 @@ async def retry(factory: Callable[[], Awaitable[T]], options: Optional[RetryOpti
                     previous_delay=jittered_delay,  # Pass current delay for decorrelated jitter
                     attempt_number=attempt_number + 1,  # Increment attempt number
                 ),
+                non_retryable=non_retryable,
             )
         logger.error("Final attempt failed.", exc_info=err)
         raise
