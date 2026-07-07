@@ -23,7 +23,7 @@ from microsoft_teams.api.models.html_widget import (
     HtmlWidgetPayload,
     HtmlWidgetSecurityPolicy,
     McpUiCallToolResult,
-    McpUiCallToolResultContent,
+    McpUiTextContent,
 )
 from microsoft_teams.apps import ActivityContext, App
 from microsoft_teams.apps.utils.html_widget import (
@@ -319,7 +319,7 @@ async def handle_widget_call_tool(
     if tool_name == "refresh":
         counter = int(args.get("counter", 0) or 0) + 1
         call_tool_result = McpUiCallToolResult(
-            content=[McpUiCallToolResultContent(type="text", text="Refreshed!")],
+            content=[McpUiTextContent(type="text", text="Refreshed!")],
             structured_content={
                 "counter": counter,
                 "lastAction": "refresh",
@@ -331,7 +331,7 @@ async def handle_widget_call_tool(
     elif tool_name == "getTime":
         now = datetime.now(tz=timezone.utc)
         call_tool_result = McpUiCallToolResult(
-            content=[McpUiCallToolResultContent(type="text", text=now.strftime("%H:%M:%S"))],
+            content=[McpUiTextContent(type="text", text=now.strftime("%H:%M:%S"))],
             structured_content={"time": now.isoformat()},
             is_error=False,
         )
@@ -340,21 +340,21 @@ async def handle_widget_call_tool(
         sides = int(args.get("sides", 6) or 6)
         result = random.randint(1, sides)  # noqa: S311
         call_tool_result = McpUiCallToolResult(
-            content=[McpUiCallToolResultContent(type="text", text=f"Rolled a {result} (d{sides})")],
+            content=[McpUiTextContent(type="text", text=f"Rolled a {result} (d{sides})")],
             structured_content={"result": result, "sides": sides},
             is_error=False,
         )
 
     elif tool_name == "echo":
         call_tool_result = McpUiCallToolResult(
-            content=[McpUiCallToolResultContent(type="text", text=json.dumps(args))],
+            content=[McpUiTextContent(type="text", text=json.dumps(args))],
             structured_content=args,
             is_error=False,
         )
 
     else:
         call_tool_result = McpUiCallToolResult(
-            content=[McpUiCallToolResultContent(type="text", text=f"Unknown tool: {tool_name}")],
+            content=[McpUiTextContent(type="text", text=f"Unknown tool: {tool_name}")],
             is_error=True,
         )
 

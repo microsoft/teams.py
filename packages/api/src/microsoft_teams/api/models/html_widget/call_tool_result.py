@@ -5,9 +5,8 @@ Licensed under the MIT License.
 
 from typing import Annotated, Any, Literal, Optional, Union
 
-from pydantic import Field
-
 from microsoft_teams.common.experimental import experimental
+from pydantic import Field
 
 from ..custom_base_model import CustomBaseModel
 
