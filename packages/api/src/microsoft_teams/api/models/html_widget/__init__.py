@@ -4,7 +4,15 @@ Licensed under the MIT License.
 """
 
 from .call_tool_request import CallToolRequest
-from .call_tool_result import HtmlWidgetCallToolResponse, McpUiCallToolResult, McpUiCallToolResultContent
+from .call_tool_result import (
+    HtmlWidgetCallToolResponse,
+    McpUiAudioContent,
+    McpUiCallToolResult,
+    McpUiCallToolResultContent,
+    McpUiImageContent,
+    McpUiResourceContent,
+    McpUiTextContent,
+)
 from .html_widget_payload import HtmlWidgetPayload, HtmlWidgetPermissions, HtmlWidgetSecurityPolicy
 
 __all__ = [
@@ -13,6 +21,10 @@ __all__ = [
     "HtmlWidgetPayload",
     "HtmlWidgetPermissions",
     "HtmlWidgetSecurityPolicy",
+    "McpUiAudioContent",
     "McpUiCallToolResult",
     "McpUiCallToolResultContent",
+    "McpUiImageContent",
+    "McpUiResourceContent",
+    "McpUiTextContent",
 ]
