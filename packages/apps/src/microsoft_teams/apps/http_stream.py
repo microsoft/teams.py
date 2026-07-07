@@ -211,34 +211,19 @@ class HttpStream(StreamerProtocol):
 
         # Build final message from the last emitted MessageActivityInput (last wins)
         if self._timed_out:
-            activity = self._final_activity or MessageActivityInput()
-            activity.with_text(self._text)
-            activity.id = self._id
-            res = await retry(
-                lambda: self._send(activity),
-                options=RetryOptions(),
-                non_retryable=(TerminalStreamError,),
-            )
+            res = await self._send_final()
         else:
-            assert self._id is not None, "ID should be set by this point"
             activity = self._final_activity or MessageActivityInput()
-            activity.with_text(self._text).with_id(self._id).with_channel_data(self._channel_data).add_stream_final()
+            activity.with_text(self._text).with_channel_data(self._channel_data)
+            activity.id = self._id
+            activity.add_stream_final()
             try:
-                res = await retry(
-                    lambda: self._send(activity),
-                    options=RetryOptions(),
-                    non_retryable=(TerminalStreamError,),
-                )
+                res = await self._send_with_retry(activity)
             except StreamTimedOutError:
                 # The final streamed send tripped the 2-minute limit. Update the original
                 # message in place with the buffered content: reuse the id and drop the
                 # streamInfo entity + stream channel data so this routes to update, not create.
-                final_message = self._final_activity or MessageActivityInput()
-                final_message.with_text(self._text)
-                final_message.id = self._id
-                final_message.entities = [e for e in (final_message.entities or []) if e.type != "streaminfo"]
-                final_message.channel_data = None
-                res = await self._send(final_message)
+                res = await self._send_final()
 
         # Emit close event
         self._events.emit("close", res)
@@ -249,6 +234,32 @@ class HttpStream(StreamerProtocol):
         logger.debug("stream closed with result: %s", res)
 
         return res
+
+    async def _send_with_retry(
+        self,
+        activity: Union[TypingActivityInput, MessageActivityInput],
+        options: Optional[RetryOptions] = None,
+    ) -> SentActivity:
+        """Send an activity through retry, treating terminal stream errors as non-retryable."""
+        return await retry(
+            lambda: self._send(activity),
+            options=options or RetryOptions(),
+            non_retryable=(TerminalStreamError,),
+        )
+
+    async def _send_final(self) -> SentActivity:
+        """Send the buffered content as a plain final message.
+
+        Drops the ``streaminfo`` entity (added by ``add_stream_final()`` on the normal
+        close path) and the stream channel data so ``id`` is kept and the send routes
+        through the update path instead of creating a duplicate message.
+        """
+        activity = self._final_activity or MessageActivityInput()
+        activity.with_text(self._text)
+        activity.id = self._id
+        activity.entities = [e for e in (activity.entities or []) if e.type != "streaminfo"]
+        activity.channel_data = None
+        return await self._send_with_retry(activity)
 
     async def _flush(self) -> None:
         """
@@ -326,10 +337,9 @@ class HttpStream(StreamerProtocol):
         to_send = to_send.add_stream_update(self._index)
 
         try:
-            res = await retry(
-                lambda: self._send(to_send),
-                options=RetryOptions(max_delay=4.0, jitter_type="none", max_attempts=8),
-                non_retryable=(TerminalStreamError,),
+            res = await self._send_with_retry(
+                to_send,
+                RetryOptions(max_delay=4.0, jitter_type="none", max_attempts=8),
             )
         except StreamTimedOutError:
             return
