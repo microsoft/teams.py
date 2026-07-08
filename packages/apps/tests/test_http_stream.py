@@ -355,9 +355,6 @@ class TestHttpStream:
         with pytest.raises(expected) as exc_info:
             await stream._send(TypingActivityInput(text="hi"))
 
-        # Assert the exact error type, not a subclass: StreamNotAllowedError subclasses
-        # TerminalStreamError, so pytest.raises(TerminalStreamError) alone would pass even
-        # when the wrong error is raised for the "already completed" message.
         assert type(exc_info.value) is expected
 
     @pytest.mark.asyncio
