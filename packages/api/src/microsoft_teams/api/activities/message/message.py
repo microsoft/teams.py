@@ -137,6 +137,27 @@ class MessageActivity(_MessageBase, ActivityBase):
             self.text = stripped_text
         return self
 
+    @property
+    def shared_file_urls(self) -> list[str]:
+        """
+        Extract SharePoint/OneDrive file URLs from HTML attachments.
+
+        When a user shares a file via the Teams compose box, Teams embeds
+        the file link inside a text/html attachment rather than sending
+        structured file metadata. This property parses those URLs out.
+        """
+        import re
+
+        urls = []
+        for attachment in self.attachments or []:
+            if attachment.content_type == "text/html" and attachment.content:
+                found = re.findall(
+                    r'https://[^\s"<>]+sharepoint\.com[^\s"<>]*',
+                    str(attachment.content),
+                )
+                urls.extend(found)
+        return urls
+
 
 class MessageActivityInput(_MessageBase, ActivityInputBase):
     """Input model for creating message activities with builder methods."""

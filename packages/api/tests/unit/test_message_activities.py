@@ -144,6 +144,45 @@ class TestMessageActivity:
         assert activity.attachments[0] == existing
         assert activity.attachments[1] == new_attachment
 
+    def test_message_activity_shared_file_urls_extracts_sharepoint_links(self):
+        payload = {
+            "type": "message",
+            "id": "msg-123",
+            "text": "see attached",
+            "from": {"id": "user-123", "name": "Test User"},
+            "conversation": {"id": "conv-456", "conversationType": "personal"},
+            "recipient": {"id": "bot-789", "name": "Test Bot"},
+            "attachments": [
+                {
+                    "contentType": "text/html",
+                    "content": '<p>see <a href="https://company.sharepoint.com/sites/Team/file.pdf">file</a></p>',
+                    "contentUrl": None,
+                    "name": None,
+                }
+            ],
+        }
+
+        activity = ActivityTypeAdapter.validate_python(payload)
+
+        urls = activity.shared_file_urls
+        assert len(urls) == 1
+        assert "sharepoint.com" in urls[0]
+
+    def test_message_activity_shared_file_urls_empty_when_no_html(self):
+        payload = {
+            "type": "message",
+            "id": "msg-456",
+            "text": "plain message",
+            "from": {"id": "user-123", "name": "Test User"},
+            "conversation": {"id": "conv-456", "conversationType": "personal"},
+            "recipient": {"id": "bot-789", "name": "Test Bot"},
+            "attachments": [],
+        }
+
+        activity = ActivityTypeAdapter.validate_python(payload)
+
+        assert activity.shared_file_urls == []
+
     def test_add_mention_basic(self):
         """Test adding a basic mention"""
         activity = self.create_message_activity("Hello ")
