@@ -147,15 +147,23 @@ class MessageActivity(_MessageBase, ActivityBase):
         structured file metadata. This property parses those URLs out.
         """
         import re
+        from urllib.parse import urlparse
 
-        urls = []
+        urls: list[str] = []
         for attachment in self.attachments or []:
-            if attachment.content_type == "text/html" and attachment.content:
-                found = re.findall(
-                    r'https://[^\s"<>]+sharepoint\.com[^\s"<>]*',
-                    str(attachment.content),
-                )
-                urls.extend(found)
+            if attachment.content_type != "text/html" or not attachment.content:
+                continue
+
+            html = str(attachment.content)
+            candidates = re.findall(r"href=['\"](https?://[^'\"]+)['\"]", html, flags=re.IGNORECASE)
+            if not candidates:
+                candidates = re.findall(r"https?://[^\s\"<>]+", html)
+
+            for url in candidates:
+                host = urlparse(url).netloc.lower()
+                if host.endswith("sharepoint.com"):
+                    urls.append(url)
+
         return urls
 
 
