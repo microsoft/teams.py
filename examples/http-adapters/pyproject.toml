@@ -1,7 +1,7 @@
 [project]
 name = "http-adapters"
 version = "0.1.0"
-description = "Examples showing custom HttpServerAdapter and non-managed server patterns"
+description = "Examples showing HttpServerAdapter and non-managed server patterns"
 readme = "README.md"
 requires-python = ">=3.11,<4.0"
 dependencies = [

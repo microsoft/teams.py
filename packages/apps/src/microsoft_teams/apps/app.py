@@ -52,7 +52,7 @@ from .events import (
     get_event_type_from_signature,
     is_registered_event,
 )
-from .http import FastAPIAdapter, HttpServer
+from .http import FastAPIAdapter, HttpRoute, HttpServer
 from .http.adapter import HttpRequest, HttpResponse
 from .options import AppOptions, InternalAppOptions
 from .plugins import PluginBase, PluginStartEvent
@@ -123,6 +123,8 @@ class App(ActivityHandlerMixin):
         self.container.set_provider("HttpServer", providers.Object(self.server))
 
         self._port: Optional[int] = None
+        self._routes_registered = False
+        self._plugins_initialized = False
         self._initialized = False
 
         # initialize ActivitySender for sending activities
@@ -187,6 +189,36 @@ class App(ActivityHandlerMixin):
             return None
         return self.credentials.client_id
 
+    def register_routes(self) -> list[HttpRoute]:
+        """
+        Register the Teams messaging endpoint synchronously.
+
+        This wires the app activity dispatcher, configures inbound auth, and
+        registers the messaging route on the configured HTTP adapter. It does
+        not run plugin ``on_init`` hooks and does not start or stop a server.
+        """
+        try:
+            return self._register_routes()
+        except Exception as error:
+            logger.error(f"Failed to register app routes: {error}")
+            self._events.emit("error", ErrorEvent(error, context={"method": "register_routes"}))
+            raise
+
+    async def start_plugins(self) -> None:
+        """
+        Run plugin ``on_init`` hooks without registering routes or starting a server.
+
+        This is intended for host-owned ASGI lifecycles that call
+        :meth:`register_routes` synchronously during route contribution, then
+        initialize async plugins during application startup.
+        """
+        try:
+            await self._initialize_plugins()
+        except Exception as error:
+            logger.exception("Failed to initialize plugins")
+            self._events.emit("error", ErrorEvent(error, context={"method": "start_plugins"}))
+            raise
+
     async def initialize(self) -> None:
         """
         Initialize the Teams application without starting the HTTP server.
@@ -200,20 +232,11 @@ class App(ActivityHandlerMixin):
 
         try:
             # Initialize plugins first (they may register routes, e.g. BotBuilder's /api/messages)
-            for plugin in self.plugins:
-                self._plugin_processor.inject(plugin)
-                if hasattr(plugin, "on_init") and callable(plugin.on_init):
-                    await plugin.on_init()
+            await self._initialize_plugins()
 
             # Initialize HttpServer (JWT validation + messaging endpoint route)
-            self.server.on_request = self._process_activity_event
-            self.server.initialize(
-                credentials=self.credentials,
-                skip_auth=self.options.skip_auth,
-                cloud=self.cloud,
-            )
+            self._register_routes()
 
-            self._initialized = True
             logger.info("Teams app initialized successfully")
 
         except Exception as error:
@@ -299,7 +322,10 @@ class App(ActivityHandlerMixin):
         """
 
         if not self._initialized:
-            raise ValueError("app not initialized - call app.initialize() or app.start() first")
+            raise ValueError(
+                "app not initialized - call app.initialize(), app.start(), "
+                "or app.register_routes() followed by app.start_plugins() first"
+            )
 
         if self.id is None:
             raise ValueError("app credentials not configured")
@@ -592,6 +618,32 @@ class App(ActivityHandlerMixin):
         for plugin in reversed(self.plugins):
             if hasattr(plugin, "on_stop") and callable(plugin.on_stop):
                 await plugin.on_stop()
+
+    async def _initialize_plugins(self) -> None:
+        if self._plugins_initialized:
+            return
+
+        for plugin in self.plugins:
+            self._plugin_processor.inject(plugin)
+            if hasattr(plugin, "on_init") and callable(plugin.on_init):
+                await plugin.on_init()
+
+        self._plugins_initialized = True
+        self._refresh_initialized()
+
+    def _register_routes(self) -> list[HttpRoute]:
+        self.server.on_request = self._process_activity_event
+        routes = self.server.initialize(
+            credentials=self.credentials,
+            skip_auth=self.options.skip_auth,
+            cloud=self.cloud,
+        )
+        self._routes_registered = True
+        self._refresh_initialized()
+        return routes
+
+    def _refresh_initialized(self) -> None:
+        self._initialized = self._routes_registered and self._plugins_initialized
 
     async def _get_bot_token(self):
         return await self._token_manager.get_bot_token()

@@ -39,6 +39,37 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
 await app.start()
 ```
 
+## Host-Owned ASGI Lifecycle
+
+If another ASGI app owns the server lifecycle, register Teams routes synchronously
+and initialize plugins during startup:
+
+```python
+from fastapi import FastAPI
+from microsoft_teams.apps import App, FastAPIAdapter
+
+asgi_app = FastAPI()
+teams = App(http_server_adapter=FastAPIAdapter(app=asgi_app))
+
+routes = teams.register_routes()  # registers POST /api/messages, does not start a server
+
+
+async def startup():
+    # Call this from your host's ASGI startup hook.
+    await teams.start_plugins()
+```
+
+For Starlette hosts, use the shipped `StarletteAdapter`:
+
+```python
+from microsoft_teams.apps import App, StarletteAdapter
+from starlette.applications import Starlette
+
+asgi_app = Starlette()
+teams = App(http_server_adapter=StarletteAdapter(app=asgi_app))
+teams.register_routes()
+```
+
 ## OAuth and Graph Integration
 
 ```python

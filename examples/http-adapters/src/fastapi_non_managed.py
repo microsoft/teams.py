@@ -8,8 +8,8 @@ Licensed under the MIT License.
 # Teams echo bot where YOU manage the server lifecycle.
 #
 # This demonstrates the "non-managed" pattern — you create your own FastAPI app
-# with your own routes, wrap it in a FastAPIAdapter, call app.initialize() to
-# register the Teams routes, then start uvicorn yourself.
+# with your own routes, wrap it in a FastAPIAdapter, register Teams routes
+# synchronously, then start uvicorn yourself.
 #
 # This is ideal when:
 # - You have an existing FastAPI app and want to add Teams bot support
@@ -81,12 +81,16 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
     await ctx.send(f"[FastAPI non-managed] You said: '{ctx.activity.text}'")
 
 
+# 6. Register routes synchronously — registers /api/messages on our FastAPI app.
+#    Does NOT start a server and does NOT run async plugin init hooks.
+app.register_routes()
+
+
 async def main():
     port = int(os.getenv("PORT", "3978"))
 
-    # 5. Initialize only — registers /api/messages on our FastAPI app
-    #    Does NOT start a server
-    await app.initialize()
+    # 7. Initialize async plugins during host startup.
+    await app.start_plugins()
 
     print(f"Starting server on http://localhost:{port}")
     print("  GET  /              — Homepage")
@@ -94,7 +98,7 @@ async def main():
     print("  GET  /api/users     — Users API")
     print("  POST /api/messages  — Teams bot endpoint (added by SDK)")
 
-    # 6. Start your own uvicorn server
+    # 8. Start your own uvicorn server
     config = uvicorn.Config(app=my_fastapi, host="0.0.0.0", port=port, log_level="info")
     server = uvicorn.Server(config)
     await server.serve()
