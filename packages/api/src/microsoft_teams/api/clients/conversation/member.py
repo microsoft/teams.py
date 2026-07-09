@@ -45,6 +45,7 @@ class ConversationMemberClient(BaseClient):
         Returns:
             List of TeamsChannelAccount objects representing the conversation members
         """
+        # TODO: Will be deprecated alongside accessor in ConversationClient
         response = await self.http.get(f"{self.service_url}/v3/conversations/{conversation_id}/members")
         return [TeamsChannelAccount.model_validate(member) for member in response.json()]
 
@@ -66,6 +67,7 @@ class ConversationMemberClient(BaseClient):
             PagedMembersResult containing the members and an optional continuation token
             for fetching subsequent pages.
         """
+        # TODO: Will be deprecated alongside accessor in ConversationClient
         url = f"{self.service_url}/v3/conversations/{conversation_id}/pagedMembers"
         response = await self.http.get(url, params={"pageSize": page_size, "continuationToken": continuation_token})
         return PagedMembersResult.model_validate(response.json())
@@ -81,5 +83,6 @@ class ConversationMemberClient(BaseClient):
         Returns:
             TeamsChannelAccount object representing the conversation member
         """
+        # TODO: Will be deprecated alongside accessor in ConversationClient
         response = await self.http.get(f"{self.service_url}/v3/conversations/{conversation_id}/members/{member_id}")
         return TeamsChannelAccount.model_validate(response.json())

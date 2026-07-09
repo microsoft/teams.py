@@ -48,6 +48,7 @@ class ReactionClient(BaseClient):
             activity_id: The id of the activity to react to.
             reaction_type: The reaction type (for example: "like", "heart", "laugh", etc.).
         """
+        # TODO: Will be deprecated alongside accessor in ConversationClient
         url = (
             f"{self.service_url}/v3/conversations/{conversation_id}/activities/{activity_id}/reactions/{reaction_type}"
         )
@@ -67,6 +68,7 @@ class ReactionClient(BaseClient):
             activity_id: The id of the activity the reaction is on.
             reaction_type: The reaction type to remove (for example: "like", "heart", "laugh", etc.).
         """
+        # TODO: Will be deprecated alongside accessor in ConversationClient
         url = (
             f"{self.service_url}/v3/conversations/{conversation_id}/activities/{activity_id}/reactions/{reaction_type}"
         )
