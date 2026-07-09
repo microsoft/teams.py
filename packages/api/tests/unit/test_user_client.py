@@ -251,8 +251,8 @@ class TestUserClientFlattened:
 
         response = await client.get_aad_tokens(params)
 
-        assert "https://graph.microsoft.com" in response
-        assert "https://api.botframework.com" in response
+        assert "https://graph.microsoft.com" in response.keys()
+        assert "https://api.botframework.com" in response.keys()
 
     @pytest.mark.asyncio
     async def test_get_token_status(self, mock_http_client):
