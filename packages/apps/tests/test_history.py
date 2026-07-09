@@ -6,6 +6,7 @@ Licensed under the MIT License.
 # pyright: basic
 
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from types import SimpleNamespace
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -35,6 +36,7 @@ from pydantic import TypeAdapter
 @dataclass
 class FakeQueryParameters:
     top: int | None = None
+    orderby: list[str] | None = None
 
 
 class FakeRepliesBuilder:
@@ -117,6 +119,7 @@ async def test_app_get_history_reads_chat_messages_with_top() -> None:
     assert graph.chats.chat_id == "chat-id"
     config = graph.chat_messages.get.call_args.args[0]
     assert config.query_parameters.top == 3
+    assert config.query_parameters.orderby == ["createdDateTime desc"]
 
 
 @pytest.mark.asyncio
@@ -134,6 +137,7 @@ async def test_app_get_history_paginates_when_count_exceeds_graph_page_limit() -
     assert result.messages == list(range(75))
     config = graph.chat_messages.get.call_args.args[0]
     assert config.query_parameters.top == 50
+    assert config.query_parameters.orderby == ["createdDateTime desc"]
     next_request = graph.request_adapter.send_async.call_args.args[0]
     assert next_request.url == "https://graph.example/next"
 
@@ -163,7 +167,41 @@ async def test_app_get_history_reads_channel_thread_replies() -> None:
     assert graph.channels.channel_id == "channel-id"
     assert graph.channel_messages.thread_id == "root-message-id"
     config = graph.channel_messages.replies.get.call_args.args[0]
-    assert config.query_parameters.top == 5
+    assert config.query_parameters.top == 50
+    assert config.query_parameters.orderby is None
+
+
+@pytest.mark.asyncio
+async def test_app_get_history_returns_last_channel_thread_replies() -> None:
+    app = App(**AppOptions(client_id="test-id", client_secret="test-secret"))
+    graph = FakeGraph()
+    replies = [
+        SimpleNamespace(id="oldest", created_date_time=datetime(2024, 1, 1, tzinfo=UTC)),
+        SimpleNamespace(id="older", created_date_time=datetime(2024, 1, 2, tzinfo=UTC)),
+        SimpleNamespace(id="newer", created_date_time=datetime(2024, 1, 3, tzinfo=UTC)),
+        SimpleNamespace(id="newest", created_date_time=datetime(2024, 1, 4, tzinfo=UTC)),
+    ]
+    graph.channel_messages.replies.get = AsyncMock(
+        return_value=SimpleNamespace(value=replies[:2], odata_next_link="https://graph.example/replies-next")
+    )
+    graph.request_adapter = FakeRequestAdapter([SimpleNamespace(value=replies[2:], odata_next_link=None)])
+
+    with patch.object(app, "get_app_graph", return_value=graph):
+        result = await app.get_history(
+            n=2,
+            source=ChannelHistorySource(
+                team_aad_group_id="team-aad-group-id",
+                channel_id="channel-id",
+                thread_id="root-message-id",
+            ),
+        )
+
+    assert [message.id for message in result.messages] == ["newer", "newest"]
+    config = graph.channel_messages.replies.get.call_args.args[0]
+    assert config.query_parameters.top == 50
+    assert config.query_parameters.orderby is None
+    next_request = graph.request_adapter.send_async.call_args.args[0]
+    assert next_request.url == "https://graph.example/replies-next"
 
 
 @pytest.mark.asyncio

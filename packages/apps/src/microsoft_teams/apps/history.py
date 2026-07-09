@@ -10,6 +10,7 @@ from microsoft_teams.api import CustomBaseModel
 from pydantic import Field
 
 _GRAPH_PAGE_SIZE_LIMIT = 50
+_CHAT_HISTORY_ORDER_BY = ["createdDateTime desc"]
 
 if TYPE_CHECKING:
     from msgraph.generated.models.chat_message import ChatMessage  # type: ignore[reportMissingTypeStubs]
@@ -61,17 +62,17 @@ def _validate_history_count(n: object) -> None:
         raise ValueError("n must be greater than 0")
 
 
-def _get_query_parameters(messages_builder: Any, n: int) -> Any:
+def _get_query_parameters(messages_builder: Any, n: int, *, orderby: list[str] | None = None) -> Any:
     builder_type = cast(type[Any], type(messages_builder))
     for name in ("MessagesRequestBuilderGetQueryParameters", "RepliesRequestBuilderGetQueryParameters"):
         query_parameters_type = getattr(builder_type, name, None)
         if query_parameters_type is not None:
-            return query_parameters_type(top=n)
+            return query_parameters_type(top=n, orderby=orderby)
 
     raise TypeError("messages_builder does not support Graph history query parameters")
 
 
-def _get_request_configuration(messages_builder: Any, n: int) -> Any:
+def _get_request_configuration(messages_builder: Any, n: int, *, orderby: list[str] | None = None) -> Any:
     try:
         from kiota_abstractions.base_request_configuration import RequestConfiguration
     except ImportError as e:
@@ -79,12 +80,18 @@ def _get_request_configuration(messages_builder: Any, n: int) -> Any:
             "Graph functionality not available. Install with 'pip install microsoft-teams-apps[graph]'"
         ) from e
 
-    return RequestConfiguration(query_parameters=_get_query_parameters(messages_builder, n))
+    return RequestConfiguration(query_parameters=_get_query_parameters(messages_builder, n, orderby=orderby))
 
 
 def _get_error_mapping() -> dict[str, Any]:
     ODataError = import_module("msgraph.generated.models.o_data_errors.o_data_error").ODataError
     return {"4XX": ODataError, "5XX": ODataError}
+
+
+def _last_n_messages(messages: list[Any], n: int) -> list[Any]:
+    if all(getattr(message, "created_date_time", None) is not None for message in messages):
+        messages = sorted(messages, key=lambda message: message.created_date_time)
+    return messages[-n:]
 
 
 async def get_graph_history(
@@ -109,11 +116,15 @@ async def get_graph_history(
         messages_builder = channel_builder.messages
         if source.thread_id:
             messages_builder = messages_builder.by_chat_message_id(source.thread_id).replies
+        orderby = None
     else:
         messages_builder = graph.chats.by_chat_id(source.chat_id).messages
+        orderby = _CHAT_HISTORY_ORDER_BY
 
     messages: list[ChatMessage] = []
-    response = await messages_builder.get(_get_request_configuration(messages_builder, min(n, _GRAPH_PAGE_SIZE_LIMIT)))
+    collect_all = isinstance(source, ChannelHistorySource) and source.thread_id is not None
+    page_size = _GRAPH_PAGE_SIZE_LIMIT if collect_all else min(n, _GRAPH_PAGE_SIZE_LIMIT)
+    response = await messages_builder.get(_get_request_configuration(messages_builder, page_size, orderby=orderby))
     if response is None or response.value is None:
         return MessageHistory(messages=[], source=source)
 
@@ -126,9 +137,11 @@ async def get_graph_history(
 
     def collect(message: ChatMessage) -> bool:
         messages.append(message)
-        return len(messages) < n
+        return collect_all or len(messages) < n
 
     request_adapter: Any = graph.request_adapter  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]
     iterator: Any = PageIterator(response, request_adapter, error_mapping=_get_error_mapping())
     await iterator.iterate(collect)
+    if collect_all:
+        messages = _last_n_messages(messages, n)
     return MessageHistory(messages=messages, source=source)
