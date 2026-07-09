@@ -289,11 +289,11 @@ class TestActivityProcessor:
         mock_token.service_url = "https://service.url"
         mock_activity_event = ActivityEvent(body=core_activity, token=mock_token)
 
-        # Patch ApiClient so users.token.get returns a successful response
+        # Patch ApiClient so users.get_token returns a successful response
         token_response = MagicMock()
         token_response.token = "user-jwt-token"
         mock_api_client = MagicMock()
-        mock_api_client.users.token.get = AsyncMock(return_value=token_response)
+        mock_api_client.users.get_token = AsyncMock(return_value=token_response)
 
         activity_processor.router.select_handlers = MagicMock(return_value=[])
         activity_processor.event_manager = MagicMock()
@@ -303,7 +303,7 @@ class TestActivityProcessor:
         with patch("microsoft_teams.apps.app_process.ApiClient", return_value=mock_api_client):
             await activity_processor.process_activity([], mock_activity_event)
 
-        mock_api_client.users.token.get.assert_called_once()
+        mock_api_client.users.get_token.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_process_activity_raises_when_event_manager_missing(self, activity_processor):

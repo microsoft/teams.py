@@ -64,20 +64,20 @@ class ActivitySender:
         activity.conversation = ref.conversation
 
         is_update = hasattr(activity, "id") and activity.id
-        activities = api.conversations.activities(ref.conversation.id)
+        conversation_id = ref.conversation.id
 
         if is_update:
             activity_id = cast(str, activity.id)
             if is_targeted:
-                res = await activities.update_targeted(activity_id, activity)
+                res = await api.conversations.update_targeted_activity(conversation_id, activity_id, activity)
             else:
-                res = await activities.update(activity_id, activity)
+                res = await api.conversations.update_activity(conversation_id, activity_id, activity)
             return SentActivity.merge(activity, res)
 
         if is_targeted:
-            res = await activities.create_targeted(activity)
+            res = await api.conversations.create_targeted_activity(conversation_id, activity)
         else:
-            res = await activities.create(activity)
+            res = await api.conversations.create_activity(conversation_id, activity)
         return SentActivity.merge(activity, res)
 
     def create_stream(self, ref: ConversationReference) -> StreamerProtocol:

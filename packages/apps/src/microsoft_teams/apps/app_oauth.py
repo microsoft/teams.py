@@ -49,7 +49,7 @@ class OauthHandlers:
                 )
 
             try:
-                token = await api.users.token.exchange(
+                token = await api.users.exchange_token(
                     ExchangeUserTokenParams(
                         connection_name=activity.value.connection_name,
                         user_id=activity.from_.id,
@@ -166,7 +166,7 @@ class OauthHandlers:
             )
 
             try:
-                token = await api.users.token.get(
+                token = await api.users.get_token(
                     GetUserTokenParams(
                         connection_name=self.default_connection_name,
                         user_id=activity.from_.id,

@@ -382,9 +382,9 @@ class HttpStream(StreamerProtocol):
 
         try:
             if to_send.id and not any(e.type == "streaminfo" for e in (to_send.entities or [])):
-                res = await self._client.conversations.activities(self._ref.conversation.id).update(to_send.id, to_send)
+                res = await self._client.conversations.update_activity(self._ref.conversation.id, to_send.id, to_send)
             else:
-                res = await self._client.conversations.activities(self._ref.conversation.id).create(to_send)
+                res = await self._client.conversations.create_activity(self._ref.conversation.id, to_send)
 
             return SentActivity.merge(to_send, res)
         except HTTPStatusError as e:
