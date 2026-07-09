@@ -39,6 +39,17 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
 await app.start()
 ```
 
+## Unauthenticated Requests
+
+For local development only, JWT validation can be disabled explicitly:
+
+```python
+app = App(dangerously_allow_unauthenticated_requests=True)
+```
+
+It can also be enabled with the `DANGEROUSLY_ALLOW_UNAUTHENTICATED_REQUESTS=true` environment variable.
+The previous `skip_auth` option is deprecated and remains supported for compatibility.
+
 ## OAuth and Graph Integration
 
 ```python

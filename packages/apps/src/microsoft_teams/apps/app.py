@@ -209,8 +209,8 @@ class App(ActivityHandlerMixin):
             self.server.on_request = self._process_activity_event
             self.server.initialize(
                 credentials=self.credentials,
-                skip_auth=self.options.skip_auth,
                 cloud=self.cloud,
+                dangerously_allow_unauthenticated_requests=self.options.dangerously_allow_unauthenticated_requests,
             )
 
             self._initialized = True
