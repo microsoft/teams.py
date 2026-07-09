@@ -50,8 +50,8 @@ class TestUserClient:
 
         response = await client.token.get_aad(params)
 
-        assert "https://graph.microsoft.com" in response
-        assert "https://api.botframework.com" in response
+        assert response.get("https://graph.microsoft.com") is not None
+        assert response.get("https://api.botframework.com") is not None
 
     @pytest.mark.asyncio
     async def test_user_token_get_status(self, mock_http_client):
@@ -160,7 +160,7 @@ class TestUserClientRegionalEndpoints:
 
         response = await client.token.get_aad(params)
 
-        assert "https://graph.microsoft.com" in response
+        assert response.get("https://graph.microsoft.com") is not None
 
     @pytest.mark.asyncio
     async def test_user_token_get_status_with_regional_endpoint(self, mock_http_client):
@@ -251,8 +251,8 @@ class TestUserClientFlattened:
 
         response = await client.get_aad_tokens(params)
 
-        assert "https://graph.microsoft.com" in response.keys()
-        assert "https://api.botframework.com" in response.keys()
+        assert response.get("https://graph.microsoft.com") is not None
+        assert response.get("https://api.botframework.com") is not None
 
     @pytest.mark.asyncio
     async def test_get_token_status(self, mock_http_client):
