@@ -22,15 +22,16 @@ from microsoft_teams.api.activities.event.agent_lifecycle import (
 # Static sample IDs for unit-test payloads; these tests do not call live services.
 TENANT_ID = "00000000-0000-0000-0000-000000000001"
 AGENTIC_USER_ID = "00000000-0000-0000-0000-000000000002"
-AGENTIC_APP_INSTANCE_ID = "00000000-0000-0000-0000-000000000003"
-BLUEPRINT_ID = "00000000-0000-0000-0000-000000000004"
+APP_ID = "00000000-0000-0000-0000-000000000003"
+AGENTIC_APP_INSTANCE_ID = "00000000-0000-0000-0000-000000000004"
+BLUEPRINT_ID = "00000000-0000-0000-0000-000000000005"
 
 
 def _envelope(value: Dict[str, Any], value_type: str) -> Dict[str, Any]:
     return {
         "recipient": {
             "agenticUserId": AGENTIC_USER_ID,
-            "agenticAppId": AGENTIC_APP_INSTANCE_ID,
+            "agenticAppId": APP_ID,
             "agenticAppBlueprintId": BLUEPRINT_ID,
             "callbackUri": "https://example.test/api/messages",
             "tenantId": TENANT_ID,
