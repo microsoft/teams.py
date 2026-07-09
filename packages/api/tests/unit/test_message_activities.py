@@ -195,7 +195,7 @@ class TestMessageActivity:
         assert isinstance(activity, MessageActivity)
         assert activity.shared_file_urls == [expected_url]
 
-    def test_message_activity_shared_file_urls_ignores_non_html_or_empty_attachments(self):
+    def test_message_activity_shared_file_urls_ignores_non_html_attachments(self):
         payload = {
             "type": "message",
             "id": "msg-345",
@@ -210,6 +210,23 @@ class TestMessageActivity:
                     "contentUrl": None,
                     "name": None,
                 },
+            ],
+        }
+
+        activity = ActivityTypeAdapter.validate_python(payload)
+
+        assert isinstance(activity, MessageActivity)
+        assert activity.shared_file_urls == []
+
+    def test_message_activity_shared_file_urls_ignores_html_attachments_without_content(self):
+        payload = {
+            "type": "message",
+            "id": "msg-346",
+            "text": "plain message",
+            "from": {"id": "user-123", "name": "Test User"},
+            "conversation": {"id": "conv-456", "conversationType": "personal"},
+            "recipient": {"id": "bot-789", "name": "Test Bot"},
+            "attachments": [
                 {
                     "contentType": "text/html",
                     "content": "",
