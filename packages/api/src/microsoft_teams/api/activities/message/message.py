@@ -3,7 +3,10 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
+import re
+from html import unescape
 from typing import Any, List, Literal, Optional, Self
+from urllib.parse import urlparse
 
 from microsoft_teams.cards import AdaptiveCard
 from microsoft_teams.common.experimental import experimental
@@ -140,28 +143,31 @@ class MessageActivity(_MessageBase, ActivityBase):
     @property
     def shared_file_urls(self) -> list[str]:
         """
-        Extract SharePoint/OneDrive file URLs from HTML attachments.
+        Extract SharePoint-backed file URLs from HTML attachments.
 
         When a user shares a file via the Teams compose box, Teams embeds
         the file link inside a text/html attachment rather than sending
-        structured file metadata. This property parses those URLs out.
+        structured file metadata. This property parses those URLs out,
+        including OneDrive for Business links that use SharePoint hosts.
         """
-        import re
-        from urllib.parse import urlparse
-
         urls: list[str] = []
         for attachment in self.attachments or []:
             if attachment.content_type != "text/html" or not attachment.content:
                 continue
 
             html = str(attachment.content)
-            candidates = re.findall(r"href=['\"](https?://[^'\"]+)['\"]", html, flags=re.IGNORECASE)
+            candidates: list[str] = re.findall(r"href=['\"](https?://[^'\"]+)['\"]", html, flags=re.IGNORECASE)
             if not candidates:
                 candidates = re.findall(r"https?://[^\s\"<>]+", html)
 
-            for url in candidates:
-                host = urlparse(url).netloc.lower()
-                if host.endswith("sharepoint.com"):
+            for raw in candidates:
+                url: str = unescape(raw)
+                hostname = urlparse(url).hostname
+                if hostname is None:
+                    continue
+
+                host = hostname.lower()
+                if host == "sharepoint.com" or host.endswith(".sharepoint.com"):
                     urls.append(url)
 
         return urls

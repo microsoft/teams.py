@@ -145,6 +145,7 @@ class TestMessageActivity:
         assert activity.attachments[1] == new_attachment
 
     def test_message_activity_shared_file_urls_extracts_sharepoint_links(self):
+        expected_url = "https://company.sharepoint.com/sites/Team/file.pdf?web=1&download=1"
         payload = {
             "type": "message",
             "id": "msg-123",
@@ -155,7 +156,10 @@ class TestMessageActivity:
             "attachments": [
                 {
                     "contentType": "text/html",
-                    "content": '<p>see <a href="https://company.sharepoint.com/sites/Team/file.pdf">file</a></p>',
+                    "content": (
+                        '<p>see <a href="https://company.sharepoint.com/sites/Team/file.pdf'
+                        '?web=1&amp;download=1">file</a></p>'
+                    ),
                     "contentUrl": None,
                     "name": None,
                 }
@@ -164,9 +168,87 @@ class TestMessageActivity:
 
         activity = ActivityTypeAdapter.validate_python(payload)
 
-        urls = activity.shared_file_urls
-        assert len(urls) == 1
-        assert "sharepoint.com" in urls[0]
+        assert isinstance(activity, MessageActivity)
+        assert activity.shared_file_urls == [expected_url]
+
+    def test_message_activity_shared_file_urls_extracts_one_drive_for_business_sharepoint_host(self):
+        expected_url = "https://company-my.sharepoint.com/personal/user_company_com/Documents/file.docx"
+        payload = {
+            "type": "message",
+            "id": "msg-234",
+            "text": "see attached",
+            "from": {"id": "user-123", "name": "Test User"},
+            "conversation": {"id": "conv-456", "conversationType": "personal"},
+            "recipient": {"id": "bot-789", "name": "Test Bot"},
+            "attachments": [
+                {
+                    "contentType": "text/html",
+                    "content": f'<p>see <a href="{expected_url}">file</a></p>',
+                    "contentUrl": None,
+                    "name": None,
+                }
+            ],
+        }
+
+        activity = ActivityTypeAdapter.validate_python(payload)
+
+        assert isinstance(activity, MessageActivity)
+        assert activity.shared_file_urls == [expected_url]
+
+    def test_message_activity_shared_file_urls_ignores_non_html_or_empty_attachments(self):
+        payload = {
+            "type": "message",
+            "id": "msg-345",
+            "text": "plain message",
+            "from": {"id": "user-123", "name": "Test User"},
+            "conversation": {"id": "conv-456", "conversationType": "personal"},
+            "recipient": {"id": "bot-789", "name": "Test Bot"},
+            "attachments": [
+                {
+                    "contentType": "text/plain",
+                    "content": "https://company.sharepoint.com/sites/Team/file.pdf",
+                    "contentUrl": None,
+                    "name": None,
+                },
+                {
+                    "contentType": "text/html",
+                    "content": "",
+                    "contentUrl": None,
+                    "name": None,
+                },
+            ],
+        }
+
+        activity = ActivityTypeAdapter.validate_python(payload)
+
+        assert isinstance(activity, MessageActivity)
+        assert activity.shared_file_urls == []
+
+    def test_message_activity_shared_file_urls_rejects_non_sharepoint_hosts(self):
+        payload = {
+            "type": "message",
+            "id": "msg-567",
+            "text": "see attached",
+            "from": {"id": "user-123", "name": "Test User"},
+            "conversation": {"id": "conv-456", "conversationType": "personal"},
+            "recipient": {"id": "bot-789", "name": "Test Bot"},
+            "attachments": [
+                {
+                    "contentType": "text/html",
+                    "content": (
+                        '<p><a href="https://notsharepoint.com/file.pdf">bad</a>'
+                        '<a href="https://attacker.example/?next=https://company.sharepoint.com/file.pdf">bad</a></p>'
+                    ),
+                    "contentUrl": None,
+                    "name": None,
+                }
+            ],
+        }
+
+        activity = ActivityTypeAdapter.validate_python(payload)
+
+        assert isinstance(activity, MessageActivity)
+        assert activity.shared_file_urls == []
 
     def test_message_activity_shared_file_urls_empty_when_no_html(self):
         payload = {
@@ -181,6 +263,7 @@ class TestMessageActivity:
 
         activity = ActivityTypeAdapter.validate_python(payload)
 
+        assert isinstance(activity, MessageActivity)
         assert activity.shared_file_urls == []
 
     def test_add_mention_basic(self):
