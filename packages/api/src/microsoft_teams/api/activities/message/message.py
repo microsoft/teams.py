@@ -43,6 +43,24 @@ from ...models.entity import (
 from ..utils import StripMentionsTextOptions, strip_mentions_text
 
 
+def _is_sharepoint_url(url: str) -> bool:
+    hostname = urlparse(url).hostname
+    if hostname is None:
+        return False
+
+    host = hostname.lower()
+    return host == "sharepoint.com" or host.endswith(".sharepoint.com")
+
+
+def _sharepoint_urls_from_candidates(candidates: list[str]) -> list[str]:
+    urls: list[str] = []
+    for raw in candidates:
+        url: str = unescape(raw)
+        if _is_sharepoint_url(url):
+            urls.append(url)
+    return urls
+
+
 class _MessageBase(CustomBaseModel):
     """Base class containing shared message activity fields (all Optional except type)."""
 
@@ -152,7 +170,9 @@ class MessageActivity(_MessageBase, ActivityBase):
         """
         urls: list[str] = []
         for attachment in self.attachments or []:
-            if attachment.content_type != "text/html" or not attachment.content:
+            if attachment.content_type != "text/html":
+                continue
+            if not attachment.content:
                 continue
 
             html = str(attachment.content)
@@ -160,15 +180,7 @@ class MessageActivity(_MessageBase, ActivityBase):
             if not candidates:
                 candidates = re.findall(r"https?://[^\s\"<>]+", html)
 
-            for raw in candidates:
-                url: str = unescape(raw)
-                hostname = urlparse(url).hostname
-                if hostname is None:
-                    continue
-
-                host = hostname.lower()
-                if host == "sharepoint.com" or host.endswith(".sharepoint.com"):
-                    urls.append(url)
+            urls.extend(_sharepoint_urls_from_candidates(candidates))
 
         return urls
 
