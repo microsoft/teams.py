@@ -352,8 +352,10 @@ class TestHttpStream:
         mock_api_client.conversations.activities().create = mock_send_403
         stream = HttpStream(mock_api_client, conversation_reference)
 
-        with pytest.raises(expected):
+        with pytest.raises(expected) as exc_info:
             await stream._send(TypingActivityInput(text="hi"))
+
+        assert type(exc_info.value) is expected
 
     @pytest.mark.asyncio
     async def test_send_403_with_empty_body_raises_stream_error(self, mock_api_client, conversation_reference):

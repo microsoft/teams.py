@@ -410,7 +410,7 @@ class HttpStream(StreamerProtocol):
                     self._canceled = True
                     logger.warning("The streaming was stopped by the user.")
                     raise StreamCancelledError(message) from e
-                elif "not allowed" in normalized:
+                elif "not allowed" in normalized and "completed streamed message" not in normalized:
                     logger.warning("The streaming API isn't allowed for the user or bot.")
                     raise StreamNotAllowedError(message) from e
                 else:
