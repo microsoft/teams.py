@@ -19,10 +19,11 @@ from microsoft_teams.api.activities.event.agent_lifecycle import (
     AgenticUserWorkloadOnboardingUpdatedActivity,
 )
 
-TENANT_ID = "3f3d1cea-7a18-41af-872b-cfbbd5140984"
-AGENTIC_USER_ID = "08aa8591-53f1-4fc6-bfb6-314ba3c3ee5c"
-AGENTIC_APP_INSTANCE_ID = "231c6c9d-2ccf-41f0-ab44-304c4d5033c9"
-BLUEPRINT_ID = "88102a3f-0f37-46bf-80f6-8b4650d10c46"
+# Static sample IDs for unit-test payloads; these tests do not call live services.
+TENANT_ID = "00000000-0000-0000-0000-000000000001"
+AGENTIC_USER_ID = "00000000-0000-0000-0000-000000000002"
+AGENTIC_APP_INSTANCE_ID = "00000000-0000-0000-0000-000000000003"
+BLUEPRINT_ID = "00000000-0000-0000-0000-000000000004"
 
 
 def _envelope(value: Dict[str, Any], value_type: str) -> Dict[str, Any]:
