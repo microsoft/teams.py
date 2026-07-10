@@ -41,7 +41,7 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
     if text.startswith("react "):
         reaction_type = text[6:].strip()
 
-        await ctx.api.reactions.add(
+        await ctx.api.conversations.add_reaction(
             conversation_id=conversation_id,
             activity_id=activity_id,
             reaction_type=reaction_type,
@@ -57,14 +57,14 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
     if text.startswith("unreact "):
         reaction_type = text[8:].strip()
 
-        await ctx.api.reactions.add(
+        await ctx.api.conversations.add_reaction(
             conversation_id=conversation_id,
             activity_id=activity_id,
             reaction_type=reaction_type,
         )
         await ctx.reply(f"✅ Added {reaction_type} reaction, removing in 2s...")
         await asyncio.sleep(2)
-        await ctx.api.reactions.delete(
+        await ctx.api.conversations.delete_reaction(
             conversation_id=conversation_id,
             activity_id=activity_id,
             reaction_type=reaction_type,

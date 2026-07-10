@@ -101,7 +101,7 @@ class ActivityProcessor:
         is_signed_in = False
         user_token: Optional[str] = None
         try:
-            user_token_res = await api_client.users.token.get(
+            user_token_res = await api_client.users.get_token(
                 GetUserTokenParams(
                     channel_id=activity.channel_id,
                     user_id=activity.from_.id,

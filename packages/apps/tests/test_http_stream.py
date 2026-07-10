@@ -39,20 +39,18 @@ class TestHttpStream:
     def mock_api_client(self):
         client = MagicMock(spec=ApiClient)
 
-        mock_activities = MagicMock()
         mock_conversations = MagicMock()
-        mock_conversations.activities.return_value = mock_activities
         client.conversations = mock_conversations
 
         client.send_call_count = 0
         client.sent_activities = []
 
-        async def mock_send(activity):
+        async def mock_send(conversation_id, activity):
             client.send_call_count += 1
             client.sent_activities.append(activity)
             return SentActivity(id=f"activity-{client.send_call_count}", activity_params=activity)
 
-        client.conversations.activities().create = mock_send
+        client.conversations.create_activity = mock_send
 
         return client
 
@@ -113,14 +111,14 @@ class TestHttpStream:
         patcher, scheduled = patch_loop_call_later(loop)
         with patcher:
 
-            async def mock_send_with_timeout(activity):
+            async def mock_send_with_timeout(conversation_id, activity):
                 nonlocal call_count
                 call_count += 1
                 if call_count == 1:
                     raise TimeoutError("Operation timed out")
                 return SentActivity(id=f"success-after-timeout-{call_count}", activity_params=activity)
 
-            mock_api_client.conversations.activities().create = mock_send_with_timeout
+            mock_api_client.conversations.create_activity = mock_send_with_timeout
             stream = HttpStream(mock_api_client, conversation_reference)
 
             stream.emit("Test message with timeout")
@@ -140,12 +138,12 @@ class TestHttpStream:
         patcher, scheduled = patch_loop_call_later(loop)
         with patcher:
 
-            async def mock_send_all_timeout(activity):
+            async def mock_send_all_timeout(conversation_id, activity):
                 nonlocal call_count
                 call_count += 1
                 raise TimeoutError("All operations timed out")
 
-            mock_api_client.conversations.activities().create = mock_send_all_timeout
+            mock_api_client.conversations.create_activity = mock_send_all_timeout
             stream = HttpStream(mock_api_client, conversation_reference)
 
             stream.emit("Test message with all timeouts")
@@ -206,7 +204,7 @@ class TestHttpStream:
         loop = asyncio.get_running_loop()
         patcher, scheduled = patch_loop_call_later(loop)
 
-        async def mock_send(activity):
+        async def mock_send(conversation_id, activity):
             nonlocal concurrent_entries, max_concurrent_entries
             async with lock:
                 concurrent_entries += 1
@@ -216,7 +214,7 @@ class TestHttpStream:
                 concurrent_entries -= 1
             return activity
 
-        mock_api_client.conversations.activities().create = mock_send
+        mock_api_client.conversations.create_activity = mock_send
 
         with patcher:
             stream = HttpStream(mock_api_client, conversation_reference)
@@ -236,14 +234,14 @@ class TestHttpStream:
         patcher, scheduled = patch_loop_call_later(loop)
         with patcher:
 
-            async def mock_send_403(activity):
+            async def mock_send_403(conversation_id, activity):
                 raise HTTPStatusError(
                     "Forbidden",
                     request=Request("POST", "https://example.com"),
                     response=Response(403, json={"error": {"message": "Content stream was canceled by user"}}),
                 )
 
-            mock_api_client.conversations.activities().create = mock_send_403
+            mock_api_client.conversations.create_activity = mock_send_403
             stream = HttpStream(mock_api_client, conversation_reference)
 
             stream.emit("Test message")
@@ -258,14 +256,14 @@ class TestHttpStream:
         patcher, scheduled = patch_loop_call_later(loop)
         with patcher:
 
-            async def mock_send_403(activity):
+            async def mock_send_403(conversation_id, activity):
                 raise HTTPStatusError(
                     "Forbidden",
                     request=Request("POST", "https://example.com"),
                     response=Response(403, json={"error": {"message": "Content stream was canceled by user"}}),
                 )
 
-            mock_api_client.conversations.activities().create = mock_send_403
+            mock_api_client.conversations.create_activity = mock_send_403
             stream = HttpStream(mock_api_client, conversation_reference)
 
             stream.emit("First message")
@@ -295,7 +293,7 @@ class TestHttpStream:
         patcher, scheduled = patch_loop_call_later(loop)
         with patcher:
 
-            async def mock_send_then_403(activity):
+            async def mock_send_then_403(conversation_id, activity):
                 nonlocal call_count
                 call_count += 1
                 if call_count == 1:
@@ -306,7 +304,7 @@ class TestHttpStream:
                     response=Response(403, json={"error": {"message": "Content stream was canceled by user"}}),
                 )
 
-            mock_api_client.conversations.activities().create = mock_send_then_403
+            mock_api_client.conversations.create_activity = mock_send_then_403
             stream = HttpStream(mock_api_client, conversation_reference)
 
             # First emit succeeds
@@ -342,14 +340,14 @@ class TestHttpStream:
     )
     @pytest.mark.asyncio
     async def test_send_maps_403_message_to_error(self, mock_api_client, conversation_reference, message, expected):
-        async def mock_send_403(activity):
+        async def mock_send_403(conversation_id, activity):
             raise HTTPStatusError(
                 "Forbidden",
                 request=Request("POST", "https://example.com"),
                 response=Response(403, json={"error": {"message": message}}),
             )
 
-        mock_api_client.conversations.activities().create = mock_send_403
+        mock_api_client.conversations.create_activity = mock_send_403
         stream = HttpStream(mock_api_client, conversation_reference)
 
         with pytest.raises(expected) as exc_info:
@@ -361,14 +359,14 @@ class TestHttpStream:
     async def test_send_403_with_empty_body_raises_stream_error(self, mock_api_client, conversation_reference):
         """A 403 with an empty/non-JSON body is treated as an unknown stream error instead of crashing."""
 
-        async def mock_send_403(activity):
+        async def mock_send_403(conversation_id, activity):
             raise HTTPStatusError(
                 "Forbidden",
                 request=Request("POST", "https://example.com"),
                 response=Response(403),
             )
 
-        mock_api_client.conversations.activities().create = mock_send_403
+        mock_api_client.conversations.create_activity = mock_send_403
         stream = HttpStream(mock_api_client, conversation_reference)
 
         with pytest.raises(TerminalStreamError):
@@ -386,7 +384,7 @@ class TestHttpStream:
         patcher, scheduled = patch_loop_call_later(loop)
         with patcher:
 
-            async def mock_create(activity):
+            async def mock_create(conversation_id, activity):
                 nonlocal create_calls
                 create_calls += 1
                 if create_calls == 2:
@@ -401,7 +399,7 @@ class TestHttpStream:
                     )
                 return SentActivity(id="stream-1", activity_params=activity)
 
-            async def mock_update(activity_id, activity):
+            async def mock_update(conversation_id, activity_id, activity):
                 updates.append(
                     {
                         "id": activity_id,
@@ -414,8 +412,8 @@ class TestHttpStream:
                 )
                 return SentActivity(id=activity_id, activity_params=activity)
 
-            mock_api_client.conversations.activities().create = mock_create
-            mock_api_client.conversations.activities().update = mock_update
+            mock_api_client.conversations.create_activity = mock_create
+            mock_api_client.conversations.update_activity = mock_update
             stream = HttpStream(mock_api_client, conversation_reference)
 
             stream.emit("Final answer")
@@ -445,7 +443,7 @@ class TestHttpStream:
         patcher, scheduled = patch_loop_call_later(loop)
         with patcher:
 
-            async def mock_create(activity):
+            async def mock_create(conversation_id, activity):
                 nonlocal create_calls
                 create_calls += 1
                 if create_calls == 2:
@@ -459,7 +457,7 @@ class TestHttpStream:
                     )
                 return SentActivity(id="stream-1", activity_params=activity)
 
-            async def mock_update(activity_id, activity):
+            async def mock_update(conversation_id, activity_id, activity):
                 updates.append(
                     {
                         "id": activity_id,
@@ -471,8 +469,8 @@ class TestHttpStream:
                 )
                 return SentActivity(id=activity_id, activity_params=activity)
 
-            mock_api_client.conversations.activities().create = mock_create
-            mock_api_client.conversations.activities().update = mock_update
+            mock_api_client.conversations.create_activity = mock_create
+            mock_api_client.conversations.update_activity = mock_update
             stream = HttpStream(mock_api_client, conversation_reference)
 
             # First chunk streams fine (create #1 -> id assigned).
@@ -511,9 +509,10 @@ class TestHttpStream:
         patcher, scheduled = patch_loop_call_later(loop)
 
         update_call_count = 0
-        original_create = mock_api_client.conversations.activities().create
+        original_create = mock_api_client.conversations.create_activity
 
-        async def mock_send(activity):
+        async def mock_send(*args):
+            activity = args[-1]
             nonlocal update_call_count
             if (
                 hasattr(activity, "id")
@@ -522,10 +521,10 @@ class TestHttpStream:
             ):
                 update_call_count += 1
                 return SentActivity(id=activity.id, activity_params=activity)
-            return await original_create(activity)
+            return await original_create(*args)
 
-        mock_api_client.conversations.activities().create = mock_send
-        mock_api_client.conversations.activities().update = mock_send
+        mock_api_client.conversations.create_activity = mock_send
+        mock_api_client.conversations.update_activity = mock_send
 
         with patcher:
             stream = HttpStream(mock_api_client, conversation_reference)
@@ -561,9 +560,10 @@ class TestHttpStream:
         patcher, scheduled = patch_loop_call_later(loop)
 
         update_call_count = 0
-        original_create = mock_api_client.conversations.activities().create
+        original_create = mock_api_client.conversations.create_activity
 
-        async def mock_send(activity):
+        async def mock_send(*args):
+            activity = args[-1]
             nonlocal update_call_count
             if (
                 hasattr(activity, "id")
@@ -572,10 +572,10 @@ class TestHttpStream:
             ):
                 update_call_count += 1
                 return SentActivity(id=activity.id, activity_params=activity)
-            return await original_create(activity)
+            return await original_create(*args)
 
-        mock_api_client.conversations.activities().create = mock_send
-        mock_api_client.conversations.activities().update = mock_send
+        mock_api_client.conversations.create_activity = mock_send
+        mock_api_client.conversations.update_activity = mock_send
 
         with patcher:
             stream = HttpStream(mock_api_client, conversation_reference)

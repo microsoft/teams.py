@@ -316,7 +316,7 @@ class ActivityContext(Generic[T]):
                 user_id=self.activity.from_.id,
                 connection_name=connection_name,
             )
-            res = await self.api.users.token.get(token_params)
+            res = await self.api.users.get_token(token_params)
             return res.token
         except Exception:
             # Token not available, continue with OAuth flow
@@ -348,7 +348,7 @@ class ActivityContext(Generic[T]):
 
         # Get sign-in resource
         resource_params = GetBotSignInResourceParams(state=state)
-        resource = await self.api.bots.sign_in.get_resource(resource_params)
+        resource = await self.api._bots.sign_in.get_resource(resource_params)  # pyright: ignore[reportPrivateUsage]
 
         payload = MessageActivityInput(recipient=self.activity.from_).add_attachments(
             card_attachment(
@@ -387,7 +387,7 @@ class ActivityContext(Generic[T]):
                 user_id=self.activity.from_.id,
                 connection_name=self.connection_name,
             )
-            await self.api.users.token.sign_out(sign_out_params)
+            await self.api.users.sign_out(sign_out_params)
             self.logger.debug(f"User {self.activity.from_.id} signed out successfully.")
         except Exception as e:
             self.logger.error(f"Failed to sign out user: {e}")
