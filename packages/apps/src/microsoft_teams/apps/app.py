@@ -52,8 +52,9 @@ from .events import (
     get_event_type_from_signature,
     is_registered_event,
 )
-from .http import FastAPIAdapter, HttpServer
+from .http import FastAPIAdapter
 from .http.adapter import HttpRequest, HttpResponse
+from .http.http_server import HttpServer
 from .options import AppOptions, InternalAppOptions
 from .plugins import PluginBase, PluginStartEvent
 from .routing import ActivityHandlerMixin, ActivityRouter

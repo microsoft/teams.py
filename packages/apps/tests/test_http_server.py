@@ -12,12 +12,23 @@ from microsoft_teams.api import (
     ConfigResponse,
     InvokeResponse,
 )
-from microsoft_teams.apps.http import FastAPIAdapter, HttpServer
+from microsoft_teams.apps.http import FastAPIAdapter
 from microsoft_teams.apps.http.adapter import HttpRequest, HttpResponse
+from microsoft_teams.apps.http.http_server import HttpServer
 
 
 class TestHttpServer:
-    """Test cases for HttpServer public interface."""
+    """Test cases for HttpServer implementation."""
+
+    def test_http_server_is_not_publicly_exported(self):
+        """HttpServer is an implementation detail and should not be exported."""
+        import microsoft_teams.apps as apps
+        import microsoft_teams.apps.http as http
+
+        assert "HttpServer" not in apps.__all__
+        assert not hasattr(apps, "HttpServer")
+        assert "HttpServer" not in http.__all__
+        assert not hasattr(http, "HttpServer")
 
     @pytest.fixture
     def mock_adapter(self):
