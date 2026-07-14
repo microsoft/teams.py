@@ -11,6 +11,7 @@ import httpx
 import pytest
 from microsoft_teams.api.auth.cloud_environment import PUBLIC, with_overrides
 from microsoft_teams.api.clients import ApiClient
+from microsoft_teams.api.clients._auth_provider_interceptor import AGENTIC_IDENTITY_EXTENSION
 from microsoft_teams.api.clients.conversation import ConversationClient
 from microsoft_teams.api.clients.conversation.params import CreateConversationParams
 from microsoft_teams.api.models import AgenticIdentity, ConversationResource, PagedMembersResult, TeamsChannelAccount
@@ -614,6 +615,7 @@ class TestConversationClientHttpClientSharing:
 
         assert client.activities_client.http == mock_http_client
         assert client.members_client.http == mock_http_client
+        assert client._reactions_client.http == mock_http_client
 
     def test_http_client_update_propagates(self, mock_http_client):
         """Test that updating HTTP client propagates to sub-clients."""
@@ -629,6 +631,7 @@ class TestConversationClientHttpClientSharing:
 
         assert client.activities_client.http == new_http_client
         assert client.members_client.http == new_http_client
+        assert client._reactions_client.http == new_http_client
 
 
 @pytest.mark.unit
@@ -672,3 +675,156 @@ class TestTargetedActivityOperations:
 
         # Should not raise an exception
         await activities.delete_targeted(activity_id)
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+class TestConversationClientFlattened:
+    """Unit tests for the flattened ConversationClient methods (conversations.create_activity, etc.)."""
+
+    async def test_create_activity(self, request_capture, mock_activity):
+        """create_activity should POST an activity."""
+        client = ConversationClient("https://test.service.url", request_capture)
+
+        result = await client.create_activity("conv-1", mock_activity)
+
+        assert result is not None
+        assert result.id is not None
+        last_request = request_capture._capture.last_request
+        assert last_request.method == "POST"
+        assert str(last_request.url) == "https://test.service.url/v3/conversations/conv-1/activities"
+
+    async def test_update_activity(self, request_capture, mock_activity):
+        """update_activity should PUT an activity."""
+        client = ConversationClient("https://test.service.url", request_capture)
+
+        result = await client.update_activity("conv-1", "act-1", mock_activity)
+
+        assert result is not None
+        last_request = request_capture._capture.last_request
+        assert last_request.method == "PUT"
+        assert str(last_request.url) == "https://test.service.url/v3/conversations/conv-1/activities/act-1"
+
+    async def test_reply_to_activity(self, request_capture, mock_activity):
+        """reply_to_activity should POST a reply with replyToId set."""
+        client = ConversationClient("https://test.service.url", request_capture)
+
+        result = await client.reply_to_activity("conv-1", "act-1", mock_activity)
+
+        assert result is not None
+        last_request = request_capture._capture.last_request
+        assert last_request.method == "POST"
+        assert str(last_request.url) == "https://test.service.url/v3/conversations/conv-1/activities/act-1"
+        payload = json.loads(last_request.content)
+        assert payload["replyToId"] == "act-1"
+
+    async def test_delete_activity(self, request_capture):
+        """delete_activity should DELETE an activity."""
+        client = ConversationClient("https://test.service.url", request_capture)
+
+        await client.delete_activity("conv-1", "act-1")
+
+        last_request = request_capture._capture.last_request
+        assert last_request.method == "DELETE"
+        assert str(last_request.url) == "https://test.service.url/v3/conversations/conv-1/activities/act-1"
+
+    async def test_get_activity_members(self, request_capture):
+        """get_activity_members should GET the activity members."""
+        client = ConversationClient("https://test.service.url", request_capture)
+
+        result = await client.get_activity_members("conv-1", "act-1")
+
+        assert isinstance(result, list)
+        last_request = request_capture._capture.last_request
+        assert last_request.method == "GET"
+        assert str(last_request.url) == "https://test.service.url/v3/conversations/conv-1/activities/act-1/members"
+
+    async def test_get_members(self, request_capture):
+        """get_members should GET all conversation members."""
+        client = ConversationClient("https://test.service.url", request_capture)
+
+        result = await client.get_members("conv-1")
+
+        assert isinstance(result, list)
+        assert result[0].id == "mock_member_id"
+        last_request = request_capture._capture.last_request
+        assert last_request.method == "GET"
+        assert str(last_request.url) == "https://test.service.url/v3/conversations/conv-1/members"
+
+    async def test_get_member_by_id(self, request_capture):
+        """get_member_by_id should GET a single conversation member."""
+        client = ConversationClient("https://test.service.url", request_capture)
+
+        result = await client.get_member_by_id("conv-1", "member-1")
+
+        assert result.id == "mock_member_id"
+        last_request = request_capture._capture.last_request
+        assert last_request.method == "GET"
+        assert str(last_request.url) == "https://test.service.url/v3/conversations/conv-1/members/member-1"
+
+    async def test_get_paged_members(self, mock_http_client):
+        """get_paged_members should return a PagedMembersResult."""
+        client = ConversationClient("https://test.service.url", mock_http_client)
+
+        result = await client.get_paged_members("conv-1")
+
+        assert isinstance(result, PagedMembersResult)
+        assert result.members[0].id == "mock_member_id"
+        assert result.continuation_token == "mock_continuation_token"
+
+    async def test_create_targeted_activity(self, mock_http_client, mock_activity):
+        """create_targeted_activity should return a SentActivity."""
+        client = ConversationClient("https://test.service.url", mock_http_client)
+
+        result = await client.create_targeted_activity("conv-1", mock_activity)
+
+        assert result is not None
+
+    async def test_update_targeted_activity(self, mock_http_client, mock_activity):
+        """update_targeted_activity should return a SentActivity."""
+        client = ConversationClient("https://test.service.url", mock_http_client)
+
+        result = await client.update_targeted_activity("conv-1", "act-1", mock_activity)
+
+        assert result is not None
+
+    async def test_delete_targeted_activity(self, mock_http_client):
+        """delete_targeted_activity should not raise."""
+        client = ConversationClient("https://test.service.url", mock_http_client)
+
+        await client.delete_targeted_activity("conv-1", "act-1")
+
+    async def test_add_reaction(self, mock_http_client):
+        """add_reaction should PUT to the reactions endpoint."""
+        client = ConversationClient("https://test.service.url", mock_http_client)
+
+        with patch.object(mock_http_client, "put", new_callable=AsyncMock) as mock_put:
+            await client.add_reaction("conv-1", "act-1", "like")
+
+        expected_url = "https://test.service.url/v3/conversations/conv-1/activities/act-1/reactions/like"
+        mock_put.assert_called_once_with(expected_url, extensions={AGENTIC_IDENTITY_EXTENSION: None})
+
+    async def test_delete_reaction(self, mock_http_client):
+        """delete_reaction should DELETE from the reactions endpoint."""
+        client = ConversationClient("https://test.service.url", mock_http_client)
+
+        with patch.object(mock_http_client, "delete", new_callable=AsyncMock) as mock_delete:
+            await client.delete_reaction("conv-1", "act-1", "like")
+
+        expected_url = "https://test.service.url/v3/conversations/conv-1/activities/act-1/reactions/like"
+        mock_delete.assert_called_once_with(expected_url, extensions={AGENTIC_IDENTITY_EXTENSION: None})
+
+
+@pytest.mark.unit
+class TestConversationClientDeprecatedAccessors:
+    """The grouped activities()/members() accessors are deprecated but still supported."""
+
+    def test_activities_accessor_warns(self, mock_http_client):
+        client = ConversationClient("https://test.service.url", mock_http_client)
+        with pytest.warns(DeprecationWarning):
+            client.activities("conv-1")
+
+    def test_members_accessor_warns(self, mock_http_client):
+        client = ConversationClient("https://test.service.url", mock_http_client)
+        with pytest.warns(DeprecationWarning):
+            client.members("conv-1")

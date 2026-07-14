@@ -10,12 +10,19 @@ from .plugin_activity_sent_event import PluginActivitySentEvent
 from .plugin_base import PluginBase
 from .plugin_error_event import PluginErrorEvent
 from .plugin_start_event import PluginStartEvent
-from .streamer import StreamCancelledError, StreamerProtocol
+from .streamer import (
+    StreamCancelledError,
+    StreamNotAllowedError,
+    StreamTimedOutError,
+    TerminalStreamError,
+)
 
 __all__ = [
     "PluginBase",
+    "TerminalStreamError",
+    "StreamTimedOutError",
+    "StreamNotAllowedError",
     "StreamCancelledError",
-    "StreamerProtocol",
     "PluginActivityEvent",
     "PluginActivityResponseEvent",
     "PluginActivitySentEvent",

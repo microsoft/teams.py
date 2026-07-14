@@ -594,12 +594,12 @@ class TestActivityContextSignIn:
 
         token_response = MagicMock()
         token_response.token = "existing-token-value"
-        ctx.api.users.token.get = AsyncMock(return_value=token_response)
+        ctx.api.users.get_token = AsyncMock(return_value=token_response)
 
         result = await ctx.sign_in()
 
         assert result == "existing-token-value"
-        ctx.api.users.token.get.assert_called_once()
+        ctx.api.users.get_token.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_sign_in_sends_oauth_card_when_no_existing_token(self) -> None:
@@ -613,13 +613,13 @@ class TestActivityContextSignIn:
         )
 
         ctx, mock_sender = _create_activity_context(activity=mock_activity)
-        ctx.api.users.token.get = AsyncMock(side_effect=Exception("no token"))
+        ctx.api.users.get_token = AsyncMock(side_effect=Exception("no token"))
 
         resource_response = MagicMock()
         resource_response.token_exchange_resource = None
         resource_response.token_post_resource = None
         resource_response.sign_in_link = "https://login.example.com"
-        ctx.api.bots.sign_in.get_resource = AsyncMock(return_value=resource_response)
+        ctx.api._bots.sign_in.get_resource = AsyncMock(return_value=resource_response)
 
         token_state = MagicMock()
         token_state.model_dump = MagicMock(return_value={"connection_name": "test-connection"})
@@ -633,7 +633,7 @@ class TestActivityContextSignIn:
             result = await ctx.sign_in()
 
         assert result is None
-        ctx.api.bots.sign_in.get_resource.assert_called_once()
+        ctx.api._bots.sign_in.get_resource.assert_called_once()
         assert mock_sender.send.called
 
     @pytest.mark.asyncio
@@ -648,7 +648,7 @@ class TestActivityContextSignIn:
         )
 
         ctx, mock_sender = _create_activity_context(activity=mock_activity)
-        ctx.api.users.token.get = AsyncMock(side_effect=Exception("no token"))
+        ctx.api.users.get_token = AsyncMock(side_effect=Exception("no token"))
 
         one_on_one = MagicMock()
         one_on_one.id = "1on1-conv-id"
@@ -658,7 +658,7 @@ class TestActivityContextSignIn:
         resource_response.token_exchange_resource = None
         resource_response.token_post_resource = None
         resource_response.sign_in_link = "https://login.example.com"
-        ctx.api.bots.sign_in.get_resource = AsyncMock(return_value=resource_response)
+        ctx.api._bots.sign_in.get_resource = AsyncMock(return_value=resource_response)
 
         token_state = MagicMock()
         token_state.model_dump = MagicMock(return_value={"connection_name": "test-connection"})
@@ -691,13 +691,13 @@ class TestActivityContextSignIn:
         )
 
         ctx, _ = _create_activity_context(activity=mock_activity)
-        ctx.api.users.token.get = AsyncMock(side_effect=Exception("no token"))
+        ctx.api.users.get_token = AsyncMock(side_effect=Exception("no token"))
 
         resource_response = MagicMock()
         resource_response.token_exchange_resource = None
         resource_response.token_post_resource = None
         resource_response.sign_in_link = "https://login.example.com"
-        ctx.api.bots.sign_in.get_resource = AsyncMock(return_value=resource_response)
+        ctx.api._bots.sign_in.get_resource = AsyncMock(return_value=resource_response)
 
         custom_options = SignInOptions(
             oauth_card_text="Custom prompt",
@@ -717,7 +717,7 @@ class TestActivityContextSignIn:
             result = await ctx.sign_in(options=custom_options)
 
         assert result is None
-        token_get_params = ctx.api.users.token.get.call_args[0][0]
+        token_get_params = ctx.api.users.get_token.call_args[0][0]
         assert token_get_params.connection_name == "custom-connection"
 
 
@@ -732,7 +732,7 @@ class TestActivityContextSignOut:
         mock_activity.from_.id = "user-success"
 
         ctx, _ = _create_activity_context(activity=mock_activity)
-        ctx.api.users.token.sign_out = AsyncMock(return_value=None)
+        ctx.api.users.sign_out = AsyncMock(return_value=None)
 
         with patch.object(ctx.logger, "debug") as mock_log_debug:
             await ctx.sign_out()
@@ -748,7 +748,7 @@ class TestActivityContextSignOut:
         mock_activity.from_.id = "user-003"
 
         ctx, _ = _create_activity_context(activity=mock_activity)
-        ctx.api.users.token.sign_out = AsyncMock(side_effect=Exception("API failure"))
+        ctx.api.users.sign_out = AsyncMock(side_effect=Exception("API failure"))
 
         with patch.object(ctx.logger, "error") as mock_log_error:
             # Should not raise

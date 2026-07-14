@@ -24,7 +24,7 @@ class TestFunctionContextSend:
         api.service_url = "https://test.service.url"
         mock_conversations = MagicMock()
         mock_conversations.create = AsyncMock(return_value=MagicMock(id="new-conv"))
-        mock_conversations.members_client.get_by_id = AsyncMock(return_value=True)
+        mock_conversations.get_member_by_id = AsyncMock(return_value=True)
         mock_activities = MagicMock()
         mock_activities.create = AsyncMock(
             return_value=SentActivity(id="sent-activity", activity_params=MessageActivityInput(text="sent"))

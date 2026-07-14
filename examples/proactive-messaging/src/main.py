@@ -95,7 +95,7 @@ async def send_and_update_proactive_message(app: App, conversation_id: str) -> N
 
     # Now update the same message proactively using the ConversationClient
     updated = MessageActivityInput(text="Status: Complete ✅ (updated proactively without a running server)")
-    await app.api.conversations.activities(conversation_id).update(activity_id, updated)
+    await app.api.conversations.update_activity(conversation_id, activity_id, updated)
     logger.info(f"✓ Message updated successfully! Activity ID: {activity_id}")
 
 

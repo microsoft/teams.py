@@ -56,8 +56,8 @@ class TestOauthHandlers:
         context = MagicMock(spec=ActivityContext)
         context.logger = MagicMock()
         context.api = MagicMock()
-        context.api.users.token.exchange = AsyncMock()
-        context.api.users.token.get = AsyncMock()
+        context.api.users.exchange_token = AsyncMock()
+        context.api.users.get_token = AsyncMock()
         context.next = AsyncMock()
         return context
 
@@ -114,13 +114,13 @@ class TestOauthHandlers:
     ):
         """Test successful token exchange."""
         mock_context.activity = token_exchange_activity
-        mock_context.api.users.token.exchange.return_value = mock_token_response
+        mock_context.api.users.exchange_token.return_value = mock_token_response
 
         result = await oauth_handlers.sign_in_token_exchange(mock_context)
 
         # Verify API call
-        mock_context.api.users.token.exchange.assert_called_once()
-        call_args = mock_context.api.users.token.exchange.call_args[0][0]
+        mock_context.api.users.exchange_token.assert_called_once()
+        call_args = mock_context.api.users.exchange_token.call_args[0][0]
         assert isinstance(call_args, ExchangeUserTokenParams)
         assert call_args.connection_name == "test-connection"
         assert call_args.user_id == "user-123"
@@ -145,12 +145,12 @@ class TestOauthHandlers:
         """Test token exchange with different connection name."""
         token_exchange_activity.value.connection_name = "different-connection"
         mock_context.activity = token_exchange_activity
-        mock_context.api.users.token.exchange.return_value = mock_token_response
+        mock_context.api.users.exchange_token.return_value = mock_token_response
 
         await oauth_handlers.sign_in_token_exchange(mock_context)
 
         # Exchange still succeeds despite connection name mismatch
-        mock_context.api.users.token.exchange.assert_called_once()
+        mock_context.api.users.exchange_token.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_sign_in_token_exchange_http_error_404(self, oauth_handlers, mock_context, token_exchange_activity):
@@ -163,7 +163,7 @@ class TestOauthHandlers:
         mock_response.status_code = 404
         http_error = HTTPStatusError("Not found", request=mock_request, response=mock_response)
 
-        mock_context.api.users.token.exchange.side_effect = http_error
+        mock_context.api.users.exchange_token.side_effect = http_error
 
         result = await oauth_handlers.sign_in_token_exchange(mock_context)
 
@@ -187,7 +187,7 @@ class TestOauthHandlers:
         mock_response.status_code = 500
         http_error = HTTPStatusError("Server error", request=mock_request, response=mock_response)
 
-        mock_context.api.users.token.exchange.side_effect = http_error
+        mock_context.api.users.exchange_token.side_effect = http_error
 
         result = await oauth_handlers.sign_in_token_exchange(mock_context)
 
@@ -207,7 +207,7 @@ class TestOauthHandlers:
         """Test token exchange with generic exception."""
         mock_context.activity = token_exchange_activity
         generic_error = ValueError("Generic error")
-        mock_context.api.users.token.exchange.side_effect = generic_error
+        mock_context.api.users.exchange_token.side_effect = generic_error
 
         result = await oauth_handlers.sign_in_token_exchange(mock_context)
 
@@ -227,13 +227,13 @@ class TestOauthHandlers:
     ):
         """Test successful state verification."""
         mock_context.activity = verify_state_activity
-        mock_context.api.users.token.get.return_value = mock_token_response
+        mock_context.api.users.get_token.return_value = mock_token_response
 
         result = await oauth_handlers.sign_in_verify_state(mock_context)
 
         # Verify API call
-        mock_context.api.users.token.get.assert_called_once()
-        call_args = mock_context.api.users.token.get.call_args[0][0]
+        mock_context.api.users.get_token.assert_called_once()
+        call_args = mock_context.api.users.get_token.call_args[0][0]
         assert isinstance(call_args, GetUserTokenParams)
         assert call_args.connection_name == "test-connection"
         assert call_args.user_id == "user-123"
@@ -260,7 +260,7 @@ class TestOauthHandlers:
         result = await oauth_handlers.sign_in_verify_state(mock_context)
 
         # Verify no API call
-        mock_context.api.users.token.get.assert_not_called()
+        mock_context.api.users.get_token.assert_not_called()
 
         # Verify 404 response
         assert isinstance(result, InvokeResponse) and result.body is None
@@ -280,7 +280,7 @@ class TestOauthHandlers:
         mock_response.status_code = 500
         http_error = HTTPStatusError("Server error", request=mock_request, response=mock_response)
 
-        mock_context.api.users.token.get.side_effect = http_error
+        mock_context.api.users.get_token.side_effect = http_error
 
         result = await oauth_handlers.sign_in_verify_state(mock_context)
 
@@ -304,7 +304,7 @@ class TestOauthHandlers:
         mock_response.status_code = 404
         http_error = HTTPStatusError("Not found", request=mock_request, response=mock_response)
 
-        mock_context.api.users.token.get.side_effect = http_error
+        mock_context.api.users.get_token.side_effect = http_error
 
         result = await oauth_handlers.sign_in_verify_state(mock_context)
 
@@ -317,7 +317,7 @@ class TestOauthHandlers:
         """Test state verification with generic exception."""
         mock_context.activity = verify_state_activity
         generic_error = ValueError("Generic error")
-        mock_context.api.users.token.get.side_effect = generic_error
+        mock_context.api.users.get_token.side_effect = generic_error
 
         result = await oauth_handlers.sign_in_verify_state(mock_context)
 

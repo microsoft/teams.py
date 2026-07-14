@@ -58,6 +58,7 @@ class ConversationActivityClient(BaseClient):
             The created activity
         """
 
+        # TODO: Will be deprecated alongside accessor in ConversationClient
         response = await self.http.post(
             f"{self._get_service_url(service_url)}/v3/conversations/{conversation_id}/activities",
             json=activity.model_dump(by_alias=True, exclude_none=True),
@@ -90,6 +91,7 @@ class ConversationActivityClient(BaseClient):
         Returns:
             The updated activity
         """
+        # TODO: Will be deprecated alongside accessor in ConversationClient
         response = await self.http.put(
             f"{self._get_service_url(service_url)}/v3/conversations/{conversation_id}/activities/{activity_id}",
             json=activity.model_dump(by_alias=True, exclude_none=True),
@@ -118,6 +120,7 @@ class ConversationActivityClient(BaseClient):
         Returns:
             The created reply activity
         """
+        # TODO: Will be deprecated alongside accessor in ConversationClient
         activity_json = activity.model_dump(by_alias=True, exclude_none=True)
         activity_json["replyToId"] = activity_id
         response = await self.http.post(
@@ -166,6 +169,7 @@ class ConversationActivityClient(BaseClient):
         Returns:
             List of TeamsChannelAccount objects representing the activity members
         """
+        # TODO: Will be deprecated alongside accessor in ConversationClient
         response = await self.http.get(
             f"{self._get_service_url(service_url)}/v3/conversations/{conversation_id}/activities/{activity_id}/members",
             extensions={AGENTIC_IDENTITY_EXTENSION: agentic_identity},
@@ -196,6 +200,7 @@ class ConversationActivityClient(BaseClient):
         Returns:
             The created activity
         """
+        # TODO: Will be deprecated alongside accessor in ConversationClient
         response = await self.http.post(
             f"{self._get_service_url(service_url)}/v3/conversations/{conversation_id}/activities?isTargetedActivity=true",
             json=activity.model_dump(by_alias=True, exclude_none=True),
@@ -227,6 +232,7 @@ class ConversationActivityClient(BaseClient):
         Returns:
             The updated activity
         """
+        # TODO: Will be deprecated alongside accessor in ConversationClient
         response = await self.http.put(
             f"{self._get_service_url(service_url)}/v3/conversations/{conversation_id}/activities/{activity_id}?isTargetedActivity=true",
             json=activity.model_dump(by_alias=True, exclude_none=True),
@@ -253,6 +259,7 @@ class ConversationActivityClient(BaseClient):
             conversation_id: The ID of the conversation
             activity_id: The ID of the activity to delete
         """
+        # TODO: Will be deprecated alongside accessor in ConversationClient
         await self.http.delete(
             f"{self._get_service_url(service_url)}/v3/conversations/{conversation_id}/activities/{activity_id}?isTargetedActivity=true"
         )

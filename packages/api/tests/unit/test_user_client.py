@@ -71,8 +71,8 @@ class TestUserClient:
 
         response = await client.token.get_aad(params)
 
-        assert "https://graph.microsoft.com" in response
-        assert "https://api.botframework.com" in response
+        assert response.get("https://graph.microsoft.com") is not None
+        assert response.get("https://api.botframework.com") is not None
 
     @pytest.mark.asyncio
     async def test_user_token_get_status(self, mock_http_client):
@@ -190,7 +190,7 @@ class TestUserClientRegionalEndpoints:
 
         response = await client.token.get_aad(params)
 
-        assert "https://graph.microsoft.com" in response
+        assert response.get("https://graph.microsoft.com") is not None
 
     @pytest.mark.asyncio
     async def test_user_token_get_status_with_regional_endpoint(self, mock_http_client):
@@ -246,3 +246,97 @@ class TestUserClientRegionalEndpoints:
         assert response.token is not None
         assert response.token == "mock_exchanged_token_123"
         assert response.connection_name == "test_connection"
+
+
+@pytest.mark.unit
+class TestUserClientFlattened:
+    """Unit tests for the flattened UserClient methods (users.get_token, etc.)."""
+
+    @pytest.mark.asyncio
+    async def test_get_token(self, mock_http_client):
+        client = UserClient(mock_http_client)
+
+        params = GetUserTokenParams(
+            user_id="test_user_id",
+            connection_name="test_connection",
+            channel_id="test_channel_id",
+            code="auth_code_123",
+        )
+
+        response = await client.get_token(params)
+
+        assert response.token == "mock_access_token_123"
+        assert response.connection_name == "test_connection"
+
+    @pytest.mark.asyncio
+    async def test_get_aad_tokens(self, mock_http_client):
+        client = UserClient(mock_http_client)
+
+        params = GetUserAADTokenParams(
+            user_id="test_user_id",
+            connection_name="test_connection",
+            resource_urls=["https://graph.microsoft.com", "https://api.botframework.com"],
+            channel_id="test_channel_id",
+        )
+
+        response = await client.get_aad_tokens(params)
+
+        assert response.get("https://graph.microsoft.com") is not None
+        assert response.get("https://api.botframework.com") is not None
+
+    @pytest.mark.asyncio
+    async def test_get_token_status(self, mock_http_client):
+        client = UserClient(mock_http_client)
+
+        params = GetUserTokenStatusParams(
+            user_id="test_user_id",
+            channel_id="test_channel_id",
+            include_filter="*",
+        )
+
+        response = await client.get_token_status(params)
+
+        assert len(response) > 0
+        assert response[0].connection_name == "test_connection"
+        assert response[0].has_token is True
+
+    @pytest.mark.asyncio
+    async def test_sign_out(self, mock_http_client):
+        client = UserClient(mock_http_client)
+
+        params = SignOutUserParams(
+            user_id="test_user_id",
+            connection_name="test_connection",
+            channel_id="test_channel_id",
+        )
+
+        result = await client.sign_out(params)
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_exchange_token(self, mock_http_client):
+        client = UserClient(mock_http_client)
+
+        params = ExchangeUserTokenParams(
+            user_id="test_user_id",
+            connection_name="test_connection",
+            channel_id="test_channel_id",
+            exchange_request=TokenExchangeRequest(
+                uri="https://test.resource.com",
+                token="exchange_token_123",
+            ),
+        )
+
+        response = await client.exchange_token(params)
+
+        assert response.token == "mock_exchanged_token_123"
+        assert response.connection_name == "test_connection"
+
+    def test_deprecated_token_accessor_warns(self, mock_http_client):
+        """The deprecated `token` accessor still works but emits a DeprecationWarning."""
+        client = UserClient(mock_http_client)
+
+        with pytest.warns(DeprecationWarning):
+            token_client = client.token
+
+        assert token_client.http == mock_http_client

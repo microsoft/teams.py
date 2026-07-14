@@ -4,9 +4,11 @@ Licensed under the MIT License.
 """
 # pyright: basic
 
+from unittest.mock import AsyncMock, patch
+
 import pytest
 from microsoft_teams.api.clients import ApiClient, ReactionClient
-from microsoft_teams.api.clients._auth_provider_interceptor import AuthProviderInterceptor
+from microsoft_teams.api.clients._auth_provider_interceptor import AGENTIC_IDENTITY_EXTENSION, AuthProviderInterceptor
 from microsoft_teams.api.models import AgenticIdentity
 from microsoft_teams.common.http import Client, ClientOptions
 
@@ -62,7 +64,7 @@ class TestApiClientReactionsProperty:
         client.http = new_http
 
         assert client._http is new_http
-        assert client.bots.http is new_http
+        assert client._bots.http is new_http
         assert client.conversations.http is new_http
         assert client.users.http is new_http
         assert client.teams.http is new_http
@@ -90,3 +92,34 @@ class TestApiClientReactionsProperty:
 
         assert client._reactions.http is new_http
         assert client._http is new_http
+
+
+@pytest.mark.unit
+class TestApiClientDeprecatedAccessors:
+    """The bots and reactions accessors are deprecated but still supported."""
+
+    def test_reactions_accessor_warns(self, mock_http_client):
+        client = ApiClient("https://mock.service.url", mock_http_client)
+        with pytest.warns(DeprecationWarning):
+            reactions = client.reactions
+        assert isinstance(reactions, ReactionClient)
+
+    def test_bots_accessor_warns(self, mock_http_client):
+        client = ApiClient("https://mock.service.url", mock_http_client)
+        with pytest.warns(DeprecationWarning):
+            bots = client.bots
+        assert bots.sign_in is not None
+
+    @pytest.mark.asyncio
+    async def test_deprecated_reactions_add_still_routes(self, mock_http_client):
+        client = ApiClient("https://mock.service.url", mock_http_client)
+        with pytest.warns(DeprecationWarning):
+            reactions = client.reactions
+
+        with patch.object(reactions.http, "put", new_callable=AsyncMock) as mock_put:
+            await reactions.add("conv-1", "act-1", "like")
+
+        mock_put.assert_called_once_with(
+            "https://mock.service.url/v3/conversations/conv-1/activities/act-1/reactions/like",
+            extensions={AGENTIC_IDENTITY_EXTENSION: None},
+        )
