@@ -8,7 +8,7 @@ import logging
 
 from microsoft_teams.api import MessageActivity
 from microsoft_teams.api.activities.typing import TypingActivityInput
-from microsoft_teams.apps import ActivityContext, App, to_threaded_conversation_id
+from microsoft_teams.apps import ActivityContext, App, get_thread_message_id, to_threaded_conversation_id
 
 # Surface SDK INFO/WARNING logs (including the anonymous-mode startup warning
 # emitted when CLIENT_ID / CLIENT_SECRET / TENANT_ID are not configured).
@@ -29,8 +29,7 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
 
     # When inside a thread, conversation_id contains ;messageid=<rootId>.
     # Extract the root ID for threading; for top-level messages, use activity.id.
-    parts = conversation_id.split(";messageid=")
-    thread_root_id = parts[1] if len(parts) > 1 else message_id
+    thread_root_id = get_thread_message_id(conversation_id) or message_id
 
     # ============================================
     # context.reply() — reactive threaded reply

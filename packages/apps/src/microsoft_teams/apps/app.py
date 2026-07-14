@@ -52,6 +52,7 @@ from .events import (
     get_event_type_from_signature,
     is_registered_event,
 )
+from .history import HistorySource, MessageHistory, get_graph_history
 from .http import FastAPIAdapter, HttpServer
 from .http.adapter import HttpRequest, HttpResponse
 from .options import AppOptions, InternalAppOptions
@@ -614,3 +615,22 @@ class App(ActivityHandlerMixin):
 
         """
         return create_graph_client(lambda: self._get_graph_token(tenant_id), cloud=self.cloud)
+
+    async def get_history(
+        self,
+        *,
+        n: int,
+        source: HistorySource,
+        tenant_id: Optional[str] = None,
+    ) -> MessageHistory:
+        """
+        Get Teams message history using Microsoft Graph app credentials.
+
+        Pass the ``source`` returned by ``ctx.get_history`` or construct one of
+        the exported ``HistorySource`` model types directly.
+        """
+        return await get_graph_history(
+            self.get_app_graph(tenant_id=tenant_id),
+            n,
+            source=source,
+        )
