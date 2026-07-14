@@ -5,6 +5,8 @@ Licensed under the MIT License.
 
 from __future__ import annotations
 
+import os
+import warnings
 from dataclasses import dataclass, field
 from typing import Any, List, Optional, TypedDict, Union, cast
 
@@ -16,6 +18,34 @@ from typing_extensions import Unpack
 
 from .http.adapter import HttpServerAdapter
 from .plugins import PluginBase
+
+DANGEROUSLY_ALLOW_UNAUTHENTICATED_REQUESTS_ENV_VAR = "DANGEROUSLY_ALLOW_UNAUTHENTICATED_REQUESTS"
+_TRUE_ENV_VALUES = {"1", "true", "yes", "on"}
+_FALSE_ENV_VALUES = {"0", "false", "no", "off"}
+
+
+def _parse_bool_env_var(name: str) -> Optional[bool]:
+    value = os.getenv(name)
+    if value is None:
+        return None
+
+    normalized_value = value.strip().lower()
+    if not normalized_value:
+        return None
+    if normalized_value in _TRUE_ENV_VALUES:
+        return True
+    if normalized_value in _FALSE_ENV_VALUES:
+        return False
+
+    raise ValueError(f"{name} must be a boolean value: true/false, 1/0, yes/no, or on/off.")
+
+
+def _warn_skip_auth_deprecated() -> None:
+    warnings.warn(
+        "skip_auth is deprecated; use dangerously_allow_unauthenticated_requests instead.",
+        DeprecationWarning,
+        stacklevel=3,
+    )
 
 
 class AppOptions(TypedDict, total=False):
@@ -51,7 +81,13 @@ class AppOptions(TypedDict, total=False):
     # Infrastructure
     storage: Optional[Storage[str, Any]]
     plugins: Optional[List[PluginBase]]
+    dangerously_allow_unauthenticated_requests: Optional[bool]
+    """
+    Whether to accept incoming requests without JWT validation.
+    Defaults to the DANGEROUSLY_ALLOW_UNAUTHENTICATED_REQUESTS environment variable, or False.
+    """
     skip_auth: Optional[bool]
+    """Deprecated. Use dangerously_allow_unauthenticated_requests instead."""
 
     # HTTP adapter
     http_server_adapter: Optional[HttpServerAdapter]
@@ -91,7 +127,8 @@ class InternalAppOptions:
     """Internal dataclass for AppOptions with defaults and non-nullable fields."""
 
     # Fields with defaults
-    skip_auth: bool = False
+    dangerously_allow_unauthenticated_requests: bool = False
+    """Whether to accept incoming requests without JWT validation."""
     default_connection_name: str = "graph"
     """The OAuth connection name to use for authentication."""
     plugins: List[PluginBase] = field(default_factory=lambda: [])
@@ -147,6 +184,20 @@ class InternalAppOptions:
             InternalAppOptions with proper defaults and non-nullable required fields
         """
         kwargs: dict[str, Any] = {k: v for k, v in options.items() if v is not None}
+        dangerously_allow_unauthenticated_requests = kwargs.pop("dangerously_allow_unauthenticated_requests", None)
+        skip_auth = kwargs.pop("skip_auth", None)
+
+        if skip_auth is not None:
+            _warn_skip_auth_deprecated()
+
+        if dangerously_allow_unauthenticated_requests is None:
+            if skip_auth is not None:
+                dangerously_allow_unauthenticated_requests = skip_auth
+            else:
+                dangerously_allow_unauthenticated_requests = (
+                    _parse_bool_env_var(DANGEROUSLY_ALLOW_UNAUTHENTICATED_REQUESTS_ENV_VAR) or False
+                )
+        kwargs["dangerously_allow_unauthenticated_requests"] = dangerously_allow_unauthenticated_requests
         return cls(**kwargs)
 
 
@@ -161,6 +212,7 @@ def merge_app_options_with_defaults(**options: Unpack[AppOptions]) -> AppOptions
         AppOptions with defaults applied
     """
     defaults: AppOptions = {
+        "dangerously_allow_unauthenticated_requests": False,
         "skip_auth": False,
         "default_connection_name": "graph",
         "plugins": [],

@@ -56,8 +56,9 @@ from .events import (
     get_event_type_from_signature,
     is_registered_event,
 )
-from .http import FastAPIAdapter, HttpServer
+from .http import FastAPIAdapter
 from .http.adapter import HttpRequest, HttpResponse
+from .http.http_server import HttpServer
 from .options import AppOptions, InternalAppOptions
 from .plugins import PluginBase, PluginStartEvent
 from .routing import ActivityHandlerMixin, ActivityRouter
@@ -212,8 +213,8 @@ class App(ActivityHandlerMixin):
             self.server.on_request = self._process_activity_event
             self.server.initialize(
                 credentials=self.credentials,
-                skip_auth=self.options.skip_auth,
                 cloud=self.cloud,
+                dangerously_allow_unauthenticated_requests=self.options.dangerously_allow_unauthenticated_requests,
             )
 
             self._initialized = True
