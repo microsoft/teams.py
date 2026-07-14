@@ -763,6 +763,59 @@ class TestApp:
             app3 = App(**options3)
             assert app3.api.service_url == "https://options.service.url/teams"
 
+    def test_dangerously_allow_unauthenticated_requests_from_environment(self, mock_storage):
+        """Test that unauthenticated requests can be enabled from the environment."""
+        options = AppOptions(
+            storage=mock_storage,
+            client_id="test-client-id",
+            client_secret="test-client-secret",
+        )
+
+        with patch.dict("os.environ", {"DANGEROUSLY_ALLOW_UNAUTHENTICATED_REQUESTS": "true"}, clear=False):
+            app = App(**options)
+
+        assert app.options.dangerously_allow_unauthenticated_requests is True
+
+    def test_dangerously_allow_unauthenticated_requests_option_overrides_environment(self, mock_storage):
+        """Test that explicit unauthenticated request options override environment configuration."""
+        options = AppOptions(
+            storage=mock_storage,
+            client_id="test-client-id",
+            client_secret="test-client-secret",
+            dangerously_allow_unauthenticated_requests=False,
+        )
+
+        with patch.dict("os.environ", {"DANGEROUSLY_ALLOW_UNAUTHENTICATED_REQUESTS": "true"}, clear=False):
+            app = App(**options)
+
+        assert app.options.dangerously_allow_unauthenticated_requests is False
+
+    def test_invalid_dangerously_allow_unauthenticated_requests_environment_raises(self, mock_storage):
+        """Test that invalid boolean environment values are rejected."""
+        options = AppOptions(
+            storage=mock_storage,
+            client_id="test-client-id",
+            client_secret="test-client-secret",
+        )
+
+        with patch.dict("os.environ", {"DANGEROUSLY_ALLOW_UNAUTHENTICATED_REQUESTS": "sometimes"}, clear=False):
+            with pytest.raises(ValueError, match="DANGEROUSLY_ALLOW_UNAUTHENTICATED_REQUESTS"):
+                App(**options)
+
+    def test_deprecated_skip_auth_option_remains_supported(self, mock_storage):
+        """Test that deprecated skip_auth continues to configure unauthenticated requests."""
+        options = AppOptions(
+            storage=mock_storage,
+            client_id="test-client-id",
+            client_secret="test-client-secret",
+            skip_auth=True,
+        )
+
+        with pytest.warns(DeprecationWarning, match="skip_auth is deprecated"):
+            app = App(**options)
+
+        assert app.options.dangerously_allow_unauthenticated_requests is True
+
     # Tests for App.send() proactive targeted message validation
 
     @pytest.mark.asyncio
@@ -799,7 +852,11 @@ class TestAppInitialize:
     @pytest.mark.asyncio
     async def test_initialize_enables_send(self):
         """After initialize(), app.send() should work without starting the server."""
-        app = App(client_id="test-id", client_secret="test-secret", skip_auth=True)
+        app = App(
+            client_id="test-id",
+            client_secret="test-secret",
+            dangerously_allow_unauthenticated_requests=True,
+        )
         app.activity_sender.send = AsyncMock(
             return_value=SentActivity(id="msg-1", activity_params=MessageActivityInput(text="hi"))
         )
@@ -820,7 +877,12 @@ class TestAppInitialize:
             async def on_init(self):
                 raise RuntimeError("plugin init failed")
 
-        app = App(client_id="test-id", client_secret="test-secret", skip_auth=True, plugins=[BadPlugin()])
+        app = App(
+            client_id="test-id",
+            client_secret="test-secret",
+            dangerously_allow_unauthenticated_requests=True,
+            plugins=[BadPlugin()],
+        )
         errors = []
         app.events.on("error", lambda e: errors.append(e))
 
@@ -888,5 +950,6 @@ class TestMergeAppOptions:
 
         result = merge_app_options_with_defaults(client_id="test-id")
         assert result["client_id"] == "test-id"
+        assert result["dangerously_allow_unauthenticated_requests"] is False
         assert result["skip_auth"] is False
         assert result["default_connection_name"] == "graph"

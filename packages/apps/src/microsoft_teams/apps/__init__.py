@@ -10,7 +10,7 @@ from .app import App
 from .auth import *  # noqa: F403
 from .contexts import *  # noqa: F403
 from .events import *  # noqa: F401, F403
-from .http import FastAPIAdapter, HttpServer, HttpServerAdapter
+from .http import FastAPIAdapter, HttpServerAdapter
 from .http_stream import HttpStream
 from .options import AppOptions
 from .plugins import *  # noqa: F401, F403
@@ -23,7 +23,6 @@ logging.getLogger(__name__).addHandler(logging.NullHandler())
 __all__: list[str] = [
     "App",
     "AppOptions",
-    "HttpServer",
     "HttpServerAdapter",
     "FastAPIAdapter",
     "HttpStream",
