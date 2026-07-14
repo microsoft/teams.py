@@ -8,7 +8,7 @@ import asyncio
 import importlib.metadata
 import os
 import re
-from typing import Optional
+from typing import Any, Optional
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
@@ -68,6 +68,29 @@ class FakeToken(TokenProtocol):
 
     def __str__(self) -> str:
         return "FakeToken"
+
+
+def _wire_activities_client(api: Any, activities: MagicMock) -> None:
+    async def create(conversation_id: str, activity: Any, **kwargs: Any) -> SentActivity:
+        api.conversations.activities(conversation_id)
+        return await activities.create(activity, **kwargs)
+
+    async def update(conversation_id: str, activity_id: str, activity: Any, **kwargs: Any) -> SentActivity:
+        api.conversations.activities(conversation_id)
+        return await activities.update(activity_id, activity, **kwargs)
+
+    async def create_targeted(conversation_id: str, activity: Any, **kwargs: Any) -> SentActivity:
+        api.conversations.activities(conversation_id)
+        return await activities.create_targeted(activity, **kwargs)
+
+    async def update_targeted(conversation_id: str, activity_id: str, activity: Any, **kwargs: Any) -> SentActivity:
+        api.conversations.activities(conversation_id)
+        return await activities.update_targeted(activity_id, activity, **kwargs)
+
+    api.conversations.activities_client.create = AsyncMock(side_effect=create)
+    api.conversations.activities_client.update = AsyncMock(side_effect=update)
+    api.conversations.activities_client.create_targeted = AsyncMock(side_effect=create_targeted)
+    api.conversations.activities_client.update_targeted = AsyncMock(side_effect=update_targeted)
 
 
 class TestApp:
@@ -764,6 +787,59 @@ class TestApp:
             app3 = App(**options3)
             assert app3.api.service_url == "https://options.service.url/teams"
 
+    def test_dangerously_allow_unauthenticated_requests_from_environment(self, mock_storage):
+        """Test that unauthenticated requests can be enabled from the environment."""
+        options = AppOptions(
+            storage=mock_storage,
+            client_id="test-client-id",
+            client_secret="test-client-secret",
+        )
+
+        with patch.dict("os.environ", {"DANGEROUSLY_ALLOW_UNAUTHENTICATED_REQUESTS": "true"}, clear=False):
+            app = App(**options)
+
+        assert app.options.dangerously_allow_unauthenticated_requests is True
+
+    def test_dangerously_allow_unauthenticated_requests_option_overrides_environment(self, mock_storage):
+        """Test that explicit unauthenticated request options override environment configuration."""
+        options = AppOptions(
+            storage=mock_storage,
+            client_id="test-client-id",
+            client_secret="test-client-secret",
+            dangerously_allow_unauthenticated_requests=False,
+        )
+
+        with patch.dict("os.environ", {"DANGEROUSLY_ALLOW_UNAUTHENTICATED_REQUESTS": "true"}, clear=False):
+            app = App(**options)
+
+        assert app.options.dangerously_allow_unauthenticated_requests is False
+
+    def test_invalid_dangerously_allow_unauthenticated_requests_environment_raises(self, mock_storage):
+        """Test that invalid boolean environment values are rejected."""
+        options = AppOptions(
+            storage=mock_storage,
+            client_id="test-client-id",
+            client_secret="test-client-secret",
+        )
+
+        with patch.dict("os.environ", {"DANGEROUSLY_ALLOW_UNAUTHENTICATED_REQUESTS": "sometimes"}, clear=False):
+            with pytest.raises(ValueError, match="DANGEROUSLY_ALLOW_UNAUTHENTICATED_REQUESTS"):
+                App(**options)
+
+    def test_deprecated_skip_auth_option_remains_supported(self, mock_storage):
+        """Test that deprecated skip_auth continues to configure unauthenticated requests."""
+        options = AppOptions(
+            storage=mock_storage,
+            client_id="test-client-id",
+            client_secret="test-client-secret",
+            skip_auth=True,
+        )
+
+        with pytest.warns(DeprecationWarning, match="skip_auth is deprecated"):
+            app = App(**options)
+
+        assert app.options.dangerously_allow_unauthenticated_requests is True
+
     # Tests for App.send() proactive targeted message validation
 
     @pytest.mark.asyncio
@@ -788,6 +864,7 @@ class TestApp:
             return_value=SentActivity(id="sent-activity-id", activity_params=MessageActivityInput(text="sent"))
         )
         app.api.conversations.activities = MagicMock(return_value=activities)
+        _wire_activities_client(app.api, activities)
 
         # Create a targeted message with explicit recipient
         recipient = Account(id="user-456", name="Test User", role="user")
@@ -814,6 +891,7 @@ class TestApp:
         activities = MagicMock()
         activities.create = create
         app.api.conversations.activities = MagicMock(return_value=activities)
+        _wire_activities_client(app.api, activities)
         agentic_identity = AgenticIdentity("agentic-app-id", "agentic-user-id", tenant_id="tenant-id")
 
         result = await app.send(
@@ -869,7 +947,11 @@ class TestAppInitialize:
     @pytest.mark.asyncio
     async def test_initialize_enables_send(self):
         """After initialize(), app.send() should work without starting the server."""
-        app = App(client_id="test-id", client_secret="test-secret", skip_auth=True)
+        app = App(
+            client_id="test-id",
+            client_secret="test-secret",
+            dangerously_allow_unauthenticated_requests=True,
+        )
         create = AsyncMock(return_value=SentActivity(id="msg-1", activity_params=MessageActivityInput(text="hi")))
         activities = MagicMock()
         activities.create = create
@@ -877,6 +959,7 @@ class TestAppInitialize:
             return_value=SentActivity(id="existing-msg-id", activity_params=MessageActivityInput(text="updated"))
         )
         app.api.conversations.activities = MagicMock(return_value=activities)
+        _wire_activities_client(app.api, activities)
 
         with pytest.raises(ValueError, match="app not initialized"):
             await app.send("conv-1", "hello")
@@ -905,7 +988,12 @@ class TestAppInitialize:
             async def on_init(self):
                 raise RuntimeError("plugin init failed")
 
-        app = App(client_id="test-id", client_secret="test-secret", skip_auth=True, plugins=[BadPlugin()])
+        app = App(
+            client_id="test-id",
+            client_secret="test-secret",
+            dangerously_allow_unauthenticated_requests=True,
+            plugins=[BadPlugin()],
+        )
         errors = []
         app.events.on("error", lambda e: errors.append(e))
 
@@ -933,6 +1021,7 @@ class TestAppReply:
             return_value=SentActivity(id="updated-activity-id", activity_params=MessageActivityInput(text="updated"))
         )
         app.api.conversations.activities = MagicMock(return_value=activities)
+        _wire_activities_client(app.api, activities)
         return app
 
     @pytest.mark.asyncio
@@ -1016,5 +1105,6 @@ class TestMergeAppOptions:
 
         result = merge_app_options_with_defaults(client_id="test-id")
         assert result["client_id"] == "test-id"
+        assert result["dangerously_allow_unauthenticated_requests"] is False
         assert result["skip_auth"] is False
         assert result["default_connection_name"] == "graph"
