@@ -212,6 +212,13 @@ class TestActivityProcessor:
             mock_context_api = MagicMock()
             mock_context_api.users.token.get = AsyncMock(side_effect=Exception("no token"))
             mock_context_api.conversations.activities.return_value = activities
+
+            async def create_activity(conversation_id: str, activity: MessageActivityInput) -> SentActivity:
+                mock_context_api.conversations.activities(conversation_id)
+                return await activities.create(activity)
+
+            mock_context_api.conversations.create_activity = AsyncMock(side_effect=create_activity)
+            mock_context_api.clone.return_value = mock_context_api
             mock_api_client.return_value = mock_context_api
 
             # Handler that calls ctx.send to exercise the updated_send wrapper

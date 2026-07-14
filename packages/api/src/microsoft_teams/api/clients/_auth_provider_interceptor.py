@@ -6,7 +6,7 @@ Licensed under the MIT License.
 from __future__ import annotations
 
 import logging
-from typing import Awaitable, Protocol, cast
+from typing import Awaitable, Protocol
 
 from microsoft_teams.common import InterceptorRequestContext, resolve_token
 from microsoft_teams.common.http.client_token import StringLike
@@ -20,7 +20,6 @@ class AuthProvider(Protocol):
     ) -> str | StringLike | None | Awaitable[str | StringLike | None]: ...
 
 
-AGENTIC_IDENTITY_EXTENSION = "microsoft_teams.agentic_identity"
 logger = logging.getLogger(__name__)
 
 
@@ -40,9 +39,7 @@ class AuthProviderInterceptor:
         if "Authorization" in ctx.request.headers:
             return
 
-        request_agentic_identity = cast(AgenticIdentity | None, ctx.request.extensions.get(AGENTIC_IDENTITY_EXTENSION))
-        agentic_identity = request_agentic_identity or self._default_agentic_identity
-        token = await resolve_token(lambda: self._auth_provider.token(agentic_identity=agentic_identity))
+        token = await resolve_token(lambda: self._auth_provider.token(agentic_identity=self._default_agentic_identity))
         if token is None:
             return
 

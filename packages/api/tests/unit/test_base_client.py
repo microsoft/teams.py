@@ -10,7 +10,7 @@ import httpx
 import pytest
 from microsoft_teams.api.auth.cloud_environment import US_GOV
 from microsoft_teams.api.clients import ApiClient
-from microsoft_teams.api.clients._auth_provider_interceptor import AGENTIC_IDENTITY_EXTENSION, AuthProviderInterceptor
+from microsoft_teams.api.clients._auth_provider_interceptor import AuthProviderInterceptor
 from microsoft_teams.api.clients.base_client import BaseClient
 from microsoft_teams.api.models import AgenticIdentity
 from microsoft_teams.common import Client, ClientOptions, Interceptor, Token
@@ -49,7 +49,6 @@ class HarnessClient(BaseClient):
         self,
         *,
         token: Token | None = None,
-        agentic_identity: AgenticIdentity | None = None,
         headers: dict[str, str] | None = None,
     ) -> httpx.Response:
         return await self.http.post(
@@ -57,7 +56,6 @@ class HarnessClient(BaseClient):
             json={"ok": True},
             headers=headers,
             token=token,
-            extensions={AGENTIC_IDENTITY_EXTENSION: agentic_identity},
         )
 
 
@@ -100,9 +98,8 @@ async def test_explicit_request_token_wins_over_auth_provider_and_http_client_to
     auth_provider = RecordingAuthProvider()
     use_auth_provider(http_client, auth_provider)
     client = HarnessClient(http_client)
-    identity = AgenticIdentity("agentic-app-id", "agentic-user-id", tenant_id="tenant-id")
 
-    await client.post_resource(token="explicit-token", agentic_identity=identity)
+    await client.post_resource(token="explicit-token")
 
     assert auth_provider.calls == []
     assert recorder.last_request.headers["authorization"] == "Bearer explicit-token"
@@ -186,14 +183,14 @@ async def test_http_client_token_is_used_when_no_auth_provider():
 
 
 @pytest.mark.asyncio
-async def test_agentic_identity_is_passed_to_auth_provider_interceptor():
+async def test_default_agentic_identity_is_used_without_request_metadata():
     http_client, recorder = create_client()
     auth_provider = RecordingAuthProvider(token_value="agentic-token")
-    use_auth_provider(http_client, auth_provider)
-    client = HarnessClient(http_client)
     identity = AgenticIdentity("agentic-app-id", "agentic-user-id", tenant_id="tenant-id")
+    use_auth_provider(http_client, auth_provider, default_agentic_identity=identity)
+    client = HarnessClient(http_client)
 
-    await client.post_resource(agentic_identity=identity)
+    await client.post_resource()
 
     assert auth_provider.calls == [(None, identity)]
     assert recorder.last_request.headers["authorization"] == "Bearer agentic-token"
@@ -214,11 +211,10 @@ async def test_default_agentic_identity_is_passed_to_auth_provider_interceptor()
 
 
 @pytest.mark.asyncio
-async def test_agentic_identity_without_auth_provider_uses_http_client_token():
+async def test_http_client_token_still_wins_without_auth_provider():
     http_client, recorder = create_client(default_token="http-client-token")
     client = HarnessClient(http_client)
-    identity = AgenticIdentity("agentic-app-id", "agentic-user-id", tenant_id="tenant-id")
 
-    await client.post_resource(agentic_identity=identity)
+    await client.post_resource()
 
     assert recorder.last_request.headers["authorization"] == "Bearer http-client-token"

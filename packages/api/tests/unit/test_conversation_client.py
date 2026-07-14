@@ -11,7 +11,6 @@ import httpx
 import pytest
 from microsoft_teams.api.auth.cloud_environment import PUBLIC, with_overrides
 from microsoft_teams.api.clients import ApiClient
-from microsoft_teams.api.clients._auth_provider_interceptor import AGENTIC_IDENTITY_EXTENSION
 from microsoft_teams.api.clients.conversation import ConversationClient
 from microsoft_teams.api.clients.conversation.params import CreateConversationParams
 from microsoft_teams.api.models import AgenticIdentity, ConversationResource, PagedMembersResult, TeamsChannelAccount
@@ -104,11 +103,15 @@ class TestConversationClient:
         assert str(last_request.url) == "https://test.service.url/v3/conversations"
 
     @pytest.mark.asyncio
-    async def test_create_conversation_uses_service_url_override(self, request_capture, mock_account):
-        client = ConversationClient("https://test.service.url", request_capture)
+    async def test_create_conversation_uses_scoped_service_url(self, request_capture, mock_account):
+        client = (
+            ApiClient("https://test.service.url", request_capture)
+            .from_service_url("https://override.service.url/")
+            .conversations
+        )
         params = CreateConversationParams(members=[mock_account], tenant_id="test_tenant_id")
 
-        await client.create(params, service_url="https://override.service.url/")
+        await client.create(params)
 
         request = request_capture._capture.last_request
         assert request.method == "POST"
@@ -142,10 +145,12 @@ class TestConversationClient:
                 return "agentic-token"
 
         identity = AgenticIdentity("agentic-app-id", "agentic-user-id", tenant_id="tenant-id")
-        client = ApiClient("https://test.service.url", request_capture, auth_provider=TestAuthProvider()).conversations
+        client = ApiClient(
+            "https://test.service.url", request_capture, auth_provider=TestAuthProvider(), agentic_identity=identity
+        ).conversations
         params = CreateConversationParams(members=[mock_account], tenant_id="test_tenant_id")
 
-        await client.create(params, agentic_identity=identity)
+        await client.create(params)
 
         assert calls == [(None, identity)]
         request = request_capture._capture.last_request
@@ -250,13 +255,13 @@ class TestConversationActivityOperations:
         payload = json.loads(last_request.content)
         assert payload["type"] == "message"
 
-    async def test_activity_create_with_service_url_override(self, request_capture, mock_activity):
-        """Test creating an activity with a per-request service URL override."""
-        client = ConversationClient("https://default.service.url", request_capture)
-
-        await client.activities("test_conversation_id").create(
-            mock_activity, service_url="https://override.service.url/"
+    async def test_activity_create_with_scoped_service_url(self, request_capture, mock_activity):
+        """Test creating an activity with a scoped service URL."""
+        client = ApiClient("https://default.service.url", request_capture).from_service_url(
+            "https://override.service.url/"
         )
+
+        await client.conversations.activities("test_conversation_id").create(mock_activity)
 
         last_request = request_capture._capture.last_request
         assert str(last_request.url) == "https://override.service.url/v3/conversations/test_conversation_id/activities"
@@ -303,8 +308,10 @@ class TestConversationActivityOperations:
         last_request = request_capture._capture.last_request
         assert last_request.headers["authorization"] == "Bearer agentic-token"
 
-    async def test_activity_create_agentic_identity_overrides_client_default(self, request_capture, mock_activity):
-        """Test per-request agentic identity overrides the client's default identity."""
+    async def test_activity_create_scoped_agentic_identity_overrides_client_default(
+        self, request_capture, mock_activity
+    ):
+        """Test scoped agentic identity overrides the client's default identity."""
         calls = []
 
         class TestAuthProvider:
@@ -314,14 +321,18 @@ class TestConversationActivityOperations:
 
         default_identity = AgenticIdentity("default-app-id", "default-user-id", tenant_id="default-tenant-id")
         override_identity = AgenticIdentity("override-app-id", "override-user-id", tenant_id="override-tenant-id")
-        client = ApiClient(
-            "https://test.service.url",
-            request_capture,
-            auth_provider=TestAuthProvider(),
-            agentic_identity=default_identity,
-        ).conversations
+        client = (
+            ApiClient(
+                "https://test.service.url",
+                request_capture,
+                auth_provider=TestAuthProvider(),
+                agentic_identity=default_identity,
+            )
+            .from_agentic_identity(override_identity)
+            .conversations
+        )
 
-        await client.activities("test_conversation_id").create(mock_activity, agentic_identity=override_identity)
+        await client.activities("test_conversation_id").create(mock_activity)
 
         assert calls == [(None, override_identity)]
         last_request = request_capture._capture.last_request
@@ -331,10 +342,10 @@ class TestConversationActivityOperations:
         self, request_capture, mock_activity
     ):
         """Test agentic identity without an auth provider leaves auth resolution to the HTTP client."""
-        client = ConversationClient("https://test.service.url", request_capture)
         identity = AgenticIdentity("agentic-app-id", "agentic-user-id", tenant_id="tenant-id")
+        client = ApiClient("https://test.service.url", request_capture).from_agentic_identity(identity).conversations
 
-        await client.activities("test_conversation_id").create(mock_activity, agentic_identity=identity)
+        await client.activities("test_conversation_id").create(mock_activity)
 
         last_request = request_capture._capture.last_request
         assert "authorization" not in last_request.headers
@@ -505,13 +516,17 @@ class TestConversationMemberOperations:
             str(last_request.url) == f"https://test.service.url/v3/conversations/{conversation_id}/members/{member_id}"
         )
 
-    async def test_member_operations_use_service_url_override(self, request_capture):
-        client = ConversationClient("https://test.service.url", request_capture)
+    async def test_member_operations_use_scoped_service_url(self, request_capture):
+        client = (
+            ApiClient("https://test.service.url", request_capture)
+            .from_service_url("https://override.service.url/")
+            .conversations
+        )
         members = client.members("test_conversation_id")
 
-        await members.get_all(service_url="https://override.service.url/")
-        await members.get("test_member_id", service_url="https://override.service.url/")
-        await members.get_paged(page_size=10, service_url="https://override.service.url/")
+        await members.get_all()
+        await members.get("test_member_id")
+        await members.get_paged(page_size=10)
 
         urls = [str(request.url) for request in request_capture._capture.requests[-3:]]
         assert urls == [
@@ -552,12 +567,14 @@ class TestConversationMemberOperations:
                 return "agentic-token"
 
         identity = AgenticIdentity("agentic-app-id", "agentic-user-id", tenant_id="tenant-id")
-        client = ApiClient("https://test.service.url", request_capture, auth_provider=TestAuthProvider()).conversations
+        client = ApiClient(
+            "https://test.service.url", request_capture, auth_provider=TestAuthProvider(), agentic_identity=identity
+        ).conversations
         members = client.members("test_conversation_id")
 
-        await members.get_all(agentic_identity=identity)
-        await members.get("test_member_id", agentic_identity=identity)
-        await members.get_paged(page_size=10, agentic_identity=identity)
+        await members.get_all()
+        await members.get("test_member_id")
+        await members.get_paged(page_size=10)
 
         assert calls == [
             (None, identity),
@@ -802,7 +819,7 @@ class TestConversationClientFlattened:
             await client.add_reaction("conv-1", "act-1", "like")
 
         expected_url = "https://test.service.url/v3/conversations/conv-1/activities/act-1/reactions/like"
-        mock_put.assert_called_once_with(expected_url, extensions={AGENTIC_IDENTITY_EXTENSION: None})
+        mock_put.assert_called_once_with(expected_url)
 
     async def test_delete_reaction(self, mock_http_client):
         """delete_reaction should DELETE from the reactions endpoint."""
@@ -812,7 +829,7 @@ class TestConversationClientFlattened:
             await client.delete_reaction("conv-1", "act-1", "like")
 
         expected_url = "https://test.service.url/v3/conversations/conv-1/activities/act-1/reactions/like"
-        mock_delete.assert_called_once_with(expected_url, extensions={AGENTIC_IDENTITY_EXTENSION: None})
+        mock_delete.assert_called_once_with(expected_url)
 
 
 @pytest.mark.unit

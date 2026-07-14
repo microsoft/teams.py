@@ -651,9 +651,7 @@ class TestMessageUpdateActivity:
 
     def test_message_update_with_attachments_from_json(self):
         """Test that inbound messageUpdate with attachments parses them as Attachment objects."""
-        payload = self._make_message_update_payload(
-            attachments=[{"contentType": "text/html", "content": "hey\n\n"}]
-        )
+        payload = self._make_message_update_payload(attachments=[{"contentType": "text/html", "content": "hey\n\n"}])
 
         activity = ActivityTypeAdapter.validate_python(payload)
 

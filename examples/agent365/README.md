@@ -1,6 +1,6 @@
 # agent365
 
-Demonstrates passing `AgenticIdentity` directly to Teams API surfaces.
+Demonstrates scoping Teams API clients with `AgenticIdentity`.
 
 ## Reactive Echo
 
@@ -16,7 +16,7 @@ uv run --project examples/agent365 python src/main.py
 
 ## Proactive API Send
 
-`src/proactive.py` shows both `app.send(..., agentic_identity=...)` and the lower-level conversation activity API. In both cases the API layer asks the auth provider for the right Agent ID token and uses it in the request header.
+`src/proactive.py` shows both `app.send(..., agentic_identity=...)` and a scoped lower-level conversation activity API client. In both cases the API layer asks the auth provider for the right Agent ID token and uses it in the request header.
 
 ```bash
 export CLIENT_ID=<agent-identity-blueprint-app-id>

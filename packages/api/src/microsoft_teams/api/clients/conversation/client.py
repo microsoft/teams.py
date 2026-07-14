@@ -8,9 +8,8 @@ from typing import Optional, Union
 from microsoft_teams.common.http import Client, ClientOptions
 from typing_extensions import deprecated
 
-from ...models import AgenticIdentity, ConversationResource
+from ...models import ConversationResource
 from ...models.message import MessageReactionType
-from .._auth_provider_interceptor import AGENTIC_IDENTITY_EXTENSION
 from ..api_client_settings import ApiClientSettings
 from ..base_client import BaseClient
 from ..reaction import ReactionClient
@@ -30,128 +29,53 @@ class ConversationOperations:
 class ActivityOperations(ConversationOperations):
     """Operations for managing activities in a conversation."""
 
-    async def create(
-        self,
-        activity: ActivityParams,
-        *,
-        service_url: str | None = None,
-        agentic_identity: AgenticIdentity | None = None,
-    ):
-        return await self._client.activities_client.create(
-            self._conversation_id, activity, service_url=service_url, agentic_identity=agentic_identity
-        )
+    async def create(self, activity: ActivityParams):
+        return await self._client.activities_client.create(self._conversation_id, activity)
 
-    async def update(
-        self,
-        activity_id: str,
-        activity: ActivityParams,
-        *,
-        service_url: str | None = None,
-        agentic_identity: AgenticIdentity | None = None,
-    ):
-        return await self._client.activities_client.update(
-            self._conversation_id, activity_id, activity, service_url=service_url, agentic_identity=agentic_identity
-        )
+    async def update(self, activity_id: str, activity: ActivityParams):
+        return await self._client.activities_client.update(self._conversation_id, activity_id, activity)
 
-    async def reply(
-        self,
-        activity_id: str,
-        activity: ActivityParams,
-        *,
-        service_url: str | None = None,
-        agentic_identity: AgenticIdentity | None = None,
-    ):
-        return await self._client.activities_client.reply(
-            self._conversation_id, activity_id, activity, service_url=service_url, agentic_identity=agentic_identity
-        )
+    async def reply(self, activity_id: str, activity: ActivityParams):
+        return await self._client.activities_client.reply(self._conversation_id, activity_id, activity)
 
-    async def delete(
-        self,
-        activity_id: str,
-        *,
-        service_url: str | None = None,
-        agentic_identity: AgenticIdentity | None = None,
-    ):
-        await self._client.activities_client.delete(
-            self._conversation_id, activity_id, service_url=service_url, agentic_identity=agentic_identity
-        )
+    async def delete(self, activity_id: str):
+        await self._client.activities_client.delete(self._conversation_id, activity_id)
 
-    async def get_members(
-        self,
-        activity_id: str,
-        *,
-        service_url: str | None = None,
-        agentic_identity: AgenticIdentity | None = None,
-    ):
-        return await self._client.activities_client.get_members(
-            self._conversation_id, activity_id, service_url=service_url, agentic_identity=agentic_identity
-        )
+    async def get_members(self, activity_id: str):
+        return await self._client.activities_client.get_members(self._conversation_id, activity_id)
 
-    async def create_targeted(
-        self,
-        activity: ActivityParams,
-        *,
-        service_url: str | None = None,
-    ):
+    async def create_targeted(self, activity: ActivityParams):
         """Create a new targeted activity visible only to the specified recipient."""
-        return await self._client.activities_client.create_targeted(
-            self._conversation_id, activity, service_url=service_url
-        )
+        return await self._client.activities_client.create_targeted(self._conversation_id, activity)
 
-    async def update_targeted(
-        self,
-        activity_id: str,
-        activity: ActivityParams,
-        *,
-        service_url: str | None = None,
-    ):
+    async def update_targeted(self, activity_id: str, activity: ActivityParams):
         """Update an existing targeted activity."""
-        return await self._client.activities_client.update_targeted(
-            self._conversation_id, activity_id, activity, service_url=service_url
-        )
+        return await self._client.activities_client.update_targeted(self._conversation_id, activity_id, activity)
 
-    async def delete_targeted(
-        self,
-        activity_id: str,
-        *,
-        service_url: str | None = None,
-    ):
+    async def delete_targeted(self, activity_id: str):
         """Delete a targeted activity."""
-        await self._client.activities_client.delete_targeted(
-            self._conversation_id, activity_id, service_url=service_url
-        )
+        await self._client.activities_client.delete_targeted(self._conversation_id, activity_id)
 
 
 class MemberOperations(ConversationOperations):
     """Operations for managing members in a conversation."""
 
-    async def get_all(self, *, service_url: str | None = None, agentic_identity: AgenticIdentity | None = None):
-        return await self._client.members_client.get(
-            self._conversation_id, service_url=service_url, agentic_identity=agentic_identity
-        )
+    async def get_all(self):
+        return await self._client.members_client.get(self._conversation_id)
 
     async def get_paged(
         self,
         page_size: Optional[int] = None,
         continuation_token: Optional[str] = None,
-        *,
-        service_url: str | None = None,
-        agentic_identity: AgenticIdentity | None = None,
     ):
         return await self._client.members_client.get_paged(
             self._conversation_id,
             page_size,
             continuation_token,
-            service_url=service_url,
-            agentic_identity=agentic_identity,
         )
 
-    async def get(
-        self, member_id: str, *, service_url: str | None = None, agentic_identity: AgenticIdentity | None = None
-    ):
-        return await self._client.members_client.get_by_id(
-            self._conversation_id, member_id, service_url=service_url, agentic_identity=agentic_identity
-        )
+    async def get(self, member_id: str):
+        return await self._client.members_client.get_by_id(self._conversation_id, member_id)
 
 
 class ConversationClient(BaseClient):
@@ -300,9 +224,6 @@ class ConversationClient(BaseClient):
     async def create(
         self,
         params: CreateConversationParams,
-        *,
-        service_url: str | None = None,
-        agentic_identity: AgenticIdentity | None = None,
     ) -> ConversationResource:
         """Create a new conversation.
 
@@ -313,8 +234,7 @@ class ConversationClient(BaseClient):
             The created conversation resource.
         """
         response = await self.http.post(
-            f"{self._get_service_url(service_url)}/v3/conversations",
+            f"{self._get_service_url()}/v3/conversations",
             json=params.model_dump(by_alias=True, exclude_none=True),
-            extensions={AGENTIC_IDENTITY_EXTENSION: agentic_identity},
         )
         return ConversationResource.model_validate(response.json())

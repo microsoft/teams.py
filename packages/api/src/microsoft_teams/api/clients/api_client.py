@@ -5,7 +5,7 @@ Licensed under the MIT License.
 
 from __future__ import annotations
 
-from typing import Optional, Union, cast
+from typing import Literal, Optional, Union, cast
 
 from microsoft_teams.common import Client as HttpClient
 from microsoft_teams.common import ClientOptions, Interceptor
@@ -22,6 +22,9 @@ from .meeting import MeetingClient
 from .reaction import ReactionClient
 from .team import TeamClient
 from .user import UserClient
+
+AGENTIC_IDENTITY_OMIT: Literal["omit"] = "omit"
+AgenticIdentityScope = AgenticIdentity | None | Literal["omit"]
 
 
 class ApiClient(BaseClient):
@@ -79,6 +82,57 @@ class ApiClient(BaseClient):
         if self._reactions is None:
             self._reactions = ReactionClient(self.service_url, self._http, self._api_client_settings)
         return self._reactions
+
+    def clone(
+        self,
+        *,
+        service_url: str | None = None,
+        agentic_identity: AgenticIdentityScope = AGENTIC_IDENTITY_OMIT,
+    ) -> "ApiClient":
+        """Create a scoped API client, preserving omitted defaults."""
+        resolved_agentic_identity = (
+            self._default_agentic_identity if agentic_identity == AGENTIC_IDENTITY_OMIT else agentic_identity
+        )
+        return ApiClient(
+            service_url or self.service_url,
+            self._clone_http(resolved_agentic_identity),
+            self._api_client_settings,
+            cloud=self._cloud,
+            auth_provider=self._auth_provider,
+            agentic_identity=resolved_agentic_identity,
+        )
+
+    def from_service_url(self, service_url: str) -> "ApiClient":
+        """Create a scoped API client for a different Teams service URL."""
+        return self.clone(service_url=service_url)
+
+    def from_agentic_identity(self, agentic_identity: AgenticIdentity | None) -> "ApiClient":
+        """Create a scoped API client for an agentic identity."""
+        return self.clone(agentic_identity=agentic_identity)
+
+    def for_agentic_identity(self, agentic_identity: AgenticIdentity | None) -> "ApiClient":
+        """Alias for from_agentic_identity."""
+        return self.from_agentic_identity(agentic_identity)
+
+    def _clone_http(self, agentic_identity: AgenticIdentity | None) -> HttpClient:
+        if self._auth_provider is None:
+            return self._http.clone()
+
+        interceptors = [
+            interceptor
+            for interceptor in self._http.interceptors
+            if not isinstance(interceptor, AuthProviderInterceptor)
+        ]
+        interceptors.append(
+            cast(
+                Interceptor,
+                AuthProviderInterceptor(
+                    self._auth_provider,
+                    default_agentic_identity=agentic_identity,
+                ),
+            )
+        )
+        return self._http.clone(ClientOptions(interceptors=interceptors))
 
     def _apply_auth_provider_interceptor(self) -> None:
         if self._auth_provider is None:

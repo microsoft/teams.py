@@ -9,8 +9,7 @@ from typing import List, Optional, Union
 
 from microsoft_teams.common.http import Client, ClientOptions
 
-from ...models import AgenticIdentity, ChannelInfo, TeamDetails
-from .._auth_provider_interceptor import AGENTIC_IDENTITY_EXTENSION
+from ...models import ChannelInfo, TeamDetails
 from ..api_client_settings import ApiClientSettings
 from ..base_client import BaseClient
 from .params import GetTeamConversationsResponse
@@ -36,9 +35,7 @@ class TeamClient(BaseClient):
         super().__init__(options, api_client_settings)
         self.service_url = service_url.rstrip("/")
 
-    async def get_by_id(
-        self, id: str, *, service_url: str | None = None, agentic_identity: AgenticIdentity | None = None
-    ) -> TeamDetails:
+    async def get_by_id(self, id: str) -> TeamDetails:
         """
         Get team details by ID.
 
@@ -49,14 +46,11 @@ class TeamClient(BaseClient):
             The team details.
         """
         response = await self.http.get(
-            f"{self._get_service_url(service_url)}/v3/teams/{id}",
-            extensions={AGENTIC_IDENTITY_EXTENSION: agentic_identity},
+            f"{self._get_service_url()}/v3/teams/{id}",
         )
         return TeamDetails.model_validate(response.json())
 
-    async def get_conversations(
-        self, id: str, *, service_url: str | None = None, agentic_identity: AgenticIdentity | None = None
-    ) -> List[ChannelInfo]:
+    async def get_conversations(self, id: str) -> List[ChannelInfo]:
         """
         Get team conversations (channels).
 
@@ -67,7 +61,6 @@ class TeamClient(BaseClient):
             List of channel information.
         """
         response = await self.http.get(
-            f"{self._get_service_url(service_url)}/v3/teams/{id}/conversations",
-            extensions={AGENTIC_IDENTITY_EXTENSION: agentic_identity},
+            f"{self._get_service_url()}/v3/teams/{id}/conversations",
         )
         return GetTeamConversationsResponse.model_validate(response.json()).conversations

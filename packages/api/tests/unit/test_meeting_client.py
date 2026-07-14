@@ -51,8 +51,12 @@ class TestMeetingClient:
         assert isinstance(result, MeetingParticipant)
 
     @pytest.mark.asyncio
-    async def test_meeting_operations_use_service_url_override(self, mock_http_client):
-        client = MeetingClient("https://test.service.url", mock_http_client)
+    async def test_meeting_operations_use_scoped_service_url(self, mock_http_client):
+        client = (
+            ApiClient("https://test.service.url", mock_http_client)
+            .from_service_url("https://override.service.url/")
+            .meetings
+        )
 
         meeting_response = httpx.Response(
             200,
@@ -68,13 +72,10 @@ class TestMeetingClient:
             },
             headers={"content-type": "application/json"},
         )
-        with patch.object(mock_http_client, "get", new_callable=AsyncMock, return_value=meeting_response) as mock_get:
-            await client.get_by_id("meeting-id", service_url="https://override.service.url/")
+        with patch.object(client.http, "get", new_callable=AsyncMock, return_value=meeting_response) as mock_get:
+            await client.get_by_id("meeting-id")
 
-        mock_get.assert_called_once_with(
-            "https://override.service.url/v1/meetings/meeting-id",
-            extensions={"microsoft_teams.agentic_identity": None},
-        )
+        mock_get.assert_called_once_with("https://override.service.url/v1/meetings/meeting-id")
 
         participant_response = httpx.Response(
             200,
@@ -82,18 +83,12 @@ class TestMeetingClient:
             headers={"content-type": "application/json"},
         )
         with patch.object(
-            mock_http_client, "get", new_callable=AsyncMock, return_value=participant_response
+            client.http, "get", new_callable=AsyncMock, return_value=participant_response
         ) as mock_get_participant:
-            await client.get_participant(
-                "meeting-id",
-                "participant-id",
-                "tenant-id",
-                service_url="https://override.service.url/",
-            )
+            await client.get_participant("meeting-id", "participant-id", "tenant-id")
 
         mock_get_participant.assert_called_once_with(
             "https://override.service.url/v1/meetings/meeting-id/participants/participant-id?tenantId=tenant-id",
-            extensions={"microsoft_teams.agentic_identity": None},
         )
 
         params = MeetingNotificationParams(
@@ -103,15 +98,12 @@ class TestMeetingClient:
             )
         )
         notification_response = httpx.Response(202, content=b"", headers={"content-type": "application/json"})
-        with patch.object(
-            mock_http_client, "post", new_callable=AsyncMock, return_value=notification_response
-        ) as mock_post:
-            await client.send_notification("meeting-id", params, service_url="https://override.service.url/")
+        with patch.object(client.http, "post", new_callable=AsyncMock, return_value=notification_response) as mock_post:
+            await client.send_notification("meeting-id", params)
 
         mock_post.assert_called_once_with(
             "https://override.service.url/v1/meetings/meeting-id/notification",
             json=params.model_dump(by_alias=True, exclude_none=True),
-            extensions={"microsoft_teams.agentic_identity": None},
         )
 
     @pytest.mark.asyncio
@@ -138,8 +130,10 @@ class TestMeetingClient:
                 return "agentic-token"
 
         identity = AgenticIdentity("agentic-app-id", "agentic-user-id", tenant_id="tenant-id")
-        client = ApiClient("https://test.service.url", mock_http_client, auth_provider=TestAuthProvider()).meetings
-        await client.get_participant("meeting-id", "participant-id", "tenant-id", agentic_identity=identity)
+        client = ApiClient(
+            "https://test.service.url", mock_http_client, auth_provider=TestAuthProvider(), agentic_identity=identity
+        ).meetings
+        await client.get_participant("meeting-id", "participant-id", "tenant-id")
 
         assert calls == [(None, identity)]
 

@@ -42,21 +42,22 @@ class TestTeamClient:
         assert all(isinstance(channel, ChannelInfo) for channel in result)
 
     @pytest.mark.asyncio
-    async def test_team_operations_use_service_url_override(self, mock_http_client):
-        client = TeamClient("https://test.service.url", mock_http_client)
+    async def test_team_operations_use_scoped_service_url(self, mock_http_client):
+        client = (
+            ApiClient("https://test.service.url", mock_http_client)
+            .from_service_url("https://override.service.url/")
+            .teams
+        )
 
         team_response = httpx.Response(
             200,
             json={"id": "team-id", "name": "Team"},
             headers={"content-type": "application/json"},
         )
-        with patch.object(mock_http_client, "get", new_callable=AsyncMock, return_value=team_response) as mock_get:
-            await client.get_by_id("team-id", service_url="https://override.service.url/")
+        with patch.object(client.http, "get", new_callable=AsyncMock, return_value=team_response) as mock_get:
+            await client.get_by_id("team-id")
 
-        mock_get.assert_called_once_with(
-            "https://override.service.url/v3/teams/team-id",
-            extensions={"microsoft_teams.agentic_identity": None},
-        )
+        mock_get.assert_called_once_with("https://override.service.url/v3/teams/team-id")
 
         conversations_response = httpx.Response(
             200,
@@ -64,13 +65,12 @@ class TestTeamClient:
             headers={"content-type": "application/json"},
         )
         with patch.object(
-            mock_http_client, "get", new_callable=AsyncMock, return_value=conversations_response
+            client.http, "get", new_callable=AsyncMock, return_value=conversations_response
         ) as mock_get_conversations:
-            await client.get_conversations("team-id", service_url="https://override.service.url/")
+            await client.get_conversations("team-id")
 
         mock_get_conversations.assert_called_once_with(
             "https://override.service.url/v3/teams/team-id/conversations",
-            extensions={"microsoft_teams.agentic_identity": None},
         )
 
     @pytest.mark.asyncio
@@ -97,8 +97,10 @@ class TestTeamClient:
                 return "agentic-token"
 
         identity = AgenticIdentity("agentic-app-id", "agentic-user-id", tenant_id="tenant-id")
-        client = ApiClient("https://test.service.url", mock_http_client, auth_provider=TestAuthProvider()).teams
-        await client.get_conversations("team-id", agentic_identity=identity)
+        client = ApiClient(
+            "https://test.service.url", mock_http_client, auth_provider=TestAuthProvider(), agentic_identity=identity
+        ).teams
+        await client.get_conversations("team-id")
 
         assert calls == [(None, identity)]
 

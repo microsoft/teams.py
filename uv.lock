@@ -1850,7 +1850,7 @@ test = [
 
 [package.metadata]
 requires-dist = [
-    { name = "cryptography", specifier = ">=3.4.0" },
+    { name = "cryptography", specifier = ">=48.0.1" },
     { name = "dependency-injector", specifier = ">=4.48.1" },
     { name = "fastapi", specifier = ">=0.115.13" },
     { name = "microsoft-teams-api", editable = "packages/api" },

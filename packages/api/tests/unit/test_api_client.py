@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 from microsoft_teams.api.clients import ApiClient, ReactionClient
-from microsoft_teams.api.clients._auth_provider_interceptor import AGENTIC_IDENTITY_EXTENSION, AuthProviderInterceptor
+from microsoft_teams.api.clients._auth_provider_interceptor import AuthProviderInterceptor
 from microsoft_teams.api.models import AgenticIdentity
 from microsoft_teams.common.http import Client, ClientOptions
 
@@ -120,6 +120,87 @@ class TestApiClientDeprecatedAccessors:
             await reactions.add("conv-1", "act-1", "like")
 
         mock_put.assert_called_once_with(
-            "https://mock.service.url/v3/conversations/conv-1/activities/act-1/reactions/like",
-            extensions={AGENTIC_IDENTITY_EXTENSION: None},
+            "https://mock.service.url/v3/conversations/conv-1/activities/act-1/reactions/like"
         )
+
+
+@pytest.mark.unit
+class TestApiClientScoping:
+    def test_clone_preserves_defaults_when_omitted(self, mock_http_client):
+        identity = AgenticIdentity("agentic-app-id", "agentic-user-id", tenant_id="tenant-id")
+        client = ApiClient("https://mock.service.url", mock_http_client, agentic_identity=identity)
+
+        clone = client.clone()
+
+        assert clone.service_url == "https://mock.service.url"
+        assert clone._default_agentic_identity is identity
+        assert clone._api_client_settings is client._api_client_settings
+        assert clone._cloud is client._cloud
+
+    def test_clone_can_override_service_url_and_clear_agentic_identity(self, mock_http_client):
+        identity = AgenticIdentity("agentic-app-id", "agentic-user-id", tenant_id="tenant-id")
+        client = ApiClient("https://mock.service.url", mock_http_client, agentic_identity=identity)
+
+        clone = client.clone(service_url="https://override.service.url/", agentic_identity=None)
+
+        assert clone.service_url == "https://override.service.url"
+        assert clone._default_agentic_identity is None
+
+    def test_scoped_helpers_create_expected_clones(self, mock_http_client):
+        identity = AgenticIdentity("agentic-app-id", "agentic-user-id", tenant_id="tenant-id")
+        client = ApiClient("https://mock.service.url", mock_http_client)
+
+        service_scoped = client.from_service_url("https://override.service.url/")
+        identity_scoped = client.from_agentic_identity(identity)
+        alias_scoped = client.for_agentic_identity(identity)
+
+        assert service_scoped.service_url == "https://override.service.url"
+        assert identity_scoped._default_agentic_identity is identity
+        assert alias_scoped._default_agentic_identity is identity
+
+    @pytest.mark.asyncio
+    async def test_clone_uses_scoped_agentic_identity_for_auth(self, request_capture, mock_activity):
+        calls = []
+
+        class TestAuthProvider:
+            def token(self, *, scope=None, agentic_identity=None):
+                calls.append((scope, agentic_identity))
+                return "agentic-token"
+
+        default_identity = AgenticIdentity("default-app-id", "default-user-id", tenant_id="default-tenant-id")
+        override_identity = AgenticIdentity("override-app-id", "override-user-id", tenant_id="override-tenant-id")
+        client = ApiClient(
+            "https://test.service.url",
+            request_capture,
+            auth_provider=TestAuthProvider(),
+            agentic_identity=default_identity,
+        )
+
+        await client.from_agentic_identity(override_identity).conversations.create_activity(
+            "test_conversation_id", mock_activity
+        )
+
+        assert calls == [(None, override_identity)]
+        request = request_capture._capture.last_request
+        assert "authorization" in request.headers
+
+    @pytest.mark.asyncio
+    async def test_clone_none_clears_scoped_agentic_identity(self, request_capture, mock_activity):
+        calls = []
+
+        class TestAuthProvider:
+            def token(self, *, scope=None, agentic_identity=None):
+                calls.append((scope, agentic_identity))
+                return "bot-token"
+
+        default_identity = AgenticIdentity("default-app-id", "default-user-id", tenant_id="default-tenant-id")
+        client = ApiClient(
+            "https://test.service.url",
+            request_capture,
+            auth_provider=TestAuthProvider(),
+            agentic_identity=default_identity,
+        )
+
+        await client.clone(agentic_identity=None).conversations.create_activity("test_conversation_id", mock_activity)
+
+        assert calls == [(None, None)]

@@ -4,8 +4,9 @@ Licensed under the MIT License.
 """
 
 from microsoft_teams.api import (
+    AGENTIC_IDENTITY_OMIT,
     ActivityParams,
-    AgenticIdentity,
+    AgenticIdentityScope,
     ApiClient,
     ConversationReference,
     MessageActivityInput,
@@ -18,7 +19,7 @@ async def send_or_update_activity(
     activity: ActivityParams,
     ref: ConversationReference,
     *,
-    agentic_identity: AgenticIdentity | None = None,
+    agentic_identity: AgenticIdentityScope = AGENTIC_IDENTITY_OMIT,
 ) -> SentActivity:
     """Send or update an activity using the same routing rules as the removed ActivitySender."""
     is_targeted = (
@@ -32,27 +33,17 @@ async def send_or_update_activity(
 
     activity.from_ = ref.bot
     activity.conversation = ref.conversation
-
-    activities = api.conversations.activities(ref.conversation.id)
+    scoped_api = api.clone(service_url=ref.service_url, agentic_identity=agentic_identity)
     if activity.id:
         activity_id = activity.id
         if is_targeted:
-            res = await activities.update_targeted(
-                activity_id,
-                activity,
-                service_url=ref.service_url,
-            )
+            res = await scoped_api.conversations.update_targeted_activity(ref.conversation.id, activity_id, activity)
         else:
-            res = await activities.update(
-                activity_id,
-                activity,
-                service_url=ref.service_url,
-                agentic_identity=agentic_identity,
-            )
+            res = await scoped_api.conversations.update_activity(ref.conversation.id, activity_id, activity)
         return SentActivity.merge(activity, res)
 
     if is_targeted:
-        res = await activities.create_targeted(activity, service_url=ref.service_url)
+        res = await scoped_api.conversations.create_targeted_activity(ref.conversation.id, activity)
     else:
-        res = await activities.create(activity, service_url=ref.service_url, agentic_identity=agentic_identity)
+        res = await scoped_api.conversations.create_activity(ref.conversation.id, activity)
     return SentActivity.merge(activity, res)
