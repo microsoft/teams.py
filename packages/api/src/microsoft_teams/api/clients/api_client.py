@@ -27,6 +27,13 @@ AGENTIC_IDENTITY_OMIT: Literal["omit"] = "omit"
 AgenticIdentityScope = AgenticIdentity | None | Literal["omit"]
 
 
+class _PreserveAgenticIdentity:
+    pass
+
+
+_PRESERVE_AGENTIC_IDENTITY = _PreserveAgenticIdentity()
+
+
 class ApiClient(BaseClient):
     """Unified client for Microsoft Teams API operations."""
 
@@ -87,12 +94,15 @@ class ApiClient(BaseClient):
         self,
         *,
         service_url: str | None = None,
-        agentic_identity: AgenticIdentityScope = AGENTIC_IDENTITY_OMIT,
+        agentic_identity: AgenticIdentityScope | _PreserveAgenticIdentity = _PRESERVE_AGENTIC_IDENTITY,
     ) -> "ApiClient":
         """Create a scoped API client, preserving omitted defaults."""
-        resolved_agentic_identity = (
-            self._default_agentic_identity if agentic_identity == AGENTIC_IDENTITY_OMIT else agentic_identity
-        )
+        if isinstance(agentic_identity, _PreserveAgenticIdentity):
+            resolved_agentic_identity = self._default_agentic_identity
+        elif agentic_identity == AGENTIC_IDENTITY_OMIT:
+            resolved_agentic_identity = None
+        else:
+            resolved_agentic_identity = agentic_identity
         return ApiClient(
             service_url or self.service_url,
             self._clone_http(resolved_agentic_identity),
