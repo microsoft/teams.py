@@ -32,7 +32,8 @@ async def main():
     )
     logger.info("Sent activity through app.send. Activity ID: %s", sent.id)
 
-    api_sent = await app.api.conversations.activities(args.conversation_id).create(
+    api_sent = await app.api.conversations.activities_client.create(
+        args.conversation_id,
         MessageActivityInput(text="Hello from the conversation activity API with an AgenticIdentity."),
         agentic_identity=agentic_identity,
     )

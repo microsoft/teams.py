@@ -33,17 +33,18 @@ async def send_or_update_activity(
     activity.from_ = ref.bot
     activity.conversation = ref.conversation
 
-    activities = api.conversations.activities(ref.conversation.id)
     if activity.id:
         activity_id = activity.id
         if is_targeted:
-            res = await activities.update_targeted(
+            res = await api.conversations.activities_client.update_targeted(
+                ref.conversation.id,
                 activity_id,
                 activity,
                 service_url=ref.service_url,
             )
         else:
-            res = await activities.update(
+            res = await api.conversations.activities_client.update(
+                ref.conversation.id,
                 activity_id,
                 activity,
                 service_url=ref.service_url,
@@ -52,7 +53,16 @@ async def send_or_update_activity(
         return SentActivity.merge(activity, res)
 
     if is_targeted:
-        res = await activities.create_targeted(activity, service_url=ref.service_url)
+        res = await api.conversations.activities_client.create_targeted(
+            ref.conversation.id,
+            activity,
+            service_url=ref.service_url,
+        )
     else:
-        res = await activities.create(activity, service_url=ref.service_url, agentic_identity=agentic_identity)
+        res = await api.conversations.activities_client.create(
+            ref.conversation.id,
+            activity,
+            service_url=ref.service_url,
+            agentic_identity=agentic_identity,
+        )
     return SentActivity.merge(activity, res)
