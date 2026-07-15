@@ -8,6 +8,12 @@ Widget HTML constants - update model context widget.
 
 # Update Model Context widget - tests ui/update-model-context method.
 # Sends structured context to the host that can be used by AI in future turns.
+#
+# Protocol flow:
+#   1. User enters context JSON and clicks a button
+#   2. Widget sends JSON-RPC request: { method: "ui/update-model-context", params: { content, structuredContent } }
+#   3. Teams host stores the context for use by AI in subsequent turns
+#   4. Host responds with success/error
 UPDATE_CONTEXT_WIDGET_HTML = """<!DOCTYPE html>
 <html><head><meta charset="utf-8">
 <style>
