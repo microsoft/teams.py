@@ -137,6 +137,43 @@ class TestApiClientScoping:
         assert clone._api_client_settings is client._api_client_settings
         assert clone._cloud is client._cloud
 
+    def test_clone_reuses_http_client_when_agentic_identity_is_unchanged(self, mock_http_client):
+        class TestAuthProvider:
+            def token(self, *, scope=None, agentic_identity=None):
+                return "agentic-token"
+
+        identity = AgenticIdentity("agentic-app-id", "agentic-user-id", tenant_id="tenant-id")
+        client = ApiClient(
+            "https://mock.service.url",
+            mock_http_client,
+            auth_provider=TestAuthProvider(),
+            agentic_identity=identity,
+        )
+
+        clone = client.from_service_url("https://override.service.url")
+
+        assert clone.http is client.http
+        assert clone._default_agentic_identity is identity
+
+    def test_clone_replaces_http_client_when_agentic_identity_changes(self, mock_http_client):
+        class TestAuthProvider:
+            def token(self, *, scope=None, agentic_identity=None):
+                return "agentic-token"
+
+        default_identity = AgenticIdentity("default-app-id", "default-user-id", tenant_id="default-tenant-id")
+        override_identity = AgenticIdentity("override-app-id", "override-user-id", tenant_id="override-tenant-id")
+        client = ApiClient(
+            "https://mock.service.url",
+            mock_http_client,
+            auth_provider=TestAuthProvider(),
+            agentic_identity=default_identity,
+        )
+
+        clone = client.from_agentic_identity(override_identity)
+
+        assert clone.http is not client.http
+        assert clone._default_agentic_identity is override_identity
+
     def test_clone_preserves_agentic_identity_with_explicit_none(self, mock_http_client):
         identity = AgenticIdentity("agentic-app-id", "agentic-user-id", tenant_id="tenant-id")
         client = ApiClient("https://mock.service.url", mock_http_client, agentic_identity=identity)

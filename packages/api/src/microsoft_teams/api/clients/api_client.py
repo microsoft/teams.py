@@ -90,7 +90,11 @@ class ApiClient(BaseClient):
         service_url: str | None = None,
         agentic_identity: AgenticIdentityScope = None,
     ) -> "ApiClient":
-        """Create a scoped API client, preserving omitted defaults."""
+        """Create a scoped API client.
+
+        Omitting agentic_identity, or passing None, preserves the existing scoped identity.
+        Pass AGENTIC_IDENTITY_CLEAR to clear it, or an AgenticIdentity to override it.
+        """
         if agentic_identity is None:
             resolved_agentic_identity = self._default_agentic_identity
         elif agentic_identity == AGENTIC_IDENTITY_CLEAR:
@@ -99,7 +103,7 @@ class ApiClient(BaseClient):
             resolved_agentic_identity = agentic_identity
         return ApiClient(
             service_url or self.service_url,
-            self._clone_http(resolved_agentic_identity),
+            self._get_scoped_http(resolved_agentic_identity),
             self._api_client_settings,
             cloud=self._cloud,
             auth_provider=self._auth_provider,
@@ -118,9 +122,9 @@ class ApiClient(BaseClient):
         """Alias for from_agentic_identity."""
         return self.from_agentic_identity(agentic_identity)
 
-    def _clone_http(self, agentic_identity: AgenticIdentity | None) -> HttpClient:
-        if self._auth_provider is None:
-            return self._http.clone()
+    def _get_scoped_http(self, agentic_identity: AgenticIdentity | None) -> HttpClient:
+        if self._auth_provider is None or agentic_identity == self._default_agentic_identity:
+            return self._http
 
         interceptors = [
             interceptor

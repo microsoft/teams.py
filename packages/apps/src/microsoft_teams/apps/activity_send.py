@@ -32,7 +32,11 @@ async def send_or_update_activity(
 
     activity.from_ = ref.bot
     activity.conversation = ref.conversation
-    scoped_api = api.clone(service_url=ref.service_url, agentic_identity=agentic_identity)
+    scoped_api = (
+        api
+        if agentic_identity is None and ref.service_url.rstrip("/") == api.service_url
+        else api.clone(service_url=ref.service_url, agentic_identity=agentic_identity)
+    )
     if activity.id:
         activity_id = activity.id
         if is_targeted:

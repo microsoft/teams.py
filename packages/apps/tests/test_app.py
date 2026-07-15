@@ -915,7 +915,7 @@ class TestApp:
         assert result.id == "sent-activity-id"
 
     @pytest.mark.asyncio
-    async def test_send_passes_none_agentic_identity(self, mock_storage) -> None:
+    async def test_send_uses_existing_api_when_agentic_identity_is_none(self, mock_storage) -> None:
         options = AppOptions(storage=mock_storage, client_id="test-client-id", client_secret="test-secret")
         app = App(**options)
         app._initialized = True
@@ -929,10 +929,7 @@ class TestApp:
 
         await app.send("conv-123", "Hello", agentic_identity=None)
 
-        app.api.clone.assert_called_once_with(
-            service_url=app.api.service_url,
-            agentic_identity=None,
-        )
+        app.api.clone.assert_not_called()
 
     def test_get_agentic_identity_preserves_explicit_blueprint_id(self, mock_storage) -> None:
         """An explicitly provided agentic_app_blueprint_id should be preserved."""
