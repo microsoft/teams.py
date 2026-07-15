@@ -110,11 +110,11 @@ class ApiClient(BaseClient):
         """Create a scoped API client for a different Teams service URL."""
         return self.clone(service_url=service_url)
 
-    def from_agentic_identity(self, agentic_identity: AgenticIdentity | None) -> "ApiClient":
+    def from_agentic_identity(self, agentic_identity: AgenticIdentity) -> "ApiClient":
         """Create a scoped API client for an agentic identity."""
         return self.clone(agentic_identity=agentic_identity)
 
-    def for_agentic_identity(self, agentic_identity: AgenticIdentity | None) -> "ApiClient":
+    def for_agentic_identity(self, agentic_identity: AgenticIdentity) -> "ApiClient":
         """Alias for from_agentic_identity."""
         return self.from_agentic_identity(agentic_identity)
 

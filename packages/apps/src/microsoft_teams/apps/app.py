@@ -297,7 +297,6 @@ class App(ActivityHandlerMixin):
         conversation_id: str,
         activity: str | ActivityParams | AdaptiveCard,
         *,
-        service_url: Optional[str] = None,
         agentic_identity: Optional[AgenticIdentity] = None,
     ) -> SentActivity:
         """Send an activity proactively to a conversation.
@@ -315,7 +314,7 @@ class App(ActivityHandlerMixin):
 
         conversation_ref = ConversationReference(
             channel_id="msteams",
-            service_url=service_url or self.api.service_url,
+            service_url=self.api.service_url,
             bot=Account(id=self.id),
             conversation=ConversationAccount(id=conversation_id),
         )
@@ -366,7 +365,6 @@ class App(ActivityHandlerMixin):
         message_id: str,
         activity: str | ActivityParams | AdaptiveCard,
         *,
-        service_url: Optional[str] = None,
         agentic_identity: Optional[AgenticIdentity] = None,
     ) -> SentActivity: ...
 
@@ -376,7 +374,6 @@ class App(ActivityHandlerMixin):
         conversation_id: str,
         message_id: str | ActivityParams | AdaptiveCard,
         *,
-        service_url: Optional[str] = None,
         agentic_identity: Optional[AgenticIdentity] = None,
     ) -> SentActivity: ...
 
@@ -386,7 +383,6 @@ class App(ActivityHandlerMixin):
         message_id: str | ActivityParams | AdaptiveCard = "",
         activity: str | ActivityParams | AdaptiveCard | None = None,
         *,
-        service_url: Optional[str] = None,
         agentic_identity: Optional[AgenticIdentity] = None,
     ) -> SentActivity:
         """Send an activity proactively to a conversation, optionally as a threaded reply.
@@ -411,14 +407,12 @@ class App(ActivityHandlerMixin):
             return await self.send(
                 to_threaded_conversation_id(conversation_id, message_id),
                 activity,
-                service_url=service_url,
                 agentic_identity=agentic_identity,
             )
 
         return await self.send(
             conversation_id,
             message_id,
-            service_url=service_url,
             agentic_identity=agentic_identity,
         )
 

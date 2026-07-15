@@ -882,7 +882,7 @@ class TestApp:
         assert sent_activity.conversation.id == "conv-123"
 
     @pytest.mark.asyncio
-    async def test_send_passes_agentic_identity_and_service_url(self, mock_storage) -> None:
+    async def test_send_passes_agentic_identity_with_api_service_url(self, mock_storage) -> None:
         options = AppOptions(storage=mock_storage, client_id="test-client-id", client_secret="test-secret")
         app = App(**options)
         app._initialized = True
@@ -899,13 +899,12 @@ class TestApp:
         result = await app.send(
             "conv-123",
             "Hello",
-            service_url="https://override.service.url",
             agentic_identity=agentic_identity,
         )
 
         app.api.conversations.activities.assert_called_once_with("conv-123")
         app.api.clone.assert_called_once_with(
-            service_url="https://override.service.url",
+            service_url=app.api.service_url,
             agentic_identity=agentic_identity,
         )
         create.assert_called_once()
@@ -1054,20 +1053,19 @@ class TestAppReply:
         started_app.api.conversations.activities.assert_called_once_with("19:abc@thread.skype;messageid=1680000000000")
 
     @pytest.mark.asyncio
-    async def test_reply_with_three_args_passes_agentic_identity_and_service_url(self, started_app):
+    async def test_reply_with_three_args_passes_agentic_identity_with_api_service_url(self, started_app):
         agentic_identity = AgenticIdentity("agentic-app-id", "agentic-user-id", tenant_id="tenant-id")
 
         await started_app.reply(
             "19:abc@thread.skype",
             "1680000000000",
             "Hello thread",
-            service_url="https://override.service.url",
             agentic_identity=agentic_identity,
         )
 
         started_app.api.conversations.activities.assert_called_once_with("19:abc@thread.skype;messageid=1680000000000")
         started_app.api.clone.assert_called_once_with(
-            service_url="https://override.service.url",
+            service_url=started_app.api.service_url,
             agentic_identity=agentic_identity,
         )
         create = started_app.api.conversations.activities.return_value.create
@@ -1083,19 +1081,18 @@ class TestAppReply:
         started_app.api.conversations.activities.assert_called_once_with("19:abc@thread.skype")
 
     @pytest.mark.asyncio
-    async def test_reply_with_two_args_passes_agentic_identity_and_service_url(self, started_app):
+    async def test_reply_with_two_args_passes_agentic_identity_with_api_service_url(self, started_app):
         agentic_identity = AgenticIdentity("agentic-app-id", "agentic-user-id", tenant_id="tenant-id")
 
         await started_app.reply(
             "19:abc@thread.skype",
             "Hello flat",
-            service_url="https://override.service.url",
             agentic_identity=agentic_identity,
         )
 
         started_app.api.conversations.activities.assert_called_once_with("19:abc@thread.skype")
         started_app.api.clone.assert_called_once_with(
-            service_url="https://override.service.url",
+            service_url=started_app.api.service_url,
             agentic_identity=agentic_identity,
         )
         create = started_app.api.conversations.activities.return_value.create
