@@ -34,6 +34,7 @@ class TestActivityProcessor:
     @pytest.fixture
     def mock_http_client(self):
         http_client = MagicMock(spec=Client)
+        http_client.token = None
         http_client.clone.return_value = http_client
         return http_client
 
