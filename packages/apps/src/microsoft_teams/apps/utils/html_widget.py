@@ -306,7 +306,7 @@ def _extract_origin(url: str) -> Optional[str]:
             trimmed = f"https:{trimmed}"
         parsed = urlparse(trimmed)
         if parsed.scheme and parsed.netloc:
-            return f"{parsed.scheme}://{parsed.netloc}"
+            return f"{parsed.scheme}://{parsed.netloc}".lower()
         return None
     except Exception:
         return None
@@ -317,7 +317,7 @@ def _is_origin_allowed(origin: str, allowed_domains: list[str]) -> bool:
     if "*" in allowed_domains:
         return True
     for domain in allowed_domains:
-        cleaned = domain.strip("'\"")
+        cleaned = domain.strip("'\"").lower()
         if cleaned == "*":
             return True
         if origin == cleaned:
