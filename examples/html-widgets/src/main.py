@@ -66,15 +66,8 @@ async def handle_message(ctx: ActivityContext[MessageActivity]) -> None:
         message = build_html_widget_message(
             HtmlWidgetPayload(
                 name="Simple Widget",
-                description="A static HTML widget with no callbacks.",
                 html=SIMPLE_WIDGET_HTML,
                 domain="https://teams.microsoft.com",
-                security_policy=HtmlWidgetSecurityPolicy(
-                    connect_domains=[],
-                    resource_domains=["'self'", "data:"],
-                    frame_domains=[],
-                    base_uri_domains=[],
-                ),
             ),
             HtmlWidgetMarkdownOptions(
                 before="Here is a simple static widget:",
@@ -97,9 +90,6 @@ async def handle_message(ctx: ActivityContext[MessageActivity]) -> None:
                         "https://teams.microsoft.com",
                         "https://teams.cloud.microsoft.com",
                     ],
-                    resource_domains=["'self'", "data:"],
-                    frame_domains=[],
-                    base_uri_domains=[],
                 ),
                 # Passed to widget as initial context (available via toolInput in ui/initialize)
                 tool_input={"demo": True},
@@ -122,12 +112,6 @@ async def handle_message(ctx: ActivityContext[MessageActivity]) -> None:
                 description="Widget that sends messageBack to the bot.",
                 html=MESSAGEBACK_WIDGET_HTML,
                 domain="https://teams.microsoft.com",
-                security_policy=HtmlWidgetSecurityPolicy(
-                    connect_domains=[],
-                    resource_domains=["'self'", "data:"],
-                    frame_domains=[],
-                    base_uri_domains=[],
-                ),
             ),
             HtmlWidgetMarkdownOptions(before="This widget tests the onMessage (messageBack) callback:"),
         )
@@ -142,12 +126,6 @@ async def handle_message(ctx: ActivityContext[MessageActivity]) -> None:
                 description="Widget that requests fullscreen mode.",
                 html=FULLSCREEN_WIDGET_HTML,
                 domain="https://teams.microsoft.com",
-                security_policy=HtmlWidgetSecurityPolicy(
-                    connect_domains=[],
-                    resource_domains=["'self'", "data:"],
-                    frame_domains=[],
-                    base_uri_domains=[],
-                ),
             ),
             HtmlWidgetMarkdownOptions(before="This widget will request fullscreen mode:"),
         )
@@ -164,9 +142,6 @@ async def handle_message(ctx: ActivityContext[MessageActivity]) -> None:
                 domain="https://teams.microsoft.com",
                 security_policy=HtmlWidgetSecurityPolicy(
                     connect_domains=["https://teams.microsoft.com"],
-                    resource_domains=["'self'", "data:"],
-                    frame_domains=[],
-                    base_uri_domains=[],
                 ),
                 # Passed to widget as initial context (available via toolInput in ui/initialize)
                 tool_input={},
