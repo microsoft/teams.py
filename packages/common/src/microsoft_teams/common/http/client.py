@@ -147,9 +147,8 @@ class Client:
             Final headers dict for the request.
         """
         req_headers = {**self._options.headers, **(headers or {})}
-        if token is None and any(key.lower() == "authorization" for key in req_headers):
+        if headers and any(key.lower() == "authorization" for key in headers):
             return req_headers
-
         resolved_token = await self._resolve_token(token)
         if resolved_token:
             req_headers["Authorization"] = f"Bearer {resolved_token}"
