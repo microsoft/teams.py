@@ -23,8 +23,8 @@ from .reaction import ReactionClient
 from .team import TeamClient
 from .user import UserClient
 
-AGENTIC_IDENTITY_OMIT: Literal["omit"] = "omit"
-AgenticIdentityScope = AgenticIdentity | None | Literal["omit"]
+AGENTIC_IDENTITY_PRESERVE: Literal["preserve"] = "preserve"
+AgenticIdentityScope = AgenticIdentity | None | Literal["preserve"]
 
 
 class ApiClient(BaseClient):
@@ -87,11 +87,11 @@ class ApiClient(BaseClient):
         self,
         *,
         service_url: str | None = None,
-        agentic_identity: AgenticIdentityScope = AGENTIC_IDENTITY_OMIT,
+        agentic_identity: AgenticIdentityScope = AGENTIC_IDENTITY_PRESERVE,
     ) -> "ApiClient":
         """Create a scoped API client, preserving omitted defaults."""
         resolved_agentic_identity = (
-            self._default_agentic_identity if agentic_identity == AGENTIC_IDENTITY_OMIT else agentic_identity
+            self._default_agentic_identity if agentic_identity == AGENTIC_IDENTITY_PRESERVE else agentic_identity
         )
         return ApiClient(
             service_url or self.service_url,

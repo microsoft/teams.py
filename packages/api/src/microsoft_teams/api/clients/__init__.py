@@ -5,7 +5,7 @@ Licensed under the MIT License.
 
 from . import bot, conversation, meeting, reaction, team, user
 from ._auth_provider_interceptor import AuthProvider
-from .api_client import AGENTIC_IDENTITY_OMIT, AgenticIdentityScope, ApiClient
+from .api_client import AGENTIC_IDENTITY_PRESERVE, AgenticIdentityScope, ApiClient
 from .api_client_settings import ApiClientSettings, merge_api_client_settings
 from .bot import *  # noqa: F403
 from .conversation import *  # noqa: F403
@@ -19,7 +19,7 @@ __all__: list[str] = [
     "ApiClient",
     "ApiClientSettings",
     "AuthProvider",
-    "AGENTIC_IDENTITY_OMIT",
+    "AGENTIC_IDENTITY_PRESERVE",
     "AgenticIdentityScope",
     "merge_api_client_settings",
 ]

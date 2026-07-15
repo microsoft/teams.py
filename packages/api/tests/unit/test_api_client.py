@@ -7,7 +7,7 @@ Licensed under the MIT License.
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from microsoft_teams.api.clients import ApiClient, ReactionClient
+from microsoft_teams.api.clients import AGENTIC_IDENTITY_PRESERVE, ApiClient, ReactionClient
 from microsoft_teams.api.clients._auth_provider_interceptor import AuthProviderInterceptor
 from microsoft_teams.api.models import AgenticIdentity
 from microsoft_teams.common.http import Client, ClientOptions
@@ -136,6 +136,14 @@ class TestApiClientScoping:
         assert clone._default_agentic_identity is identity
         assert clone._api_client_settings is client._api_client_settings
         assert clone._cloud is client._cloud
+
+    def test_clone_preserves_agentic_identity_with_preserve_sentinel(self, mock_http_client):
+        identity = AgenticIdentity("agentic-app-id", "agentic-user-id", tenant_id="tenant-id")
+        client = ApiClient("https://mock.service.url", mock_http_client, agentic_identity=identity)
+
+        clone = client.clone(agentic_identity=AGENTIC_IDENTITY_PRESERVE)
+
+        assert clone._default_agentic_identity is identity
 
     def test_clone_can_override_service_url_and_clear_agentic_identity(self, mock_http_client):
         identity = AgenticIdentity("agentic-app-id", "agentic-user-id", tenant_id="tenant-id")
