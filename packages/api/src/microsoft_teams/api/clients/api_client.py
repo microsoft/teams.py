@@ -23,9 +23,9 @@ from .reaction import ReactionClient
 from .team import TeamClient
 from .user import UserClient
 
-AgenticIdentityPreserve: TypeAlias = Literal["preserve"]
-AGENTIC_IDENTITY_PRESERVE: AgenticIdentityPreserve = "preserve"
-AgenticIdentityScope: TypeAlias = AgenticIdentity | None | AgenticIdentityPreserve
+AgenticIdentityClear: TypeAlias = Literal["clear"]
+AGENTIC_IDENTITY_CLEAR: AgenticIdentityClear = "clear"
+AgenticIdentityScope: TypeAlias = AgenticIdentity | None | AgenticIdentityClear
 
 
 class ApiClient(BaseClient):
@@ -88,12 +88,15 @@ class ApiClient(BaseClient):
         self,
         *,
         service_url: str | None = None,
-        agentic_identity: AgenticIdentityScope = AGENTIC_IDENTITY_PRESERVE,
+        agentic_identity: AgenticIdentityScope = None,
     ) -> "ApiClient":
         """Create a scoped API client, preserving omitted defaults."""
-        resolved_agentic_identity = (
-            self._default_agentic_identity if agentic_identity == AGENTIC_IDENTITY_PRESERVE else agentic_identity
-        )
+        if agentic_identity is None:
+            resolved_agentic_identity = self._default_agentic_identity
+        elif agentic_identity == AGENTIC_IDENTITY_CLEAR:
+            resolved_agentic_identity = None
+        else:
+            resolved_agentic_identity = agentic_identity
         return ApiClient(
             service_url or self.service_url,
             self._clone_http(resolved_agentic_identity),

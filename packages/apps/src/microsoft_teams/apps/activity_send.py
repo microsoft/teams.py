@@ -4,7 +4,6 @@ Licensed under the MIT License.
 """
 
 from microsoft_teams.api import (
-    AGENTIC_IDENTITY_PRESERVE,
     ActivityParams,
     AgenticIdentityScope,
     ApiClient,
@@ -19,7 +18,7 @@ async def send_or_update_activity(
     activity: ActivityParams,
     ref: ConversationReference,
     *,
-    agentic_identity: AgenticIdentityScope = AGENTIC_IDENTITY_PRESERVE,
+    agentic_identity: AgenticIdentityScope = None,
 ) -> SentActivity:
     """Send or update an activity using the same routing rules as the removed ActivitySender."""
     is_targeted = (

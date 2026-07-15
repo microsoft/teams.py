@@ -7,7 +7,7 @@ Licensed under the MIT License.
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from microsoft_teams.api.clients import AGENTIC_IDENTITY_PRESERVE, ApiClient, ReactionClient
+from microsoft_teams.api.clients import AGENTIC_IDENTITY_CLEAR, ApiClient, ReactionClient
 from microsoft_teams.api.clients._auth_provider_interceptor import AuthProviderInterceptor
 from microsoft_teams.api.models import AgenticIdentity
 from microsoft_teams.common.http import Client, ClientOptions
@@ -137,11 +137,11 @@ class TestApiClientScoping:
         assert clone._api_client_settings is client._api_client_settings
         assert clone._cloud is client._cloud
 
-    def test_clone_preserves_agentic_identity_with_preserve_sentinel(self, mock_http_client):
+    def test_clone_preserves_agentic_identity_with_explicit_none(self, mock_http_client):
         identity = AgenticIdentity("agentic-app-id", "agentic-user-id", tenant_id="tenant-id")
         client = ApiClient("https://mock.service.url", mock_http_client, agentic_identity=identity)
 
-        clone = client.clone(agentic_identity=AGENTIC_IDENTITY_PRESERVE)
+        clone = client.clone(agentic_identity=None)
 
         assert clone._default_agentic_identity is identity
 
@@ -149,7 +149,7 @@ class TestApiClientScoping:
         identity = AgenticIdentity("agentic-app-id", "agentic-user-id", tenant_id="tenant-id")
         client = ApiClient("https://mock.service.url", mock_http_client, agentic_identity=identity)
 
-        clone = client.clone(service_url="https://override.service.url/", agentic_identity=None)
+        clone = client.clone(service_url="https://override.service.url/", agentic_identity=AGENTIC_IDENTITY_CLEAR)
 
         assert clone.service_url == "https://override.service.url"
         assert clone._default_agentic_identity is None
@@ -193,7 +193,7 @@ class TestApiClientScoping:
         assert "authorization" in request.headers
 
     @pytest.mark.asyncio
-    async def test_clone_none_clears_scoped_agentic_identity(self, request_capture, mock_activity):
+    async def test_clone_none_preserves_scoped_agentic_identity(self, request_capture, mock_activity):
         calls = []
 
         class TestAuthProvider:
@@ -210,5 +210,28 @@ class TestApiClientScoping:
         )
 
         await client.clone(agentic_identity=None).conversations.create_activity("test_conversation_id", mock_activity)
+
+        assert calls == [(None, default_identity)]
+
+    @pytest.mark.asyncio
+    async def test_clone_clear_clears_scoped_agentic_identity(self, request_capture, mock_activity):
+        calls = []
+
+        class TestAuthProvider:
+            def token(self, *, scope=None, agentic_identity=None):
+                calls.append((scope, agentic_identity))
+                return "bot-token"
+
+        default_identity = AgenticIdentity("default-app-id", "default-user-id", tenant_id="default-tenant-id")
+        client = ApiClient(
+            "https://test.service.url",
+            request_capture,
+            auth_provider=TestAuthProvider(),
+            agentic_identity=default_identity,
+        )
+
+        await client.clone(agentic_identity=AGENTIC_IDENTITY_CLEAR).conversations.create_activity(
+            "test_conversation_id", mock_activity
+        )
 
         assert calls == [(None, None)]

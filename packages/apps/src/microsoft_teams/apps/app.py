@@ -12,7 +12,6 @@ from typing import TYPE_CHECKING, Any, Awaitable, Callable, List, Optional, Type
 from dependency_injector import providers
 from dotenv import find_dotenv, load_dotenv
 from microsoft_teams.api import (
-    AGENTIC_IDENTITY_PRESERVE,
     Account,
     ActivityBase,
     ActivityParams,
@@ -300,7 +299,7 @@ class App(ActivityHandlerMixin):
         activity: str | ActivityParams | AdaptiveCard,
         *,
         service_url: Optional[str] = None,
-        agentic_identity: AgenticIdentityScope = AGENTIC_IDENTITY_PRESERVE,
+        agentic_identity: AgenticIdentityScope = None,
     ) -> SentActivity:
         """Send an activity proactively to a conversation.
 
@@ -369,7 +368,7 @@ class App(ActivityHandlerMixin):
         activity: str | ActivityParams | AdaptiveCard,
         *,
         service_url: Optional[str] = None,
-        agentic_identity: AgenticIdentityScope = AGENTIC_IDENTITY_PRESERVE,
+        agentic_identity: AgenticIdentityScope = None,
     ) -> SentActivity: ...
 
     @overload
@@ -379,7 +378,7 @@ class App(ActivityHandlerMixin):
         message_id: str | ActivityParams | AdaptiveCard,
         *,
         service_url: Optional[str] = None,
-        agentic_identity: AgenticIdentityScope = AGENTIC_IDENTITY_PRESERVE,
+        agentic_identity: AgenticIdentityScope = None,
     ) -> SentActivity: ...
 
     async def reply(  # type: ignore[reportInconsistentOverload]
@@ -389,7 +388,7 @@ class App(ActivityHandlerMixin):
         activity: str | ActivityParams | AdaptiveCard | None = None,
         *,
         service_url: Optional[str] = None,
-        agentic_identity: AgenticIdentityScope = AGENTIC_IDENTITY_PRESERVE,
+        agentic_identity: AgenticIdentityScope = None,
     ) -> SentActivity:
         """Send an activity proactively to a conversation, optionally as a threaded reply.
 

@@ -14,8 +14,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import httpx
 import pytest
 from microsoft_teams.api import (
+    AGENTIC_IDENTITY_CLEAR,
     Account,
     AgenticIdentity,
+    AgenticIdentityScope,
     ConversationAccount,
     FederatedIdentityCredentials,
     InvokeActivity,
@@ -914,6 +916,29 @@ class TestApp:
         assert activity.text == "Hello"
         assert create.call_args.kwargs == {}
         assert result.id == "sent-activity-id"
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("agentic_identity", [None, AGENTIC_IDENTITY_CLEAR])
+    async def test_send_passes_agentic_identity_scope_value(
+        self, mock_storage, agentic_identity: AgenticIdentityScope
+    ) -> None:
+        options = AppOptions(storage=mock_storage, client_id="test-client-id", client_secret="test-secret")
+        app = App(**options)
+        app._initialized = True
+        activities = MagicMock()
+        activities.create = AsyncMock(
+            return_value=SentActivity(id="sent-activity-id", activity_params=MessageActivityInput(text="sent"))
+        )
+        app.api.conversations.activities = MagicMock(return_value=activities)
+        _wire_flat_activity_methods(app.api, activities)
+        app.api.clone = MagicMock(return_value=app.api)
+
+        await app.send("conv-123", "Hello", agentic_identity=agentic_identity)
+
+        app.api.clone.assert_called_once_with(
+            service_url=app.api.service_url,
+            agentic_identity=agentic_identity,
+        )
 
     def test_get_agentic_identity_preserves_explicit_blueprint_id(self, mock_storage) -> None:
         """An explicitly provided agentic_app_blueprint_id should be preserved."""
