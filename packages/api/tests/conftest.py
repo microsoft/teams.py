@@ -240,6 +240,16 @@ def mock_http_client(mock_transport):
     return client
 
 
+def _preserve_test_transport_on_clone(client: Client, transport: httpx.MockTransport) -> Client:
+    def clone(overrides: Optional[ClientOptions] = None) -> Client:
+        cloned = Client.clone(client, overrides)
+        cloned.http._transport = transport
+        return _preserve_test_transport_on_clone(cloned, transport)
+
+    client.clone = clone  # type: ignore[method-assign]
+    return client
+
+
 @pytest.fixture
 def request_capture():
     """Fixture to capture HTTP request details for testing.
@@ -358,6 +368,7 @@ def request_capture():
     transport = httpx.MockTransport(capture.handler)
     client = Client(ClientOptions(base_url="https://mock.api.com"))
     client.http._transport = transport
+    _preserve_test_transport_on_clone(client, transport)
     client._capture = capture  # type: ignore[attr-defined]  # Attach for test access
     return client
 

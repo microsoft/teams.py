@@ -463,6 +463,4 @@ class Client:
             if overrides.interceptors is not None
             else list(self._interceptors),
         )
-        cloned = Client(merged_options)
-        cloned.http._transport = self.http._transport  # pyright: ignore[reportPrivateUsage]
-        return cloned
+        return Client(merged_options)
