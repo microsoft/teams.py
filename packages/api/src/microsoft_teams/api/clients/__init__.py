@@ -4,7 +4,7 @@ Licensed under the MIT License.
 """
 
 from . import bot, conversation, meeting, reaction, team, user
-from ._auth_provider_interceptor import AuthProvider
+from ._auth_provider import AuthProvider
 from .api_client import AGENTIC_IDENTITY_CLEAR, AgenticIdentityClear, AgenticIdentityScope, ApiClient
 from .api_client_settings import ApiClientSettings, merge_api_client_settings
 from .bot import *  # noqa: F403

@@ -241,8 +241,8 @@ def mock_http_client(mock_transport):
 
 
 def _preserve_test_transport_on_clone(client: Client, transport: httpx.MockTransport) -> Client:
-    def clone(overrides: Optional[ClientOptions] = None) -> Client:
-        cloned = Client.clone(client, overrides)
+    def clone(overrides: Optional[ClientOptions] = None, *, share_http: bool = False) -> Client:
+        cloned = Client.clone(client, overrides, share_http=share_http)
         cloned.http._transport = transport
         return _preserve_test_transport_on_clone(cloned, transport)
 

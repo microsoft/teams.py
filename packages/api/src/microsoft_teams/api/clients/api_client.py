@@ -5,15 +5,15 @@ Licensed under the MIT License.
 
 from __future__ import annotations
 
-from typing import Literal, Optional, TypeAlias, Union, cast
+from typing import Literal, Optional, TypeAlias, Union
 
 from microsoft_teams.common import Client as HttpClient
-from microsoft_teams.common import ClientOptions, Interceptor
+from microsoft_teams.common import ClientOptions, Token
 from typing_extensions import deprecated
 
 from ..auth.cloud_environment import PUBLIC, CloudEnvironment
 from ..models import AgenticIdentity
-from ._auth_provider_interceptor import AuthProvider, AuthProviderInterceptor
+from ._auth_provider import AuthProvider
 from .api_client_settings import ApiClientSettings, merge_api_client_settings
 from .base_client import BaseClient
 from .bot import BotClient  # pyright: ignore[reportDeprecated]
@@ -53,9 +53,12 @@ class ApiClient(BaseClient):
         merged_settings = merge_api_client_settings(api_client_settings, self._cloud)
         super().__init__(options, merged_settings)
         self.service_url = service_url.rstrip("/")
+        if auth_provider is not None and self._http.token is not None:
+            raise ValueError("Cannot use both an auth provider and an HTTP client token.")
+
         self._auth_provider = auth_provider
         self._default_agentic_identity = agentic_identity
-        self._apply_auth_provider_interceptor()
+        self._apply_auth_provider_token()
 
         # Initialize all client types
         self._bots = BotClient(  # pyright: ignore[reportDeprecated]
@@ -106,7 +109,7 @@ class ApiClient(BaseClient):
             self._get_scoped_http(resolved_agentic_identity),
             self._api_client_settings,
             cloud=self._cloud,
-            auth_provider=self._auth_provider,
+            auth_provider=None,
             agentic_identity=resolved_agentic_identity,
         )
 
@@ -123,41 +126,26 @@ class ApiClient(BaseClient):
         return self.from_agentic_identity(agentic_identity)
 
     def _get_scoped_http(self, agentic_identity: AgenticIdentity | None) -> HttpClient:
-        if self._auth_provider is None or agentic_identity == self._default_agentic_identity:
-            return self._http
+        if self._auth_provider is None:
+            return self._http.clone(share_http=True)
 
-        interceptors = [
-            interceptor
-            for interceptor in self._http.interceptors
-            if not isinstance(interceptor, AuthProviderInterceptor)
-        ]
-        interceptors.append(
-            cast(
-                Interceptor,
-                AuthProviderInterceptor(
-                    self._auth_provider,
-                    default_agentic_identity=agentic_identity,
-                ),
-            )
+        return self._http.clone(
+            ClientOptions(token=self._create_auth_provider_token(agentic_identity)),
+            share_http=True,
         )
-        return self._http.clone(ClientOptions(interceptors=interceptors))
 
-    def _apply_auth_provider_interceptor(self) -> None:
+    def _apply_auth_provider_token(self) -> None:
         if self._auth_provider is None:
             return
 
-        if any(isinstance(interceptor, AuthProviderInterceptor) for interceptor in self._http.interceptors):
-            return
+        self._http = self._get_scoped_http(self._default_agentic_identity)
 
-        self._http.use_interceptor(
-            cast(
-                Interceptor,
-                AuthProviderInterceptor(
-                    self._auth_provider,
-                    default_agentic_identity=self._default_agentic_identity,
-                ),
-            )
-        )
+    def _create_auth_provider_token(self, agentic_identity: AgenticIdentity | None) -> Token:
+        auth_provider = self._auth_provider
+        if auth_provider is None:
+            return None
+
+        return lambda: auth_provider.token(agentic_identity=agentic_identity)
 
     @property
     def http(self) -> HttpClient:
@@ -168,7 +156,7 @@ class ApiClient(BaseClient):
     def http(self, value: HttpClient) -> None:
         """Set the HTTP client instance and propagate to all sub-clients."""
         self._http = value
-        self._apply_auth_provider_interceptor()
+        self._apply_auth_provider_token()
         self._bots.http = self._http
         self.conversations.http = self._http
         self.users.http = self._http

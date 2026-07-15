@@ -8,7 +8,6 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 from microsoft_teams.api.clients import AGENTIC_IDENTITY_CLEAR, ApiClient, ReactionClient
-from microsoft_teams.api.clients._auth_provider_interceptor import AuthProviderInterceptor
 from microsoft_teams.api.models import AgenticIdentity
 from microsoft_teams.common.http import Client, ClientOptions
 
@@ -29,12 +28,16 @@ class TestApiClientReactionsProperty:
 
     def test_reactions_inherits_agentic_auth_defaults(self, mock_http_client):
         """Test reactions inherits agentic auth defaults from ApiClient."""
-        auth_provider = object()
         identity = AgenticIdentity("agentic-app-id", "agentic-user-id", tenant_id="tenant-id")
+
+        class TestAuthProvider:
+            def token(self, *, scope=None, agentic_identity=None):
+                return "agentic-token"
+
         client = ApiClient(
             "https://mock.service.url",
             mock_http_client,
-            auth_provider=auth_provider,
+            auth_provider=TestAuthProvider(),
             agentic_identity=identity,
         )
 
@@ -42,12 +45,8 @@ class TestApiClientReactionsProperty:
 
         assert not hasattr(reactions, "_auth_provider")
         assert not hasattr(reactions, "_agentic_identity")
-        interceptor = next(
-            interceptor
-            for interceptor in mock_http_client.interceptors
-            if isinstance(interceptor, AuthProviderInterceptor)
-        )
-        assert interceptor._default_agentic_identity is identity
+        assert client.http.token is not None
+        assert reactions.http is client.http
 
     def test_reactions_second_access_returns_cached_client(self, mock_http_client):
         """Test that the reactions property returns the same instance on subsequent accesses."""
@@ -137,7 +136,7 @@ class TestApiClientScoping:
         assert clone._api_client_settings is client._api_client_settings
         assert clone._cloud is client._cloud
 
-    def test_clone_reuses_http_client_when_agentic_identity_is_unchanged(self, mock_http_client):
+    def test_clone_reuses_underlying_http_client_when_agentic_identity_is_unchanged(self, mock_http_client):
         class TestAuthProvider:
             def token(self, *, scope=None, agentic_identity=None):
                 return "agentic-token"
@@ -152,7 +151,8 @@ class TestApiClientScoping:
 
         clone = client.from_service_url("https://override.service.url")
 
-        assert clone.http is client.http
+        assert clone.http is not client.http
+        assert clone.http.http is client.http.http
         assert clone._default_agentic_identity is identity
 
     def test_clone_replaces_http_client_when_agentic_identity_changes(self, mock_http_client):
@@ -172,6 +172,7 @@ class TestApiClientScoping:
         clone = client.from_agentic_identity(override_identity)
 
         assert clone.http is not client.http
+        assert clone.http.http is client.http.http
         assert clone._default_agentic_identity is override_identity
 
     def test_clone_preserves_agentic_identity_with_explicit_none(self, mock_http_client):
@@ -230,6 +231,40 @@ class TestApiClientScoping:
         assert "authorization" in request.headers
 
     @pytest.mark.asyncio
+    async def test_clone_uses_token_for_each_scoped_agentic_identity(self, request_capture, mock_activity):
+        calls = []
+        identity_1 = AgenticIdentity("agentic-app-id-1", "agentic-user-id-1", tenant_id="tenant-id")
+        identity_2 = AgenticIdentity("agentic-app-id-2", "agentic-user-id-2", tenant_id="tenant-id")
+
+        class TestAuthProvider:
+            def token(self, *, scope=None, agentic_identity=None):
+                calls.append((scope, agentic_identity))
+                if agentic_identity is identity_1:
+                    return "token-1"
+                if agentic_identity is identity_2:
+                    return "token-2"
+                return "default-token"
+
+        client = ApiClient(
+            "https://test.service.url",
+            request_capture,
+            auth_provider=TestAuthProvider(),
+        )
+
+        await client.from_agentic_identity(identity_1).conversations.create_activity(
+            "test_conversation_id", mock_activity
+        )
+        first_request = request_capture._capture.last_request
+        await client.from_agentic_identity(identity_2).conversations.create_activity(
+            "test_conversation_id", mock_activity
+        )
+        second_request = request_capture._capture.last_request
+
+        assert calls == [(None, identity_1), (None, identity_2)]
+        assert first_request.headers["authorization"] == "Bearer token-1"
+        assert second_request.headers["authorization"] == "Bearer token-2"
+
+    @pytest.mark.asyncio
     async def test_clone_none_preserves_scoped_agentic_identity(self, request_capture, mock_activity):
         calls = []
 
@@ -272,3 +307,18 @@ class TestApiClientScoping:
         )
 
         assert calls == [(None, None)]
+
+    def test_http_client_token_conflicts_with_auth_provider(self, request_capture):
+        class TestAuthProvider:
+            def token(self, *, scope=None, agentic_identity=None):
+                return "agentic-token"
+
+        request_capture_with_token = request_capture.clone(ClientOptions(token="http-client-token"), share_http=True)
+
+        with pytest.raises(ValueError, match="auth provider and an HTTP client token"):
+            ApiClient(
+                "https://test.service.url",
+                request_capture_with_token,
+                auth_provider=TestAuthProvider(),
+                agentic_identity=AgenticIdentity("agentic-app-id", "agentic-user-id", tenant_id="tenant-id"),
+            )
