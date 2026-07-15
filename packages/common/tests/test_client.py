@@ -148,6 +148,15 @@ def test_clone_reuses_underlying_http_client_when_requested():
     assert clone.http is client.http
 
 
+def test_clone_uses_current_token_value():
+    client = Client(ClientOptions(token="original-token"))
+    client.token = None
+
+    clone = client.clone()
+
+    assert clone.token is None
+
+
 def test_clone_can_clear_interceptors_with_empty_override():
     interceptor1 = DummyAsyncInterceptor()
     client = Client(ClientOptions(interceptors=[interceptor1]))

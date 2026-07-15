@@ -6,7 +6,7 @@ Licensed under the MIT License.
 import inspect
 import json
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any, Awaitable, Callable, Dict, List, Optional
 
 import httpx
@@ -134,6 +134,12 @@ class Client:
     def token(self) -> Optional[Token]:
         """Get the default authorization token."""
         return self._token
+
+    @token.setter
+    def token(self, value: Optional[Token]) -> None:
+        """Set the default authorization token."""
+        self._token = value
+        self._options = replace(self._options, token=value)
 
     async def _prepare_headers(self, headers: Optional[Dict[str, str]], token: Optional[Token]) -> Dict[str, str]:
         """
@@ -465,7 +471,7 @@ class Client:
             base_url=overrides.base_url if overrides.base_url is not None else self._options.base_url,
             headers=_merge_headers(self._options.headers, overrides.headers or {}),
             timeout=overrides.timeout if overrides.timeout is not None else self._options.timeout,
-            token=overrides.token if overrides.token is not None else self._options.token,
+            token=overrides.token if overrides.token is not None else self._token,
             interceptors=list(overrides.interceptors)
             if overrides.interceptors is not None
             else list(self._interceptors),

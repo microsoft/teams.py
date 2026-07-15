@@ -104,12 +104,16 @@ class ApiClient(BaseClient):
             resolved_agentic_identity = None
         else:
             resolved_agentic_identity = agentic_identity
+        http = self._http.clone(share_http=True)
+        if self._auth_provider is not None:
+            http.token = None
+
         return ApiClient(
             service_url or self.service_url,
-            self._get_scoped_http(resolved_agentic_identity),
+            http,
             self._api_client_settings,
             cloud=self._cloud,
-            auth_provider=None,
+            auth_provider=self._auth_provider,
             agentic_identity=resolved_agentic_identity,
         )
 

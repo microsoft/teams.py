@@ -265,6 +265,46 @@ class TestApiClientScoping:
         assert second_request.headers["authorization"] == "Bearer token-2"
 
     @pytest.mark.asyncio
+    async def test_chained_clone_uses_token_for_new_scoped_agentic_identity(self, request_capture, mock_activity):
+        calls = []
+        identity_1 = AgenticIdentity("agentic-app-id-1", "agentic-user-id-1", tenant_id="tenant-id")
+        identity_2 = AgenticIdentity("agentic-app-id-2", "agentic-user-id-2", tenant_id="tenant-id")
+
+        class TestAuthProvider:
+            def token(self, *, scope=None, agentic_identity=None):
+                calls.append((scope, agentic_identity))
+                if agentic_identity is identity_1:
+                    return "token-1"
+                if agentic_identity is identity_2:
+                    return "token-2"
+                return "default-token"
+
+        client = ApiClient(
+            "https://test.service.url",
+            request_capture,
+            auth_provider=TestAuthProvider(),
+        )
+
+        await (
+            client.from_service_url("https://override.service.url")
+            .from_agentic_identity(identity_1)
+            .conversations.create_activity("test_conversation_id", mock_activity)
+        )
+        first_request = request_capture._capture.last_request
+        await (
+            client.from_agentic_identity(identity_1)
+            .from_agentic_identity(identity_2)
+            .conversations.create_activity("test_conversation_id", mock_activity)
+        )
+        second_request = request_capture._capture.last_request
+
+        assert calls == [(None, identity_1), (None, identity_2)]
+        assert first_request.headers["authorization"] == "Bearer token-1"
+        assert str(first_request.url).startswith("https://override.service.url/")
+        assert second_request.headers["authorization"] == "Bearer token-2"
+        assert str(second_request.url).startswith("https://test.service.url/")
+
+    @pytest.mark.asyncio
     async def test_clone_none_preserves_scoped_agentic_identity(self, request_capture, mock_activity):
         calls = []
 
