@@ -5,7 +5,7 @@ Licensed under the MIT License.
 
 from __future__ import annotations
 
-from typing import Literal, Optional, Union, cast
+from typing import Literal, Optional, TypeAlias, Union, cast
 
 from microsoft_teams.common import Client as HttpClient
 from microsoft_teams.common import ClientOptions, Interceptor
@@ -23,8 +23,9 @@ from .reaction import ReactionClient
 from .team import TeamClient
 from .user import UserClient
 
-AGENTIC_IDENTITY_PRESERVE: Literal["preserve"] = "preserve"
-AgenticIdentityScope = AgenticIdentity | None | Literal["preserve"]
+AgenticIdentityPreserve: TypeAlias = Literal["preserve"]
+AGENTIC_IDENTITY_PRESERVE: AgenticIdentityPreserve = "preserve"
+AgenticIdentityScope: TypeAlias = AgenticIdentity | None | AgenticIdentityPreserve
 
 
 class ApiClient(BaseClient):
