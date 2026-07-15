@@ -793,6 +793,6 @@ class TestSnapshotFullInjectedScript:
 
         import re
 
-        match = re.search(r"<script>(.*?)</script>", result, re.DOTALL)
+        match = re.search(r"<script>(.*?)</script>", result, re.DOTALL | re.IGNORECASE)
         assert match is not None
         assert match.group(1) == snapshot
