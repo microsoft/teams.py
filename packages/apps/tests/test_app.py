@@ -14,10 +14,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import httpx
 import pytest
 from microsoft_teams.api import (
-    AGENTIC_IDENTITY_CLEAR,
     Account,
     AgenticIdentity,
-    AgenticIdentityScope,
     ConversationAccount,
     FederatedIdentityCredentials,
     InvokeActivity,
@@ -918,10 +916,7 @@ class TestApp:
         assert result.id == "sent-activity-id"
 
     @pytest.mark.asyncio
-    @pytest.mark.parametrize("agentic_identity", [None, AGENTIC_IDENTITY_CLEAR])
-    async def test_send_passes_agentic_identity_scope_value(
-        self, mock_storage, agentic_identity: AgenticIdentityScope
-    ) -> None:
+    async def test_send_passes_none_agentic_identity(self, mock_storage) -> None:
         options = AppOptions(storage=mock_storage, client_id="test-client-id", client_secret="test-secret")
         app = App(**options)
         app._initialized = True
@@ -933,11 +928,11 @@ class TestApp:
         _wire_flat_activity_methods(app.api, activities)
         app.api.clone = MagicMock(return_value=app.api)
 
-        await app.send("conv-123", "Hello", agentic_identity=agentic_identity)
+        await app.send("conv-123", "Hello", agentic_identity=None)
 
         app.api.clone.assert_called_once_with(
             service_url=app.api.service_url,
-            agentic_identity=agentic_identity,
+            agentic_identity=None,
         )
 
     def test_get_agentic_identity_preserves_explicit_blueprint_id(self, mock_storage) -> None:

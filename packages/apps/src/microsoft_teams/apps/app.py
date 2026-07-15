@@ -16,7 +16,6 @@ from microsoft_teams.api import (
     ActivityBase,
     ActivityParams,
     AgenticIdentity,
-    AgenticIdentityScope,
     ApiClient,
     ClientCredentials,
     ConversationAccount,
@@ -299,7 +298,7 @@ class App(ActivityHandlerMixin):
         activity: str | ActivityParams | AdaptiveCard,
         *,
         service_url: Optional[str] = None,
-        agentic_identity: AgenticIdentityScope = None,
+        agentic_identity: Optional[AgenticIdentity] = None,
     ) -> SentActivity:
         """Send an activity proactively to a conversation.
 
@@ -368,7 +367,7 @@ class App(ActivityHandlerMixin):
         activity: str | ActivityParams | AdaptiveCard,
         *,
         service_url: Optional[str] = None,
-        agentic_identity: AgenticIdentityScope = None,
+        agentic_identity: Optional[AgenticIdentity] = None,
     ) -> SentActivity: ...
 
     @overload
@@ -378,7 +377,7 @@ class App(ActivityHandlerMixin):
         message_id: str | ActivityParams | AdaptiveCard,
         *,
         service_url: Optional[str] = None,
-        agentic_identity: AgenticIdentityScope = None,
+        agentic_identity: Optional[AgenticIdentity] = None,
     ) -> SentActivity: ...
 
     async def reply(  # type: ignore[reportInconsistentOverload]
@@ -388,7 +387,7 @@ class App(ActivityHandlerMixin):
         activity: str | ActivityParams | AdaptiveCard | None = None,
         *,
         service_url: Optional[str] = None,
-        agentic_identity: AgenticIdentityScope = None,
+        agentic_identity: Optional[AgenticIdentity] = None,
     ) -> SentActivity:
         """Send an activity proactively to a conversation, optionally as a threaded reply.
 

@@ -5,7 +5,7 @@ Licensed under the MIT License.
 
 from microsoft_teams.api import (
     ActivityParams,
-    AgenticIdentityScope,
+    AgenticIdentity,
     ApiClient,
     ConversationReference,
     MessageActivityInput,
@@ -18,7 +18,7 @@ async def send_or_update_activity(
     activity: ActivityParams,
     ref: ConversationReference,
     *,
-    agentic_identity: AgenticIdentityScope = None,
+    agentic_identity: AgenticIdentity | None = None,
 ) -> SentActivity:
     """Send or update an activity using the same routing rules as the removed ActivitySender."""
     is_targeted = (
