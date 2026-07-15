@@ -101,7 +101,8 @@ async def handle_message(ctx: ActivityContext[MessageActivity]) -> None:
                     frame_domains=[],
                     base_uri_domains=[],
                 ),
-                tool_input={"demo": True},  # Passed to the widget as initial context (available via toolInput in ui/initialize)
+                # Passed to widget as initial context (available via toolInput in ui/initialize)
+                tool_input={"demo": True},
                 tool_output={
                     "content": [{"type": "text", "text": "Initial data loaded."}],
                     "structuredContent": {"counter": 0, "lastAction": "init"},
@@ -167,7 +168,8 @@ async def handle_message(ctx: ActivityContext[MessageActivity]) -> None:
                     frame_domains=[],
                     base_uri_domains=[],
                 ),
-                tool_input={},  # Passed to the widget as initial context (available via toolInput in ui/initialize)
+                # Passed to widget as initial context (available via toolInput in ui/initialize)
+                tool_input={},
                 tool_output={
                     "content": [{"type": "text", "text": "Ready."}],
                     "structuredContent": {"tools": ["getTime", "roll", "echo"]},
