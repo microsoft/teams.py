@@ -3,6 +3,7 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
+from .app_info import AppInfo
 from .channel_data import ChannelData
 from .channel_info import ChannelInfo
 from .feedback_loop import FeedbackLoop
@@ -13,6 +14,7 @@ from .tenant_info import TenantInfo
 
 __all__ = [
     "ChannelInfo",
+    "AppInfo",
     "NotificationInfo",
     "ChannelDataSettings",
     "TeamInfo",
