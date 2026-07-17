@@ -40,6 +40,13 @@ class TestActivityContextReply:
         activities.create = mock_activity_sender.send
         api = MagicMock()
         api.conversations.activities.return_value = activities
+        api.clone.return_value = api
+
+        async def create_activity(conversation_id: str, activity: Any) -> SentActivity:
+            api.conversations.activities(conversation_id)
+            return await activities.create(activity)
+
+        api.conversations.create_activity = AsyncMock(side_effect=create_activity)
 
         conversation_ref = ConversationReference(
             bot=Account(id="bot-id", name="Test Bot"),
@@ -160,6 +167,13 @@ class TestActivityContextQuoteReply:
         activities.create = mock_activity_sender.send
         api = MagicMock()
         api.conversations.activities.return_value = activities
+        api.clone.return_value = api
+
+        async def create_activity(conversation_id: str, activity: Any) -> SentActivity:
+            api.conversations.activities(conversation_id)
+            return await activities.create(activity)
+
+        api.conversations.create_activity = AsyncMock(side_effect=create_activity)
 
         conversation_ref = ConversationReference(
             bot=Account(id="bot-id", name="Test Bot"),

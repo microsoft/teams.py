@@ -41,6 +41,7 @@ class TestHttpStream:
 
         mock_conversations = MagicMock()
         client.conversations = mock_conversations
+        client.from_service_url.return_value = client
 
         client.send_call_count = 0
         client.sent_activities = []

@@ -24,36 +24,40 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
     text = ctx.activity.text.lower()
 
     if "extended" in text:
-        rich_content = "\n".join([
-            "\n",
-            "# Extended Markdown Demo",
-            "",
-            "## Table",
-            "| Feature | Status |",
-            "|---------|--------|",
-            "| Tables  | Supported |",
-            "| Math    | Supported |",
-            "",
-            "## Math",
-            "$$E = mc^2$$",
-        ])
+        rich_content = "\n".join(
+            [
+                "\n",
+                "# Extended Markdown Demo",
+                "",
+                "## Table",
+                "| Feature | Status |",
+                "|---------|--------|",
+                "| Tables  | Supported |",
+                "| Math    | Supported |",
+                "",
+                "## Math",
+                "$$E = mc^2$$",
+            ]
+        )
         reply = MessageActivityInput(text=rich_content).with_text_format("extendedmarkdown")
         await ctx.reply(reply)
     elif "markdown" in text:
-        md_content = "\n".join([
-            "\n",
-            "# Markdown Demo",
-            "",
-            "**Bold**, *italic*, and ~~strikethrough~~",
-            "",
-            "- Item one",
-            "- Item two",
-            "- Item three",
-            "",
-            "> This is a blockquote",
-            "",
-            "`inline code` and [a link](https://www.microsoft.com)",
-        ])
+        md_content = "\n".join(
+            [
+                "\n",
+                "# Markdown Demo",
+                "",
+                "**Bold**, *italic*, and ~~strikethrough~~",
+                "",
+                "- Item one",
+                "- Item two",
+                "- Item three",
+                "",
+                "> This is a blockquote",
+                "",
+                "`inline code` and [a link](https://www.microsoft.com)",
+            ]
+        )
         reply = MessageActivityInput(text=md_content).with_text_format("markdown")
         await ctx.reply(reply)
     elif "xml" in text:
@@ -64,14 +68,10 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
         reply = MessageActivityInput(text=xml_content).with_text_format("xml")
         await ctx.reply(reply)
     elif "plain" in text:
-        reply = MessageActivityInput(
-            text="This is plain text with no formatting applied."
-        ).with_text_format("plain")
+        reply = MessageActivityInput(text="This is plain text with no formatting applied.").with_text_format("plain")
         await ctx.reply(reply)
     else:
-        await ctx.send(
-            "Send **markdown**, **extended**, **xml**, or **plain** to see different text formats."
-        )
+        await ctx.send("Send **markdown**, **extended**, **xml**, or **plain** to see different text formats.")
 
 
 if __name__ == "__main__":

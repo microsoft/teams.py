@@ -34,7 +34,19 @@ class TestFunctionContextSend:
         )
         mock_conversations.activities.return_value = mock_activities
 
+        async def create_activity(conversation_id: str, activity: Any) -> SentActivity:
+            mock_conversations.activities(conversation_id)
+            return await mock_activities.create(activity)
+
+        async def update_activity(conversation_id: str, activity_id: str, activity: Any) -> SentActivity:
+            mock_conversations.activities(conversation_id)
+            return await mock_activities.update(activity_id, activity)
+
+        mock_conversations.create_activity = AsyncMock(side_effect=create_activity)
+        mock_conversations.update_activity = AsyncMock(side_effect=update_activity)
+
         api.conversations = mock_conversations
+        api.clone.return_value = api
         return api
 
     @pytest.fixture
@@ -123,7 +135,5 @@ class TestFunctionContextSend:
         function_context.api.conversations.activities.return_value.update.assert_called_once_with(
             "existing-msg-id",
             activity,
-            service_url="https://test.service.url",
-            agentic_identity=None,
         )
         function_context.api.conversations.activities.return_value.create.assert_not_called()

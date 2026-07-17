@@ -6,7 +6,7 @@ Licensed under the MIT License.
 import inspect
 import json
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any, Awaitable, Callable, Dict, List, Optional
 
 import httpx
@@ -100,7 +100,7 @@ class Client:
         options: ClientOptions dataclass with configuration for the client.
     """
 
-    def __init__(self, options: Optional[ClientOptions] = None):
+    def __init__(self, options: Optional[ClientOptions] = None, *, _http: Optional[httpx.AsyncClient] = None):
         """
         Initialize the HTTP Client.
 
@@ -118,7 +118,7 @@ class Client:
         # Maintain interceptors as a separate instance attribute (do not mutate options)
         self._interceptors = list(options.interceptors or [])
 
-        self.http = httpx.AsyncClient(
+        self.http = _http or httpx.AsyncClient(
             base_url=httpx.URL(options.base_url) if options.base_url else "",
             headers=options.headers,
             timeout=options.timeout,
@@ -129,6 +129,17 @@ class Client:
     def interceptors(self) -> tuple[Interceptor, ...]:
         """Get the registered interceptors."""
         return tuple(self._interceptors)
+
+    @property
+    def token(self) -> Optional[Token]:
+        """Get the default authorization token."""
+        return self._token
+
+    @token.setter
+    def token(self, value: Optional[Token]) -> None:
+        """Set the default authorization token."""
+        self._token = value
+        self._options = replace(self._options, token=value)
 
     async def _prepare_headers(self, headers: Optional[Dict[str, str]], token: Optional[Token]) -> Dict[str, str]:
         """
@@ -142,6 +153,8 @@ class Client:
             Final headers dict for the request.
         """
         req_headers = {**self._options.headers, **(headers or {})}
+        if headers and any(key.lower() == "authorization" for key in headers):
+            return req_headers
         resolved_token = await self._resolve_token(token)
         if resolved_token:
             req_headers["Authorization"] = f"Bearer {resolved_token}"
@@ -443,7 +456,7 @@ class Client:
                 event_hooks_dict.setdefault("response", []).append(_make_response_wrapper(hook))
         self.http.event_hooks = event_hooks_dict
 
-    def clone(self, overrides: Optional[ClientOptions] = None) -> "Client":
+    def clone(self, overrides: Optional[ClientOptions] = None, *, share_http: bool = False) -> "Client":
         """
         Create a new Client instance with merged configuration.
 
@@ -458,9 +471,9 @@ class Client:
             base_url=overrides.base_url if overrides.base_url is not None else self._options.base_url,
             headers=_merge_headers(self._options.headers, overrides.headers or {}),
             timeout=overrides.timeout if overrides.timeout is not None else self._options.timeout,
-            token=overrides.token if overrides.token is not None else self._options.token,
+            token=overrides.token if overrides.token is not None else self._token,
             interceptors=list(overrides.interceptors)
             if overrides.interceptors is not None
             else list(self._interceptors),
         )
-        return Client(merged_options)
+        return Client(merged_options, _http=self.http if share_http else None)

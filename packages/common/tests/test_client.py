@@ -139,6 +139,24 @@ def test_clone_copies_interceptor_list_independently():
     assert client.interceptors is not clone.interceptors
 
 
+def test_clone_reuses_underlying_http_client_when_requested():
+    client = Client(ClientOptions(base_url="https://example.com"))
+
+    clone = client.clone(share_http=True)
+
+    assert clone is not client
+    assert clone.http is client.http
+
+
+def test_clone_uses_current_token_value():
+    client = Client(ClientOptions(token="original-token"))
+    client.token = None
+
+    clone = client.clone()
+
+    assert clone.token is None
+
+
 def test_clone_can_clear_interceptors_with_empty_override():
     interceptor1 = DummyAsyncInterceptor()
     client = Client(ClientOptions(interceptors=[interceptor1]))
@@ -199,6 +217,17 @@ async def test_async_none_token(mock_transport):
     resp = await client.get("/token-test")
     data = resp.json()
     assert "authorization" not in data["headers"]
+
+
+@pytest.mark.asyncio
+async def test_explicit_authorization_header_wins_over_default_token(mock_transport):
+    client = Client(ClientOptions(base_url="https://example.com", token="default-token"))
+    client.http._transport = mock_transport
+
+    resp = await client.get("/token-test", headers={"Authorization": "******"})
+    data = resp.json()
+
+    assert data["headers"]["authorization"] == "******"
 
 
 # Test token factory that raises an exception

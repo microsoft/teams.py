@@ -56,36 +56,24 @@ class TestReactionClient:
         expected_url = (
             f"{service_url}/v3/conversations/{conversation_id}/activities/{activity_id}/reactions/{reaction_type}"
         )
-        mock_put.assert_called_once_with(expected_url, extensions={"microsoft_teams.agentic_identity": None})
+        mock_put.assert_called_once_with(expected_url)
 
     @pytest.mark.asyncio
-    async def test_reaction_operations_use_service_url_override(self, mock_http_client):
-        client = ReactionClient("https://test.service.url", mock_http_client)
+    async def test_reaction_operations_use_scoped_service_url(self, mock_http_client):
+        client = ReactionClient("https://override.service.url/", mock_http_client)
 
         with patch.object(mock_http_client, "put", new_callable=AsyncMock) as mock_put:
-            await client.add(
-                "test_conversation_id",
-                "test_activity_id",
-                "like",
-                service_url="https://override.service.url/",
-            )
+            await client.add("test_conversation_id", "test_activity_id", "like")
 
         mock_put.assert_called_once_with(
             "https://override.service.url/v3/conversations/test_conversation_id/activities/test_activity_id/reactions/like",
-            extensions={"microsoft_teams.agentic_identity": None},
         )
 
         with patch.object(mock_http_client, "delete", new_callable=AsyncMock) as mock_delete:
-            await client.delete(
-                "test_conversation_id",
-                "test_activity_id",
-                "like",
-                service_url="https://override.service.url/",
-            )
+            await client.delete("test_conversation_id", "test_activity_id", "like")
 
         mock_delete.assert_called_once_with(
             "https://override.service.url/v3/conversations/test_conversation_id/activities/test_activity_id/reactions/like",
-            extensions={"microsoft_teams.agentic_identity": None},
         )
 
     @pytest.mark.asyncio
@@ -144,7 +132,7 @@ class TestReactionClient:
         expected_url = (
             f"{service_url}/v3/conversations/{conversation_id}/activities/{activity_id}/reactions/{reaction_type}"
         )
-        mock_put.assert_called_once_with(expected_url, extensions={"microsoft_teams.agentic_identity": None})
+        mock_put.assert_called_once_with(expected_url)
 
     @pytest.mark.asyncio
     async def test_delete_reaction(self, mock_http_client):
@@ -162,11 +150,11 @@ class TestReactionClient:
         expected_url = (
             f"{service_url}/v3/conversations/{conversation_id}/activities/{activity_id}/reactions/{reaction_type}"
         )
-        mock_delete.assert_called_once_with(expected_url, extensions={"microsoft_teams.agentic_identity": None})
+        mock_delete.assert_called_once_with(expected_url)
 
     @pytest.mark.asyncio
-    async def test_delete_reaction_uses_method_agentic_identity(self, mock_http_client):
-        """Test removing a reaction with a per-call agentic token."""
+    async def test_delete_reaction_uses_scoped_agentic_identity(self, mock_http_client):
+        """Test removing a reaction with a scoped agentic token."""
         calls = []
 
         class TestAuthProvider:
@@ -175,9 +163,11 @@ class TestReactionClient:
                 return "agentic-token"
 
         identity = AgenticIdentity("agentic-app-id", "agentic-user-id", tenant_id="tenant-id")
-        client = ApiClient("https://test.service.url", mock_http_client, auth_provider=TestAuthProvider()).reactions
+        client = ApiClient(
+            "https://test.service.url", mock_http_client, auth_provider=TestAuthProvider(), agentic_identity=identity
+        ).reactions
 
-        await client.delete("test_conversation_id", "test_activity_id", "like", agentic_identity=identity)
+        await client.delete("test_conversation_id", "test_activity_id", "like")
 
         assert calls == [(None, identity)]
 
@@ -197,4 +187,4 @@ class TestReactionClient:
         expected_url = (
             f"{service_url}/v3/conversations/{conversation_id}/activities/{activity_id}/reactions/{reaction_type}"
         )
-        mock_delete.assert_called_once_with(expected_url, extensions={"microsoft_teams.agentic_identity": None})
+        mock_delete.assert_called_once_with(expected_url)

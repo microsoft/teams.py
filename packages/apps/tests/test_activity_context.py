@@ -61,6 +61,28 @@ def _create_activity_context(
     )
     api = MagicMock()
     api.conversations.activities.return_value = activities
+    api.clone.return_value = api
+
+    async def create_activity(conversation_id: str, activity: Any) -> SentActivity:
+        api.conversations.activities(conversation_id)
+        return await activities.create(activity)
+
+    async def update_activity(conversation_id: str, activity_id: str, activity: Any) -> SentActivity:
+        api.conversations.activities(conversation_id)
+        return await activities.update(activity_id, activity)
+
+    async def create_targeted_activity(conversation_id: str, activity: Any) -> SentActivity:
+        api.conversations.activities(conversation_id)
+        return await activities.create_targeted(activity)
+
+    async def update_targeted_activity(conversation_id: str, activity_id: str, activity: Any) -> SentActivity:
+        api.conversations.activities(conversation_id)
+        return await activities.update_targeted(activity_id, activity)
+
+    api.conversations.create_activity = AsyncMock(side_effect=create_activity)
+    api.conversations.update_activity = AsyncMock(side_effect=update_activity)
+    api.conversations.create_targeted_activity = AsyncMock(side_effect=create_targeted_activity)
+    api.conversations.update_targeted_activity = AsyncMock(side_effect=update_targeted_activity)
 
     conversation_ref = ConversationReference(
         bot=Account(id="bot-id", name="Test Bot"),
@@ -179,7 +201,6 @@ class TestActivityContextSendTargeted:
         mock_sender.send.assert_called_once()
         sent_activity = mock_sender.send.call_args[0][0]
         ctx.api.conversations.activities.assert_called_once_with("other-conversation")
-        assert mock_sender.send.call_args.kwargs["service_url"] == other_ref.service_url
         assert sent_activity.recipient is None
         assert sent_activity.entities is None
 
@@ -282,8 +303,6 @@ class TestActivityContextSendTargeted:
         ctx.api.conversations.activities.return_value.update.assert_called_once_with(
             "existing-msg-id",
             activity,
-            service_url=ctx.conversation_ref.service_url,
-            agentic_identity=None,
         )
         mock_sender.send.assert_not_called()
 
@@ -402,7 +421,10 @@ class TestActivityContextSend:
         await ctx.send("Hello")
 
         mock_sender.send.assert_called_once()
-        assert mock_sender.send.call_args.kwargs["agentic_identity"] == recipient.agentic_identity
+        ctx.api.clone.assert_called_once_with(
+            service_url=ctx.conversation_ref.service_url,
+            agentic_identity=recipient.agentic_identity,
+        )
 
 
 class TestActivityContextReply:
@@ -470,7 +492,10 @@ class TestActivityContextReply:
         await ctx.reply("Hello")
 
         mock_sender.send.assert_called_once()
-        assert mock_sender.send.call_args.kwargs["agentic_identity"] == recipient.agentic_identity
+        ctx.api.clone.assert_called_once_with(
+            service_url=ctx.conversation_ref.service_url,
+            agentic_identity=recipient.agentic_identity,
+        )
 
 
 class TestActivityContextUserGraph:

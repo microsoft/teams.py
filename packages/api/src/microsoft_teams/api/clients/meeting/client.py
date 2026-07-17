@@ -9,9 +9,8 @@ from typing import Optional, Union
 
 from microsoft_teams.common.http import Client, ClientOptions
 
-from ...models import AgenticIdentity, MeetingInfo, MeetingParticipant
+from ...models import MeetingInfo, MeetingParticipant
 from ...models.meetings.meeting_notification import MeetingNotificationParams, MeetingNotificationResponse
-from .._auth_provider_interceptor import AGENTIC_IDENTITY_EXTENSION
 from ..api_client_settings import ApiClientSettings
 from ..base_client import BaseClient
 
@@ -36,9 +35,7 @@ class MeetingClient(BaseClient):
         super().__init__(options, api_client_settings)
         self.service_url = service_url.rstrip("/")
 
-    async def get_by_id(
-        self, id: str, *, service_url: str | None = None, agentic_identity: AgenticIdentity | None = None
-    ) -> MeetingInfo:
+    async def get_by_id(self, id: str) -> MeetingInfo:
         """
         Retrieves meeting information including details, organizer, and conversation.
 
@@ -49,8 +46,7 @@ class MeetingClient(BaseClient):
             The meeting information.
         """
         response = await self.http.get(
-            f"{self._get_service_url(service_url)}/v1/meetings/{id}",
-            extensions={AGENTIC_IDENTITY_EXTENSION: agentic_identity},
+            f"{self._get_service_url()}/v1/meetings/{id}",
         )
         return MeetingInfo.model_validate(response.json())
 
@@ -59,9 +55,6 @@ class MeetingClient(BaseClient):
         meeting_id: str,
         id: str,
         tenant_id: str,
-        *,
-        service_url: str | None = None,
-        agentic_identity: AgenticIdentity | None = None,
     ) -> MeetingParticipant:
         """
         Retrieves information about a specific participant in a meeting.
@@ -74,20 +67,14 @@ class MeetingClient(BaseClient):
         Returns:
             MeetingParticipant: The meeting participant information.
         """
-        url = f"{self._get_service_url(service_url)}/v1/meetings/{meeting_id}/participants/{id}?tenantId={tenant_id}"
-        response = await self.http.get(
-            url,
-            extensions={AGENTIC_IDENTITY_EXTENSION: agentic_identity},
-        )
+        url = f"{self._get_service_url()}/v1/meetings/{meeting_id}/participants/{id}?tenantId={tenant_id}"
+        response = await self.http.get(url)
         return MeetingParticipant.model_validate(response.json())
 
     async def send_notification(
         self,
         meeting_id: str,
         params: MeetingNotificationParams,
-        *,
-        service_url: str | None = None,
-        agentic_identity: AgenticIdentity | None = None,
     ) -> Optional[MeetingNotificationResponse]:
         """
         Send a targeted meeting notification to participants.
@@ -104,9 +91,8 @@ class MeetingClient(BaseClient):
             with per-recipient failure details on partial success.
         """
         response = await self.http.post(
-            f"{self._get_service_url(service_url)}/v1/meetings/{meeting_id}/notification",
+            f"{self._get_service_url()}/v1/meetings/{meeting_id}/notification",
             json=params.model_dump(by_alias=True, exclude_none=True),
-            extensions={AGENTIC_IDENTITY_EXTENSION: agentic_identity},
         )
         if not response.text:
             return None

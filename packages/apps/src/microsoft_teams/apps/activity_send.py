@@ -32,37 +32,21 @@ async def send_or_update_activity(
 
     activity.from_ = ref.bot
     activity.conversation = ref.conversation
-
+    scoped_api = (
+        api
+        if agentic_identity is None and ref.service_url.rstrip("/") == api.service_url
+        else api.clone(service_url=ref.service_url, agentic_identity=agentic_identity)
+    )
     if activity.id:
         activity_id = activity.id
         if is_targeted:
-            res = await api.conversations.activities_client.update_targeted(
-                ref.conversation.id,
-                activity_id,
-                activity,
-                service_url=ref.service_url,
-            )
+            res = await scoped_api.conversations.update_targeted_activity(ref.conversation.id, activity_id, activity)
         else:
-            res = await api.conversations.activities_client.update(
-                ref.conversation.id,
-                activity_id,
-                activity,
-                service_url=ref.service_url,
-                agentic_identity=agentic_identity,
-            )
+            res = await scoped_api.conversations.update_activity(ref.conversation.id, activity_id, activity)
         return SentActivity.merge(activity, res)
 
     if is_targeted:
-        res = await api.conversations.activities_client.create_targeted(
-            ref.conversation.id,
-            activity,
-            service_url=ref.service_url,
-        )
+        res = await scoped_api.conversations.create_targeted_activity(ref.conversation.id, activity)
     else:
-        res = await api.conversations.activities_client.create(
-            ref.conversation.id,
-            activity,
-            service_url=ref.service_url,
-            agentic_identity=agentic_identity,
-        )
+        res = await scoped_api.conversations.create_activity(ref.conversation.id, activity)
     return SentActivity.merge(activity, res)

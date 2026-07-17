@@ -43,9 +43,8 @@ class BaseClient:
         """Set the HTTP client instance."""
         self._http = value
 
-    def _get_service_url(self, service_url: str | None = None) -> str:
+    def _get_service_url(self) -> str:
         current_service_url = cast(str | None, getattr(self, "service_url", None))
-        resolved_service_url = service_url or current_service_url
-        if resolved_service_url is None:
+        if current_service_url is None:
             raise ValueError("service_url is required")
-        return resolved_service_url.rstrip("/")
+        return current_service_url.rstrip("/")
