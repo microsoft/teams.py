@@ -536,22 +536,24 @@ class TestActivityContextSignIn:
         assert result is None
         ctx.api._bots.sign_in.get_resource.assert_called_once()
         assert mock_sender.send.called
+        # 1:1 (personal) sign-in cards are never targeted.
+        sent_payload = mock_sender.send.call_args.args[0]
+        assert sent_payload.recipient is not None
+        assert sent_payload.recipient.is_targeted is not True
 
     @pytest.mark.asyncio
-    async def test_sign_in_creates_one_on_one_conversation_for_group_chat(self) -> None:
-        """For group conversations, sign_in creates a 1:1 conversation before sending the OAuth card."""
+    async def test_sign_in_group_chat_sends_targeted_card(self) -> None:
+        """In a group chat, sign_in sends the OAuth card as a targeted message directly in
+        the conversation (no 1:1 fallback) and keeps the token exchange resource for SSO."""
         mock_activity = MagicMock()
         mock_activity.channel_id = "msteams"
         mock_activity.from_ = Account(id="user-001")
         mock_activity.conversation.is_group = True
-        mock_activity.conversation.tenant_id = "tenant-001"
+        mock_activity.conversation.conversation_type = "groupChat"
 
         ctx, mock_sender = _create_activity_context(activity=mock_activity)
         ctx.api.users.get_token = AsyncMock(side_effect=Exception("no token"))
-
-        one_on_one = MagicMock()
-        one_on_one.id = "1on1-conv-id"
-        ctx.api.conversations.create = AsyncMock(return_value=one_on_one)
+        ctx.api.conversations.create = AsyncMock()
 
         resource_response = MagicMock()
         resource_response.token_exchange_resource = MagicMock()
@@ -566,19 +568,68 @@ class TestActivityContextSignIn:
                 "microsoft_teams.apps.routing.activity_context.TokenExchangeState",
                 return_value=token_state,
             ),
-            patch("microsoft_teams.apps.routing.activity_context.CreateConversationParams"),
             patch("microsoft_teams.apps.routing.activity_context.card_attachment"),
             patch("microsoft_teams.apps.routing.activity_context.OAuthCardAttachment"),
-            patch("microsoft_teams.apps.routing.activity_context.OAuthCard"),
+            patch("microsoft_teams.apps.routing.activity_context.OAuthCard") as mock_oauth_card,
             patch("microsoft_teams.apps.routing.activity_context.CardAction"),
             patch("microsoft_teams.apps.routing.activity_context.GetBotSignInResourceParams"),
         ):
             result = await ctx.sign_in()
 
         assert result is None
-        ctx.api.conversations.create.assert_called_once()
-        # one greeting message before the OAuth card, plus the OAuth card itself
-        assert mock_sender.send.call_count >= 2
+        # No 1:1 fallback conversation is created.
+        ctx.api.conversations.create.assert_not_called()
+        # A single OAuth card is sent, targeted to the requesting user.
+        assert mock_sender.send.call_count == 1
+        sent_payload = mock_sender.send.call_args.args[0]
+        assert sent_payload.recipient is not None
+        assert sent_payload.recipient.is_targeted is True
+        # SSO token exchange remains available in group chats.
+        assert mock_oauth_card.call_args.kwargs["token_exchange_resource"] is resource_response.token_exchange_resource
+
+    @pytest.mark.asyncio
+    async def test_sign_in_channel_targets_and_omits_token_exchange(self) -> None:
+        """In a channel, sign_in sends a targeted OAuth card and omits the token exchange
+        resource (channels can't do silent SSO) so Teams renders the sign-in button."""
+        mock_activity = MagicMock()
+        mock_activity.channel_id = "msteams"
+        mock_activity.from_ = Account(id="user-001")
+        mock_activity.conversation.is_group = True
+        mock_activity.conversation.conversation_type = "channel"
+
+        ctx, mock_sender = _create_activity_context(activity=mock_activity)
+        ctx.api.users.get_token = AsyncMock(side_effect=Exception("no token"))
+        ctx.api.conversations.create = AsyncMock()
+
+        resource_response = MagicMock()
+        resource_response.token_exchange_resource = MagicMock()
+        resource_response.token_post_resource = MagicMock()
+        resource_response.sign_in_link = "https://login.example.com"
+        ctx.api._bots.sign_in.get_resource = AsyncMock(return_value=resource_response)
+
+        token_state = MagicMock()
+        token_state.model_dump = MagicMock(return_value={"connection_name": "test-connection"})
+        with (
+            patch(
+                "microsoft_teams.apps.routing.activity_context.TokenExchangeState",
+                return_value=token_state,
+            ),
+            patch("microsoft_teams.apps.routing.activity_context.card_attachment"),
+            patch("microsoft_teams.apps.routing.activity_context.OAuthCardAttachment"),
+            patch("microsoft_teams.apps.routing.activity_context.OAuthCard") as mock_oauth_card,
+            patch("microsoft_teams.apps.routing.activity_context.CardAction"),
+            patch("microsoft_teams.apps.routing.activity_context.GetBotSignInResourceParams"),
+        ):
+            result = await ctx.sign_in()
+
+        assert result is None
+        ctx.api.conversations.create.assert_not_called()
+        assert mock_sender.send.call_count == 1
+        sent_payload = mock_sender.send.call_args.args[0]
+        assert sent_payload.recipient is not None
+        assert sent_payload.recipient.is_targeted is True
+        # SSO isn't possible in channels, so the token exchange resource is omitted.
+        assert mock_oauth_card.call_args.kwargs["token_exchange_resource"] is None
 
     @pytest.mark.asyncio
     async def test_sign_in_uses_signin_options_connection_name_override(self) -> None:

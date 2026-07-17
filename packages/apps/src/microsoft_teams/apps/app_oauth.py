@@ -59,6 +59,8 @@ class OauthHandlers:
                         ),
                     )
                 )
+                ctx.is_signed_in = True
+                ctx.user_token = token.token
                 self.event_emitter.emit("sign_in", SignInEvent(activity_ctx=ctx, token_response=token))
                 return None
             except Exception as e:
@@ -174,6 +176,8 @@ class OauthHandlers:
                         code=activity.value.state,
                     )
                 )
+                ctx.is_signed_in = True
+                ctx.user_token = token.token
                 self.event_emitter.emit("sign_in", SignInEvent(activity_ctx=ctx, token_response=token))
                 logger.debug(
                     f"Sign-in state verified for user {activity.from_.id} in conversation {activity.conversation.id}"
