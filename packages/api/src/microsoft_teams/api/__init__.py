@@ -5,10 +5,11 @@ Licensed under the MIT License.
 
 import logging
 
-from . import activities, auth, clients, models
+from . import activities, auth, clients, diagnostics, models
 from .activities import *  # noqa: F403
 from .auth import *  # noqa: F403
 from .clients import *  # noqa: F403
+from .diagnostics import *  # noqa: F403
 from .models import *  # noqa: F403
 
 logging.getLogger(__name__).addHandler(logging.NullHandler())
@@ -18,4 +19,5 @@ __all__: list[str] = []
 __all__.extend(activities.__all__)
 __all__.extend(auth.__all__)
 __all__.extend(clients.__all__)
+__all__.extend(diagnostics.__all__)
 __all__.extend(models.__all__)

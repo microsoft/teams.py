@@ -5,7 +5,9 @@ Licensed under the MIT License.
 # pyright: basic
 
 import json
-from unittest.mock import AsyncMock, patch
+from contextlib import contextmanager
+from typing import Any, Iterator
+from unittest.mock import AsyncMock, call, patch
 
 import httpx
 import pytest
@@ -15,6 +17,28 @@ from microsoft_teams.api.clients.conversation import ConversationClient
 from microsoft_teams.api.clients.conversation.params import CreateConversationParams
 from microsoft_teams.api.models import AgenticIdentity, ConversationResource, PagedMembersResult, TeamsChannelAccount
 from microsoft_teams.common.http import Client, ClientOptions
+
+
+class RecordingSpan:
+    def __init__(self, name: str, options: dict[str, Any], attributes: dict[str, str]):
+        self.name = name
+        self.options = options
+        self.attributes = attributes
+
+    def set_attribute(self, key: str, value: str) -> None:
+        self.attributes[key] = value
+
+
+class RecordingTracer:
+    def __init__(self):
+        self.spans: list[RecordingSpan] = []
+
+    @contextmanager
+    def start_as_current_span(self, name: str, **kwargs: Any) -> Iterator[RecordingSpan]:
+        attributes = kwargs.pop("attributes", {})
+        span = RecordingSpan(name, kwargs, attributes)
+        self.spans.append(span)
+        yield span
 
 
 @pytest.mark.unit
@@ -349,6 +373,65 @@ class TestConversationActivityOperations:
 
         last_request = request_capture._capture.last_request
         assert "authorization" not in last_request.headers
+
+    async def test_activity_create_records_diagnostics(self, request_capture, mock_activity):
+        tracer = RecordingTracer()
+        client = ConversationClient("https://test.service.url/", request_capture)
+
+        with (
+            patch("microsoft_teams.api.clients.conversation.activity.get_tracer", return_value=tracer),
+            patch("microsoft_teams.api.clients.conversation.activity.record_outbound_call") as record_outbound_call,
+            patch("microsoft_teams.api.clients.conversation.activity.record_outbound_error") as record_outbound_error,
+        ):
+            result = await client.create_activity("conv-1", mock_activity)
+
+        assert result.id == "mock_conversation_id"
+        record_outbound_call.assert_called_once_with("create")
+        record_outbound_error.assert_not_called()
+        assert len(tracer.spans) == 1
+        span = tracer.spans[0]
+        assert span.name == "conversation_client"
+        assert span.options == {"record_exception": False, "set_status_on_exception": False}
+        assert span.attributes == {
+            "operation": "create",
+            "service.url": "https://test.service.url",
+            "conversation.id": "conv-1",
+            "activity.type": "message",
+            "activity.id": "mock_conversation_id",
+        }
+
+    async def test_activity_create_records_diagnostics_on_error(self, mock_http_client, mock_activity):
+        tracer = RecordingTracer()
+        client = ConversationClient("https://test.service.url", mock_http_client)
+        error = RuntimeError("send failed")
+
+        with (
+            patch.object(mock_http_client, "post", new_callable=AsyncMock, side_effect=error),
+            patch("microsoft_teams.api.clients.conversation.activity.get_tracer", return_value=tracer),
+            patch("microsoft_teams.api.clients.conversation.activity.record_outbound_call") as record_outbound_call,
+            patch("microsoft_teams.api.clients.conversation.activity.record_outbound_error") as record_outbound_error,
+            patch("microsoft_teams.api.clients.conversation.activity.record_exception") as record_exception,
+            pytest.raises(RuntimeError, match="send failed"),
+        ):
+            await client.create_activity("conv-1", mock_activity)
+
+        record_outbound_call.assert_called_once_with("create")
+        record_outbound_error.assert_called_once_with("create")
+        record_exception.assert_called_once_with(tracer.spans[0], error)
+
+    async def test_targeted_activity_operations_record_diagnostics_operations(self, mock_http_client, mock_activity):
+        client = ConversationClient("https://test.service.url", mock_http_client)
+
+        with patch("microsoft_teams.api.clients.conversation.activity.record_outbound_call") as record_outbound_call:
+            await client.create_targeted_activity("conv-1", mock_activity)
+            await client.update_targeted_activity("conv-1", "act-1", mock_activity)
+            await client.delete_targeted_activity("conv-1", "act-1")
+
+        assert record_outbound_call.call_args_list == [
+            call("create_targeted"),
+            call("update_targeted"),
+            call("delete_targeted"),
+        ]
 
     async def test_activity_update(self, request_capture, mock_activity):
         """Test updating an activity."""
