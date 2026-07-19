@@ -39,6 +39,18 @@ def get_handler_unmatched_counter() -> Counter:
     return get_meter().create_counter(APP_METRIC_NAMES.handler_unmatched)
 
 
+def get_oauth_errors_counter() -> Counter:
+    return get_meter().create_counter(APP_METRIC_NAMES.oauth_errors)
+
+
+def get_oauth_operation_duration_histogram() -> Histogram:
+    return get_meter().create_histogram(APP_METRIC_NAMES.oauth_operation_duration, unit="ms")
+
+
+def get_oauth_operations_counter() -> Counter:
+    return get_meter().create_counter(APP_METRIC_NAMES.oauth_operations)
+
+
 def get_turn_duration_histogram() -> Histogram:
     return get_meter().create_histogram(APP_METRIC_NAMES.turn_duration, unit="ms")
 
@@ -82,6 +94,27 @@ def record_handler_unmatched(activity_type: str, invoke_name: str | None = None)
     if invoke_name:
         attributes[APP_ATTRIBUTE_NAMES.invoke_name] = invoke_name
     get_handler_unmatched_counter().add(1, attributes)
+
+
+def record_oauth_error(connection_name: str, operation: str, error_type: str) -> None:
+    get_oauth_errors_counter().add(
+        1,
+        {
+            APP_ATTRIBUTE_NAMES.oauth_connection: connection_name,
+            APP_ATTRIBUTE_NAMES.oauth_operation: operation,
+            APP_ATTRIBUTE_NAMES.oauth_error_type: error_type,
+        },
+    )
+
+
+def record_oauth_operation(connection_name: str, operation: str, result: str, duration_ms: float) -> None:
+    attributes = {
+        APP_ATTRIBUTE_NAMES.oauth_connection: connection_name,
+        APP_ATTRIBUTE_NAMES.oauth_operation: operation,
+        APP_ATTRIBUTE_NAMES.oauth_result: result,
+    }
+    get_oauth_operations_counter().add(1, attributes)
+    get_oauth_operation_duration_histogram().record(duration_ms, attributes)
 
 
 def record_turn_duration(duration_ms: float, activity_type: str) -> None:

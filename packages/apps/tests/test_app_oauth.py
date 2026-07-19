@@ -3,6 +3,8 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
+from contextlib import contextmanager
+from typing import Any, Iterator
 from unittest.mock import AsyncMock, MagicMock, Mock
 
 import pytest
@@ -35,6 +37,27 @@ from microsoft_teams.apps.routing.router import ActivityRouter
 from microsoft_teams.common import EventEmitter, LocalStorage
 
 # pyright: basic
+
+
+class RecordingSpan:
+    def __init__(self, name: str, options: dict[str, Any]):
+        self.name = name
+        self.options = options
+        self.attributes: dict[str, Any] = {}
+
+    def set_attribute(self, key: str, value: Any) -> None:
+        self.attributes[key] = value
+
+
+class RecordingTracer:
+    def __init__(self):
+        self.spans: list[RecordingSpan] = []
+
+    @contextmanager
+    def start_as_current_span(self, name: str, **kwargs: Any) -> Iterator[RecordingSpan]:
+        span = RecordingSpan(name, kwargs)
+        self.spans.append(span)
+        yield span
 
 
 class TestOauthHandlers:
@@ -139,6 +162,39 @@ class TestOauthHandlers:
         mock_context.next.assert_called_once()
 
     @pytest.mark.asyncio
+    async def test_sign_in_token_exchange_records_success_telemetry(
+        self, oauth_handlers, mock_context, token_exchange_activity, mock_token_response
+    ):
+        mock_context.activity = token_exchange_activity
+        mock_context.api.users.exchange_token.return_value = mock_token_response
+        tracer = RecordingTracer()
+
+        with (
+            pytest.MonkeyPatch.context() as monkeypatch,
+        ):
+            operation_calls = []
+            monkeypatch.setattr("microsoft_teams.apps.app_oauth.get_tracer", lambda: tracer)
+            monkeypatch.setattr(
+                "microsoft_teams.apps.app_oauth.record_oauth_operation",
+                lambda *args: operation_calls.append(args),
+            )
+
+            await oauth_handlers.sign_in_token_exchange(mock_context)
+
+        assert tracer.spans[0].name == "oauth.token_exchange"
+        assert tracer.spans[0].options == {"record_exception": False, "set_status_on_exception": False}
+        assert tracer.spans[0].attributes == {
+            "oauth.connection": "test-connection",
+            "oauth.operation": "token_exchange",
+            "oauth.callback.invoked": True,
+            "oauth.result": "success",
+        }
+        assert operation_calls[0][:3] == ("test-connection", "token_exchange", "success")
+        assert operation_calls[0][3] >= 0
+        assert "test-token" not in tracer.spans[0].attributes.values()
+        assert "access-token" not in tracer.spans[0].attributes.values()
+
+    @pytest.mark.asyncio
     async def test_sign_in_token_exchange_connection_name_warning(
         self, oauth_handlers, mock_context, token_exchange_activity, mock_token_response
     ):
@@ -177,6 +233,44 @@ class TestOauthHandlers:
         assert result.body.failure_detail == "Not found"
 
     @pytest.mark.asyncio
+    async def test_sign_in_token_exchange_expected_http_error_records_precondition_failed_without_oauth_error(
+        self, oauth_handlers, mock_context, token_exchange_activity
+    ):
+        mock_context.activity = token_exchange_activity
+        mock_request = Mock(spec=Request)
+        mock_response = Mock(spec=Response)
+        mock_response.status_code = 404
+        http_error = HTTPStatusError("Not found", request=mock_request, response=mock_response)
+        mock_context.api.users.exchange_token.side_effect = http_error
+        tracer = RecordingTracer()
+
+        with (
+            pytest.MonkeyPatch.context() as monkeypatch,
+        ):
+            operation_calls = []
+            error_calls = []
+            monkeypatch.setattr("microsoft_teams.apps.app_oauth.get_tracer", lambda: tracer)
+            monkeypatch.setattr(
+                "microsoft_teams.apps.app_oauth.record_oauth_operation",
+                lambda *args: operation_calls.append(args),
+            )
+            monkeypatch.setattr(
+                "microsoft_teams.apps.app_oauth.record_oauth_error",
+                lambda *args: error_calls.append(args),
+            )
+
+            await oauth_handlers.sign_in_token_exchange(mock_context)
+
+        assert tracer.spans[0].attributes == {
+            "oauth.connection": "test-connection",
+            "oauth.operation": "token_exchange",
+            "invoke.response.status": 412,
+            "oauth.result": "precondition_failed",
+        }
+        assert operation_calls[0][:3] == ("test-connection", "token_exchange", "precondition_failed")
+        assert error_calls == []
+
+    @pytest.mark.asyncio
     async def test_sign_in_token_exchange_http_error_500(self, oauth_handlers, mock_context, token_exchange_activity):
         """Test token exchange with HTTP 500 error."""
         mock_context.activity = token_exchange_activity
@@ -201,6 +295,51 @@ class TestOauthHandlers:
         assert result.status == 500
 
     @pytest.mark.asyncio
+    async def test_sign_in_token_exchange_unexpected_http_error_records_oauth_error(
+        self, oauth_handlers, mock_context, token_exchange_activity
+    ):
+        mock_context.activity = token_exchange_activity
+        mock_request = Mock(spec=Request)
+        mock_response = Mock(spec=Response)
+        mock_response.status_code = 500
+        http_error = HTTPStatusError("Server error", request=mock_request, response=mock_response)
+        mock_context.api.users.exchange_token.side_effect = http_error
+        tracer = RecordingTracer()
+
+        with (
+            pytest.MonkeyPatch.context() as monkeypatch,
+        ):
+            operation_calls = []
+            error_calls = []
+            record_exception_calls = []
+            monkeypatch.setattr("microsoft_teams.apps.app_oauth.get_tracer", lambda: tracer)
+            monkeypatch.setattr(
+                "microsoft_teams.apps.app_oauth.record_oauth_operation",
+                lambda *args: operation_calls.append(args),
+            )
+            monkeypatch.setattr(
+                "microsoft_teams.apps.app_oauth.record_oauth_error",
+                lambda *args: error_calls.append(args),
+            )
+            monkeypatch.setattr(
+                "microsoft_teams.apps.app_oauth.record_exception",
+                lambda *args: record_exception_calls.append(args),
+            )
+
+            await oauth_handlers.sign_in_token_exchange(mock_context)
+
+        assert tracer.spans[0].attributes == {
+            "oauth.connection": "test-connection",
+            "oauth.operation": "token_exchange",
+            "oauth.error.type": "http_error",
+            "invoke.response.status": 500,
+            "oauth.result": "failure",
+        }
+        assert operation_calls[0][:3] == ("test-connection", "token_exchange", "failure")
+        assert error_calls == [("test-connection", "token_exchange", "http_error")]
+        assert record_exception_calls == [(tracer.spans[0], http_error)]
+
+    @pytest.mark.asyncio
     async def test_sign_in_token_exchange_generic_exception(
         self, oauth_handlers, mock_context, token_exchange_activity
     ):
@@ -220,6 +359,46 @@ class TestOauthHandlers:
         assert isinstance(result, InvokeResponse) and isinstance(result.body, TokenExchangeInvokeResponse)
         assert result.status == 412
         assert result.body.failure_detail == "Generic error"
+
+    @pytest.mark.asyncio
+    async def test_sign_in_token_exchange_unexpected_exception_records_precondition_failed_oauth_error(
+        self, oauth_handlers, mock_context, token_exchange_activity
+    ):
+        mock_context.activity = token_exchange_activity
+        generic_error = ValueError("Generic error")
+        mock_context.api.users.exchange_token.side_effect = generic_error
+        tracer = RecordingTracer()
+
+        with pytest.MonkeyPatch.context() as monkeypatch:
+            operation_calls = []
+            error_calls = []
+            record_exception_calls = []
+            monkeypatch.setattr("microsoft_teams.apps.app_oauth.get_tracer", lambda: tracer)
+            monkeypatch.setattr(
+                "microsoft_teams.apps.app_oauth.record_oauth_operation",
+                lambda *args: operation_calls.append(args),
+            )
+            monkeypatch.setattr(
+                "microsoft_teams.apps.app_oauth.record_oauth_error",
+                lambda *args: error_calls.append(args),
+            )
+            monkeypatch.setattr(
+                "microsoft_teams.apps.app_oauth.record_exception",
+                lambda *args: record_exception_calls.append(args),
+            )
+
+            await oauth_handlers.sign_in_token_exchange(mock_context)
+
+        assert tracer.spans[0].attributes == {
+            "oauth.connection": "test-connection",
+            "oauth.operation": "token_exchange",
+            "oauth.error.type": "exception",
+            "invoke.response.status": 412,
+            "oauth.result": "precondition_failed",
+        }
+        assert operation_calls[0][:3] == ("test-connection", "token_exchange", "precondition_failed")
+        assert error_calls == [("test-connection", "token_exchange", "exception")]
+        assert record_exception_calls == [(tracer.spans[0], generic_error)]
 
     @pytest.mark.asyncio
     async def test_sign_in_verify_state_success(
@@ -270,6 +449,38 @@ class TestOauthHandlers:
         mock_context.next.assert_called_once()
 
     @pytest.mark.asyncio
+    async def test_sign_in_verify_state_no_state_records_no_token_without_oauth_error(
+        self, oauth_handlers, mock_context, verify_state_activity
+    ):
+        verify_state_activity.value.state = None
+        mock_context.activity = verify_state_activity
+        tracer = RecordingTracer()
+
+        with pytest.MonkeyPatch.context() as monkeypatch:
+            operation_calls = []
+            error_calls = []
+            monkeypatch.setattr("microsoft_teams.apps.app_oauth.get_tracer", lambda: tracer)
+            monkeypatch.setattr(
+                "microsoft_teams.apps.app_oauth.record_oauth_operation",
+                lambda *args: operation_calls.append(args),
+            )
+            monkeypatch.setattr(
+                "microsoft_teams.apps.app_oauth.record_oauth_error",
+                lambda *args: error_calls.append(args),
+            )
+
+            await oauth_handlers.sign_in_verify_state(mock_context)
+
+        assert tracer.spans[0].attributes == {
+            "oauth.connection": "test-connection",
+            "oauth.operation": "verify_state",
+            "invoke.response.status": 404,
+            "oauth.result": "no_token",
+        }
+        assert operation_calls[0][:3] == ("test-connection", "verify_state", "no_token")
+        assert error_calls == []
+
+    @pytest.mark.asyncio
     async def test_sign_in_verify_state_http_error_500(self, oauth_handlers, mock_context, verify_state_activity):
         """Test state verification with HTTP 500 error."""
         mock_context.activity = verify_state_activity
@@ -292,6 +503,82 @@ class TestOauthHandlers:
         # Verify error response
         assert isinstance(result, InvokeResponse) and result.body is None
         assert result.status == 500
+
+    @pytest.mark.asyncio
+    async def test_sign_in_verify_state_unexpected_exception_records_oauth_error(
+        self, oauth_handlers, mock_context, verify_state_activity
+    ):
+        mock_context.activity = verify_state_activity
+        generic_error = ValueError("Generic error")
+        mock_context.api.users.get_token.side_effect = generic_error
+        tracer = RecordingTracer()
+
+        with pytest.MonkeyPatch.context() as monkeypatch:
+            operation_calls = []
+            error_calls = []
+            record_exception_calls = []
+            monkeypatch.setattr("microsoft_teams.apps.app_oauth.get_tracer", lambda: tracer)
+            monkeypatch.setattr(
+                "microsoft_teams.apps.app_oauth.record_oauth_operation",
+                lambda *args: operation_calls.append(args),
+            )
+            monkeypatch.setattr(
+                "microsoft_teams.apps.app_oauth.record_oauth_error",
+                lambda *args: error_calls.append(args),
+            )
+            monkeypatch.setattr(
+                "microsoft_teams.apps.app_oauth.record_exception",
+                lambda *args: record_exception_calls.append(args),
+            )
+
+            await oauth_handlers.sign_in_verify_state(mock_context)
+
+        assert tracer.spans[0].attributes == {
+            "oauth.connection": "test-connection",
+            "oauth.operation": "verify_state",
+            "oauth.error.type": "exception",
+            "invoke.response.status": 412,
+            "oauth.result": "precondition_failed",
+        }
+        assert operation_calls[0][:3] == ("test-connection", "verify_state", "precondition_failed")
+        assert error_calls == [("test-connection", "verify_state", "exception")]
+        assert record_exception_calls == [(tracer.spans[0], generic_error)]
+
+    @pytest.mark.asyncio
+    async def test_sign_in_verify_state_expected_http_error_records_precondition_failed_without_oauth_error(
+        self, oauth_handlers, mock_context, verify_state_activity
+    ):
+        mock_context.activity = verify_state_activity
+        mock_request = Mock(spec=Request)
+        mock_response = Mock(spec=Response)
+        mock_response.status_code = 404
+        http_error = HTTPStatusError("Not found", request=mock_request, response=mock_response)
+        mock_context.api.users.get_token.side_effect = http_error
+        tracer = RecordingTracer()
+
+        with pytest.MonkeyPatch.context() as monkeypatch:
+            operation_calls = []
+            error_calls = []
+            monkeypatch.setattr("microsoft_teams.apps.app_oauth.get_tracer", lambda: tracer)
+            monkeypatch.setattr(
+                "microsoft_teams.apps.app_oauth.record_oauth_operation",
+                lambda *args: operation_calls.append(args),
+            )
+            monkeypatch.setattr(
+                "microsoft_teams.apps.app_oauth.record_oauth_error",
+                lambda *args: error_calls.append(args),
+            )
+
+            await oauth_handlers.sign_in_verify_state(mock_context)
+
+        assert tracer.spans[0].attributes == {
+            "oauth.connection": "test-connection",
+            "oauth.operation": "verify_state",
+            "invoke.response.status": 412,
+            "oauth.result": "precondition_failed",
+        }
+        assert operation_calls[0][:3] == ("test-connection", "verify_state", "precondition_failed")
+        assert error_calls == []
 
     @pytest.mark.asyncio
     async def test_sign_in_verify_state_http_error_404(self, oauth_handlers, mock_context, verify_state_activity):
@@ -376,6 +663,7 @@ class TestOauthHandlers:
         error_event = call_args[0][1]
         assert isinstance(error_event, ErrorEvent)
         assert "resourcematchfailed" in str(error_event.error)
+        assert error_event.context is not None
         assert error_event.context["activity"] == failure_activity
 
     @pytest.mark.asyncio
@@ -386,6 +674,33 @@ class TestOauthHandlers:
         result = await oauth_handlers.sign_in_failure(mock_context)
 
         assert result is None
+
+    @pytest.mark.asyncio
+    async def test_sign_in_failure_records_notified_telemetry_without_message(
+        self, oauth_handlers, mock_context, failure_activity
+    ):
+        mock_context.activity = failure_activity
+        tracer = RecordingTracer()
+
+        with pytest.MonkeyPatch.context() as monkeypatch:
+            operation_calls = []
+            monkeypatch.setattr("microsoft_teams.apps.app_oauth.get_tracer", lambda: tracer)
+            monkeypatch.setattr(
+                "microsoft_teams.apps.app_oauth.record_oauth_operation",
+                lambda *args: operation_calls.append(args),
+            )
+
+            await oauth_handlers.sign_in_failure(mock_context)
+
+        assert tracer.spans[0].attributes == {
+            "oauth.connection": "test-connection",
+            "oauth.operation": "signin_failure",
+            "oauth.failure.code": "resourcematchfailed",
+            "oauth.callback.invoked": True,
+            "oauth.result": "notified",
+        }
+        assert operation_calls[0][:3] == ("test-connection", "signin_failure", "notified")
+        assert "Resource match failed" not in tracer.spans[0].attributes.values()
 
     @pytest.mark.asyncio
     async def test_sign_in_failure_calls_next(self, oauth_handlers, mock_context, failure_activity):

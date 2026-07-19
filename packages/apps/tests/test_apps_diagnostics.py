@@ -25,6 +25,8 @@ from microsoft_teams.apps.diagnostics._helpers import (
     record_handler_duration,
     record_handler_failure,
     record_handler_unmatched,
+    record_oauth_error,
+    record_oauth_operation,
     record_turn_duration,
 )
 from microsoft_teams.apps.events import CoreActivity
@@ -55,6 +57,9 @@ def test_runtime_instrumentation_names_stay_internal():
         "APP_BAGGAGE_KEYS",
         "APP_HANDLER_DISPATCHES",
         "APP_METRIC_NAMES",
+        "APP_OAUTH_ERROR_TYPES",
+        "APP_OAUTH_OPERATIONS",
+        "APP_OAUTH_RESULTS",
         "APP_SPAN_NAMES",
     ]
     for group in private_groups:
@@ -223,6 +228,8 @@ def test_app_metrics_are_recorded_with_allowed_attributes():
         record_handler_duration(2.5, "message", "type")
         record_handler_failure("message", "type")
         record_handler_unmatched("invoke", "composeExtension/query")
+        record_oauth_operation("test-connection", "token_exchange", "success", 3.5)
+        record_oauth_error("test-connection", "token_exchange", "http_error")
 
     metrics = {}
     metrics_data = metric_reader.get_metrics_data()
@@ -255,6 +262,30 @@ def test_app_metrics_are_recorded_with_allowed_attributes():
     unmatched_point = metrics["teams.handler.unmatched"].data.data_points[0]
     assert unmatched_point.value == 1
     assert unmatched_point.attributes == {"activity.type": "invoke", "invoke.name": "composeExtension/query"}
+
+    oauth_operations_point = metrics["teams.oauth.operations"].data.data_points[0]
+    assert oauth_operations_point.value == 1
+    assert oauth_operations_point.attributes == {
+        "oauth.connection": "test-connection",
+        "oauth.operation": "token_exchange",
+        "oauth.result": "success",
+    }
+
+    oauth_duration_point = metrics["teams.oauth.operation.duration"].data.data_points[0]
+    assert oauth_duration_point.sum == 3.5
+    assert oauth_duration_point.attributes == {
+        "oauth.connection": "test-connection",
+        "oauth.operation": "token_exchange",
+        "oauth.result": "success",
+    }
+
+    oauth_errors_point = metrics["teams.oauth.errors"].data.data_points[0]
+    assert oauth_errors_point.value == 1
+    assert oauth_errors_point.attributes == {
+        "oauth.connection": "test-connection",
+        "oauth.operation": "token_exchange",
+        "oauth.error.type": "http_error",
+    }
     meter_provider.shutdown()
 
 

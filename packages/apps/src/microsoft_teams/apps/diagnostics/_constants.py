@@ -37,6 +37,13 @@ class _AppAttributeNames:
     handler_dispatch: str = "handler.dispatch"
     handler_type: str = "handler.type"
     invoke_name: str = "invoke.name"
+    invoke_response_status: str = "invoke.response.status"
+    oauth_callback_invoked: str = "oauth.callback.invoked"
+    oauth_connection: str = "oauth.connection"
+    oauth_error_type: str = "oauth.error.type"
+    oauth_failure_code: str = "oauth.failure.code"
+    oauth_operation: str = "oauth.operation"
+    oauth_result: str = "oauth.result"
     service_url: str = "service.url"
 
 
@@ -53,12 +60,40 @@ class _AppMetricNames:
     handler_duration: str = "teams.handler.duration"
     handler_failures: str = "teams.handler.failures"
     handler_unmatched: str = "teams.handler.unmatched"
+    oauth_errors: str = "teams.oauth.errors"
+    oauth_operation_duration: str = "teams.oauth.operation.duration"
+    oauth_operations: str = "teams.oauth.operations"
     turn_duration: str = "teams.turn.duration"
+
+
+@dataclass(frozen=True)
+class _AppOAuthErrorTypes:
+    exception: str = "exception"
+    http_error: str = "http_error"
+
+
+@dataclass(frozen=True)
+class _AppOAuthOperations:
+    signin_failure: str = "signin_failure"
+    token_exchange: str = "token_exchange"
+    verify_state: str = "verify_state"
+
+
+@dataclass(frozen=True)
+class _AppOAuthResults:
+    failure: str = "failure"
+    no_token: str = "no_token"
+    notified: str = "notified"
+    precondition_failed: str = "precondition_failed"
+    success: str = "success"
 
 
 @dataclass(frozen=True)
 class _AppSpanNames:
     handler: str = "handler"
+    oauth_signin_failure: str = "oauth.signin_failure"
+    oauth_token_exchange: str = "oauth.token_exchange"
+    oauth_verify_state: str = "oauth.verify_state"
     turn: str = "turn"
 
 
@@ -66,4 +101,7 @@ APP_BAGGAGE_KEYS = _AppBaggageKeys()
 APP_ATTRIBUTE_NAMES = _AppAttributeNames()
 APP_HANDLER_DISPATCHES = _AppHandlerDispatches()
 APP_METRIC_NAMES = _AppMetricNames()
+APP_OAUTH_ERROR_TYPES = _AppOAuthErrorTypes()
+APP_OAUTH_OPERATIONS = _AppOAuthOperations()
+APP_OAUTH_RESULTS = _AppOAuthResults()
 APP_SPAN_NAMES = _AppSpanNames()
