@@ -390,7 +390,7 @@ class TestConversationActivityOperations:
         record_outbound_error.assert_not_called()
         assert len(tracer.spans) == 1
         span = tracer.spans[0]
-        assert span.name == "conversation_client"
+        assert span.name == "microsoft.teams.conversation.client"
         assert span.options == {"record_exception": False, "set_status_on_exception": False}
         assert span.attributes == {
             "operation": "create",

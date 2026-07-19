@@ -55,15 +55,15 @@ class _AppHandlerDispatches:
 
 @dataclass(frozen=True)
 class _AppMetricNames:
-    activities_received: str = "teams.activities.received"
-    handler_dispatched: str = "teams.handler.dispatched"
-    handler_duration: str = "teams.handler.duration"
-    handler_failures: str = "teams.handler.failures"
-    handler_unmatched: str = "teams.handler.unmatched"
-    oauth_errors: str = "teams.oauth.errors"
-    oauth_operation_duration: str = "teams.oauth.operation.duration"
-    oauth_operations: str = "teams.oauth.operations"
-    turn_duration: str = "teams.turn.duration"
+    activities_received: str = "microsoft.teams.activities.received"
+    handler_dispatched: str = "microsoft.teams.handler.dispatched"
+    handler_duration: str = "microsoft.teams.handler.duration"
+    handler_failures: str = "microsoft.teams.handler.failures"
+    handler_unmatched: str = "microsoft.teams.handler.unmatched"
+    oauth_errors: str = "microsoft.teams.oauth.errors"
+    oauth_operation_duration: str = "microsoft.teams.oauth.operation.duration"
+    oauth_operations: str = "microsoft.teams.oauth.operations"
+    turn_duration: str = "microsoft.teams.activity.process.duration"
 
 
 @dataclass(frozen=True)
@@ -84,17 +84,16 @@ class _AppOAuthResults:
     failure: str = "failure"
     no_token: str = "no_token"
     notified: str = "notified"
-    precondition_failed: str = "precondition_failed"
     success: str = "success"
 
 
 @dataclass(frozen=True)
 class _AppSpanNames:
-    handler: str = "handler"
-    oauth_signin_failure: str = "oauth.signin_failure"
-    oauth_token_exchange: str = "oauth.token_exchange"
-    oauth_verify_state: str = "oauth.verify_state"
-    turn: str = "turn"
+    handler: str = "microsoft.teams.handler"
+    oauth_signin_failure: str = "microsoft.teams.oauth.signin_failure"
+    oauth_token_exchange: str = "microsoft.teams.oauth.token_exchange"
+    oauth_verify_state: str = "microsoft.teams.oauth.verify_state"
+    turn: str = "microsoft.teams.activity.process"
 
 
 APP_BAGGAGE_KEYS = _AppBaggageKeys()

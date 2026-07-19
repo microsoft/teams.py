@@ -74,8 +74,8 @@ def test_outbound_metrics_are_recorded_with_operation_attribute():
             for metric in scope_metric.metrics:
                 metrics[metric.name] = metric
 
-    calls_point = metrics["teams.outbound.calls"].data.data_points[0]
-    errors_point = metrics["teams.outbound.errors"].data.data_points[0]
+    calls_point = metrics["microsoft.teams.outbound.calls"].data.data_points[0]
+    errors_point = metrics["microsoft.teams.outbound.errors"].data.data_points[0]
     assert calls_point.value == 1
     assert calls_point.attributes == {"operation": "create"}
     assert errors_point.value == 1

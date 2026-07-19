@@ -197,7 +197,7 @@ async def test_auth_provider_token_records_auth_outbound_span(agentic_identity, 
     assert "authorization" in recorder.last_request.headers
     assert len(tracer.spans) == 1
     span = tracer.spans[0]
-    assert span.name == "auth.outbound"
+    assert span.name == "microsoft.teams.auth.outbound"
     assert span.options == {"record_exception": False, "set_status_on_exception": False}
     assert span.attributes == {"auth.flow": expected_flow}
 

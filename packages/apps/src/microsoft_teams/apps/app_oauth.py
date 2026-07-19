@@ -117,7 +117,7 @@ class OauthHandlers:
                         record_exception(span, e)
                         record_oauth_error(connection_name, APP_OAUTH_OPERATIONS.token_exchange, error_type)
 
-                    result = APP_OAUTH_RESULTS.precondition_failed
+                    result = APP_OAUTH_RESULTS.failure
                     span.set_attribute(APP_ATTRIBUTE_NAMES.invoke_response_status, 412)
                     span.set_attribute(APP_ATTRIBUTE_NAMES.oauth_result, result)
                     return InvokeResponse(
@@ -279,13 +279,13 @@ class OauthHandlers:
                             span.set_attribute(APP_ATTRIBUTE_NAMES.invoke_response_status, status)
                             span.set_attribute(APP_ATTRIBUTE_NAMES.oauth_result, result)
                             return InvokeResponse(status=status)
-                        result = APP_OAUTH_RESULTS.precondition_failed
+                        result = APP_OAUTH_RESULTS.failure
                     else:
                         error_type = APP_OAUTH_ERROR_TYPES.exception
                         span.set_attribute(APP_ATTRIBUTE_NAMES.oauth_error_type, error_type)
                         record_exception(span, e)
                         record_oauth_error(connection_name, APP_OAUTH_OPERATIONS.verify_state, error_type)
-                        result = APP_OAUTH_RESULTS.precondition_failed
+                        result = APP_OAUTH_RESULTS.failure
                     span.set_attribute(APP_ATTRIBUTE_NAMES.invoke_response_status, 412)
                     span.set_attribute(APP_ATTRIBUTE_NAMES.oauth_result, result)
                     return InvokeResponse(

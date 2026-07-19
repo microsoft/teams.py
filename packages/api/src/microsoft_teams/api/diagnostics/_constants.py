@@ -24,8 +24,8 @@ class _ApiAuthFlows:
 
 @dataclass(frozen=True)
 class _ApiMetricNames:
-    outbound_calls: str = "teams.outbound.calls"
-    outbound_errors: str = "teams.outbound.errors"
+    outbound_calls: str = "microsoft.teams.outbound.calls"
+    outbound_errors: str = "microsoft.teams.outbound.errors"
 
 
 @dataclass(frozen=True)
@@ -41,8 +41,8 @@ class _ApiOutboundOperations:
 
 @dataclass(frozen=True)
 class _ApiSpanNames:
-    conversation_client: str = "conversation_client"
-    auth_outbound: str = "auth.outbound"
+    conversation_client: str = "microsoft.teams.conversation.client"
+    auth_outbound: str = "microsoft.teams.auth.outbound"
 
 
 API_ATTRIBUTE_NAMES = _ApiAttributeNames()

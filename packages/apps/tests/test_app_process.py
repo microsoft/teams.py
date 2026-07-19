@@ -200,7 +200,7 @@ class TestActivityProcessor:
             result = await activity_processor.process_activity([], mock_activity_event)
 
         assert result.status == 200
-        assert [span.name for span in tracer.spans] == ["turn"]
+        assert [span.name for span in tracer.spans] == ["microsoft.teams.activity.process"]
         assert tracer.spans[0].options == {"record_exception": False, "set_status_on_exception": False}
         assert tracer.spans[0].attributes == {
             "activity.type": "message",
@@ -297,7 +297,7 @@ class TestActivityProcessor:
             response = await activity_processor.execute_middleware_chain(context, [handler])
 
         assert response == "handler_result"
-        assert [span.name for span in tracer.spans] == ["handler"]
+        assert [span.name for span in tracer.spans] == ["microsoft.teams.handler"]
         assert tracer.spans[0].options == {"record_exception": False, "set_status_on_exception": False}
         assert tracer.spans[0].attributes == {
             "handler.type": "message",

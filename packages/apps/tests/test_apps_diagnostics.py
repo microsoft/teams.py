@@ -239,31 +239,31 @@ def test_app_metrics_are_recorded_with_allowed_attributes():
             for metric in scope_metric.metrics:
                 metrics[metric.name] = metric
 
-    activities_point = metrics["teams.activities.received"].data.data_points[0]
+    activities_point = metrics["microsoft.teams.activities.received"].data.data_points[0]
     assert activities_point.value == 1
     assert activities_point.attributes == {"activity.type": "message"}
 
-    turn_duration_point = metrics["teams.turn.duration"].data.data_points[0]
+    turn_duration_point = metrics["microsoft.teams.activity.process.duration"].data.data_points[0]
     assert turn_duration_point.sum == 5.5
     assert turn_duration_point.attributes == {"activity.type": "message"}
 
-    dispatched_point = metrics["teams.handler.dispatched"].data.data_points[0]
+    dispatched_point = metrics["microsoft.teams.handler.dispatched"].data.data_points[0]
     assert dispatched_point.value == 1
     assert dispatched_point.attributes == {"handler.type": "message", "handler.dispatch": "type"}
 
-    handler_duration_point = metrics["teams.handler.duration"].data.data_points[0]
+    handler_duration_point = metrics["microsoft.teams.handler.duration"].data.data_points[0]
     assert handler_duration_point.sum == 2.5
     assert handler_duration_point.attributes == {"handler.type": "message", "handler.dispatch": "type"}
 
-    failures_point = metrics["teams.handler.failures"].data.data_points[0]
+    failures_point = metrics["microsoft.teams.handler.failures"].data.data_points[0]
     assert failures_point.value == 1
     assert failures_point.attributes == {"handler.type": "message", "handler.dispatch": "type"}
 
-    unmatched_point = metrics["teams.handler.unmatched"].data.data_points[0]
+    unmatched_point = metrics["microsoft.teams.handler.unmatched"].data.data_points[0]
     assert unmatched_point.value == 1
     assert unmatched_point.attributes == {"activity.type": "invoke", "invoke.name": "composeExtension/query"}
 
-    oauth_operations_point = metrics["teams.oauth.operations"].data.data_points[0]
+    oauth_operations_point = metrics["microsoft.teams.oauth.operations"].data.data_points[0]
     assert oauth_operations_point.value == 1
     assert oauth_operations_point.attributes == {
         "oauth.connection": "test-connection",
@@ -271,7 +271,7 @@ def test_app_metrics_are_recorded_with_allowed_attributes():
         "oauth.result": "success",
     }
 
-    oauth_duration_point = metrics["teams.oauth.operation.duration"].data.data_points[0]
+    oauth_duration_point = metrics["microsoft.teams.oauth.operation.duration"].data.data_points[0]
     assert oauth_duration_point.sum == 3.5
     assert oauth_duration_point.attributes == {
         "oauth.connection": "test-connection",
@@ -279,7 +279,7 @@ def test_app_metrics_are_recorded_with_allowed_attributes():
         "oauth.result": "success",
     }
 
-    oauth_errors_point = metrics["teams.oauth.errors"].data.data_points[0]
+    oauth_errors_point = metrics["microsoft.teams.oauth.errors"].data.data_points[0]
     assert oauth_errors_point.value == 1
     assert oauth_errors_point.attributes == {
         "oauth.connection": "test-connection",

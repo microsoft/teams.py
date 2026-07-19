@@ -181,7 +181,7 @@ class TestOauthHandlers:
 
             await oauth_handlers.sign_in_token_exchange(mock_context)
 
-        assert tracer.spans[0].name == "oauth.token_exchange"
+        assert tracer.spans[0].name == "microsoft.teams.oauth.token_exchange"
         assert tracer.spans[0].options == {"record_exception": False, "set_status_on_exception": False}
         assert tracer.spans[0].attributes == {
             "oauth.connection": "test-connection",
@@ -233,7 +233,7 @@ class TestOauthHandlers:
         assert result.body.failure_detail == "Not found"
 
     @pytest.mark.asyncio
-    async def test_sign_in_token_exchange_expected_http_error_records_precondition_failed_without_oauth_error(
+    async def test_sign_in_token_exchange_expected_http_error_records_failure_without_oauth_error(
         self, oauth_handlers, mock_context, token_exchange_activity
     ):
         mock_context.activity = token_exchange_activity
@@ -265,9 +265,9 @@ class TestOauthHandlers:
             "oauth.connection": "test-connection",
             "oauth.operation": "token_exchange",
             "invoke.response.status": 412,
-            "oauth.result": "precondition_failed",
+            "oauth.result": "failure",
         }
-        assert operation_calls[0][:3] == ("test-connection", "token_exchange", "precondition_failed")
+        assert operation_calls[0][:3] == ("test-connection", "token_exchange", "failure")
         assert error_calls == []
 
     @pytest.mark.asyncio
@@ -361,7 +361,7 @@ class TestOauthHandlers:
         assert result.body.failure_detail == "Generic error"
 
     @pytest.mark.asyncio
-    async def test_sign_in_token_exchange_unexpected_exception_records_precondition_failed_oauth_error(
+    async def test_sign_in_token_exchange_unexpected_exception_records_failure_oauth_error(
         self, oauth_handlers, mock_context, token_exchange_activity
     ):
         mock_context.activity = token_exchange_activity
@@ -394,9 +394,9 @@ class TestOauthHandlers:
             "oauth.operation": "token_exchange",
             "oauth.error.type": "exception",
             "invoke.response.status": 412,
-            "oauth.result": "precondition_failed",
+            "oauth.result": "failure",
         }
-        assert operation_calls[0][:3] == ("test-connection", "token_exchange", "precondition_failed")
+        assert operation_calls[0][:3] == ("test-connection", "token_exchange", "failure")
         assert error_calls == [("test-connection", "token_exchange", "exception")]
         assert record_exception_calls == [(tracer.spans[0], generic_error)]
 
@@ -538,14 +538,14 @@ class TestOauthHandlers:
             "oauth.operation": "verify_state",
             "oauth.error.type": "exception",
             "invoke.response.status": 412,
-            "oauth.result": "precondition_failed",
+            "oauth.result": "failure",
         }
-        assert operation_calls[0][:3] == ("test-connection", "verify_state", "precondition_failed")
+        assert operation_calls[0][:3] == ("test-connection", "verify_state", "failure")
         assert error_calls == [("test-connection", "verify_state", "exception")]
         assert record_exception_calls == [(tracer.spans[0], generic_error)]
 
     @pytest.mark.asyncio
-    async def test_sign_in_verify_state_expected_http_error_records_precondition_failed_without_oauth_error(
+    async def test_sign_in_verify_state_expected_http_error_records_failure_without_oauth_error(
         self, oauth_handlers, mock_context, verify_state_activity
     ):
         mock_context.activity = verify_state_activity
@@ -575,9 +575,9 @@ class TestOauthHandlers:
             "oauth.connection": "test-connection",
             "oauth.operation": "verify_state",
             "invoke.response.status": 412,
-            "oauth.result": "precondition_failed",
+            "oauth.result": "failure",
         }
-        assert operation_calls[0][:3] == ("test-connection", "verify_state", "precondition_failed")
+        assert operation_calls[0][:3] == ("test-connection", "verify_state", "failure")
         assert error_calls == []
 
     @pytest.mark.asyncio
