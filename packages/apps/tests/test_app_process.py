@@ -25,6 +25,7 @@ from microsoft_teams.apps.events import CoreActivity
 from microsoft_teams.apps.routing.router import ActivityHandler, ActivityRouter
 from microsoft_teams.apps.token_manager import TokenManager
 from microsoft_teams.common import Client, LocalStorage
+from opentelemetry import baggage
 
 
 class RecordingSpan:
@@ -62,6 +63,23 @@ def _message_activity(activity_id: str = "activity-123") -> Activity:
         id=activity_id,
         service_url="https://service.url",
         **{
+            "from": {"id": "user-123", "name": "Test User"},
+            "conversation": {"id": "conv-789"},
+            "recipient": {"id": "bot-456", "name": "Test Bot"},
+            "channelId": "msteams",
+        },
+    )
+    return ActivityTypeAdapter.validate_python(core_activity.model_dump(by_alias=True, exclude_none=True))
+
+
+def _invoke_activity(activity_id: str = "activity-invoke") -> Activity:
+    core_activity = CoreActivity(
+        type="invoke",
+        id=activity_id,
+        service_url="https://service.url",
+        **{
+            "name": "config/fetch",
+            "value": {},
             "from": {"id": "user-123", "name": "Test User"},
             "conversation": {"id": "conv-789"},
             "recipient": {"id": "bot-456", "name": "Test Bot"},
@@ -198,6 +216,60 @@ class TestActivityProcessor:
         assert record_turn_duration.call_args.args[1] == "message"
 
     @pytest.mark.asyncio
+    async def test_process_activity_applies_agent365_baggage_during_turn(self, activity_processor):
+        core_activity = CoreActivity(
+            type="message",
+            id="activity-baggage",
+            service_url="https://service.url",
+            **{
+                "from": {
+                    "id": "user-123",
+                    "aadObjectId": "caller-aad-1",
+                    "name": "Caller",
+                    "email": "caller@example.com",
+                },
+                "conversation": {"id": "conv-789"},
+                "recipient": {
+                    "id": "bot-456",
+                    "name": "Agent",
+                    "tenantId": "tenant-1",
+                    "agenticAppId": "agent-app-1",
+                    "agenticUserId": "agent-user-1",
+                    "agenticAppBlueprintId": "blueprint-1",
+                    "email": "agentic-user@example.com",
+                    "userRole": "assistant",
+                },
+                "channelId": "msteams",
+            },
+        )
+        mock_token = MagicMock(spec=TokenProtocol)
+        mock_token.service_url = "https://service.url"
+        mock_activity_event = ActivityEvent(body=core_activity, token=mock_token)
+
+        async def process_core(plugins, event, activity):
+            assert baggage.get_baggage("microsoft.tenant.id") == "tenant-1"
+            assert baggage.get_baggage("gen_ai.conversation.id") == "conv-789"
+            assert baggage.get_baggage("microsoft.conversation.item.link") == "https://service.url"
+            assert baggage.get_baggage("microsoft.channel.name") == "msteams"
+            assert baggage.get_baggage("user.id") == "caller-aad-1"
+            assert baggage.get_baggage("user.name") == "Caller"
+            assert baggage.get_baggage("user.email") == "caller@example.com"
+            assert baggage.get_baggage("gen_ai.agent.id") == "agent-app-1"
+            assert baggage.get_baggage("gen_ai.agent.name") == "Agent"
+            assert baggage.get_baggage("microsoft.agent.user.id") == "agent-user-1"
+            assert baggage.get_baggage("microsoft.agent.user.email") == "agentic-user@example.com"
+            assert baggage.get_baggage("gen_ai.agent.description") == "assistant"
+            assert baggage.get_baggage("microsoft.a365.agent.blueprint.id") == "blueprint-1"
+            return InvokeResponse[Any](status=200)
+
+        activity_processor._process_activity_core = AsyncMock(side_effect=process_core)
+
+        await activity_processor.process_activity([], mock_activity_event)
+
+        assert baggage.get_baggage("microsoft.tenant.id") is None
+        assert baggage.get_baggage("gen_ai.agent.id") is None
+
+    @pytest.mark.asyncio
     async def test_execute_middleware_chain_records_handler_span_and_metrics(self, activity_processor):
         context = ActivityContext(
             activity=_message_activity(),
@@ -229,11 +301,45 @@ class TestActivityProcessor:
         assert tracer.spans[0].options == {"record_exception": False, "set_status_on_exception": False}
         assert tracer.spans[0].attributes == {
             "handler.type": "message",
-            "handler.dispatch": "route",
+            "handler.dispatch": "type",
         }
-        record_handler_dispatched.assert_called_once_with("message", "route")
+        record_handler_dispatched.assert_called_once_with("message", "type")
         assert record_handler_duration.call_args.args[0] >= 0
-        assert record_handler_duration.call_args.args[1:] == ("message", "route")
+        assert record_handler_duration.call_args.args[1:] == ("message", "type")
+
+    @pytest.mark.asyncio
+    async def test_execute_middleware_chain_records_invoke_handler_tags(self, activity_processor):
+        context = ActivityContext(
+            activity=_invoke_activity(),
+            app_id="app_id",
+            storage=MagicMock(spec=LocalStorage),
+            api=MagicMock(),
+            user_token=None,
+            conversation_ref=MagicMock(spec=ConversationReference),
+            is_signed_in=True,
+            connection_name="default_connection",
+            app_token=lambda: None,
+            cloud=PUBLIC,
+        )
+
+        async def handler(ctx: ActivityContext[Activity]) -> None:
+            return None
+
+        tracer = RecordingTracer()
+
+        with (
+            patch("microsoft_teams.apps.app_process.get_tracer", return_value=tracer),
+            patch("microsoft_teams.apps.app_process.record_handler_dispatched") as record_handler_dispatched,
+            patch("microsoft_teams.apps.app_process.record_handler_duration") as record_handler_duration,
+        ):
+            await activity_processor.execute_middleware_chain(context, [handler])
+
+        assert tracer.spans[0].attributes == {
+            "handler.type": "config/fetch",
+            "handler.dispatch": "invoke",
+        }
+        record_handler_dispatched.assert_called_once_with("config/fetch", "invoke")
+        assert record_handler_duration.call_args.args[1:] == ("config/fetch", "invoke")
 
     @pytest.mark.asyncio
     async def test_execute_middleware_chain_records_handler_exception(self, activity_processor):
@@ -267,7 +373,7 @@ class TestActivityProcessor:
                 await activity_processor.execute_middleware_chain(context, [handler])
 
         record_exception.assert_called_once_with(tracer.spans[0], error)
-        record_handler_failure.assert_called_once_with("message", "route")
+        record_handler_failure.assert_called_once_with("message", "type")
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize(

@@ -31,6 +31,7 @@ if TYPE_CHECKING:
     from .app_events import EventManager
 
 from .auth_provider import AppAuthProvider
+from .diagnostics import with_teams_baggage
 from .diagnostics._constants import APP_ATTRIBUTE_NAMES, APP_HANDLER_DISPATCHES, APP_SPAN_NAMES
 from .diagnostics._helpers import (
     get_tracer,
@@ -195,20 +196,21 @@ class ActivityProcessor:
         activity_type = activity.type
         record_activity_received(activity_type)
 
-        with get_tracer().start_as_current_span(
-            APP_SPAN_NAMES.turn,
-            record_exception=False,
-            set_status_on_exception=False,
-        ) as turn_span:
-            self._set_turn_span_attributes(turn_span, activity)
-            turn_started_at = perf_counter()
-            try:
-                response = await self._process_activity_core(plugins, event, activity)
-            except Exception as error:
-                record_exception(turn_span, error)
-                raise
-            finally:
-                record_turn_duration((perf_counter() - turn_started_at) * 1000, activity_type)
+        with with_teams_baggage(activity):
+            with get_tracer().start_as_current_span(
+                APP_SPAN_NAMES.turn,
+                record_exception=False,
+                set_status_on_exception=False,
+            ) as turn_span:
+                self._set_turn_span_attributes(turn_span, activity)
+                turn_started_at = perf_counter()
+                try:
+                    response = await self._process_activity_core(plugins, event, activity)
+                except Exception as error:
+                    record_exception(turn_span, error)
+                    raise
+                finally:
+                    record_turn_duration((perf_counter() - turn_started_at) * 1000, activity_type)
 
         return response
 
@@ -233,7 +235,6 @@ class ActivityProcessor:
                 )
                 await ctx.next()
 
-            route._teams_handler_dispatch = APP_HANDLER_DISPATCHES.plugin  # type: ignore[attr-defined]
             return route
 
         plugin_routes = [
@@ -294,13 +295,14 @@ class ActivityProcessor:
             attributes[APP_ATTRIBUTE_NAMES.service_url] = activity.service_url
         return attributes
 
-    def _handler_dispatch(self, handler: ActivityHandler) -> str:
-        dispatch = getattr(handler, "_teams_handler_dispatch", None)
-        return dispatch if isinstance(dispatch, str) else APP_HANDLER_DISPATCHES.route
+    def _handler_dispatch(self, activity: ActivityBase) -> str:
+        if isinstance(activity, InvokeActivityBase):
+            return APP_HANDLER_DISPATCHES.invoke
+        return APP_HANDLER_DISPATCHES.type
 
     def _handler_type(self, activity: ActivityBase) -> str:
         if isinstance(activity, InvokeActivityBase):
-            return f"invoke.{activity.name}"
+            return activity.name
         return activity.type
 
     def _invoke_name(self, activity: ActivityBase) -> str | None:
@@ -362,7 +364,7 @@ class ActivityProcessor:
 
     async def _execute_handler(self, ctx: ActivityContext[ActivityBase], handler: ActivityHandler) -> Optional[Any]:
         handler_type = self._handler_type(ctx.activity)
-        handler_dispatch = self._handler_dispatch(handler)
+        handler_dispatch = self._handler_dispatch(ctx.activity)
         attributes = {
             APP_ATTRIBUTE_NAMES.handler_type: handler_type,
             APP_ATTRIBUTE_NAMES.handler_dispatch: handler_dispatch,
