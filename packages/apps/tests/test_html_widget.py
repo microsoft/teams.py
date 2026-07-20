@@ -14,6 +14,7 @@ from microsoft_teams.api.models.html_widget import (
     HtmlWidgetPayload,
     HtmlWidgetPermissions,
     HtmlWidgetSecurityPolicy,
+    McpUiTextContent,
 )
 from microsoft_teams.apps.utils.html_widget import (
     HtmlWidgetMarkdownOptions,
@@ -21,6 +22,7 @@ from microsoft_teams.apps.utils.html_widget import (
     build_html_widget_markdown,
     build_html_widget_message,
     inject_widget_protocol,
+    try_get_widget_model_context,
     validate_security_policy,
 )
 from microsoft_teams.common.experimental import ExperimentalWarning
@@ -796,3 +798,77 @@ class TestSnapshotFullInjectedScript:
         match = re.search(r"<script>(.*?)</script>", result, re.DOTALL | re.IGNORECASE)
         assert match is not None
         assert match.group(1) == snapshot
+
+
+# ---------------------------------------------------------------------------
+# try_get_widget_model_context
+# ---------------------------------------------------------------------------
+
+
+class _FakeActivity:
+    def __init__(self, value: Any):
+        self.value = value
+
+
+class TestTryGetWidgetModelContext:
+    def test_parses_raw_request(self):
+        activity = _FakeActivity(
+            {
+                "method": "ui/update-model-context",
+                "params": {"content": [{"type": "text", "text": "hello"}]},
+            }
+        )
+        result = try_get_widget_model_context(activity)
+        assert result is not None
+        assert result.method == "ui/update-model-context"
+        assert result.params.content is not None
+        first = result.params.content[0]
+        assert isinstance(first, McpUiTextContent)
+        assert first.text == "hello"
+
+    def test_parses_structured_content_only(self):
+        activity = _FakeActivity(
+            {
+                "method": "ui/update-model-context",
+                "params": {"structuredContent": {"count": 5}},
+            }
+        )
+        result = try_get_widget_model_context(activity)
+        assert result is not None
+        assert result.params.structured_content == {"count": 5}
+
+    def test_unwraps_widget_model_context_envelope(self):
+        activity = _FakeActivity(
+            {
+                "type": "widgetModelContext",
+                "data": {
+                    "method": "ui/update-model-context",
+                    "params": {"content": [{"type": "text", "text": "wrapped"}]},
+                },
+            }
+        )
+        result = try_get_widget_model_context(activity)
+        assert result is not None
+        assert result.params.content is not None
+        first = result.params.content[0]
+        assert isinstance(first, McpUiTextContent)
+        assert first.text == "wrapped"
+
+    def test_returns_none_when_value_missing(self):
+        assert try_get_widget_model_context(_FakeActivity(None)) is None
+
+    def test_returns_none_when_value_not_dict(self):
+        assert try_get_widget_model_context(_FakeActivity("hello")) is None
+        assert try_get_widget_model_context(_FakeActivity(42)) is None
+
+    def test_returns_none_for_non_matching_method(self):
+        activity = _FakeActivity({"method": "something/else", "params": {}})
+        assert try_get_widget_model_context(activity) is None
+
+    def test_returns_none_when_params_missing(self):
+        activity = _FakeActivity({"method": "ui/update-model-context"})
+        assert try_get_widget_model_context(activity) is None
+
+    def test_returns_none_for_wrong_envelope_type(self):
+        activity = _FakeActivity({"type": "other", "data": {"method": "ui/update-model-context", "params": {}}})
+        assert try_get_widget_model_context(activity) is None

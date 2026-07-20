@@ -10,12 +10,17 @@ Diagnostic: ExperimentalTeamsHtmlWidget
 import json
 import re
 from dataclasses import dataclass, replace
-from typing import Optional
+from typing import Any, Optional
 from urllib.parse import urlparse
 
 from microsoft_teams.api.activities.message import MessageActivityInput
-from microsoft_teams.api.models.html_widget import HtmlWidgetPayload, HtmlWidgetSecurityPolicy
+from microsoft_teams.api.models.html_widget import (
+    HtmlWidgetPayload,
+    HtmlWidgetSecurityPolicy,
+    McpUiUpdateModelContextRequest,
+)
 from microsoft_teams.common.experimental import experimental
+from pydantic import ValidationError
 
 # The MCP Apps protocol version used for the widget init handshake.
 MCP_PROTOCOL_VERSION = "2026-01-26"
@@ -473,3 +478,46 @@ def validate_security_policy(html: str, policy: HtmlWidgetSecurityPolicy) -> lis
                 )
 
     return warnings
+
+
+@experimental("ExperimentalTeamsHtmlWidget")
+def try_get_widget_model_context(activity: Any) -> Optional[McpUiUpdateModelContextRequest]:
+    """Attempt to extract an MCP UI update-model-context request from a message activity's value.
+
+    A widget can request that content be added to the model context by reusing the messageBack
+    mechanism (like Action.Submit for adaptive cards).
+    Such a request arrives as a normal message activity whose value carries the
+    McpUiUpdateModelContextRequest payload.
+    This is fire-and-forget: the bot does not respond.
+
+    This helper is tolerant of two wire shapes:
+      1. The raw request object ({"method": "ui/update-model-context", "params": ...}).
+      2. An envelope of the form {"type": "widgetModelContext", "data": <request>}.
+
+    Args:
+        activity: A message activity (or any object with a value attribute).
+
+    Returns:
+        The parsed request, or None if value is not a valid update-model-context request.
+
+    Diagnostic: ExperimentalTeamsHtmlWidget
+    """
+    value = getattr(activity, "value", None)
+    if not isinstance(value, dict):
+        return None
+
+    # Unwrap the {"type": "widgetModelContext", "data": ...} envelope if present.
+    candidate = value
+    if value.get("type") == "widgetModelContext" and isinstance(value.get("data"), dict):
+        candidate = value["data"]
+
+    if candidate.get("method") != "ui/update-model-context":
+        return None
+
+    if not isinstance(candidate.get("params"), dict):
+        return None
+
+    try:
+        return McpUiUpdateModelContextRequest.model_validate(candidate)
+    except ValidationError:
+        return None
