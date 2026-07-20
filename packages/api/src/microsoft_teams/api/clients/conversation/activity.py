@@ -3,7 +3,7 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from typing import List, Optional, cast
+from typing import Callable, List, Optional, cast
 
 import httpx
 from microsoft_teams.common.experimental import experimental
@@ -21,6 +21,7 @@ from ..api_client_settings import ApiClientSettings
 from ..base_client import BaseClient
 
 _PLACEHOLDER_ACTIVITY_ID = "DO_NOT_USE_PLACEHOLDER_ID"
+ActivityScopeFactory = Callable[[str | None, AgenticIdentity | None], "ConversationActivityClient"]
 
 
 class ConversationActivityClient(BaseClient):
@@ -33,6 +34,7 @@ class ConversationActivityClient(BaseClient):
         service_url: str,
         http_client: Optional[Client] = None,
         api_client_settings: Optional[ApiClientSettings] = None,
+        scope_factory: ActivityScopeFactory | None = None,
     ):
         """
         Initialize the conversation activity client.
@@ -44,6 +46,16 @@ class ConversationActivityClient(BaseClient):
         """
         super().__init__(http_client, api_client_settings)
         self.service_url = service_url.rstrip("/")
+        self._scope_factory = scope_factory
+
+    def _scoped_client(
+        self,
+        service_url: str | None,
+        agentic_identity: AgenticIdentity | None,
+    ) -> "ConversationActivityClient":
+        if (service_url is None and agentic_identity is None) or self._scope_factory is None:
+            return self
+        return self._scope_factory(service_url, agentic_identity)
 
     async def create(
         self,
@@ -65,6 +77,10 @@ class ConversationActivityClient(BaseClient):
         """
 
         # TODO: Will be deprecated alongside accessor in ConversationClient
+        scoped_client = self._scoped_client(service_url, agentic_identity)
+        if scoped_client is not self:
+            return await scoped_client.create(conversation_id, activity)
+
         response = await self.http.post(
             f"{self._get_service_url(service_url)}/v3/conversations/{conversation_id}/activities",
             json=activity.model_dump(by_alias=True, exclude_none=True),
@@ -105,6 +121,10 @@ class ConversationActivityClient(BaseClient):
             The updated activity
         """
         # TODO: Will be deprecated alongside accessor in ConversationClient
+        scoped_client = self._scoped_client(service_url, agentic_identity)
+        if scoped_client is not self:
+            return await scoped_client.update(conversation_id, activity_id, activity)
+
         response = await self.http.put(
             f"{self._get_service_url(service_url)}/v3/conversations/{conversation_id}/activities/{activity_id}",
             json=activity.model_dump(by_alias=True, exclude_none=True),
@@ -141,6 +161,10 @@ class ConversationActivityClient(BaseClient):
             The created reply activity
         """
         # TODO: Will be deprecated alongside accessor in ConversationClient
+        scoped_client = self._scoped_client(service_url, agentic_identity)
+        if scoped_client is not self:
+            return await scoped_client.reply(conversation_id, activity_id, activity)
+
         activity_json = activity.model_dump(by_alias=True, exclude_none=True)
         activity_json["replyToId"] = activity_id
         response = await self.http.post(
@@ -173,6 +197,10 @@ class ConversationActivityClient(BaseClient):
             conversation_id: The ID of the conversation
             activity_id: The ID of the activity to delete
         """
+        scoped_client = self._scoped_client(service_url, agentic_identity)
+        if scoped_client is not self:
+            return await scoped_client.delete(conversation_id, activity_id)
+
         await self.http.delete(
             f"{self._get_service_url(service_url)}/v3/conversations/{conversation_id}/activities/{activity_id}",
             _metadata=self._create_activity_telemetry_metadata(
@@ -202,6 +230,10 @@ class ConversationActivityClient(BaseClient):
             List of TeamsChannelAccount objects representing the activity members
         """
         # TODO: Will be deprecated alongside accessor in ConversationClient
+        scoped_client = self._scoped_client(service_url, agentic_identity)
+        if scoped_client is not self:
+            return await scoped_client.get_members(conversation_id, activity_id)
+
         response = await self.http.get(
             f"{self._get_service_url(service_url)}/v3/conversations/{conversation_id}/activities/{activity_id}/members",
         )
@@ -233,6 +265,10 @@ class ConversationActivityClient(BaseClient):
             The created activity
         """
         # TODO: Will be deprecated alongside accessor in ConversationClient
+        scoped_client = self._scoped_client(service_url, agentic_identity)
+        if scoped_client is not self:
+            return await scoped_client.create_targeted(conversation_id, activity)
+
         response = await self.http.post(
             f"{self._get_service_url(service_url)}/v3/conversations/{conversation_id}/activities?isTargetedActivity=true",
             json=activity.model_dump(by_alias=True, exclude_none=True),
@@ -274,6 +310,10 @@ class ConversationActivityClient(BaseClient):
             The updated activity
         """
         # TODO: Will be deprecated alongside accessor in ConversationClient
+        scoped_client = self._scoped_client(service_url, agentic_identity)
+        if scoped_client is not self:
+            return await scoped_client.update_targeted(conversation_id, activity_id, activity)
+
         response = await self.http.put(
             f"{self._get_service_url(service_url)}/v3/conversations/{conversation_id}/activities/{activity_id}?isTargetedActivity=true",
             json=activity.model_dump(by_alias=True, exclude_none=True),
@@ -310,6 +350,10 @@ class ConversationActivityClient(BaseClient):
             activity_id: The ID of the activity to delete
         """
         # TODO: Will be deprecated alongside accessor in ConversationClient
+        scoped_client = self._scoped_client(service_url, agentic_identity)
+        if scoped_client is not self:
+            return await scoped_client.delete_targeted(conversation_id, activity_id)
+
         await self.http.delete(
             f"{self._get_service_url(service_url)}/v3/conversations/{conversation_id}/activities/{activity_id}?isTargetedActivity=true",
             _metadata=self._create_activity_telemetry_metadata(

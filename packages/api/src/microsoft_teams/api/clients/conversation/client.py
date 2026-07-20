@@ -201,6 +201,9 @@ class ConversationClient(BaseClient):
             self.service_url,
             self.http,
             self._api_client_settings,
+            scope_factory=lambda service_url, agentic_identity: self._scoped_client(
+                service_url, agentic_identity
+            ).activities_client,
         )
         self._members_client = ConversationMemberClient(
             self.service_url,

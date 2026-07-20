@@ -393,6 +393,87 @@ class TestConversationActivityOperations:
         assert str(last_request.url) == "https://override.service.url/v3/conversations/test_conversation_id/activities"
         assert "authorization" in last_request.headers
 
+    async def test_direct_activities_client_methods_accept_service_url_and_agentic_identity_kwargs(
+        self, request_capture, mock_activity
+    ):
+        calls = []
+
+        class TestAuthProvider:
+            def token(self, *, scope=None, agentic_identity=None):
+                calls.append((scope, agentic_identity))
+                return "override-token"
+
+        identity = AgenticIdentity("override-app-id", "override-user-id", tenant_id="override-tenant-id")
+        activities_client = ApiClient(
+            "https://default.service.url",
+            request_capture,
+            auth_provider=TestAuthProvider(),
+        ).conversations.activities_client
+        service_url = "https://override.service.url/"
+
+        await activities_client.create(
+            "test_conversation_id",
+            mock_activity,
+            service_url=service_url,
+            agentic_identity=identity,
+        )
+        assert (
+            str(request_capture._capture.last_request.url)
+            == "https://override.service.url/v3/conversations/test_conversation_id/activities"
+        )
+        assert "authorization" in request_capture._capture.last_request.headers
+
+        await activities_client.update(
+            "test_conversation_id",
+            "activity-id",
+            mock_activity,
+            service_url=service_url,
+            agentic_identity=identity,
+        )
+        assert (
+            str(request_capture._capture.last_request.url)
+            == "https://override.service.url/v3/conversations/test_conversation_id/activities/activity-id"
+        )
+        assert "authorization" in request_capture._capture.last_request.headers
+
+        await activities_client.reply(
+            "test_conversation_id",
+            "activity-id",
+            mock_activity,
+            service_url=service_url,
+            agentic_identity=identity,
+        )
+        assert (
+            str(request_capture._capture.last_request.url)
+            == "https://override.service.url/v3/conversations/test_conversation_id/activities/activity-id"
+        )
+        assert "authorization" in request_capture._capture.last_request.headers
+
+        await activities_client.delete(
+            "test_conversation_id",
+            "activity-id",
+            service_url=service_url,
+            agentic_identity=identity,
+        )
+        assert (
+            str(request_capture._capture.last_request.url)
+            == "https://override.service.url/v3/conversations/test_conversation_id/activities/activity-id"
+        )
+        assert "authorization" in request_capture._capture.last_request.headers
+
+        await activities_client.get_members(
+            "test_conversation_id",
+            "activity-id",
+            service_url=service_url,
+            agentic_identity=identity,
+        )
+        assert (
+            str(request_capture._capture.last_request.url)
+            == "https://override.service.url/v3/conversations/test_conversation_id/activities/activity-id/members"
+        )
+        assert "authorization" in request_capture._capture.last_request.headers
+        assert calls == [(None, identity)] * 5
+
     async def test_grouped_activity_methods_accept_service_url_kwarg(self, request_capture, mock_activity):
         client = ConversationClient("https://default.service.url", request_capture)
         activities = client.activities("test_conversation_id")
