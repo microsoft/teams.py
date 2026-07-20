@@ -4,6 +4,7 @@ Licensed under the MIT License.
 """
 # pyright: basic
 
+import importlib.metadata
 from unittest.mock import MagicMock, patch
 
 import microsoft_teams.api as api
@@ -25,6 +26,7 @@ def test_public_telemetry_names_are_exported():
     assert TEAMS_API_METER_NAME == "Microsoft.Teams.Api"
     assert TeamsApiTelemetry.tracer_name == "Microsoft.Teams.Api"
     assert TeamsApiTelemetry.meter_name == "Microsoft.Teams.Api"
+    assert TeamsApiTelemetry.instrumentation_version == importlib.metadata.version("microsoft-teams-api")
     assert "TEAMS_API_TRACER_NAME" in api.__all__
     assert "TEAMS_API_METER_NAME" in api.__all__
     assert "TeamsApiTelemetry" in api.__all__
@@ -47,13 +49,19 @@ def test_helpers_use_canonical_source_names():
     with patch("microsoft_teams.api.diagnostics._helpers.trace.get_tracer") as mock_get_tracer:
         tracer = get_tracer()
 
-    mock_get_tracer.assert_called_once_with("Microsoft.Teams.Api")
+    mock_get_tracer.assert_called_once_with(
+        "Microsoft.Teams.Api",
+        instrumenting_library_version=TeamsApiTelemetry.instrumentation_version,
+    )
     assert tracer is mock_get_tracer.return_value
 
     with patch("microsoft_teams.api.diagnostics._helpers.metrics.get_meter") as mock_get_meter:
         meter = get_meter()
 
-    mock_get_meter.assert_called_once_with("Microsoft.Teams.Api")
+    mock_get_meter.assert_called_once_with(
+        "Microsoft.Teams.Api",
+        version=TeamsApiTelemetry.instrumentation_version,
+    )
     assert meter is mock_get_meter.return_value
 
 

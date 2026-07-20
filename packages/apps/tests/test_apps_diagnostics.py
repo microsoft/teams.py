@@ -4,6 +4,7 @@ Licensed under the MIT License.
 """
 # pyright: basic
 
+import importlib.metadata
 from unittest.mock import MagicMock, patch
 
 import microsoft_teams.apps as apps
@@ -42,6 +43,7 @@ def test_public_telemetry_names_are_exported():
     assert TEAMS_BOT_APPLICATION_METER_NAME == "Microsoft.Teams.Apps"
     assert TeamsBotApplicationTelemetry.tracer_name == "Microsoft.Teams.Apps"
     assert TeamsBotApplicationTelemetry.meter_name == "Microsoft.Teams.Apps"
+    assert TeamsBotApplicationTelemetry.instrumentation_version == importlib.metadata.version("microsoft-teams-apps")
     assert "TEAMS_BOT_APPLICATION_TRACER_NAME" in apps.__all__
     assert "TEAMS_BOT_APPLICATION_METER_NAME" in apps.__all__
     assert "TeamsBaggageBuilder" in apps.__all__
@@ -71,13 +73,19 @@ def test_helpers_use_canonical_source_names():
     with patch("microsoft_teams.apps.diagnostics._helpers.trace.get_tracer") as mock_get_tracer:
         tracer = get_tracer()
 
-    mock_get_tracer.assert_called_once_with("Microsoft.Teams.Apps")
+    mock_get_tracer.assert_called_once_with(
+        "Microsoft.Teams.Apps",
+        instrumenting_library_version=TeamsBotApplicationTelemetry.instrumentation_version,
+    )
     assert tracer is mock_get_tracer.return_value
 
     with patch("microsoft_teams.apps.diagnostics._helpers.metrics.get_meter") as mock_get_meter:
         meter = get_meter()
 
-    mock_get_meter.assert_called_once_with("Microsoft.Teams.Apps")
+    mock_get_meter.assert_called_once_with(
+        "Microsoft.Teams.Apps",
+        version=TeamsBotApplicationTelemetry.instrumentation_version,
+    )
     assert meter is mock_get_meter.return_value
 
 

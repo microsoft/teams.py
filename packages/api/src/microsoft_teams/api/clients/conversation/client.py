@@ -8,6 +8,7 @@ from typing import Optional, Union
 from microsoft_teams.common.http import Client, ClientOptions
 from typing_extensions import deprecated
 
+from ...diagnostics._outbound import ensure_outbound_telemetry_middleware
 from ...models import ConversationResource
 from ...models.message import MessageReactionType
 from ..api_client_settings import ApiClientSettings
@@ -117,6 +118,7 @@ class ConversationClient(BaseClient):
     @http.setter
     def http(self, value: Client) -> None:
         """Set the HTTP client instance and propagate to sub-clients."""
+        ensure_outbound_telemetry_middleware(value)
         self._http = value
         self._activities_client.http = value
         self._members_client.http = value

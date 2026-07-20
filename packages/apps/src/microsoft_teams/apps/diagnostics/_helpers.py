@@ -12,11 +12,17 @@ from ._telemetry import TeamsBotApplicationTelemetry
 
 
 def get_tracer() -> Tracer:
-    return trace.get_tracer(TeamsBotApplicationTelemetry.tracer_name)
+    return trace.get_tracer(
+        TeamsBotApplicationTelemetry.tracer_name,
+        instrumenting_library_version=TeamsBotApplicationTelemetry.instrumentation_version,
+    )
 
 
 def get_meter() -> Meter:
-    return metrics.get_meter(TeamsBotApplicationTelemetry.meter_name)
+    return metrics.get_meter(
+        TeamsBotApplicationTelemetry.meter_name,
+        version=TeamsBotApplicationTelemetry.instrumentation_version,
+    )
 
 
 def get_activities_received_counter() -> Counter:

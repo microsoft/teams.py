@@ -12,11 +12,17 @@ from ._telemetry import TeamsApiTelemetry
 
 
 def get_tracer() -> Tracer:
-    return trace.get_tracer(TeamsApiTelemetry.tracer_name)
+    return trace.get_tracer(
+        TeamsApiTelemetry.tracer_name,
+        instrumenting_library_version=TeamsApiTelemetry.instrumentation_version,
+    )
 
 
 def get_meter() -> Meter:
-    return metrics.get_meter(TeamsApiTelemetry.meter_name)
+    return metrics.get_meter(
+        TeamsApiTelemetry.meter_name,
+        version=TeamsApiTelemetry.instrumentation_version,
+    )
 
 
 def get_outbound_calls_counter() -> Counter:

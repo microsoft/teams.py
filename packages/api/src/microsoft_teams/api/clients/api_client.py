@@ -11,11 +11,13 @@ from typing import Literal, Optional, TypeAlias, Union
 from microsoft_teams.common import Client as HttpClient
 from microsoft_teams.common import ClientOptions, Token
 from microsoft_teams.common.http.client_token import StringLike
+from opentelemetry.trace import SpanKind
 from typing_extensions import deprecated
 
 from ..auth.cloud_environment import PUBLIC, CloudEnvironment
 from ..diagnostics._constants import API_ATTRIBUTE_NAMES, API_AUTH_FLOWS, API_SPAN_NAMES
 from ..diagnostics._helpers import get_tracer, record_exception
+from ..diagnostics._outbound import ensure_outbound_telemetry_middleware
 from ..models import AgenticIdentity
 from ._auth_provider import AuthProvider
 from .api_client_settings import ApiClientSettings, merge_api_client_settings
@@ -156,6 +158,7 @@ class ApiClient(BaseClient):
         async def resolve_auth_provider_token() -> str | StringLike | None:
             with get_tracer().start_as_current_span(
                 API_SPAN_NAMES.auth_outbound,
+                kind=SpanKind.CLIENT,
                 record_exception=False,
                 set_status_on_exception=False,
             ) as span:
@@ -182,6 +185,7 @@ class ApiClient(BaseClient):
         """Set the HTTP client instance and propagate to all sub-clients."""
         self._http = value
         self._apply_auth_provider_token()
+        ensure_outbound_telemetry_middleware(self._http)
         self._bots.http = self._http
         self.conversations.http = self._http
         self.users.http = self._http

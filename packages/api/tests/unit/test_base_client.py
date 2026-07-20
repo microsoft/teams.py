@@ -13,8 +13,10 @@ import pytest
 from microsoft_teams.api.auth.cloud_environment import US_GOV
 from microsoft_teams.api.clients import ApiClient
 from microsoft_teams.api.clients.base_client import BaseClient
+from microsoft_teams.api.diagnostics._outbound import ApiOutboundTelemetryMiddleware
 from microsoft_teams.api.models import AgenticIdentity
 from microsoft_teams.common import Client, ClientOptions, Token
+from opentelemetry.trace import SpanKind
 
 
 class RecordingSpan:
@@ -129,6 +131,17 @@ def test_api_client_uses_http_token_for_auth_provider_without_mutating_source_cl
     assert api_client.http.interceptors == http_client.interceptors
 
 
+def test_api_client_registers_outbound_telemetry_middleware_once_across_clones():
+    api_client = ApiClient("https://test.service.url")
+
+    scoped = api_client.from_service_url("https://override.service.url")
+
+    assert (
+        sum(isinstance(middleware, ApiOutboundTelemetryMiddleware) for middleware in api_client.http.middlewares) == 1
+    )
+    assert sum(isinstance(middleware, ApiOutboundTelemetryMiddleware) for middleware in scoped.http.middlewares) == 1
+
+
 def test_api_client_uses_cloud_token_service_url_for_default_settings():
     client = ApiClient("https://test.service.url", cloud=US_GOV)
 
@@ -198,7 +211,11 @@ async def test_auth_provider_token_records_auth_outbound_span(agentic_identity, 
     assert len(tracer.spans) == 1
     span = tracer.spans[0]
     assert span.name == "microsoft.teams.auth.outbound"
-    assert span.options == {"record_exception": False, "set_status_on_exception": False}
+    assert span.options == {
+        "kind": SpanKind.CLIENT,
+        "record_exception": False,
+        "set_status_on_exception": False,
+    }
     assert span.attributes == {"auth.flow": expected_flow}
 
 

@@ -41,7 +41,7 @@ class _ApiOutboundOperations:
 
 @dataclass(frozen=True)
 class _ApiSpanNames:
-    conversation_client: str = "microsoft.teams.conversation.client"
+    api_client: str = "microsoft.teams.api.client"
     auth_outbound: str = "microsoft.teams.auth.outbound"
 
 
