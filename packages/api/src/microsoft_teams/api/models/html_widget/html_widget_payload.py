@@ -34,7 +34,6 @@ class HtmlWidgetSecurityPolicy(CustomBaseModel):
 
 @experimental("ExperimentalTeamsHtmlWidget")
 class HtmlWidgetPermissions(CustomBaseModel):
-
     camera: Optional[dict[str, Any]] = None
     """Request camera access. Presence means permission is requested."""
 
@@ -50,7 +49,6 @@ class HtmlWidgetPermissions(CustomBaseModel):
 
 @experimental("ExperimentalTeamsHtmlWidget")
 class HtmlWidgetPayload(CustomBaseModel):
-
     type: Literal["widget/mcp-ui"] = "widget/mcp-ui"
     """The widget type identifier. Currently only "widget/mcp-ui" is supported."""
 
