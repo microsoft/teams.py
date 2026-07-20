@@ -5,7 +5,9 @@ Licensed under the MIT License.
 # pyright: basic
 
 import json
-from unittest.mock import AsyncMock, patch
+from contextlib import contextmanager
+from typing import Any, Iterator
+from unittest.mock import AsyncMock, call, patch
 
 import httpx
 import pytest
@@ -13,8 +15,32 @@ from microsoft_teams.api.auth.cloud_environment import PUBLIC, with_overrides
 from microsoft_teams.api.clients import ApiClient
 from microsoft_teams.api.clients.conversation import ConversationClient
 from microsoft_teams.api.clients.conversation.params import CreateConversationParams
+from microsoft_teams.api.diagnostics._outbound import ApiOutboundTelemetryMetadata
 from microsoft_teams.api.models import AgenticIdentity, ConversationResource, PagedMembersResult, TeamsChannelAccount
 from microsoft_teams.common.http import Client, ClientOptions
+from opentelemetry.trace import Span, SpanKind
+
+
+class RecordingSpan:
+    def __init__(self, name: str, options: dict[str, Any], attributes: dict[str, str]):
+        self.name = name
+        self.options = options
+        self.attributes = attributes
+
+    def set_attribute(self, key: str, value: str) -> None:
+        self.attributes[key] = value
+
+
+class RecordingTracer:
+    def __init__(self):
+        self.spans: list[RecordingSpan] = []
+
+    @contextmanager
+    def start_as_current_span(self, name: str, **kwargs: Any) -> Iterator[RecordingSpan]:
+        attributes = kwargs.pop("attributes", {})
+        span = RecordingSpan(name, kwargs, attributes)
+        self.spans.append(span)
+        yield span
 
 
 @pytest.mark.unit
@@ -338,6 +364,171 @@ class TestConversationActivityOperations:
         last_request = request_capture._capture.last_request
         assert last_request.headers["authorization"] == "Bearer override-token"
 
+    async def test_flattened_activity_create_accepts_service_url_and_agentic_identity_kwargs(
+        self, request_capture, mock_activity
+    ):
+        calls = []
+
+        class TestAuthProvider:
+            def token(self, *, scope=None, agentic_identity=None):
+                calls.append((scope, agentic_identity))
+                return "override-token"
+
+        identity = AgenticIdentity("override-app-id", "override-user-id", tenant_id="override-tenant-id")
+        client = ApiClient(
+            "https://default.service.url",
+            request_capture,
+            auth_provider=TestAuthProvider(),
+        ).conversations
+
+        await client.create_activity(
+            "test_conversation_id",
+            mock_activity,
+            service_url="https://override.service.url/",
+            agentic_identity=identity,
+        )
+
+        assert calls == [(None, identity)]
+        last_request = request_capture._capture.last_request
+        assert str(last_request.url) == "https://override.service.url/v3/conversations/test_conversation_id/activities"
+        assert "authorization" in last_request.headers
+
+    async def test_direct_activities_client_methods_accept_service_url_and_agentic_identity_kwargs(
+        self, request_capture, mock_activity
+    ):
+        calls = []
+
+        class TestAuthProvider:
+            def token(self, *, scope=None, agentic_identity=None):
+                calls.append((scope, agentic_identity))
+                return "override-token"
+
+        identity = AgenticIdentity("override-app-id", "override-user-id", tenant_id="override-tenant-id")
+        activities_client = ApiClient(
+            "https://default.service.url",
+            request_capture,
+            auth_provider=TestAuthProvider(),
+        ).conversations.activities_client
+        service_url = "https://override.service.url/"
+
+        await activities_client.create(
+            "test_conversation_id",
+            mock_activity,
+            service_url=service_url,
+            agentic_identity=identity,
+        )
+        assert (
+            str(request_capture._capture.last_request.url)
+            == "https://override.service.url/v3/conversations/test_conversation_id/activities"
+        )
+        assert "authorization" in request_capture._capture.last_request.headers
+
+        await activities_client.update(
+            "test_conversation_id",
+            "activity-id",
+            mock_activity,
+            service_url=service_url,
+            agentic_identity=identity,
+        )
+        assert (
+            str(request_capture._capture.last_request.url)
+            == "https://override.service.url/v3/conversations/test_conversation_id/activities/activity-id"
+        )
+        assert "authorization" in request_capture._capture.last_request.headers
+
+        await activities_client.reply(
+            "test_conversation_id",
+            "activity-id",
+            mock_activity,
+            service_url=service_url,
+            agentic_identity=identity,
+        )
+        assert (
+            str(request_capture._capture.last_request.url)
+            == "https://override.service.url/v3/conversations/test_conversation_id/activities/activity-id"
+        )
+        assert "authorization" in request_capture._capture.last_request.headers
+
+        await activities_client.delete(
+            "test_conversation_id",
+            "activity-id",
+            service_url=service_url,
+            agentic_identity=identity,
+        )
+        assert (
+            str(request_capture._capture.last_request.url)
+            == "https://override.service.url/v3/conversations/test_conversation_id/activities/activity-id"
+        )
+        assert "authorization" in request_capture._capture.last_request.headers
+
+        await activities_client.get_members(
+            "test_conversation_id",
+            "activity-id",
+            service_url=service_url,
+            agentic_identity=identity,
+        )
+        assert (
+            str(request_capture._capture.last_request.url)
+            == "https://override.service.url/v3/conversations/test_conversation_id/activities/activity-id/members"
+        )
+        assert "authorization" in request_capture._capture.last_request.headers
+        assert calls == [(None, identity)] * 5
+
+    async def test_grouped_activity_methods_accept_service_url_kwarg(self, request_capture, mock_activity):
+        client = ConversationClient("https://default.service.url", request_capture)
+        activities = client.activities("test_conversation_id")
+        service_url = "https://override.service.url/"
+
+        await activities.create(mock_activity, service_url=service_url)
+        assert (
+            str(request_capture._capture.last_request.url)
+            == "https://override.service.url/v3/conversations/test_conversation_id/activities"
+        )
+
+        await activities.update("activity-id", mock_activity, service_url=service_url)
+        assert (
+            str(request_capture._capture.last_request.url)
+            == "https://override.service.url/v3/conversations/test_conversation_id/activities/activity-id"
+        )
+
+        await activities.reply("activity-id", mock_activity, service_url=service_url)
+        assert (
+            str(request_capture._capture.last_request.url)
+            == "https://override.service.url/v3/conversations/test_conversation_id/activities/activity-id"
+        )
+
+        await activities.delete("activity-id", service_url=service_url)
+        assert (
+            str(request_capture._capture.last_request.url)
+            == "https://override.service.url/v3/conversations/test_conversation_id/activities/activity-id"
+        )
+
+        await activities.get_members("activity-id", service_url=service_url)
+        assert (
+            str(request_capture._capture.last_request.url)
+            == "https://override.service.url/v3/conversations/test_conversation_id/activities/activity-id/members"
+        )
+
+        await activities.create_targeted(mock_activity, service_url=service_url)
+        assert (
+            str(request_capture._capture.last_request.url)
+            == "https://override.service.url/v3/conversations/test_conversation_id/activities?isTargetedActivity=true"
+        )
+
+        await activities.update_targeted("activity-id", mock_activity, service_url=service_url)
+        assert (
+            str(request_capture._capture.last_request.url)
+            == "https://override.service.url/v3/conversations/test_conversation_id/activities/activity-id"
+            "?isTargetedActivity=true"
+        )
+
+        await activities.delete_targeted("activity-id", service_url=service_url)
+        assert (
+            str(request_capture._capture.last_request.url)
+            == "https://override.service.url/v3/conversations/test_conversation_id/activities/activity-id"
+            "?isTargetedActivity=true"
+        )
+
     async def test_activity_create_agentic_identity_without_auth_provider_uses_http_client_auth(
         self, request_capture, mock_activity
     ):
@@ -349,6 +540,233 @@ class TestConversationActivityOperations:
 
         last_request = request_capture._capture.last_request
         assert "authorization" not in last_request.headers
+
+    async def test_activity_create_records_diagnostics(self, request_capture, mock_activity):
+        tracer = RecordingTracer()
+        client = ConversationClient("https://test.service.url/", request_capture)
+
+        with (
+            patch("microsoft_teams.api.diagnostics._outbound.get_tracer", return_value=tracer),
+            patch("microsoft_teams.api.diagnostics._outbound.record_outbound_call") as record_outbound_call,
+            patch("microsoft_teams.api.diagnostics._outbound.record_outbound_error") as record_outbound_error,
+        ):
+            result = await client.create_activity("conv-1", mock_activity)
+
+        assert result.id == "mock_conversation_id"
+        record_outbound_call.assert_called_once_with("create")
+        record_outbound_error.assert_not_called()
+        assert len(tracer.spans) == 1
+        span = tracer.spans[0]
+        assert span.name == "microsoft.teams.api.client"
+        assert span.options == {
+            "kind": SpanKind.CLIENT,
+            "record_exception": False,
+            "set_status_on_exception": False,
+        }
+        assert span.attributes == {
+            "operation": "create",
+            "service.url": "https://test.service.url",
+            "conversation.id": "conv-1",
+            "activity.type": "message",
+            "activity.id": "mock_conversation_id",
+        }
+
+    async def test_request_without_metadata_does_not_record_api_client_telemetry(self, request_capture):
+        tracer = RecordingTracer()
+        api_client = ApiClient("https://test.service.url", request_capture)
+
+        with (
+            patch("microsoft_teams.api.diagnostics._outbound.get_tracer", return_value=tracer),
+            patch("microsoft_teams.api.diagnostics._outbound.record_outbound_call") as record_outbound_call,
+            patch("microsoft_teams.api.diagnostics._outbound.record_outbound_error") as record_outbound_error,
+        ):
+            await api_client.http.post("https://test.service.url/v3/conversations", json={"ok": True})
+
+        assert tracer.spans == []
+        record_outbound_call.assert_not_called()
+        record_outbound_error.assert_not_called()
+
+    async def test_api_client_middleware_uses_supplied_attributes_without_deriving_semantics(self, request_capture):
+        tracer = RecordingTracer()
+        api_client = ApiClient("https://test.service.url", request_capture)
+        attributes = {
+            "operation": "create",
+            "custom.attribute": "custom-value",
+        }
+
+        with patch("microsoft_teams.api.diagnostics._outbound.get_tracer", return_value=tracer):
+            await api_client.http.post(
+                "https://test.service.url/v3/conversations/conv-1/activities",
+                json={"ok": True},
+                _metadata=ApiOutboundTelemetryMetadata(operation="create", attributes=attributes),
+            )
+
+        assert len(tracer.spans) == 1
+        assert tracer.spans[0].attributes == attributes
+
+    async def test_api_client_middleware_invokes_response_hook(self):
+        tracer = RecordingTracer()
+        hook_responses: list[httpx.Response] = []
+        http_client = Client(ClientOptions(base_url="https://test.service.url"))
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(200, json={"id": "response-id"}, headers={"content-type": "application/json"})
+
+        http_client.http._transport = httpx.MockTransport(handler)
+        api_client = ApiClient("https://test.service.url", http_client)
+
+        async def on_response(span: Span, response: httpx.Response) -> None:
+            hook_responses.append(response)
+            span.set_attribute("hook.attribute", str(response.json()["id"]))
+
+        with patch("microsoft_teams.api.diagnostics._outbound.get_tracer", return_value=tracer):
+            await api_client.http.post(
+                "/v3/conversations/conv-1/activities",
+                json={"ok": True},
+                _metadata=ApiOutboundTelemetryMetadata(
+                    operation="create",
+                    attributes={"operation": "create"},
+                    on_response=on_response,
+                ),
+            )
+
+        assert len(hook_responses) == 1
+        assert tracer.spans[0].attributes == {
+            "operation": "create",
+            "hook.attribute": "response-id",
+        }
+
+    async def test_activity_send_paths_set_response_activity_id_from_client_owned_hooks(
+        self, request_capture, mock_activity
+    ):
+        tracer = RecordingTracer()
+        client = ConversationClient("https://test.service.url", request_capture)
+
+        with patch("microsoft_teams.api.diagnostics._outbound.get_tracer", return_value=tracer):
+            await client.create_activity("conv-1", mock_activity)
+            await client.update_activity("conv-1", "act-1", mock_activity)
+            await client.reply_to_activity("conv-1", "act-1", mock_activity)
+            await client.create_targeted_activity("conv-1", mock_activity)
+            await client.update_targeted_activity("conv-1", "act-1", mock_activity)
+
+        assert [span.attributes["activity.id"] for span in tracer.spans] == [
+            "mock_conversation_id",
+            "mock_activity_id",
+            "mock_conversation_id",
+            "mock_conversation_id",
+            "mock_activity_id",
+        ]
+
+    async def test_activity_create_nests_auth_outbound_under_api_outbound_span(self, request_capture, mock_activity):
+        tracer = RecordingTracer()
+        calls = []
+
+        class TestAuthProvider:
+            def token(self, *, scope=None, agentic_identity=None):
+                calls.append((scope, agentic_identity))
+                return "bot-token"
+
+        client = ApiClient("https://test.service.url", request_capture, auth_provider=TestAuthProvider()).conversations
+
+        with (
+            patch("microsoft_teams.api.diagnostics._outbound.get_tracer", return_value=tracer),
+            patch("microsoft_teams.api.clients.api_client.get_tracer", return_value=tracer),
+        ):
+            await client.create_activity("conv-1", mock_activity)
+
+        assert calls == [(None, None)]
+        assert [span.name for span in tracer.spans[:2]] == [
+            "microsoft.teams.api.client",
+            "microsoft.teams.auth.outbound",
+        ]
+
+    async def test_activity_create_auth_failure_records_api_client_error(self, request_capture, mock_activity):
+        tracer = RecordingTracer()
+        error = RuntimeError("token failure")
+
+        class TestAuthProvider:
+            def token(self, *, scope=None, agentic_identity=None):
+                raise error
+
+        client = ApiClient("https://test.service.url", request_capture, auth_provider=TestAuthProvider()).conversations
+
+        with (
+            patch("microsoft_teams.api.diagnostics._outbound.get_tracer", return_value=tracer),
+            patch("microsoft_teams.api.clients.api_client.get_tracer", return_value=tracer),
+            patch("microsoft_teams.api.diagnostics._outbound.record_outbound_call") as record_outbound_call,
+            patch("microsoft_teams.api.diagnostics._outbound.record_outbound_error") as record_outbound_error,
+            patch("microsoft_teams.api.diagnostics._outbound.record_exception") as record_outbound_exception,
+            patch("microsoft_teams.api.clients.api_client.record_exception"),
+            pytest.raises(RuntimeError, match="token failure"),
+        ):
+            await client.create_activity("conv-1", mock_activity)
+
+        assert [span.name for span in tracer.spans[:2]] == [
+            "microsoft.teams.api.client",
+            "microsoft.teams.auth.outbound",
+        ]
+        record_outbound_call.assert_called_once_with("create")
+        record_outbound_error.assert_called_once_with("create")
+        record_outbound_exception.assert_called_once_with(tracer.spans[0], error)
+
+    async def test_request_authorization_header_bypasses_auth_provider_with_metadata(self, request_capture):
+        calls = []
+
+        class TestAuthProvider:
+            def token(self, *, scope=None, agentic_identity=None):
+                calls.append((scope, agentic_identity))
+                return "bot-token"
+
+        api_client = ApiClient("https://test.service.url", request_capture, auth_provider=TestAuthProvider())
+
+        await api_client.http.post(
+            "https://test.service.url/v3/conversations",
+            headers={"Authorization": "******"},
+            json={"ok": True},
+            _metadata=ApiOutboundTelemetryMetadata(operation="create"),
+        )
+
+        assert calls == []
+        request = request_capture._capture.last_request
+        assert request.headers["authorization"] == "******"
+
+    async def test_activity_create_records_diagnostics_on_error(self, mock_http_client, mock_activity):
+        tracer = RecordingTracer()
+        error = RuntimeError("send failed")
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            raise error
+
+        http_client = Client(ClientOptions(base_url="https://mock.api.com"))
+        http_client.http._transport = httpx.MockTransport(handler)
+        client = ConversationClient("https://test.service.url", http_client)
+
+        with (
+            patch("microsoft_teams.api.diagnostics._outbound.get_tracer", return_value=tracer),
+            patch("microsoft_teams.api.diagnostics._outbound.record_outbound_call") as record_outbound_call,
+            patch("microsoft_teams.api.diagnostics._outbound.record_outbound_error") as record_outbound_error,
+            patch("microsoft_teams.api.diagnostics._outbound.record_exception") as record_exception,
+            pytest.raises(RuntimeError, match="send failed"),
+        ):
+            await client.create_activity("conv-1", mock_activity)
+
+        record_outbound_call.assert_called_once_with("create")
+        record_outbound_error.assert_called_once_with("create")
+        record_exception.assert_called_once_with(tracer.spans[0], error)
+
+    async def test_targeted_activity_operations_record_diagnostics_operations(self, mock_http_client, mock_activity):
+        client = ConversationClient("https://test.service.url", mock_http_client)
+
+        with patch("microsoft_teams.api.diagnostics._outbound.record_outbound_call") as record_outbound_call:
+            await client.create_targeted_activity("conv-1", mock_activity)
+            await client.update_targeted_activity("conv-1", "act-1", mock_activity)
+            await client.delete_targeted_activity("conv-1", "act-1")
+
+        assert record_outbound_call.call_args_list == [
+            call("create_targeted"),
+            call("update_targeted"),
+            call("delete_targeted"),
+        ]
 
     async def test_activity_update(self, request_capture, mock_activity):
         """Test updating an activity."""

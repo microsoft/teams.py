@@ -5,13 +5,19 @@ Licensed under the MIT License.
 
 from __future__ import annotations
 
+import inspect
 from typing import Literal, Optional, TypeAlias, Union
 
 from microsoft_teams.common import Client as HttpClient
 from microsoft_teams.common import ClientOptions, Token
+from microsoft_teams.common.http.client_token import StringLike
+from opentelemetry.trace import SpanKind
 from typing_extensions import deprecated
 
 from ..auth.cloud_environment import PUBLIC, CloudEnvironment
+from ..diagnostics._constants import API_ATTRIBUTE_NAMES, API_AUTH_FLOWS, API_SPAN_NAMES
+from ..diagnostics._helpers import get_tracer, record_exception
+from ..diagnostics._outbound import ensure_outbound_telemetry_middleware
 from ..models import AgenticIdentity
 from ._auth_provider import AuthProvider
 from .api_client_settings import ApiClientSettings, merge_api_client_settings
@@ -65,7 +71,12 @@ class ApiClient(BaseClient):
             self._http, self._api_client_settings, cloud=self._cloud
         )
         self.users = UserClient(self._http, self._api_client_settings, cloud=self._cloud)
-        self.conversations = ConversationClient(self.service_url, self._http, self._api_client_settings)
+        self.conversations = ConversationClient(
+            self.service_url,
+            self._http,
+            self._api_client_settings,
+            scope_factory=self._scope_conversations,
+        )
         self.teams = TeamClient(self.service_url, self._http, self._api_client_settings)
         self.meetings = MeetingClient(self.service_url, self._http, self._api_client_settings)
         self._reactions: Optional[ReactionClient] = None
@@ -129,6 +140,13 @@ class ApiClient(BaseClient):
         """Alias for from_agentic_identity."""
         return self.from_agentic_identity(agentic_identity)
 
+    def _scope_conversations(
+        self,
+        service_url: str | None,
+        agentic_identity: AgenticIdentity | None,
+    ) -> ConversationClient:
+        return self.clone(service_url=service_url, agentic_identity=agentic_identity).conversations
+
     def _get_scoped_http(self, agentic_identity: AgenticIdentity | None) -> HttpClient:
         if self._auth_provider is None:
             return self._http.clone(share_http=True)
@@ -149,7 +167,25 @@ class ApiClient(BaseClient):
         if auth_provider is None:
             return None
 
-        return lambda: auth_provider.token(agentic_identity=agentic_identity)
+        async def resolve_auth_provider_token() -> str | StringLike | None:
+            with get_tracer().start_as_current_span(
+                API_SPAN_NAMES.auth_outbound,
+                kind=SpanKind.CLIENT,
+                record_exception=False,
+                set_status_on_exception=False,
+            ) as span:
+                flow = API_AUTH_FLOWS.agentic if agentic_identity is not None else API_AUTH_FLOWS.app_only
+                span.set_attribute(API_ATTRIBUTE_NAMES.auth_flow, flow)
+                try:
+                    token = auth_provider.token(agentic_identity=agentic_identity)
+                    if inspect.isawaitable(token):
+                        return await token
+                    return token
+                except Exception as exception:
+                    record_exception(span, exception)
+                    raise
+
+        return resolve_auth_provider_token
 
     @property
     def http(self) -> HttpClient:
@@ -161,6 +197,7 @@ class ApiClient(BaseClient):
         """Set the HTTP client instance and propagate to all sub-clients."""
         self._http = value
         self._apply_auth_provider_token()
+        ensure_outbound_telemetry_middleware(self._http)
         self._bots.http = self._http
         self.conversations.http = self._http
         self.users.http = self._http

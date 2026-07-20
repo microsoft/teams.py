@@ -3,12 +3,14 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from typing import Optional, Union
+from typing import Callable, Optional, Union
 
 from microsoft_teams.common.http import Client, ClientOptions
 from typing_extensions import deprecated
 
-from ...models import ConversationResource
+from ...activities import SentActivity
+from ...diagnostics._outbound import ensure_outbound_telemetry_middleware
+from ...models import AgenticIdentity, ConversationResource, TeamsChannelAccount
 from ...models.message import MessageReactionType
 from ..api_client_settings import ApiClientSettings
 from ..base_client import BaseClient
@@ -16,6 +18,8 @@ from ..reaction import ReactionClient
 from .activity import ActivityParams, ConversationActivityClient
 from .member import ConversationMemberClient
 from .params import CreateConversationParams
+
+ConversationScopeFactory = Callable[[str | None, AgenticIdentity | None], "ConversationClient"]
 
 
 class ConversationOperations:
@@ -29,32 +33,126 @@ class ConversationOperations:
 class ActivityOperations(ConversationOperations):
     """Operations for managing activities in a conversation."""
 
-    async def create(self, activity: ActivityParams):
-        return await self._client.activities_client.create(self._conversation_id, activity)
+    async def create(
+        self,
+        activity: ActivityParams,
+        *,
+        service_url: str | None = None,
+        agentic_identity: AgenticIdentity | None = None,
+    ) -> SentActivity:
+        return await self._client.create_activity(
+            self._conversation_id,
+            activity,
+            service_url=service_url,
+            agentic_identity=agentic_identity,
+        )
 
-    async def update(self, activity_id: str, activity: ActivityParams):
-        return await self._client.activities_client.update(self._conversation_id, activity_id, activity)
+    async def update(
+        self,
+        activity_id: str,
+        activity: ActivityParams,
+        *,
+        service_url: str | None = None,
+        agentic_identity: AgenticIdentity | None = None,
+    ) -> SentActivity:
+        return await self._client.update_activity(
+            self._conversation_id,
+            activity_id,
+            activity,
+            service_url=service_url,
+            agentic_identity=agentic_identity,
+        )
 
-    async def reply(self, activity_id: str, activity: ActivityParams):
-        return await self._client.activities_client.reply(self._conversation_id, activity_id, activity)
+    async def reply(
+        self,
+        activity_id: str,
+        activity: ActivityParams,
+        *,
+        service_url: str | None = None,
+        agentic_identity: AgenticIdentity | None = None,
+    ) -> SentActivity:
+        return await self._client.reply_to_activity(
+            self._conversation_id,
+            activity_id,
+            activity,
+            service_url=service_url,
+            agentic_identity=agentic_identity,
+        )
 
-    async def delete(self, activity_id: str):
-        await self._client.activities_client.delete(self._conversation_id, activity_id)
+    async def delete(
+        self,
+        activity_id: str,
+        *,
+        service_url: str | None = None,
+        agentic_identity: AgenticIdentity | None = None,
+    ) -> None:
+        await self._client.delete_activity(
+            self._conversation_id,
+            activity_id,
+            service_url=service_url,
+            agentic_identity=agentic_identity,
+        )
 
-    async def get_members(self, activity_id: str):
-        return await self._client.activities_client.get_members(self._conversation_id, activity_id)
+    async def get_members(
+        self,
+        activity_id: str,
+        *,
+        service_url: str | None = None,
+        agentic_identity: AgenticIdentity | None = None,
+    ) -> list[TeamsChannelAccount]:
+        return await self._client.get_activity_members(
+            self._conversation_id,
+            activity_id,
+            service_url=service_url,
+            agentic_identity=agentic_identity,
+        )
 
-    async def create_targeted(self, activity: ActivityParams):
+    async def create_targeted(
+        self,
+        activity: ActivityParams,
+        *,
+        service_url: str | None = None,
+        agentic_identity: AgenticIdentity | None = None,
+    ) -> SentActivity:
         """Create a new targeted activity visible only to the specified recipient."""
-        return await self._client.activities_client.create_targeted(self._conversation_id, activity)
+        return await self._client.create_targeted_activity(
+            self._conversation_id,
+            activity,
+            service_url=service_url,
+            agentic_identity=agentic_identity,
+        )
 
-    async def update_targeted(self, activity_id: str, activity: ActivityParams):
+    async def update_targeted(
+        self,
+        activity_id: str,
+        activity: ActivityParams,
+        *,
+        service_url: str | None = None,
+        agentic_identity: AgenticIdentity | None = None,
+    ) -> SentActivity:
         """Update an existing targeted activity."""
-        return await self._client.activities_client.update_targeted(self._conversation_id, activity_id, activity)
+        return await self._client.update_targeted_activity(
+            self._conversation_id,
+            activity_id,
+            activity,
+            service_url=service_url,
+            agentic_identity=agentic_identity,
+        )
 
-    async def delete_targeted(self, activity_id: str):
+    async def delete_targeted(
+        self,
+        activity_id: str,
+        *,
+        service_url: str | None = None,
+        agentic_identity: AgenticIdentity | None = None,
+    ) -> None:
         """Delete a targeted activity."""
-        await self._client.activities_client.delete_targeted(self._conversation_id, activity_id)
+        await self._client.delete_targeted_activity(
+            self._conversation_id,
+            activity_id,
+            service_url=service_url,
+            agentic_identity=agentic_identity,
+        )
 
 
 class MemberOperations(ConversationOperations):
@@ -86,6 +184,7 @@ class ConversationClient(BaseClient):
         service_url: str,
         options: Optional[Union[Client, ClientOptions]] = None,
         api_client_settings: Optional[ApiClientSettings] = None,
+        scope_factory: ConversationScopeFactory | None = None,
     ) -> None:
         """Initialize the client.
 
@@ -96,11 +195,15 @@ class ConversationClient(BaseClient):
         """
         super().__init__(options, api_client_settings)
         self.service_url = service_url.rstrip("/")
+        self._scope_factory = scope_factory
 
         self._activities_client = ConversationActivityClient(
             self.service_url,
             self.http,
             self._api_client_settings,
+            scope_factory=lambda service_url, agentic_identity: self._scoped_client(
+                service_url, agentic_identity
+            ).activities_client,
         )
         self._members_client = ConversationMemberClient(
             self.service_url,
@@ -117,6 +220,7 @@ class ConversationClient(BaseClient):
     @http.setter
     def http(self, value: Client) -> None:
         """Set the HTTP client instance and propagate to sub-clients."""
+        ensure_outbound_telemetry_middleware(value)
         self._http = value
         self._activities_client.http = value
         self._members_client.http = value
@@ -164,37 +268,172 @@ class ConversationClient(BaseClient):
         """
         return MemberOperations(self, conversation_id)
 
-    async def create_activity(self, conversation_id: str, activity: ActivityParams):
+    def _scoped_client(
+        self,
+        service_url: str | None,
+        agentic_identity: AgenticIdentity | None,
+    ) -> "ConversationClient":
+        if (service_url is None and agentic_identity is None) or self._scope_factory is None:
+            return self
+        return self._scope_factory(service_url, agentic_identity)
+
+    async def create_activity(
+        self,
+        conversation_id: str,
+        activity: ActivityParams,
+        *,
+        service_url: str | None = None,
+        agentic_identity: AgenticIdentity | None = None,
+    ) -> SentActivity:
         """Create an activity in a conversation."""
-        return await self._activities_client.create(conversation_id, activity)
+        scoped_client = self._scoped_client(service_url, agentic_identity)
+        if scoped_client is not self:
+            return await scoped_client.create_activity(conversation_id, activity)
+        return await self._activities_client.create(
+            conversation_id,
+            activity,
+            service_url=service_url,
+            agentic_identity=agentic_identity,
+        )
 
-    async def update_activity(self, conversation_id: str, activity_id: str, activity: ActivityParams):
+    async def update_activity(
+        self,
+        conversation_id: str,
+        activity_id: str,
+        activity: ActivityParams,
+        *,
+        service_url: str | None = None,
+        agentic_identity: AgenticIdentity | None = None,
+    ) -> SentActivity:
         """Update an activity in a conversation."""
-        return await self._activities_client.update(conversation_id, activity_id, activity)
+        scoped_client = self._scoped_client(service_url, agentic_identity)
+        if scoped_client is not self:
+            return await scoped_client.update_activity(conversation_id, activity_id, activity)
+        return await self._activities_client.update(
+            conversation_id,
+            activity_id,
+            activity,
+            service_url=service_url,
+            agentic_identity=agentic_identity,
+        )
 
-    async def reply_to_activity(self, conversation_id: str, activity_id: str, activity: ActivityParams):
+    async def reply_to_activity(
+        self,
+        conversation_id: str,
+        activity_id: str,
+        activity: ActivityParams,
+        *,
+        service_url: str | None = None,
+        agentic_identity: AgenticIdentity | None = None,
+    ) -> SentActivity:
         """Reply to an activity in a conversation."""
-        return await self._activities_client.reply(conversation_id, activity_id, activity)
+        scoped_client = self._scoped_client(service_url, agentic_identity)
+        if scoped_client is not self:
+            return await scoped_client.reply_to_activity(conversation_id, activity_id, activity)
+        return await self._activities_client.reply(
+            conversation_id,
+            activity_id,
+            activity,
+            service_url=service_url,
+            agentic_identity=agentic_identity,
+        )
 
-    async def delete_activity(self, conversation_id: str, activity_id: str):
+    async def delete_activity(
+        self,
+        conversation_id: str,
+        activity_id: str,
+        *,
+        service_url: str | None = None,
+        agentic_identity: AgenticIdentity | None = None,
+    ) -> None:
         """Delete an activity in a conversation."""
-        return await self._activities_client.delete(conversation_id, activity_id)
+        scoped_client = self._scoped_client(service_url, agentic_identity)
+        if scoped_client is not self:
+            return await scoped_client.delete_activity(conversation_id, activity_id)
+        return await self._activities_client.delete(
+            conversation_id,
+            activity_id,
+            service_url=service_url,
+            agentic_identity=agentic_identity,
+        )
 
-    async def get_activity_members(self, conversation_id: str, activity_id: str):
+    async def get_activity_members(
+        self,
+        conversation_id: str,
+        activity_id: str,
+        *,
+        service_url: str | None = None,
+        agentic_identity: AgenticIdentity | None = None,
+    ) -> list[TeamsChannelAccount]:
         """Get the members of an activity in a conversation."""
-        return await self._activities_client.get_members(conversation_id, activity_id)
+        scoped_client = self._scoped_client(service_url, agentic_identity)
+        if scoped_client is not self:
+            return await scoped_client.get_activity_members(conversation_id, activity_id)
+        return await self._activities_client.get_members(
+            conversation_id,
+            activity_id,
+            service_url=service_url,
+            agentic_identity=agentic_identity,
+        )
 
-    async def create_targeted_activity(self, conversation_id: str, activity: ActivityParams):
+    async def create_targeted_activity(
+        self,
+        conversation_id: str,
+        activity: ActivityParams,
+        *,
+        service_url: str | None = None,
+        agentic_identity: AgenticIdentity | None = None,
+    ) -> SentActivity:
         """Create a targeted activity in a conversation."""
-        return await self._activities_client.create_targeted(conversation_id, activity)
+        scoped_client = self._scoped_client(service_url, agentic_identity)
+        if scoped_client is not self:
+            return await scoped_client.create_targeted_activity(conversation_id, activity)
+        return await self._activities_client.create_targeted(
+            conversation_id,
+            activity,
+            service_url=service_url,
+            agentic_identity=agentic_identity,
+        )
 
-    async def update_targeted_activity(self, conversation_id: str, activity_id: str, activity: ActivityParams):
+    async def update_targeted_activity(
+        self,
+        conversation_id: str,
+        activity_id: str,
+        activity: ActivityParams,
+        *,
+        service_url: str | None = None,
+        agentic_identity: AgenticIdentity | None = None,
+    ) -> SentActivity:
         """Update a targeted activity in a conversation."""
-        return await self._activities_client.update_targeted(conversation_id, activity_id, activity)
+        scoped_client = self._scoped_client(service_url, agentic_identity)
+        if scoped_client is not self:
+            return await scoped_client.update_targeted_activity(conversation_id, activity_id, activity)
+        return await self._activities_client.update_targeted(
+            conversation_id,
+            activity_id,
+            activity,
+            service_url=service_url,
+            agentic_identity=agentic_identity,
+        )
 
-    async def delete_targeted_activity(self, conversation_id: str, activity_id: str):
+    async def delete_targeted_activity(
+        self,
+        conversation_id: str,
+        activity_id: str,
+        *,
+        service_url: str | None = None,
+        agentic_identity: AgenticIdentity | None = None,
+    ) -> None:
         """Delete a targeted activity in a conversation."""
-        return await self._activities_client.delete_targeted(conversation_id, activity_id)
+        scoped_client = self._scoped_client(service_url, agentic_identity)
+        if scoped_client is not self:
+            return await scoped_client.delete_targeted_activity(conversation_id, activity_id)
+        return await self._activities_client.delete_targeted(
+            conversation_id,
+            activity_id,
+            service_url=service_url,
+            agentic_identity=agentic_identity,
+        )
 
     async def get_members(self, conversation_id: str):
         """Get the members of a conversation."""
