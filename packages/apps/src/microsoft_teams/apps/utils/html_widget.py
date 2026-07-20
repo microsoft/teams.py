@@ -10,7 +10,7 @@ Diagnostic: ExperimentalTeamsHtmlWidget
 import json
 import re
 from dataclasses import dataclass, replace
-from typing import Any, Optional
+from typing import Any, Optional, cast
 from urllib.parse import urlparse
 
 from microsoft_teams.api.activities.message import MessageActivityInput
@@ -502,14 +502,14 @@ def try_get_widget_model_context(activity: Any) -> Optional[McpUiUpdateModelCont
 
     Diagnostic: ExperimentalTeamsHtmlWidget
     """
-    value = getattr(activity, "value", None)
+    value = cast("dict[str, Any] | None", getattr(activity, "value", None))
     if not isinstance(value, dict):
         return None
 
     # Unwrap the {"type": "widgetModelContext", "data": ...} envelope if present.
-    candidate = value
+    candidate: dict[str, Any] = value
     if value.get("type") == "widgetModelContext" and isinstance(value.get("data"), dict):
-        candidate = value["data"]
+        candidate = cast("dict[str, Any]", value["data"])
 
     if candidate.get("method") != "ui/update-model-context":
         return None
