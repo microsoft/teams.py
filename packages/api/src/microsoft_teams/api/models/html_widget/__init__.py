@@ -14,6 +14,11 @@ from .call_tool_result import (
     McpUiTextContent,
 )
 from .html_widget_payload import HtmlWidgetPayload, HtmlWidgetPermissions, HtmlWidgetSecurityPolicy
+from .update_model_context import (
+    McpUiContentBlock,
+    McpUiUpdateModelContextParams,
+    McpUiUpdateModelContextRequest,
+)
 
 __all__ = [
     "CallToolRequest",
@@ -24,7 +29,10 @@ __all__ = [
     "McpUiAudioContent",
     "McpUiCallToolResult",
     "McpUiCallToolResultContent",
+    "McpUiContentBlock",
     "McpUiImageContent",
     "McpUiResourceContent",
     "McpUiTextContent",
+    "McpUiUpdateModelContextParams",
+    "McpUiUpdateModelContextRequest",
 ]

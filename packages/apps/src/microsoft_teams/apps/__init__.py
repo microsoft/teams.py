@@ -22,6 +22,7 @@ from .utils.html_widget import (
     build_html_widget_markdown,
     build_html_widget_message,
     inject_widget_protocol,
+    try_get_widget_model_context,
     validate_security_policy,
 )
 from .utils.thread import to_threaded_conversation_id
@@ -40,6 +41,7 @@ __all__: list[str] = [
     "build_html_widget_markdown",
     "build_html_widget_message",
     "inject_widget_protocol",
+    "try_get_widget_model_context",
     "validate_security_policy",
     "HtmlWidgetMarkdownOptions",
     "InjectWidgetProtocolOptions",
