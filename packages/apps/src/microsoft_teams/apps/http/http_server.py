@@ -72,6 +72,7 @@ class HttpServer:
         credentials: Optional[Credentials] = None,
         cloud: Optional[CloudEnvironment] = None,
         dangerously_allow_unauthenticated_requests: bool = False,
+        skip_auth: Optional[bool] = None,
     ) -> None:
         """
         Set up JWT validation and register the messaging endpoint route.
@@ -80,9 +81,13 @@ class HttpServer:
             credentials: App credentials for JWT validation.
             cloud: Optional cloud environment for sovereign cloud support.
             dangerously_allow_unauthenticated_requests: Whether to skip JWT validation.
+            skip_auth: Deprecated alias for dangerously_allow_unauthenticated_requests.
         """
         if self._initialized:
             return
+
+        if skip_auth is not None:
+            dangerously_allow_unauthenticated_requests = skip_auth
 
         self._dangerously_allow_unauthenticated_requests = dangerously_allow_unauthenticated_requests
         self._cloud = cloud or PUBLIC

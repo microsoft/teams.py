@@ -16,7 +16,7 @@ from ...diagnostics._constants import (
     API_OUTBOUND_OPERATIONS,
 )
 from ...diagnostics._outbound import ApiOutboundResponseHook, ApiOutboundTelemetryMetadata
-from ...models import TeamsChannelAccount
+from ...models import AgenticIdentity, TeamsChannelAccount
 from ..api_client_settings import ApiClientSettings
 from ..base_client import BaseClient
 
@@ -49,6 +49,9 @@ class ConversationActivityClient(BaseClient):
         self,
         conversation_id: str,
         activity: ActivityParams,
+        *,
+        service_url: str | None = None,
+        agentic_identity: AgenticIdentity | None = None,
     ) -> SentActivity:
         """
         Create a new activity in a conversation.
@@ -63,11 +66,12 @@ class ConversationActivityClient(BaseClient):
 
         # TODO: Will be deprecated alongside accessor in ConversationClient
         response = await self.http.post(
-            f"{self._get_service_url()}/v3/conversations/{conversation_id}/activities",
+            f"{self._get_service_url(service_url)}/v3/conversations/{conversation_id}/activities",
             json=activity.model_dump(by_alias=True, exclude_none=True),
             _metadata=self._create_activity_telemetry_metadata(
                 API_OUTBOUND_OPERATIONS.create,
                 conversation_id,
+                service_url=service_url,
                 activity=activity,
                 on_response=_set_response_activity_id,
             ),
@@ -85,6 +89,9 @@ class ConversationActivityClient(BaseClient):
         conversation_id: str,
         activity_id: str,
         activity: ActivityParams,
+        *,
+        service_url: str | None = None,
+        agentic_identity: AgenticIdentity | None = None,
     ) -> SentActivity:
         """
         Update an existing activity in a conversation.
@@ -99,11 +106,12 @@ class ConversationActivityClient(BaseClient):
         """
         # TODO: Will be deprecated alongside accessor in ConversationClient
         response = await self.http.put(
-            f"{self._get_service_url()}/v3/conversations/{conversation_id}/activities/{activity_id}",
+            f"{self._get_service_url(service_url)}/v3/conversations/{conversation_id}/activities/{activity_id}",
             json=activity.model_dump(by_alias=True, exclude_none=True),
             _metadata=self._create_activity_telemetry_metadata(
                 API_OUTBOUND_OPERATIONS.update,
                 conversation_id,
+                service_url=service_url,
                 activity=activity,
                 activity_id=activity_id,
                 on_response=_set_response_activity_id,
@@ -117,6 +125,9 @@ class ConversationActivityClient(BaseClient):
         conversation_id: str,
         activity_id: str,
         activity: ActivityParams,
+        *,
+        service_url: str | None = None,
+        agentic_identity: AgenticIdentity | None = None,
     ) -> SentActivity:
         """
         Reply to an activity in a conversation.
@@ -133,11 +144,12 @@ class ConversationActivityClient(BaseClient):
         activity_json = activity.model_dump(by_alias=True, exclude_none=True)
         activity_json["replyToId"] = activity_id
         response = await self.http.post(
-            f"{self._get_service_url()}/v3/conversations/{conversation_id}/activities/{activity_id}",
+            f"{self._get_service_url(service_url)}/v3/conversations/{conversation_id}/activities/{activity_id}",
             json=activity_json,
             _metadata=self._create_activity_telemetry_metadata(
                 API_OUTBOUND_OPERATIONS.reply,
                 conversation_id,
+                service_url=service_url,
                 activity=activity,
                 activity_id=activity_id,
                 on_response=_set_response_activity_id,
@@ -150,6 +162,9 @@ class ConversationActivityClient(BaseClient):
         self,
         conversation_id: str,
         activity_id: str,
+        *,
+        service_url: str | None = None,
+        agentic_identity: AgenticIdentity | None = None,
     ) -> None:
         """
         Delete an activity from a conversation.
@@ -159,10 +174,11 @@ class ConversationActivityClient(BaseClient):
             activity_id: The ID of the activity to delete
         """
         await self.http.delete(
-            f"{self._get_service_url()}/v3/conversations/{conversation_id}/activities/{activity_id}",
+            f"{self._get_service_url(service_url)}/v3/conversations/{conversation_id}/activities/{activity_id}",
             _metadata=self._create_activity_telemetry_metadata(
                 API_OUTBOUND_OPERATIONS.delete,
                 conversation_id,
+                service_url=service_url,
                 activity_id=activity_id,
             ),
         )
@@ -171,6 +187,9 @@ class ConversationActivityClient(BaseClient):
         self,
         conversation_id: str,
         activity_id: str,
+        *,
+        service_url: str | None = None,
+        agentic_identity: AgenticIdentity | None = None,
     ) -> List[TeamsChannelAccount]:
         """
         Get the members associated with an activity.
@@ -184,7 +203,7 @@ class ConversationActivityClient(BaseClient):
         """
         # TODO: Will be deprecated alongside accessor in ConversationClient
         response = await self.http.get(
-            f"{self._get_service_url()}/v3/conversations/{conversation_id}/activities/{activity_id}/members",
+            f"{self._get_service_url(service_url)}/v3/conversations/{conversation_id}/activities/{activity_id}/members",
         )
         return [TeamsChannelAccount.model_validate(member) for member in response.json()]
 
@@ -193,6 +212,9 @@ class ConversationActivityClient(BaseClient):
         self,
         conversation_id: str,
         activity: ActivityParams,
+        *,
+        service_url: str | None = None,
+        agentic_identity: AgenticIdentity | None = None,
     ) -> SentActivity:
         """
         Create a new targeted activity in a conversation.
@@ -212,11 +234,12 @@ class ConversationActivityClient(BaseClient):
         """
         # TODO: Will be deprecated alongside accessor in ConversationClient
         response = await self.http.post(
-            f"{self._get_service_url()}/v3/conversations/{conversation_id}/activities?isTargetedActivity=true",
+            f"{self._get_service_url(service_url)}/v3/conversations/{conversation_id}/activities?isTargetedActivity=true",
             json=activity.model_dump(by_alias=True, exclude_none=True),
             _metadata=self._create_activity_telemetry_metadata(
                 API_OUTBOUND_OPERATIONS.create_targeted,
                 conversation_id,
+                service_url=service_url,
                 activity=activity,
                 on_response=_set_response_activity_id,
             ),
@@ -231,6 +254,9 @@ class ConversationActivityClient(BaseClient):
         conversation_id: str,
         activity_id: str,
         activity: ActivityParams,
+        *,
+        service_url: str | None = None,
+        agentic_identity: AgenticIdentity | None = None,
     ) -> SentActivity:
         """
         Update an existing targeted activity in a conversation.
@@ -249,11 +275,12 @@ class ConversationActivityClient(BaseClient):
         """
         # TODO: Will be deprecated alongside accessor in ConversationClient
         response = await self.http.put(
-            f"{self._get_service_url()}/v3/conversations/{conversation_id}/activities/{activity_id}?isTargetedActivity=true",
+            f"{self._get_service_url(service_url)}/v3/conversations/{conversation_id}/activities/{activity_id}?isTargetedActivity=true",
             json=activity.model_dump(by_alias=True, exclude_none=True),
             _metadata=self._create_activity_telemetry_metadata(
                 API_OUTBOUND_OPERATIONS.update_targeted,
                 conversation_id,
+                service_url=service_url,
                 activity=activity,
                 activity_id=activity_id,
                 on_response=_set_response_activity_id,
@@ -267,6 +294,9 @@ class ConversationActivityClient(BaseClient):
         self,
         conversation_id: str,
         activity_id: str,
+        *,
+        service_url: str | None = None,
+        agentic_identity: AgenticIdentity | None = None,
     ) -> None:
         """
         Delete a targeted activity from a conversation.
@@ -281,10 +311,11 @@ class ConversationActivityClient(BaseClient):
         """
         # TODO: Will be deprecated alongside accessor in ConversationClient
         await self.http.delete(
-            f"{self._get_service_url()}/v3/conversations/{conversation_id}/activities/{activity_id}?isTargetedActivity=true",
+            f"{self._get_service_url(service_url)}/v3/conversations/{conversation_id}/activities/{activity_id}?isTargetedActivity=true",
             _metadata=self._create_activity_telemetry_metadata(
                 API_OUTBOUND_OPERATIONS.delete_targeted,
                 conversation_id,
+                service_url=service_url,
                 activity_id=activity_id,
             ),
         )
@@ -294,13 +325,14 @@ class ConversationActivityClient(BaseClient):
         operation: str,
         conversation_id: str,
         *,
+        service_url: str | None = None,
         activity: ActivityParams | None = None,
         activity_id: str | None = None,
         on_response: ApiOutboundResponseHook | None = None,
     ) -> ApiOutboundTelemetryMetadata:
         attributes = {
             API_ATTRIBUTE_NAMES.operation: operation,
-            API_ATTRIBUTE_NAMES.service_url: self._get_service_url(),
+            API_ATTRIBUTE_NAMES.service_url: self._get_service_url(service_url),
             API_ATTRIBUTE_NAMES.conversation_id: conversation_id,
         }
         if activity is not None:

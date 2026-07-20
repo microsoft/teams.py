@@ -196,7 +196,7 @@ class Client:
             Final headers dict for the request.
         """
         req_headers = {**self._options.headers, **(headers or {})}
-        if headers and any(key.lower() == "authorization" for key in headers):
+        if any(key.lower() == "authorization" for key in req_headers):
             return req_headers
         resolved_token = await self._resolve_token(token)
         if resolved_token:

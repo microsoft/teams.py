@@ -434,6 +434,23 @@ async def test_explicit_authorization_header_wins_over_default_token(mock_transp
     assert data["headers"]["authorization"] == "******"
 
 
+@pytest.mark.asyncio
+async def test_default_authorization_header_bypasses_token_resolution(mock_transport):
+    client = Client(
+        ClientOptions(
+            base_url="https://example.com",
+            headers={"Authorization": "******"},
+            token=failing_token_factory,
+        )
+    )
+    client.http._transport = mock_transport
+
+    resp = await client.get("/token-test")
+    data = resp.json()
+
+    assert data["headers"]["authorization"] == "******"
+
+
 # Test token factory that raises an exception
 def failing_token_factory() -> str:
     raise ValueError("Token factory failed")

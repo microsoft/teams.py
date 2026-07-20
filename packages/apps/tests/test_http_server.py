@@ -20,15 +20,15 @@ from microsoft_teams.apps.http.http_server import HttpServer
 class TestHttpServer:
     """Test cases for HttpServer implementation."""
 
-    def test_http_server_is_not_publicly_exported(self):
-        """HttpServer is an implementation detail and should not be exported."""
+    def test_http_server_is_publicly_exported(self):
+        """HttpServer remains publicly exported for compatibility."""
         import microsoft_teams.apps as apps
         import microsoft_teams.apps.http as http
 
-        assert "HttpServer" not in apps.__all__
-        assert not hasattr(apps, "HttpServer")
-        assert "HttpServer" not in http.__all__
-        assert not hasattr(http, "HttpServer")
+        assert "HttpServer" in apps.__all__
+        assert apps.HttpServer is HttpServer
+        assert "HttpServer" in http.__all__
+        assert http.HttpServer is HttpServer
 
     @pytest.fixture
     def mock_adapter(self):
@@ -56,6 +56,13 @@ class TestHttpServer:
         server.initialize(dangerously_allow_unauthenticated_requests=True)
         # Should only register route once
         assert mock_adapter.register_route.call_count == 1
+
+    def test_initialize_accepts_skip_auth_alias(self, server, mock_adapter):
+        """skip_auth remains a deprecated alias for unauthenticated local development."""
+        server.initialize(skip_auth=True)
+
+        assert server._dangerously_allow_unauthenticated_requests is True
+        mock_adapter.register_route.assert_called_once()
 
     def test_invalid_messaging_endpoint_raises(self, mock_adapter):
         """Test that invalid messaging endpoint raises ValueError."""
@@ -288,7 +295,7 @@ class TestFastAPIAdapter:
         adapter.register_route("POST", "/test", handler)
 
         # Verify a route was registered on the FastAPI app
-        routes = [r for r in adapter.app.routes if hasattr(r, "path") and r.path == "/test"]
+        routes = [r for r in adapter.app.routes if getattr(r, "path", None) == "/test"]
         assert len(routes) == 1
 
     def test_serve_static(self, tmp_path):
@@ -297,7 +304,7 @@ class TestFastAPIAdapter:
         adapter.serve_static("/static", str(tmp_path))
 
         # Verify a mount was registered
-        mounts = [r for r in adapter.app.routes if hasattr(r, "path") and r.path == "/static"]
+        mounts = [r for r in adapter.app.routes if getattr(r, "path", None) == "/static"]
         assert len(mounts) == 1
 
     @pytest.mark.asyncio

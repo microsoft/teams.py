@@ -71,7 +71,12 @@ class ApiClient(BaseClient):
             self._http, self._api_client_settings, cloud=self._cloud
         )
         self.users = UserClient(self._http, self._api_client_settings, cloud=self._cloud)
-        self.conversations = ConversationClient(self.service_url, self._http, self._api_client_settings)
+        self.conversations = ConversationClient(
+            self.service_url,
+            self._http,
+            self._api_client_settings,
+            scope_factory=self._scope_conversations,
+        )
         self.teams = TeamClient(self.service_url, self._http, self._api_client_settings)
         self.meetings = MeetingClient(self.service_url, self._http, self._api_client_settings)
         self._reactions: Optional[ReactionClient] = None
@@ -134,6 +139,13 @@ class ApiClient(BaseClient):
     def for_agentic_identity(self, agentic_identity: AgenticIdentity) -> "ApiClient":
         """Alias for from_agentic_identity."""
         return self.from_agentic_identity(agentic_identity)
+
+    def _scope_conversations(
+        self,
+        service_url: str | None,
+        agentic_identity: AgenticIdentity | None,
+    ) -> ConversationClient:
+        return self.clone(service_url=service_url, agentic_identity=agentic_identity).conversations
 
     def _get_scoped_http(self, agentic_identity: AgenticIdentity | None) -> HttpClient:
         if self._auth_provider is None:
