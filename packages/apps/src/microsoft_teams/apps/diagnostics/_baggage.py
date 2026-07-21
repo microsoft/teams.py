@@ -10,7 +10,7 @@ from microsoft_teams.api import ActivityBase
 from opentelemetry import baggage
 from opentelemetry import context as otel_context
 
-from ._constants import APP_BAGGAGE_KEYS
+from ._constants import AGENT365_BAGGAGE_KEYS
 
 
 class _ActivityContextSource(Protocol):
@@ -21,8 +21,8 @@ _BaggageValue = str | int | None
 _BaggageSource = ActivityBase | _ActivityContextSource | None
 
 
-class TeamsBaggage:
-    """Opt-in Teams activity to Agent365 OpenTelemetry baggage bridge."""
+class Agent365Baggage:
+    """Opt-in Agent365 OpenTelemetry baggage bridge for Teams activity context."""
 
     def __init__(self, values: Mapping[str, _BaggageValue] | None = None):
         self._values: dict[str, str] = {}
@@ -50,20 +50,20 @@ class TeamsBaggage:
             if tenant is None and activity.channel_data is not None and activity.channel_data.tenant is not None:
                 tenant = activity.channel_data.tenant.id
 
-            bridge.set(APP_BAGGAGE_KEYS.tenant_id, tenant)
-            bridge.set(APP_BAGGAGE_KEYS.conversation_id, activity.conversation.id)
-            bridge.set(APP_BAGGAGE_KEYS.channel_name, activity.channel_id)
-            bridge.set(APP_BAGGAGE_KEYS.agent_id, activity.recipient.agentic_app_id or activity.recipient.id)
-            bridge.set(APP_BAGGAGE_KEYS.agentic_user_id, activity.recipient.agentic_user_id)
-            bridge.set(APP_BAGGAGE_KEYS.agent_blueprint_id, activity.recipient.agentic_app_blueprint_id)
-            bridge.set(APP_BAGGAGE_KEYS.user_id, activity.from_.aad_object_id or activity.from_.id)
+            bridge.set(AGENT365_BAGGAGE_KEYS.tenant_id, tenant)
+            bridge.set(AGENT365_BAGGAGE_KEYS.conversation_id, activity.conversation.id)
+            bridge.set(AGENT365_BAGGAGE_KEYS.channel_name, activity.channel_id)
+            bridge.set(AGENT365_BAGGAGE_KEYS.agent_id, activity.recipient.agentic_app_id or activity.recipient.id)
+            bridge.set(AGENT365_BAGGAGE_KEYS.agentic_user_id, activity.recipient.agentic_user_id)
+            bridge.set(AGENT365_BAGGAGE_KEYS.agent_blueprint_id, activity.recipient.agentic_app_blueprint_id)
+            bridge.set(AGENT365_BAGGAGE_KEYS.user_id, activity.from_.aad_object_id or activity.from_.id)
 
             if include_identity_details:
-                bridge.set(APP_BAGGAGE_KEYS.user_name, activity.from_.name)
-                bridge.set(APP_BAGGAGE_KEYS.user_email, activity.from_.email)
-                bridge.set(APP_BAGGAGE_KEYS.agent_name, activity.recipient.name)
-                bridge.set(APP_BAGGAGE_KEYS.agentic_user_email, activity.recipient.email)
-                bridge.set(APP_BAGGAGE_KEYS.agent_description, activity.recipient.user_role)
+                bridge.set(AGENT365_BAGGAGE_KEYS.user_name, activity.from_.name)
+                bridge.set(AGENT365_BAGGAGE_KEYS.user_email, activity.from_.email)
+                bridge.set(AGENT365_BAGGAGE_KEYS.agent_name, activity.recipient.name)
+                bridge.set(AGENT365_BAGGAGE_KEYS.agentic_user_email, activity.recipient.email)
+                bridge.set(AGENT365_BAGGAGE_KEYS.agent_description, activity.recipient.user_role)
 
         bridge.operation_source(operation_source)
         bridge.invoke_agent_server(server_address, server_port)
@@ -86,11 +86,11 @@ class TeamsBaggage:
         return self
 
     def operation_source(self, value: str | None) -> Self:
-        return self.set(APP_BAGGAGE_KEYS.operation_source, value)
+        return self.set(AGENT365_BAGGAGE_KEYS.operation_source, value)
 
     def invoke_agent_server(self, address: str | None, port: int | str | None = None) -> Self:
-        self.set(APP_BAGGAGE_KEYS.server_address, address)
-        self.set(APP_BAGGAGE_KEYS.server_port, port)
+        self.set(AGENT365_BAGGAGE_KEYS.server_address, address)
+        self.set(AGENT365_BAGGAGE_KEYS.server_port, port)
         return self
 
     def __enter__(self) -> Self:
@@ -112,7 +112,7 @@ class TeamsBaggage:
             self._token = None
 
 
-def teams_baggage(
+def agent365_baggage(
     source: _BaggageSource = None,
     *,
     include_identity_details: bool = False,
@@ -120,8 +120,8 @@ def teams_baggage(
     server_address: str | None = None,
     server_port: int | str | None = None,
     values: Mapping[str, _BaggageValue] | None = None,
-) -> TeamsBaggage:
-    return TeamsBaggage.from_activity(
+) -> Agent365Baggage:
+    return Agent365Baggage.from_activity(
         source,
         include_identity_details=include_identity_details,
         operation_source=operation_source,

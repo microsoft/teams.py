@@ -98,19 +98,19 @@ export OTEL_SERVICE_NAME=agent365-example
 export OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317
 ```
 
-### Explicit Teams -> Agent365 baggage
+### Explicit Agent365 baggage
 
-Agent365 correlation baggage is opt-in. Wrap the Agent365 work with `teams_baggage(...)` when you want Teams context to flow into Microsoft OpenTelemetry/Agent365 scopes. The SDK does not add this baggage automatically as part of generic Teams telemetry.
+Agent365 correlation baggage is opt-in. Wrap Agent365 work with `agent365_baggage(...)` when you want Teams activity context to flow into Microsoft OpenTelemetry/Agent365 scopes. The SDK does not add this baggage automatically as part of generic Teams telemetry.
 
 ```python
 import os
 
 from microsoft_teams.api import MessageActivity
-from microsoft_teams.apps import ActivityContext, teams_baggage
+from microsoft_teams.apps import ActivityContext, agent365_baggage
 
 
 async def handle_message(ctx: ActivityContext[MessageActivity]) -> None:
-    with teams_baggage(
+    with agent365_baggage(
         ctx,
         operation_source=os.getenv("OTEL_SERVICE_NAME", "agent365-example"),
         server_address=os.getenv("AGENT365_SERVER_ADDRESS"),
@@ -118,23 +118,23 @@ async def handle_message(ctx: ActivityContext[MessageActivity]) -> None:
     ):
         # Put Agent365 scopes here, for example InvokeAgentScope, InferenceScope,
         # or ExecuteToolScope from your app-level Microsoft OTel/Agent Framework integration.
-        await ctx.reply("Hello from Agent365 with explicit Teams baggage.")
+        await ctx.reply("Hello from Agent365 with explicit baggage.")
 ```
 
-By default, `teams_baggage(...)` includes stable Teams/Agent365 identifiers such as tenant, conversation, channel, agent/app identity, and user ID when present. It does not include message text, attachments, names, or email addresses by default. If your app needs display identity details for its Agent365 integration, opt in explicitly:
+By default, `agent365_baggage(...)` includes stable Agent365 correlation identifiers from the Teams activity, such as tenant, conversation, channel, agent/app identity, and user ID when present. It does not include message text, attachments, names, or email addresses by default. If your app needs display identity details for its Agent365 integration, opt in explicitly:
 
 ```python
-with teams_baggage(ctx, include_identity_details=True):
+with agent365_baggage(ctx, include_identity_details=True):
     ...
 ```
 
 For proactive or background work without an inbound Teams context, create the baggage scope manually:
 
 ```python
-from microsoft_teams.apps import TeamsBaggage
+from microsoft_teams.apps import Agent365Baggage
 
 with (
-    TeamsBaggage()
+    Agent365Baggage()
     .operation_source("agent365-example")
     .invoke_agent_server("localhost", 3978)
     .set("gen_ai.conversation.id", conversation_id)
@@ -144,7 +144,7 @@ with (
 
 ### Agent365 token resolver guidance
 
-Microsoft OpenTelemetry owns exporter/auth configuration for Agent365 product visibility. The Teams SDK only provides SDK spans/metrics plus the explicit Teams baggage bridge above.
+Microsoft OpenTelemetry owns exporter/auth configuration for Agent365 product visibility. The Teams SDK only provides SDK spans/metrics plus the explicit Agent365 baggage bridge above.
 
 - **Default Python setup:** `a365_token_resolver` can be omitted if `DefaultAzureCredential` or environment-based auth can acquire the Agent365 Observability token.
 - **OBO / Agent Framework setup:** use `AgenticTokenCache` in app code. Refresh the cache from the async Teams turn handler, then provide Microsoft OpenTelemetry a synchronous `a365_token_resolver` that returns the cached token.
