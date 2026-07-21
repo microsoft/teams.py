@@ -31,15 +31,23 @@ uv run --project examples/agent365 python src/proactive.py \
 
 ## Observability
 
-The Teams SDK emits OpenTelemetry-compatible spans and metrics, but it does not configure exporters or the OpenTelemetry SDK for you. Configure tracing, metrics, resources, and exporters in your application host.
+The Teams SDK emits OpenTelemetry-compatible spans and metrics, but it does not configure exporters, Microsoft OpenTelemetry, or Agent365 scopes for you. Keep those dependencies in your app host.
 
-Install exporter packages in your app or example environment only:
+Install OpenTelemetry/exporter packages in your app or example environment only:
 
 ```bash
 uv add --project examples/agent365 opentelemetry-sdk opentelemetry-exporter-otlp
 ```
 
-Then configure OpenTelemetry before starting the app. The public telemetry constants expose the canonical source names used by the SDK:
+If your app uses the Microsoft OpenTelemetry distro for Agent365 observability, add it at the app level too:
+
+```bash
+uv add --project examples/agent365 microsoft-opentelemetry
+```
+
+Only use hosting extras or Microsoft Agents SDK packages when your app already uses that hosting stack. If you want a Teams-only app with no Agents SDK dependency, avoid `microsoft-opentelemetry[hosting]` and provide the Agent365 token resolver yourself.
+
+Configure OpenTelemetry before starting the app. The public telemetry constants expose the canonical source names used by the SDK:
 
 - API/lower layer tracer and meter: `Microsoft.Teams.Api`
 - Apps/orchestration tracer and meter: `Microsoft.Teams.Apps`
@@ -89,3 +97,58 @@ Set exporter configuration through OpenTelemetry environment variables, for exam
 export OTEL_SERVICE_NAME=agent365-example
 export OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317
 ```
+
+### Explicit Teams -> Agent365 baggage
+
+Agent365 correlation baggage is opt-in. Wrap the Agent365 work with `teams_baggage(...)` when you want Teams context to flow into Microsoft OpenTelemetry/Agent365 scopes. The SDK does not add this baggage automatically as part of generic Teams telemetry.
+
+```python
+import os
+
+from microsoft_teams.api import MessageActivity
+from microsoft_teams.apps import ActivityContext, teams_baggage
+
+
+async def handle_message(ctx: ActivityContext[MessageActivity]) -> None:
+    with teams_baggage(
+        ctx,
+        operation_source=os.getenv("OTEL_SERVICE_NAME", "agent365-example"),
+        server_address=os.getenv("AGENT365_SERVER_ADDRESS"),
+        server_port=os.getenv("PORT", "3978"),
+    ):
+        # Put Agent365 scopes here, for example InvokeAgentScope, InferenceScope,
+        # or ExecuteToolScope from your app-level Microsoft OTel/Agent Framework integration.
+        await ctx.reply("Hello from Agent365 with explicit Teams baggage.")
+```
+
+By default, `teams_baggage(...)` includes stable Teams/Agent365 identifiers such as tenant, conversation, channel, agent/app identity, and user ID when present. It does not include message text, attachments, names, or email addresses by default. If your app needs display identity details for its Agent365 integration, opt in explicitly:
+
+```python
+with teams_baggage(ctx, include_identity_details=True):
+    ...
+```
+
+For proactive or background work without an inbound Teams context, create the baggage scope manually:
+
+```python
+from microsoft_teams.apps import TeamsBaggage
+
+with (
+    TeamsBaggage()
+    .operation_source("agent365-example")
+    .invoke_agent_server("localhost", 3978)
+    .set("gen_ai.conversation.id", conversation_id)
+):
+    ...
+```
+
+### Agent365 token resolver guidance
+
+Microsoft OpenTelemetry owns exporter/auth configuration for Agent365 product visibility. The Teams SDK only provides SDK spans/metrics plus the explicit Teams baggage bridge above.
+
+- **Default Python setup:** `a365_token_resolver` can be omitted if `DefaultAzureCredential` or environment-based auth can acquire the Agent365 Observability token.
+- **OBO / Agent Framework setup:** use `AgenticTokenCache` in app code. Refresh the cache from the async Teams turn handler, then provide Microsoft OpenTelemetry a synchronous `a365_token_resolver` that returns the cached token.
+- **Teams-only app, no Agents SDK dependency:** avoid `microsoft-opentelemetry[hosting]`. Use a manual resolver/cache with MSAL, client credentials, or your app's own OBO exchange.
+- **S2S setup:** use a manual resolver backed by client credentials.
+
+Keep content/output logging disabled unless your app intentionally opts in. The example guidance above is for correlation and operation visibility, not transcript or generated-output capture.
