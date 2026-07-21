@@ -96,7 +96,7 @@ class TestBuildHtmlWidgetMarkdown:
         assert "<div>Hello</div>" in parsed["html"]
 
     def test_no_double_inject_if_already_has_protocol(self):
-        html_with_init = "<div>Hello</div><script>ui/initialize</script>"
+        html_with_init = "<div>Hello</div><script>window.parent.postMessage({method:'ui/initialize'},'*')</script>"
         payload = MINIMAL_PAYLOAD.model_copy(update={"html": html_with_init})
         result = build_html_widget_markdown(payload)
         parsed = _parse_widget_json(result)
@@ -277,9 +277,15 @@ class TestInjectWidgetProtocol:
         assert "version:'1.0.0'" in result
 
     def test_does_not_modify_html_with_existing_protocol(self):
-        html_with_init = "<body><script>ui/initialize</script></body>"
+        html_with_init = "<body><script>window.parent.postMessage({method:'ui/initialize'},'*')</script></body>"
         result = inject_widget_protocol(html_with_init)
         assert result == html_with_init
+
+    def test_still_injects_when_ui_initialize_only_mentioned(self):
+        html_mentioning_init = "<body><!-- ui/initialize --><p>ui/initialize</p></body>"
+        result = inject_widget_protocol(html_mentioning_init)
+        assert result != html_mentioning_init
+        assert "method:'ui/initialize'" in result
 
     def test_is_idempotent(self):
         first = inject_widget_protocol(self.BARE_HTML)
@@ -380,7 +386,7 @@ class TestBuildHtmlWidgetMarkdownIntegration:
         assert "name:'My Custom Widget'" in parsed["html"]
 
     def test_no_double_inject_with_existing_protocol(self):
-        html_with_protocol = "<body><script>ui/initialize already here</script></body>"
+        html_with_protocol = "<body><script>window.parent.postMessage({method:'ui/initialize'},'*')</script></body>"
         payload = HtmlWidgetPayload(
             name="Test",
             html=html_with_protocol,
@@ -490,6 +496,24 @@ class TestPayloadValidation:
         with pytest.raises(ValueError, match="https://"):
             build_html_widget_markdown(payload)
 
+    def test_throws_if_domain_malformed_https(self):
+        for domain in ("https://", "https:// not a url", "http://example.com"):
+            payload = HtmlWidgetPayload(
+                name="Widget",
+                html="<div>Hello</div>",
+                domain=domain,
+            )
+            with pytest.raises(ValueError, match="https://"):
+                build_html_widget_markdown(payload)
+
+    def test_valid_https_domain_does_not_raise(self):
+        payload = HtmlWidgetPayload(
+            name="Widget",
+            html="<div>Hello</div>",
+            domain="https://teams.microsoft.com",
+        )
+        build_html_widget_markdown(payload)
+
 
 # ---------------------------------------------------------------------------
 # validate_security_policy
@@ -517,6 +541,48 @@ class TestValidateSecurityPolicy:
             resource_domains=["https://cdn.example.com"],
             frame_domains=[],
             base_uri_domains=[],
+        )
+        warnings = validate_security_policy(html, policy)
+        assert warnings == []
+
+    def test_warns_when_subdomain_uses_different_scheme_than_pinned_entry(self):
+        html = '<script src="http://cdn.example.com/lib.js"></script>'
+        policy = HtmlWidgetSecurityPolicy(
+            connect_domains=[],
+            resource_domains=["https://example.com"],
+            frame_domains=[],
+            base_uri_domains=[],
+        )
+        warnings = validate_security_policy(html, policy)
+        assert len(warnings) == 1
+        assert warnings[0].url == "http://cdn.example.com/lib.js"
+
+    def test_allows_any_scheme_for_host_only_entry(self):
+        html = '<script src="http://cdn.example.com/lib.js"></script>'
+        policy = HtmlWidgetSecurityPolicy(
+            connect_domains=[],
+            resource_domains=["example.com"],
+            frame_domains=[],
+            base_uri_domains=[],
+        )
+        warnings = validate_security_policy(html, policy)
+        assert warnings == []
+
+    def test_warns_base_href_not_in_base_uri_domains(self):
+        html = '<base href="https://evil.example.com/">'
+        warnings = validate_security_policy(html, EMPTY_POLICY)
+        assert len(warnings) == 1
+        assert warnings[0].policy_field == "baseUriDomains"
+        assert warnings[0].source == "<base href>"
+        assert warnings[0].url == "https://evil.example.com/"
+
+    def test_no_warn_base_href_in_base_uri_domains(self):
+        html = '<base href="https://cdn.example.com/">'
+        policy = HtmlWidgetSecurityPolicy(
+            connect_domains=[],
+            resource_domains=[],
+            frame_domains=[],
+            base_uri_domains=["https://cdn.example.com"],
         )
         warnings = validate_security_policy(html, policy)
         assert warnings == []
