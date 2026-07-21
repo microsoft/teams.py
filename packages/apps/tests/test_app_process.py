@@ -216,7 +216,7 @@ class TestActivityProcessor:
         assert record_turn_duration.call_args.args[1] == "message"
 
     @pytest.mark.asyncio
-    async def test_process_activity_applies_agent365_baggage_during_turn(self, activity_processor):
+    async def test_process_activity_does_not_apply_agent365_baggage_during_turn(self, activity_processor):
         core_activity = CoreActivity(
             type="message",
             id="activity-baggage",
@@ -247,19 +247,19 @@ class TestActivityProcessor:
         mock_activity_event = ActivityEvent(body=core_activity, token=mock_token)
 
         async def process_core(plugins, event, activity):
-            assert baggage.get_baggage("microsoft.tenant.id") == "tenant-1"
-            assert baggage.get_baggage("gen_ai.conversation.id") == "conv-789"
-            assert baggage.get_baggage("microsoft.conversation.item.link") == "https://service.url"
-            assert baggage.get_baggage("microsoft.channel.name") == "msteams"
-            assert baggage.get_baggage("user.id") == "caller-aad-1"
-            assert baggage.get_baggage("user.name") == "Caller"
-            assert baggage.get_baggage("user.email") == "caller@example.com"
-            assert baggage.get_baggage("gen_ai.agent.id") == "agent-app-1"
-            assert baggage.get_baggage("gen_ai.agent.name") == "Agent"
-            assert baggage.get_baggage("microsoft.agent.user.id") == "agent-user-1"
-            assert baggage.get_baggage("microsoft.agent.user.email") == "agentic-user@example.com"
-            assert baggage.get_baggage("gen_ai.agent.description") == "assistant"
-            assert baggage.get_baggage("microsoft.a365.agent.blueprint.id") == "blueprint-1"
+            assert baggage.get_baggage("microsoft.tenant.id") is None
+            assert baggage.get_baggage("gen_ai.conversation.id") is None
+            assert baggage.get_baggage("microsoft.conversation.item.link") is None
+            assert baggage.get_baggage("microsoft.channel.name") is None
+            assert baggage.get_baggage("user.id") is None
+            assert baggage.get_baggage("user.name") is None
+            assert baggage.get_baggage("user.email") is None
+            assert baggage.get_baggage("gen_ai.agent.id") is None
+            assert baggage.get_baggage("gen_ai.agent.name") is None
+            assert baggage.get_baggage("microsoft.agent.user.id") is None
+            assert baggage.get_baggage("microsoft.agent.user.email") is None
+            assert baggage.get_baggage("gen_ai.agent.description") is None
+            assert baggage.get_baggage("microsoft.a365.agent.blueprint.id") is None
             return InvokeResponse[Any](status=200)
 
         activity_processor._process_activity_core = AsyncMock(side_effect=process_core)

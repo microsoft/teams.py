@@ -31,7 +31,6 @@ if TYPE_CHECKING:
     from .app_events import EventManager
 
 from .auth_provider import AppAuthProvider
-from .diagnostics import with_teams_baggage
 from .diagnostics._constants import APP_ATTRIBUTE_NAMES, APP_HANDLER_DISPATCHES, APP_SPAN_NAMES
 from .diagnostics._helpers import (
     get_tracer,
@@ -196,21 +195,20 @@ class ActivityProcessor:
         activity_type = activity.type
         record_activity_received(activity_type)
 
-        with with_teams_baggage(activity):
-            with get_tracer().start_as_current_span(
-                APP_SPAN_NAMES.turn,
-                record_exception=False,
-                set_status_on_exception=False,
-            ) as turn_span:
-                self._set_turn_span_attributes(turn_span, activity)
-                turn_started_at = perf_counter()
-                try:
-                    response = await self._process_activity_core(plugins, event, activity)
-                except Exception as error:
-                    record_exception(turn_span, error)
-                    raise
-                finally:
-                    record_turn_duration((perf_counter() - turn_started_at) * 1000, activity_type)
+        with get_tracer().start_as_current_span(
+            APP_SPAN_NAMES.turn,
+            record_exception=False,
+            set_status_on_exception=False,
+        ) as turn_span:
+            self._set_turn_span_attributes(turn_span, activity)
+            turn_started_at = perf_counter()
+            try:
+                response = await self._process_activity_core(plugins, event, activity)
+            except Exception as error:
+                record_exception(turn_span, error)
+                raise
+            finally:
+                record_turn_duration((perf_counter() - turn_started_at) * 1000, activity_type)
 
         return response
 
