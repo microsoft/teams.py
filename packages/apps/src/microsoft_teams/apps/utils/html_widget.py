@@ -123,7 +123,9 @@ def _validate_html_widget_payload(payload: HtmlWidgetPayload) -> None:
     if not payload.html or not payload.html.strip():
         raise ValueError('HTML widget payload requires a non-empty "html" field.')
 
-    if not payload.domain or not payload.domain.strip() or not payload.domain.startswith("https://"):
+    domain = (payload.domain or "").strip()
+    parsed_domain = urlparse(domain)
+    if parsed_domain.scheme != "https" or not parsed_domain.hostname or any(c.isspace() for c in domain):
         raise ValueError('HTML widget payload requires "domain" to be a valid URL starting with "https://".')
 
 
@@ -156,7 +158,10 @@ def inject_widget_protocol(html: str, options: Optional[InjectWidgetProtocolOpti
 
     Diagnostic: ExperimentalTeamsHtmlWidget
     """
-    if "ui/initialize" in html:
+    # Skip injection only if the HTML already performs the ui/initialize
+    # handshake (a `method: 'ui/initialize'` postMessage), not if it merely
+    # mentions the string somewhere (e.g. in a comment or visible text).
+    if re.search(r"""["']?method["']?\s*:\s*["']ui/initialize["']""", html):
         return html
 
     opts = options or InjectWidgetProtocolOptions()
@@ -327,7 +332,11 @@ def _is_origin_allowed(origin: str, allowed_domains: list[str]) -> bool:
             return True
         if origin == cleaned:
             return True
-        # Check subdomain match
+        # If the policy entry pins a scheme (e.g. "https://example.com"), the
+        # origin must use that same scheme; otherwise fall back to host-only match.
+        scheme_match = re.match(r"^(https?)://", cleaned)
+        if scheme_match and not origin.startswith(f"{scheme_match.group(1)}://"):
+            continue
         domain_host = re.sub(r"^https?://", "", cleaned)
         if origin.endswith(f".{domain_host}"):
             return True
@@ -474,6 +483,21 @@ def validate_security_policy(html: str, policy: HtmlWidgetSecurityPolicy) -> lis
                         source="<form action>",
                         policy_field="connectDomains",
                         message=_policy_message("<form action>", attr_match.group(1), origin, "connectDomains"),
+                    )
+                )
+
+    # baseUriDomains: <base href>
+    for tag_str in _find_tags(html, "base"):
+        attr_match = re.search(r'href=["\']([^"\']+)["\']', tag_str, re.IGNORECASE)
+        if attr_match:
+            origin = _extract_origin(attr_match.group(1))
+            if origin and not _is_origin_allowed(origin, policy.base_uri_domains or []):
+                warnings.append(
+                    SecurityPolicyWarning(
+                        url=attr_match.group(1),
+                        source="<base href>",
+                        policy_field="baseUriDomains",
+                        message=_policy_message("<base href>", attr_match.group(1), origin, "baseUriDomains"),
                     )
                 )
 
