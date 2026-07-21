@@ -7,7 +7,7 @@ from dataclasses import dataclass
 
 
 @dataclass(frozen=True)
-class _AppBaggageKeys:
+class _Agent365BaggageKeys:
     agent_blueprint_id: str = "microsoft.a365.agent.blueprint.id"
     agent_description: str = "gen_ai.agent.description"
     agent_id: str = "gen_ai.agent.id"
@@ -94,7 +94,7 @@ class _AppSpanNames:
     turn: str = "microsoft.teams.activity.process"
 
 
-APP_BAGGAGE_KEYS = _AppBaggageKeys()
+AGENT365_BAGGAGE_KEYS = _Agent365BaggageKeys()
 APP_ATTRIBUTE_NAMES = _AppAttributeNames()
 APP_HANDLER_DISPATCHES = _AppHandlerDispatches()
 APP_METRIC_NAMES = _AppMetricNames()

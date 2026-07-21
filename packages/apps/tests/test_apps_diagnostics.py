@@ -14,9 +14,9 @@ from microsoft_teams.apps import (
     TEAMS_BOT_APPLICATION_METER_NAME,
     TEAMS_BOT_APPLICATION_TRACER_NAME,
     ActivityContext,
-    TeamsBaggage,
+    Agent365Baggage,
     TeamsBotApplicationTelemetry,
-    teams_baggage,
+    agent365_baggage,
 )
 from microsoft_teams.apps.diagnostics._helpers import (
     get_meter,
@@ -48,16 +48,16 @@ def test_public_telemetry_names_are_exported():
     assert "TEAMS_BOT_APPLICATION_TRACER_NAME" in apps.__all__
     assert "TEAMS_BOT_APPLICATION_METER_NAME" in apps.__all__
     assert "TeamsBotApplicationTelemetry" in apps.__all__
-    assert "TeamsBaggage" in apps.__all__
-    assert "teams_baggage" in apps.__all__
-    assert apps.TeamsBaggage is TeamsBaggage
-    assert apps.teams_baggage is teams_baggage
+    assert "Agent365Baggage" in apps.__all__
+    assert "agent365_baggage" in apps.__all__
+    assert apps.Agent365Baggage is Agent365Baggage
+    assert apps.agent365_baggage is agent365_baggage
 
 
 def test_runtime_instrumentation_names_stay_internal():
     private_groups = [
         "APP_ATTRIBUTE_NAMES",
-        "APP_BAGGAGE_KEYS",
+        "AGENT365_BAGGAGE_KEYS",
         "APP_HANDLER_DISPATCHES",
         "APP_METRIC_NAMES",
         "APP_OAUTH_ERROR_TYPES",
@@ -90,11 +90,13 @@ def test_helpers_use_canonical_source_names():
     assert meter is mock_get_meter.return_value
 
 
-def test_teams_baggage_maps_conservative_agent365_context_and_restores_prior_baggage():
+def test_agent365_baggage_maps_conservative_context_and_restores_prior_baggage():
     activity = _agent365_activity()
     token = otel_context.attach(baggage.set_baggage("microsoft.tenant.id", "previous-tenant"))
     try:
-        with teams_baggage(activity, operation_source="agent365-example", server_address="localhost", server_port=3978):
+        with agent365_baggage(
+            activity, operation_source="agent365-example", server_address="localhost", server_port=3978
+        ):
             assert baggage.get_baggage("microsoft.tenant.id") == "tenant-1"
             assert baggage.get_baggage("gen_ai.conversation.id") == "conv-789"
             assert baggage.get_baggage("microsoft.channel.name") == "msteams"
@@ -120,12 +122,12 @@ def test_teams_baggage_maps_conservative_agent365_context_and_restores_prior_bag
         otel_context.detach(token)
 
 
-def test_teams_baggage_accepts_activity_context_and_optional_identity_details():
+def test_agent365_baggage_accepts_activity_context_and_optional_identity_details():
     activity = _agent365_activity()
     ctx = MagicMock(spec=ActivityContext)
     ctx.activity = activity
 
-    with teams_baggage(ctx, include_identity_details=True):
+    with agent365_baggage(ctx, include_identity_details=True):
         assert baggage.get_baggage("user.name") == "Caller"
         assert baggage.get_baggage("user.email") == "caller@example.com"
         assert baggage.get_baggage("gen_ai.agent.name") == "Agent"
@@ -133,9 +135,9 @@ def test_teams_baggage_accepts_activity_context_and_optional_identity_details():
         assert baggage.get_baggage("gen_ai.agent.description") == "assistant"
 
 
-def test_teams_baggage_supports_manual_values_without_activity():
+def test_agent365_baggage_supports_manual_values_without_activity():
     with (
-        TeamsBaggage()
+        Agent365Baggage()
         .operation_source("service")
         .invoke_agent_server("server.example", 443)
         .set("custom.key", " custom-value ")
@@ -145,7 +147,7 @@ def test_teams_baggage_supports_manual_values_without_activity():
         assert baggage.get_baggage("server.port") == "443"
         assert baggage.get_baggage("custom.key") == "custom-value"
 
-    with teams_baggage(values={"service.name": "manual-service"}):
+    with agent365_baggage(values={"service.name": "manual-service"}):
         assert baggage.get_baggage("service.name") == "manual-service"
 
     assert baggage.get_baggage("service.name") is None
