@@ -3,6 +3,7 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
+import logging
 from typing import Callable, List, Optional, cast
 
 import httpx
@@ -22,6 +23,7 @@ from ..base_client import BaseClient
 
 _PLACEHOLDER_ACTIVITY_ID = "DO_NOT_USE_PLACEHOLDER_ID"
 ActivityScopeFactory = Callable[[str | None, AgenticIdentity | None], "ConversationActivityClient"]
+logger = logging.getLogger(__name__)
 
 
 class ConversationActivityClient(BaseClient):
@@ -392,7 +394,11 @@ class ConversationActivityClient(BaseClient):
 
 
 def _set_response_activity_id(span: Span, response: httpx.Response) -> None:
-    response_body = response.json()
+    try:
+        response_body = response.json()
+    except ValueError as exception:
+        logger.warning("Failed to read activity response JSON for telemetry", exc_info=exception)
+        return
     if not isinstance(response_body, dict):
         return
     value = cast(dict[str, object], response_body).get("id")

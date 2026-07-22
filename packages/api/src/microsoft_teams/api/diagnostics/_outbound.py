@@ -4,6 +4,7 @@ Licensed under the MIT License.
 """
 
 import inspect
+import logging
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass, field
 
@@ -16,6 +17,7 @@ from ._constants import API_SPAN_NAMES
 from ._helpers import get_tracer, record_exception, record_outbound_call, record_outbound_error
 
 ApiOutboundResponseHook = Callable[[Span, httpx.Response], None | Awaitable[None]]
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -51,9 +53,12 @@ class ApiOutboundTelemetryMiddleware:
                 raise
 
             if metadata.on_response is not None:
-                hook_result = metadata.on_response(span, response)
-                if inspect.isawaitable(hook_result):
-                    await hook_result
+                try:
+                    hook_result = metadata.on_response(span, response)
+                    if inspect.isawaitable(hook_result):
+                        await hook_result
+                except Exception as exception:
+                    logger.warning("API outbound telemetry response hook failed", exc_info=exception)
             return response
 
 

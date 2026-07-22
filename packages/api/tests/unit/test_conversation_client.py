@@ -26,6 +26,7 @@ class RecordingSpan:
         self.name = name
         self.options = options
         self.attributes = attributes
+        self.ended_count = 0
 
     def set_attribute(self, key: str, value: str) -> None:
         self.attributes[key] = value
@@ -40,7 +41,10 @@ class RecordingTracer:
         attributes = kwargs.pop("attributes", {})
         span = RecordingSpan(name, kwargs, attributes)
         self.spans.append(span)
-        yield span
+        try:
+            yield span
+        finally:
+            span.ended_count += 1
 
 
 @pytest.mark.unit
@@ -635,6 +639,45 @@ class TestConversationActivityOperations:
             "operation": "create",
             "hook.attribute": "response-id",
         }
+        assert tracer.spans[0].ended_count == 1
+
+    async def test_api_client_middleware_swallows_response_hook_failure(self):
+        tracer = RecordingTracer()
+        http_client = Client(ClientOptions(base_url="https://test.service.url"))
+        response = httpx.Response(200, json={"id": "response-id"}, headers={"content-type": "application/json"})
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            return response
+
+        http_client.http._transport = httpx.MockTransport(handler)
+        api_client = ApiClient("https://test.service.url", http_client)
+
+        async def on_response(span: Span, response: httpx.Response) -> None:
+            raise RuntimeError("hook failed")
+
+        with (
+            patch("microsoft_teams.api.diagnostics._outbound.get_tracer", return_value=tracer),
+            patch("microsoft_teams.api.diagnostics._outbound.record_exception") as record_exception,
+            patch("microsoft_teams.api.diagnostics._outbound.record_outbound_error") as record_outbound_error,
+            patch("microsoft_teams.api.diagnostics._outbound.logger.warning") as warning,
+        ):
+            result = await api_client.http.post(
+                "/v3/conversations/conv-1/activities",
+                json={"ok": True},
+                _metadata=ApiOutboundTelemetryMetadata(
+                    operation="create",
+                    attributes={"operation": "create"},
+                    on_response=on_response,
+                ),
+            )
+
+        assert result is response
+        assert len(tracer.spans) == 1
+        assert tracer.spans[0].attributes == {"operation": "create"}
+        assert tracer.spans[0].ended_count == 1
+        record_exception.assert_not_called()
+        record_outbound_error.assert_not_called()
+        warning.assert_called_once()
 
     async def test_activity_send_paths_set_response_activity_id_from_client_owned_hooks(
         self, request_capture, mock_activity
