@@ -246,7 +246,7 @@ class TestConversationActivityOperations:
         assert last_request.method == "POST"
         assert (
             str(last_request.url)
-            == f"https://test.service.url/v3/conversations/{conversation_id}/activities/{activity_id}"
+            == f"https://test.service.url/v3/conversations/{conversation_id}/activities"
         )
 
         # Validate request payload - check that replyToId was added
