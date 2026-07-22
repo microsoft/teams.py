@@ -27,7 +27,7 @@ class TestConfig:
     user_id: str
     team_id: str
     channel_id: str
-    meeting_id: str
+    meeting_id: Optional[str] = None
     user_id_2: Optional[str] = None
     agentic_app_id: Optional[str] = None
     agentic_user_id: Optional[str] = None
@@ -82,12 +82,12 @@ def _load_config() -> TestConfig:
         tenant_id=env("AZURE_TENANT_ID"),
         client_id=env("AZURE_CLIENT_ID"),
         client_secret=env("AZURE_CLIENT_SECRET"),
-        service_url=env("TEST_SERVICE_URL"),
-        conversation_id=env("TEST_CONVERSATION_ID"),
+        service_url=env("TEST_SERVICEURL"),
+        conversation_id=env("TEST_CONVERSATIONID"),
         user_id=env("TEST_USER_ID"),
-        team_id=env("TEST_TEAM_ID"),
-        channel_id=env("TEST_CHANNEL_ID"),
-        meeting_id=env("TEST_MEETING_ID"),
+        team_id=env("TEST_TEAMID"),
+        channel_id=env("TEST_CHANNELID"),
+        meeting_id=os.environ.get("TEST_MEETINGID"),
         user_id_2=os.environ.get("TEST_USER_ID_2"),
         agentic_app_id=os.environ.get("TEST_AGENTIC_APP_ID"),
         agentic_user_id=os.environ.get("TEST_AGENTIC_USER_ID"),
