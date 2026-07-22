@@ -47,6 +47,7 @@ from microsoft_teams.api.activities import (
     MessageSubmitActionInvokeActivity,
     MessageUpdateActivity,
     ReadReceiptEventActivity,
+    SearchInvokeActivity,
     SignInFailureInvokeActivity,
     SignInTokenExchangeInvokeActivity,
     SignInVerifyStateInvokeActivity,
@@ -61,6 +62,7 @@ from microsoft_teams.api.models.invoke_response import (
     ConfigInvokeResponse,
     MessagingExtensionActionInvokeResponse,
     MessagingExtensionInvokeResponse,
+    SearchInvokeResponse,
     TabInvokeResponse,
     TaskModuleInvokeResponse,
     TokenExchangeInvokeResponseType,
@@ -1385,8 +1387,7 @@ class GeneratedActivityHandlerMixin(ABC):
     def on_suggested_action_submit(
         self,
     ) -> Callable[
-        [VoidInvokeHandler[SuggestedActionSubmitInvokeActivity]],
-        VoidInvokeHandler[SuggestedActionSubmitInvokeActivity],
+        [VoidInvokeHandler[SuggestedActionSubmitInvokeActivity]], VoidInvokeHandler[SuggestedActionSubmitInvokeActivity]
     ]: ...
 
     def on_suggested_action_submit(
@@ -1525,6 +1526,36 @@ class GeneratedActivityHandlerMixin(ABC):
         ) -> InvokeHandler[AdaptiveCardInvokeActivity, AdaptiveCardInvokeResponse]:
             validate_handler_type(func, AdaptiveCardInvokeActivity, "on_card_action", "AdaptiveCardInvokeActivity")
             config = ACTIVITY_ROUTES["card.action"]
+            self.router.add_handler(config.selector, func)
+            return func
+
+        if handler is not None:
+            return decorator(handler)
+        return decorator
+
+    @overload
+    def on_search(
+        self, handler: InvokeHandler[SearchInvokeActivity, SearchInvokeResponse]
+    ) -> InvokeHandler[SearchInvokeActivity, SearchInvokeResponse]: ...
+
+    @overload
+    def on_search(
+        self,
+    ) -> Callable[
+        [InvokeHandler[SearchInvokeActivity, SearchInvokeResponse]],
+        InvokeHandler[SearchInvokeActivity, SearchInvokeResponse],
+    ]: ...
+
+    def on_search(
+        self, handler: Optional[InvokeHandler[SearchInvokeActivity, SearchInvokeResponse]] = None
+    ) -> InvokeHandlerUnion[SearchInvokeActivity, SearchInvokeResponse]:
+        """Register a search activity handler."""
+
+        def decorator(
+            func: InvokeHandler[SearchInvokeActivity, SearchInvokeResponse],
+        ) -> InvokeHandler[SearchInvokeActivity, SearchInvokeResponse]:
+            validate_handler_type(func, SearchInvokeActivity, "on_search", "SearchInvokeActivity")
+            config = ACTIVITY_ROUTES["search"]
             self.router.add_handler(config.selector, func)
             return func
 

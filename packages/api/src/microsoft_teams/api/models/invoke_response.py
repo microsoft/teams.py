@@ -10,6 +10,7 @@ from .config.config_response import ConfigResponse
 from .custom_base_model import CustomBaseModel
 from .messaging_extension.messaging_extension_action_response import MessagingExtensionActionResponse
 from .messaging_extension.messaging_extension_response import MessagingExtensionResponse
+from .search.search_response import SearchResponse
 from .tab.tab_response import TabResponse
 from .task_module.task_module_response import TaskModuleResponse
 from .token_exchange.invoke_response import TokenExchangeInvokeResponse
@@ -26,6 +27,7 @@ InvokeResponseBody = Union[
     TaskModuleResponse,  # task/fetch, task/submit
     TabResponse,  # tab/fetch, tab/submit
     AdaptiveCardActionResponse,  # adaptiveCard/action
+    SearchResponse,  # application/search
     TokenExchangeInvokeResponse,  # signin/tokenExchange
 ]  # Type variable for generic invoke response
 
@@ -69,4 +71,5 @@ MessagingExtensionActionInvokeResponse = MessagingExtensionActionResponse
 TaskModuleInvokeResponse = TaskModuleResponse
 TabInvokeResponse = TabResponse
 AdaptiveCardInvokeResponse = AdaptiveCardActionResponse
+SearchInvokeResponse = SearchResponse
 TokenExchangeInvokeResponseType = Union[TokenExchangeInvokeResponse, None]

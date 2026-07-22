@@ -531,6 +531,15 @@ ACTIVITY_ROUTES: Dict[str, ActivityConfig] = {
         output_type_name="AdaptiveCardInvokeResponse",
         is_invoke=True,
     ),
+    "search": ActivityConfig(
+        name="search",
+        method_name="on_search",
+        input_model="SearchInvokeActivity",
+        selector=lambda activity: activity.type == "invoke"
+        and cast(InvokeActivity, activity).name == "application/search",
+        output_type_name="SearchInvokeResponse",
+        is_invoke=True,
+    ),
     # Generic invoke handler (fallback for any invoke not matching specific aliases)
     "invoke": ActivityConfig(
         name="invoke",
