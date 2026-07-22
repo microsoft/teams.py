@@ -123,11 +123,11 @@ async def handle_message(ctx: ActivityContext[MessageActivity]) -> None:
 By default, `agent365_baggage(...)` includes stable Agent365 correlation identifiers from the Teams activity, such as tenant, conversation, service URL, channel, agent/app identity, and user ID when present. It does not include message text, attachments, names, or email addresses by default. Add display identity fields one at a time with `include`:
 
 ```python
-with agent365_baggage(ctx, include=["sender_name", "agent_name"]):
+with agent365_baggage(ctx, include=["senderName", "agentName"]):
     ...
 ```
 
-Supported include values are `sender_name`, `agent_name`, `agent_description`, `sender_email`, and `agent_email`.
+Supported include values are `senderName`, `agentName`, `agentDescription`, `senderEmail`, and `agentEmail`.
 
 For work without an inbound Teams context, create the baggage scope manually:
 

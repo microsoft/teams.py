@@ -130,11 +130,11 @@ def test_agent365_baggage_maps_conservative_context_and_restores_prior_baggage()
 @pytest.mark.parametrize(
     ("include", "expected_key", "expected_value"),
     [
-        ("sender_name", "user.name", "Caller"),
-        ("agent_name", "gen_ai.agent.name", "Agent"),
-        ("agent_description", "gen_ai.agent.description", "assistant"),
-        ("sender_email", "user.email", "caller@example.com"),
-        ("agent_email", "microsoft.agent.user.email", "agentic-user@example.com"),
+        ("senderName", "user.name", "Caller"),
+        ("agentName", "gen_ai.agent.name", "Agent"),
+        ("agentDescription", "gen_ai.agent.description", "assistant"),
+        ("senderEmail", "user.email", "caller@example.com"),
+        ("agentEmail", "microsoft.agent.user.email", "agentic-user@example.com"),
     ],
 )
 def test_agent365_baggage_accepts_activity_context_and_granular_include(

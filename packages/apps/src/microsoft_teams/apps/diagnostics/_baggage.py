@@ -20,11 +20,11 @@ class _ActivityContextSource(Protocol):
 _BaggageValue = str | int | None
 _BaggageSource = ActivityBase | _ActivityContextSource | None
 Agent365BaggageInclude = Literal[
-    "sender_name",
-    "agent_name",
-    "agent_description",
-    "sender_email",
-    "agent_email",
+    "senderName",
+    "agentName",
+    "agentDescription",
+    "senderEmail",
+    "agentEmail",
 ]
 
 
@@ -66,15 +66,15 @@ class Agent365Baggage:
             bridge.set(AGENT365_BAGGAGE_KEYS.agent_blueprint_id, activity.recipient.agentic_app_blueprint_id)
             bridge.set(AGENT365_BAGGAGE_KEYS.user_id, activity.from_.aad_object_id or activity.from_.id)
 
-            if "sender_name" in included:
+            if "senderName" in included:
                 bridge.set(AGENT365_BAGGAGE_KEYS.user_name, activity.from_.name)
-            if "sender_email" in included:
+            if "senderEmail" in included:
                 bridge.set(AGENT365_BAGGAGE_KEYS.user_email, activity.from_.email)
-            if "agent_name" in included:
+            if "agentName" in included:
                 bridge.set(AGENT365_BAGGAGE_KEYS.agent_name, activity.recipient.name)
-            if "agent_email" in included:
+            if "agentEmail" in included:
                 bridge.set(AGENT365_BAGGAGE_KEYS.agentic_user_email, activity.recipient.email)
-            if "agent_description" in included:
+            if "agentDescription" in included:
                 bridge.set(AGENT365_BAGGAGE_KEYS.agent_description, activity.recipient.user_role)
 
         bridge.operation_source(operation_source)
