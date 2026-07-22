@@ -140,6 +140,7 @@ class App(ActivityHandlerMixin):
             self.options.api_client_settings,
             self.activity_sender,
             self.cloud,
+            fetch_user_token=self.options.fetch_user_token,
         )
         self.event_manager = EventManager(self._events)
         self.activity_processor.event_manager = self.event_manager
