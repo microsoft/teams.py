@@ -1794,6 +1794,7 @@ source = { editable = "packages/api" }
 dependencies = [
     { name = "microsoft-teams-cards" },
     { name = "microsoft-teams-common" },
+    { name = "opentelemetry-api" },
     { name = "pydantic" },
     { name = "pyjwt", extra = ["crypto"] },
 ]
@@ -1809,6 +1810,7 @@ dev = [
 requires-dist = [
     { name = "microsoft-teams-cards", editable = "packages/cards" },
     { name = "microsoft-teams-common", editable = "packages/common" },
+    { name = "opentelemetry-api", specifier = ">=1.41.0" },
     { name = "pydantic", specifier = ">=2.0.0" },
     { name = "pyjwt", extras = ["crypto"], specifier = ">=2.12.0" },
 ]

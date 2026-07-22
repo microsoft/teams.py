@@ -11,6 +11,7 @@ authors = [
 ]
 requires-python = ">=3.11,<4.0"
 dependencies = [
+    "opentelemetry-api>=1.41.0",
     "pydantic>=2.0.0",
     "microsoft-teams-common",
     "microsoft-teams-cards",

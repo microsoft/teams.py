@@ -11,6 +11,7 @@ from microsoft_teams.common.http import Client, ClientOptions
 from typing_extensions import deprecated
 
 from ...auth.cloud_environment import PUBLIC, CloudEnvironment
+from ...diagnostics._outbound import ensure_outbound_telemetry_middleware
 from ...models import TokenResponse, TokenStatus
 from ..api_client_settings import ApiClientSettings, merge_api_client_settings
 from ..base_client import BaseClient
@@ -54,6 +55,7 @@ class UserClient(BaseClient):
     @http.setter
     def http(self, value: Client) -> None:
         """Set the HTTP client instance and propagate to sub-clients."""
+        ensure_outbound_telemetry_middleware(value)
         self._http = value
         self._token.http = value
 

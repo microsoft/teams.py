@@ -46,6 +46,14 @@ class Account(CustomBaseModel):
     """
     The name of the account.
     """
+    email: Optional[str] = None
+    """
+    Email address for the account, when provided by the channel.
+    """
+    user_role: Optional[str] = None
+    """
+    Role description for the account, when provided by the channel.
+    """
     role: Optional[AccountRole | str] = None
     """The role of the account in the activity."""
     agentic_user_id: Optional[str] = None
