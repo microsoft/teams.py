@@ -4,7 +4,7 @@ Licensed under the MIT License.
 """
 
 from types import TracebackType
-from typing import Any, Mapping, Protocol, Self
+from typing import Any, Iterable, Literal, Mapping, Protocol, Self
 
 from microsoft_teams.api import ActivityBase
 from opentelemetry import baggage
@@ -19,6 +19,13 @@ class _ActivityContextSource(Protocol):
 
 _BaggageValue = str | int | None
 _BaggageSource = ActivityBase | _ActivityContextSource | None
+Agent365BaggageInclude = Literal[
+    "sender_name",
+    "agent_name",
+    "agent_description",
+    "sender_email",
+    "agent_email",
+]
 
 
 class Agent365Baggage:
@@ -36,14 +43,14 @@ class Agent365Baggage:
         cls,
         source: _BaggageSource,
         *,
-        include_identity_details: bool = False,
+        include: Iterable[Agent365BaggageInclude] | None = None,
         operation_source: str | None = None,
-        server_address: str | None = None,
-        server_port: int | str | None = None,
+        channel_link: str | None = None,
         values: Mapping[str, _BaggageValue] | None = None,
     ) -> Self:
         bridge = cls()
         activity = _activity_from_source(source)
+        included = set(include or ())
 
         if activity is not None:
             tenant = activity.recipient.tenant_id or activity.conversation.tenant_id
@@ -52,21 +59,26 @@ class Agent365Baggage:
 
             bridge.set(AGENT365_BAGGAGE_KEYS.tenant_id, tenant)
             bridge.set(AGENT365_BAGGAGE_KEYS.conversation_id, activity.conversation.id)
+            bridge.set(AGENT365_BAGGAGE_KEYS.conversation_item_link, activity.service_url)
             bridge.set(AGENT365_BAGGAGE_KEYS.channel_name, activity.channel_id)
             bridge.set(AGENT365_BAGGAGE_KEYS.agent_id, activity.recipient.agentic_app_id or activity.recipient.id)
             bridge.set(AGENT365_BAGGAGE_KEYS.agentic_user_id, activity.recipient.agentic_user_id)
             bridge.set(AGENT365_BAGGAGE_KEYS.agent_blueprint_id, activity.recipient.agentic_app_blueprint_id)
             bridge.set(AGENT365_BAGGAGE_KEYS.user_id, activity.from_.aad_object_id or activity.from_.id)
 
-            if include_identity_details:
+            if "sender_name" in included:
                 bridge.set(AGENT365_BAGGAGE_KEYS.user_name, activity.from_.name)
+            if "sender_email" in included:
                 bridge.set(AGENT365_BAGGAGE_KEYS.user_email, activity.from_.email)
+            if "agent_name" in included:
                 bridge.set(AGENT365_BAGGAGE_KEYS.agent_name, activity.recipient.name)
+            if "agent_email" in included:
                 bridge.set(AGENT365_BAGGAGE_KEYS.agentic_user_email, activity.recipient.email)
+            if "agent_description" in included:
                 bridge.set(AGENT365_BAGGAGE_KEYS.agent_description, activity.recipient.user_role)
 
         bridge.operation_source(operation_source)
-        bridge.invoke_agent_server(server_address, server_port)
+        bridge.set(AGENT365_BAGGAGE_KEYS.channel_link, channel_link)
 
         if values:
             for key, value in values.items():
@@ -87,11 +99,6 @@ class Agent365Baggage:
 
     def operation_source(self, value: str | None) -> Self:
         return self.set(AGENT365_BAGGAGE_KEYS.operation_source, value)
-
-    def invoke_agent_server(self, address: str | None, port: int | str | None = None) -> Self:
-        self.set(AGENT365_BAGGAGE_KEYS.server_address, address)
-        self.set(AGENT365_BAGGAGE_KEYS.server_port, port)
-        return self
 
     def __enter__(self) -> Self:
         context = otel_context.get_current()
@@ -115,18 +122,16 @@ class Agent365Baggage:
 def agent365_baggage(
     source: _BaggageSource = None,
     *,
-    include_identity_details: bool = False,
+    include: Iterable[Agent365BaggageInclude] | None = None,
     operation_source: str | None = None,
-    server_address: str | None = None,
-    server_port: int | str | None = None,
+    channel_link: str | None = None,
     values: Mapping[str, _BaggageValue] | None = None,
 ) -> Agent365Baggage:
     return Agent365Baggage.from_activity(
         source,
-        include_identity_details=include_identity_details,
+        include=include,
         operation_source=operation_source,
-        server_address=server_address,
-        server_port=server_port,
+        channel_link=channel_link,
         values=values,
     )
 

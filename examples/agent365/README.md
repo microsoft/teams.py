@@ -113,22 +113,23 @@ async def handle_message(ctx: ActivityContext[MessageActivity]) -> None:
     with agent365_baggage(
         ctx,
         operation_source=os.getenv("OTEL_SERVICE_NAME", "agent365-example"),
-        server_address=os.getenv("AGENT365_SERVER_ADDRESS"),
-        server_port=os.getenv("PORT", "3978"),
+        channel_link=os.getenv("TEAMS_CHANNEL_LINK"),
     ):
         # Put Agent365 scopes here, for example InvokeAgentScope, InferenceScope,
         # or ExecuteToolScope from your app-level Microsoft OTel/Agent Framework integration.
         await ctx.reply("Hello from Agent365 with explicit baggage.")
 ```
 
-By default, `agent365_baggage(...)` includes stable Agent365 correlation identifiers from the Teams activity, such as tenant, conversation, channel, agent/app identity, and user ID when present. It does not include message text, attachments, names, or email addresses by default. If your app needs display identity details for its Agent365 integration, opt in explicitly:
+By default, `agent365_baggage(...)` includes stable Agent365 correlation identifiers from the Teams activity, such as tenant, conversation, service URL, channel, agent/app identity, and user ID when present. It does not include message text, attachments, names, or email addresses by default. Add display identity fields one at a time with `include`:
 
 ```python
-with agent365_baggage(ctx, include_identity_details=True):
+with agent365_baggage(ctx, include=["sender_name", "agent_name"]):
     ...
 ```
 
-For proactive or background work without an inbound Teams context, create the baggage scope manually:
+Supported include values are `sender_name`, `agent_name`, `agent_description`, `sender_email`, and `agent_email`.
+
+For work without an inbound Teams context, create the baggage scope manually:
 
 ```python
 from microsoft_teams.apps import Agent365Baggage
@@ -136,7 +137,6 @@ from microsoft_teams.apps import Agent365Baggage
 with (
     Agent365Baggage()
     .operation_source("agent365-example")
-    .invoke_agent_server("localhost", 3978)
     .set("gen_ai.conversation.id", conversation_id)
 ):
     ...
