@@ -198,7 +198,7 @@ def create_dynamic_search_card() -> AdaptiveCard:
 
     Instead of static 'choices', the ChoiceSet declares a 'choices.data' Data.Query
     with a 'dataset'. As the user types, Teams sends an 'application/search' invoke,
-    handled by @app.on_search below.
+    handled by @app.on_card_search below.
     """
     return AdaptiveCard.model_validate(
         {
@@ -335,7 +335,7 @@ async def handle_search_card(ctx: ActivityContext[MessageActivity]):
     await ctx.send(card)
 
 
-@app.on_search
+@app.on_card_search
 async def handle_search(ctx: ActivityContext[SearchInvokeActivity]) -> SearchResponse:
     """Handle the 'application/search' invoke from the dynamic typeahead ChoiceSet."""
     query = (ctx.activity.value.query_text or "").lower()

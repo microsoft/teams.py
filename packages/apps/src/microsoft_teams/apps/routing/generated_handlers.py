@@ -1534,28 +1534,28 @@ class GeneratedActivityHandlerMixin(ABC):
         return decorator
 
     @overload
-    def on_search(
+    def on_card_search(
         self, handler: InvokeHandler[SearchInvokeActivity, SearchInvokeResponse]
     ) -> InvokeHandler[SearchInvokeActivity, SearchInvokeResponse]: ...
 
     @overload
-    def on_search(
+    def on_card_search(
         self,
     ) -> Callable[
         [InvokeHandler[SearchInvokeActivity, SearchInvokeResponse]],
         InvokeHandler[SearchInvokeActivity, SearchInvokeResponse],
     ]: ...
 
-    def on_search(
+    def on_card_search(
         self, handler: Optional[InvokeHandler[SearchInvokeActivity, SearchInvokeResponse]] = None
     ) -> InvokeHandlerUnion[SearchInvokeActivity, SearchInvokeResponse]:
-        """Register a search activity handler."""
+        """Register a card.search activity handler."""
 
         def decorator(
             func: InvokeHandler[SearchInvokeActivity, SearchInvokeResponse],
         ) -> InvokeHandler[SearchInvokeActivity, SearchInvokeResponse]:
-            validate_handler_type(func, SearchInvokeActivity, "on_search", "SearchInvokeActivity")
-            config = ACTIVITY_ROUTES["search"]
+            validate_handler_type(func, SearchInvokeActivity, "on_card_search", "SearchInvokeActivity")
+            config = ACTIVITY_ROUTES["card.search"]
             self.router.add_handler(config.selector, func)
             return func
 

@@ -51,10 +51,10 @@ class TestSearchRouting:
             value=SearchInvokeValue(kind="search", query_text="hello", dataset="cities"),
         )
 
-    def test_on_search_matches_application_search(self, app_with_options: App) -> None:
-        """on_search should match an application/search invoke."""
+    def test_on_card_search_matches_application_search(self, app_with_options: App) -> None:
+        """on_card_search should match an application/search invoke."""
 
-        @app_with_options.on_search
+        @app_with_options.on_card_search
         async def handle_search(ctx: ActivityContext[SearchInvokeActivity]) -> SearchInvokeResponse:
             return SearchResponse(
                 value=SearchInvokeResponseValue(results=[SearchInvokeResult(title="Example", value="example")])
@@ -64,10 +64,10 @@ class TestSearchRouting:
         assert len(handlers) == 1
         assert handlers[0] == handle_search
 
-    def test_on_search_does_not_match_other_invokes(self, app_with_options: App) -> None:
-        """on_search should not match a different invoke name."""
+    def test_on_card_search_does_not_match_other_invokes(self, app_with_options: App) -> None:
+        """on_card_search should not match a different invoke name."""
 
-        @app_with_options.on_search
+        @app_with_options.on_card_search
         async def handle_search(ctx: ActivityContext[SearchInvokeActivity]) -> SearchInvokeResponse:
             return SearchResponse(value=SearchInvokeResponseValue(results=[]))
 
