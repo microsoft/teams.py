@@ -1,9 +1,6 @@
 """
-Integration test fixture for Microsoft Teams Python SDK.
-
-Provides shared authentication and configuration for all integration tests.
-Uses azure-identity for token acquisition and caches conversation
-members to avoid 429 throttling.
+Copyright (c) Microsoft Corporation. All rights reserved.
+Licensed under the MIT License.
 """
 
 import os
@@ -29,8 +26,8 @@ class TestConfig:
     channel_id: str
     meeting_id: str
     user_id_2: Optional[str] = None
-    agentic_app_id: Optional[str] = None
-    agentic_user_id: Optional[str] = None
+    agent_app_instance_id: Optional[str] = None
+    agent_user_id: Optional[str] = None
     scope: str = "https://api.botframework.com/.default"
 
 
@@ -48,8 +45,8 @@ class TestFixture:
         return "canary" in self.config.service_url.lower()
 
     @property
-    def is_agentic(self) -> bool:
-        return self.config.agentic_app_id is not None and self.config.agentic_app_id != ""
+    def is_agent_user(self) -> bool:
+        return self.config.agent_app_instance_id is not None and self.config.agent_app_instance_id != ""
 
 
 # Module-level cache (persists across tests in the same process)
@@ -89,8 +86,8 @@ def _load_config() -> TestConfig:
         channel_id=env("TEST_CHANNEL_ID"),
         meeting_id=env("TEST_MEETING_ID"),
         user_id_2=os.environ.get("TEST_USER_ID_2"),
-        agentic_app_id=os.environ.get("TEST_AGENTIC_APP_ID"),
-        agentic_user_id=os.environ.get("TEST_AGENTIC_USER_ID"),
+        agent_app_instance_id=os.environ.get("TEST_AGENT_APP_INSTANCE_ID"),
+        agent_user_id=os.environ.get("TEST_AGENT_USER_ID"),
         scope=os.environ.get("AZURE_SCOPE", "https://api.botframework.com/.default"),
     )
     return _cached_config

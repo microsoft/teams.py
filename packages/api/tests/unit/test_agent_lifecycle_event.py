@@ -23,7 +23,7 @@ from microsoft_teams.api.activities.event.agent_lifecycle import (
 TENANT_ID = "00000000-0000-0000-0000-000000000001"
 AGENTIC_USER_ID = "00000000-0000-0000-0000-000000000002"
 APP_ID = "00000000-0000-0000-0000-000000000003"
-AGENTIC_APP_INSTANCE_ID = "00000000-0000-0000-0000-000000000004"
+AGENT_APP_INSTANCE_ID = "00000000-0000-0000-0000-000000000004"
 BLUEPRINT_ID = "00000000-0000-0000-0000-000000000005"
 
 
@@ -56,7 +56,7 @@ def _common(event_type: str) -> Dict[str, Any]:
     return {
         "tenantId": TENANT_ID,
         "agenticUserId": AGENTIC_USER_ID,
-        "agenticAppInstanceId": AGENTIC_APP_INSTANCE_ID,
+        "agenticAppInstanceId": AGENT_APP_INSTANCE_ID,
         "agentIdentityBlueprintId": BLUEPRINT_ID,
         "eventType": event_type,
     }
@@ -79,7 +79,7 @@ class TestAgentLifecycleEventParsing:
         assert isinstance(activity, AgenticUserIdentityCreatedActivity)
         assert activity.name == "agentLifecycle"
         assert activity.value_type == "AgenticUserIdentityCreated"
-        assert activity.value.agentic_user_id == AGENTIC_USER_ID
+        assert activity.value.agent_user_id == AGENTIC_USER_ID
         assert activity.value.manager is not None
         assert activity.value.manager.user_id == "3c22b565-74f3-48b0-aa18-1dc03b8ec270"
         assert activity.value.manager.email == "manager@example.test"
@@ -167,5 +167,5 @@ class TestAgentLifecycleEventParsing:
 
         assert dumped["name"] == "agentLifecycle"
         assert dumped["valueType"] == "AgenticUserManagerUpdated"
-        assert dumped["value"]["agenticAppInstanceId"] == AGENTIC_APP_INSTANCE_ID
+        assert dumped["value"]["agenticAppInstanceId"] == AGENT_APP_INSTANCE_ID
         assert dumped["value"]["manager"]["managerId"] == "3c22b565-74f3-48b0-aa18-1dc03b8ec270"

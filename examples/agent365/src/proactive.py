@@ -15,26 +15,26 @@ logger = logging.getLogger(__name__)
 
 
 async def main():
-    parser = argparse.ArgumentParser(description="Send proactive messages using AgenticIdentity")
+    parser = argparse.ArgumentParser(description="Send proactive messages using AgentUser")
     parser.add_argument("conversation_id", help="The Teams conversation ID to send messages to")
-    parser.add_argument("agentic_app_id", help="The concrete agent identity app/client ID")
-    parser.add_argument("agentic_user_id", help="The agent user object ID")
+    parser.add_argument("agent_app_instance_id", help="The AgentAppInstance client ID")
+    parser.add_argument("agent_user_id", help="The agent user object ID")
     args = parser.parse_args()
 
     app = App()
     await app.initialize()
 
-    agentic_identity = app.get_agentic_identity(args.agentic_app_id, args.agentic_user_id)
+    agent_user = app.get_agent_user(args.agent_app_instance_id, args.agent_user_id)
     sent = await app.send(
         args.conversation_id,
-        "Hello from app.send with an AgenticIdentity.",
-        agentic_identity=agentic_identity,
+        "Hello from app.send with an AgentUser.",
+        agent_user=agent_user,
     )
     logger.info("Sent activity through app.send. Activity ID: %s", sent.id)
 
-    api_sent = await app.api.from_agentic_identity(agentic_identity).conversations.create_activity(
+    api_sent = await app.api.from_agent_user(agent_user).conversations.create_activity(
         args.conversation_id,
-        MessageActivityInput(text="Hello from the conversation activity API with an AgenticIdentity."),
+        MessageActivityInput(text="Hello from the conversation activity API with an AgentUser."),
     )
     logger.info("Sent activity through app.api. Activity ID: %s", api_sent.id)
 

@@ -10,7 +10,7 @@ import httpx
 import pytest
 from microsoft_teams.api.clients import ApiClient
 from microsoft_teams.api.clients.team import TeamClient
-from microsoft_teams.api.models import AgenticIdentity, ChannelInfo, TeamDetails
+from microsoft_teams.api.models import AgentUser, ChannelInfo, TeamDetails
 from microsoft_teams.common.http import Client, ClientOptions
 
 
@@ -78,8 +78,8 @@ class TestTeamClient:
         calls = []
 
         class TestAuthProvider:
-            def token(self, *, scope=None, agentic_identity=None):
-                calls.append((scope, agentic_identity))
+            def token(self, *, scope=None, agent_user=None):
+                calls.append((scope, agent_user))
                 return "bot-token"
 
         client = ApiClient("https://test.service.url", mock_http_client, auth_provider=TestAuthProvider()).teams
@@ -88,17 +88,17 @@ class TestTeamClient:
         assert calls == [(None, None)]
 
     @pytest.mark.asyncio
-    async def test_get_conversations_uses_agentic_identity(self, mock_http_client):
+    async def test_get_conversations_uses_agent_user(self, mock_http_client):
         calls = []
 
         class TestAuthProvider:
-            def token(self, *, scope=None, agentic_identity=None):
-                calls.append((scope, agentic_identity))
-                return "agentic-token"
+            def token(self, *, scope=None, agent_user=None):
+                calls.append((scope, agent_user))
+                return "agent-user-token"
 
-        identity = AgenticIdentity("agentic-app-id", "agentic-user-id", tenant_id="tenant-id")
+        identity = AgentUser("agent-app-instance-id", "agent-user-id", tenant_id="tenant-id")
         client = ApiClient(
-            "https://test.service.url", mock_http_client, auth_provider=TestAuthProvider(), agentic_identity=identity
+            "https://test.service.url", mock_http_client, auth_provider=TestAuthProvider(), agent_user=identity
         ).teams
         await client.get_conversations("team-id")
 

@@ -37,14 +37,14 @@ def _log_lifecycle_envelope(activity: AgentLifecycleEventActivity, handler_name:
         activity.value.event_type,
         activity.channel_id,
         activity.from_.id,
-        activity.recipient.agentic_identity,
+        activity.recipient.agent_user,
     )
     logger.info(
-        "[Agent365 lifecycle:%s] tenant_id=%s agentic_user_id=%s app_instance_id=%s blueprint_id=%s version=%s",
+        "[Agent365 lifecycle:%s] tenant_id=%s agent_user_id=%s app_instance_id=%s blueprint_id=%s version=%s",
         handler_name,
         activity.value.tenant_id,
-        activity.value.agentic_user_id,
-        activity.value.agentic_app_instance_id,
+        activity.value.agent_user_id,
+        activity.value.agent_app_instance_id,
         activity.value.agent_identity_blueprint_id,
         activity.value.version,
     )
@@ -57,8 +57,8 @@ async def handle_agent_lifecycle(ctx: ActivityContext[AgentLifecycleEventActivit
     await ctx.next()
 
 
-@app.on_agentic_user_identity_created
-async def handle_agentic_user_identity_created(ctx: ActivityContext[AgenticUserIdentityCreatedActivity]) -> None:
+@app.on_agent_user_identity_created
+async def handle_agent_user_identity_created(ctx: ActivityContext[AgenticUserIdentityCreatedActivity]) -> None:
     """Log an agentic user identity creation event."""
     activity = ctx.activity
     _log_lifecycle_envelope(activity, "identity_created")
@@ -69,8 +69,8 @@ async def handle_agentic_user_identity_created(ctx: ActivityContext[AgenticUserI
     )
 
 
-@app.on_agentic_user_identity_updated
-async def handle_agentic_user_identity_updated(ctx: ActivityContext[AgenticUserIdentityUpdatedActivity]) -> None:
+@app.on_agent_user_identity_updated
+async def handle_agent_user_identity_updated(ctx: ActivityContext[AgenticUserIdentityUpdatedActivity]) -> None:
     """Log an agentic user identity property update event."""
     activity = ctx.activity
     _log_lifecycle_envelope(activity, "identity_updated")
@@ -130,16 +130,16 @@ async def handle_agentic_user_workload_onboarding_updated(
 
 @app.on_message_pattern(re.compile(r"hello|hi|greetings"))
 async def handle_greeting(ctx: ActivityContext[MessageActivity]) -> None:
-    """Handle greeting messages using the inbound AgenticIdentity when present."""
+    """Handle greeting messages using the inbound AgentUser when present."""
     await ctx.reply("Hello! How can I assist you today?")
 
 
 @app.on_message
 async def handle_message(ctx: ActivityContext[MessageActivity]):
-    """Echo incoming messages using the inbound AgenticIdentity when present."""
+    """Echo incoming messages using the inbound AgentUser when present."""
     logger.info("[Agent365 reactive] Message received: %s", ctx.activity.text)
     logger.info("[Agent365 reactive] From: %s", ctx.activity.from_)
-    logger.info("[Agent365 reactive] Agentic identity: %s", ctx.activity.recipient.agentic_identity)
+    logger.info("[Agent365 reactive] AgentUser: %s", ctx.activity.recipient.agent_user)
 
     await ctx.reply(TypingActivityInput())
 

@@ -311,16 +311,16 @@ ACTIVITY_ROUTES: Dict[str, ActivityConfig] = {
         selector=_is_agent_lifecycle,
         output_model=None,
     ),
-    "agentic_user_identity_created": ActivityConfig(
-        name="agentic_user_identity_created",
-        method_name="on_agentic_user_identity_created",
+    "agent_user_identity_created": ActivityConfig(
+        name="agent_user_identity_created",
+        method_name="on_agent_user_identity_created",
         input_model=AgenticUserIdentityCreatedActivity,
         selector=lambda activity: _is_agent_lifecycle_variant(activity, "AgenticUserIdentityCreated"),
         output_model=None,
     ),
-    "agentic_user_identity_updated": ActivityConfig(
-        name="agentic_user_identity_updated",
-        method_name="on_agentic_user_identity_updated",
+    "agent_user_identity_updated": ActivityConfig(
+        name="agent_user_identity_updated",
+        method_name="on_agent_user_identity_updated",
         input_model=AgenticUserIdentityUpdatedActivity,
         selector=lambda activity: _is_agent_lifecycle_variant(activity, "AgenticUserIdentityUpdated"),
         output_model=None,

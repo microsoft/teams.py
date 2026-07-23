@@ -17,12 +17,12 @@ from ...diagnostics._constants import (
     API_OUTBOUND_OPERATIONS,
 )
 from ...diagnostics._outbound import ApiOutboundResponseHook, ApiOutboundTelemetryMetadata
-from ...models import AgenticIdentity, TeamsChannelAccount
+from ...models import AgentUser, TeamsChannelAccount
 from ..api_client_settings import ApiClientSettings
 from ..base_client import BaseClient
 
 _PLACEHOLDER_ACTIVITY_ID = "DO_NOT_USE_PLACEHOLDER_ID"
-ActivityScopeFactory = Callable[[str | None, AgenticIdentity | None], "ConversationActivityClient"]
+ActivityScopeFactory = Callable[[str | None, AgentUser | None], "ConversationActivityClient"]
 logger = logging.getLogger(__name__)
 
 
@@ -53,11 +53,11 @@ class ConversationActivityClient(BaseClient):
     def _scoped_client(
         self,
         service_url: str | None,
-        agentic_identity: AgenticIdentity | None,
+        agent_user: AgentUser | None,
     ) -> "ConversationActivityClient":
-        if (service_url is None and agentic_identity is None) or self._scope_factory is None:
+        if (service_url is None and agent_user is None) or self._scope_factory is None:
             return self
-        return self._scope_factory(service_url, agentic_identity)
+        return self._scope_factory(service_url, agent_user)
 
     async def create(
         self,
@@ -65,7 +65,7 @@ class ConversationActivityClient(BaseClient):
         activity: ActivityParams,
         *,
         service_url: str | None = None,
-        agentic_identity: AgenticIdentity | None = None,
+        agent_user: AgentUser | None = None,
     ) -> SentActivity:
         """
         Create a new activity in a conversation.
@@ -79,7 +79,7 @@ class ConversationActivityClient(BaseClient):
         """
 
         # TODO: Will be deprecated alongside accessor in ConversationClient
-        scoped_client = self._scoped_client(service_url, agentic_identity)
+        scoped_client = self._scoped_client(service_url, agent_user)
         if scoped_client is not self:
             return await scoped_client.create(conversation_id, activity)
 
@@ -109,7 +109,7 @@ class ConversationActivityClient(BaseClient):
         activity: ActivityParams,
         *,
         service_url: str | None = None,
-        agentic_identity: AgenticIdentity | None = None,
+        agent_user: AgentUser | None = None,
     ) -> SentActivity:
         """
         Update an existing activity in a conversation.
@@ -123,7 +123,7 @@ class ConversationActivityClient(BaseClient):
             The updated activity
         """
         # TODO: Will be deprecated alongside accessor in ConversationClient
-        scoped_client = self._scoped_client(service_url, agentic_identity)
+        scoped_client = self._scoped_client(service_url, agent_user)
         if scoped_client is not self:
             return await scoped_client.update(conversation_id, activity_id, activity)
 
@@ -149,7 +149,7 @@ class ConversationActivityClient(BaseClient):
         activity: ActivityParams,
         *,
         service_url: str | None = None,
-        agentic_identity: AgenticIdentity | None = None,
+        agent_user: AgentUser | None = None,
     ) -> SentActivity:
         """
         Reply to an activity in a conversation.
@@ -163,7 +163,7 @@ class ConversationActivityClient(BaseClient):
             The created reply activity
         """
         # TODO: Will be deprecated alongside accessor in ConversationClient
-        scoped_client = self._scoped_client(service_url, agentic_identity)
+        scoped_client = self._scoped_client(service_url, agent_user)
         if scoped_client is not self:
             return await scoped_client.reply(conversation_id, activity_id, activity)
 
@@ -190,7 +190,7 @@ class ConversationActivityClient(BaseClient):
         activity_id: str,
         *,
         service_url: str | None = None,
-        agentic_identity: AgenticIdentity | None = None,
+        agent_user: AgentUser | None = None,
     ) -> None:
         """
         Delete an activity from a conversation.
@@ -199,7 +199,7 @@ class ConversationActivityClient(BaseClient):
             conversation_id: The ID of the conversation
             activity_id: The ID of the activity to delete
         """
-        scoped_client = self._scoped_client(service_url, agentic_identity)
+        scoped_client = self._scoped_client(service_url, agent_user)
         if scoped_client is not self:
             return await scoped_client.delete(conversation_id, activity_id)
 
@@ -219,7 +219,7 @@ class ConversationActivityClient(BaseClient):
         activity_id: str,
         *,
         service_url: str | None = None,
-        agentic_identity: AgenticIdentity | None = None,
+        agent_user: AgentUser | None = None,
     ) -> List[TeamsChannelAccount]:
         """
         Get the members associated with an activity.
@@ -232,7 +232,7 @@ class ConversationActivityClient(BaseClient):
             List of TeamsChannelAccount objects representing the activity members
         """
         # TODO: Will be deprecated alongside accessor in ConversationClient
-        scoped_client = self._scoped_client(service_url, agentic_identity)
+        scoped_client = self._scoped_client(service_url, agent_user)
         if scoped_client is not self:
             return await scoped_client.get_members(conversation_id, activity_id)
 
@@ -248,7 +248,7 @@ class ConversationActivityClient(BaseClient):
         activity: ActivityParams,
         *,
         service_url: str | None = None,
-        agentic_identity: AgenticIdentity | None = None,
+        agent_user: AgentUser | None = None,
     ) -> SentActivity:
         """
         Create a new targeted activity in a conversation.
@@ -267,7 +267,7 @@ class ConversationActivityClient(BaseClient):
             The created activity
         """
         # TODO: Will be deprecated alongside accessor in ConversationClient
-        scoped_client = self._scoped_client(service_url, agentic_identity)
+        scoped_client = self._scoped_client(service_url, agent_user)
         if scoped_client is not self:
             return await scoped_client.create_targeted(conversation_id, activity)
 
@@ -294,7 +294,7 @@ class ConversationActivityClient(BaseClient):
         activity: ActivityParams,
         *,
         service_url: str | None = None,
-        agentic_identity: AgenticIdentity | None = None,
+        agent_user: AgentUser | None = None,
     ) -> SentActivity:
         """
         Update an existing targeted activity in a conversation.
@@ -312,7 +312,7 @@ class ConversationActivityClient(BaseClient):
             The updated activity
         """
         # TODO: Will be deprecated alongside accessor in ConversationClient
-        scoped_client = self._scoped_client(service_url, agentic_identity)
+        scoped_client = self._scoped_client(service_url, agent_user)
         if scoped_client is not self:
             return await scoped_client.update_targeted(conversation_id, activity_id, activity)
 
@@ -338,7 +338,7 @@ class ConversationActivityClient(BaseClient):
         activity_id: str,
         *,
         service_url: str | None = None,
-        agentic_identity: AgenticIdentity | None = None,
+        agent_user: AgentUser | None = None,
     ) -> None:
         """
         Delete a targeted activity from a conversation.
@@ -352,7 +352,7 @@ class ConversationActivityClient(BaseClient):
             activity_id: The ID of the activity to delete
         """
         # TODO: Will be deprecated alongside accessor in ConversationClient
-        scoped_client = self._scoped_client(service_url, agentic_identity)
+        scoped_client = self._scoped_client(service_url, agent_user)
         if scoped_client is not self:
             return await scoped_client.delete_targeted(conversation_id, activity_id)
 

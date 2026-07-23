@@ -150,12 +150,12 @@ class BotTokenClient(BaseClient):
         except (TypeError, ValueError):
             return cast(str | Awaitable[str], token_provider(scope, credentials.tenant_id))
 
-        accepts_agentic_identity = any(
-            parameter.kind == inspect.Parameter.VAR_KEYWORD or parameter.name == "agentic_identity"
+        accepts_agent_user = any(
+            parameter.kind == inspect.Parameter.VAR_KEYWORD or parameter.name == "agent_user"
             for parameter in parameters
         )
-        if accepts_agentic_identity:
-            return cast(str | Awaitable[str], token_provider(scope, credentials.tenant_id, agentic_identity=None))
+        if accepts_agent_user:
+            return cast(str | Awaitable[str], token_provider(scope, credentials.tenant_id, agent_user=None))
 
         positional_parameters = [
             parameter

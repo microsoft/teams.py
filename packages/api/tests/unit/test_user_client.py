@@ -43,8 +43,8 @@ class TestUserClient:
         calls = []
 
         class TestAuthProvider:
-            def token(self, *, scope=None, agentic_identity=None):
-                calls.append((scope, agentic_identity))
+            def token(self, *, scope=None, agent_user=None):
+                calls.append((scope, agent_user))
                 return "bot-token"
 
         client = ApiClient("https://test.service.url", mock_http_client, auth_provider=TestAuthProvider()).users

@@ -5,31 +5,29 @@ Licensed under the MIT License.
 
 from typing import Awaitable, Callable, Literal, Optional, Protocol, TypeAlias, Union, runtime_checkable
 
-from ..models import AgenticIdentity, CustomBaseModel
+from ..models import AgentUser, CustomBaseModel
 
 TokenScope: TypeAlias = Union[str, list[str]]
 TokenResult: TypeAlias = Union[str, Awaitable[str]]
 BasicTokenProvider: TypeAlias = Callable[[TokenScope, Optional[str]], TokenResult]
-_PositionalAgenticTokenProvider: TypeAlias = Callable[
-    [TokenScope, Optional[str], Optional[AgenticIdentity]], TokenResult
-]
+_PositionalAgentUserTokenProvider: TypeAlias = Callable[[TokenScope, Optional[str], Optional[AgentUser]], TokenResult]
 
 
 @runtime_checkable
-class _KeywordAgenticTokenProvider(Protocol):
+class _KeywordAgentUserTokenProvider(Protocol):
     def __call__(
         self,
         scope: TokenScope,
         tenant_id: Optional[str],
         *,
-        agentic_identity: Optional[AgenticIdentity] = None,
+        agent_user: Optional[AgentUser] = None,
     ) -> TokenResult: ...
 
 
 TokenProvider: TypeAlias = Union[
     BasicTokenProvider,
-    _PositionalAgenticTokenProvider,
-    _KeywordAgenticTokenProvider,
+    _PositionalAgentUserTokenProvider,
+    _KeywordAgentUserTokenProvider,
 ]
 
 
@@ -61,7 +59,7 @@ class TokenCredentials(CustomBaseModel):
     """
     The tenant ID.
     """
-    # (scope: string | string[], tenantId?: string, agenticIdentity?: AgenticIdentity) => string | Promise<string>
+    # (scope: string | string[], tenantId?: string, agentUser?: AgentUser) => string | Promise<string>
     token: TokenProvider
     """
     The token function.

@@ -10,7 +10,7 @@ import pytest
 from microsoft_teams.api.auth.cloud_environment import PUBLIC, with_overrides
 from microsoft_teams.api.clients import ApiClient
 from microsoft_teams.api.clients.reaction import ReactionClient
-from microsoft_teams.api.models import AgenticIdentity
+from microsoft_teams.api.models import AgentUser
 
 
 @pytest.mark.unit
@@ -77,22 +77,22 @@ class TestReactionClient:
         )
 
     @pytest.mark.asyncio
-    async def test_add_reaction_uses_agentic_identity(self, mock_http_client):
-        """Test adding a reaction with an agentic token."""
+    async def test_add_reaction_uses_agent_user(self, mock_http_client):
+        """Test adding a reaction with an agent user token."""
         calls = []
 
         class TestAuthProvider:
-            def token(self, *, scope=None, agentic_identity=None):
-                calls.append((scope, agentic_identity))
-                return "agentic-token"
+            def token(self, *, scope=None, agent_user=None):
+                calls.append((scope, agent_user))
+                return "agent-user-token"
 
-        cloud = with_overrides(PUBLIC, agentic_bot_scope="agentic-scope")
-        identity = AgenticIdentity("agentic-app-id", "agentic-user-id", tenant_id="tenant-id")
+        cloud = with_overrides(PUBLIC, agent_bot_scope="agent-user-scope")
+        identity = AgentUser("agent-app-instance-id", "agent-user-id", tenant_id="tenant-id")
         client = ApiClient(
             "https://test.service.url",
             mock_http_client,
             auth_provider=TestAuthProvider(),
-            agentic_identity=identity,
+            agent_user=identity,
             cloud=cloud,
         ).reactions
 
@@ -102,12 +102,12 @@ class TestReactionClient:
 
     @pytest.mark.asyncio
     async def test_add_reaction_uses_auth_provider_for_bot_token(self, mock_http_client):
-        """Test adding a reaction with an auth provider but no agentic identity."""
+        """Test adding a reaction with an auth provider but no agent user."""
         calls = []
 
         class TestAuthProvider:
-            def token(self, *, scope=None, agentic_identity=None):
-                calls.append((scope, agentic_identity))
+            def token(self, *, scope=None, agent_user=None):
+                calls.append((scope, agent_user))
                 return "bot-token"
 
         client = ApiClient("https://test.service.url", mock_http_client, auth_provider=TestAuthProvider()).reactions
@@ -153,18 +153,18 @@ class TestReactionClient:
         mock_delete.assert_called_once_with(expected_url)
 
     @pytest.mark.asyncio
-    async def test_delete_reaction_uses_scoped_agentic_identity(self, mock_http_client):
-        """Test removing a reaction with a scoped agentic token."""
+    async def test_delete_reaction_uses_scoped_agent_user(self, mock_http_client):
+        """Test removing a reaction with a scoped agent user token."""
         calls = []
 
         class TestAuthProvider:
-            def token(self, *, scope=None, agentic_identity=None):
-                calls.append((scope, agentic_identity))
-                return "agentic-token"
+            def token(self, *, scope=None, agent_user=None):
+                calls.append((scope, agent_user))
+                return "agent-user-token"
 
-        identity = AgenticIdentity("agentic-app-id", "agentic-user-id", tenant_id="tenant-id")
+        identity = AgentUser("agent-app-instance-id", "agent-user-id", tenant_id="tenant-id")
         client = ApiClient(
-            "https://test.service.url", mock_http_client, auth_provider=TestAuthProvider(), agentic_identity=identity
+            "https://test.service.url", mock_http_client, auth_provider=TestAuthProvider(), agent_user=identity
         ).reactions
 
         await client.delete("test_conversation_id", "test_activity_id", "like")

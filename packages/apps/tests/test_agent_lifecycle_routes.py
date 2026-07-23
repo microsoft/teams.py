@@ -23,8 +23,8 @@ def _identity_created() -> AgenticUserIdentityCreatedActivity:
         channel_id="agents",
         from_=Account(id="system", name="System"),
         conversation=ConversationAccount(id="conversation-1"),
-        recipient=Account(id="agentic-user-1"),
-        value=AgenticUserIdentityCreatedValue(agentic_user_id="agentic-user-1"),
+        recipient=Account(id="agent-user-1"),
+        value=AgenticUserIdentityCreatedValue(agent_user_id="agent-user-1"),
     )
 
 
@@ -34,8 +34,8 @@ def _enabled() -> AgenticUserEnabledActivity:
         channel_id="agents",
         from_=Account(id="system", name="System"),
         conversation=ConversationAccount(id="conversation-1"),
-        recipient=Account(id="agentic-user-1"),
-        value=AgenticUserEnabledValue(agentic_user_id="agentic-user-1", version=6),
+        recipient=Account(id="agent-user-1"),
+        value=AgenticUserEnabledValue(agent_user_id="agent-user-1", version=6),
     )
 
 
@@ -45,9 +45,9 @@ def _manager_updated() -> AgenticUserManagerUpdatedActivity:
         channel_id="agents",
         from_=Account(id="system", name="System"),
         conversation=ConversationAccount(id="conversation-1"),
-        recipient=Account(id="agentic-user-1"),
+        recipient=Account(id="agent-user-1"),
         value=AgenticUserManagerUpdatedValue(
-            agentic_user_id="agentic-user-1", manager=AgentLifecycleManagerRef(manager_id="manager-1")
+            agent_user_id="agent-user-1", manager=AgentLifecycleManagerRef(manager_id="manager-1")
         ),
     )
 
@@ -63,7 +63,7 @@ def test_general_agent_lifecycle_route_matches_every_variant() -> None:
 @pytest.mark.parametrize(
     "route_key,activity_factory",
     [
-        ("agentic_user_identity_created", _identity_created),
+        ("agent_user_identity_created", _identity_created),
         ("agentic_user_enabled", _enabled),
         ("agentic_user_manager_updated", _manager_updated),
     ],
@@ -76,7 +76,7 @@ def test_variant_route_matches_only_its_own_variant(route_key, activity_factory)
     other_keys = [
         key
         for key in (
-            "agentic_user_identity_created",
+            "agent_user_identity_created",
             "agentic_user_enabled",
             "agentic_user_manager_updated",
         )
