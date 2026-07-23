@@ -18,7 +18,6 @@ from microsoft_teams.api import (
     CardAction,
     CardActionType,
     ConversationReference,
-    CreateConversationParams,
     GetBotSignInResourceParams,
     GetUserTokenParams,
     JsonWebToken,
@@ -339,20 +338,6 @@ class ActivityContext(Generic[T]):
             ms_app_id=self.app_id,
         )
 
-        # Check if this is a group conversation
-        # if it's a group conversation, then we create a 1:1 conversation with the user
-        # and send the OAuth card there since group oauth currently isn't released.
-        conversation_id = self.conversation_ref.conversation.id
-        if self.activity.conversation.is_group:
-            one_on_one_conversation = await self.api.conversations.create(
-                CreateConversationParams(
-                    tenant_id=self.activity.conversation.tenant_id,
-                    members=[self.activity.from_],
-                )
-            )
-            conversation_id = one_on_one_conversation.id
-            await self.send(MessageActivityInput(text=oauth_card_text))
-
         # Encode state
         state = base64.b64encode(json.dumps(token_exchange_state.model_dump()).encode()).decode()
 
@@ -360,13 +345,25 @@ class ActivityContext(Generic[T]):
         resource_params = GetBotSignInResourceParams(state=state)
         resource = await self.api._bots.sign_in.get_resource(resource_params)  # pyright: ignore[reportPrivateUsage]
 
-        payload = MessageActivityInput(recipient=self.activity.from_).add_attachments(
+        # In group conversations (group chats and channels) the OAuth card is sent as a
+        # targeted message so it is visible only to the requesting user rather than the
+        # whole conversation. Channels cannot perform the silent SSO token exchange, so
+        # the token exchange resource is omitted there to render the sign-in button
+        # (OAuth card flow) instead of attempting an exchange that would fail.
+        is_group = self.activity.conversation.is_group is True
+        is_channel = self.activity.conversation.conversation_type == "channel"
+
+        recipient = self.activity.from_.model_copy()
+        if is_group:
+            recipient.is_targeted = True
+
+        payload = MessageActivityInput(recipient=recipient).add_attachments(
             card_attachment(
                 attachment=OAuthCardAttachment(
                     content=OAuthCard(
                         text=oauth_card_text,
                         connection_name=connection_name,
-                        token_exchange_resource=resource.token_exchange_resource,
+                        token_exchange_resource=None if is_channel else resource.token_exchange_resource,
                         token_post_resource=resource.token_post_resource,
                         buttons=[
                             CardAction(
@@ -380,7 +377,6 @@ class ActivityContext(Generic[T]):
             )
         )
 
-        self.conversation_ref.conversation.id = conversation_id
         await self.send(payload, self.conversation_ref)
 
         return None

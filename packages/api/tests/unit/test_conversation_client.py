@@ -449,7 +449,7 @@ class TestConversationActivityOperations:
         )
         assert (
             str(request_capture._capture.last_request.url)
-            == "https://override.service.url/v3/conversations/test_conversation_id/activities/activity-id"
+            == "https://override.service.url/v3/conversations/test_conversation_id/activities"
         )
         assert "authorization" in request_capture._capture.last_request.headers
 
@@ -498,7 +498,7 @@ class TestConversationActivityOperations:
         await activities.reply("activity-id", mock_activity, service_url=service_url)
         assert (
             str(request_capture._capture.last_request.url)
-            == "https://override.service.url/v3/conversations/test_conversation_id/activities/activity-id"
+            == "https://override.service.url/v3/conversations/test_conversation_id/activities"
         )
 
         await activities.delete("activity-id", service_url=service_url)
@@ -856,10 +856,7 @@ class TestConversationActivityOperations:
         # Validate request details
         last_request = request_capture._capture.last_request
         assert last_request.method == "POST"
-        assert (
-            str(last_request.url)
-            == f"https://test.service.url/v3/conversations/{conversation_id}/activities/{activity_id}"
-        )
+        assert str(last_request.url) == f"https://test.service.url/v3/conversations/{conversation_id}/activities"
 
         # Validate request payload - check that replyToId was added
         payload = json.loads(last_request.content)
@@ -1192,7 +1189,7 @@ class TestConversationClientFlattened:
         assert result is not None
         last_request = request_capture._capture.last_request
         assert last_request.method == "POST"
-        assert str(last_request.url) == "https://test.service.url/v3/conversations/conv-1/activities/act-1"
+        assert str(last_request.url) == "https://test.service.url/v3/conversations/conv-1/activities"
         payload = json.loads(last_request.content)
         assert payload["replyToId"] == "act-1"
 

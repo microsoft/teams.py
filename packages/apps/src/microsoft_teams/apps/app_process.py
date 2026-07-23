@@ -66,6 +66,7 @@ class ActivityProcessor:
         auth_provider: AppAuthProvider,
         api_client_settings: Optional[ApiClientSettings],
         cloud: CloudEnvironment = PUBLIC,
+        fetch_user_token: bool = True,
     ) -> None:
         self.router = router
         self.id = id
@@ -76,6 +77,7 @@ class ActivityProcessor:
         self.auth_provider = auth_provider
         self.api_client_settings = api_client_settings
         self.cloud = cloud
+        self.fetch_user_token = fetch_user_token
 
         # This will be set after the EventManager is initialized due to
         # a circular dependency
@@ -114,24 +116,27 @@ class ActivityProcessor:
             agentic_identity=activity.recipient.agentic_identity,
         )
 
-        # Check if user is signed in
+        # Check if user is signed in.
+        # Skipped unless configured (see App fetch_user_token / OAuth auto-detection) to avoid
+        # a wasted user-token request on every activity when the app never reads ctx.user_graph.
         is_signed_in = False
         user_token: Optional[str] = None
-        try:
-            user_token_res = await api_client.users.get_token(
-                GetUserTokenParams(
-                    channel_id=activity.channel_id,
-                    user_id=activity.from_.id,
-                    connection_name=self.default_connection_name,
+        if self.fetch_user_token:
+            try:
+                user_token_res = await api_client.users.get_token(
+                    GetUserTokenParams(
+                        channel_id=activity.channel_id,
+                        user_id=activity.from_.id,
+                        connection_name=self.default_connection_name,
+                    )
                 )
-            )
 
-            user_token = user_token_res.token
-            is_signed_in = True
-        except Exception:
-            # User token not available
-            logger.debug("No user token available")
-            pass
+                user_token = user_token_res.token
+                is_signed_in = True
+            except Exception:
+                # User token not available
+                logger.debug("No user token available")
+                pass
 
         tenant_id = extract_tenant_id(activity)
 

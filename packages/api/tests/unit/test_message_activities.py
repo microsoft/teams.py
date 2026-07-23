@@ -5,7 +5,7 @@ Licensed under the MIT License.
 # pyright: basic
 
 from datetime import datetime
-from typing import cast
+from typing import Any, cast
 
 from microsoft_teams.api.activities import ActivityTypeAdapter
 from microsoft_teams.api.activities.message import (
@@ -393,14 +393,29 @@ class TestMessageActivity:
         card = AdaptiveCard()
         activity.add_card(card)
 
-        # Set properties
-        activity.delivery_mode = "notification"
-
         # Verify final state
         assert activity.text and activity.text.find("Meeting with <at>Alice</at> and <at>Bob</at> scheduled.") >= 0
         assert activity.entities and len(activity.entities) == 2  # Two mentions
         assert activity.attachments and len(activity.attachments) == 1
-        assert activity.delivery_mode == "notification"
+
+    def test_message_activity_input_removed_fields_serialize_as_extras(self):
+        """Test removed input fields can still be provided as serializable extras"""
+        extras: dict[str, Any] = {
+            "summary": "Fallback text",
+            "value": {"custom": "data"},
+            "deliveryMode": "notification",
+        }
+        activity = MessageActivityInput(text="Hello", **extras)
+
+        assert "summary" not in MessageActivityInput.model_fields
+        assert "value" not in MessageActivityInput.model_fields
+        assert "delivery_mode" not in MessageActivityInput.model_fields
+
+        data = activity.model_dump(by_alias=True, exclude_none=True)
+
+        assert data["summary"] == "Fallback text"
+        assert data["value"] == {"custom": "data"}
+        assert data["deliveryMode"] == "notification"
 
     def test_is_recipient_mentioned_no_entities_received(self):
         """Test MessageActivity.is_recipient_mentioned when no entities exist"""

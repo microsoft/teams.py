@@ -155,6 +155,11 @@ class TestOauthHandlers:
             "sign_in", SignInEvent(activity_ctx=mock_context, token_response=mock_token_response)
         )
 
+        # Verify the context is marked signed-in with the exchanged token so
+        # "sign_in" event handlers can immediately use ctx.user_token / ctx.user_graph.
+        assert mock_context.is_signed_in is True
+        assert mock_context.user_token == "access-token"
+
         # Verify response
         assert result is None
 
@@ -423,6 +428,11 @@ class TestOauthHandlers:
         oauth_handlers.event_emitter.emit.assert_called_once_with(
             "sign_in", SignInEvent(activity_ctx=mock_context, token_response=mock_token_response)
         )
+
+        # Verify the context is marked signed-in with the verified token so
+        # "sign_in" event handlers can immediately use ctx.user_token / ctx.user_graph.
+        assert mock_context.is_signed_in is True
+        assert mock_context.user_token == "access-token"
 
         # Verify response
         assert result is None

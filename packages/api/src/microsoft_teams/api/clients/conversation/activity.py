@@ -170,7 +170,7 @@ class ConversationActivityClient(BaseClient):
         activity_json = activity.model_dump(by_alias=True, exclude_none=True)
         activity_json["replyToId"] = activity_id
         response = await self.http.post(
-            f"{self._get_service_url(service_url)}/v3/conversations/{conversation_id}/activities/{activity_id}",
+            f"{self._get_service_url(service_url)}/v3/conversations/{conversation_id}/activities",
             json=activity_json,
             _metadata=self._create_activity_telemetry_metadata(
                 API_OUTBOUND_OPERATIONS.reply,

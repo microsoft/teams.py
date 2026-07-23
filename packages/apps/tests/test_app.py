@@ -1129,7 +1129,38 @@ class TestMergeAppOptions:
         from microsoft_teams.apps.options import merge_app_options_with_defaults
 
         result = merge_app_options_with_defaults(client_id="test-id")
-        assert result.get("client_id") == "test-id"
-        assert result.get("dangerously_allow_unauthenticated_requests") is False
-        assert result.get("skip_auth") is False
-        assert result.get("default_connection_name") == "graph"
+        assert result["client_id"] == "test-id"
+        assert result["dangerously_allow_unauthenticated_requests"] is False
+        assert result["skip_auth"] is False
+        assert result["default_connection_name"] == "graph"
+
+
+class TestFetchUserTokenResolution:
+    """Auto-detection and explicit override of fetch_user_token via InternalAppOptions."""
+
+    def test_disabled_by_default_when_no_oauth_configured(self):
+        from microsoft_teams.apps.options import AppOptions, InternalAppOptions
+
+        options = InternalAppOptions.from_typeddict(AppOptions())
+        assert options.fetch_user_token is False
+
+    def test_auto_enabled_when_connection_name_configured(self):
+        from microsoft_teams.apps.options import AppOptions, InternalAppOptions
+
+        options = InternalAppOptions.from_typeddict(AppOptions(default_connection_name="my-connection"))
+        assert options.fetch_user_token is True
+
+    def test_explicit_true_overrides_auto_detection(self):
+        from microsoft_teams.apps.options import AppOptions, InternalAppOptions
+
+        options = InternalAppOptions.from_typeddict(AppOptions(fetch_user_token=True))
+        assert options.fetch_user_token is True
+
+    def test_explicit_false_overrides_auto_detection(self):
+        from microsoft_teams.apps.options import AppOptions, InternalAppOptions
+
+        options = InternalAppOptions.from_typeddict(
+            AppOptions(default_connection_name="my-connection", fetch_user_token=False)
+        )
+        assert options.fetch_user_token is False
+        assert options.fetch_user_token is False

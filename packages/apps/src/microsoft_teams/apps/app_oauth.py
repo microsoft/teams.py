@@ -79,6 +79,8 @@ class OauthHandlers:
                             ),
                         )
                     )
+                    ctx.is_signed_in = True
+                    ctx.user_token = token.token
                     self.event_emitter.emit("sign_in", SignInEvent(activity_ctx=ctx, token_response=token))
                     span.set_attribute(APP_ATTRIBUTE_NAMES.oauth_callback_invoked, True)
                     result = APP_OAUTH_RESULTS.success
@@ -253,6 +255,8 @@ class OauthHandlers:
                             code=activity.value.state,
                         )
                     )
+                    ctx.is_signed_in = True
+                    ctx.user_token = token.token
                     self.event_emitter.emit("sign_in", SignInEvent(activity_ctx=ctx, token_response=token))
                     span.set_attribute(APP_ATTRIBUTE_NAMES.oauth_callback_invoked, True)
                     logger.debug(

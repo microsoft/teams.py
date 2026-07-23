@@ -100,6 +100,15 @@ class AppOptions(TypedDict, total=False):
     default_connection_name: Optional[str]
     """The OAuth connection name to use for authentication. Defaults to 'graph'."""
 
+    fetch_user_token: Optional[bool]
+    """Whether to eagerly look up the user's OAuth token on every inbound activity.
+    The token is used to compute ``ctx.is_signed_in`` and ``ctx.user_token``, and to authenticate
+    ``ctx.user_graph`` (which is always constructed regardless of this setting).
+    When left unset, this is auto-detected: enabled only when an OAuth connection is
+    explicitly configured via ``default_connection_name``, so apps that never use user OAuth
+    do not pay for a wasted token request on every turn.
+    Set explicitly to ``True`` or ``False`` to override the auto-detection."""
+
     # API Client Settings
     api_client_settings: Optional[ApiClientSettings]
     """API client settings used for overriding."""
@@ -131,6 +140,12 @@ class InternalAppOptions:
     """Whether to accept incoming requests without JWT validation."""
     default_connection_name: str = "graph"
     """The OAuth connection name to use for authentication."""
+    fetch_user_token: bool = False
+    """When True, eagerly looks up the user's OAuth token on every inbound activity.
+    The token is used to compute ``ctx.is_signed_in`` and ``ctx.user_token``, and to authenticate
+    ``ctx.user_graph`` (which is always constructed regardless of this setting).
+    Resolved by ``from_typeddict``: auto-enabled when an OAuth connection is explicitly configured,
+    unless overridden by an explicit ``fetch_user_token`` in ``AppOptions``."""
     plugins: List[PluginBase] = field(default_factory=lambda: [])
     api_client_settings: Optional[ApiClientSettings] = None
     """API client settings used for overriding."""
@@ -198,6 +213,15 @@ class InternalAppOptions:
                     _parse_bool_env_var(DANGEROUSLY_ALLOW_UNAUTHENTICATED_REQUESTS_ENV_VAR) or False
                 )
         kwargs["dangerously_allow_unauthenticated_requests"] = dangerously_allow_unauthenticated_requests
+
+        # Resolve whether to eagerly fetch the user's OAuth token on every inbound activity
+        # (used only to populate ctx.is_signed_in / ctx.user_token / ctx.user_graph).
+        # An explicit fetch_user_token wins; otherwise auto-detect based on whether an OAuth
+        # connection was explicitly configured, so apps that never use user OAuth don't pay
+        # for a wasted token request on every turn.
+        if options.get("fetch_user_token") is None:
+            kwargs["fetch_user_token"] = options.get("default_connection_name") is not None
+
         return cls(**kwargs)
 
 
