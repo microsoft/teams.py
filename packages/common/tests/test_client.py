@@ -2,10 +2,19 @@
 Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
+# pyright: basic
 
 import httpx
 import pytest
-from microsoft_teams.common.http import Client, ClientOptions, Interceptor
+from microsoft_teams.common.http import (
+    Client,
+    ClientOptions,
+    Interceptor,
+    InterceptorRequestContext,
+    InterceptorResponseContext,
+    MiddlewareContext,
+    MiddlewareNext,
+)
 from microsoft_teams.common.http.client_token import StringLike
 
 
@@ -31,6 +40,18 @@ class DummySyncInterceptor:
 
     def response(self, ctx):
         self.response_called = True
+
+
+class RecordingMiddleware:
+    def __init__(self, name: str, events: list[str]) -> None:
+        self.name = name
+        self.events = events
+
+    async def send(self, context: MiddlewareContext, next: MiddlewareNext) -> httpx.Response:
+        self.events.append(f"{self.name}:before:{context.method}")
+        response = await next()
+        self.events.append(f"{self.name}:after:{response.status_code}")
+        return response
 
 
 class CustomStringLike(StringLike):
@@ -119,6 +140,237 @@ async def test_clone_merges_options_and_interceptors(mock_transport):
     assert interceptor2.request_called
 
 
+def test_interceptors_returns_read_only_copy():
+    interceptor1 = DummyAsyncInterceptor()
+    client = Client(ClientOptions(interceptors=[interceptor1]))
+
+    assert client.interceptors == (interceptor1,)
+
+
+def test_middlewares_returns_read_only_copy():
+    middleware = RecordingMiddleware("middleware", [])
+    client = Client()
+    client.use(middleware)
+
+    assert client.middlewares == (middleware,)
+
+
+def test_clone_copies_interceptor_list_independently():
+    interceptor1 = DummyAsyncInterceptor()
+    client = Client(ClientOptions(interceptors=[interceptor1]))
+
+    clone = client.clone()
+    interceptor2 = DummyAsyncInterceptor()
+    clone.use_interceptor(interceptor2)
+
+    assert client.interceptors == (interceptor1,)
+    assert clone.interceptors == (interceptor1, interceptor2)
+    assert client.interceptors is not clone.interceptors
+
+
+def test_clone_copies_middleware_list_independently():
+    middleware1 = RecordingMiddleware("one", [])
+    client = Client()
+    client.use(middleware1)
+
+    clone = client.clone()
+    middleware2 = RecordingMiddleware("two", [])
+    clone.use(middleware2)
+
+    assert client.middlewares == (middleware1,)
+    assert clone.middlewares == (middleware1, middleware2)
+    assert client.middlewares is not clone.middlewares
+
+
+def test_middlewares_support_deduping_by_inspection():
+    middleware = RecordingMiddleware("one", [])
+    client = Client()
+    client.use(middleware)
+
+    if not any(isinstance(existing, RecordingMiddleware) for existing in client.middlewares):
+        client.use(RecordingMiddleware("duplicate", []))
+
+    assert client.middlewares == (middleware,)
+
+
+def test_clone_reuses_underlying_http_client_when_requested():
+    client = Client(ClientOptions(base_url="https://example.com"))
+
+    clone = client.clone(share_http=True)
+
+    assert clone is not client
+    assert clone.http is client.http
+
+
+@pytest.mark.asyncio
+async def test_middleware_runs_in_insertion_order_with_first_outermost():
+    events: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        events.append("terminal")
+        return httpx.Response(200, json={"ok": True}, headers={"content-type": "application/json"})
+
+    client = Client(ClientOptions(base_url="https://example.com"))
+    client.http._transport = httpx.MockTransport(handler)
+    client.use(RecordingMiddleware("one", events))
+    client.use(RecordingMiddleware("two", events))
+
+    await client.get("/ordered")
+
+    assert events == [
+        "one:before:GET",
+        "two:before:GET",
+        "terminal",
+        "two:after:200",
+        "one:after:200",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_middleware_can_mutate_headers_and_kwargs():
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "header": request.headers["x-middleware"],
+                "extension": request.extensions["middleware"],
+            },
+            headers={"content-type": "application/json"},
+        )
+
+    class MutatingMiddleware:
+        async def send(self, context: MiddlewareContext, next: MiddlewareNext) -> httpx.Response:
+            context.headers["X-Middleware"] = "header-value"
+            context.kwargs["extensions"] = {"middleware": "extension-value"}
+            return await next()
+
+    client = Client(ClientOptions(base_url="https://example.com"))
+    client.http._transport = httpx.MockTransport(handler)
+    client.use(MutatingMiddleware())
+
+    response = await client.get("/mutated")
+
+    assert response.json() == {"header": "header-value", "extension": "extension-value"}
+
+
+@pytest.mark.asyncio
+async def test_middleware_can_short_circuit_response():
+    class ShortCircuitMiddleware:
+        def send(self, context: MiddlewareContext, next: MiddlewareNext) -> httpx.Response:
+            return httpx.Response(204)
+
+    client = Client(ClientOptions(base_url="https://example.com"))
+    client.http._transport = httpx.MockTransport(lambda request: httpx.Response(500))
+    client.use(ShortCircuitMiddleware())
+
+    response = await client.get("/short-circuit")
+
+    assert response.status_code == 204
+
+
+@pytest.mark.asyncio
+async def test_middleware_observes_and_propagates_terminal_errors():
+    events: list[str] = []
+    error = RuntimeError("boom")
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise error
+
+    class ErrorRecordingMiddleware:
+        async def send(self, context: MiddlewareContext, next: MiddlewareNext) -> httpx.Response:
+            try:
+                return await next()
+            except Exception as exception:
+                events.append(str(exception))
+                raise
+
+    client = Client(ClientOptions(base_url="https://example.com"))
+    client.http._transport = httpx.MockTransport(handler)
+    client.use(ErrorRecordingMiddleware())
+
+    with pytest.raises(RuntimeError, match="boom"):
+        await client.get("/error")
+
+    assert events == ["boom"]
+
+
+@pytest.mark.asyncio
+async def test_middleware_runs_around_existing_interceptors(mock_transport):
+    events: list[str] = []
+
+    class RecordingInterceptor(Interceptor):
+        def request(self, ctx: InterceptorRequestContext) -> None:
+            events.append("interceptor:request")
+
+        def response(self, ctx: InterceptorResponseContext) -> None:
+            events.append("interceptor:response")
+
+    class EventMiddleware:
+        async def send(self, context: MiddlewareContext, next: MiddlewareNext) -> httpx.Response:
+            events.append("middleware:before")
+            response = await next()
+            events.append("middleware:after")
+            return response
+
+    client = Client(ClientOptions(base_url="https://example.com", interceptors=[RecordingInterceptor()]))
+    client.http._transport = mock_transport
+    client.use(EventMiddleware())
+
+    await client.get("/with-interceptors")
+
+    assert events == ["middleware:before", "interceptor:request", "interceptor:response", "middleware:after"]
+
+
+@pytest.mark.asyncio
+async def test_request_metadata_is_not_sent_over_wire():
+    captured: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured.append(request)
+        return httpx.Response(200, json={"ok": True}, headers={"content-type": "application/json"})
+
+    class MetadataMiddleware:
+        def __init__(self) -> None:
+            self.metadata: object | None = None
+
+        async def send(self, context: MiddlewareContext, next: MiddlewareNext) -> httpx.Response:
+            self.metadata = context.metadata
+            return await next()
+
+    metadata = object()
+    middleware = MetadataMiddleware()
+    client = Client(ClientOptions(base_url="https://example.com"))
+    client.http._transport = httpx.MockTransport(handler)
+    client.use(middleware)
+
+    await client.get("/metadata", _metadata=metadata)
+
+    assert middleware.metadata is metadata
+    request = captured[0]
+    assert "_metadata" not in str(request.url)
+    assert "_metadata" not in request.headers
+    assert "_metadata" not in request.extensions
+
+
+def test_clone_uses_current_token_value():
+    client = Client(ClientOptions(token="original-token"))
+    client.token = None
+
+    clone = client.clone()
+
+    assert clone.token is None
+
+
+def test_clone_can_clear_interceptors_with_empty_override():
+    interceptor1 = DummyAsyncInterceptor()
+    client = Client(ClientOptions(interceptors=[interceptor1]))
+
+    clone = client.clone(ClientOptions(interceptors=[]))
+
+    assert client.interceptors == (interceptor1,)
+    assert clone.interceptors == ()
+
+
 @pytest.mark.parametrize(
     "token,expected",
     [
@@ -169,6 +421,34 @@ async def test_async_none_token(mock_transport):
     resp = await client.get("/token-test")
     data = resp.json()
     assert "authorization" not in data["headers"]
+
+
+@pytest.mark.asyncio
+async def test_explicit_authorization_header_wins_over_default_token(mock_transport):
+    client = Client(ClientOptions(base_url="https://example.com", token="default-token"))
+    client.http._transport = mock_transport
+
+    resp = await client.get("/token-test", headers={"Authorization": "******"})
+    data = resp.json()
+
+    assert data["headers"]["authorization"] == "******"
+
+
+@pytest.mark.asyncio
+async def test_default_authorization_header_bypasses_token_resolution(mock_transport):
+    client = Client(
+        ClientOptions(
+            base_url="https://example.com",
+            headers={"Authorization": "******"},
+            token=failing_token_factory,
+        )
+    )
+    client.http._transport = mock_transport
+
+    resp = await client.get("/token-test")
+    data = resp.json()
+
+    assert data["headers"]["authorization"] == "******"
 
 
 # Test token factory that raises an exception

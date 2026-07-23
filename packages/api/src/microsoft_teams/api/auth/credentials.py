@@ -3,9 +3,34 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from typing import Awaitable, Callable, Literal, Optional, Union
+from typing import Awaitable, Callable, Literal, Optional, Protocol, TypeAlias, Union, runtime_checkable
 
-from ..models import CustomBaseModel
+from ..models import AgenticUser, CustomBaseModel
+
+TokenScope: TypeAlias = Union[str, list[str]]
+TokenResult: TypeAlias = Union[str, Awaitable[str]]
+BasicTokenProvider: TypeAlias = Callable[[TokenScope, Optional[str]], TokenResult]
+_PositionalAgenticUserTokenProvider: TypeAlias = Callable[
+    [TokenScope, Optional[str], Optional[AgenticUser]], TokenResult
+]
+
+
+@runtime_checkable
+class _KeywordAgenticUserTokenProvider(Protocol):
+    def __call__(
+        self,
+        scope: TokenScope,
+        tenant_id: Optional[str],
+        *,
+        agentic_user: Optional[AgenticUser] = None,
+    ) -> TokenResult: ...
+
+
+TokenProvider: TypeAlias = Union[
+    BasicTokenProvider,
+    _PositionalAgenticUserTokenProvider,
+    _KeywordAgenticUserTokenProvider,
+]
 
 
 class ClientCredentials(CustomBaseModel):
@@ -36,8 +61,8 @@ class TokenCredentials(CustomBaseModel):
     """
     The tenant ID.
     """
-    # (scope: string | string[], tenantId?: string) => string | Promise<string>
-    token: Callable[[Union[str, list[str]], Optional[str]], Union[str, Awaitable[str]]]
+    # (scope: string | string[], tenantId?: string, agenticUser?: AgenticUser) => string | Promise<string>
+    token: TokenProvider
     """
     The token function.
     """

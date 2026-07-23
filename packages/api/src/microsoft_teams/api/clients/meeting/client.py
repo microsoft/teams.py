@@ -3,6 +3,8 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
+from __future__ import annotations
+
 from typing import Optional, Union
 
 from microsoft_teams.common.http import Client, ClientOptions
@@ -43,10 +45,17 @@ class MeetingClient(BaseClient):
         Returns:
             The meeting information.
         """
-        response = await self.http.get(f"{self.service_url}/v1/meetings/{id}")
+        response = await self.http.get(
+            f"{self._get_service_url()}/v1/meetings/{id}",
+        )
         return MeetingInfo.model_validate(response.json())
 
-    async def get_participant(self, meeting_id: str, id: str, tenant_id: str) -> MeetingParticipant:
+    async def get_participant(
+        self,
+        meeting_id: str,
+        id: str,
+        tenant_id: str,
+    ) -> MeetingParticipant:
         """
         Retrieves information about a specific participant in a meeting.
 
@@ -58,12 +67,14 @@ class MeetingClient(BaseClient):
         Returns:
             MeetingParticipant: The meeting participant information.
         """
-        url = f"{self.service_url}/v1/meetings/{meeting_id}/participants/{id}?tenantId={tenant_id}"
+        url = f"{self._get_service_url()}/v1/meetings/{meeting_id}/participants/{id}?tenantId={tenant_id}"
         response = await self.http.get(url)
         return MeetingParticipant.model_validate(response.json())
 
     async def send_notification(
-        self, meeting_id: str, params: MeetingNotificationParams
+        self,
+        meeting_id: str,
+        params: MeetingNotificationParams,
     ) -> Optional[MeetingNotificationResponse]:
         """
         Send a targeted meeting notification to participants.
@@ -80,7 +91,7 @@ class MeetingClient(BaseClient):
             with per-recipient failure details on partial success.
         """
         response = await self.http.post(
-            f"{self.service_url}/v1/meetings/{meeting_id}/notification",
+            f"{self._get_service_url()}/v1/meetings/{meeting_id}/notification",
             json=params.model_dump(by_alias=True, exclude_none=True),
         )
         if not response.text:

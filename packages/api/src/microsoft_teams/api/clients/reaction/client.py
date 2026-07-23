@@ -50,7 +50,8 @@ class ReactionClient(BaseClient):
         """
         # TODO: Will be deprecated alongside accessor in ConversationClient
         url = (
-            f"{self.service_url}/v3/conversations/{conversation_id}/activities/{activity_id}/reactions/{reaction_type}"
+            f"{self._get_service_url()}/v3/conversations/{conversation_id}"
+            f"/activities/{activity_id}/reactions/{reaction_type}"
         )
         await self.http.put(url)
 
@@ -70,6 +71,7 @@ class ReactionClient(BaseClient):
         """
         # TODO: Will be deprecated alongside accessor in ConversationClient
         url = (
-            f"{self.service_url}/v3/conversations/{conversation_id}/activities/{activity_id}/reactions/{reaction_type}"
+            f"{self._get_service_url()}/v3/conversations/{conversation_id}"
+            f"/activities/{activity_id}/reactions/{reaction_type}"
         )
         await self.http.delete(url)

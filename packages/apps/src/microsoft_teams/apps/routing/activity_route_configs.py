@@ -8,6 +8,14 @@ from typing import Callable, Dict, Optional, Type, cast
 
 from microsoft_teams.api import (
     ActivityBase,
+    AgenticUserDeletedActivity,
+    AgenticUserDisabledActivity,
+    AgenticUserEnabledActivity,
+    AgenticUserIdentityCreatedActivity,
+    AgenticUserIdentityUpdatedActivity,
+    AgenticUserManagerUpdatedActivity,
+    AgenticUserUndeletedActivity,
+    AgenticUserWorkloadOnboardingUpdatedActivity,
     CommandResultActivity,
     CommandSendActivity,
     ConfigFetchInvokeActivity,
@@ -64,6 +72,14 @@ def _conversation_update_has_event_type(activity: ActivityBase, event_type: str)
         and activity.channel_data is not None
         and activity.channel_data.event_type == event_type
     )
+
+
+def _is_agent_lifecycle(activity: ActivityBase) -> bool:
+    return activity.type == "event" and getattr(activity, "name", None) == "agentLifecycle"
+
+
+def _is_agent_lifecycle_variant(activity: ActivityBase, value_type: str) -> bool:
+    return _is_agent_lifecycle(activity) and getattr(activity, "value_type", None) == value_type
 
 
 @dataclass(frozen=True)
@@ -285,6 +301,70 @@ ACTIVITY_ROUTES: Dict[str, ActivityConfig] = {
         input_model=MeetingParticipantLeaveEventActivity,
         selector=lambda activity: activity.type == "event"
         and cast(EventActivity, activity).name == "application/vnd.microsoft.meetingParticipantLeave",
+        output_model=None,
+    ),
+    # Agent 365 agentLifecycle event activities
+    "agent_lifecycle": ActivityConfig(
+        name="agent_lifecycle",
+        method_name="on_agent_lifecycle",
+        input_model="AgentLifecycleEventActivity",
+        selector=_is_agent_lifecycle,
+        output_model=None,
+    ),
+    "agentic_user_identity_created": ActivityConfig(
+        name="agentic_user_identity_created",
+        method_name="on_agentic_user_identity_created",
+        input_model=AgenticUserIdentityCreatedActivity,
+        selector=lambda activity: _is_agent_lifecycle_variant(activity, "AgenticUserIdentityCreated"),
+        output_model=None,
+    ),
+    "agentic_user_identity_updated": ActivityConfig(
+        name="agentic_user_identity_updated",
+        method_name="on_agentic_user_identity_updated",
+        input_model=AgenticUserIdentityUpdatedActivity,
+        selector=lambda activity: _is_agent_lifecycle_variant(activity, "AgenticUserIdentityUpdated"),
+        output_model=None,
+    ),
+    "agentic_user_manager_updated": ActivityConfig(
+        name="agentic_user_manager_updated",
+        method_name="on_agentic_user_manager_updated",
+        input_model=AgenticUserManagerUpdatedActivity,
+        selector=lambda activity: _is_agent_lifecycle_variant(activity, "AgenticUserManagerUpdated"),
+        output_model=None,
+    ),
+    "agentic_user_enabled": ActivityConfig(
+        name="agentic_user_enabled",
+        method_name="on_agentic_user_enabled",
+        input_model=AgenticUserEnabledActivity,
+        selector=lambda activity: _is_agent_lifecycle_variant(activity, "AgenticUserEnabled"),
+        output_model=None,
+    ),
+    "agentic_user_disabled": ActivityConfig(
+        name="agentic_user_disabled",
+        method_name="on_agentic_user_disabled",
+        input_model=AgenticUserDisabledActivity,
+        selector=lambda activity: _is_agent_lifecycle_variant(activity, "AgenticUserDisabled"),
+        output_model=None,
+    ),
+    "agentic_user_deleted": ActivityConfig(
+        name="agentic_user_deleted",
+        method_name="on_agentic_user_deleted",
+        input_model=AgenticUserDeletedActivity,
+        selector=lambda activity: _is_agent_lifecycle_variant(activity, "AgenticUserDeleted"),
+        output_model=None,
+    ),
+    "agentic_user_undeleted": ActivityConfig(
+        name="agentic_user_undeleted",
+        method_name="on_agentic_user_undeleted",
+        input_model=AgenticUserUndeletedActivity,
+        selector=lambda activity: _is_agent_lifecycle_variant(activity, "AgenticUserUndeleted"),
+        output_model=None,
+    ),
+    "agentic_user_workload_onboarding_updated": ActivityConfig(
+        name="agentic_user_workload_onboarding_updated",
+        method_name="on_agentic_user_workload_onboarding_updated",
+        input_model=AgenticUserWorkloadOnboardingUpdatedActivity,
+        selector=lambda activity: _is_agent_lifecycle_variant(activity, "AgenticUserWorkloadOnboardingUpdated"),
         output_model=None,
     ),
     # Invoke Activities with specific names and response types

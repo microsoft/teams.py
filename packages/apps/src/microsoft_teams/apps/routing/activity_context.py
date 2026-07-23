@@ -40,7 +40,9 @@ from microsoft_teams.common import Storage
 from microsoft_teams.common.experimental import ExperimentalWarning
 from microsoft_teams.common.http.client_token import Token
 
-from ..activity_sender import ActivitySender
+from ..activity_send import send_or_update_activity
+from ..http_stream import HttpStream
+from ..plugins.streamer import StreamerProtocol
 from ..utils import create_graph_client
 
 if TYPE_CHECKING:
@@ -85,7 +87,6 @@ class ActivityContext(Generic[T]):
         conversation_ref: ConversationReference,
         is_signed_in: bool,
         connection_name: str,
-        activity_sender: ActivitySender,
         app_token: Token,
         cloud: CloudEnvironment = PUBLIC,
     ):
@@ -99,15 +100,20 @@ class ActivityContext(Generic[T]):
         self.connection_name = connection_name
         self.is_signed_in = is_signed_in
         self.cloud = cloud
-        self._activity_sender = activity_sender
         self._app_token = app_token
-        self.stream = activity_sender.create_stream(conversation_ref)
+        self._stream: Optional[StreamerProtocol] = None
 
         self._next_handler: Optional[Callable[[], Awaitable[None]]] = None
 
         # Initialize graph clients as None - they'll be created lazily
         self._user_graph: Optional["GraphServiceClient"] = None
         self._app_graph: Optional["GraphServiceClient"] = None
+
+    @property
+    def stream(self) -> StreamerProtocol:
+        if self._stream is None:
+            self._stream = HttpStream(self.api, self.conversation_ref)
+        return self._stream
 
     @property
     def user_graph(self) -> "GraphServiceClient":
@@ -190,8 +196,12 @@ class ActivityContext(Generic[T]):
         self._add_targeted_message_info_entity(activity)
 
         ref = conversation_ref or self.conversation_ref
-        res = await self._activity_sender.send(activity, ref)
-        return res
+        return await send_or_update_activity(
+            self.api,
+            activity,
+            ref,
+            agentic_user=self.activity.recipient.agentic_user,
+        )
 
     async def reply(self, input: str | ActivityParams) -> SentActivity:
         """Send a message in the current conversation with a visual quote of the inbound message.

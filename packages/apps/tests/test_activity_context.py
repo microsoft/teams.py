@@ -39,6 +39,50 @@ def _create_activity_context(
         )
     )
     mock_activity_sender.create_stream = MagicMock(return_value=MagicMock())
+    activities = MagicMock()
+    activities.create = mock_activity_sender.send
+    activities.update = AsyncMock(
+        return_value=SentActivity(
+            id="updated-activity-id",
+            activity_params=MessageActivityInput(text="updated"),
+        )
+    )
+    activities.create_targeted = AsyncMock(
+        return_value=SentActivity(
+            id="targeted-activity-id",
+            activity_params=MessageActivityInput(text="targeted"),
+        )
+    )
+    activities.update_targeted = AsyncMock(
+        return_value=SentActivity(
+            id="updated-targeted-activity-id",
+            activity_params=MessageActivityInput(text="updated targeted"),
+        )
+    )
+    api = MagicMock()
+    api.conversations.activities.return_value = activities
+    api.clone.return_value = api
+
+    async def create_activity(conversation_id: str, activity: Any) -> SentActivity:
+        api.conversations.activities(conversation_id)
+        return await activities.create(activity)
+
+    async def update_activity(conversation_id: str, activity_id: str, activity: Any) -> SentActivity:
+        api.conversations.activities(conversation_id)
+        return await activities.update(activity_id, activity)
+
+    async def create_targeted_activity(conversation_id: str, activity: Any) -> SentActivity:
+        api.conversations.activities(conversation_id)
+        return await activities.create_targeted(activity)
+
+    async def update_targeted_activity(conversation_id: str, activity_id: str, activity: Any) -> SentActivity:
+        api.conversations.activities(conversation_id)
+        return await activities.update_targeted(activity_id, activity)
+
+    api.conversations.create_activity = AsyncMock(side_effect=create_activity)
+    api.conversations.update_activity = AsyncMock(side_effect=update_activity)
+    api.conversations.create_targeted_activity = AsyncMock(side_effect=create_targeted_activity)
+    api.conversations.update_targeted_activity = AsyncMock(side_effect=update_targeted_activity)
 
     conversation_ref = ConversationReference(
         bot=Account(id="bot-id", name="Test Bot"),
@@ -51,12 +95,11 @@ def _create_activity_context(
         activity=mock_activity,
         app_id="test-app-id",
         storage=MagicMock(),
-        api=MagicMock(),
+        api=api,
         user_token=user_token,
         conversation_ref=conversation_ref,
         is_signed_in=is_signed_in,
         connection_name="test-connection",
-        activity_sender=mock_activity_sender,
         app_token=MagicMock(),
         cloud=PUBLIC,
     )
@@ -88,16 +131,21 @@ class TestActivityContextSendTargeted:
 
         await ctx.send("Secret message")
 
-        mock_sender.send.assert_called_once()
-        sent_activity = mock_sender.send.call_args[0][0]
+        mock_sender.send.assert_not_called()
+        ctx.api.conversations.activities.return_value.create_targeted.assert_called_once()
+        sent_activity = ctx.api.conversations.activities.return_value.create_targeted.call_args.args[0]
         assert isinstance(sent_activity, MessageActivityInput)
         assert sent_activity.text == "Secret message"
+        assert sent_activity.from_ == ctx.conversation_ref.bot
+        assert sent_activity.conversation == ctx.conversation_ref.conversation
         assert sent_activity.recipient is not None
         assert sent_activity.recipient.id == incoming_sender.id
         assert sent_activity.recipient.name == incoming_sender.name
         assert sent_activity.recipient.is_targeted is True
         assert sent_activity.entities is not None
         assert any(isinstance(entity, TargetedMessageInfoEntity) for entity in sent_activity.entities)
+        ctx.api.conversations.activities.return_value.create_targeted.assert_called_once()
+        ctx.api.conversations.activities.return_value.create.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_reply_defaults_to_targeted_when_inbound_message_is_targeted(self) -> None:
@@ -107,8 +155,9 @@ class TestActivityContextSendTargeted:
 
         await ctx.reply("Private reply")
 
-        mock_sender.send.assert_called_once()
-        sent_activity = mock_sender.send.call_args[0][0]
+        mock_sender.send.assert_not_called()
+        ctx.api.conversations.activities.return_value.create_targeted.assert_called_once()
+        sent_activity = ctx.api.conversations.activities.return_value.create_targeted.call_args.args[0]
         assert isinstance(sent_activity, MessageActivityInput)
         assert sent_activity.reply_to_id is None
         assert sent_activity.recipient is not None
@@ -151,8 +200,7 @@ class TestActivityContextSendTargeted:
 
         mock_sender.send.assert_called_once()
         sent_activity = mock_sender.send.call_args[0][0]
-        sent_ref = mock_sender.send.call_args[0][1]
-        assert sent_ref == other_ref
+        ctx.api.conversations.activities.assert_called_once_with("other-conversation")
         assert sent_activity.recipient is None
         assert sent_activity.entities is None
 
@@ -165,8 +213,9 @@ class TestActivityContextSendTargeted:
 
         await ctx.send(activity)
 
-        mock_sender.send.assert_called_once()
-        sent_activity = mock_sender.send.call_args[0][0]
+        mock_sender.send.assert_not_called()
+        ctx.api.conversations.activities.return_value.create_targeted.assert_called_once()
+        sent_activity = ctx.api.conversations.activities.return_value.create_targeted.call_args.args[0]
         assert sent_activity.recipient is not None
         assert sent_activity.recipient.is_targeted is True
         assert sent_activity.entities is None
@@ -183,8 +232,9 @@ class TestActivityContextSendTargeted:
 
         await ctx.send(activity)
 
-        mock_sender.send.assert_called_once()
-        sent_activity = mock_sender.send.call_args[0][0]
+        mock_sender.send.assert_not_called()
+        ctx.api.conversations.activities.return_value.create_targeted.assert_called_once()
+        sent_activity = ctx.api.conversations.activities.return_value.create_targeted.call_args.args[0]
         assert sent_activity.text == "Secret"
         assert sent_activity.entities is not None
         assert all(not isinstance(entity, QuotedReplyEntity) for entity in sent_activity.entities)
@@ -207,10 +257,10 @@ class TestActivityContextSendTargeted:
         await ctx.send(activity)
 
         # Verify send was called
-        mock_sender.send.assert_called_once()
+        ctx.api.conversations.activities.return_value.create_targeted.assert_called_once()
+        mock_sender.send.assert_not_called()
 
-        # Get the activity that was passed to send
-        sent_activity = mock_sender.send.call_args[0][0]
+        sent_activity = ctx.api.conversations.activities.return_value.create_targeted.call_args.args[0]
 
         # Verify recipient was preserved
         assert sent_activity.recipient is not None
@@ -232,17 +282,39 @@ class TestActivityContextSendTargeted:
 
         await ctx.send(activity)
 
-        # Verify send was called
-        mock_sender.send.assert_called_once()
-
-        # Get the activity that was passed to send
-        sent_activity = mock_sender.send.call_args[0][0]
+        ctx.api.conversations.activities.return_value.update_targeted.assert_called_once()
+        sent_activity = ctx.api.conversations.activities.return_value.update_targeted.call_args.args[1]
 
         # Verify recipient was preserved
         assert sent_activity.recipient is not None
         assert sent_activity.recipient.id == incoming_sender.id
         assert sent_activity.recipient.name == incoming_sender.name
         assert sent_activity.recipient.is_targeted is True
+
+    @pytest.mark.asyncio
+    async def test_send_existing_activity_updates(self) -> None:
+        incoming_sender = Account(id="user-123", name="Test User")
+        ctx, mock_sender = self._create_activity_context(from_account=incoming_sender)
+        activity = MessageActivityInput(text="Updated message")
+        activity.id = "existing-msg-id"
+
+        await ctx.send(activity)
+
+        ctx.api.conversations.activities.return_value.update.assert_called_once_with(
+            "existing-msg-id",
+            activity,
+        )
+        mock_sender.send.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_targeted_send_in_personal_chat_raises(self) -> None:
+        incoming_sender = Account(id="user-123", name="Test User")
+        ctx, _ = self._create_activity_context(from_account=incoming_sender)
+        ctx.conversation_ref.conversation.conversation_type = "personal"
+        activity = MessageActivityInput(text="Nope").with_recipient(incoming_sender, is_targeted=True)
+
+        with pytest.raises(ValueError, match="Targeted messages are not supported in 1:1"):
+            await ctx.send(activity)
 
     @pytest.mark.asyncio
     async def test_targeted_with_different_recipient(self) -> None:
@@ -261,10 +333,9 @@ class TestActivityContextSendTargeted:
         await ctx.send(activity)
 
         # Verify send was called
-        mock_sender.send.assert_called_once()
-
-        # Get the activity that was passed to send
-        sent_activity = mock_sender.send.call_args[0][0]
+        mock_sender.send.assert_not_called()
+        ctx.api.conversations.activities.return_value.create_targeted.assert_called_once()
+        sent_activity = ctx.api.conversations.activities.return_value.create_targeted.call_args.args[0]
 
         # Verify recipient was preserved
         assert sent_activity.recipient is not None
@@ -328,6 +399,33 @@ class TestActivityContextSend:
         assert len(sent_activity.attachments) > 0
         assert isinstance(result, SentActivity)
 
+    @pytest.mark.asyncio
+    async def test_send_passes_inbound_agentic_user(self) -> None:
+        """Sending from an Agent ID activity uses the inbound agentic user."""
+        recipient = Account(
+            id="bot-id",
+            name="Test Bot",
+            agentic_app_instance_id="agentic-app-instance-id",
+            agentic_user_id="agentic-user-id",
+            tenant_id="tenant-id",
+        )
+        activity = MessageActivity(
+            id="incoming-activity-id",
+            text="Incoming message",
+            from_=Account(id="user-id", name="Test User"),
+            recipient=recipient,
+            conversation=ConversationAccount(id="test-conversation"),
+        )
+        ctx, mock_sender = _create_activity_context(activity=activity)
+
+        await ctx.send("Hello")
+
+        mock_sender.send.assert_called_once()
+        ctx.api.clone.assert_called_once_with(
+            service_url=ctx.conversation_ref.service_url,
+            agentic_user=recipient.agentic_user,
+        )
+
 
 class TestActivityContextReply:
     """Tests for ActivityContext.reply()."""
@@ -371,6 +469,33 @@ class TestActivityContextReply:
         assert sent_activity.entities is not None
         assert isinstance(sent_activity.entities[0], QuotedReplyEntity)
         assert sent_activity.entities[0].quoted_reply.message_id == "evt-id-999"
+
+    @pytest.mark.asyncio
+    async def test_reply_passes_inbound_agentic_user(self) -> None:
+        """Replying to an Agent ID activity uses the inbound agentic user."""
+        recipient = Account(
+            id="bot-id",
+            name="Test Bot",
+            agentic_app_instance_id="agentic-app-instance-id",
+            agentic_user_id="agentic-user-id",
+            tenant_id="tenant-id",
+        )
+        activity = MessageActivity(
+            id="incoming-activity-id",
+            text="Incoming message",
+            from_=Account(id="user-id", name="Test User"),
+            recipient=recipient,
+            conversation=ConversationAccount(id="test-conversation"),
+        )
+        ctx, mock_sender = _create_activity_context(activity=activity)
+
+        await ctx.reply("Hello")
+
+        mock_sender.send.assert_called_once()
+        ctx.api.clone.assert_called_once_with(
+            service_url=ctx.conversation_ref.service_url,
+            agentic_user=recipient.agentic_user,
+        )
 
 
 class TestActivityContextUserGraph:
@@ -504,17 +629,20 @@ class TestActivityContextSignIn:
     @pytest.mark.asyncio
     async def test_sign_in_sends_oauth_card_when_no_existing_token(self) -> None:
         """sign_in falls through to OAuth card flow when token API fails, returns None."""
-        mock_activity = MagicMock()
-        mock_activity.channel_id = "msteams"
-        mock_activity.from_ = Account(id="user-001")
-        mock_activity.conversation.is_group = False
+        mock_activity = MessageActivity(
+            id="activity-id",
+            channel_id="msteams",
+            from_=Account(id="user-001"),
+            recipient=Account(id="bot-id"),
+            conversation=ConversationAccount(id="test-conversation", is_group=False),
+        )
 
         ctx, mock_sender = _create_activity_context(activity=mock_activity)
         ctx.api.users.get_token = AsyncMock(side_effect=Exception("no token"))
 
         resource_response = MagicMock()
-        resource_response.token_exchange_resource = MagicMock()
-        resource_response.token_post_resource = MagicMock()
+        resource_response.token_exchange_resource = None
+        resource_response.token_post_resource = None
         resource_response.sign_in_link = "https://login.example.com"
         ctx.api._bots.sign_in.get_resource = AsyncMock(return_value=resource_response)
 
@@ -525,10 +653,6 @@ class TestActivityContextSignIn:
                 "microsoft_teams.apps.routing.activity_context.TokenExchangeState",
                 return_value=token_state,
             ),
-            patch("microsoft_teams.apps.routing.activity_context.card_attachment"),
-            patch("microsoft_teams.apps.routing.activity_context.OAuthCardAttachment"),
-            patch("microsoft_teams.apps.routing.activity_context.OAuthCard"),
-            patch("microsoft_teams.apps.routing.activity_context.CardAction"),
             patch("microsoft_teams.apps.routing.activity_context.GetBotSignInResourceParams"),
         ):
             result = await ctx.sign_in()
@@ -556,8 +680,8 @@ class TestActivityContextSignIn:
         ctx.api.conversations.create = AsyncMock()
 
         resource_response = MagicMock()
-        resource_response.token_exchange_resource = MagicMock()
-        resource_response.token_post_resource = MagicMock()
+        resource_response.token_exchange_resource = None
+        resource_response.token_post_resource = None
         resource_response.sign_in_link = "https://login.example.com"
         ctx.api._bots.sign_in.get_resource = AsyncMock(return_value=resource_response)
 
@@ -568,10 +692,6 @@ class TestActivityContextSignIn:
                 "microsoft_teams.apps.routing.activity_context.TokenExchangeState",
                 return_value=token_state,
             ),
-            patch("microsoft_teams.apps.routing.activity_context.card_attachment"),
-            patch("microsoft_teams.apps.routing.activity_context.OAuthCardAttachment"),
-            patch("microsoft_teams.apps.routing.activity_context.OAuthCard") as mock_oauth_card,
-            patch("microsoft_teams.apps.routing.activity_context.CardAction"),
             patch("microsoft_teams.apps.routing.activity_context.GetBotSignInResourceParams"),
         ):
             result = await ctx.sign_in()
@@ -580,12 +700,12 @@ class TestActivityContextSignIn:
         # No 1:1 fallback conversation is created.
         ctx.api.conversations.create.assert_not_called()
         # A single OAuth card is sent, targeted to the requesting user.
-        assert mock_sender.send.call_count == 1
-        sent_payload = mock_sender.send.call_args.args[0]
+        ctx.api.conversations.create_targeted_activity.assert_called_once()
+        sent_payload = ctx.api.conversations.create_targeted_activity.call_args.args[1]
         assert sent_payload.recipient is not None
         assert sent_payload.recipient.is_targeted is True
         # SSO token exchange remains available in group chats.
-        assert mock_oauth_card.call_args.kwargs["token_exchange_resource"] is resource_response.token_exchange_resource
+        assert sent_payload.attachments[0].content.token_exchange_resource is resource_response.token_exchange_resource
 
     @pytest.mark.asyncio
     async def test_sign_in_channel_targets_and_omits_token_exchange(self) -> None:
@@ -603,7 +723,7 @@ class TestActivityContextSignIn:
 
         resource_response = MagicMock()
         resource_response.token_exchange_resource = MagicMock()
-        resource_response.token_post_resource = MagicMock()
+        resource_response.token_post_resource = None
         resource_response.sign_in_link = "https://login.example.com"
         ctx.api._bots.sign_in.get_resource = AsyncMock(return_value=resource_response)
 
@@ -614,39 +734,38 @@ class TestActivityContextSignIn:
                 "microsoft_teams.apps.routing.activity_context.TokenExchangeState",
                 return_value=token_state,
             ),
-            patch("microsoft_teams.apps.routing.activity_context.card_attachment"),
-            patch("microsoft_teams.apps.routing.activity_context.OAuthCardAttachment"),
-            patch("microsoft_teams.apps.routing.activity_context.OAuthCard") as mock_oauth_card,
-            patch("microsoft_teams.apps.routing.activity_context.CardAction"),
             patch("microsoft_teams.apps.routing.activity_context.GetBotSignInResourceParams"),
         ):
             result = await ctx.sign_in()
 
         assert result is None
         ctx.api.conversations.create.assert_not_called()
-        assert mock_sender.send.call_count == 1
-        sent_payload = mock_sender.send.call_args.args[0]
+        ctx.api.conversations.create_targeted_activity.assert_called_once()
+        sent_payload = ctx.api.conversations.create_targeted_activity.call_args.args[1]
         assert sent_payload.recipient is not None
         assert sent_payload.recipient.is_targeted is True
         # SSO isn't possible in channels, so the token exchange resource is omitted.
-        assert mock_oauth_card.call_args.kwargs["token_exchange_resource"] is None
+        assert sent_payload.attachments[0].content.token_exchange_resource is None
 
     @pytest.mark.asyncio
     async def test_sign_in_uses_signin_options_connection_name_override(self) -> None:
         """sign_in respects SignInOptions.connection_name override when fetching the existing token."""
         from microsoft_teams.apps.routing.activity_context import SignInOptions
 
-        mock_activity = MagicMock()
-        mock_activity.channel_id = "msteams"
-        mock_activity.from_ = Account(id="user-001")
-        mock_activity.conversation.is_group = False
+        mock_activity = MessageActivity(
+            id="activity-id",
+            channel_id="msteams",
+            from_=Account(id="user-001"),
+            recipient=Account(id="bot-id"),
+            conversation=ConversationAccount(id="test-conversation", is_group=False),
+        )
 
         ctx, _ = _create_activity_context(activity=mock_activity)
         ctx.api.users.get_token = AsyncMock(side_effect=Exception("no token"))
 
         resource_response = MagicMock()
-        resource_response.token_exchange_resource = MagicMock()
-        resource_response.token_post_resource = MagicMock()
+        resource_response.token_exchange_resource = None
+        resource_response.token_post_resource = None
         resource_response.sign_in_link = "https://login.example.com"
         ctx.api._bots.sign_in.get_resource = AsyncMock(return_value=resource_response)
 
@@ -663,10 +782,6 @@ class TestActivityContextSignIn:
                 "microsoft_teams.apps.routing.activity_context.TokenExchangeState",
                 return_value=token_state,
             ),
-            patch("microsoft_teams.apps.routing.activity_context.card_attachment"),
-            patch("microsoft_teams.apps.routing.activity_context.OAuthCardAttachment"),
-            patch("microsoft_teams.apps.routing.activity_context.OAuthCard"),
-            patch("microsoft_teams.apps.routing.activity_context.CardAction"),
             patch("microsoft_teams.apps.routing.activity_context.GetBotSignInResourceParams"),
         ):
             result = await ctx.sign_in(options=custom_options)
@@ -743,7 +858,8 @@ class TestActivityContextPromptPreview:
 
         await ctx.send("Here is your agenda")
 
-        sent_activity = mock_sender.send.call_args[0][0]
+        mock_sender.send.assert_not_called()
+        sent_activity = ctx.api.conversations.activities.return_value.create_targeted.call_args.args[0]
         assert sent_activity.entities is not None
         assert len(sent_activity.entities) == 1
         entity = sent_activity.entities[0]
@@ -771,7 +887,8 @@ class TestActivityContextPromptPreview:
         msg = MessageActivityInput(text="Reply").add_entity(TargetedMessageInfoEntity(message_id="custom-id"))
         await ctx.send(msg)
 
-        sent_activity = mock_sender.send.call_args[0][0]
+        mock_sender.send.assert_not_called()
+        sent_activity = ctx.api.conversations.activities.return_value.create_targeted.call_args.args[0]
         assert sent_activity.entities is not None
         assert len(sent_activity.entities) == 1
         assert sent_activity.entities[0].message_id == "custom-id"
@@ -786,7 +903,8 @@ class TestActivityContextPromptPreview:
 
         await ctx.reply("Reply with prompt preview")
 
-        sent_activity = mock_sender.send.call_args[0][0]
+        mock_sender.send.assert_not_called()
+        sent_activity = ctx.api.conversations.activities.return_value.create_targeted.call_args.args[0]
         assert sent_activity.entities is not None
         targeted_entities = [e for e in sent_activity.entities if isinstance(e, TargetedMessageInfoEntity)]
         assert len(targeted_entities) == 1

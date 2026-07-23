@@ -6,8 +6,8 @@ Licensed under the MIT License.
 import inspect
 import json
 import logging
-from dataclasses import dataclass, field
-from typing import Any, Awaitable, Callable, Dict, List, Optional
+from dataclasses import dataclass, field, replace
+from typing import Any, Awaitable, Callable, Dict, List, Optional, Protocol
 
 import httpx
 from httpx._models import Request, Response
@@ -89,7 +89,44 @@ class ClientOptions:
     headers: Dict[str, str] = field(default_factory=dict[str, str])
     timeout: Optional[float] = None
     token: Optional[Token] = None
-    interceptors: Optional[List[Interceptor]] = field(default_factory=list[Interceptor])
+    interceptors: Optional[List[Interceptor]] = None
+
+
+@dataclass
+class MiddlewareContext:
+    """Context passed to HTTP middleware around terminal dispatch."""
+
+    method: str
+    url: str
+    headers: Dict[str, str]
+    token: Optional[Token]
+    params: Optional[QueryParamTypes] = None
+    content: Optional[RequestContent] = None
+    data: Optional[RequestData] = None
+    files: Optional[RequestFiles] = None
+    json: object | None = None
+    kwargs: Dict[str, Any] = field(default_factory=dict[str, Any])
+    logger: logging.Logger = logger
+    metadata: object | None = None
+
+
+MiddlewareNext = Callable[[], Awaitable[httpx.Response]]
+MiddlewareResult = httpx.Response | Awaitable[httpx.Response]
+
+
+class Middleware(Protocol):
+    """Protocol for HTTP middleware.
+
+    Middleware wraps the full terminal dispatch, including token resolution,
+    existing interceptor/event-hook execution, response status handling, and
+    response JSON wrapping.
+    """
+
+    def send(
+        self,
+        context: MiddlewareContext,
+        next: MiddlewareNext,
+    ) -> MiddlewareResult: ...
 
 
 class Client:
@@ -100,7 +137,7 @@ class Client:
         options: ClientOptions dataclass with configuration for the client.
     """
 
-    def __init__(self, options: Optional[ClientOptions] = None):
+    def __init__(self, options: Optional[ClientOptions] = None, *, _http: Optional[httpx.AsyncClient] = None):
         """
         Initialize the HTTP Client.
 
@@ -117,13 +154,35 @@ class Client:
 
         # Maintain interceptors as a separate instance attribute (do not mutate options)
         self._interceptors = list(options.interceptors or [])
+        self._middlewares: list[Middleware] = []
 
-        self.http = httpx.AsyncClient(
+        self.http = _http or httpx.AsyncClient(
             base_url=httpx.URL(options.base_url) if options.base_url else "",
             headers=options.headers,
             timeout=options.timeout,
         )
         self._update_event_hooks()
+
+    @property
+    def interceptors(self) -> tuple[Interceptor, ...]:
+        """Get the registered interceptors."""
+        return tuple(self._interceptors)
+
+    @property
+    def middlewares(self) -> tuple[Middleware, ...]:
+        """Get the registered middleware."""
+        return tuple(self._middlewares)
+
+    @property
+    def token(self) -> Optional[Token]:
+        """Get the default authorization token."""
+        return self._token
+
+    @token.setter
+    def token(self, value: Optional[Token]) -> None:
+        """Set the default authorization token."""
+        self._token = value
+        self._options = replace(self._options, token=value)
 
     async def _prepare_headers(self, headers: Optional[Dict[str, str]], token: Optional[Token]) -> Dict[str, str]:
         """
@@ -137,6 +196,8 @@ class Client:
             Final headers dict for the request.
         """
         req_headers = {**self._options.headers, **(headers or {})}
+        if any(key.lower() == "authorization" for key in req_headers):
+            return req_headers
         resolved_token = await self._resolve_token(token)
         if resolved_token:
             req_headers["Authorization"] = f"Bearer {resolved_token}"
@@ -164,11 +225,7 @@ class Client:
         Returns:
             httpx.Response
         """
-        req_headers = await self._prepare_headers(headers, token)
-        response = await self.http.get(url, headers=req_headers, params=params, **kwargs)
-        response.raise_for_status()
-        _wrap_response_json(response)
-        return response
+        return await self._send("GET", url, headers=headers, token=token, params=params, **kwargs)
 
     async def post(
         self,
@@ -200,20 +257,18 @@ class Client:
         Returns:
             httpx.Response
         """
-        req_headers = await self._prepare_headers(headers, token)
-        response = await self.http.post(
+        return await self._send(
+            "POST",
             url,
             data=data,
             files=files,
             json=json,
             content=content,
             params=params,
-            headers=req_headers,
+            headers=headers,
+            token=token,
             **kwargs,
         )
-        response.raise_for_status()
-        _wrap_response_json(response)
-        return response
 
     async def put(
         self,
@@ -245,20 +300,18 @@ class Client:
         Returns:
             httpx.Response
         """
-        req_headers = await self._prepare_headers(headers, token)
-        response = await self.http.put(
+        return await self._send(
+            "PUT",
             url,
             data=data,
             files=files,
             json=json,
             content=content,
             params=params,
-            headers=req_headers,
+            headers=headers,
+            token=token,
             **kwargs,
         )
-        response.raise_for_status()
-        _wrap_response_json(response)
-        return response
 
     async def patch(
         self,
@@ -290,20 +343,18 @@ class Client:
         Returns:
             httpx.Response
         """
-        req_headers = await self._prepare_headers(headers, token)
-        response = await self.http.patch(
+        return await self._send(
+            "PATCH",
             url,
             data=data,
             files=files,
             json=json,
             content=content,
             params=params,
-            headers=req_headers,
+            headers=headers,
+            token=token,
             **kwargs,
         )
-        response.raise_for_status()
-        _wrap_response_json(response)
-        return response
 
     async def delete(
         self,
@@ -327,11 +378,7 @@ class Client:
         Returns:
             httpx.Response
         """
-        req_headers = await self._prepare_headers(headers, token)
-        response = await self.http.delete(url, headers=req_headers, params=params, **kwargs)
-        response.raise_for_status()
-        _wrap_response_json(response)
-        return response
+        return await self._send("DELETE", url, headers=headers, token=token, params=params, **kwargs)
 
     async def request(
         self,
@@ -365,11 +412,11 @@ class Client:
         Returns:
             httpx.Response
         """
-        req_headers = await self._prepare_headers(headers, token)
-        response = await self.http.request(
+        return await self._send(
             method,
             url,
-            headers=req_headers,
+            headers=headers,
+            token=token,
             params=params,
             content=content,
             data=data,
@@ -377,9 +424,73 @@ class Client:
             json=json,
             **kwargs,
         )
-        response.raise_for_status()
-        _wrap_response_json(response)
-        return response
+
+    async def _send(
+        self,
+        method: str,
+        url: str,
+        *,
+        params: Optional[QueryParamTypes] = None,
+        headers: Optional[Dict[str, str]] = None,
+        token: Optional[Token] = None,
+        content: Optional[RequestContent] = None,
+        data: Optional[RequestData] = None,
+        files: Optional[RequestFiles] = None,
+        json: Optional[Any] = None,
+        **kwargs: Any,
+    ) -> httpx.Response:
+        metadata = kwargs.pop("_metadata", None)
+        context = MiddlewareContext(
+            method=method.upper(),
+            url=url,
+            headers=dict(headers or {}),
+            token=token,
+            params=params,
+            content=content,
+            data=data,
+            files=files,
+            json=json,
+            kwargs=kwargs,
+            logger=logger,
+            metadata=metadata,
+        )
+
+        async def send() -> httpx.Response:
+            req_headers = await self._prepare_headers(context.headers, context.token)
+            response = await self.http.request(
+                context.method,
+                context.url,
+                headers=req_headers,
+                params=context.params,
+                content=context.content,
+                data=context.data,
+                files=context.files,
+                json=context.json,
+                **context.kwargs,
+            )
+            response.raise_for_status()
+            _wrap_response_json(response)
+            return response
+
+        sender: MiddlewareNext = send
+        for middleware in reversed(self._middlewares):
+            sender = self._wrap_request_middleware(middleware, context, sender)
+
+        return await sender()
+
+    def _wrap_request_middleware(
+        self,
+        middleware: Middleware,
+        context: MiddlewareContext,
+        next_sender: MiddlewareNext,
+    ) -> MiddlewareNext:
+        async def sender() -> httpx.Response:
+            result = middleware.send(context, next_sender)
+            if inspect.isawaitable(result):
+                return await result
+            return result
+
+        return sender
 
     async def _resolve_token(self, token: Optional[Token]) -> Optional[str]:
         """
@@ -405,6 +516,15 @@ class Client:
         """
         self._interceptors.append(interceptor)
         self._update_event_hooks()
+
+    def use(self, middleware: Middleware) -> None:
+        """
+        Register middleware for terminal request dispatch.
+
+        Middleware runs in insertion order, with the first registered
+        middleware as the outermost wrapper.
+        """
+        self._middlewares.append(middleware)
 
     def _update_event_hooks(self) -> None:
         """
@@ -438,7 +558,7 @@ class Client:
                 event_hooks_dict.setdefault("response", []).append(_make_response_wrapper(hook))
         self.http.event_hooks = event_hooks_dict
 
-    def clone(self, overrides: Optional[ClientOptions] = None) -> "Client":
+    def clone(self, overrides: Optional[ClientOptions] = None, *, share_http: bool = False) -> "Client":
         """
         Create a new Client instance with merged configuration.
 
@@ -453,9 +573,11 @@ class Client:
             base_url=overrides.base_url if overrides.base_url is not None else self._options.base_url,
             headers=_merge_headers(self._options.headers, overrides.headers or {}),
             timeout=overrides.timeout if overrides.timeout is not None else self._options.timeout,
-            token=overrides.token if overrides.token is not None else self._options.token,
+            token=overrides.token if overrides.token is not None else self._token,
             interceptors=list(overrides.interceptors)
             if overrides.interceptors is not None
             else list(self._interceptors),
         )
-        return Client(merged_options)
+        cloned = Client(merged_options, _http=self.http if share_http else None)
+        cloned._middlewares = list(self._middlewares)
+        return cloned

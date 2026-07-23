@@ -13,7 +13,7 @@ from microsoft_teams.api.auth.cloud_environment import PUBLIC, CloudEnvironment
 from microsoft_teams.api.auth.json_web_token import JsonWebToken
 from pydantic import BaseModel
 
-from ..auth import TokenValidator
+from ..auth import InboundActivityTokenValidator
 from ..events import ActivityEvent, CoreActivity
 from .adapter import HttpRequest, HttpResponse, HttpServerAdapter
 
@@ -43,7 +43,7 @@ class HttpServer:
             raise ValueError("messaging_endpoint must be a non-empty path starting with '/'.")
         self._messaging_endpoint = normalized_endpoint
         self._on_request: Optional[Callable[[ActivityEvent], Awaitable[InvokeResponse[Any]]]] = None
-        self._token_validator: Optional[TokenValidator] = None
+        self._token_validator: Optional[InboundActivityTokenValidator] = None
         self._dangerously_allow_unauthenticated_requests: bool = False
         self._cloud: CloudEnvironment = PUBLIC
         self._initialized: bool = False
@@ -72,6 +72,7 @@ class HttpServer:
         credentials: Optional[Credentials] = None,
         cloud: Optional[CloudEnvironment] = None,
         dangerously_allow_unauthenticated_requests: bool = False,
+        skip_auth: Optional[bool] = None,
     ) -> None:
         """
         Set up JWT validation and register the messaging endpoint route.
@@ -80,16 +81,20 @@ class HttpServer:
             credentials: App credentials for JWT validation.
             cloud: Optional cloud environment for sovereign cloud support.
             dangerously_allow_unauthenticated_requests: Whether to skip JWT validation.
+            skip_auth: Deprecated alias for dangerously_allow_unauthenticated_requests.
         """
         if self._initialized:
             return
+
+        if skip_auth is not None:
+            dangerously_allow_unauthenticated_requests = skip_auth
 
         self._dangerously_allow_unauthenticated_requests = dangerously_allow_unauthenticated_requests
         self._cloud = cloud or PUBLIC
 
         app_id = getattr(credentials, "client_id", None) if credentials else None
         if app_id and not dangerously_allow_unauthenticated_requests:
-            self._token_validator = TokenValidator.for_service(
+            self._token_validator = InboundActivityTokenValidator(
                 app_id,
                 cloud=self._cloud,
             )

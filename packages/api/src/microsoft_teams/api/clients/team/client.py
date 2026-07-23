@@ -3,6 +3,8 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
+from __future__ import annotations
+
 from typing import List, Optional, Union
 
 from microsoft_teams.common.http import Client, ClientOptions
@@ -43,7 +45,9 @@ class TeamClient(BaseClient):
         Returns:
             The team details.
         """
-        response = await self.http.get(f"{self.service_url}/v3/teams/{id}")
+        response = await self.http.get(
+            f"{self._get_service_url()}/v3/teams/{id}",
+        )
         return TeamDetails.model_validate(response.json())
 
     async def get_conversations(self, id: str) -> List[ChannelInfo]:
@@ -56,5 +60,7 @@ class TeamClient(BaseClient):
         Returns:
             List of channel information.
         """
-        response = await self.http.get(f"{self.service_url}/v3/teams/{id}/conversations")
+        response = await self.http.get(
+            f"{self._get_service_url()}/v3/teams/{id}/conversations",
+        )
         return GetTeamConversationsResponse.model_validate(response.json()).conversations

@@ -12,6 +12,7 @@ resolution-markers = [
 [manifest]
 members = [
     "a2a",
+    "agent365",
     "ai-agentframework",
     "botbuilder",
     "cards",
@@ -135,6 +136,21 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/3d/47/6f1f5ae20a0a763e63723f615bb63837173dcf69b817ee66f1829e137a71/agent_framework_openai-1.1.0.tar.gz", hash = "sha256:b34d05f40fb76e3acd79ea9b59db96f4d1268702b9b353b95d78dd6a05e586fd", size = 45378, upload-time = "2026-04-21T06:20:04.278Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/1c/58/1878b9ac4db703f40c687129c0bccdbf88c94d557b64f0172f3c4e954558/agent_framework_openai-1.1.0-py3-none-any.whl", hash = "sha256:8fbcdb87fbc3fb6aa6f3d781a61a2c48fbc308d2ee8165454f94e53e026a787b", size = 50280, upload-time = "2026-04-21T06:20:11.864Z" },
+]
+
+[[package]]
+name = "agent365"
+version = "0.1.0"
+source = { virtual = "examples/agent365" }
+dependencies = [
+    { name = "dotenv" },
+    { name = "microsoft-teams-apps" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "dotenv", specifier = ">=0.9.9" },
+    { name = "microsoft-teams-apps", editable = "packages/apps" },
 ]
 
 [[package]]
@@ -1781,6 +1797,7 @@ source = { editable = "packages/api" }
 dependencies = [
     { name = "microsoft-teams-cards" },
     { name = "microsoft-teams-common" },
+    { name = "opentelemetry-api" },
     { name = "pydantic" },
     { name = "pyjwt", extra = ["crypto"] },
 ]
@@ -1796,6 +1813,7 @@ dev = [
 requires-dist = [
     { name = "microsoft-teams-cards", editable = "packages/cards" },
     { name = "microsoft-teams-common", editable = "packages/common" },
+    { name = "opentelemetry-api", specifier = ">=1.41.0" },
     { name = "pydantic", specifier = ">=2.0.0" },
     { name = "pyjwt", extras = ["crypto"], specifier = ">=2.12.0" },
 ]
@@ -1817,6 +1835,7 @@ dependencies = [
     { name = "microsoft-teams-api" },
     { name = "microsoft-teams-common" },
     { name = "msal" },
+    { name = "opentelemetry-api" },
     { name = "pydantic-settings" },
     { name = "pyjwt", extra = ["crypto"] },
     { name = "python-dotenv" },
@@ -1837,13 +1856,14 @@ test = [
 
 [package.metadata]
 requires-dist = [
-    { name = "cryptography", specifier = ">=3.4.0" },
+    { name = "cryptography", specifier = ">=48.0.1" },
     { name = "dependency-injector", specifier = ">=4.48.1" },
     { name = "fastapi", specifier = ">=0.115.13" },
     { name = "microsoft-teams-api", editable = "packages/api" },
     { name = "microsoft-teams-common", editable = "packages/common" },
     { name = "microsoft-teams-graph", marker = "extra == 'graph'", editable = "packages/graph" },
-    { name = "msal", specifier = ">=1.33.0" },
+    { name = "msal", specifier = ">=1.37.0" },
+    { name = "opentelemetry-api", specifier = ">=1.41.0" },
     { name = "pydantic-settings", specifier = ">=2.11.0" },
     { name = "pyjwt", extras = ["crypto"], specifier = ">=2.12.0" },
     { name = "python-dotenv", specifier = ">=1.0.0" },
@@ -1956,16 +1976,16 @@ dev = [
 
 [[package]]
 name = "msal"
-version = "1.34.0"
+version = "1.37.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "cryptography" },
     { name = "pyjwt", extra = ["crypto"] },
     { name = "requests" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/cf/0e/c857c46d653e104019a84f22d4494f2119b4fe9f896c92b4b864b3b045cc/msal-1.34.0.tar.gz", hash = "sha256:76ba83b716ea5a6d75b0279c0ac353a0e05b820ca1f6682c0eb7f45190c43c2f", size = 153961, upload-time = "2025-09-22T23:05:48.989Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/9a/99/d840198ecf6e8057bbc937f129ae940404485d736cda73253bbff9537f01/msal-1.37.0.tar.gz", hash = "sha256:1b1672a33ee467c1d70b341bb16cafd51bb3c817147a95b93263794b03971bec", size = 182444, upload-time = "2026-05-29T19:49:05.561Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/c2/dc/18d48843499e278538890dc709e9ee3dea8375f8be8e82682851df1b48b5/msal-1.34.0-py3-none-any.whl", hash = "sha256:f669b1644e4950115da7a176441b0e13ec2975c29528d8b9e81316023676d6e1", size = 116987, upload-time = "2025-09-22T23:05:47.294Z" },
+    { url = "https://files.pythonhosted.org/packages/94/b0/d807279f4b55d16d1f120d5ac4344c6e39b56732e2a224d40bded7fd67ad/msal-1.37.0-py3-none-any.whl", hash = "sha256:dd17e95a7c71bce75e8108113438ba7c4a086b3bcad4f57a8c09b7af3d753c2d", size = 123725, upload-time = "2026-05-29T19:49:04.335Z" },
 ]
 
 [[package]]

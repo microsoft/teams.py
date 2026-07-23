@@ -8,8 +8,10 @@ from unittest.mock import AsyncMock, patch
 
 import httpx
 import pytest
+from microsoft_teams.api.clients import ApiClient
 from microsoft_teams.api.clients.meeting import MeetingClient
 from microsoft_teams.api.models import (
+    AgenticUser,
     MeetingInfo,
     MeetingNotificationParams,
     MeetingNotificationResponse,
@@ -47,6 +49,93 @@ class TestMeetingClient:
         result = await client.get_participant(meeting_id, participant_id, tenant_id)
 
         assert isinstance(result, MeetingParticipant)
+
+    @pytest.mark.asyncio
+    async def test_meeting_operations_use_scoped_service_url(self, mock_http_client):
+        client = (
+            ApiClient("https://test.service.url", mock_http_client)
+            .from_service_url("https://override.service.url/")
+            .meetings
+        )
+
+        meeting_response = httpx.Response(
+            200,
+            json={
+                "id": "meeting-id",
+                "details": {
+                    "id": "meeting-id",
+                    "type": "meetingChat",
+                    "joinUrl": "https://teams.microsoft.com/l/meetup-join/meeting-id",
+                    "title": "Meeting",
+                    "msGraphResourceId": "graph-resource-id",
+                },
+            },
+            headers={"content-type": "application/json"},
+        )
+        with patch.object(client.http, "get", new_callable=AsyncMock, return_value=meeting_response) as mock_get:
+            await client.get_by_id("meeting-id")
+
+        mock_get.assert_called_once_with("https://override.service.url/v1/meetings/meeting-id")
+
+        participant_response = httpx.Response(
+            200,
+            json={"user": {"id": "participant-id"}},
+            headers={"content-type": "application/json"},
+        )
+        with patch.object(
+            client.http, "get", new_callable=AsyncMock, return_value=participant_response
+        ) as mock_get_participant:
+            await client.get_participant("meeting-id", "participant-id", "tenant-id")
+
+        mock_get_participant.assert_called_once_with(
+            "https://override.service.url/v1/meetings/meeting-id/participants/participant-id?tenantId=tenant-id",
+        )
+
+        params = MeetingNotificationParams(
+            value=MeetingNotificationValue(
+                recipients=["mock_aad_oid"],
+                surfaces=[MeetingNotificationSurface(surface="meetingTabIcon", tab_entity_id="test")],
+            )
+        )
+        notification_response = httpx.Response(202, content=b"", headers={"content-type": "application/json"})
+        with patch.object(client.http, "post", new_callable=AsyncMock, return_value=notification_response) as mock_post:
+            await client.send_notification("meeting-id", params)
+
+        mock_post.assert_called_once_with(
+            "https://override.service.url/v1/meetings/meeting-id/notification",
+            json=params.model_dump(by_alias=True, exclude_none=True),
+        )
+
+    @pytest.mark.asyncio
+    async def test_get_by_id_uses_auth_provider_for_bot_token(self, mock_http_client):
+        calls = []
+
+        class TestAuthProvider:
+            def token(self, *, scope=None, agentic_user=None):
+                calls.append((scope, agentic_user))
+                return "bot-token"
+
+        client = ApiClient("https://test.service.url", mock_http_client, auth_provider=TestAuthProvider()).meetings
+        await client.get_by_id("meeting-id")
+
+        assert calls == [(None, None)]
+
+    @pytest.mark.asyncio
+    async def test_get_participant_uses_agentic_user(self, mock_http_client):
+        calls = []
+
+        class TestAuthProvider:
+            def token(self, *, scope=None, agentic_user=None):
+                calls.append((scope, agentic_user))
+                return "agentic-user-token"
+
+        identity = AgenticUser("agentic-app-instance-id", "agentic-user-id", tenant_id="tenant-id")
+        client = ApiClient(
+            "https://test.service.url", mock_http_client, auth_provider=TestAuthProvider(), agentic_user=identity
+        ).meetings
+        await client.get_participant("meeting-id", "participant-id", "tenant-id")
+
+        assert calls == [(None, identity)]
 
     def test_http_client_property(self, mock_http_client):
         """Test HTTP client property getter and setter."""
