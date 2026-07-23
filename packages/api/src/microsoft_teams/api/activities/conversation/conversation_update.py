@@ -12,6 +12,10 @@ ConversationEventType = Literal[
     "channelDeleted",
     "channelRenamed",
     "channelRestored",
+    "channelShared",
+    "channelUnshared",
+    "channelMemberAdded",
+    "channelMemberRemoved",
     "teamArchived",
     "teamDeleted",
     "teamHardDeleted",
@@ -26,8 +30,13 @@ ConversationEventType = Literal[
 class ConversationChannelData(ChannelData, CustomBaseModel):
     """Extended ChannelData with event type."""
 
-    event_type: Optional[ConversationEventType] = None
-    """The type of event that occurred."""
+    event_type: Optional[str] = None
+    """The type of event that occurred.
+
+    Known values are enumerated by ``ConversationEventType``, but the field
+    accepts any string so that unrecognized or newly introduced event types
+    (e.g. from private/shared channels) do not fail validation.
+    """
 
 
 class _ConversationUpdateBase(CustomBaseModel):

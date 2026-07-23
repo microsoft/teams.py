@@ -160,3 +160,40 @@ class TestActivityTypeAdapter:
 
         assert isinstance(activity, ConversationUpdateActivity)
         assert activity.channel_data is None
+
+    def test_conversation_update_channel_member_added(self) -> None:
+        # Regression test for private/shared channel membership events (issue #520):
+        # Teams emits channelMemberAdded / channelMemberRemoved for private and shared
+        # channels, which previously failed strict Literal validation.
+        payload = {
+            "type": "conversationUpdate",
+            "id": "conv-update-channel-member",
+            "from": {"id": "user-123", "name": "Test User"},
+            "conversation": {"id": "conv-456", "conversationType": "channel"},
+            "recipient": {"id": "bot-789", "name": "Test Bot"},
+            "channelData": {"eventType": "channelMemberAdded"},
+        }
+
+        activity = ActivityTypeAdapter.validate_python(payload)
+
+        assert isinstance(activity, ConversationUpdateActivity)
+        assert activity.channel_data is not None
+        assert activity.channel_data.event_type == "channelMemberAdded"
+
+    def test_conversation_update_unknown_event_type(self) -> None:
+        # Unknown / newly introduced event types must not fail validation; the raw
+        # value is preserved so callers can inspect it.
+        payload = {
+            "type": "conversationUpdate",
+            "id": "conv-update-unknown-event",
+            "from": {"id": "user-123", "name": "Test User"},
+            "conversation": {"id": "conv-456", "conversationType": "channel"},
+            "recipient": {"id": "bot-789", "name": "Test Bot"},
+            "channelData": {"eventType": "someFutureEventType"},
+        }
+
+        activity = ActivityTypeAdapter.validate_python(payload)
+
+        assert isinstance(activity, ConversationUpdateActivity)
+        assert activity.channel_data is not None
+        assert activity.channel_data.event_type == "someFutureEventType"
