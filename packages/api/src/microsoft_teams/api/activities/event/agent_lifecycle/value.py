@@ -6,6 +6,8 @@ Licensed under the MIT License.
 from datetime import datetime
 from typing import Literal, Optional
 
+from pydantic import Field
+
 from ....models import CustomBaseModel
 
 
@@ -45,14 +47,26 @@ class AgentLifecycleValueBase(CustomBaseModel):
     tenant_id: Optional[str] = None
     """The tenant the agentic user belongs to."""
 
-    agentic_user_id: Optional[str] = None
+    agentic_user_id: Optional[str] = Field(
+        default=None,
+        validation_alias="agenticUserId",
+        serialization_alias="agenticUserId",
+    )
     """The Agent ID user-shaped identity object ID."""
 
-    agentic_app_instance_id: Optional[str] = None
+    agentic_app_instance_id: Optional[str] = Field(
+        default=None,
+        validation_alias="agenticAppInstanceId",
+        serialization_alias="agenticAppInstanceId",
+    )
     """The concrete agent app instance ID."""
 
-    agent_identity_blueprint_id: Optional[str] = None
-    """The agent identity blueprint app ID."""
+    agentic_blueprint_id: Optional[str] = Field(
+        default=None,
+        validation_alias="agentIdentityBlueprintId",
+        serialization_alias="agentIdentityBlueprintId",
+    )
+    """The AgenticBlueprint app ID."""
 
     version: Optional[int] = None
     """Monotonic version of the agentic user state, when provided by the service."""

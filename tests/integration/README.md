@@ -36,7 +36,7 @@ pytest tests/integration -k "test_create_activity" -v
 
 ## Known Limitations
 
-- **Agentic identity**: Reactions and paged members are not supported.
+- **AgenticUser**: Reactions and paged members are not supported.
 - **Canary ring**: Reactions return 404, paged members return empty.
 - **Throttling**: Member caching prevents 429s but full-suite runs may still hit rate limits.
 

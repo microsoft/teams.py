@@ -400,12 +400,12 @@ class TestActivityContextSend:
         assert isinstance(result, SentActivity)
 
     @pytest.mark.asyncio
-    async def test_send_passes_inbound_agentic_identity(self) -> None:
-        """Sending from an Agent ID activity uses the inbound agentic identity."""
+    async def test_send_passes_inbound_agentic_user(self) -> None:
+        """Sending from an Agent ID activity uses the inbound agentic user."""
         recipient = Account(
             id="bot-id",
             name="Test Bot",
-            agentic_app_id="agentic-app-id",
+            agentic_app_instance_id="agentic-app-instance-id",
             agentic_user_id="agentic-user-id",
             tenant_id="tenant-id",
         )
@@ -423,7 +423,7 @@ class TestActivityContextSend:
         mock_sender.send.assert_called_once()
         ctx.api.clone.assert_called_once_with(
             service_url=ctx.conversation_ref.service_url,
-            agentic_identity=recipient.agentic_identity,
+            agentic_user=recipient.agentic_user,
         )
 
 
@@ -471,12 +471,12 @@ class TestActivityContextReply:
         assert sent_activity.entities[0].quoted_reply.message_id == "evt-id-999"
 
     @pytest.mark.asyncio
-    async def test_reply_passes_inbound_agentic_identity(self) -> None:
-        """Replying to an Agent ID activity uses the inbound agentic identity."""
+    async def test_reply_passes_inbound_agentic_user(self) -> None:
+        """Replying to an Agent ID activity uses the inbound agentic user."""
         recipient = Account(
             id="bot-id",
             name="Test Bot",
-            agentic_app_id="agentic-app-id",
+            agentic_app_instance_id="agentic-app-instance-id",
             agentic_user_id="agentic-user-id",
             tenant_id="tenant-id",
         )
@@ -494,7 +494,7 @@ class TestActivityContextReply:
         mock_sender.send.assert_called_once()
         ctx.api.clone.assert_called_once_with(
             service_url=ctx.conversation_ref.service_url,
-            agentic_identity=recipient.agentic_identity,
+            agentic_user=recipient.agentic_user,
         )
 
 

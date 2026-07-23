@@ -70,11 +70,11 @@ class TestBotClient:
         assert calls == [("https://api.botframework.com/.default", "tenant-id")]
 
     @pytest.mark.asyncio
-    async def test_bot_token_get_with_positional_agentic_identity_provider(self, mock_http_client):
+    async def test_bot_token_get_with_positional_agentic_user_provider(self, mock_http_client):
         calls = []
 
-        def token_provider(scope, tenant_id, agentic_identity):
-            calls.append((scope, tenant_id, agentic_identity))
+        def token_provider(scope, tenant_id, agentic_user):
+            calls.append((scope, tenant_id, agentic_user))
             return "token"
 
         credentials = TokenCredentials(client_id="client-id", tenant_id="tenant-id", token=token_provider)
@@ -128,8 +128,8 @@ class TestBotClient:
         calls = []
 
         class TestAuthProvider:
-            def token(self, *, scope=None, agentic_identity=None):
-                calls.append((scope, agentic_identity))
+            def token(self, *, scope=None, agentic_user=None):
+                calls.append((scope, agentic_user))
                 return "bot-token"
 
         client = ApiClient("https://test.service.url", request_capture, auth_provider=TestAuthProvider())

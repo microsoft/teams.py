@@ -15,7 +15,7 @@ from microsoft_teams.api import (
     Account,
     ActivityBase,
     ActivityParams,
-    AgenticIdentity,
+    AgenticUser,
     ApiClient,
     ClientCredentials,
     ConversationAccount,
@@ -299,7 +299,7 @@ class App(ActivityHandlerMixin):
         activity: str | ActivityParams | AdaptiveCard,
         *,
         service_url: Optional[str] = None,
-        agentic_identity: Optional[AgenticIdentity] = None,
+        agentic_user: Optional[AgenticUser] = None,
     ) -> SentActivity:
         """Send an activity proactively to a conversation.
 
@@ -332,32 +332,32 @@ class App(ActivityHandlerMixin):
             self.api,
             activity,
             conversation_ref,
-            agentic_identity=agentic_identity,
+            agentic_user=agentic_user,
         )
 
-    def get_agentic_identity(
+    def get_agentic_user(
         self,
-        agentic_app_id: str,
+        agentic_app_instance_id: str,
         agentic_user_id: str,
         *,
         tenant_id: Optional[str] = None,
-        agentic_app_blueprint_id: Optional[str] = None,
-    ) -> AgenticIdentity:
-        """Get an Agent ID identity for API calls.
+        agentic_blueprint_id: Optional[str] = None,
+    ) -> AgenticUser:
+        """Get an AgenticUser for API calls.
 
-        When ``agentic_app_blueprint_id`` is omitted, it defaults to the app's own
+        When ``agentic_blueprint_id`` is omitted, it defaults to the app's own
         client/app id (``self.id``).
         """
         resolved_tenant_id = tenant_id or (self.credentials.tenant_id if self.credentials else None)
         if resolved_tenant_id is None:
-            raise ValueError("tenant_id is required to get an agentic identity")
+            raise ValueError("tenant_id is required to get an agentic user")
 
-        resolved_blueprint_id = agentic_app_blueprint_id or self.id
-        return AgenticIdentity(
-            agentic_app_id=agentic_app_id,
+        resolved_blueprint_id = agentic_blueprint_id or self.id
+        return AgenticUser(
+            agentic_app_instance_id=agentic_app_instance_id,
             agentic_user_id=agentic_user_id,
             tenant_id=resolved_tenant_id,
-            agentic_app_blueprint_id=resolved_blueprint_id,
+            agentic_blueprint_id=resolved_blueprint_id,
         )
 
     @overload
@@ -368,7 +368,7 @@ class App(ActivityHandlerMixin):
         activity: str | ActivityParams | AdaptiveCard,
         *,
         service_url: Optional[str] = None,
-        agentic_identity: Optional[AgenticIdentity] = None,
+        agentic_user: Optional[AgenticUser] = None,
     ) -> SentActivity: ...
 
     @overload
@@ -378,7 +378,7 @@ class App(ActivityHandlerMixin):
         message_id: str | ActivityParams | AdaptiveCard,
         *,
         service_url: Optional[str] = None,
-        agentic_identity: Optional[AgenticIdentity] = None,
+        agentic_user: Optional[AgenticUser] = None,
     ) -> SentActivity: ...
 
     async def reply(  # type: ignore[reportInconsistentOverload]
@@ -388,7 +388,7 @@ class App(ActivityHandlerMixin):
         activity: str | ActivityParams | AdaptiveCard | None = None,
         *,
         service_url: Optional[str] = None,
-        agentic_identity: Optional[AgenticIdentity] = None,
+        agentic_user: Optional[AgenticUser] = None,
     ) -> SentActivity:
         """Send an activity proactively to a conversation, optionally as a threaded reply.
 
@@ -413,14 +413,14 @@ class App(ActivityHandlerMixin):
                 to_threaded_conversation_id(conversation_id, message_id),
                 activity,
                 service_url=service_url,
-                agentic_identity=agentic_identity,
+                agentic_user=agentic_user,
             )
 
         return await self.send(
             conversation_id,
             message_id,
             service_url=service_url,
-            agentic_identity=agentic_identity,
+            agentic_user=agentic_user,
         )
 
     def use(self, middleware: Callable[[ActivityContext[ActivityBase]], Awaitable[None]]) -> None:

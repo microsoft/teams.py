@@ -234,7 +234,7 @@ class TestActivityProcessor:
                     "name": "Agent",
                     "tenantId": "tenant-1",
                     "agenticAppId": "agent-app-1",
-                    "agenticUserId": "agent-user-1",
+                    "agenticUserId": "agentic-user-1",
                     "agenticAppBlueprintId": "blueprint-1",
                     "email": "agentic-user@example.com",
                     "userRole": "assistant",
@@ -587,11 +587,11 @@ class TestActivityProcessor:
         mock_api_client.users.get_token.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_build_context_scopes_api_to_inbound_agentic_identity(self, activity_processor):
-        """Inbound Agent ID activities scope ctx.api with the inbound agentic identity."""
+    async def test_build_context_scopes_api_to_inbound_agentic_user(self, activity_processor):
+        """Inbound Agent ID activities scope ctx.api with the inbound agentic user."""
         core_activity = CoreActivity(
             type="message",
-            id="activity-agentic",
+            id="activity-agentic-user",
             service_url="https://service.url",
             **{
                 "from": {"id": "user-1", "name": "Test User"},
@@ -599,7 +599,7 @@ class TestActivityProcessor:
                 "recipient": {
                     "id": "bot-1",
                     "name": "Test Bot",
-                    "agenticAppId": "agentic-app-id",
+                    "agenticAppId": "agentic-app-instance-id",
                     "agenticUserId": "agentic-user-id",
                     "tenantId": "tenant-id",
                 },
@@ -621,10 +621,10 @@ class TestActivityProcessor:
             await activity_processor.process_activity([], mock_activity_event)
 
         assert mock_api_client_type.call_args.kwargs["auth_provider"] is activity_processor.auth_provider
-        agentic_identity = mock_api_client_type.call_args.kwargs["agentic_identity"]
-        assert agentic_identity.agentic_app_id == "agentic-app-id"
-        assert agentic_identity.agentic_user_id == "agentic-user-id"
-        assert agentic_identity.tenant_id == "tenant-id"
+        agentic_user = mock_api_client_type.call_args.kwargs["agentic_user"]
+        assert agentic_user.agentic_app_instance_id == "agentic-app-instance-id"
+        assert agentic_user.agentic_user_id == "agentic-user-id"
+        assert agentic_user.tenant_id == "tenant-id"
 
     @pytest.mark.asyncio
     async def test_build_context_skips_token_fetch_when_disabled(self, activity_processor):
