@@ -230,7 +230,7 @@ class InboundActivityTokenValidator:
     """Validator for inbound Teams activities.
 
     Classic bot activities use Bot Framework connector tokens. Agent ID activities use
-    Entra tokens whose audience is the AgentIdentityBlueprint app ID.
+    Entra tokens whose audience is the AgenticBlueprint app ID.
     """
 
     def __init__(self, app_id: str, cloud: Optional[CloudEnvironment] = None):

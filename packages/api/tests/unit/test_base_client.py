@@ -196,7 +196,7 @@ async def test_auth_provider_token_is_used_when_request_has_no_auth():
     ("agentic_user", "expected_flow"),
     [
         (None, "app_only"),
-        (AgenticUser("agent-app-instance-id", "agentic-user-id", tenant_id="tenant-id"), "agentic_user"),
+        (AgenticUser("agentic-app-instance-id", "agentic-user-id", tenant_id="tenant-id"), "agentic_user"),
     ],
 )
 async def test_auth_provider_token_records_auth_outbound_span(agentic_user, expected_flow):
@@ -261,7 +261,7 @@ async def test_http_client_token_is_used_when_no_auth_provider():
 @pytest.mark.asyncio
 async def test_default_agentic_user_is_used_without_request_metadata():
     auth_provider = RecordingAuthProvider(token_value="agentic-user-token")
-    identity = AgenticUser("agent-app-instance-id", "agentic-user-id", tenant_id="tenant-id")
+    identity = AgenticUser("agentic-app-instance-id", "agentic-user-id", tenant_id="tenant-id")
     client, recorder = create_auth_provider_harness(auth_provider, default_agentic_user=identity)
 
     await client.post_resource()
@@ -273,7 +273,7 @@ async def test_default_agentic_user_is_used_without_request_metadata():
 @pytest.mark.asyncio
 async def test_default_agentic_user_is_passed_to_auth_provider_token():
     auth_provider = RecordingAuthProvider(token_value="agentic-user-token")
-    identity = AgenticUser("agent-app-instance-id", "agentic-user-id", tenant_id="tenant-id")
+    identity = AgenticUser("agentic-app-instance-id", "agentic-user-id", tenant_id="tenant-id")
     client, recorder = create_auth_provider_harness(auth_provider, default_agentic_user=identity)
 
     await client.post_resource()

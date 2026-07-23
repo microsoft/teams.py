@@ -599,7 +599,7 @@ class TestActivityProcessor:
                 "recipient": {
                     "id": "bot-1",
                     "name": "Test Bot",
-                    "agenticAppId": "agent-app-instance-id",
+                    "agenticAppId": "agentic-app-instance-id",
                     "agenticUserId": "agentic-user-id",
                     "tenantId": "tenant-id",
                 },
@@ -622,7 +622,7 @@ class TestActivityProcessor:
 
         assert mock_api_client_type.call_args.kwargs["auth_provider"] is activity_processor.auth_provider
         agentic_user = mock_api_client_type.call_args.kwargs["agentic_user"]
-        assert agentic_user.agent_app_instance_id == "agent-app-instance-id"
+        assert agentic_user.agentic_app_instance_id == "agentic-app-instance-id"
         assert agentic_user.agentic_user_id == "agentic-user-id"
         assert agentic_user.tenant_id == "tenant-id"
 

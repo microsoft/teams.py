@@ -17,14 +17,14 @@ logger = logging.getLogger(__name__)
 async def main():
     parser = argparse.ArgumentParser(description="Send proactive messages using AgenticUser")
     parser.add_argument("conversation_id", help="The Teams conversation ID to send messages to")
-    parser.add_argument("agent_app_instance_id", help="The AgentAppInstance client ID")
+    parser.add_argument("agentic_app_instance_id", help="The AgenticAppInstance client ID")
     parser.add_argument("agentic_user_id", help="The agentic user object ID")
     args = parser.parse_args()
 
     app = App()
     await app.initialize()
 
-    agentic_user = app.get_agentic_user(args.agent_app_instance_id, args.agentic_user_id)
+    agentic_user = app.get_agentic_user(args.agentic_app_instance_id, args.agentic_user_id)
     sent = await app.send(
         args.conversation_id,
         "Hello from app.send with an AgenticUser.",

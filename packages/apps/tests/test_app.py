@@ -894,7 +894,7 @@ class TestApp:
         app.api.conversations.activities = MagicMock(return_value=activities)
         _wire_flat_activity_methods(app.api, activities)
         app.api.clone = MagicMock(return_value=app.api)
-        agentic_user = AgenticUser("agent-app-instance-id", "agentic-user-id", tenant_id="tenant-id")
+        agentic_user = AgenticUser("agentic-app-instance-id", "agentic-user-id", tenant_id="tenant-id")
         service_url = "https://override.service.url"
 
         result = await app.send(
@@ -934,32 +934,32 @@ class TestApp:
         app.api.clone.assert_not_called()
 
     def test_get_agentic_user_preserves_explicit_blueprint_id(self, mock_storage) -> None:
-        """An explicitly provided agent_identity_blueprint_id should be preserved."""
+        """An explicitly provided agentic_blueprint_id should be preserved."""
         options = AppOptions(storage=mock_storage, client_id="test-client-id", client_secret="test-secret")
         app = App(**options)
 
         identity = app.get_agentic_user(
-            "agent-app-instance-id",
+            "agentic-app-instance-id",
             "agentic-user-id",
             tenant_id="tenant-id",
-            agent_identity_blueprint_id="explicit-blueprint-id",
+            agentic_blueprint_id="explicit-blueprint-id",
         )
 
-        assert identity.agent_identity_blueprint_id == "explicit-blueprint-id"
+        assert identity.agentic_blueprint_id == "explicit-blueprint-id"
 
     def test_get_agentic_user_defaults_blueprint_id_to_client_id(self, mock_storage) -> None:
-        """When agent_identity_blueprint_id is omitted, it should default to the app's client id."""
+        """When agentic_blueprint_id is omitted, it should default to the app's client id."""
         options = AppOptions(storage=mock_storage, client_id="test-client-id", client_secret="test-secret")
         app = App(**options)
 
         identity = app.get_agentic_user(
-            "agent-app-instance-id",
+            "agentic-app-instance-id",
             "agentic-user-id",
             tenant_id="tenant-id",
         )
 
-        assert identity.agent_identity_blueprint_id == app.id
-        assert identity.agent_identity_blueprint_id == "test-client-id"
+        assert identity.agentic_blueprint_id == app.id
+        assert identity.agentic_blueprint_id == "test-client-id"
 
 
 class TestAppInitialize:
@@ -1053,7 +1053,7 @@ class TestAppReply:
 
     @pytest.mark.asyncio
     async def test_reply_with_three_args_passes_service_url_and_agentic_user_to_scoped_api(self, started_app):
-        agentic_user = AgenticUser("agent-app-instance-id", "agentic-user-id", tenant_id="tenant-id")
+        agentic_user = AgenticUser("agentic-app-instance-id", "agentic-user-id", tenant_id="tenant-id")
         service_url = "https://override.service.url"
 
         await started_app.reply(
@@ -1083,7 +1083,7 @@ class TestAppReply:
 
     @pytest.mark.asyncio
     async def test_reply_with_two_args_passes_service_url_and_agentic_user_to_scoped_api(self, started_app):
-        agentic_user = AgenticUser("agent-app-instance-id", "agentic-user-id", tenant_id="tenant-id")
+        agentic_user = AgenticUser("agentic-app-instance-id", "agentic-user-id", tenant_id="tenant-id")
         service_url = "https://override.service.url"
 
         await started_app.reply(

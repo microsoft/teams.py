@@ -26,7 +26,7 @@ class TestConfig:
     channel_id: str
     meeting_id: str
     user_id_2: Optional[str] = None
-    agent_app_instance_id: Optional[str] = None
+    agentic_app_instance_id: Optional[str] = None
     agentic_user_id: Optional[str] = None
     scope: str = "https://api.botframework.com/.default"
 
@@ -46,7 +46,7 @@ class TestFixture:
 
     @property
     def is_agentic_user(self) -> bool:
-        return self.config.agent_app_instance_id is not None and self.config.agent_app_instance_id != ""
+        return self.config.agentic_app_instance_id is not None and self.config.agentic_app_instance_id != ""
 
 
 # Module-level cache (persists across tests in the same process)
@@ -86,7 +86,7 @@ def _load_config() -> TestConfig:
         channel_id=env("TEST_CHANNEL_ID"),
         meeting_id=env("TEST_MEETING_ID"),
         user_id_2=os.environ.get("TEST_USER_ID_2"),
-        agent_app_instance_id=os.environ.get("TEST_AGENT_APP_INSTANCE_ID"),
+        agentic_app_instance_id=os.environ.get("TEST_AGENTIC_APP_INSTANCE_ID"),
         agentic_user_id=os.environ.get("TEST_AGENTIC_USER_ID"),
         scope=os.environ.get("AZURE_SCOPE", "https://api.botframework.com/.default"),
     )

@@ -405,7 +405,7 @@ class TestActivityContextSend:
         recipient = Account(
             id="bot-id",
             name="Test Bot",
-            agent_app_instance_id="agent-app-instance-id",
+            agentic_app_instance_id="agentic-app-instance-id",
             agentic_user_id="agentic-user-id",
             tenant_id="tenant-id",
         )
@@ -476,7 +476,7 @@ class TestActivityContextReply:
         recipient = Account(
             id="bot-id",
             name="Test Bot",
-            agent_app_instance_id="agent-app-instance-id",
+            agentic_app_instance_id="agentic-app-instance-id",
             agentic_user_id="agentic-user-id",
             tenant_id="tenant-id",
         )

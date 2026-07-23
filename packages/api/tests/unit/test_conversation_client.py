@@ -174,7 +174,7 @@ class TestConversationClient:
                 calls.append((scope, agentic_user))
                 return "agentic-user-token"
 
-        identity = AgenticUser("agent-app-instance-id", "agentic-user-id", tenant_id="tenant-id")
+        identity = AgenticUser("agentic-app-instance-id", "agentic-user-id", tenant_id="tenant-id")
         client = ApiClient(
             "https://test.service.url", request_capture, auth_provider=TestAuthProvider(), agentic_user=identity
         ).conversations
@@ -323,7 +323,7 @@ class TestConversationActivityOperations:
                 return "agentic-user-token"
 
         cloud = with_overrides(PUBLIC, agent_bot_scope="agentic-user-scope")
-        identity = AgenticUser("agent-app-instance-id", "agentic-user-id", tenant_id="tenant-id")
+        identity = AgenticUser("agentic-app-instance-id", "agentic-user-id", tenant_id="tenant-id")
         client = ApiClient(
             "https://test.service.url",
             request_capture,
@@ -535,7 +535,7 @@ class TestConversationActivityOperations:
         self, request_capture, mock_activity
     ):
         """Test agentic user without an auth provider leaves auth resolution to the HTTP client."""
-        identity = AgenticUser("agent-app-instance-id", "agentic-user-id", tenant_id="tenant-id")
+        identity = AgenticUser("agentic-app-instance-id", "agentic-user-id", tenant_id="tenant-id")
         client = ApiClient("https://test.service.url", request_capture).from_agentic_user(identity).conversations
 
         await client.activities("test_conversation_id").create(mock_activity)
@@ -1025,7 +1025,7 @@ class TestConversationMemberOperations:
                 calls.append((scope, agentic_user))
                 return "agentic-user-token"
 
-        identity = AgenticUser("agent-app-instance-id", "agentic-user-id", tenant_id="tenant-id")
+        identity = AgenticUser("agentic-app-instance-id", "agentic-user-id", tenant_id="tenant-id")
         client = ApiClient(
             "https://test.service.url", request_capture, auth_provider=TestAuthProvider(), agentic_user=identity
         ).conversations

@@ -62,18 +62,18 @@ class Account(CustomBaseModel):
         serialization_alias="agenticUserId",
     )
     """The Agent ID user-shaped identity object ID."""
-    agent_app_instance_id: Optional[str] = Field(
+    agentic_app_instance_id: Optional[str] = Field(
         default=None,
         validation_alias="agenticAppId",
         serialization_alias="agenticAppId",
     )
-    """The AgentAppInstance app/client ID."""
-    agent_identity_blueprint_id: Optional[str] = Field(
+    """The AgenticAppInstance app/client ID."""
+    agentic_blueprint_id: Optional[str] = Field(
         default=None,
         validation_alias="agenticAppBlueprintId",
         serialization_alias="agenticAppBlueprintId",
     )
-    """The AgentIdentityBlueprint app/client ID."""
+    """The AgenticBlueprint app/client ID."""
     callback_uri: Optional[str] = None
     """The callback URI associated with the agentic user."""
     tenant_id: Optional[str] = None
@@ -81,14 +81,14 @@ class Account(CustomBaseModel):
 
     @property
     def agentic_user(self) -> Optional[AgenticUser]:
-        if self.agent_app_instance_id is None or self.agentic_user_id is None:
+        if self.agentic_app_instance_id is None or self.agentic_user_id is None:
             return None
 
         return AgenticUser(
-            agent_app_instance_id=self.agent_app_instance_id,
+            agentic_app_instance_id=self.agentic_app_instance_id,
             agentic_user_id=self.agentic_user_id,
             tenant_id=self.tenant_id,
-            agent_identity_blueprint_id=self.agent_identity_blueprint_id,
+            agentic_blueprint_id=self.agentic_blueprint_id,
         )
 
 

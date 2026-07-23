@@ -48,7 +48,7 @@ class TokenManager:
         self._cloud = cloud or PUBLIC
         self._confidential_clients_by_tenant: dict[str, ConfidentialClientApplication] = {}
         self._federated_identity_clients_by_tenant: dict[str, ConfidentialClientApplication] = {}
-        self._agent_app_instance_clients_by_tenant_and_app_instance_id: dict[
+        self._agentic_app_instance_clients_by_tenant_and_app_instance_id: dict[
             tuple[str, str], ConfidentialClientApplication
         ] = {}
         self._managed_identity_client: Optional[ManagedIdentityClient] = None
@@ -99,7 +99,7 @@ class TokenManager:
         *,
         caller_name: str | None = None,
     ) -> Optional[TokenProtocol]:
-        """Get a resource token for an agentic user acting through its AgentAppInstance."""
+        """Get a resource token for an agentic user acting through its AgenticAppInstance."""
         if not agentic_user.agentic_user_id:
             raise ValueError("agentic_user.agentic_user_id is required to get an agentic user token")
         if self._credentials is None:
@@ -121,15 +121,15 @@ class TokenManager:
 
         def get_t1_assertion(_context: dict[str, Any]) -> str:
             t1_raw: dict[str, Any] = confidential_client.acquire_token_for_client(
-                [TOKEN_EXCHANGE_SCOPE], fmi_path=agentic_user.agent_app_instance_id
+                [TOKEN_EXCHANGE_SCOPE], fmi_path=agentic_user.agentic_app_instance_id
             )
             return self._get_access_token_or_raise(t1_raw, "Agent token exchange step 1 failed")
 
-        # The AgentAppInstance needs its own MSAL client. It uses the Federated Managed
+        # The AgenticAppInstance needs its own MSAL client. It uses the Federated Managed
         # Identity assertion from step 1 as its client assertion for the next exchanges.
-        t2_confidential_client = self._get_agent_app_instance_client(
+        t2_confidential_client = self._get_agentic_app_instance_client(
             tenant_id,
-            agentic_user.agent_app_instance_id,
+            agentic_user.agentic_app_instance_id,
             get_t1_assertion,
         )
 
@@ -348,24 +348,24 @@ class TokenManager:
         self._federated_identity_clients_by_tenant[tenant_id] = client
         return client
 
-    def _get_agent_app_instance_client(
+    def _get_agentic_app_instance_client(
         self,
         tenant_id: str,
-        agent_app_instance_id: str,
+        agentic_app_instance_id: str,
         client_assertion: Callable[[dict[str, Any]], str],
     ) -> ConfidentialClientApplication:
-        cached_client = self._agent_app_instance_clients_by_tenant_and_app_instance_id.get(
-            (tenant_id, agent_app_instance_id)
+        cached_client = self._agentic_app_instance_clients_by_tenant_and_app_instance_id.get(
+            (tenant_id, agentic_app_instance_id)
         )
         if cached_client:
             return cached_client
 
         client: ConfidentialClientApplication = ConfidentialClientApplication(
-            agent_app_instance_id,
+            agentic_app_instance_id,
             client_credential={"client_assertion": client_assertion},
             authority=f"{self._cloud.login_endpoint}/{tenant_id}",
         )
-        self._agent_app_instance_clients_by_tenant_and_app_instance_id[(tenant_id, agent_app_instance_id)] = client
+        self._agentic_app_instance_clients_by_tenant_and_app_instance_id[(tenant_id, agentic_app_instance_id)] = client
         return client
 
     def _get_managed_identity_client(

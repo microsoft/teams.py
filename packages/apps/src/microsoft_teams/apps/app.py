@@ -336,27 +336,27 @@ class App(ActivityHandlerMixin):
 
     def get_agentic_user(
         self,
-        agent_app_instance_id: str,
+        agentic_app_instance_id: str,
         agentic_user_id: str,
         *,
         tenant_id: Optional[str] = None,
-        agent_identity_blueprint_id: Optional[str] = None,
+        agentic_blueprint_id: Optional[str] = None,
     ) -> AgenticUser:
         """Get an AgenticUser for API calls.
 
-        When ``agent_identity_blueprint_id`` is omitted, it defaults to the app's own
+        When ``agentic_blueprint_id`` is omitted, it defaults to the app's own
         client/app id (``self.id``).
         """
         resolved_tenant_id = tenant_id or (self.credentials.tenant_id if self.credentials else None)
         if resolved_tenant_id is None:
             raise ValueError("tenant_id is required to get an agentic user")
 
-        resolved_blueprint_id = agent_identity_blueprint_id or self.id
+        resolved_blueprint_id = agentic_blueprint_id or self.id
         return AgenticUser(
-            agent_app_instance_id=agent_app_instance_id,
+            agentic_app_instance_id=agentic_app_instance_id,
             agentic_user_id=agentic_user_id,
             tenant_id=resolved_tenant_id,
-            agent_identity_blueprint_id=resolved_blueprint_id,
+            agentic_blueprint_id=resolved_blueprint_id,
         )
 
     @overload

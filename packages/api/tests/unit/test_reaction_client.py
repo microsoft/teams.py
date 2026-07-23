@@ -87,7 +87,7 @@ class TestReactionClient:
                 return "agentic-user-token"
 
         cloud = with_overrides(PUBLIC, agent_bot_scope="agentic-user-scope")
-        identity = AgenticUser("agent-app-instance-id", "agentic-user-id", tenant_id="tenant-id")
+        identity = AgenticUser("agentic-app-instance-id", "agentic-user-id", tenant_id="tenant-id")
         client = ApiClient(
             "https://test.service.url",
             mock_http_client,
@@ -162,7 +162,7 @@ class TestReactionClient:
                 calls.append((scope, agentic_user))
                 return "agentic-user-token"
 
-        identity = AgenticUser("agent-app-instance-id", "agentic-user-id", tenant_id="tenant-id")
+        identity = AgenticUser("agentic-app-instance-id", "agentic-user-id", tenant_id="tenant-id")
         client = ApiClient(
             "https://test.service.url", mock_http_client, auth_provider=TestAuthProvider(), agentic_user=identity
         ).reactions

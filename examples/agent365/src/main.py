@@ -44,8 +44,8 @@ def _log_lifecycle_envelope(activity: AgentLifecycleEventActivity, handler_name:
         handler_name,
         activity.value.tenant_id,
         activity.value.agentic_user_id,
-        activity.value.agent_app_instance_id,
-        activity.value.agent_identity_blueprint_id,
+        activity.value.agentic_app_instance_id,
+        activity.value.agentic_blueprint_id,
         activity.value.version,
     )
 
