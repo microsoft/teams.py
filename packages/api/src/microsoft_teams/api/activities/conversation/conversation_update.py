@@ -3,7 +3,7 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from typing import List, Literal, Optional, Union
+from typing import List, Literal, Optional
 
 from ...models import Account, ActivityBase, ChannelData, CustomBaseModel
 
@@ -30,7 +30,7 @@ ConversationEventType = Literal[
 class ConversationChannelData(ChannelData, CustomBaseModel):
     """Extended ChannelData with event type."""
 
-    event_type: Optional[Union[ConversationEventType, str]] = None
+    event_type: Optional[str] = None
     """The type of event that occurred.
 
     Known values are enumerated by ``ConversationEventType``, but the field
