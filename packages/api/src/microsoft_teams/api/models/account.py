@@ -7,7 +7,7 @@ from typing import Any, Dict, Literal, Optional
 
 from pydantic import AliasChoices, Field
 
-from .agent_user import AgentUser
+from .agentic_user import AgenticUser
 from .custom_base_model import CustomBaseModel
 
 AccountType = Literal["person", "tag", "channel", "team", "bot"]
@@ -56,7 +56,7 @@ class Account(CustomBaseModel):
     """
     role: Optional[AccountRole | str] = None
     """The role of the account in the activity."""
-    agent_user_id: Optional[str] = Field(
+    agentic_user_id: Optional[str] = Field(
         default=None,
         validation_alias="agenticUserId",
         serialization_alias="agenticUserId",
@@ -75,18 +75,18 @@ class Account(CustomBaseModel):
     )
     """The AgentIdentityBlueprint app/client ID."""
     callback_uri: Optional[str] = None
-    """The callback URI associated with the agent user."""
+    """The callback URI associated with the agentic user."""
     tenant_id: Optional[str] = None
     """The tenant ID associated with the account."""
 
     @property
-    def agent_user(self) -> Optional[AgentUser]:
-        if self.agent_app_instance_id is None or self.agent_user_id is None:
+    def agentic_user(self) -> Optional[AgenticUser]:
+        if self.agent_app_instance_id is None or self.agentic_user_id is None:
             return None
 
-        return AgentUser(
+        return AgenticUser(
             agent_app_instance_id=self.agent_app_instance_id,
-            agent_user_id=self.agent_user_id,
+            agentic_user_id=self.agentic_user_id,
             tenant_id=self.tenant_id,
             agent_identity_blueprint_id=self.agent_identity_blueprint_id,
         )

@@ -47,7 +47,7 @@ class AgentLifecycleValueBase(CustomBaseModel):
     tenant_id: Optional[str] = None
     """The tenant the agentic user belongs to."""
 
-    agent_user_id: Optional[str] = Field(
+    agentic_user_id: Optional[str] = Field(
         default=None,
         validation_alias="agenticUserId",
         serialization_alias="agenticUserId",

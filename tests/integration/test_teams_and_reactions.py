@@ -35,8 +35,8 @@ class TestReactions:
     @pytest.mark.asyncio
     async def test_add_and_delete_reaction(self, fixture):
         """Add a reaction to an activity then remove it."""
-        if fixture.is_agent_user:
-            pytest.skip("Reactions not supported with agent user")
+        if fixture.is_agentic_user:
+            pytest.skip("Reactions not supported with agentic user")
         if fixture.is_canary:
             pytest.skip("Reactions return 404 on canary")
 

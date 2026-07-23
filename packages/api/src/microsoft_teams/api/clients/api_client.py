@@ -18,7 +18,7 @@ from ..auth.cloud_environment import PUBLIC, CloudEnvironment
 from ..diagnostics._constants import API_ATTRIBUTE_NAMES, API_AUTH_FLOWS, API_SPAN_NAMES
 from ..diagnostics._helpers import get_tracer, record_exception
 from ..diagnostics._outbound import ensure_outbound_telemetry_middleware
-from ..models import AgentUser
+from ..models import AgenticUser
 from ._auth_provider import AuthProvider
 from .api_client_settings import ApiClientSettings, merge_api_client_settings
 from .base_client import BaseClient
@@ -29,9 +29,9 @@ from .reaction import ReactionClient
 from .team import TeamClient
 from .user import UserClient
 
-AgentUserClear: TypeAlias = Literal["clear"]
-AGENT_USER_CLEAR: AgentUserClear = "clear"
-AgentUserScope: TypeAlias = AgentUser | None | AgentUserClear
+AgenticUserClear: TypeAlias = Literal["clear"]
+AGENTIC_USER_CLEAR: AgenticUserClear = "clear"
+AgenticUserScope: TypeAlias = AgenticUser | None | AgenticUserClear
 
 
 class ApiClient(BaseClient):
@@ -45,7 +45,7 @@ class ApiClient(BaseClient):
         cloud: Optional[CloudEnvironment] = None,
         *,
         auth_provider: Optional[AuthProvider] = None,
-        agent_user: Optional[AgentUser] = None,
+        agentic_user: Optional[AgenticUser] = None,
     ) -> None:
         """Initialize the unified Teams API client.
 
@@ -63,7 +63,7 @@ class ApiClient(BaseClient):
             raise ValueError("Cannot use both an auth provider and an HTTP client token.")
 
         self._auth_provider = auth_provider
-        self._default_agent_user = agent_user
+        self._default_agentic_user = agentic_user
         self._apply_auth_provider_token()
 
         # Initialize all client types
@@ -102,19 +102,19 @@ class ApiClient(BaseClient):
         self,
         *,
         service_url: str | None = None,
-        agent_user: AgentUserScope = None,
+        agentic_user: AgenticUserScope = None,
     ) -> "ApiClient":
         """Create a scoped API client.
 
-        Omitting agent_user, or passing None, preserves the existing scoped identity.
-        Pass AGENT_USER_CLEAR to clear it, or an AgentUser to override it.
+        Omitting agentic_user, or passing None, preserves the existing scoped identity.
+        Pass AGENTIC_USER_CLEAR to clear it, or an AgenticUser to override it.
         """
-        if agent_user is None:
-            resolved_agent_user = self._default_agent_user
-        elif agent_user == AGENT_USER_CLEAR:
-            resolved_agent_user = None
+        if agentic_user is None:
+            resolved_agentic_user = self._default_agentic_user
+        elif agentic_user == AGENTIC_USER_CLEAR:
+            resolved_agentic_user = None
         else:
-            resolved_agent_user = agent_user
+            resolved_agentic_user = agentic_user
         http = self._http.clone(share_http=True)
         if self._auth_provider is not None:
             http.token = None
@@ -125,34 +125,34 @@ class ApiClient(BaseClient):
             self._api_client_settings,
             cloud=self._cloud,
             auth_provider=self._auth_provider,
-            agent_user=resolved_agent_user,
+            agentic_user=resolved_agentic_user,
         )
 
     def from_service_url(self, service_url: str) -> "ApiClient":
         """Create a scoped API client for a different Teams service URL."""
         return self.clone(service_url=service_url)
 
-    def from_agent_user(self, agent_user: AgentUser) -> "ApiClient":
-        """Create a scoped API client for an agent user."""
-        return self.clone(agent_user=agent_user)
+    def from_agentic_user(self, agentic_user: AgenticUser) -> "ApiClient":
+        """Create a scoped API client for an agentic user."""
+        return self.clone(agentic_user=agentic_user)
 
-    def for_agent_user(self, agent_user: AgentUser) -> "ApiClient":
-        """Alias for from_agent_user."""
-        return self.from_agent_user(agent_user)
+    def for_agentic_user(self, agentic_user: AgenticUser) -> "ApiClient":
+        """Alias for from_agentic_user."""
+        return self.from_agentic_user(agentic_user)
 
     def _scope_conversations(
         self,
         service_url: str | None,
-        agent_user: AgentUser | None,
+        agentic_user: AgenticUser | None,
     ) -> ConversationClient:
-        return self.clone(service_url=service_url, agent_user=agent_user).conversations
+        return self.clone(service_url=service_url, agentic_user=agentic_user).conversations
 
-    def _get_scoped_http(self, agent_user: AgentUser | None) -> HttpClient:
+    def _get_scoped_http(self, agentic_user: AgenticUser | None) -> HttpClient:
         if self._auth_provider is None:
             return self._http.clone(share_http=True)
 
         return self._http.clone(
-            ClientOptions(token=self._create_auth_provider_token(agent_user)),
+            ClientOptions(token=self._create_auth_provider_token(agentic_user)),
             share_http=True,
         )
 
@@ -160,9 +160,9 @@ class ApiClient(BaseClient):
         if self._auth_provider is None:
             return
 
-        self._http = self._get_scoped_http(self._default_agent_user)
+        self._http = self._get_scoped_http(self._default_agentic_user)
 
-    def _create_auth_provider_token(self, agent_user: AgentUser | None) -> Token:
+    def _create_auth_provider_token(self, agentic_user: AgenticUser | None) -> Token:
         auth_provider = self._auth_provider
         if auth_provider is None:
             return None
@@ -174,10 +174,10 @@ class ApiClient(BaseClient):
                 record_exception=False,
                 set_status_on_exception=False,
             ) as span:
-                flow = API_AUTH_FLOWS.agent_user if agent_user is not None else API_AUTH_FLOWS.app_only
+                flow = API_AUTH_FLOWS.agentic_user if agentic_user is not None else API_AUTH_FLOWS.app_only
                 span.set_attribute(API_ATTRIBUTE_NAMES.auth_flow, flow)
                 try:
-                    token = auth_provider.token(agent_user=agent_user)
+                    token = auth_provider.token(agentic_user=agentic_user)
                     if inspect.isawaitable(token):
                         return await token
                     return token

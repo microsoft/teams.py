@@ -16,7 +16,7 @@ from microsoft_teams.api.clients import ApiClient
 from microsoft_teams.api.clients.conversation import ConversationClient
 from microsoft_teams.api.clients.conversation.params import CreateConversationParams
 from microsoft_teams.api.diagnostics._outbound import ApiOutboundTelemetryMetadata
-from microsoft_teams.api.models import AgentUser, ConversationResource, PagedMembersResult, TeamsChannelAccount
+from microsoft_teams.api.models import AgenticUser, ConversationResource, PagedMembersResult, TeamsChannelAccount
 from microsoft_teams.common.http import Client, ClientOptions
 from opentelemetry.trace import Span, SpanKind
 
@@ -152,8 +152,8 @@ class TestConversationClient:
         calls = []
 
         class TestAuthProvider:
-            def token(self, *, scope=None, agent_user=None):
-                calls.append((scope, agent_user))
+            def token(self, *, scope=None, agentic_user=None):
+                calls.append((scope, agentic_user))
                 return "bot-token"
 
         client = ApiClient("https://test.service.url", request_capture, auth_provider=TestAuthProvider()).conversations
@@ -166,17 +166,17 @@ class TestConversationClient:
         assert request.headers["authorization"] == "Bearer bot-token"
 
     @pytest.mark.asyncio
-    async def test_create_conversation_uses_agent_user(self, request_capture, mock_account):
+    async def test_create_conversation_uses_agentic_user(self, request_capture, mock_account):
         calls = []
 
         class TestAuthProvider:
-            def token(self, *, scope=None, agent_user=None):
-                calls.append((scope, agent_user))
-                return "agent-user-token"
+            def token(self, *, scope=None, agentic_user=None):
+                calls.append((scope, agentic_user))
+                return "agentic-user-token"
 
-        identity = AgentUser("agent-app-instance-id", "agent-user-id", tenant_id="tenant-id")
+        identity = AgenticUser("agent-app-instance-id", "agentic-user-id", tenant_id="tenant-id")
         client = ApiClient(
-            "https://test.service.url", request_capture, auth_provider=TestAuthProvider(), agent_user=identity
+            "https://test.service.url", request_capture, auth_provider=TestAuthProvider(), agentic_user=identity
         ).conversations
         params = CreateConversationParams(members=[mock_account], tenant_id="test_tenant_id")
 
@@ -184,7 +184,7 @@ class TestConversationClient:
 
         assert calls == [(None, identity)]
         request = request_capture._capture.last_request
-        assert request.headers["authorization"] == "Bearer agent-user-token"
+        assert request.headers["authorization"] == "Bearer agentic-user-token"
 
     def test_conversation_resource_with_all_fields(self):
         """Test that ConversationResource correctly handles all fields present."""
@@ -297,12 +297,12 @@ class TestConversationActivityOperations:
         assert str(last_request.url) == "https://override.service.url/v3/conversations/test_conversation_id/activities"
 
     async def test_activity_create_uses_auth_provider_for_bot_token(self, request_capture, mock_activity):
-        """Test creating an activity with an auth provider but no agent user."""
+        """Test creating an activity with an auth provider but no agentic user."""
         calls = []
 
         class TestAuthProvider:
-            def token(self, *, scope=None, agent_user=None):
-                calls.append((scope, agent_user))
+            def token(self, *, scope=None, agentic_user=None):
+                calls.append((scope, agentic_user))
                 return "bot-token"
 
         client = ApiClient("https://test.service.url", request_capture, auth_provider=TestAuthProvider()).conversations
@@ -313,22 +313,22 @@ class TestConversationActivityOperations:
         last_request = request_capture._capture.last_request
         assert last_request.headers["authorization"] == "Bearer bot-token"
 
-    async def test_activity_create_uses_client_agent_user(self, request_capture, mock_activity):
-        """Test creating an activity with the client's default agent user."""
+    async def test_activity_create_uses_client_agentic_user(self, request_capture, mock_activity):
+        """Test creating an activity with the client's default agentic user."""
         calls = []
 
         class TestAuthProvider:
-            def token(self, *, scope=None, agent_user=None):
-                calls.append((scope, agent_user))
-                return "agent-user-token"
+            def token(self, *, scope=None, agentic_user=None):
+                calls.append((scope, agentic_user))
+                return "agentic-user-token"
 
-        cloud = with_overrides(PUBLIC, agent_bot_scope="agent-user-scope")
-        identity = AgentUser("agent-app-instance-id", "agent-user-id", tenant_id="tenant-id")
+        cloud = with_overrides(PUBLIC, agent_bot_scope="agentic-user-scope")
+        identity = AgenticUser("agent-app-instance-id", "agentic-user-id", tenant_id="tenant-id")
         client = ApiClient(
             "https://test.service.url",
             request_capture,
             auth_provider=TestAuthProvider(),
-            agent_user=identity,
+            agentic_user=identity,
             cloud=cloud,
         ).conversations
 
@@ -336,27 +336,27 @@ class TestConversationActivityOperations:
 
         assert calls == [(None, identity)]
         last_request = request_capture._capture.last_request
-        assert last_request.headers["authorization"] == "Bearer agent-user-token"
+        assert last_request.headers["authorization"] == "Bearer agentic-user-token"
 
-    async def test_activity_create_scoped_agent_user_overrides_client_default(self, request_capture, mock_activity):
-        """Test scoped agent user overrides the client's default identity."""
+    async def test_activity_create_scoped_agentic_user_overrides_client_default(self, request_capture, mock_activity):
+        """Test scoped agentic user overrides the client's default identity."""
         calls = []
 
         class TestAuthProvider:
-            def token(self, *, scope=None, agent_user=None):
-                calls.append((scope, agent_user))
+            def token(self, *, scope=None, agentic_user=None):
+                calls.append((scope, agentic_user))
                 return "override-token"
 
-        default_identity = AgentUser("default-app-id", "default-user-id", tenant_id="default-tenant-id")
-        override_identity = AgentUser("override-app-id", "override-user-id", tenant_id="override-tenant-id")
+        default_identity = AgenticUser("default-app-id", "default-user-id", tenant_id="default-tenant-id")
+        override_identity = AgenticUser("override-app-id", "override-user-id", tenant_id="override-tenant-id")
         client = (
             ApiClient(
                 "https://test.service.url",
                 request_capture,
                 auth_provider=TestAuthProvider(),
-                agent_user=default_identity,
+                agentic_user=default_identity,
             )
-            .from_agent_user(override_identity)
+            .from_agentic_user(override_identity)
             .conversations
         )
 
@@ -366,17 +366,17 @@ class TestConversationActivityOperations:
         last_request = request_capture._capture.last_request
         assert last_request.headers["authorization"] == "Bearer override-token"
 
-    async def test_flattened_activity_create_accepts_service_url_and_agent_user_kwargs(
+    async def test_flattened_activity_create_accepts_service_url_and_agentic_user_kwargs(
         self, request_capture, mock_activity
     ):
         calls = []
 
         class TestAuthProvider:
-            def token(self, *, scope=None, agent_user=None):
-                calls.append((scope, agent_user))
+            def token(self, *, scope=None, agentic_user=None):
+                calls.append((scope, agentic_user))
                 return "override-token"
 
-        identity = AgentUser("override-app-id", "override-user-id", tenant_id="override-tenant-id")
+        identity = AgenticUser("override-app-id", "override-user-id", tenant_id="override-tenant-id")
         client = ApiClient(
             "https://default.service.url",
             request_capture,
@@ -387,7 +387,7 @@ class TestConversationActivityOperations:
             "test_conversation_id",
             mock_activity,
             service_url="https://override.service.url/",
-            agent_user=identity,
+            agentic_user=identity,
         )
 
         assert calls == [(None, identity)]
@@ -395,17 +395,17 @@ class TestConversationActivityOperations:
         assert str(last_request.url) == "https://override.service.url/v3/conversations/test_conversation_id/activities"
         assert "authorization" in last_request.headers
 
-    async def test_direct_activities_client_methods_accept_service_url_and_agent_user_kwargs(
+    async def test_direct_activities_client_methods_accept_service_url_and_agentic_user_kwargs(
         self, request_capture, mock_activity
     ):
         calls = []
 
         class TestAuthProvider:
-            def token(self, *, scope=None, agent_user=None):
-                calls.append((scope, agent_user))
+            def token(self, *, scope=None, agentic_user=None):
+                calls.append((scope, agentic_user))
                 return "override-token"
 
-        identity = AgentUser("override-app-id", "override-user-id", tenant_id="override-tenant-id")
+        identity = AgenticUser("override-app-id", "override-user-id", tenant_id="override-tenant-id")
         activities_client = ApiClient(
             "https://default.service.url",
             request_capture,
@@ -417,7 +417,7 @@ class TestConversationActivityOperations:
             "test_conversation_id",
             mock_activity,
             service_url=service_url,
-            agent_user=identity,
+            agentic_user=identity,
         )
         assert (
             str(request_capture._capture.last_request.url)
@@ -430,7 +430,7 @@ class TestConversationActivityOperations:
             "activity-id",
             mock_activity,
             service_url=service_url,
-            agent_user=identity,
+            agentic_user=identity,
         )
         assert (
             str(request_capture._capture.last_request.url)
@@ -443,7 +443,7 @@ class TestConversationActivityOperations:
             "activity-id",
             mock_activity,
             service_url=service_url,
-            agent_user=identity,
+            agentic_user=identity,
         )
         assert (
             str(request_capture._capture.last_request.url)
@@ -455,7 +455,7 @@ class TestConversationActivityOperations:
             "test_conversation_id",
             "activity-id",
             service_url=service_url,
-            agent_user=identity,
+            agentic_user=identity,
         )
         assert (
             str(request_capture._capture.last_request.url)
@@ -467,7 +467,7 @@ class TestConversationActivityOperations:
             "test_conversation_id",
             "activity-id",
             service_url=service_url,
-            agent_user=identity,
+            agentic_user=identity,
         )
         assert (
             str(request_capture._capture.last_request.url)
@@ -531,12 +531,12 @@ class TestConversationActivityOperations:
             "?isTargetedActivity=true"
         )
 
-    async def test_activity_create_agent_user_without_auth_provider_uses_http_client_auth(
+    async def test_activity_create_agentic_user_without_auth_provider_uses_http_client_auth(
         self, request_capture, mock_activity
     ):
-        """Test agent user without an auth provider leaves auth resolution to the HTTP client."""
-        identity = AgentUser("agent-app-instance-id", "agent-user-id", tenant_id="tenant-id")
-        client = ApiClient("https://test.service.url", request_capture).from_agent_user(identity).conversations
+        """Test agentic user without an auth provider leaves auth resolution to the HTTP client."""
+        identity = AgenticUser("agent-app-instance-id", "agentic-user-id", tenant_id="tenant-id")
+        client = ApiClient("https://test.service.url", request_capture).from_agentic_user(identity).conversations
 
         await client.activities("test_conversation_id").create(mock_activity)
 
@@ -703,8 +703,8 @@ class TestConversationActivityOperations:
         calls = []
 
         class TestAuthProvider:
-            def token(self, *, scope=None, agent_user=None):
-                calls.append((scope, agent_user))
+            def token(self, *, scope=None, agentic_user=None):
+                calls.append((scope, agentic_user))
                 return "bot-token"
 
         client = ApiClient("https://test.service.url", request_capture, auth_provider=TestAuthProvider()).conversations
@@ -726,7 +726,7 @@ class TestConversationActivityOperations:
         error = RuntimeError("token failure")
 
         class TestAuthProvider:
-            def token(self, *, scope=None, agent_user=None):
+            def token(self, *, scope=None, agentic_user=None):
                 raise error
 
         client = ApiClient("https://test.service.url", request_capture, auth_provider=TestAuthProvider()).conversations
@@ -754,8 +754,8 @@ class TestConversationActivityOperations:
         calls = []
 
         class TestAuthProvider:
-            def token(self, *, scope=None, agent_user=None):
-                calls.append((scope, agent_user))
+            def token(self, *, scope=None, agentic_user=None):
+                calls.append((scope, agentic_user))
                 return "bot-token"
 
         api_client = ApiClient("https://test.service.url", request_capture, auth_provider=TestAuthProvider())
@@ -998,8 +998,8 @@ class TestConversationMemberOperations:
         calls = []
 
         class TestAuthProvider:
-            def token(self, *, scope=None, agent_user=None):
-                calls.append((scope, agent_user))
+            def token(self, *, scope=None, agentic_user=None):
+                calls.append((scope, agentic_user))
                 return "bot-token"
 
         client = ApiClient("https://test.service.url", request_capture, auth_provider=TestAuthProvider()).conversations
@@ -1017,17 +1017,17 @@ class TestConversationMemberOperations:
         for request in request_capture._capture.requests[-3:]:
             assert request.headers["authorization"] == "Bearer bot-token"
 
-    async def test_member_operations_use_agent_user(self, request_capture):
+    async def test_member_operations_use_agentic_user(self, request_capture):
         calls = []
 
         class TestAuthProvider:
-            def token(self, *, scope=None, agent_user=None):
-                calls.append((scope, agent_user))
-                return "agent-user-token"
+            def token(self, *, scope=None, agentic_user=None):
+                calls.append((scope, agentic_user))
+                return "agentic-user-token"
 
-        identity = AgentUser("agent-app-instance-id", "agent-user-id", tenant_id="tenant-id")
+        identity = AgenticUser("agent-app-instance-id", "agentic-user-id", tenant_id="tenant-id")
         client = ApiClient(
-            "https://test.service.url", request_capture, auth_provider=TestAuthProvider(), agent_user=identity
+            "https://test.service.url", request_capture, auth_provider=TestAuthProvider(), agentic_user=identity
         ).conversations
         members = client.members("test_conversation_id")
 
@@ -1041,7 +1041,7 @@ class TestConversationMemberOperations:
             (None, identity),
         ]
         for request in request_capture._capture.requests[-3:]:
-            assert request.headers["authorization"] == "Bearer agent-user-token"
+            assert request.headers["authorization"] == "Bearer agentic-user-token"
 
     async def test_member_get_paged(self, mock_http_client):
         """Test getting a page of members returns PagedMembersResult."""

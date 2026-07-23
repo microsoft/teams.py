@@ -201,7 +201,7 @@ class ActivityContext(Generic[T]):
             self.api,
             activity,
             ref,
-            agent_user=self.activity.recipient.agent_user,
+            agentic_user=self.activity.recipient.agentic_user,
         )
 
     async def reply(self, input: str | ActivityParams) -> SentActivity:

@@ -79,7 +79,7 @@ class TestAgentLifecycleEventParsing:
         assert isinstance(activity, AgenticUserIdentityCreatedActivity)
         assert activity.name == "agentLifecycle"
         assert activity.value_type == "AgenticUserIdentityCreated"
-        assert activity.value.agent_user_id == AGENTIC_USER_ID
+        assert activity.value.agentic_user_id == AGENTIC_USER_ID
         assert activity.value.manager is not None
         assert activity.value.manager.user_id == "3c22b565-74f3-48b0-aa18-1dc03b8ec270"
         assert activity.value.manager.email == "manager@example.test"

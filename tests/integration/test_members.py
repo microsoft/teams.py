@@ -32,8 +32,8 @@ class TestMembers:
     @pytest.mark.asyncio
     async def test_get_paged_members(self, fixture):
         """Get members with paging."""
-        if fixture.is_canary or fixture.is_agent_user:
-            pytest.skip("Paged members not supported on canary/agent user")
+        if fixture.is_canary or fixture.is_agentic_user:
+            pytest.skip("Paged members not supported on canary/agentic user")
 
         api = fixture.api
         conv_id = fixture.config.conversation_id

@@ -27,7 +27,7 @@ class TestConfig:
     meeting_id: str
     user_id_2: Optional[str] = None
     agent_app_instance_id: Optional[str] = None
-    agent_user_id: Optional[str] = None
+    agentic_user_id: Optional[str] = None
     scope: str = "https://api.botframework.com/.default"
 
 
@@ -45,7 +45,7 @@ class TestFixture:
         return "canary" in self.config.service_url.lower()
 
     @property
-    def is_agent_user(self) -> bool:
+    def is_agentic_user(self) -> bool:
         return self.config.agent_app_instance_id is not None and self.config.agent_app_instance_id != ""
 
 
@@ -87,7 +87,7 @@ def _load_config() -> TestConfig:
         meeting_id=env("TEST_MEETING_ID"),
         user_id_2=os.environ.get("TEST_USER_ID_2"),
         agent_app_instance_id=os.environ.get("TEST_AGENT_APP_INSTANCE_ID"),
-        agent_user_id=os.environ.get("TEST_AGENT_USER_ID"),
+        agentic_user_id=os.environ.get("TEST_AGENTIC_USER_ID"),
         scope=os.environ.get("AZURE_SCOPE", "https://api.botframework.com/.default"),
     )
     return _cached_config

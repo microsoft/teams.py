@@ -111,7 +111,7 @@ class ActivityProcessor:
             self.http_client,
             self.api_client_settings,
             auth_provider=self.auth_provider,
-            agent_user=activity.recipient.agent_user,
+            agentic_user=activity.recipient.agentic_user,
         )
 
         # Check if user is signed in

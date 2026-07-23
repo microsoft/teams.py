@@ -7,13 +7,13 @@ from dataclasses import dataclass
 
 
 @dataclass(frozen=True)
-class AgentUser:
+class AgenticUser:
     """Identifies an Agent ID user-shaped identity and its backing agent app."""
 
     agent_app_instance_id: str
-    agent_user_id: str
+    agentic_user_id: str
     tenant_id: str | None = None
     agent_identity_blueprint_id: str | None = None
 
 
-__all__ = ["AgentUser"]
+__all__ = ["AgenticUser"]

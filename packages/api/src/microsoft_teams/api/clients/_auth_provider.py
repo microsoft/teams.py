@@ -9,10 +9,10 @@ from typing import Awaitable, Protocol
 
 from microsoft_teams.common.http.client_token import StringLike
 
-from ..models.agent_user import AgentUser
+from ..models.agentic_user import AgenticUser
 
 
 class AuthProvider(Protocol):
     def token(
-        self, *, scope: str | None = None, agent_user: AgentUser | None = None
+        self, *, scope: str | None = None, agentic_user: AgenticUser | None = None
     ) -> str | StringLike | None | Awaitable[str | StringLike | None]: ...

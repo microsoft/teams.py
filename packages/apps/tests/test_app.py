@@ -15,7 +15,7 @@ import httpx
 import pytest
 from microsoft_teams.api import (
     Account,
-    AgentUser,
+    AgenticUser,
     ConversationAccount,
     FederatedIdentityCredentials,
     InvokeActivity,
@@ -882,7 +882,7 @@ class TestApp:
         assert sent_activity.conversation.id == "conv-123"
 
     @pytest.mark.asyncio
-    async def test_send_passes_service_url_and_agent_user_to_scoped_api(self, mock_storage) -> None:
+    async def test_send_passes_service_url_and_agentic_user_to_scoped_api(self, mock_storage) -> None:
         options = AppOptions(storage=mock_storage, client_id="test-client-id", client_secret="test-secret")
         app = App(**options)
         app._initialized = True
@@ -894,20 +894,20 @@ class TestApp:
         app.api.conversations.activities = MagicMock(return_value=activities)
         _wire_flat_activity_methods(app.api, activities)
         app.api.clone = MagicMock(return_value=app.api)
-        agent_user = AgentUser("agent-app-instance-id", "agent-user-id", tenant_id="tenant-id")
+        agentic_user = AgenticUser("agent-app-instance-id", "agentic-user-id", tenant_id="tenant-id")
         service_url = "https://override.service.url"
 
         result = await app.send(
             "conv-123",
             "Hello",
             service_url=service_url,
-            agent_user=agent_user,
+            agentic_user=agentic_user,
         )
 
         app.api.conversations.activities.assert_called_once_with("conv-123")
         app.api.clone.assert_called_once_with(
             service_url=service_url,
-            agent_user=agent_user,
+            agentic_user=agentic_user,
         )
         create.assert_called_once()
         activity = create.call_args.args[0]
@@ -917,7 +917,7 @@ class TestApp:
         assert result.id == "sent-activity-id"
 
     @pytest.mark.asyncio
-    async def test_send_uses_existing_api_when_agent_user_is_none(self, mock_storage) -> None:
+    async def test_send_uses_existing_api_when_agentic_user_is_none(self, mock_storage) -> None:
         options = AppOptions(storage=mock_storage, client_id="test-client-id", client_secret="test-secret")
         app = App(**options)
         app._initialized = True
@@ -929,32 +929,32 @@ class TestApp:
         _wire_flat_activity_methods(app.api, activities)
         app.api.clone = MagicMock(return_value=app.api)
 
-        await app.send("conv-123", "Hello", agent_user=None)
+        await app.send("conv-123", "Hello", agentic_user=None)
 
         app.api.clone.assert_not_called()
 
-    def test_get_agent_user_preserves_explicit_blueprint_id(self, mock_storage) -> None:
+    def test_get_agentic_user_preserves_explicit_blueprint_id(self, mock_storage) -> None:
         """An explicitly provided agent_identity_blueprint_id should be preserved."""
         options = AppOptions(storage=mock_storage, client_id="test-client-id", client_secret="test-secret")
         app = App(**options)
 
-        identity = app.get_agent_user(
+        identity = app.get_agentic_user(
             "agent-app-instance-id",
-            "agent-user-id",
+            "agentic-user-id",
             tenant_id="tenant-id",
             agent_identity_blueprint_id="explicit-blueprint-id",
         )
 
         assert identity.agent_identity_blueprint_id == "explicit-blueprint-id"
 
-    def test_get_agent_user_defaults_blueprint_id_to_client_id(self, mock_storage) -> None:
+    def test_get_agentic_user_defaults_blueprint_id_to_client_id(self, mock_storage) -> None:
         """When agent_identity_blueprint_id is omitted, it should default to the app's client id."""
         options = AppOptions(storage=mock_storage, client_id="test-client-id", client_secret="test-secret")
         app = App(**options)
 
-        identity = app.get_agent_user(
+        identity = app.get_agentic_user(
             "agent-app-instance-id",
-            "agent-user-id",
+            "agentic-user-id",
             tenant_id="tenant-id",
         )
 
@@ -1052,8 +1052,8 @@ class TestAppReply:
         started_app.api.conversations.activities.assert_called_once_with("19:abc@thread.skype;messageid=1680000000000")
 
     @pytest.mark.asyncio
-    async def test_reply_with_three_args_passes_service_url_and_agent_user_to_scoped_api(self, started_app):
-        agent_user = AgentUser("agent-app-instance-id", "agent-user-id", tenant_id="tenant-id")
+    async def test_reply_with_three_args_passes_service_url_and_agentic_user_to_scoped_api(self, started_app):
+        agentic_user = AgenticUser("agent-app-instance-id", "agentic-user-id", tenant_id="tenant-id")
         service_url = "https://override.service.url"
 
         await started_app.reply(
@@ -1061,13 +1061,13 @@ class TestAppReply:
             "1680000000000",
             "Hello thread",
             service_url=service_url,
-            agent_user=agent_user,
+            agentic_user=agentic_user,
         )
 
         started_app.api.conversations.activities.assert_called_once_with("19:abc@thread.skype;messageid=1680000000000")
         started_app.api.clone.assert_called_once_with(
             service_url=service_url,
-            agent_user=agent_user,
+            agentic_user=agentic_user,
         )
         create = started_app.api.conversations.activities.return_value.create
         activity = create.call_args.args[0]
@@ -1082,21 +1082,21 @@ class TestAppReply:
         started_app.api.conversations.activities.assert_called_once_with("19:abc@thread.skype")
 
     @pytest.mark.asyncio
-    async def test_reply_with_two_args_passes_service_url_and_agent_user_to_scoped_api(self, started_app):
-        agent_user = AgentUser("agent-app-instance-id", "agent-user-id", tenant_id="tenant-id")
+    async def test_reply_with_two_args_passes_service_url_and_agentic_user_to_scoped_api(self, started_app):
+        agentic_user = AgenticUser("agent-app-instance-id", "agentic-user-id", tenant_id="tenant-id")
         service_url = "https://override.service.url"
 
         await started_app.reply(
             "19:abc@thread.skype",
             "Hello flat",
             service_url=service_url,
-            agent_user=agent_user,
+            agentic_user=agentic_user,
         )
 
         started_app.api.conversations.activities.assert_called_once_with("19:abc@thread.skype")
         started_app.api.clone.assert_called_once_with(
             service_url=service_url,
-            agent_user=agent_user,
+            agentic_user=agentic_user,
         )
         create = started_app.api.conversations.activities.return_value.create
         activity = create.call_args.args[0]

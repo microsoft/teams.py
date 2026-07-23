@@ -779,21 +779,21 @@ class GeneratedActivityHandlerMixin(ABC):
         return decorator
 
     @overload
-    def on_agent_user_identity_created(
+    def on_agentic_user_identity_created(
         self, handler: BasicHandler[AgenticUserIdentityCreatedActivity]
     ) -> BasicHandler[AgenticUserIdentityCreatedActivity]: ...
 
     @overload
-    def on_agent_user_identity_created(
+    def on_agentic_user_identity_created(
         self,
     ) -> Callable[
         [BasicHandler[AgenticUserIdentityCreatedActivity]], BasicHandler[AgenticUserIdentityCreatedActivity]
     ]: ...
 
-    def on_agent_user_identity_created(
+    def on_agentic_user_identity_created(
         self, handler: Optional[BasicHandler[AgenticUserIdentityCreatedActivity]] = None
     ) -> BasicHandlerUnion[AgenticUserIdentityCreatedActivity]:
-        """Register a agent_user_identity_created activity handler."""
+        """Register a agentic_user_identity_created activity handler."""
 
         def decorator(
             func: BasicHandler[AgenticUserIdentityCreatedActivity],
@@ -801,10 +801,10 @@ class GeneratedActivityHandlerMixin(ABC):
             validate_handler_type(
                 func,
                 AgenticUserIdentityCreatedActivity,
-                "on_agent_user_identity_created",
+                "on_agentic_user_identity_created",
                 "AgenticUserIdentityCreatedActivity",
             )
-            config = ACTIVITY_ROUTES["agent_user_identity_created"]
+            config = ACTIVITY_ROUTES["agentic_user_identity_created"]
             self.router.add_handler(config.selector, func)
             return func
 
@@ -813,21 +813,21 @@ class GeneratedActivityHandlerMixin(ABC):
         return decorator
 
     @overload
-    def on_agent_user_identity_updated(
+    def on_agentic_user_identity_updated(
         self, handler: BasicHandler[AgenticUserIdentityUpdatedActivity]
     ) -> BasicHandler[AgenticUserIdentityUpdatedActivity]: ...
 
     @overload
-    def on_agent_user_identity_updated(
+    def on_agentic_user_identity_updated(
         self,
     ) -> Callable[
         [BasicHandler[AgenticUserIdentityUpdatedActivity]], BasicHandler[AgenticUserIdentityUpdatedActivity]
     ]: ...
 
-    def on_agent_user_identity_updated(
+    def on_agentic_user_identity_updated(
         self, handler: Optional[BasicHandler[AgenticUserIdentityUpdatedActivity]] = None
     ) -> BasicHandlerUnion[AgenticUserIdentityUpdatedActivity]:
-        """Register a agent_user_identity_updated activity handler."""
+        """Register a agentic_user_identity_updated activity handler."""
 
         def decorator(
             func: BasicHandler[AgenticUserIdentityUpdatedActivity],
@@ -835,10 +835,10 @@ class GeneratedActivityHandlerMixin(ABC):
             validate_handler_type(
                 func,
                 AgenticUserIdentityUpdatedActivity,
-                "on_agent_user_identity_updated",
+                "on_agentic_user_identity_updated",
                 "AgenticUserIdentityUpdatedActivity",
             )
-            config = ACTIVITY_ROUTES["agent_user_identity_updated"]
+            config = ACTIVITY_ROUTES["agentic_user_identity_updated"]
             self.router.add_handler(config.selector, func)
             return func
 
