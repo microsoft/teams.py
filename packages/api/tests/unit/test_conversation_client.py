@@ -244,10 +244,7 @@ class TestConversationActivityOperations:
         # Validate request details
         last_request = request_capture._capture.last_request
         assert last_request.method == "POST"
-        assert (
-            str(last_request.url)
-            == f"https://test.service.url/v3/conversations/{conversation_id}/activities/{activity_id}"
-        )
+        assert str(last_request.url) == f"https://test.service.url/v3/conversations/{conversation_id}/activities"
 
         # Validate request payload - check that replyToId was added
         payload = json.loads(last_request.content)
@@ -512,7 +509,7 @@ class TestConversationClientFlattened:
         assert result is not None
         last_request = request_capture._capture.last_request
         assert last_request.method == "POST"
-        assert str(last_request.url) == "https://test.service.url/v3/conversations/conv-1/activities/act-1"
+        assert str(last_request.url) == "https://test.service.url/v3/conversations/conv-1/activities"
         payload = json.loads(last_request.content)
         assert payload["replyToId"] == "act-1"
 

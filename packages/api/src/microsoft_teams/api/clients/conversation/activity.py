@@ -98,7 +98,7 @@ class ConversationActivityClient(BaseClient):
         activity_json = activity.model_dump(by_alias=True, exclude_none=True)
         activity_json["replyToId"] = activity_id
         response = await self.http.post(
-            f"{self.service_url}/v3/conversations/{conversation_id}/activities/{activity_id}",
+            f"{self.service_url}/v3/conversations/{conversation_id}/activities",
             json=activity_json,
         )
         id = response.json()["id"]
