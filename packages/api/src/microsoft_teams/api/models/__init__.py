@@ -16,6 +16,7 @@ from . import (
     message,
     messaging_extension,
     o365,
+    search,
     sign_in,
     tab,
     task_module,
@@ -49,6 +50,7 @@ from .invoke_response import (
     InvokeResponseBody,
     MessagingExtensionActionInvokeResponse,
     MessagingExtensionInvokeResponse,
+    SearchInvokeResponse,
     TabInvokeResponse,
     TaskModuleInvokeResponse,
     TokenExchangeInvokeResponseType,
@@ -59,6 +61,7 @@ from .meetings import *  # noqa: F403
 from .message import *  # noqa: F403
 from .messaging_extension import *  # noqa: F403
 from .o365 import *  # noqa: F403
+from .search import *  # noqa: F403
 from .sign_in import *  # noqa: F403
 from .suggested_actions import SuggestedActions
 from .tab import *  # noqa: F403
@@ -100,6 +103,7 @@ __all__: list[str] = [
     "TaskModuleInvokeResponse",
     "TabInvokeResponse",
     "AdaptiveCardInvokeResponse",
+    "SearchInvokeResponse",
     "TokenExchangeInvokeResponseType",
     "is_invoke_response",
 ]
@@ -115,6 +119,7 @@ __all__.extend(meetings.__all__)
 __all__.extend(message.__all__)
 __all__.extend(messaging_extension.__all__)
 __all__.extend(o365.__all__)
+__all__.extend(search.__all__)
 __all__.extend(sign_in.__all__)
 __all__.extend(tab.__all__)
 __all__.extend(task_module.__all__)

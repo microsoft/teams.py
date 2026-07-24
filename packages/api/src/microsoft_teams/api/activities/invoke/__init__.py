@@ -23,6 +23,7 @@ from .message import (
 )
 from .message_extension import *  # noqa: F403
 from .message_extension import MessageExtensionInvokeActivity
+from .search import SearchInvokeActivity
 from .sign_in import *  # noqa: F403
 from .sign_in import SignInInvokeActivity
 from .suggested_action_submit import SuggestedActionSubmitInvokeActivity
@@ -45,6 +46,7 @@ InvokeActivity = Annotated[
         SignInInvokeActivity,
         AdaptiveCardInvokeActivity,
         SuggestedActionSubmitInvokeActivity,
+        SearchInvokeActivity,
     ],
     Field(discriminator="name"),
 ]
@@ -66,6 +68,7 @@ __all__ = [
     "SignInInvokeActivity",
     "AdaptiveCardInvokeActivity",
     "SuggestedActionSubmitInvokeActivity",
+    "SearchInvokeActivity",
 ]
 
 __all__.extend(config.__all__)
