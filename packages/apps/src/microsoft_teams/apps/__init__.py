@@ -16,9 +16,11 @@ from .options import AppOptions
 from .plugins import *  # noqa: F401, F403
 from .routing import ActivityContext
 from .utils.html_widget import (
+    DisplayMode,
     HtmlWidgetMarkdownOptions,
     InjectWidgetProtocolOptions,
     SecurityPolicyWarning,
+    WidgetNotification,
     build_html_widget_markdown,
     build_html_widget_message,
     inject_widget_protocol,
@@ -46,6 +48,8 @@ __all__: list[str] = [
     "HtmlWidgetMarkdownOptions",
     "InjectWidgetProtocolOptions",
     "SecurityPolicyWarning",
+    "WidgetNotification",
+    "DisplayMode",
 ]
 __all__.extend(auth.__all__)
 __all__.extend(events.__all__)

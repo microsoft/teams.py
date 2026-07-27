@@ -10,7 +10,7 @@ Diagnostic: ExperimentalTeamsHtmlWidget
 import json
 import re
 from dataclasses import dataclass, replace
-from typing import Any, Optional, cast
+from typing import Any, Literal, Optional, Union, cast
 from urllib.parse import urlparse
 
 from microsoft_teams.api.activities.message import MessageActivityInput
@@ -54,6 +54,23 @@ DEFAULT_SECURITY_POLICY = HtmlWidgetSecurityPolicy(
 # ---------------------------------------------------------------------------
 
 
+# Known host notification names from the MCP Apps spec (ui/notifications/*).
+# Kept as an open union (`| str`) so unknown or future values are still
+# accepted; unrecognized names are simply ignored during protocol injection.
+WidgetNotification = Literal[
+    "tool-result",
+    "tool-input",
+    "tool-input-partial",
+    "tool-cancelled",
+    "host-context-changed",
+    "resource-teardown",
+]
+
+# Display modes a widget can declare during ui/initialize.
+# Note: 'pip' is defined in the MCP Apps spec but not yet supported by Teams.
+DisplayMode = Literal["inline", "fullscreen", "pip"]
+
+
 @dataclass
 class InjectWidgetProtocolOptions:
     """Options for injecting the MCP Apps protocol into widget HTML."""
@@ -64,10 +81,10 @@ class InjectWidgetProtocolOptions:
     version: Optional[str] = None
     """The widget app version sent during ui/initialize. Defaults to '1.0.0'."""
 
-    available_display_modes: Optional[list[str]] = None
+    available_display_modes: Optional[list[Union[DisplayMode, str]]] = None
     """Display modes this widget supports (e.g. ['inline', 'fullscreen'])."""
 
-    notifications: Optional[list[str]] = None
+    notifications: Optional[list[Union[WidgetNotification, str]]] = None
     """Host notifications to listen for (e.g. ['tool-result', 'tool-input'])."""
 
     debug_csp_violations: bool = False
