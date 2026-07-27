@@ -7,13 +7,14 @@ from typing import Annotated, Union
 
 from pydantic import Field
 
-from . import config, message_extension, sign_in, tab, task
+from . import config, html_widget, message_extension, sign_in, tab, task
 from .adaptive_card import AdaptiveCardInvokeActivity
 from .config import *  # noqa: F403
 from .config import ConfigInvokeActivity
 from .execute_action import ExecuteActionInvokeActivity
 from .file_consent import FileConsentInvokeActivity
 from .handoff_action import HandoffActionInvokeActivity
+from .html_widget import HtmlWidgetCallToolInvokeActivity
 from .message import (
     MessageFetchTaskActionValue,
     MessageFetchTaskData,
@@ -47,6 +48,7 @@ InvokeActivity = Annotated[
         AdaptiveCardInvokeActivity,
         SuggestedActionSubmitInvokeActivity,
         SearchInvokeActivity,
+        HtmlWidgetCallToolInvokeActivity,
     ],
     Field(discriminator="name"),
 ]
@@ -69,9 +71,11 @@ __all__ = [
     "AdaptiveCardInvokeActivity",
     "SuggestedActionSubmitInvokeActivity",
     "SearchInvokeActivity",
+    "HtmlWidgetCallToolInvokeActivity",
 ]
 
 __all__.extend(config.__all__)
+__all__.extend(html_widget.__all__)
 __all__.extend(message_extension.__all__)
 __all__.extend(sign_in.__all__)
 __all__.extend(tab.__all__)

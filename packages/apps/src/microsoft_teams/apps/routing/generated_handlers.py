@@ -24,6 +24,7 @@ from microsoft_teams.api.activities import (
     ExecuteActionInvokeActivity,
     FileConsentInvokeActivity,
     HandoffActionInvokeActivity,
+    HtmlWidgetCallToolInvokeActivity,
     InstalledActivity,
     InstallUpdateActivity,
     InvokeActivity,
@@ -60,6 +61,7 @@ from microsoft_teams.api.activities import (
 from microsoft_teams.api.models.invoke_response import (
     AdaptiveCardInvokeResponse,
     ConfigInvokeResponse,
+    HtmlWidgetCallToolResponse,
     MessagingExtensionActionInvokeResponse,
     MessagingExtensionInvokeResponse,
     SearchInvokeResponse,
@@ -1496,6 +1498,42 @@ class GeneratedActivityHandlerMixin(ABC):
         ) -> VoidInvokeHandler[SignInFailureInvokeActivity]:
             validate_handler_type(func, SignInFailureInvokeActivity, "on_signin_failure", "SignInFailureInvokeActivity")
             config = ACTIVITY_ROUTES["signin.failure"]
+            self.router.add_handler(config.selector, func)
+            return func
+
+        if handler is not None:
+            return decorator(handler)
+        return decorator
+
+    @overload
+    def on_widget_call_tool(
+        self, handler: InvokeHandler[HtmlWidgetCallToolInvokeActivity, HtmlWidgetCallToolResponse]
+    ) -> InvokeHandler[HtmlWidgetCallToolInvokeActivity, HtmlWidgetCallToolResponse]: ...
+
+    @overload
+    def on_widget_call_tool(
+        self,
+    ) -> Callable[
+        [InvokeHandler[HtmlWidgetCallToolInvokeActivity, HtmlWidgetCallToolResponse]],
+        InvokeHandler[HtmlWidgetCallToolInvokeActivity, HtmlWidgetCallToolResponse],
+    ]: ...
+
+    def on_widget_call_tool(
+        self,
+        handler: Optional[InvokeHandler[HtmlWidgetCallToolInvokeActivity, HtmlWidgetCallToolResponse]] = None,
+    ) -> InvokeHandlerUnion[HtmlWidgetCallToolInvokeActivity, HtmlWidgetCallToolResponse]:
+        """Register a widget.call_tool activity handler."""
+
+        def decorator(
+            func: InvokeHandler[HtmlWidgetCallToolInvokeActivity, HtmlWidgetCallToolResponse],
+        ) -> InvokeHandler[HtmlWidgetCallToolInvokeActivity, HtmlWidgetCallToolResponse]:
+            validate_handler_type(
+                func,
+                HtmlWidgetCallToolInvokeActivity,
+                "on_widget_call_tool",
+                "HtmlWidgetCallToolInvokeActivity",
+            )
+            config = ACTIVITY_ROUTES["widget.call_tool"]
             self.router.add_handler(config.selector, func)
             return func
 

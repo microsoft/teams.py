@@ -15,6 +15,18 @@ from .http_stream import HttpStream
 from .options import AppOptions
 from .plugins import *  # noqa: F401, F403
 from .routing import ActivityContext
+from .utils.html_widget import (
+    DisplayMode,
+    HtmlWidgetMarkdownOptions,
+    InjectWidgetProtocolOptions,
+    SecurityPolicyWarning,
+    WidgetNotification,
+    build_html_widget_markdown,
+    build_html_widget_message,
+    inject_widget_protocol,
+    try_get_widget_model_context,
+    validate_security_policy,
+)
 from .utils.thread import to_threaded_conversation_id
 
 logging.getLogger(__name__).addHandler(logging.NullHandler())
@@ -28,6 +40,16 @@ __all__: list[str] = [
     "HttpStream",
     "ActivityContext",
     "to_threaded_conversation_id",
+    "build_html_widget_markdown",
+    "build_html_widget_message",
+    "inject_widget_protocol",
+    "try_get_widget_model_context",
+    "validate_security_policy",
+    "HtmlWidgetMarkdownOptions",
+    "InjectWidgetProtocolOptions",
+    "SecurityPolicyWarning",
+    "WidgetNotification",
+    "DisplayMode",
 ]
 __all__.extend(auth.__all__)
 __all__.extend(events.__all__)
