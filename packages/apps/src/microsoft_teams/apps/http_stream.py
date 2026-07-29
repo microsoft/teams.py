@@ -379,6 +379,10 @@ class HttpStream(StreamerProtocol):
 
         to_send.from_ = self._ref.bot
         to_send.conversation = self._ref.conversation
+        # Thread every streamed activity under the inbound message so the response
+        # replies within the original message thread. Covers informative updates,
+        # streaming chunks, the final message, and the in-place timeout update.
+        to_send.reply_to_id = self._ref.activity_id
 
         try:
             if to_send.id and not any(e.type == "streaminfo" for e in (to_send.entities or [])):
