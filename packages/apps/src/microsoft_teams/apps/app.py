@@ -62,6 +62,7 @@ from .plugins import PluginBase, PluginStartEvent
 from .routing import ActivityHandlerMixin, ActivityRouter
 from .routing.activity_context import ActivityContext
 from .token_manager import TokenManager
+from .token_provider import AppTokenProvider
 from .utils import create_graph_client
 from .utils.thread import to_threaded_conversation_id
 
@@ -103,6 +104,7 @@ class App(ActivityHandlerMixin):
             credentials=self.credentials,
             cloud=self.cloud,
         )
+        self._token_provider = AppTokenProvider(self._token_manager, self.cloud)
         self._auth_provider = AppAuthProvider(self._token_manager, self.cloud)
 
         self.container = Container()
@@ -189,6 +191,11 @@ class App(ActivityHandlerMixin):
         if not self.credentials:
             return None
         return self.credentials.client_id
+
+    @property
+    def token_provider(self) -> AppTokenProvider:
+        """Token source for resources the SDK does not call automatically."""
+        return self._token_provider
 
     async def initialize(self) -> None:
         """

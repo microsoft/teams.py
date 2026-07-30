@@ -51,6 +51,39 @@ class TestBotClient:
         assert response.expires_in == -1
 
     @pytest.mark.asyncio
+    @pytest.mark.parametrize("method_name", ["get", "get_graph"])
+    async def test_bot_token_get_with_named_token_provider(self, mock_http_client, method_name):
+        calls = []
+
+        class NamedTokenProvider:
+            async def get_app_token(self, scope, tenant_id):
+                calls.append((scope, tenant_id))
+                return "named-token"
+
+        credentials = TokenCredentials(client_id="client-id", tenant_id="tenant-id", token=NamedTokenProvider())
+        client = BotClient(mock_http_client)
+
+        response = await getattr(client.token, method_name)(credentials)
+
+        expected_scope = (
+            "https://api.botframework.com/.default" if method_name == "get" else "https://graph.microsoft.com/.default"
+        )
+        assert response.access_token == "named-token"
+        assert calls == [(expected_scope, "tenant-id")]
+
+    @pytest.mark.asyncio
+    async def test_bot_token_get_rejects_empty_named_token(self, mock_http_client):
+        class EmptyTokenProvider:
+            def get_app_token(self, scope, tenant_id):
+                return None
+
+        credentials = TokenCredentials(client_id="client-id", token=EmptyTokenProvider())
+        client = BotClient(mock_http_client)
+
+        with pytest.raises(ValueError, match="returned no app token"):
+            await client.token.get(credentials)
+
+    @pytest.mark.asyncio
     async def test_bot_token_get_with_uninspectable_token_provider_signature(self, mock_http_client):
         from unittest.mock import patch
 
