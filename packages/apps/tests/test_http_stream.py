@@ -671,3 +671,83 @@ class TestHttpStream:
             assert first_result.activity_params.text == "First streamed message"
             assert second_result.activity_params.text == "Second streamed message"
             assert [result.id for result in close_results] == [first_result.id, second_result.id]
+
+    @pytest.mark.asyncio
+    async def test_reply_to_id_threads_all_streamed_sends(
+        self, mock_api_client, conversation_reference, patch_loop_call_later
+    ):
+        """Every streamed send (informative, streaming, final) is threaded under the inbound
+        activity via reply_to_id so the response replies within the original message thread."""
+        loop = asyncio.get_running_loop()
+        patcher, scheduled = patch_loop_call_later(loop)
+        with patcher:
+            stream = HttpStream(mock_api_client, conversation_reference)
+
+            stream.update("Thinking...")  # informative update
+            stream.emit("hello ")  # streaming chunk
+            stream.emit("world")
+            await asyncio.sleep(0)
+            await self._run_scheduled_flushes(scheduled)
+
+            result = await stream.close()  # final message
+
+            assert len(mock_api_client.sent_activities) > 0
+            # Informative, streaming, and final sends are all threaded to the inbound message.
+            assert all(a.reply_to_id == "test-activity" for a in mock_api_client.sent_activities)
+
+            # And specifically the final message.
+            final_activities = [
+                a
+                for a in mock_api_client.sent_activities
+                if a.channel_data is not None and a.channel_data.stream_type == "final"
+            ]
+            assert len(final_activities) == 1
+            assert final_activities[0].reply_to_id == "test-activity"
+            assert result is not None
+            assert result.activity_params.reply_to_id == "test-activity"
+
+    @pytest.mark.asyncio
+    async def test_reply_to_id_set_on_timeout_in_place_update(
+        self, mock_api_client, conversation_reference, patch_loop_call_later
+    ):
+        """The in-place update taken after a streaming timeout is also threaded under the
+        inbound activity via reply_to_id."""
+        create_calls = 0
+        updated_activities: list = []
+        loop = asyncio.get_running_loop()
+        patcher, scheduled = patch_loop_call_later(loop)
+        with patcher:
+
+            async def mock_create(conversation_id, activity):
+                nonlocal create_calls
+                create_calls += 1
+                if create_calls == 2:
+                    # The final streamed send (carries streamInfo) trips the two-minute limit,
+                    # forcing the in-place update path.
+                    raise HTTPStatusError(
+                        "Forbidden",
+                        request=Request("POST", "https://example.com"),
+                        response=Response(
+                            403,
+                            json={"error": {"message": "Content stream finished due to exceeded streaming time."}},
+                        ),
+                    )
+                return SentActivity(id="stream-1", activity_params=activity)
+
+            async def mock_update(conversation_id, activity_id, activity):
+                updated_activities.append(activity)
+                return SentActivity(id=activity_id, activity_params=activity)
+
+            mock_api_client.conversations.create_activity = mock_create
+            mock_api_client.conversations.update_activity = mock_update
+            stream = HttpStream(mock_api_client, conversation_reference)
+
+            stream.emit("Final answer")
+            await asyncio.sleep(0)
+            await self._run_scheduled_flushes(scheduled)
+
+            await stream.close()
+
+            assert stream._timed_out is True
+            assert len(updated_activities) == 1
+            assert updated_activities[0].reply_to_id == "test-activity"
