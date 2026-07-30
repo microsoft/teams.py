@@ -5,11 +5,15 @@ Licensed under the MIT License.
 
 from microsoft_teams.api import AgenticUser, TokenProtocol
 from microsoft_teams.api.auth.cloud_environment import PUBLIC, CloudEnvironment
+from microsoft_teams.api.auth.credentials import (
+    AgenticAppInstanceTokenProviderProtocol,
+    AgenticUserTokenProviderProtocol,
+)
 
 from .token_manager import TokenManager
 
 
-class AppTokenProvider:
+class AppTokenProvider(AgenticUserTokenProviderProtocol, AgenticAppInstanceTokenProviderProtocol):
     """Public token source backed by the credentials configured on an App."""
 
     def __init__(self, token_manager: TokenManager, cloud: CloudEnvironment = PUBLIC):
