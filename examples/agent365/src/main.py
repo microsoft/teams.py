@@ -5,8 +5,15 @@ Licensed under the MIT License.
 
 import asyncio
 import logging
-import re
+from urllib.parse import urlparse
 
+from microsoft.opentelemetry.a365.core import (
+    AgentDetails,
+    InvokeAgentScope,
+    InvokeAgentScopeDetails,
+    Request,
+    ServiceEndpoint,
+)
 from microsoft_teams.api import (
     AgenticUserDeletedActivity,
     AgenticUserDisabledActivity,
@@ -20,12 +27,19 @@ from microsoft_teams.api import (
     MessageActivity,
 )
 from microsoft_teams.api.activities.typing import TypingActivityInput
-from microsoft_teams.apps import ActivityContext, App
+from microsoft_teams.apps import ActivityContext, Agent365BaggageOptions, App
+from observability import Agent365TokenCache, use_agent365_exporter
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-app = App()
+agent365: Agent365BaggageOptions = {
+    "include": ["senderName", "senderEmail", "agentName", "agentEmail", "agentDescription"],
+    "operation_source": "Microsoft.Teams.Apps",
+}
+app = App(telemetry={"agent365": agent365})
+token_cache = Agent365TokenCache()
+use_agent365_exporter(token_cache)
 
 
 def _log_lifecycle_envelope(activity: AgentLifecycleEventActivity, handler_name: str) -> None:
@@ -128,22 +142,52 @@ async def handle_agentic_user_workload_onboarding_updated(
     )
 
 
-@app.on_message_pattern(re.compile(r"hello|hi|greetings"))
-async def handle_greeting(ctx: ActivityContext[MessageActivity]) -> None:
-    """Handle greeting messages using the inbound AgenticUser when present."""
-    await ctx.reply("Hello! How can I assist you today?")
-
-
 @app.on_message
 async def handle_message(ctx: ActivityContext[MessageActivity]):
     """Echo incoming messages using the inbound AgenticUser when present."""
-    logger.info("[Agent365 reactive] Message received: %s", ctx.activity.text)
-    logger.info("[Agent365 reactive] From: %s", ctx.activity.from_)
-    logger.info("[Agent365 reactive] AgenticUser: %s", ctx.activity.recipient.agentic_user)
+    logger.info(
+        "[Agent365 reactive] activity_id=%s conversation_id=%s from_id=%s recipient_id=%s",
+        ctx.activity.id,
+        ctx.activity.conversation.id,
+        ctx.activity.from_.id,
+        ctx.activity.recipient.id,
+    )
 
+    agentic_user = ctx.activity.recipient.agentic_user
+    if agentic_user is None or agentic_user.tenant_id is None:
+        logger.warning("No Agent365 user on the activity; handling without an InvokeAgent scope")
+        await _handle_message(ctx)
+        return
+
+    await token_cache.refresh(
+        app.token_provider,
+        agentic_user.agentic_app_instance_id,
+        agentic_user.tenant_id,
+    )
+    parsed_service_url = urlparse(ctx.activity.service_url or "")
+    endpoint = (
+        ServiceEndpoint(str(parsed_service_url.hostname), parsed_service_url.port)
+        if parsed_service_url.hostname
+        else None
+    )
+    with InvokeAgentScope.start(
+        Request(conversation_id=ctx.activity.conversation.id),
+        InvokeAgentScopeDetails(endpoint=endpoint),
+        AgentDetails(
+            agent_id=agentic_user.agentic_app_instance_id,
+            agentic_user_id=agentic_user.agentic_user_id,
+            agent_blueprint_id=agentic_user.agentic_blueprint_id,
+            tenant_id=agentic_user.tenant_id,
+        ),
+    ):
+        await _handle_message(ctx)
+
+
+async def _handle_message(ctx: ActivityContext[MessageActivity]) -> None:
     await ctx.reply(TypingActivityInput())
+    text = ctx.activity.text.lower()
 
-    if "react" in ctx.activity.text.lower():
+    if "react" in text:
         await ctx.api.conversations.add_reaction(
             conversation_id=ctx.activity.conversation.id,
             activity_id=ctx.activity.id,
@@ -152,7 +196,7 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
         await ctx.reply("Added a like reaction to your message.")
         return
 
-    if "reply" in ctx.activity.text.lower():
+    if "reply" in text:
         await ctx.reply("Hello! How can I assist you today?")
     else:
         await ctx.send(f"You said '{ctx.activity.text}'")
