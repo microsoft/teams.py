@@ -62,8 +62,8 @@ class RecordingTokenProvider:
         self.calls.append(("app", scope, tenant_id, None))
         return self._token_value
 
-    def get_agentic_user_token(self, scope: str, agentic_user: AgenticUser, tenant_id: str | None = None) -> str | None:
-        self.calls.append(("agentic_user", scope, tenant_id, agentic_user))
+    def get_agentic_user_token(self, scope: str, agentic_user: AgenticUser) -> str | None:
+        self.calls.append(("agentic_user", scope, None, agentic_user))
         return self._token_value
 
 

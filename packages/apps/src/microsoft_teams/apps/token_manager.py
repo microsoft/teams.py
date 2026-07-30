@@ -5,6 +5,7 @@ Licensed under the MIT License.
 
 import asyncio
 import logging
+from dataclasses import replace
 from inspect import isawaitable
 from typing import Any, Callable, Optional
 
@@ -113,10 +114,13 @@ class TokenManager:
         tenant_id = self._resolve_tenant_id(agentic_user.tenant_id, None)
         if tenant_id is None:
             raise ValueError("tenant_id is required to get an agentic user token")
+        resolved_agentic_user = (
+            agentic_user if agentic_user.tenant_id == tenant_id else replace(agentic_user, tenant_id=tenant_id)
+        )
 
         credentials = self._credentials
         if isinstance(credentials, TokenCredentials):
-            return await self._get_agentic_user_token_with_provider(credentials, scope, tenant_id, agentic_user)
+            return await self._get_agentic_user_token_with_provider(credentials, scope, resolved_agentic_user)
 
         if not isinstance(credentials, ClientCredentials):
             raise ValueError("Agentic user tokens require ClientCredentials")
@@ -292,7 +296,6 @@ class TokenManager:
         self,
         credentials: TokenCredentials,
         scope: str,
-        tenant_id: str,
         agentic_user: AgenticUser,
     ) -> Optional[TokenProtocol]:
         provider = credentials.token
@@ -301,7 +304,7 @@ class TokenManager:
                 "Agentic User tokens require a token provider implementing get_agentic_user_token. "
                 "Falling back to an app-only token would authenticate under the wrong identity."
             )
-        result = provider.get_agentic_user_token(scope, agentic_user, tenant_id)
+        result = provider.get_agentic_user_token(scope, agentic_user)
         return await self._to_provider_token(result)
 
     async def _to_provider_token(self, result: Any) -> Optional[TokenProtocol]:

@@ -25,7 +25,7 @@ class _TokenProviderAdapter:
     def get_app_token(self, scope: str, tenant_id: str | None = None):
         return self.token(scope=scope, agentic_user=None)
 
-    def get_agentic_user_token(self, scope: str, agentic_user: AgenticUser, tenant_id: str | None = None):
+    def get_agentic_user_token(self, scope: str, agentic_user: AgenticUser):
         return self.token(scope=scope, agentic_user=agentic_user)
 
 

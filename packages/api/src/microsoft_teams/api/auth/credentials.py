@@ -33,7 +33,6 @@ class AgenticUserTokenProviderProtocol(TokenProviderProtocol, Protocol):
         self,
         scope: str,
         agentic_user: AgenticUser,
-        tenant_id: Optional[str] = None,
     ) -> TokenResult: ...
 
 
