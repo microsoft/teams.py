@@ -189,7 +189,6 @@ class ApiClient(BaseClient):
                         token = token_provider.get_agentic_user_token(
                             self._cloud.agent_bot_scope,
                             agentic_user,
-                            agentic_user.tenant_id,
                         )
                     if inspect.isawaitable(token):
                         token = await token

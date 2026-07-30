@@ -8,6 +8,7 @@ from unittest.mock import AsyncMock, patch
 
 import httpx
 import pytest
+from microsoft_teams.api.auth.cloud_environment import PUBLIC
 from microsoft_teams.api.clients import ApiClient
 from microsoft_teams.api.clients.meeting import MeetingClient
 from microsoft_teams.api.models import (
@@ -24,10 +25,10 @@ from microsoft_teams.common.http import Client, ClientOptions
 
 class _TokenProviderAdapter:
     def get_app_token(self, scope: str, tenant_id: str | None = None):
-        return self.token(scope=None, agentic_user=None)
+        return self.token(scope=scope, agentic_user=None)
 
     def get_agentic_user_token(self, scope: str, agentic_user: AgenticUser, tenant_id: str | None = None):
-        return self.token(scope=None, agentic_user=agentic_user)
+        return self.token(scope=scope, agentic_user=agentic_user)
 
 
 @pytest.mark.unit
@@ -126,7 +127,7 @@ class TestMeetingClient:
         client = ApiClient("https://test.service.url", mock_http_client, token_provider=TestTokenProvider()).meetings
         await client.get_by_id("meeting-id")
 
-        assert calls == [(None, None)]
+        assert calls == [(PUBLIC.bot_scope, None)]
 
     @pytest.mark.asyncio
     async def test_get_participant_uses_agentic_user(self, mock_http_client):
@@ -143,7 +144,7 @@ class TestMeetingClient:
         ).meetings
         await client.get_participant("meeting-id", "participant-id", "tenant-id")
 
-        assert calls == [(None, identity)]
+        assert calls == [(PUBLIC.agent_bot_scope, identity)]
 
     def test_http_client_property(self, mock_http_client):
         """Test HTTP client property getter and setter."""

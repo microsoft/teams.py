@@ -62,7 +62,7 @@ class RecordingTokenProvider:
         self.calls.append(("app", scope, tenant_id, None))
         return self._token_value
 
-    def get_agentic_user_token(self, scope: str, agentic_user: AgenticUser, tenant_id: str | None) -> str | None:
+    def get_agentic_user_token(self, scope: str, agentic_user: AgenticUser, tenant_id: str | None = None) -> str | None:
         self.calls.append(("agentic_user", scope, tenant_id, agentic_user))
         return self._token_value
 
@@ -260,7 +260,7 @@ async def test_default_agentic_user_is_used_without_request_metadata():
 
     await client.post_resource()
 
-    assert token_provider.calls == [("agentic_user", PUBLIC.agent_bot_scope, "tenant-id", identity)]
+    assert token_provider.calls == [("agentic_user", PUBLIC.agent_bot_scope, None, identity)]
     assert recorder.last_request.headers["authorization"] == "Bearer agentic-user-token"
 
 
@@ -272,7 +272,7 @@ async def test_default_agentic_user_is_passed_to_token_provider():
 
     await client.post_resource()
 
-    assert token_provider.calls == [("agentic_user", PUBLIC.agent_bot_scope, "tenant-id", identity)]
+    assert token_provider.calls == [("agentic_user", PUBLIC.agent_bot_scope, None, identity)]
     assert recorder.last_request.headers["authorization"] == "Bearer agentic-user-token"
 
 

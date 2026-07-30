@@ -23,10 +23,10 @@ from opentelemetry.trace import Span, SpanKind
 
 class _TokenProviderAdapter:
     def get_app_token(self, scope: str, tenant_id: str | None = None):
-        return self.token(scope=None, agentic_user=None)
+        return self.token(scope=scope, agentic_user=None)
 
     def get_agentic_user_token(self, scope: str, agentic_user: AgenticUser, tenant_id: str | None = None):
-        return self.token(scope=None, agentic_user=agentic_user)
+        return self.token(scope=scope, agentic_user=agentic_user)
 
 
 class RecordingSpan:
@@ -171,7 +171,7 @@ class TestConversationClient:
 
         await client.create(params)
 
-        assert calls == [(None, None)]
+        assert calls == [(PUBLIC.bot_scope, None)]
         request = request_capture._capture.last_request
         assert request.headers["authorization"] == "Bearer bot-token"
 
@@ -192,7 +192,7 @@ class TestConversationClient:
 
         await client.create(params)
 
-        assert calls == [(None, identity)]
+        assert calls == [(PUBLIC.agent_bot_scope, identity)]
         request = request_capture._capture.last_request
         assert request.headers["authorization"] == "Bearer agentic-user-token"
 
@@ -321,7 +321,7 @@ class TestConversationActivityOperations:
 
         await client.activities("test_conversation_id").create(mock_activity)
 
-        assert calls == [(None, None)]
+        assert calls == [(PUBLIC.bot_scope, None)]
         last_request = request_capture._capture.last_request
         assert last_request.headers["authorization"] == "Bearer bot-token"
 
@@ -346,7 +346,7 @@ class TestConversationActivityOperations:
 
         await client.activities("test_conversation_id").create(mock_activity)
 
-        assert calls == [(None, identity)]
+        assert calls == [("agentic-user-scope", identity)]
         last_request = request_capture._capture.last_request
         assert last_request.headers["authorization"] == "Bearer agentic-user-token"
 
@@ -374,7 +374,7 @@ class TestConversationActivityOperations:
 
         await client.activities("test_conversation_id").create(mock_activity)
 
-        assert calls == [(None, override_identity)]
+        assert calls == [(PUBLIC.agent_bot_scope, override_identity)]
         last_request = request_capture._capture.last_request
         assert last_request.headers["authorization"] == "Bearer override-token"
 
@@ -402,7 +402,7 @@ class TestConversationActivityOperations:
             agentic_user=identity,
         )
 
-        assert calls == [(None, identity)]
+        assert calls == [(PUBLIC.agent_bot_scope, identity)]
         last_request = request_capture._capture.last_request
         assert str(last_request.url) == "https://override.service.url/v3/conversations/test_conversation_id/activities"
         assert "authorization" in last_request.headers
@@ -486,7 +486,7 @@ class TestConversationActivityOperations:
             == "https://override.service.url/v3/conversations/test_conversation_id/activities/activity-id/members"
         )
         assert "authorization" in request_capture._capture.last_request.headers
-        assert calls == [(None, identity)] * 5
+        assert calls == [(PUBLIC.agent_bot_scope, identity)] * 5
 
     async def test_grouped_activity_methods_accept_service_url_kwarg(self, request_capture, mock_activity):
         client = ConversationClient("https://default.service.url", request_capture)
@@ -729,7 +729,7 @@ class TestConversationActivityOperations:
         ):
             await client.create_activity("conv-1", mock_activity)
 
-        assert calls == [(None, None)]
+        assert calls == [(PUBLIC.bot_scope, None)]
         assert [span.name for span in tracer.spans[:2]] == [
             "microsoft.teams.api.client",
             "microsoft.teams.auth.outbound",
@@ -1025,9 +1025,9 @@ class TestConversationMemberOperations:
         await members.get_paged(page_size=10)
 
         assert calls == [
-            (None, None),
-            (None, None),
-            (None, None),
+            (PUBLIC.bot_scope, None),
+            (PUBLIC.bot_scope, None),
+            (PUBLIC.bot_scope, None),
         ]
         for request in request_capture._capture.requests[-3:]:
             assert request.headers["authorization"] == "Bearer bot-token"
@@ -1051,9 +1051,9 @@ class TestConversationMemberOperations:
         await members.get_paged(page_size=10)
 
         assert calls == [
-            (None, identity),
-            (None, identity),
-            (None, identity),
+            (PUBLIC.agent_bot_scope, identity),
+            (PUBLIC.agent_bot_scope, identity),
+            (PUBLIC.agent_bot_scope, identity),
         ]
         for request in request_capture._capture.requests[-3:]:
             assert request.headers["authorization"] == "Bearer agentic-user-token"

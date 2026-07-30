@@ -15,10 +15,10 @@ from microsoft_teams.api.models import AgenticUser
 
 class _TokenProviderAdapter:
     def get_app_token(self, scope: str, tenant_id: str | None = None):
-        return self.token(scope=None, agentic_user=None)
+        return self.token(scope=scope, agentic_user=None)
 
     def get_agentic_user_token(self, scope: str, agentic_user: AgenticUser, tenant_id: str | None = None):
-        return self.token(scope=None, agentic_user=agentic_user)
+        return self.token(scope=scope, agentic_user=agentic_user)
 
 
 @pytest.mark.unit
@@ -106,7 +106,7 @@ class TestReactionClient:
 
         await client.add("test_conversation_id", "test_activity_id", "like")
 
-        assert calls == [(None, identity)]
+        assert calls == [("agentic-user-scope", identity)]
 
     @pytest.mark.asyncio
     async def test_add_reaction_uses_token_provider_for_bot_token(self, mock_http_client):
@@ -122,7 +122,7 @@ class TestReactionClient:
 
         await client.add("test_conversation_id", "test_activity_id", "like")
 
-        assert calls == [(None, None)]
+        assert calls == [(PUBLIC.bot_scope, None)]
 
     @pytest.mark.asyncio
     async def test_add_heart_reaction(self, mock_http_client):
@@ -177,7 +177,7 @@ class TestReactionClient:
 
         await client.delete("test_conversation_id", "test_activity_id", "like")
 
-        assert calls == [(None, identity)]
+        assert calls == [(PUBLIC.agent_bot_scope, identity)]
 
     @pytest.mark.asyncio
     async def test_delete_laugh_reaction(self, mock_http_client):
