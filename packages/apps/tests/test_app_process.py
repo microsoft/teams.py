@@ -16,7 +16,7 @@ from microsoft_teams.api import (
     InvokeResponse,
     TokenProtocol,
 )
-from microsoft_teams.api.auth.cloud_environment import PUBLIC
+from microsoft_teams.api.auth.cloud_environment import PUBLIC, US_GOV
 from microsoft_teams.apps import ActivityContext, ActivityEvent
 from microsoft_teams.apps.app_events import EventManager
 from microsoft_teams.apps.app_process import ActivityProcessor
@@ -106,6 +106,7 @@ class TestActivityProcessor:
         mock_storage = MagicMock(spec=LocalStorage)
         mock_activity_router = MagicMock(spec=ActivityRouter)
         mock_token_provider = MagicMock(spec=AppTokenProvider)
+        mock_get_app_graph_token = AsyncMock(return_value=None)
         return ActivityProcessor(
             mock_activity_router,
             "id",
@@ -113,6 +114,7 @@ class TestActivityProcessor:
             "default_connection",
             mock_http_client,
             mock_token_provider,
+            mock_get_app_graph_token,
             None,
             PUBLIC,
         )
@@ -618,10 +620,34 @@ class TestActivityProcessor:
             await activity_processor.process_activity([], mock_activity_event)
 
         assert mock_api_client_type.call_args.kwargs["token_provider"] is activity_processor.token_provider
+        assert mock_api_client_type.call_args.kwargs["cloud"] is activity_processor.cloud
         agentic_user = mock_api_client_type.call_args.kwargs["agentic_user"]
         assert agentic_user.agentic_app_instance_id == "agentic-app-instance-id"
         assert agentic_user.agentic_user_id == "agentic-user-id"
         assert agentic_user.tenant_id == "tenant-id"
+
+    @pytest.mark.asyncio
+    async def test_build_context_defers_graph_tenant_resolution(self, activity_processor):
+        activity_processor.fetch_user_token = False
+        mock_token = MagicMock(spec=TokenProtocol)
+        mock_token.service_url = "https://service.url"
+
+        context = await activity_processor._build_context(_message_activity("activity-graph-tenant"), mock_token, [])
+        await context._app_token()
+
+        activity_processor.get_app_graph_token.assert_awaited_once_with(None)
+
+    @pytest.mark.asyncio
+    async def test_build_context_passes_sovereign_cloud_to_api_client(self, activity_processor):
+        activity_processor.fetch_user_token = False
+        activity_processor.cloud = US_GOV
+        mock_token = MagicMock(spec=TokenProtocol)
+        mock_token.service_url = "https://service.url"
+
+        with patch("microsoft_teams.apps.app_process.ApiClient") as mock_api_client_type:
+            await activity_processor._build_context(_message_activity("activity-sovereign-cloud"), mock_token, [])
+
+        assert mock_api_client_type.call_args.kwargs["cloud"] is US_GOV
 
     @pytest.mark.asyncio
     async def test_build_context_skips_token_fetch_when_disabled(self, activity_processor):

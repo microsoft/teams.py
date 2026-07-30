@@ -84,9 +84,7 @@ class TestBotClient:
             await client.token.get(credentials)
 
     @pytest.mark.asyncio
-    async def test_bot_token_get_with_uninspectable_token_provider_signature(self, mock_http_client):
-        from unittest.mock import patch
-
+    async def test_bot_token_get_with_callable_provider(self, mock_http_client):
         calls = []
 
         def token_provider(scope, tenant_id):
@@ -96,43 +94,10 @@ class TestBotClient:
         credentials = TokenCredentials(client_id="client-id", tenant_id="tenant-id", token=token_provider)
         client = BotClient(mock_http_client)
 
-        with patch("inspect.signature", side_effect=ValueError("no signature")):
-            response = await client.token.get(credentials)
+        response = await client.token.get(credentials)
 
         assert response.access_token == "token"
         assert calls == [("https://api.botframework.com/.default", "tenant-id")]
-
-    @pytest.mark.asyncio
-    async def test_bot_token_get_with_positional_agentic_user_provider(self, mock_http_client):
-        calls = []
-
-        def token_provider(scope, tenant_id, agentic_user):
-            calls.append((scope, tenant_id, agentic_user))
-            return "token"
-
-        credentials = TokenCredentials(client_id="client-id", tenant_id="tenant-id", token=token_provider)
-        client = BotClient(mock_http_client)
-
-        response = await client.token.get(credentials)
-
-        assert response.access_token == "token"
-        assert calls == [("https://api.botframework.com/.default", "tenant-id", None)]
-
-    @pytest.mark.asyncio
-    async def test_bot_token_get_with_optional_third_argument_uses_default(self, mock_http_client):
-        calls = []
-
-        def token_provider(scope, tenant_id, timeout=30):
-            calls.append((scope, tenant_id, timeout))
-            return "token"
-
-        credentials = TokenCredentials(client_id="client-id", tenant_id="tenant-id", token=token_provider)
-        client = BotClient(mock_http_client)
-
-        response = await client.token.get(credentials)
-
-        assert response.access_token == "token"
-        assert calls == [("https://api.botframework.com/.default", "tenant-id", 30)]
 
     @pytest.mark.asyncio
     async def test_bot_sign_in_get_url(self, mock_http_client):

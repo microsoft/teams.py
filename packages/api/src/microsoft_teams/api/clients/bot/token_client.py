@@ -6,7 +6,7 @@ Licensed under the MIT License.
 from __future__ import annotations
 
 import inspect
-from typing import TYPE_CHECKING, Any, Literal, Optional, Union, cast
+from typing import TYPE_CHECKING, Literal, Optional, Union
 
 from microsoft_teams.api.auth.credentials import ClientCredentials
 from microsoft_teams.common.http import Client, ClientOptions
@@ -147,31 +147,7 @@ class BotTokenClient(BaseClient):
         return str(token)
 
     def _call_token_provider(self, credentials: TokenCredentials, scope: str) -> TokenResult:
-        token_provider = cast(Any, credentials.token)
+        token_provider = credentials.token
         if isinstance(token_provider, TokenProviderProtocol):
             return token_provider.get_app_token(scope, credentials.tenant_id)
-
-        try:
-            parameters = list(inspect.signature(token_provider).parameters.values())
-        except (TypeError, ValueError):
-            return cast(TokenResult, token_provider(scope, credentials.tenant_id))
-
-        accepts_agentic_user = any(
-            parameter.kind == inspect.Parameter.VAR_KEYWORD or parameter.name == "agentic_user"
-            for parameter in parameters
-        )
-        if accepts_agentic_user:
-            return cast(TokenResult, token_provider(scope, credentials.tenant_id, agentic_user=None))
-
-        positional_parameters = [
-            parameter
-            for parameter in parameters
-            if parameter.kind in (inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD)
-        ]
-        required_positional_parameters = [
-            parameter for parameter in positional_parameters if parameter.default is inspect.Parameter.empty
-        ]
-        if len(required_positional_parameters) >= 3:
-            return cast(TokenResult, token_provider(scope, credentials.tenant_id, None))
-
-        return cast(TokenResult, token_provider(scope, credentials.tenant_id))
+        return token_provider(scope, credentials.tenant_id)

@@ -138,6 +138,7 @@ class App(ActivityHandlerMixin):
             self.options.default_connection_name,
             self.http_client,
             self._token_provider,
+            self._get_graph_token,
             self.options.api_client_settings,
             self.cloud,
             fetch_user_token=self.options.fetch_user_token,

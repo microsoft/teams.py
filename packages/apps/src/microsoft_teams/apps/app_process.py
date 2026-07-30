@@ -5,7 +5,7 @@ Licensed under the MIT License.
 
 import logging
 from time import perf_counter
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union, cast
+from typing import TYPE_CHECKING, Any, Awaitable, Callable, Dict, List, Optional, Union, cast
 
 from microsoft_teams.api import (
     ActivityBase,
@@ -45,7 +45,6 @@ from .events import ActivityEvent, ActivityResponseEvent, ActivitySentEvent, Err
 from .plugins import PluginActivityEvent, PluginBase, StreamCancelledError
 from .routing.activity_context import ActivityContext
 from .routing.router import ActivityHandler, ActivityRouter
-from .token_manager import DEFAULT_TENANT_FOR_GRAPH_TOKEN
 from .token_provider import AppTokenProvider
 from .utils import extract_tenant_id
 
@@ -63,6 +62,7 @@ class ActivityProcessor:
         default_connection_name: str,
         http_client: Client,
         token_provider: AppTokenProvider,
+        get_app_graph_token: Callable[[Optional[str]], Awaitable[Optional[TokenProtocol]]],
         api_client_settings: Optional[ApiClientSettings],
         cloud: CloudEnvironment = PUBLIC,
         fetch_user_token: bool = True,
@@ -73,6 +73,7 @@ class ActivityProcessor:
         self.default_connection_name = default_connection_name
         self.http_client = http_client
         self.token_provider = token_provider
+        self.get_app_graph_token = get_app_graph_token
         self.api_client_settings = api_client_settings
         self.cloud = cloud
         self.fetch_user_token = fetch_user_token
@@ -110,6 +111,7 @@ class ActivityProcessor:
             service_url,
             self.http_client,
             self.api_client_settings,
+            cloud=self.cloud,
             token_provider=self.token_provider,
             agentic_user=activity.recipient.agentic_user,
         )
@@ -147,10 +149,7 @@ class ActivityProcessor:
             conversation_ref,
             is_signed_in,
             self.default_connection_name,
-            app_token=lambda: self.token_provider.get_app_token(
-                self.cloud.graph_scope,
-                tenant_id or DEFAULT_TENANT_FOR_GRAPH_TOKEN,
-            ),
+            app_token=lambda: self.get_app_graph_token(tenant_id),
             cloud=self.cloud,
         )
 

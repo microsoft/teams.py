@@ -27,6 +27,7 @@ from microsoft_teams.api import (
     TokenProtocol,
     TypingActivity,
 )
+from microsoft_teams.api.auth.cloud_environment import PUBLIC
 from microsoft_teams.apps import (
     ActivityContext,
     ActivityEvent,
@@ -523,6 +524,15 @@ class TestApp:
 
         assert isinstance(app.token_provider, AppTokenProvider)
         assert not hasattr(app, "_auth_provider")
+
+    @pytest.mark.asyncio
+    async def test_get_graph_token_uses_credentials_tenant(self):
+        app = App(client_id="test-client-id", client_secret="test-secret", tenant_id="credentials-tenant")
+
+        with patch.object(app.token_provider, "get_app_token", new=AsyncMock(return_value=None)) as get_app_token:
+            await app._get_graph_token()
+
+        get_app_token.assert_awaited_once_with(PUBLIC.graph_scope, "credentials-tenant")
 
     def test_middleware_registration(self, app_with_options: App) -> None:
         """Test that middleware is registered correctly using app.use()."""

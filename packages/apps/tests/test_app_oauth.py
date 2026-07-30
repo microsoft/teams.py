@@ -771,6 +771,7 @@ class TestSignInFailureMiddlewareChain:
             default_connection_name="graph",
             http_client=MagicMock(),
             token_provider=MagicMock(spec=AppTokenProvider),
+            get_app_graph_token=AsyncMock(return_value=None),
             api_client_settings=None,
             cloud=PUBLIC,
         )
