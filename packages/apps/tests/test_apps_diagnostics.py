@@ -10,15 +10,18 @@ from unittest.mock import MagicMock, patch
 
 import microsoft_teams.apps as apps
 import pytest
-from microsoft_teams.api import ActivityTypeAdapter
+from microsoft_teams.api import ActivityTypeAdapter, AgenticUser
 from microsoft_teams.apps import (
     TEAMS_BOT_APPLICATION_METER_NAME,
     TEAMS_BOT_APPLICATION_TRACER_NAME,
     ActivityContext,
     Agent365Baggage,
     Agent365BaggageInclude,
+    Agent365BaggageKeys,
+    Agent365ScopeOptions,
     TeamsBotApplicationTelemetry,
     agent365_baggage,
+    create_agent365_scope,
 )
 from microsoft_teams.apps.diagnostics._helpers import (
     get_meter,
@@ -51,9 +54,12 @@ def test_public_telemetry_names_are_exported():
     assert "TEAMS_BOT_APPLICATION_METER_NAME" in apps.__all__
     assert "TeamsBotApplicationTelemetry" in apps.__all__
     assert "Agent365Baggage" in apps.__all__
+    assert "Agent365BaggageKeys" in apps.__all__
     assert "Agent365BaggageInclude" in apps.__all__
     assert "agent365_baggage" in apps.__all__
+    assert "create_agent365_scope" in apps.__all__
     assert apps.Agent365Baggage is Agent365Baggage
+    assert Agent365BaggageKeys.tenant_id == "microsoft.tenant.id"
     assert apps.agent365_baggage is agent365_baggage
 
 
@@ -163,10 +169,70 @@ def test_agent365_baggage_supports_manual_values_without_activity():
         assert baggage.get_baggage("service.name") == "service"
         assert baggage.get_baggage("custom.key") == "custom-value"
 
-    with agent365_baggage(values={"service.name": "manual-service"}):
+    with agent365_baggage(additional_baggage={"service.name": "manual-service"}):
         assert baggage.get_baggage("service.name") == "manual-service"
 
     assert baggage.get_baggage("service.name") is None
+
+
+def test_create_agent365_scope_maps_proactive_identity_and_restores_context():
+    options: Agent365ScopeOptions = {
+        "include": ["agentName"],
+        "operation_source": "Microsoft.Teams.Apps",
+        "service_url": "https://service.url",
+        "channel_name": "msteams",
+        "agent_id": "fallback-agent",
+        "additional_baggage": {"host.key": "host"},
+    }
+    open_scope = create_agent365_scope(options)
+    agentic_user = AgenticUser(
+        agentic_app_instance_id="agent-app-1",
+        agentic_user_id="agent-user-1",
+        tenant_id="tenant-1",
+        agentic_blueprint_id="blueprint-1",
+    )
+
+    with open_scope(
+        agentic_user=agentic_user,
+        conversation_id="conv-789",
+        user_id="caller-1",
+        agent_name="Agent",
+        sender_name="Caller",
+        additional_baggage={"operation.key": "operation"},
+    ):
+        assert baggage.get_baggage("microsoft.tenant.id") == "tenant-1"
+        assert baggage.get_baggage("gen_ai.conversation.id") == "conv-789"
+        assert baggage.get_baggage("microsoft.conversation.item.link") == "https://service.url"
+        assert baggage.get_baggage("microsoft.channel.name") == "msteams"
+        assert baggage.get_baggage("gen_ai.agent.id") == "agent-app-1"
+        assert baggage.get_baggage("microsoft.agent.user.id") == "agent-user-1"
+        assert baggage.get_baggage("microsoft.a365.agent.blueprint.id") == "blueprint-1"
+        assert baggage.get_baggage("user.id") == "caller-1"
+        assert baggage.get_baggage("gen_ai.agent.name") == "Agent"
+        assert baggage.get_baggage("user.name") is None
+        assert baggage.get_baggage("service.name") == "Microsoft.Teams.Apps"
+        assert baggage.get_baggage("host.key") == "host"
+        assert baggage.get_baggage("operation.key") == "operation"
+
+    assert baggage.get_baggage("microsoft.tenant.id") is None
+    assert baggage.get_baggage("operation.key") is None
+
+
+def test_create_agent365_scope_false_is_a_noop():
+    token = otel_context.attach(baggage.set_baggage("existing.key", "existing"))
+    try:
+        with create_agent365_scope(False)(conversation_id="ignored"):
+            assert baggage.get_baggage("existing.key") == "existing"
+            assert baggage.get_baggage("gen_ai.conversation.id") is None
+    finally:
+        otel_context.detach(token)
+
+
+def test_agent365_baggage_skips_blank_keys_and_non_finite_values():
+    with Agent365Baggage({" ": "ignored", "nan": float("nan"), "infinite": float("inf"), "valid": 3.5}):
+        assert baggage.get_baggage("nan") is None
+        assert baggage.get_baggage("infinite") is None
+        assert baggage.get_baggage("valid") == "3.5"
 
 
 def test_sdk_source_does_not_import_microsoft_otel_or_agents_sdk():

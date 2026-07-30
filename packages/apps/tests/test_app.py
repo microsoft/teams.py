@@ -534,6 +534,15 @@ class TestApp:
 
         get_app_token.assert_awaited_once_with(PUBLIC.graph_scope, "credentials-tenant")
 
+    def test_app_passes_agent365_telemetry_options(self):
+        app = App(
+            client_id="test-client-id",
+            client_secret="test-secret",
+            telemetry={"agent365": False},
+        )
+
+        assert app.activity_processor.agent365_baggage_options is False
+
     def test_middleware_registration(self, app_with_options: App) -> None:
         """Test that middleware is registered correctly using app.use()."""
 

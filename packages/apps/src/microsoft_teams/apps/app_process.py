@@ -5,7 +5,7 @@ Licensed under the MIT License.
 
 import logging
 from time import perf_counter
-from typing import TYPE_CHECKING, Any, Awaitable, Callable, Dict, List, Optional, Union, cast
+from typing import TYPE_CHECKING, Any, Awaitable, Callable, Dict, List, Optional, TypeGuard, Union, cast
 
 from microsoft_teams.api import (
     ActivityBase,
@@ -30,6 +30,7 @@ from opentelemetry.trace import Span
 if TYPE_CHECKING:
     from .app_events import EventManager
 
+from .diagnostics._baggage import Agent365BaggageOptions, agent365_baggage
 from .diagnostics._constants import APP_ATTRIBUTE_NAMES, APP_HANDLER_DISPATCHES, APP_SPAN_NAMES
 from .diagnostics._helpers import (
     get_tracer,
@@ -51,6 +52,12 @@ from .utils import extract_tenant_id
 logger = logging.getLogger(__name__)
 
 
+def _is_agent365_baggage_options(
+    value: Agent365BaggageOptions | bool | None,
+) -> TypeGuard[Agent365BaggageOptions]:
+    return isinstance(value, dict)
+
+
 class ActivityProcessor:
     """Provides activity processing functionality with middleware chain support."""
 
@@ -66,6 +73,7 @@ class ActivityProcessor:
         api_client_settings: Optional[ApiClientSettings],
         cloud: CloudEnvironment = PUBLIC,
         fetch_user_token: bool = True,
+        agent365_baggage_options: Agent365BaggageOptions | bool | None = None,
     ) -> None:
         self.router = router
         self.id = id
@@ -77,6 +85,7 @@ class ActivityProcessor:
         self.api_client_settings = api_client_settings
         self.cloud = cloud
         self.fetch_user_token = fetch_user_token
+        self.agent365_baggage_options = agent365_baggage_options
 
         # This will be set after the EventManager is initialized due to
         # a circular dependency
@@ -197,6 +206,29 @@ class ActivityProcessor:
     async def process_activity(self, plugins: List[PluginBase], event: ActivityEvent) -> InvokeResponse[Any]:
         activity_dict = event.body.model_dump(by_alias=True, exclude_none=True)
         activity = ActivityTypeAdapter.validate_python(activity_dict)
+        options = self.agent365_baggage_options
+        if _is_agent365_baggage_options(options):
+            with agent365_baggage(
+                activity,
+                include=options.get("include"),
+                operation_source=options.get("operation_source"),
+                channel_link=options.get("channel_link"),
+                additional_baggage=options.get("additional_baggage"),
+            ):
+                return await self._trace_activity(plugins, event, activity)
+
+        if options is False:
+            return await self._trace_activity(plugins, event, activity)
+
+        with agent365_baggage(activity):
+            return await self._trace_activity(plugins, event, activity)
+
+    async def _trace_activity(
+        self,
+        plugins: List[PluginBase],
+        event: ActivityEvent,
+        activity: ValidatedActivity,
+    ) -> InvokeResponse[Any]:
         activity_type = activity.type
         record_activity_received(activity_type)
 
