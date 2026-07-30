@@ -157,20 +157,20 @@ class TestBotClient:
         assert response.token_exchange_resource is not None
 
     @pytest.mark.asyncio
-    async def test_bot_sign_in_uses_auth_provider_for_bot_token(self, request_capture):
+    async def test_bot_sign_in_uses_token_provider_for_bot_token(self, request_capture):
         calls = []
 
-        class TestAuthProvider:
-            def token(self, *, scope=None, agentic_user=None):
-                calls.append((scope, agentic_user))
+        class TestTokenProvider:
+            def get_app_token(self, scope, tenant_id=None):
+                calls.append((scope, tenant_id))
                 return "bot-token"
 
-        client = ApiClient("https://test.service.url", request_capture, auth_provider=TestAuthProvider())
+        client = ApiClient("https://test.service.url", request_capture, token_provider=TestTokenProvider())
         params = GetBotSignInResourceParams(state="test_state", code_challenge="test_challenge")
 
         await client.bots.sign_in.get_resource(params)
 
-        assert calls == [(None, None)]
+        assert calls == [("https://api.botframework.com/.default", None)]
         request = request_capture._capture.last_request
         assert request.headers["authorization"] == "Bearer bot-token"
 

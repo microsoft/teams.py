@@ -43,7 +43,6 @@ from .app_plugins import PluginProcessor
 from .app_process import ActivityProcessor
 from .auth import TokenValidator
 from .auth.remote_function_jwt_middleware import validate_remote_function_request
-from .auth_provider import AppAuthProvider
 from .container import Container
 from .contexts.function_context import FunctionContext
 from .events import (
@@ -61,7 +60,7 @@ from .options import AppOptions, InternalAppOptions
 from .plugins import PluginBase, PluginStartEvent
 from .routing import ActivityHandlerMixin, ActivityRouter
 from .routing.activity_context import ActivityContext
-from .token_manager import TokenManager
+from .token_manager import DEFAULT_TENANT_FOR_GRAPH_TOKEN, TokenManager
 from .token_provider import AppTokenProvider
 from .utils import create_graph_client
 from .utils.thread import to_threaded_conversation_id
@@ -105,7 +104,6 @@ class App(ActivityHandlerMixin):
             cloud=self.cloud,
         )
         self._token_provider = AppTokenProvider(self._token_manager, self.cloud)
-        self._auth_provider = AppAuthProvider(self._token_manager, self.cloud)
 
         self.container = Container()
         self.container.set_provider("storage", providers.Object(self.storage))
@@ -119,7 +117,7 @@ class App(ActivityHandlerMixin):
             self.http_client.clone(),
             self.options.api_client_settings,
             cloud=self.cloud,
-            auth_provider=self._auth_provider,
+            token_provider=self._token_provider,
         )
 
         plugins: List[PluginBase] = list(self.options.plugins)
@@ -139,8 +137,7 @@ class App(ActivityHandlerMixin):
             self.storage,
             self.options.default_connection_name,
             self.http_client,
-            self._token_manager,
-            self._auth_provider,
+            self._token_provider,
             self.options.api_client_settings,
             self.cloud,
             fetch_user_token=self.options.fetch_user_token,
@@ -659,10 +656,13 @@ class App(ActivityHandlerMixin):
                 await plugin.on_stop()
 
     async def _get_bot_token(self):
-        return await self._token_manager.get_bot_token()
+        return await self._token_provider.get_app_token()
 
     async def _get_graph_token(self, tenant_id: Optional[str] = None) -> Optional[TokenProtocol]:
-        return await self._token_manager.get_graph_token(tenant_id)
+        return await self._token_provider.get_app_token(
+            self.cloud.graph_scope,
+            tenant_id or (self.credentials.tenant_id if self.credentials else None) or DEFAULT_TENANT_FOR_GRAPH_TOKEN,
+        )
 
     def get_app_graph(self, tenant_id: Optional[str] = None) -> "GraphServiceClient":
         """

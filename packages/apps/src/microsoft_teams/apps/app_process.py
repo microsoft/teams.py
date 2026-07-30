@@ -30,7 +30,6 @@ from opentelemetry.trace import Span
 if TYPE_CHECKING:
     from .app_events import EventManager
 
-from .auth_provider import AppAuthProvider
 from .diagnostics._constants import APP_ATTRIBUTE_NAMES, APP_HANDLER_DISPATCHES, APP_SPAN_NAMES
 from .diagnostics._helpers import (
     get_tracer,
@@ -46,7 +45,8 @@ from .events import ActivityEvent, ActivityResponseEvent, ActivitySentEvent, Err
 from .plugins import PluginActivityEvent, PluginBase, StreamCancelledError
 from .routing.activity_context import ActivityContext
 from .routing.router import ActivityHandler, ActivityRouter
-from .token_manager import TokenManager
+from .token_manager import DEFAULT_TENANT_FOR_GRAPH_TOKEN
+from .token_provider import AppTokenProvider
 from .utils import extract_tenant_id
 
 logger = logging.getLogger(__name__)
@@ -62,8 +62,7 @@ class ActivityProcessor:
         storage: Union[Storage[str, Any], LocalStorage[Any]],
         default_connection_name: str,
         http_client: Client,
-        token_manager: TokenManager,
-        auth_provider: AppAuthProvider,
+        token_provider: AppTokenProvider,
         api_client_settings: Optional[ApiClientSettings],
         cloud: CloudEnvironment = PUBLIC,
         fetch_user_token: bool = True,
@@ -73,8 +72,7 @@ class ActivityProcessor:
         self.storage = storage
         self.default_connection_name = default_connection_name
         self.http_client = http_client
-        self.token_manager = token_manager
-        self.auth_provider = auth_provider
+        self.token_provider = token_provider
         self.api_client_settings = api_client_settings
         self.cloud = cloud
         self.fetch_user_token = fetch_user_token
@@ -112,7 +110,7 @@ class ActivityProcessor:
             service_url,
             self.http_client,
             self.api_client_settings,
-            auth_provider=self.auth_provider,
+            token_provider=self.token_provider,
             agentic_user=activity.recipient.agentic_user,
         )
 
@@ -149,7 +147,10 @@ class ActivityProcessor:
             conversation_ref,
             is_signed_in,
             self.default_connection_name,
-            app_token=lambda: self.token_manager.get_graph_token(tenant_id),
+            app_token=lambda: self.token_provider.get_app_token(
+                self.cloud.graph_scope,
+                tenant_id or DEFAULT_TENANT_FOR_GRAPH_TOKEN,
+            ),
             cloud=self.cloud,
         )
 

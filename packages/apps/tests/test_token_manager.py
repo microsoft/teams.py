@@ -18,7 +18,6 @@ from microsoft_teams.api import (
 )
 from microsoft_teams.api.auth.cloud_environment import PUBLIC
 from microsoft_teams.api.auth.credentials import TokenCredentials
-from microsoft_teams.apps.auth_provider import AppAuthProvider
 from microsoft_teams.apps.token_manager import AGENT_BOT_API_SCOPE, TOKEN_EXCHANGE_SCOPE, TokenManager
 from microsoft_teams.apps.token_provider import AppTokenProvider
 from msal import ManagedIdentityClient  # pyright: ignore[reportMissingTypeStubs]
@@ -266,52 +265,6 @@ class TestTokenManager:
             "agentic-app-instance-id",
             "tenant-id",
         )
-
-    @pytest.mark.asyncio
-    async def test_app_auth_provider_uses_app_token_without_agentic_user(self):
-        token_manager = MagicMock(spec=TokenManager)
-        token_manager.get_app_token = AsyncMock(return_value="app-token")
-        auth_provider = AppAuthProvider(token_manager, PUBLIC)
-
-        token = await auth_provider.token()
-
-        assert token == "app-token"
-        token_manager.get_app_token.assert_awaited_once_with(PUBLIC.bot_scope, caller_name="token")
-        token_manager.get_agentic_user_token.assert_not_called()
-
-    @pytest.mark.asyncio
-    async def test_app_auth_provider_uses_agentic_user_token_with_agentic_user(self):
-        token_manager = MagicMock(spec=TokenManager)
-        token_manager.get_agentic_user_token = AsyncMock(return_value="agentic-user-token")
-        auth_provider = AppAuthProvider(token_manager, PUBLIC)
-        agentic_user = AgenticUser("agentic-app-instance-id", "agentic-user-id", tenant_id="tenant-id")
-
-        token = await auth_provider.token(agentic_user=agentic_user)
-
-        assert token == "agentic-user-token"
-        token_manager.get_agentic_user_token.assert_awaited_once_with(
-            AGENT_BOT_API_SCOPE,
-            agentic_user,
-            caller_name="token",
-        )
-        token_manager.get_app_token.assert_not_called()
-
-    @pytest.mark.asyncio
-    async def test_app_auth_provider_passes_missing_agentic_user_tenant_to_token_manager(self):
-        token_manager = MagicMock(spec=TokenManager)
-        token_manager.get_agentic_user_token = AsyncMock(return_value="agentic-user-token")
-        auth_provider = AppAuthProvider(token_manager, PUBLIC)
-        agentic_user = AgenticUser("agentic-app-instance-id", "agentic-user-id")
-
-        token = await auth_provider.token(agentic_user=agentic_user)
-
-        assert token == "agentic-user-token"
-        token_manager.get_agentic_user_token.assert_awaited_once_with(
-            AGENT_BOT_API_SCOPE,
-            agentic_user,
-            caller_name="token",
-        )
-        token_manager.get_app_token.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_get_agentic_user_token_uses_credentials_tenant_when_missing(self):

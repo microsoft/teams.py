@@ -10,7 +10,7 @@ from unittest.mock import patch
 
 import httpx
 import pytest
-from microsoft_teams.api.auth.cloud_environment import US_GOV
+from microsoft_teams.api.auth.cloud_environment import PUBLIC, US_GOV
 from microsoft_teams.api.clients import ApiClient
 from microsoft_teams.api.clients.base_client import BaseClient
 from microsoft_teams.api.diagnostics._outbound import ApiOutboundTelemetryMiddleware
@@ -53,33 +53,27 @@ class RequestRecorder:
         return self.requests[-1]
 
 
-class RecordingAuthProvider:
+class RecordingTokenProvider:
     def __init__(self, token_value: str | None = "auth-provider-token"):
         self._token_value = token_value
-        self.calls: list[tuple[str | None, AgenticUser | None]] = []
+        self.calls: list[tuple[str, str, str | None, AgenticUser | None]] = []
 
-    def token(
-        self,
-        *,
-        scope: str | None = None,
-        agentic_user: AgenticUser | None = None,
-    ) -> str | None:
-        self.calls.append((scope, agentic_user))
+    def get_app_token(self, scope: str, tenant_id: str | None) -> str | None:
+        self.calls.append(("app", scope, tenant_id, None))
+        return self._token_value
+
+    def get_agentic_user_token(self, scope: str, agentic_user: AgenticUser, tenant_id: str | None) -> str | None:
+        self.calls.append(("agentic_user", scope, tenant_id, agentic_user))
         return self._token_value
 
 
-class RaisingAuthProvider(RecordingAuthProvider):
+class RaisingTokenProvider(RecordingTokenProvider):
     def __init__(self):
         super().__init__()
         self.exception = RuntimeError("token failure")
 
-    def token(
-        self,
-        *,
-        scope: str | None = None,
-        agentic_user: AgenticUser | None = None,
-    ):
-        self.calls.append((scope, agentic_user))
+    def get_app_token(self, scope: str, tenant_id: str | None):
+        self.calls.append(("app", scope, tenant_id, None))
         raise self.exception
 
 
@@ -105,25 +99,25 @@ def create_client(*, default_token: Token | None = None) -> tuple[Client, Reques
     return client, recorder
 
 
-def create_auth_provider_harness(
-    auth_provider: RecordingAuthProvider,
+def create_token_provider_harness(
+    token_provider: RecordingTokenProvider,
     default_agentic_user: AgenticUser | None = None,
 ) -> tuple[HarnessClient, RequestRecorder]:
     http_client, recorder = create_client()
     api_client = ApiClient(
         "https://test.service.url",
         http_client,
-        auth_provider=auth_provider,
+        token_provider=token_provider,
         agentic_user=default_agentic_user,
     )
     return HarnessClient(api_client.http), recorder
 
 
-def test_api_client_uses_http_token_for_auth_provider_without_mutating_source_client():
+def test_api_client_uses_http_token_for_token_provider_without_mutating_source_client():
     http_client, _ = create_client()
-    auth_provider = RecordingAuthProvider()
+    token_provider = RecordingTokenProvider()
 
-    api_client = ApiClient("https://test.service.url", http_client, auth_provider=auth_provider)
+    api_client = ApiClient("https://test.service.url", http_client, token_provider=token_provider)
 
     assert http_client.token is None
     assert api_client.http.token is not None
@@ -149,45 +143,45 @@ def test_api_client_uses_cloud_token_service_url_for_default_settings():
 
 
 @pytest.mark.asyncio
-async def test_explicit_request_token_wins_over_auth_provider_and_http_client_token():
+async def test_explicit_request_token_wins_over_token_provider_and_http_client_token():
     http_client, recorder = create_client()
-    auth_provider = RecordingAuthProvider()
-    api_client = ApiClient("https://test.service.url", http_client, auth_provider=auth_provider)
+    token_provider = RecordingTokenProvider()
+    api_client = ApiClient("https://test.service.url", http_client, token_provider=token_provider)
     client = HarnessClient(api_client.http)
 
     await client.post_resource(token="explicit-token")
 
-    assert auth_provider.calls == []
+    assert token_provider.calls == []
     assert recorder.last_request.headers["authorization"] == "Bearer explicit-token"
 
 
 @pytest.mark.asyncio
-async def test_explicit_authorization_header_wins_over_auth_provider():
-    auth_provider = RecordingAuthProvider()
-    client, recorder = create_auth_provider_harness(auth_provider)
+async def test_explicit_authorization_header_wins_over_token_provider():
+    token_provider = RecordingTokenProvider()
+    client, recorder = create_token_provider_harness(token_provider)
 
     await client.post_resource(headers={"Authorization": "Bearer explicit-header-token"})
 
-    assert auth_provider.calls == []
+    assert token_provider.calls == []
     assert recorder.last_request.headers["authorization"] == "Bearer explicit-header-token"
 
 
-def test_http_client_token_conflicts_with_auth_provider():
-    auth_provider = RecordingAuthProvider()
+def test_http_client_token_conflicts_with_token_provider():
+    token_provider = RecordingTokenProvider()
     http_client, _ = create_client(default_token="http-client-token")
 
-    with pytest.raises(ValueError, match="auth provider and an HTTP client token"):
-        ApiClient("https://test.service.url", http_client, auth_provider=auth_provider)
+    with pytest.raises(ValueError, match="token provider and an HTTP client token"):
+        ApiClient("https://test.service.url", http_client, token_provider=token_provider)
 
 
 @pytest.mark.asyncio
-async def test_auth_provider_token_is_used_when_request_has_no_auth():
-    auth_provider = RecordingAuthProvider()
-    client, recorder = create_auth_provider_harness(auth_provider)
+async def test_token_provider_token_is_used_when_request_has_no_auth():
+    token_provider = RecordingTokenProvider()
+    client, recorder = create_token_provider_harness(token_provider)
 
     await client.post_resource()
 
-    assert auth_provider.calls == [(None, None)]
+    assert token_provider.calls == [("app", PUBLIC.bot_scope, None, None)]
     assert recorder.last_request.headers["authorization"] == "Bearer auth-provider-token"
 
 
@@ -199,9 +193,9 @@ async def test_auth_provider_token_is_used_when_request_has_no_auth():
         (AgenticUser("agentic-app-instance-id", "agentic-user-id", tenant_id="tenant-id"), "agentic_user"),
     ],
 )
-async def test_auth_provider_token_records_auth_outbound_span(agentic_user, expected_flow):
-    auth_provider = RecordingAuthProvider()
-    client, recorder = create_auth_provider_harness(auth_provider, default_agentic_user=agentic_user)
+async def test_token_provider_token_records_auth_outbound_span(agentic_user, expected_flow):
+    token_provider = RecordingTokenProvider()
+    client, recorder = create_token_provider_harness(token_provider, default_agentic_user=agentic_user)
     tracer = RecordingTracer()
 
     with patch("microsoft_teams.api.clients.api_client.get_tracer", return_value=tracer):
@@ -220,9 +214,9 @@ async def test_auth_provider_token_records_auth_outbound_span(agentic_user, expe
 
 
 @pytest.mark.asyncio
-async def test_auth_provider_token_records_exception_before_reraising():
-    auth_provider = RaisingAuthProvider()
-    client, _ = create_auth_provider_harness(auth_provider)
+async def test_token_provider_token_records_exception_before_reraising():
+    token_provider = RaisingTokenProvider()
+    client, _ = create_token_provider_harness(token_provider)
     tracer = RecordingTracer()
 
     with (
@@ -232,24 +226,24 @@ async def test_auth_provider_token_records_exception_before_reraising():
     ):
         await client.post_resource()
 
-    assert auth_provider.calls == [(None, None)]
+    assert token_provider.calls == [("app", PUBLIC.bot_scope, None, None)]
     assert tracer.spans[0].attributes == {"auth.flow": "app_only"}
-    record_exception.assert_called_once_with(tracer.spans[0], auth_provider.exception)
+    record_exception.assert_called_once_with(tracer.spans[0], token_provider.exception)
 
 
 @pytest.mark.asyncio
-async def test_no_authorization_is_added_when_auth_provider_returns_none():
-    auth_provider = RecordingAuthProvider(token_value=None)
-    client, recorder = create_auth_provider_harness(auth_provider)
+async def test_no_authorization_is_added_when_token_provider_returns_none():
+    token_provider = RecordingTokenProvider(token_value=None)
+    client, recorder = create_token_provider_harness(token_provider)
 
     await client.post_resource()
 
-    assert auth_provider.calls == [(None, None)]
+    assert token_provider.calls == [("app", PUBLIC.bot_scope, None, None)]
     assert "authorization" not in recorder.last_request.headers
 
 
 @pytest.mark.asyncio
-async def test_http_client_token_is_used_when_no_auth_provider():
+async def test_http_client_token_is_used_when_no_token_provider():
     http_client, recorder = create_client(default_token="http-client-token")
     client = HarnessClient(http_client)
 
@@ -260,30 +254,55 @@ async def test_http_client_token_is_used_when_no_auth_provider():
 
 @pytest.mark.asyncio
 async def test_default_agentic_user_is_used_without_request_metadata():
-    auth_provider = RecordingAuthProvider(token_value="agentic-user-token")
+    token_provider = RecordingTokenProvider(token_value="agentic-user-token")
     identity = AgenticUser("agentic-app-instance-id", "agentic-user-id", tenant_id="tenant-id")
-    client, recorder = create_auth_provider_harness(auth_provider, default_agentic_user=identity)
+    client, recorder = create_token_provider_harness(token_provider, default_agentic_user=identity)
 
     await client.post_resource()
 
-    assert auth_provider.calls == [(None, identity)]
+    assert token_provider.calls == [("agentic_user", PUBLIC.agent_bot_scope, "tenant-id", identity)]
     assert recorder.last_request.headers["authorization"] == "Bearer agentic-user-token"
 
 
 @pytest.mark.asyncio
-async def test_default_agentic_user_is_passed_to_auth_provider_token():
-    auth_provider = RecordingAuthProvider(token_value="agentic-user-token")
+async def test_default_agentic_user_is_passed_to_token_provider():
+    token_provider = RecordingTokenProvider(token_value="agentic-user-token")
     identity = AgenticUser("agentic-app-instance-id", "agentic-user-id", tenant_id="tenant-id")
-    client, recorder = create_auth_provider_harness(auth_provider, default_agentic_user=identity)
+    client, recorder = create_token_provider_harness(token_provider, default_agentic_user=identity)
 
     await client.post_resource()
 
-    assert auth_provider.calls == [(None, identity)]
+    assert token_provider.calls == [("agentic_user", PUBLIC.agent_bot_scope, "tenant-id", identity)]
     assert recorder.last_request.headers["authorization"] == "Bearer agentic-user-token"
 
 
 @pytest.mark.asyncio
-async def test_http_client_token_still_wins_without_auth_provider():
+async def test_agentic_user_requires_named_token_provider_capability():
+    calls = []
+
+    class AppOnlyTokenProvider:
+        def get_app_token(self, scope: str, tenant_id: str | None):
+            calls.append((scope, tenant_id))
+            return "app-token"
+
+    http_client, _ = create_client()
+    identity = AgenticUser("agentic-app-instance-id", "agentic-user-id", tenant_id="tenant-id")
+    api_client = ApiClient(
+        "https://test.service.url",
+        http_client,
+        token_provider=AppOnlyTokenProvider(),
+        agentic_user=identity,
+    )
+    client = HarnessClient(api_client.http)
+
+    with pytest.raises(ValueError, match="does not implement get_agentic_user_token"):
+        await client.post_resource()
+
+    assert calls == []
+
+
+@pytest.mark.asyncio
+async def test_http_client_token_still_wins_without_token_provider():
     http_client, recorder = create_client(default_token="http-client-token")
     client = HarnessClient(http_client)
 

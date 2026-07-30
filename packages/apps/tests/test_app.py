@@ -522,6 +522,7 @@ class TestApp:
         app = App(client_id="test-client-id", client_secret="test-secret")
 
         assert isinstance(app.token_provider, AppTokenProvider)
+        assert not hasattr(app, "_auth_provider")
 
     def test_middleware_registration(self, app_with_options: App) -> None:
         """Test that middleware is registered correctly using app.use()."""

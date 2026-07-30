@@ -28,6 +28,7 @@ class AppTokenProvider:
         self,
         scope: str | None,
         agentic_user: AgenticUser,
+        tenant_id: str | None = None,
     ) -> TokenProtocol | None:
         """Acquire a token carrying an Agentic User identity."""
         return await self._token_manager.get_agentic_user_token(
