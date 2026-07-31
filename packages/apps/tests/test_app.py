@@ -529,7 +529,7 @@ class TestApp:
     async def test_get_graph_token_uses_credentials_tenant(self):
         app = App(client_id="test-client-id", client_secret="test-secret", tenant_id="credentials-tenant")
 
-        with patch.object(app.token_provider, "get_app_token", new=AsyncMock(return_value=None)) as get_app_token:
+        with patch.object(app.token_provider, "get_app_token", autospec=True, return_value=None) as get_app_token:
             await app._get_graph_token()
 
         get_app_token.assert_awaited_once_with(PUBLIC.graph_scope, "credentials-tenant")

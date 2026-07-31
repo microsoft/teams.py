@@ -6,7 +6,7 @@ Licensed under the MIT License.
 
 from contextlib import contextmanager
 from typing import Any, Iterator
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, create_autospec, patch
 
 import pytest
 from microsoft_teams.api import (
@@ -17,7 +17,7 @@ from microsoft_teams.api import (
     TokenProtocol,
 )
 from microsoft_teams.api.auth.cloud_environment import PUBLIC, US_GOV
-from microsoft_teams.apps import ActivityContext, ActivityEvent
+from microsoft_teams.apps import ActivityContext, ActivityEvent, App
 from microsoft_teams.apps.app_events import EventManager
 from microsoft_teams.apps.app_process import ActivityProcessor
 from microsoft_teams.apps.events import CoreActivity
@@ -106,7 +106,8 @@ class TestActivityProcessor:
         mock_storage = MagicMock(spec=LocalStorage)
         mock_activity_router = MagicMock(spec=ActivityRouter)
         mock_token_provider = MagicMock(spec=AppTokenProvider)
-        mock_get_app_graph_token = AsyncMock(return_value=None)
+        mock_get_app_graph_token = create_autospec(App, instance=True, spec_set=True)._get_graph_token
+        mock_get_app_graph_token.return_value = None
         return ActivityProcessor(
             mock_activity_router,
             "id",
