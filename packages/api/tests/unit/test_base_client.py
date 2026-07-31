@@ -56,14 +56,24 @@ class RequestRecorder:
 class RecordingTokenProvider:
     def __init__(self, token_value: str | None = "auth-provider-token"):
         self._token_value = token_value
-        self.calls: list[tuple[str, str, str | None, AgenticIdentity | None]] = []
+        self.calls: list[tuple[str, str, str | None, str | None, str | None]] = []
 
     def get_app_token(self, scope: str, tenant_id: str | None) -> str | None:
-        self.calls.append(("app", scope, tenant_id, None))
+        self.calls.append(("app", scope, None, None, tenant_id))
         return self._token_value
 
-    def get_agentic_identity_token(self, scope: str, agentic_identity: AgenticIdentity) -> str | None:
-        self.calls.append(("agentic_identity", scope, None, agentic_identity))
+    def get_agentic_user_token(
+        self,
+        scope: str,
+        agentic_app_id: str,
+        agentic_user_id: str,
+        tenant_id: str | None,
+    ) -> str | None:
+        self.calls.append(("agentic_user", scope, agentic_app_id, agentic_user_id, tenant_id))
+        return self._token_value
+
+    def get_agentic_app_token(self, scope: str, agentic_app_id: str, tenant_id: str | None) -> str | None:
+        self.calls.append(("agentic_app", scope, agentic_app_id, None, tenant_id))
         return self._token_value
 
 
@@ -73,7 +83,7 @@ class RaisingTokenProvider(RecordingTokenProvider):
         self.exception = RuntimeError("token failure")
 
     def get_app_token(self, scope: str, tenant_id: str | None):
-        self.calls.append(("app", scope, tenant_id, None))
+        self.calls.append(("app", scope, None, None, tenant_id))
         raise self.exception
 
 
@@ -181,7 +191,7 @@ async def test_token_provider_token_is_used_when_request_has_no_auth():
 
     await client.post_resource()
 
-    assert token_provider.calls == [("app", PUBLIC.bot_scope, None, None)]
+    assert token_provider.calls == [("app", PUBLIC.bot_scope, None, None, None)]
     assert recorder.last_request.headers["authorization"] == "Bearer auth-provider-token"
 
 
@@ -242,7 +252,7 @@ async def test_token_provider_token_records_exception_before_reraising():
     ):
         await client.post_resource()
 
-    assert token_provider.calls == [("app", PUBLIC.bot_scope, None, None)]
+    assert token_provider.calls == [("app", PUBLIC.bot_scope, None, None, None)]
     assert tracer.spans[0].attributes == {"auth.flow": "app_only"}
     record_exception.assert_called_once_with(tracer.spans[0], token_provider.exception)
 
@@ -254,7 +264,7 @@ async def test_no_authorization_is_added_when_token_provider_returns_none():
 
     await client.post_resource()
 
-    assert token_provider.calls == [("app", PUBLIC.bot_scope, None, None)]
+    assert token_provider.calls == [("app", PUBLIC.bot_scope, None, None, None)]
     assert "authorization" not in recorder.last_request.headers
 
 
@@ -281,7 +291,9 @@ async def test_default_agentic_identity_is_used_without_request_metadata():
 
     await client.post_resource()
 
-    assert token_provider.calls == [("agentic_identity", PUBLIC.agent_bot_scope, None, identity)]
+    assert token_provider.calls == [
+        ("agentic_user", PUBLIC.agent_bot_scope, "agentic-app-id", "agentic-user-id", "tenant-id")
+    ]
     assert recorder.last_request.headers["authorization"] == "Bearer agentic-user-token"
 
 
@@ -298,12 +310,14 @@ async def test_default_agentic_identity_is_passed_to_token_provider():
 
     await client.post_resource()
 
-    assert token_provider.calls == [("agentic_identity", PUBLIC.agent_bot_scope, None, identity)]
+    assert token_provider.calls == [
+        ("agentic_user", PUBLIC.agent_bot_scope, "agentic-app-id", "agentic-user-id", "tenant-id")
+    ]
     assert recorder.last_request.headers["authorization"] == "Bearer agentic-user-token"
 
 
 @pytest.mark.asyncio
-async def test_agentic_identity_requires_named_token_provider_capability():
+async def test_user_backed_agentic_identity_requires_user_token_provider_capability():
     calls = []
 
     class AppOnlyTokenProvider:
@@ -326,7 +340,36 @@ async def test_agentic_identity_requires_named_token_provider_capability():
     )
     client = HarnessClient(api_client.http)
 
-    with pytest.raises(ValueError, match="does not implement get_agentic_identity_token"):
+    with pytest.raises(ValueError, match="does not implement get_agentic_user_token"):
+        await client.post_resource()
+
+    assert calls == []
+
+
+@pytest.mark.asyncio
+async def test_app_backed_agentic_identity_requires_app_token_provider_capability():
+    calls = []
+
+    class AppOnlyTokenProvider:
+        def get_app_token(self, scope: str, tenant_id: str | None):
+            calls.append((scope, tenant_id))
+            return "app-token"
+
+    http_client, _ = create_client()
+    identity = AgenticIdentity(
+        agentic_app_blueprint_id="blueprint-id",
+        agentic_app_id="agentic-app-id",
+        tenant_id="tenant-id",
+    )
+    api_client = ApiClient(
+        "https://test.service.url",
+        http_client,
+        token_provider=AppOnlyTokenProvider(),
+        agentic_identity=identity,
+    )
+    client = HarnessClient(api_client.http)
+
+    with pytest.raises(ValueError, match="does not implement get_agentic_app_token"):
         await client.post_resource()
 
     assert calls == []

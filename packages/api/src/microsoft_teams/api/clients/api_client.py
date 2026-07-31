@@ -15,7 +15,11 @@ from opentelemetry.trace import SpanKind
 from typing_extensions import deprecated
 
 from ..auth.cloud_environment import PUBLIC, CloudEnvironment
-from ..auth.credentials import AgenticIdentityTokenProviderProtocol, TokenProviderProtocol
+from ..auth.credentials import (
+    AgenticAppTokenProviderProtocol,
+    AgenticUserTokenProviderProtocol,
+    TokenProviderProtocol,
+)
 from ..diagnostics._constants import API_ATTRIBUTE_NAMES, API_AUTH_FLOWS, API_SPAN_NAMES
 from ..diagnostics._helpers import get_tracer, record_exception
 from ..diagnostics._outbound import ensure_outbound_telemetry_middleware
@@ -184,16 +188,34 @@ class ApiClient(BaseClient):
                 try:
                     if agentic_identity is None:
                         token = token_provider.get_app_token(self._cloud.bot_scope, None)
+                    elif agentic_identity.agentic_user_id:
+                        if not agentic_identity.agentic_app_id:
+                            raise ValueError("agentic_identity.agentic_app_id is required to get an agentic user token")
+                        if not isinstance(token_provider, AgenticUserTokenProviderProtocol):
+                            raise ValueError(
+                                "This client is scoped to a user-backed AgenticIdentity, but the configured token "
+                                "provider does not implement get_agentic_user_token. Falling back to an app-only "
+                                "token would authenticate as the app rather than the user."
+                            )
+                        token = token_provider.get_agentic_user_token(
+                            self._cloud.agent_bot_scope,
+                            agentic_identity.agentic_app_id,
+                            agentic_identity.agentic_user_id,
+                            agentic_identity.tenant_id,
+                        )
                     else:
-                        if not isinstance(token_provider, AgenticIdentityTokenProviderProtocol):
+                        if not agentic_identity.agentic_app_id:
+                            raise ValueError("agentic_identity.agentic_app_id is required to get an agentic app token")
+                        if not isinstance(token_provider, AgenticAppTokenProviderProtocol):
                             raise ValueError(
                                 "This client is scoped to an AgenticIdentity, but the configured token provider does "
-                                "not implement get_agentic_identity_token. Falling back to an app-only token would "
-                                "authenticate as the app rather than the user."
+                                "not implement get_agentic_app_token. Falling back to an app-only token would "
+                                "authenticate as the wrong app."
                             )
-                        token = token_provider.get_agentic_identity_token(
+                        token = token_provider.get_agentic_app_token(
                             self._cloud.agent_bot_scope,
-                            agentic_identity,
+                            agentic_identity.agentic_app_id,
+                            agentic_identity.tenant_id,
                         )
                     if inspect.isawaitable(token):
                         token = await token

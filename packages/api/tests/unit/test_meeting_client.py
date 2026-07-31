@@ -27,8 +27,32 @@ class _TokenProviderAdapter:
     def get_app_token(self, scope: str, tenant_id: str | None = None):
         return self.token(scope=scope, agentic_identity=None)
 
-    def get_agentic_identity_token(self, scope: str, agentic_identity: AgenticIdentity):
-        return self.token(scope=scope, agentic_identity=agentic_identity)
+    def get_agentic_user_token(
+        self,
+        scope: str,
+        agentic_app_id: str,
+        agentic_user_id: str,
+        tenant_id: str | None,
+    ):
+        return self.token(
+            scope=scope,
+            agentic_identity=AgenticIdentity(
+                agentic_app_blueprint_id="blueprint-id",
+                agentic_app_id=agentic_app_id,
+                agentic_user_id=agentic_user_id,
+                tenant_id=tenant_id,
+            ),
+        )
+
+    def get_agentic_app_token(self, scope: str, agentic_app_id: str, tenant_id: str | None):
+        return self.token(
+            scope=scope,
+            agentic_identity=AgenticIdentity(
+                agentic_app_blueprint_id="blueprint-id",
+                agentic_app_id=agentic_app_id,
+                tenant_id=tenant_id,
+            ),
+        )
 
 
 @pytest.mark.unit
