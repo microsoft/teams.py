@@ -8,7 +8,7 @@ from __future__ import annotations
 import os
 import warnings
 from dataclasses import dataclass, field
-from typing import Any, List, Optional, TypedDict, Union, cast
+from typing import Any, List, Literal, Optional, TypedDict, Union, cast
 
 from microsoft_teams.api import ApiClientSettings
 from microsoft_teams.api.auth.cloud_environment import CloudEnvironment
@@ -16,6 +16,7 @@ from microsoft_teams.api.auth.credentials import TokenProvider
 from microsoft_teams.common import Client, ClientOptions, Storage
 from typing_extensions import Unpack
 
+from .diagnostics import Agent365BaggageOptions
 from .http.adapter import HttpServerAdapter
 from .plugins import PluginBase
 
@@ -46,6 +47,12 @@ def _warn_skip_auth_deprecated() -> None:
         DeprecationWarning,
         stacklevel=3,
     )
+
+
+class AppTelemetryOptions(TypedDict, total=False):
+    """Telemetry options applied across SDK-owned app flows."""
+
+    agent365: Agent365BaggageOptions | Literal[False]
 
 
 class AppOptions(TypedDict, total=False):
@@ -129,6 +136,8 @@ class AppOptions(TypedDict, total=False):
     Valid env var values: "Public", "USGov", "USGovDoD", "China".
     Defaults to PUBLIC (commercial cloud).
     """
+    telemetry: Optional[AppTelemetryOptions]
+    """Telemetry configuration. Agent365 baggage is enabled by default; pass False to disable it."""
 
 
 @dataclass
@@ -186,6 +195,8 @@ class InternalAppOptions:
     """URL path for the Teams messaging endpoint. Defaults to '/api/messages'."""
     cloud: Optional[CloudEnvironment] = None
     """Cloud environment for sovereign cloud support."""
+    telemetry: Optional[AppTelemetryOptions] = None
+    """Telemetry configuration."""
 
     @classmethod
     def from_typeddict(cls, options: AppOptions) -> "InternalAppOptions":

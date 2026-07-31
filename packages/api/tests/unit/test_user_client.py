@@ -39,15 +39,15 @@ class TestUserClient:
         assert response.connection_name == "test_connection"
 
     @pytest.mark.asyncio
-    async def test_user_token_get_uses_auth_provider_for_bot_token(self, mock_http_client):
+    async def test_user_token_get_uses_token_provider_for_bot_token(self, mock_http_client):
         calls = []
 
-        class TestAuthProvider:
-            def token(self, *, scope=None, agentic_identity=None):
-                calls.append((scope, agentic_identity))
+        class TestTokenProvider:
+            def get_app_token(self, scope, tenant_id=None):
+                calls.append((scope, tenant_id))
                 return "bot-token"
 
-        client = ApiClient("https://test.service.url", mock_http_client, auth_provider=TestAuthProvider()).users
+        client = ApiClient("https://test.service.url", mock_http_client, token_provider=TestTokenProvider()).users
         params = GetUserTokenParams(
             user_id="test_user_id",
             connection_name="test_connection",
@@ -56,7 +56,7 @@ class TestUserClient:
 
         await client.token.get(params)
 
-        assert calls == [(None, None)]
+        assert calls == [("https://api.botframework.com/.default", None)]
 
     @pytest.mark.asyncio
     async def test_user_token_get_aad(self, mock_http_client):

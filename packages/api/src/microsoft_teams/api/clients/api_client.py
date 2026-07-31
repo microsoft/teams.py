@@ -15,11 +15,11 @@ from opentelemetry.trace import SpanKind
 from typing_extensions import deprecated
 
 from ..auth.cloud_environment import PUBLIC, CloudEnvironment
+from ..auth.credentials import AgenticIdentityTokenProviderProtocol, TokenProviderProtocol
 from ..diagnostics._constants import API_ATTRIBUTE_NAMES, API_AUTH_FLOWS, API_SPAN_NAMES
 from ..diagnostics._helpers import get_tracer, record_exception
 from ..diagnostics._outbound import ensure_outbound_telemetry_middleware
 from ..models import AgenticIdentity, AgenticUser
-from ._auth_provider import AuthProvider
 from .api_client_settings import ApiClientSettings, merge_api_client_settings
 from .base_client import BaseClient
 from .bot import BotClient  # pyright: ignore[reportDeprecated]
@@ -47,7 +47,7 @@ class ApiClient(BaseClient):
         api_client_settings: Optional[ApiClientSettings] = None,
         cloud: Optional[CloudEnvironment] = None,
         *,
-        auth_provider: Optional[AuthProvider] = None,
+        token_provider: Optional[TokenProviderProtocol] = None,
         agentic_identity: Optional[AgenticIdentity] = None,
     ) -> None:
         """Initialize the unified Teams API client.
@@ -62,12 +62,12 @@ class ApiClient(BaseClient):
         merged_settings = merge_api_client_settings(api_client_settings, self._cloud)
         super().__init__(options, merged_settings)
         self.service_url = service_url.rstrip("/")
-        if auth_provider is not None and self._http.token is not None:
-            raise ValueError("Cannot use both an auth provider and an HTTP client token.")
+        if token_provider is not None and self._http.token is not None:
+            raise ValueError("Cannot use both a token provider and an HTTP client token.")
 
-        self._auth_provider = auth_provider
+        self._token_provider = token_provider
         self._default_agentic_identity = agentic_identity
-        self._apply_auth_provider_token()
+        self._apply_token_provider_token()
 
         # Initialize all client types
         self._bots = BotClient(  # pyright: ignore[reportDeprecated]
@@ -119,7 +119,7 @@ class ApiClient(BaseClient):
         else:
             resolved_agentic_identity = agentic_identity
         http = self._http.clone(share_http=True)
-        if self._auth_provider is not None:
+        if self._token_provider is not None:
             http.token = None
 
         return ApiClient(
@@ -127,7 +127,7 @@ class ApiClient(BaseClient):
             http,
             self._api_client_settings,
             cloud=self._cloud,
-            auth_provider=self._auth_provider,
+            token_provider=self._token_provider,
             agentic_identity=resolved_agentic_identity,
         )
 
@@ -159,26 +159,26 @@ class ApiClient(BaseClient):
         return self.clone(service_url=service_url, agentic_identity=agentic_identity).conversations
 
     def _get_scoped_http(self, agentic_identity: AgenticIdentity | None) -> HttpClient:
-        if self._auth_provider is None:
+        if self._token_provider is None:
             return self._http.clone(share_http=True)
 
         return self._http.clone(
-            ClientOptions(token=self._create_auth_provider_token(agentic_identity)),
+            ClientOptions(token=self._create_token_provider_token(agentic_identity)),
             share_http=True,
         )
 
-    def _apply_auth_provider_token(self) -> None:
-        if self._auth_provider is None:
+    def _apply_token_provider_token(self) -> None:
+        if self._token_provider is None:
             return
 
         self._http = self._get_scoped_http(self._default_agentic_identity)
 
-    def _create_auth_provider_token(self, agentic_identity: AgenticIdentity | None) -> Token:
-        auth_provider = self._auth_provider
-        if auth_provider is None:
+    def _create_token_provider_token(self, agentic_identity: AgenticIdentity | None) -> Token:
+        token_provider = self._token_provider
+        if token_provider is None:
             return None
 
-        async def resolve_auth_provider_token() -> str | StringLike | None:
+        async def resolve_token_provider_token() -> str | StringLike | None:
             with get_tracer().start_as_current_span(
                 API_SPAN_NAMES.auth_outbound,
                 kind=SpanKind.CLIENT,
@@ -188,15 +188,27 @@ class ApiClient(BaseClient):
                 flow = API_AUTH_FLOWS.agentic_identity if agentic_identity is not None else API_AUTH_FLOWS.app_only
                 span.set_attribute(API_ATTRIBUTE_NAMES.auth_flow, flow)
                 try:
-                    token = auth_provider.token(agentic_identity=agentic_identity)
+                    if agentic_identity is None:
+                        token = token_provider.get_app_token(self._cloud.bot_scope, None)
+                    else:
+                        if not isinstance(token_provider, AgenticIdentityTokenProviderProtocol):
+                            raise ValueError(
+                                "This client is scoped to an AgenticIdentity, but the configured token provider does "
+                                "not implement get_agentic_identity_token. Falling back to an app-only token would "
+                                "authenticate as the app rather than the user."
+                            )
+                        token = token_provider.get_agentic_identity_token(
+                            self._cloud.agent_bot_scope,
+                            agentic_identity,
+                        )
                     if inspect.isawaitable(token):
-                        return await token
-                    return token
+                        token = await token
+                    return None if token is None else str(token)
                 except Exception as exception:
                     record_exception(span, exception)
                     raise
 
-        return resolve_auth_provider_token
+        return resolve_token_provider_token
 
     @property
     def http(self) -> HttpClient:
@@ -207,7 +219,7 @@ class ApiClient(BaseClient):
     def http(self, value: HttpClient) -> None:
         """Set the HTTP client instance and propagate to all sub-clients."""
         self._http = value
-        self._apply_auth_provider_token()
+        self._apply_token_provider_token()
         ensure_outbound_telemetry_middleware(self._http)
         self._bots.http = self._http
         self.conversations.http = self._http

@@ -13,9 +13,10 @@ from .diagnostics import *  # noqa: F403
 from .events import *  # noqa: F401, F403
 from .http import FastAPIAdapter, HttpServer, HttpServerAdapter
 from .http_stream import HttpStream
-from .options import AppOptions
+from .options import AppOptions, AppTelemetryOptions
 from .plugins import *  # noqa: F401, F403
 from .routing import ActivityContext
+from .token_provider import AppTokenProvider
 from .utils.thread import to_threaded_conversation_id
 
 logging.getLogger(__name__).addHandler(logging.NullHandler())
@@ -24,11 +25,13 @@ logging.getLogger(__name__).addHandler(logging.NullHandler())
 __all__: list[str] = [
     "App",
     "AppOptions",
+    "AppTelemetryOptions",
     "HttpServer",
     "HttpServerAdapter",
     "FastAPIAdapter",
     "HttpStream",
     "ActivityContext",
+    "AppTokenProvider",
     "to_threaded_conversation_id",
 ]
 __all__.extend(auth.__all__)

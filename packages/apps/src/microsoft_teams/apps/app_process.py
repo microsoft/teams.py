@@ -5,7 +5,7 @@ Licensed under the MIT License.
 
 import logging
 from time import perf_counter
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union, cast
+from typing import TYPE_CHECKING, Any, Awaitable, Callable, Dict, List, Optional, TypeGuard, Union, cast
 
 from microsoft_teams.api import (
     ActivityBase,
@@ -30,7 +30,7 @@ from opentelemetry.trace import Span
 if TYPE_CHECKING:
     from .app_events import EventManager
 
-from .auth_provider import AppAuthProvider
+from .diagnostics._baggage import Agent365BaggageOptions, agent365_baggage
 from .diagnostics._constants import APP_ATTRIBUTE_NAMES, APP_HANDLER_DISPATCHES, APP_SPAN_NAMES
 from .diagnostics._helpers import (
     get_tracer,
@@ -46,10 +46,16 @@ from .events import ActivityEvent, ActivityResponseEvent, ActivitySentEvent, Err
 from .plugins import PluginActivityEvent, PluginBase, StreamCancelledError
 from .routing.activity_context import ActivityContext
 from .routing.router import ActivityHandler, ActivityRouter
-from .token_manager import TokenManager
+from .token_provider import AppTokenProvider
 from .utils import extract_tenant_id
 
 logger = logging.getLogger(__name__)
+
+
+def _is_agent365_baggage_options(
+    value: Agent365BaggageOptions | bool | None,
+) -> TypeGuard[Agent365BaggageOptions]:
+    return isinstance(value, dict)
 
 
 class ActivityProcessor:
@@ -62,22 +68,24 @@ class ActivityProcessor:
         storage: Union[Storage[str, Any], LocalStorage[Any]],
         default_connection_name: str,
         http_client: Client,
-        token_manager: TokenManager,
-        auth_provider: AppAuthProvider,
+        token_provider: AppTokenProvider,
+        get_app_graph_token: Callable[[Optional[str]], Awaitable[Optional[TokenProtocol]]],
         api_client_settings: Optional[ApiClientSettings],
         cloud: CloudEnvironment = PUBLIC,
         fetch_user_token: bool = True,
+        agent365_baggage_options: Agent365BaggageOptions | bool | None = None,
     ) -> None:
         self.router = router
         self.id = id
         self.storage = storage
         self.default_connection_name = default_connection_name
         self.http_client = http_client
-        self.token_manager = token_manager
-        self.auth_provider = auth_provider
+        self.token_provider = token_provider
+        self.get_app_graph_token = get_app_graph_token
         self.api_client_settings = api_client_settings
         self.cloud = cloud
         self.fetch_user_token = fetch_user_token
+        self.agent365_baggage_options = agent365_baggage_options
 
         # This will be set after the EventManager is initialized due to
         # a circular dependency
@@ -112,7 +120,8 @@ class ActivityProcessor:
             service_url,
             self.http_client,
             self.api_client_settings,
-            auth_provider=self.auth_provider,
+            cloud=self.cloud,
+            token_provider=self.token_provider,
             agentic_identity=activity.recipient.agentic_user,
         )
 
@@ -149,7 +158,7 @@ class ActivityProcessor:
             conversation_ref,
             is_signed_in,
             self.default_connection_name,
-            app_token=lambda: self.token_manager.get_graph_token(tenant_id),
+            app_token=lambda: self.get_app_graph_token(tenant_id),
             cloud=self.cloud,
         )
 
@@ -197,6 +206,29 @@ class ActivityProcessor:
     async def process_activity(self, plugins: List[PluginBase], event: ActivityEvent) -> InvokeResponse[Any]:
         activity_dict = event.body.model_dump(by_alias=True, exclude_none=True)
         activity = ActivityTypeAdapter.validate_python(activity_dict)
+        options = self.agent365_baggage_options
+        if _is_agent365_baggage_options(options):
+            with agent365_baggage(
+                activity,
+                include=options.get("include"),
+                operation_source=options.get("operation_source"),
+                channel_link=options.get("channel_link"),
+                additional_baggage=options.get("additional_baggage"),
+            ):
+                return await self._trace_activity(plugins, event, activity)
+
+        if options is False:
+            return await self._trace_activity(plugins, event, activity)
+
+        with agent365_baggage(activity):
+            return await self._trace_activity(plugins, event, activity)
+
+    async def _trace_activity(
+        self,
+        plugins: List[PluginBase],
+        event: ActivityEvent,
+        activity: ValidatedActivity,
+    ) -> InvokeResponse[Any]:
         activity_type = activity.type
         record_activity_received(activity_type)
 

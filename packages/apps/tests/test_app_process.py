@@ -6,7 +6,7 @@ Licensed under the MIT License.
 
 from contextlib import contextmanager
 from typing import Any, Iterator
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, create_autospec, patch
 
 import pytest
 from microsoft_teams.api import (
@@ -16,14 +16,13 @@ from microsoft_teams.api import (
     InvokeResponse,
     TokenProtocol,
 )
-from microsoft_teams.api.auth.cloud_environment import PUBLIC
-from microsoft_teams.apps import ActivityContext, ActivityEvent
+from microsoft_teams.api.auth.cloud_environment import PUBLIC, US_GOV
+from microsoft_teams.apps import ActivityContext, ActivityEvent, App
 from microsoft_teams.apps.app_events import EventManager
 from microsoft_teams.apps.app_process import ActivityProcessor
-from microsoft_teams.apps.auth_provider import AppAuthProvider
 from microsoft_teams.apps.events import CoreActivity
 from microsoft_teams.apps.routing.router import ActivityHandler, ActivityRouter
-from microsoft_teams.apps.token_manager import TokenManager
+from microsoft_teams.apps.token_provider import AppTokenProvider
 from microsoft_teams.common import Client, LocalStorage
 from opentelemetry import baggage
 
@@ -49,9 +48,16 @@ class RecordingSpan:
 class RecordingTracer:
     def __init__(self):
         self.spans: list[RecordingSpan] = []
+        self.baggage_at_start: list[dict[str, object | None]] = []
 
     @contextmanager
     def start_as_current_span(self, name: str, **kwargs: Any) -> Iterator[RecordingSpan]:
+        self.baggage_at_start.append(
+            {
+                "tenant_id": baggage.get_baggage("microsoft.tenant.id"),
+                "conversation_id": baggage.get_baggage("gen_ai.conversation.id"),
+            }
+        )
         span = RecordingSpan(name, kwargs)
         self.spans.append(span)
         yield span
@@ -106,16 +112,17 @@ class TestActivityProcessor:
         """Create an ActivityProcessor instance."""
         mock_storage = MagicMock(spec=LocalStorage)
         mock_activity_router = MagicMock(spec=ActivityRouter)
-        mock_token_manager = MagicMock(spec=TokenManager)
-        mock_auth_provider = MagicMock(spec=AppAuthProvider)
+        mock_token_provider = MagicMock(spec=AppTokenProvider)
+        mock_get_app_graph_token = create_autospec(App, instance=True, spec_set=True)._get_graph_token
+        mock_get_app_graph_token.return_value = None
         return ActivityProcessor(
             mock_activity_router,
             "id",
             mock_storage,
             "default_connection",
             mock_http_client,
-            mock_token_manager,
-            mock_auth_provider,
+            mock_token_provider,
+            mock_get_app_graph_token,
             None,
             PUBLIC,
         )
@@ -216,7 +223,7 @@ class TestActivityProcessor:
         assert record_turn_duration.call_args.args[1] == "message"
 
     @pytest.mark.asyncio
-    async def test_process_activity_does_not_apply_agent365_baggage_during_turn(self, activity_processor):
+    async def test_process_activity_applies_default_agent365_baggage_before_turn_span(self, activity_processor):
         core_activity = CoreActivity(
             type="message",
             id="activity-baggage",
@@ -247,27 +254,89 @@ class TestActivityProcessor:
         mock_activity_event = ActivityEvent(body=core_activity, token=mock_token)
 
         async def process_core(plugins, event, activity):
-            assert baggage.get_baggage("microsoft.tenant.id") is None
-            assert baggage.get_baggage("gen_ai.conversation.id") is None
-            assert baggage.get_baggage("microsoft.conversation.item.link") is None
-            assert baggage.get_baggage("microsoft.channel.name") is None
-            assert baggage.get_baggage("user.id") is None
+            assert baggage.get_baggage("microsoft.tenant.id") == "tenant-1"
+            assert baggage.get_baggage("gen_ai.conversation.id") == "conv-789"
+            assert baggage.get_baggage("microsoft.conversation.item.link") == "https://service.url"
+            assert baggage.get_baggage("microsoft.channel.name") == "msteams"
+            assert baggage.get_baggage("user.id") == "caller-aad-1"
             assert baggage.get_baggage("user.name") is None
             assert baggage.get_baggage("user.email") is None
-            assert baggage.get_baggage("gen_ai.agent.id") is None
+            assert baggage.get_baggage("gen_ai.agent.id") == "agent-app-1"
             assert baggage.get_baggage("gen_ai.agent.name") is None
-            assert baggage.get_baggage("microsoft.agent.user.id") is None
+            assert baggage.get_baggage("microsoft.agent.user.id") == "agentic-user-1"
             assert baggage.get_baggage("microsoft.agent.user.email") is None
             assert baggage.get_baggage("gen_ai.agent.description") is None
-            assert baggage.get_baggage("microsoft.a365.agent.blueprint.id") is None
+            assert baggage.get_baggage("microsoft.a365.agent.blueprint.id") == "blueprint-1"
             return InvokeResponse[Any](status=200)
 
         activity_processor._process_activity_core = AsyncMock(side_effect=process_core)
+        tracer = RecordingTracer()
 
-        await activity_processor.process_activity([], mock_activity_event)
+        with patch("microsoft_teams.apps.app_process.get_tracer", return_value=tracer):
+            await activity_processor.process_activity([], mock_activity_event)
 
+        assert tracer.baggage_at_start == [{"tenant_id": "tenant-1", "conversation_id": "conv-789"}]
         assert baggage.get_baggage("microsoft.tenant.id") is None
         assert baggage.get_baggage("gen_ai.agent.id") is None
+
+    @pytest.mark.asyncio
+    async def test_process_activity_can_disable_agent365_baggage(self, activity_processor):
+        core_activity = CoreActivity(
+            type="message",
+            id="activity-disabled-baggage",
+            service_url="https://service.url",
+            **{
+                "from": {"id": "user-123"},
+                "conversation": {"id": "conv-789"},
+                "recipient": {"id": "bot-456", "tenantId": "tenant-1"},
+                "channelId": "msteams",
+            },
+        )
+        mock_token = MagicMock(spec=TokenProtocol)
+        mock_token.service_url = "https://service.url"
+        event = ActivityEvent(body=core_activity, token=mock_token)
+        activity_processor.agent365_baggage_options = False
+
+        async def process_core(plugins, event, activity):
+            assert baggage.get_baggage("microsoft.tenant.id") is None
+            return InvokeResponse[Any](status=200)
+
+        activity_processor._process_activity_core = AsyncMock(side_effect=process_core)
+        await activity_processor.process_activity([], event)
+
+    @pytest.mark.asyncio
+    async def test_process_activity_applies_configured_agent365_options(self, activity_processor):
+        core_activity = CoreActivity(
+            type="message",
+            id="activity-configured-baggage",
+            service_url="https://service.url",
+            **{
+                "from": {"id": "user-123", "name": "Caller"},
+                "conversation": {"id": "conv-789"},
+                "recipient": {"id": "bot-456", "tenantId": "tenant-1", "name": "Agent"},
+                "channelId": "msteams",
+            },
+        )
+        mock_token = MagicMock(spec=TokenProtocol)
+        mock_token.service_url = "https://service.url"
+        event = ActivityEvent(body=core_activity, token=mock_token)
+        activity_processor.agent365_baggage_options = {
+            "include": ["senderName"],
+            "operation_source": "Microsoft.Teams.Apps",
+            "channel_link": "https://teams.microsoft.com/l/channel/channel-id",
+            "additional_baggage": {"custom.key": "custom"},
+        }
+
+        async def process_core(plugins, event, activity):
+            assert baggage.get_baggage("user.name") == "Caller"
+            assert baggage.get_baggage("gen_ai.agent.name") is None
+            assert baggage.get_baggage("service.name") == "Microsoft.Teams.Apps"
+            assert baggage.get_baggage("microsoft.channel.link") == ("https://teams.microsoft.com/l/channel/channel-id")
+            assert baggage.get_baggage("custom.key") == "custom"
+            return InvokeResponse[Any](status=200)
+
+        activity_processor._process_activity_core = AsyncMock(side_effect=process_core)
+        await activity_processor.process_activity([], event)
 
     @pytest.mark.asyncio
     async def test_execute_middleware_chain_records_handler_span_and_metrics(self, activity_processor):
@@ -587,7 +656,7 @@ class TestActivityProcessor:
         mock_api_client.users.get_token.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_build_context_scopes_api_to_inbound_agentic_user(self, activity_processor):
+    async def test_build_context_scopes_api_to_inbound_agentic_identity(self, activity_processor):
         """Inbound Agent ID activities scope ctx.api with the inbound agentic user."""
         core_activity = CoreActivity(
             type="message",
@@ -620,11 +689,35 @@ class TestActivityProcessor:
         with patch("microsoft_teams.apps.app_process.ApiClient", return_value=mock_api_client) as mock_api_client_type:
             await activity_processor.process_activity([], mock_activity_event)
 
-        assert mock_api_client_type.call_args.kwargs["auth_provider"] is activity_processor.auth_provider
+        assert mock_api_client_type.call_args.kwargs["token_provider"] is activity_processor.token_provider
+        assert mock_api_client_type.call_args.kwargs["cloud"] is activity_processor.cloud
         agentic_user = mock_api_client_type.call_args.kwargs["agentic_identity"]
         assert agentic_user.agentic_app_instance_id == "agentic-app-instance-id"
         assert agentic_user.agentic_user_id == "agentic-user-id"
         assert agentic_user.tenant_id == "tenant-id"
+
+    @pytest.mark.asyncio
+    async def test_build_context_defers_graph_tenant_resolution(self, activity_processor):
+        activity_processor.fetch_user_token = False
+        mock_token = MagicMock(spec=TokenProtocol)
+        mock_token.service_url = "https://service.url"
+
+        context = await activity_processor._build_context(_message_activity("activity-graph-tenant"), mock_token, [])
+        await context._app_token()
+
+        activity_processor.get_app_graph_token.assert_awaited_once_with(None)
+
+    @pytest.mark.asyncio
+    async def test_build_context_passes_sovereign_cloud_to_api_client(self, activity_processor):
+        activity_processor.fetch_user_token = False
+        activity_processor.cloud = US_GOV
+        mock_token = MagicMock(spec=TokenProtocol)
+        mock_token.service_url = "https://service.url"
+
+        with patch("microsoft_teams.apps.app_process.ApiClient") as mock_api_client_type:
+            await activity_processor._build_context(_message_activity("activity-sovereign-cloud"), mock_token, [])
+
+        assert mock_api_client_type.call_args.kwargs["cloud"] is US_GOV
 
     @pytest.mark.asyncio
     async def test_build_context_skips_token_fetch_when_disabled(self, activity_processor):
