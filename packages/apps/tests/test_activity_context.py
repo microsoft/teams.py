@@ -423,7 +423,7 @@ class TestActivityContextSend:
         mock_sender.send.assert_called_once()
         ctx.api.clone.assert_called_once_with(
             service_url=ctx.conversation_ref.service_url,
-            agentic_user=recipient.agentic_user,
+            agentic_identity=recipient.agentic_user,
         )
 
 
@@ -494,7 +494,7 @@ class TestActivityContextReply:
         mock_sender.send.assert_called_once()
         ctx.api.clone.assert_called_once_with(
             service_url=ctx.conversation_ref.service_url,
-            agentic_user=recipient.agentic_user,
+            agentic_identity=recipient.agentic_user,
         )
 
 

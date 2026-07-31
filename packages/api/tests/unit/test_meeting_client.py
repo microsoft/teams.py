@@ -111,8 +111,8 @@ class TestMeetingClient:
         calls = []
 
         class TestAuthProvider:
-            def token(self, *, scope=None, agentic_user=None):
-                calls.append((scope, agentic_user))
+            def token(self, *, scope=None, agentic_identity=None):
+                calls.append((scope, agentic_identity))
                 return "bot-token"
 
         client = ApiClient("https://test.service.url", mock_http_client, auth_provider=TestAuthProvider()).meetings
@@ -121,17 +121,17 @@ class TestMeetingClient:
         assert calls == [(None, None)]
 
     @pytest.mark.asyncio
-    async def test_get_participant_uses_agentic_user(self, mock_http_client):
+    async def test_get_participant_uses_agentic_identity(self, mock_http_client):
         calls = []
 
         class TestAuthProvider:
-            def token(self, *, scope=None, agentic_user=None):
-                calls.append((scope, agentic_user))
+            def token(self, *, scope=None, agentic_identity=None):
+                calls.append((scope, agentic_identity))
                 return "agentic-user-token"
 
         identity = AgenticUser("agentic-app-instance-id", "agentic-user-id", tenant_id="tenant-id")
         client = ApiClient(
-            "https://test.service.url", mock_http_client, auth_provider=TestAuthProvider(), agentic_user=identity
+            "https://test.service.url", mock_http_client, auth_provider=TestAuthProvider(), agentic_identity=identity
         ).meetings
         await client.get_participant("meeting-id", "participant-id", "tenant-id")
 

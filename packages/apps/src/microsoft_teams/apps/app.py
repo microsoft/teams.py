@@ -15,6 +15,7 @@ from microsoft_teams.api import (
     Account,
     ActivityBase,
     ActivityParams,
+    AgenticIdentity,
     AgenticUser,
     ApiClient,
     ClientCredentials,
@@ -299,7 +300,7 @@ class App(ActivityHandlerMixin):
         activity: str | ActivityParams | AdaptiveCard,
         *,
         service_url: Optional[str] = None,
-        agentic_user: Optional[AgenticUser] = None,
+        agentic_identity: Optional[AgenticIdentity] = None,
     ) -> SentActivity:
         """Send an activity proactively to a conversation.
 
@@ -332,7 +333,7 @@ class App(ActivityHandlerMixin):
             self.api,
             activity,
             conversation_ref,
-            agentic_user=agentic_user,
+            agentic_identity=agentic_identity,
         )
 
     def get_agentic_user(
@@ -368,7 +369,7 @@ class App(ActivityHandlerMixin):
         activity: str | ActivityParams | AdaptiveCard,
         *,
         service_url: Optional[str] = None,
-        agentic_user: Optional[AgenticUser] = None,
+        agentic_identity: Optional[AgenticIdentity] = None,
     ) -> SentActivity: ...
 
     @overload
@@ -378,7 +379,7 @@ class App(ActivityHandlerMixin):
         message_id: str | ActivityParams | AdaptiveCard,
         *,
         service_url: Optional[str] = None,
-        agentic_user: Optional[AgenticUser] = None,
+        agentic_identity: Optional[AgenticIdentity] = None,
     ) -> SentActivity: ...
 
     async def reply(  # type: ignore[reportInconsistentOverload]
@@ -388,7 +389,7 @@ class App(ActivityHandlerMixin):
         activity: str | ActivityParams | AdaptiveCard | None = None,
         *,
         service_url: Optional[str] = None,
-        agentic_user: Optional[AgenticUser] = None,
+        agentic_identity: Optional[AgenticIdentity] = None,
     ) -> SentActivity:
         """Send an activity proactively to a conversation, optionally as a threaded reply.
 
@@ -413,14 +414,14 @@ class App(ActivityHandlerMixin):
                 to_threaded_conversation_id(conversation_id, message_id),
                 activity,
                 service_url=service_url,
-                agentic_user=agentic_user,
+                agentic_identity=agentic_identity,
             )
 
         return await self.send(
             conversation_id,
             message_id,
             service_url=service_url,
-            agentic_user=agentic_user,
+            agentic_identity=agentic_identity,
         )
 
     def use(self, middleware: Callable[[ActivityContext[ActivityBase]], Awaitable[None]]) -> None:

@@ -62,9 +62,9 @@ class RecordingAuthProvider:
         self,
         *,
         scope: str | None = None,
-        agentic_user: AgenticUser | None = None,
+        agentic_identity: AgenticUser | None = None,
     ) -> str | None:
-        self.calls.append((scope, agentic_user))
+        self.calls.append((scope, agentic_identity))
         return self._token_value
 
 
@@ -77,9 +77,9 @@ class RaisingAuthProvider(RecordingAuthProvider):
         self,
         *,
         scope: str | None = None,
-        agentic_user: AgenticUser | None = None,
+        agentic_identity: AgenticUser | None = None,
     ):
-        self.calls.append((scope, agentic_user))
+        self.calls.append((scope, agentic_identity))
         raise self.exception
 
 
@@ -107,14 +107,14 @@ def create_client(*, default_token: Token | None = None) -> tuple[Client, Reques
 
 def create_auth_provider_harness(
     auth_provider: RecordingAuthProvider,
-    default_agentic_user: AgenticUser | None = None,
+    default_agentic_identity: AgenticUser | None = None,
 ) -> tuple[HarnessClient, RequestRecorder]:
     http_client, recorder = create_client()
     api_client = ApiClient(
         "https://test.service.url",
         http_client,
         auth_provider=auth_provider,
-        agentic_user=default_agentic_user,
+        agentic_identity=default_agentic_identity,
     )
     return HarnessClient(api_client.http), recorder
 
@@ -193,15 +193,15 @@ async def test_auth_provider_token_is_used_when_request_has_no_auth():
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    ("agentic_user", "expected_flow"),
+    ("agentic_identity", "expected_flow"),
     [
         (None, "app_only"),
-        (AgenticUser("agentic-app-instance-id", "agentic-user-id", tenant_id="tenant-id"), "agentic_user"),
+        (AgenticUser("agentic-app-instance-id", "agentic-user-id", tenant_id="tenant-id"), "agentic_identity"),
     ],
 )
-async def test_auth_provider_token_records_auth_outbound_span(agentic_user, expected_flow):
+async def test_auth_provider_token_records_auth_outbound_span(agentic_identity, expected_flow):
     auth_provider = RecordingAuthProvider()
-    client, recorder = create_auth_provider_harness(auth_provider, default_agentic_user=agentic_user)
+    client, recorder = create_auth_provider_harness(auth_provider, default_agentic_identity=agentic_identity)
     tracer = RecordingTracer()
 
     with patch("microsoft_teams.api.clients.api_client.get_tracer", return_value=tracer):
@@ -259,10 +259,10 @@ async def test_http_client_token_is_used_when_no_auth_provider():
 
 
 @pytest.mark.asyncio
-async def test_default_agentic_user_is_used_without_request_metadata():
+async def test_default_agentic_identity_is_used_without_request_metadata():
     auth_provider = RecordingAuthProvider(token_value="agentic-user-token")
     identity = AgenticUser("agentic-app-instance-id", "agentic-user-id", tenant_id="tenant-id")
-    client, recorder = create_auth_provider_harness(auth_provider, default_agentic_user=identity)
+    client, recorder = create_auth_provider_harness(auth_provider, default_agentic_identity=identity)
 
     await client.post_resource()
 
@@ -271,10 +271,10 @@ async def test_default_agentic_user_is_used_without_request_metadata():
 
 
 @pytest.mark.asyncio
-async def test_default_agentic_user_is_passed_to_auth_provider_token():
+async def test_default_agentic_identity_is_passed_to_auth_provider_token():
     auth_provider = RecordingAuthProvider(token_value="agentic-user-token")
     identity = AgenticUser("agentic-app-instance-id", "agentic-user-id", tenant_id="tenant-id")
-    client, recorder = create_auth_provider_harness(auth_provider, default_agentic_user=identity)
+    client, recorder = create_auth_provider_harness(auth_provider, default_agentic_identity=identity)
 
     await client.post_resource()
 

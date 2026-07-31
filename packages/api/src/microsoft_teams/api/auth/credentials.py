@@ -5,31 +5,31 @@ Licensed under the MIT License.
 
 from typing import Awaitable, Callable, Literal, Optional, Protocol, TypeAlias, Union, runtime_checkable
 
-from ..models import AgenticUser, CustomBaseModel
+from ..models import AgenticIdentity, CustomBaseModel
 
 TokenScope: TypeAlias = Union[str, list[str]]
 TokenResult: TypeAlias = Union[str, Awaitable[str]]
 BasicTokenProvider: TypeAlias = Callable[[TokenScope, Optional[str]], TokenResult]
-_PositionalAgenticUserTokenProvider: TypeAlias = Callable[
-    [TokenScope, Optional[str], Optional[AgenticUser]], TokenResult
+_PositionalAgenticIdentityTokenProvider: TypeAlias = Callable[
+    [TokenScope, Optional[str], Optional[AgenticIdentity]], TokenResult
 ]
 
 
 @runtime_checkable
-class _KeywordAgenticUserTokenProvider(Protocol):
+class _KeywordAgenticIdentityTokenProvider(Protocol):
     def __call__(
         self,
         scope: TokenScope,
         tenant_id: Optional[str],
         *,
-        agentic_user: Optional[AgenticUser] = None,
+        agentic_identity: Optional[AgenticIdentity] = None,
     ) -> TokenResult: ...
 
 
 TokenProvider: TypeAlias = Union[
     BasicTokenProvider,
-    _PositionalAgenticUserTokenProvider,
-    _KeywordAgenticUserTokenProvider,
+    _PositionalAgenticIdentityTokenProvider,
+    _KeywordAgenticIdentityTokenProvider,
 ]
 
 

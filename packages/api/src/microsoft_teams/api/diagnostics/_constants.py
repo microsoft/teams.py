@@ -18,7 +18,7 @@ class _ApiAttributeNames:
 
 @dataclass(frozen=True)
 class _ApiAuthFlows:
-    agentic_user: str = "agentic_user"
+    agentic_identity: str = "agentic_identity"
     app_only: str = "app_only"
 
 

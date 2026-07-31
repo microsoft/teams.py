@@ -77,13 +77,13 @@ class TestReactionClient:
         )
 
     @pytest.mark.asyncio
-    async def test_add_reaction_uses_agentic_user(self, mock_http_client):
+    async def test_add_reaction_uses_agentic_identity(self, mock_http_client):
         """Test adding a reaction with an agentic user token."""
         calls = []
 
         class TestAuthProvider:
-            def token(self, *, scope=None, agentic_user=None):
-                calls.append((scope, agentic_user))
+            def token(self, *, scope=None, agentic_identity=None):
+                calls.append((scope, agentic_identity))
                 return "agentic-user-token"
 
         cloud = with_overrides(PUBLIC, agent_bot_scope="agentic-user-scope")
@@ -92,7 +92,7 @@ class TestReactionClient:
             "https://test.service.url",
             mock_http_client,
             auth_provider=TestAuthProvider(),
-            agentic_user=identity,
+            agentic_identity=identity,
             cloud=cloud,
         ).reactions
 
@@ -106,8 +106,8 @@ class TestReactionClient:
         calls = []
 
         class TestAuthProvider:
-            def token(self, *, scope=None, agentic_user=None):
-                calls.append((scope, agentic_user))
+            def token(self, *, scope=None, agentic_identity=None):
+                calls.append((scope, agentic_identity))
                 return "bot-token"
 
         client = ApiClient("https://test.service.url", mock_http_client, auth_provider=TestAuthProvider()).reactions
@@ -153,18 +153,18 @@ class TestReactionClient:
         mock_delete.assert_called_once_with(expected_url)
 
     @pytest.mark.asyncio
-    async def test_delete_reaction_uses_scoped_agentic_user(self, mock_http_client):
+    async def test_delete_reaction_uses_scoped_agentic_identity(self, mock_http_client):
         """Test removing a reaction with a scoped agentic user token."""
         calls = []
 
         class TestAuthProvider:
-            def token(self, *, scope=None, agentic_user=None):
-                calls.append((scope, agentic_user))
+            def token(self, *, scope=None, agentic_identity=None):
+                calls.append((scope, agentic_identity))
                 return "agentic-user-token"
 
         identity = AgenticUser("agentic-app-instance-id", "agentic-user-id", tenant_id="tenant-id")
         client = ApiClient(
-            "https://test.service.url", mock_http_client, auth_provider=TestAuthProvider(), agentic_user=identity
+            "https://test.service.url", mock_http_client, auth_provider=TestAuthProvider(), agentic_identity=identity
         ).reactions
 
         await client.delete("test_conversation_id", "test_activity_id", "like")

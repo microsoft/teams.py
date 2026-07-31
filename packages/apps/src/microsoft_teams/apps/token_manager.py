@@ -10,6 +10,7 @@ from typing import Any, Awaitable, Callable, Optional, cast
 
 import requests
 from microsoft_teams.api import (
+    AgenticIdentity,
     AgenticUser,
     ClientCredentials,
     Credentials,
@@ -150,6 +151,16 @@ class TokenManager:
         )
         return self._handle_token_response(t3_raw, caller_name or "get_agentic_user_token")
 
+    async def get_agentic_identity_token(
+        self,
+        scope: str,
+        agentic_identity: AgenticIdentity,
+        *,
+        caller_name: str | None = None,
+    ) -> Optional[TokenProtocol]:
+        """Get a resource token for a concrete agentic identity."""
+        return await self.get_agentic_user_token(scope, agentic_identity, caller_name=caller_name)
+
     def _get_access_token_or_raise(self, token_res: dict[str, Any], error_prefix: str) -> str:
         if token_res.get("access_token", None):
             return token_res["access_token"]
@@ -250,10 +261,10 @@ class TokenManager:
         credentials: TokenCredentials,
         scope: str,
         tenant_id: str,
-        agentic_user: AgenticUser | None = None,
+        agentic_identity: AgenticIdentity | None = None,
     ) -> TokenProtocol:
         """Get token using custom token provider function."""
-        token = self._call_token_provider(credentials, scope, tenant_id, agentic_user)
+        token = self._call_token_provider(credentials, scope, tenant_id, agentic_identity)
 
         if isawaitable(token):
             access_token = await token
@@ -267,21 +278,28 @@ class TokenManager:
         credentials: TokenCredentials,
         scope: str,
         tenant_id: str,
-        agentic_user: AgenticUser | None = None,
+        agentic_identity: AgenticIdentity | None = None,
     ) -> str | Awaitable[str]:
         token_provider = cast(Any, credentials.token)
         try:
             parameters = list(signature(token_provider).parameters.values())
         except (TypeError, ValueError) as error:
-            if agentic_user is not None:
-                raise ValueError("Token provider must accept agentic_user to mint agentic user tokens") from error
+            if agentic_identity is not None:
+                raise ValueError(
+                    "Token provider must accept agentic_identity to mint agentic identity tokens"
+                ) from error
             return cast(str | Awaitable[str], token_provider(scope, tenant_id))
 
+        accepts_agentic_identity = any(
+            parameter.kind == Parameter.VAR_KEYWORD or parameter.name == "agentic_identity" for parameter in parameters
+        )
         accepts_agentic_user = any(
             parameter.kind == Parameter.VAR_KEYWORD or parameter.name == "agentic_user" for parameter in parameters
         )
+        if accepts_agentic_identity:
+            return cast(str | Awaitable[str], token_provider(scope, tenant_id, agentic_identity=agentic_identity))
         if accepts_agentic_user:
-            return cast(str | Awaitable[str], token_provider(scope, tenant_id, agentic_user=agentic_user))
+            return cast(str | Awaitable[str], token_provider(scope, tenant_id, agentic_user=agentic_identity))
 
         positional_parameters = [
             parameter
@@ -291,11 +309,13 @@ class TokenManager:
         required_positional_parameters = [
             parameter for parameter in positional_parameters if parameter.default is Parameter.empty
         ]
-        if len(positional_parameters) >= 3 and (agentic_user is not None or len(required_positional_parameters) >= 3):
-            return cast(str | Awaitable[str], token_provider(scope, tenant_id, agentic_user))
+        if len(positional_parameters) >= 3 and (
+            agentic_identity is not None or len(required_positional_parameters) >= 3
+        ):
+            return cast(str | Awaitable[str], token_provider(scope, tenant_id, agentic_identity))
 
-        if agentic_user is not None:
-            raise ValueError("Token provider must accept agentic_user to mint agentic user tokens")
+        if agentic_identity is not None:
+            raise ValueError("Token provider must accept agentic_identity to mint agentic identity tokens")
 
         return cast(str | Awaitable[str], token_provider(scope, tenant_id))
 

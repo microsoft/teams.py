@@ -621,7 +621,7 @@ class TestActivityProcessor:
             await activity_processor.process_activity([], mock_activity_event)
 
         assert mock_api_client_type.call_args.kwargs["auth_provider"] is activity_processor.auth_provider
-        agentic_user = mock_api_client_type.call_args.kwargs["agentic_user"]
+        agentic_user = mock_api_client_type.call_args.kwargs["agentic_identity"]
         assert agentic_user.agentic_app_instance_id == "agentic-app-instance-id"
         assert agentic_user.agentic_user_id == "agentic-user-id"
         assert agentic_user.tenant_id == "tenant-id"

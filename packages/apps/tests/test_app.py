@@ -901,13 +901,13 @@ class TestApp:
             "conv-123",
             "Hello",
             service_url=service_url,
-            agentic_user=agentic_user,
+            agentic_identity=agentic_user,
         )
 
         app.api.conversations.activities.assert_called_once_with("conv-123")
         app.api.clone.assert_called_once_with(
             service_url=service_url,
-            agentic_user=agentic_user,
+            agentic_identity=agentic_user,
         )
         create.assert_called_once()
         activity = create.call_args.args[0]
@@ -929,7 +929,7 @@ class TestApp:
         _wire_flat_activity_methods(app.api, activities)
         app.api.clone = MagicMock(return_value=app.api)
 
-        await app.send("conv-123", "Hello", agentic_user=None)
+        await app.send("conv-123", "Hello", agentic_identity=None)
 
         app.api.clone.assert_not_called()
 
@@ -1061,13 +1061,13 @@ class TestAppReply:
             "1680000000000",
             "Hello thread",
             service_url=service_url,
-            agentic_user=agentic_user,
+            agentic_identity=agentic_user,
         )
 
         started_app.api.conversations.activities.assert_called_once_with("19:abc@thread.skype;messageid=1680000000000")
         started_app.api.clone.assert_called_once_with(
             service_url=service_url,
-            agentic_user=agentic_user,
+            agentic_identity=agentic_user,
         )
         create = started_app.api.conversations.activities.return_value.create
         activity = create.call_args.args[0]
@@ -1090,13 +1090,13 @@ class TestAppReply:
             "19:abc@thread.skype",
             "Hello flat",
             service_url=service_url,
-            agentic_user=agentic_user,
+            agentic_identity=agentic_user,
         )
 
         started_app.api.conversations.activities.assert_called_once_with("19:abc@thread.skype")
         started_app.api.clone.assert_called_once_with(
             service_url=service_url,
-            agentic_user=agentic_user,
+            agentic_identity=agentic_user,
         )
         create = started_app.api.conversations.activities.return_value.create
         activity = create.call_args.args[0]
