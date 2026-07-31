@@ -5,13 +5,23 @@ Licensed under the MIT License.
 # pyright: basic
 
 import importlib.metadata
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import microsoft_teams.apps as apps
+import pytest
+from microsoft_teams.api import ActivityTypeAdapter, AgenticUser
 from microsoft_teams.apps import (
     TEAMS_BOT_APPLICATION_METER_NAME,
     TEAMS_BOT_APPLICATION_TRACER_NAME,
+    ActivityContext,
+    Agent365Baggage,
+    Agent365BaggageInclude,
+    Agent365BaggageKeys,
+    Agent365ScopeOptions,
     TeamsBotApplicationTelemetry,
+    agent365_baggage,
+    create_agent365_scope,
 )
 from microsoft_teams.apps.diagnostics._helpers import (
     get_meter,
@@ -26,6 +36,9 @@ from microsoft_teams.apps.diagnostics._helpers import (
     record_oauth_operation,
     record_turn_duration,
 )
+from microsoft_teams.apps.events import CoreActivity
+from opentelemetry import baggage
+from opentelemetry import context as otel_context
 from opentelemetry.sdk.metrics import MeterProvider
 from opentelemetry.sdk.metrics.export import InMemoryMetricReader
 from opentelemetry.trace import StatusCode
@@ -40,15 +53,20 @@ def test_public_telemetry_names_are_exported():
     assert "TEAMS_BOT_APPLICATION_TRACER_NAME" in apps.__all__
     assert "TEAMS_BOT_APPLICATION_METER_NAME" in apps.__all__
     assert "TeamsBotApplicationTelemetry" in apps.__all__
-    assert "TeamsBaggageBuilder" not in apps.__all__
-    assert "with_teams_baggage" not in apps.__all__
-    assert not hasattr(apps, "TeamsBaggageBuilder")
-    assert not hasattr(apps, "with_teams_baggage")
+    assert "Agent365Baggage" in apps.__all__
+    assert "Agent365BaggageKeys" in apps.__all__
+    assert "Agent365BaggageInclude" in apps.__all__
+    assert "agent365_baggage" in apps.__all__
+    assert "create_agent365_scope" in apps.__all__
+    assert apps.Agent365Baggage is Agent365Baggage
+    assert Agent365BaggageKeys.tenant_id == "microsoft.tenant.id"
+    assert apps.agent365_baggage is agent365_baggage
 
 
 def test_runtime_instrumentation_names_stay_internal():
     private_groups = [
         "APP_ATTRIBUTE_NAMES",
+        "AGENT365_BAGGAGE_KEYS",
         "APP_HANDLER_DISPATCHES",
         "APP_METRIC_NAMES",
         "APP_OAUTH_ERROR_TYPES",
@@ -79,6 +97,161 @@ def test_helpers_use_canonical_source_names():
         version=TeamsBotApplicationTelemetry.instrumentation_version,
     )
     assert meter is mock_get_meter.return_value
+
+
+def test_agent365_baggage_maps_conservative_context_and_restores_prior_baggage():
+    activity = _agent365_activity()
+    token = otel_context.attach(baggage.set_baggage("microsoft.tenant.id", "previous-tenant"))
+    try:
+        with agent365_baggage(
+            activity,
+            operation_source="agent365-example",
+            channel_link="https://teams.microsoft.com/l/channel/channel-id",
+        ):
+            assert baggage.get_baggage("microsoft.tenant.id") == "tenant-1"
+            assert baggage.get_baggage("gen_ai.conversation.id") == "conv-789"
+            assert baggage.get_baggage("microsoft.conversation.item.link") == "https://service.url"
+            assert baggage.get_baggage("microsoft.channel.name") == "msteams"
+            assert baggage.get_baggage("microsoft.channel.link") == "https://teams.microsoft.com/l/channel/channel-id"
+            assert baggage.get_baggage("gen_ai.agent.id") == "agent-app-1"
+            assert baggage.get_baggage("microsoft.agent.user.id") == "agent-user-1"
+            assert baggage.get_baggage("microsoft.a365.agent.blueprint.id") == "blueprint-1"
+            assert baggage.get_baggage("user.id") == "caller-aad-1"
+            assert baggage.get_baggage("service.name") == "agent365-example"
+
+            assert baggage.get_baggage("user.name") is None
+            assert baggage.get_baggage("user.email") is None
+            assert baggage.get_baggage("gen_ai.agent.name") is None
+            assert baggage.get_baggage("microsoft.agent.user.email") is None
+            assert baggage.get_baggage("gen_ai.agent.description") is None
+            assert baggage.get_baggage("message.text") is None
+            assert baggage.get_baggage("content") is None
+
+        assert baggage.get_baggage("microsoft.tenant.id") == "previous-tenant"
+        assert baggage.get_baggage("gen_ai.conversation.id") is None
+    finally:
+        otel_context.detach(token)
+
+
+@pytest.mark.parametrize(
+    ("include", "expected_key", "expected_value"),
+    [
+        ("senderName", "user.name", "Caller"),
+        ("agentName", "gen_ai.agent.name", "Agent"),
+        ("agentDescription", "gen_ai.agent.description", "assistant"),
+        ("senderEmail", "user.email", "caller@example.com"),
+        ("agentEmail", "microsoft.agent.user.email", "agentic-user@example.com"),
+    ],
+)
+def test_agent365_baggage_accepts_activity_context_and_granular_include(
+    include: Agent365BaggageInclude, expected_key: str, expected_value: str
+):
+    activity = _agent365_activity()
+    ctx = MagicMock(spec=ActivityContext)
+    ctx.activity = activity
+
+    opt_in_keys = {
+        "user.name",
+        "gen_ai.agent.name",
+        "gen_ai.agent.description",
+        "user.email",
+        "microsoft.agent.user.email",
+    }
+
+    with agent365_baggage(ctx, include=[include]):
+        assert baggage.get_baggage(expected_key) == expected_value
+        for key in opt_in_keys - {expected_key}:
+            assert baggage.get_baggage(key) is None
+
+
+def test_agent365_baggage_supports_manual_values_without_activity():
+    with Agent365Baggage().operation_source("service").set("custom.key", " custom-value "):
+        assert baggage.get_baggage("service.name") == "service"
+        assert baggage.get_baggage("custom.key") == "custom-value"
+
+    with agent365_baggage(additional_baggage={"service.name": "manual-service"}):
+        assert baggage.get_baggage("service.name") == "manual-service"
+
+    assert baggage.get_baggage("service.name") is None
+
+
+def test_create_agent365_scope_maps_proactive_identity_and_restores_context():
+    options: Agent365ScopeOptions = {
+        "include": ["agentName"],
+        "operation_source": "Microsoft.Teams.Apps",
+        "service_url": "https://service.url",
+        "channel_name": "msteams",
+        "agent_id": "fallback-agent",
+        "additional_baggage": {"host.key": "host"},
+    }
+    open_scope = create_agent365_scope(options)
+    agentic_user = AgenticUser(
+        agentic_app_instance_id="agent-app-1",
+        agentic_user_id="agent-user-1",
+        tenant_id="tenant-1",
+        agentic_blueprint_id="blueprint-1",
+    )
+
+    with open_scope(
+        agentic_user=agentic_user,
+        conversation_id="conv-789",
+        user_id="caller-1",
+        agent_name="Agent",
+        sender_name="Caller",
+        additional_baggage={"operation.key": "operation"},
+    ):
+        assert baggage.get_baggage("microsoft.tenant.id") == "tenant-1"
+        assert baggage.get_baggage("gen_ai.conversation.id") == "conv-789"
+        assert baggage.get_baggage("microsoft.conversation.item.link") == "https://service.url"
+        assert baggage.get_baggage("microsoft.channel.name") == "msteams"
+        assert baggage.get_baggage("gen_ai.agent.id") == "agent-app-1"
+        assert baggage.get_baggage("microsoft.agent.user.id") == "agent-user-1"
+        assert baggage.get_baggage("microsoft.a365.agent.blueprint.id") == "blueprint-1"
+        assert baggage.get_baggage("user.id") == "caller-1"
+        assert baggage.get_baggage("gen_ai.agent.name") == "Agent"
+        assert baggage.get_baggage("user.name") is None
+        assert baggage.get_baggage("service.name") == "Microsoft.Teams.Apps"
+        assert baggage.get_baggage("host.key") == "host"
+        assert baggage.get_baggage("operation.key") == "operation"
+
+    assert baggage.get_baggage("microsoft.tenant.id") is None
+    assert baggage.get_baggage("operation.key") is None
+
+
+def test_create_agent365_scope_false_is_a_noop():
+    token = otel_context.attach(baggage.set_baggage("existing.key", "existing"))
+    try:
+        with create_agent365_scope(False)(conversation_id="ignored"):
+            assert baggage.get_baggage("existing.key") == "existing"
+            assert baggage.get_baggage("gen_ai.conversation.id") is None
+    finally:
+        otel_context.detach(token)
+
+
+def test_agent365_baggage_skips_blank_keys_and_non_finite_values():
+    with Agent365Baggage({" ": "ignored", "nan": float("nan"), "infinite": float("inf"), "valid": 3.5}):
+        assert baggage.get_baggage("nan") is None
+        assert baggage.get_baggage("infinite") is None
+        assert baggage.get_baggage("valid") == "3.5"
+
+
+def test_sdk_source_does_not_import_microsoft_otel_or_agents_sdk():
+    packages_dir = Path(__file__).parents[3] / "packages"
+    forbidden_imports = (
+        "microsoft.opentelemetry",
+        "microsoft_opentelemetry",
+        "microsoft.agents",
+        "microsoft_agents",
+    )
+
+    for source_file in packages_dir.glob("*/src/**/*.py"):
+        source = source_file.read_text()
+        assert not any(forbidden in source for forbidden in forbidden_imports), source_file
+
+    for pyproject_file in packages_dir.glob("*/pyproject.toml"):
+        manifest = pyproject_file.read_text()
+        assert "microsoft-opentelemetry" not in manifest
+        assert "microsoft-agents" not in manifest
 
 
 def test_app_metrics_are_recorded_with_allowed_attributes():
@@ -164,3 +337,33 @@ def test_record_exception_marks_span_error():
     status = span.set_status.call_args.args[0]
     assert status.status_code == StatusCode.ERROR
     assert status.description == "boom"
+
+
+def _agent365_activity():
+    core_activity = CoreActivity(
+        type="message",
+        id="activity-1",
+        service_url="https://service.url",
+        **{
+            "text": "message content should not become baggage",
+            "from": {
+                "id": "user-123",
+                "aadObjectId": "caller-aad-1",
+                "name": "Caller",
+                "email": "caller@example.com",
+            },
+            "conversation": {"id": "conv-789"},
+            "recipient": {
+                "id": "bot-456",
+                "name": "Agent",
+                "tenantId": "tenant-1",
+                "agenticAppId": "agent-app-1",
+                "agenticUserId": "agent-user-1",
+                "agenticAppBlueprintId": "blueprint-1",
+                "email": "agentic-user@example.com",
+                "userRole": "assistant",
+            },
+            "channelId": "msteams",
+        },
+    )
+    return ActivityTypeAdapter.validate_python(core_activity.model_dump(by_alias=True, exclude_none=True))

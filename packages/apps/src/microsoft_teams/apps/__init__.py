@@ -13,7 +13,7 @@ from .diagnostics import *  # noqa: F403
 from .events import *  # noqa: F401, F403
 from .http import FastAPIAdapter, HttpServer, HttpServerAdapter
 from .http_stream import HttpStream
-from .options import AppOptions
+from .options import AppOptions, AppTelemetryOptions
 from .plugins import *  # noqa: F401, F403
 from .routing import ActivityContext
 from .token_provider import AppTokenProvider
@@ -25,6 +25,7 @@ logging.getLogger(__name__).addHandler(logging.NullHandler())
 __all__: list[str] = [
     "App",
     "AppOptions",
+    "AppTelemetryOptions",
     "HttpServer",
     "HttpServerAdapter",
     "FastAPIAdapter",
