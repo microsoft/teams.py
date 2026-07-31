@@ -54,19 +54,19 @@ class AgentLifecycleValueBase(CustomBaseModel):
     )
     """The Agent ID user-shaped identity object ID."""
 
-    agentic_app_id: Optional[str] = Field(
+    agentic_app_instance_id: Optional[str] = Field(
         default=None,
         validation_alias="agenticAppInstanceId",
         serialization_alias="agenticAppInstanceId",
     )
-    """The Agent 365 app/client ID."""
+    """The service-owned agentic app instance ID."""
 
-    agentic_app_blueprint_id: Optional[str] = Field(
+    agent_identity_blueprint_id: Optional[str] = Field(
         default=None,
         validation_alias="agentIdentityBlueprintId",
         serialization_alias="agentIdentityBlueprintId",
     )
-    """The Agent 365 app blueprint ID."""
+    """The service-owned agent identity blueprint ID."""
 
     version: Optional[int] = None
     """Monotonic version of the agentic user state, when provided by the service."""

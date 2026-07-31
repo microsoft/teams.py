@@ -40,12 +40,13 @@ def _log_lifecycle_envelope(activity: AgentLifecycleEventActivity, handler_name:
         activity.recipient.agentic_identity,
     )
     logger.info(
-        "[Agent365 lifecycle:%s] tenant_id=%s agentic_user_id=%s agentic_app_id=%s app_blueprint_id=%s version=%s",
+        "[Agent365 lifecycle:%s] tenant_id=%s agentic_user_id=%s agentic_app_instance_id=%s "
+        "agent_identity_blueprint_id=%s version=%s",
         handler_name,
         activity.value.tenant_id,
         activity.value.agentic_user_id,
-        activity.value.agentic_app_id,
-        activity.value.agentic_app_blueprint_id,
+        activity.value.agentic_app_instance_id,
+        activity.value.agent_identity_blueprint_id,
         activity.value.version,
     )
 
