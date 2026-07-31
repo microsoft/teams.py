@@ -10,12 +10,9 @@ from dataclasses import dataclass
 class AgenticIdentity:
     """Identifies the Agent 365 identity scope used for SDK operations.
 
-    AgenticIdentity is the SDK operation/request scope: the agentic program or
-    identity used to authenticate proactive/API calls. Today incoming activities
-    are user-backed and include ``agentic_user_id``; over time this same scope can
-    encompass concrete service concepts such as an Agent 365 app blueprint,
-    app-backed identity, or user-backed identity without exposing separate public
-    SDK models for each service shape.
+    AgenticIdentity is the SDK operation/request scope for the Agent 365
+    program. It encompasses an agentic app blueprint, which can instantiate
+    agentic apps, and each app can optionally have associated agentic users.
     """
 
     agentic_app_blueprint_id: str
