@@ -122,7 +122,7 @@ class ActivityProcessor:
             self.api_client_settings,
             cloud=self.cloud,
             token_provider=self.token_provider,
-            agentic_identity=activity.recipient.agentic_user,
+            agentic_identity=activity.recipient.agentic_identity,
         )
 
         # Check if user is signed in.

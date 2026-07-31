@@ -19,7 +19,7 @@ from ..auth.credentials import AgenticIdentityTokenProviderProtocol, TokenProvid
 from ..diagnostics._constants import API_ATTRIBUTE_NAMES, API_AUTH_FLOWS, API_SPAN_NAMES
 from ..diagnostics._helpers import get_tracer, record_exception
 from ..diagnostics._outbound import ensure_outbound_telemetry_middleware
-from ..models import AgenticIdentity, AgenticUser
+from ..models import AgenticIdentity
 from .api_client_settings import ApiClientSettings, merge_api_client_settings
 from .base_client import BaseClient
 from .bot import BotClient  # pyright: ignore[reportDeprecated]
@@ -32,9 +32,6 @@ from .user import UserClient
 AgenticIdentityClear: TypeAlias = Literal["clear"]
 AGENTIC_IDENTITY_CLEAR: AgenticIdentityClear = "clear"
 AgenticIdentityScope: TypeAlias = AgenticIdentity | None | AgenticIdentityClear
-AgenticUserClear: TypeAlias = AgenticIdentityClear
-AGENTIC_USER_CLEAR = AGENTIC_IDENTITY_CLEAR
-AgenticUserScope: TypeAlias = AgenticIdentityScope
 
 
 class ApiClient(BaseClient):
@@ -142,14 +139,6 @@ class ApiClient(BaseClient):
     def for_agentic_identity(self, agentic_identity: AgenticIdentity) -> "ApiClient":
         """Alias for from_agentic_identity."""
         return self.from_agentic_identity(agentic_identity)
-
-    def from_agentic_user(self, agentic_user: AgenticUser) -> "ApiClient":
-        """Create a scoped API client for an agentic user."""
-        return self.from_agentic_identity(agentic_user)
-
-    def for_agentic_user(self, agentic_user: AgenticUser) -> "ApiClient":
-        """Alias for from_agentic_user."""
-        return self.from_agentic_user(agentic_user)
 
     def _scope_conversations(
         self,

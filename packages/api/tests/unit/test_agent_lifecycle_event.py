@@ -9,14 +9,14 @@ from typing import Any, Dict
 import pytest
 from microsoft_teams.api.activities import ActivityTypeAdapter
 from microsoft_teams.api.activities.event.agent_lifecycle import (
-    AgenticUserDeletedActivity,
-    AgenticUserDisabledActivity,
-    AgenticUserEnabledActivity,
-    AgenticUserIdentityCreatedActivity,
-    AgenticUserIdentityUpdatedActivity,
-    AgenticUserManagerUpdatedActivity,
-    AgenticUserUndeletedActivity,
-    AgenticUserWorkloadOnboardingUpdatedActivity,
+    AgenticIdentityCreatedActivity,
+    AgenticIdentityDeletedActivity,
+    AgenticIdentityDisabledActivity,
+    AgenticIdentityEnabledActivity,
+    AgenticIdentityManagerUpdatedActivity,
+    AgenticIdentityUndeletedActivity,
+    AgenticIdentityUpdatedActivity,
+    AgenticIdentityWorkloadOnboardingUpdatedActivity,
 )
 
 # Static sample IDs for unit-test payloads; these tests do not call live services.
@@ -76,11 +76,12 @@ class TestAgentLifecycleEventParsing:
         }
         activity = ActivityTypeAdapter.validate_python(_envelope(value, "AgenticUserIdentityCreated"))
 
-        assert isinstance(activity, AgenticUserIdentityCreatedActivity)
+        assert isinstance(activity, AgenticIdentityCreatedActivity)
         assert activity.name == "agentLifecycle"
         assert activity.value_type == "AgenticUserIdentityCreated"
         assert activity.value.agentic_user_id == AGENTIC_USER_ID
-        assert activity.value.agentic_blueprint_id == BLUEPRINT_ID
+        assert activity.value.agentic_app_id == AGENTIC_APP_INSTANCE_ID
+        assert activity.value.agentic_app_blueprint_id == BLUEPRINT_ID
         assert activity.value.manager is not None
         assert activity.value.manager.user_id == "3c22b565-74f3-48b0-aa18-1dc03b8ec270"
         assert activity.value.manager.email == "manager@example.test"
@@ -101,7 +102,7 @@ class TestAgentLifecycleEventParsing:
         }
         activity = ActivityTypeAdapter.validate_python(_envelope(value, "AgenticUserIdentityUpdated"))
 
-        assert isinstance(activity, AgenticUserIdentityUpdatedActivity)
+        assert isinstance(activity, AgenticIdentityUpdatedActivity)
         assert activity.value.updated_property.property_name == property_name
         assert activity.value.updated_property.property_value == property_value
         assert activity.value.version == 4
@@ -114,7 +115,7 @@ class TestAgentLifecycleEventParsing:
         }
         activity = ActivityTypeAdapter.validate_python(_envelope(value, "AgenticUserManagerUpdated"))
 
-        assert isinstance(activity, AgenticUserManagerUpdatedActivity)
+        assert isinstance(activity, AgenticIdentityManagerUpdatedActivity)
         assert activity.value.manager is not None
         assert activity.value.manager.manager_id == "3c22b565-74f3-48b0-aa18-1dc03b8ec270"
         assert activity.value.version == 6
@@ -123,27 +124,27 @@ class TestAgentLifecycleEventParsing:
         value = {**_common("agenticUserEnabled"), "version": 6}
         activity = ActivityTypeAdapter.validate_python(_envelope(value, "AgenticUserEnabled"))
 
-        assert isinstance(activity, AgenticUserEnabledActivity)
+        assert isinstance(activity, AgenticIdentityEnabledActivity)
         assert activity.value.version == 6
 
     def test_disabled(self) -> None:
         value = {**_common("agenticUserDisabled"), "version": 7}
         activity = ActivityTypeAdapter.validate_python(_envelope(value, "AgenticUserDisabled"))
 
-        assert isinstance(activity, AgenticUserDisabledActivity)
+        assert isinstance(activity, AgenticIdentityDisabledActivity)
 
     def test_deleted(self) -> None:
         value = {**_common("agenticUserDeleted"), "deletionReason": "UserSoftDelete", "version": 8}
         activity = ActivityTypeAdapter.validate_python(_envelope(value, "AgenticUserDeleted"))
 
-        assert isinstance(activity, AgenticUserDeletedActivity)
+        assert isinstance(activity, AgenticIdentityDeletedActivity)
         assert activity.value.deletion_reason == "UserSoftDelete"
 
     def test_undeleted(self) -> None:
         value = {**_common("agenticUserUndeleted"), "version": 9}
         activity = ActivityTypeAdapter.validate_python(_envelope(value, "AgenticUserUndeleted"))
 
-        assert isinstance(activity, AgenticUserUndeletedActivity)
+        assert isinstance(activity, AgenticIdentityUndeletedActivity)
 
     def test_workload_onboarding_updated(self) -> None:
         value = {
@@ -153,7 +154,7 @@ class TestAgentLifecycleEventParsing:
         }
         activity = ActivityTypeAdapter.validate_python(_envelope(value, "AgenticUserWorkloadOnboardingUpdated"))
 
-        assert isinstance(activity, AgenticUserWorkloadOnboardingUpdatedActivity)
+        assert isinstance(activity, AgenticIdentityWorkloadOnboardingUpdatedActivity)
         assert activity.value.workload_name == "Teams"
         assert activity.value.workload_onboarding_state == "succeeded"
 

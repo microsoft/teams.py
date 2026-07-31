@@ -14,7 +14,7 @@ from microsoft_teams.api.auth.cloud_environment import PUBLIC, US_GOV
 from microsoft_teams.api.clients import ApiClient
 from microsoft_teams.api.clients.base_client import BaseClient
 from microsoft_teams.api.diagnostics._outbound import ApiOutboundTelemetryMiddleware
-from microsoft_teams.api.models import AgenticUser
+from microsoft_teams.api.models import AgenticIdentity
 from microsoft_teams.common import Client, ClientOptions, Token
 from opentelemetry.trace import SpanKind
 
@@ -56,13 +56,13 @@ class RequestRecorder:
 class RecordingTokenProvider:
     def __init__(self, token_value: str | None = "auth-provider-token"):
         self._token_value = token_value
-        self.calls: list[tuple[str, str, str | None, AgenticUser | None]] = []
+        self.calls: list[tuple[str, str, str | None, AgenticIdentity | None]] = []
 
     def get_app_token(self, scope: str, tenant_id: str | None) -> str | None:
         self.calls.append(("app", scope, tenant_id, None))
         return self._token_value
 
-    def get_agentic_identity_token(self, scope: str, agentic_identity: AgenticUser) -> str | None:
+    def get_agentic_identity_token(self, scope: str, agentic_identity: AgenticIdentity) -> str | None:
         self.calls.append(("agentic_identity", scope, None, agentic_identity))
         return self._token_value
 
@@ -101,7 +101,7 @@ def create_client(*, default_token: Token | None = None) -> tuple[Client, Reques
 
 def create_token_provider_harness(
     token_provider: RecordingTokenProvider,
-    default_agentic_identity: AgenticUser | None = None,
+    default_agentic_identity: AgenticIdentity | None = None,
 ) -> tuple[HarnessClient, RequestRecorder]:
     http_client, recorder = create_client()
     api_client = ApiClient(
@@ -190,7 +190,7 @@ async def test_token_provider_token_is_used_when_request_has_no_auth():
     ("agentic_identity", "expected_flow"),
     [
         (None, "app_only"),
-        (AgenticUser("agentic-app-instance-id", "agentic-user-id", tenant_id="tenant-id"), "agentic_identity"),
+        (AgenticIdentity("agentic-app-id", "agentic-user-id", tenant_id="tenant-id"), "agentic_identity"),
     ],
 )
 async def test_token_provider_token_records_auth_outbound_span(agentic_identity, expected_flow):
@@ -255,7 +255,7 @@ async def test_http_client_token_is_used_when_no_token_provider():
 @pytest.mark.asyncio
 async def test_default_agentic_identity_is_used_without_request_metadata():
     token_provider = RecordingTokenProvider(token_value="agentic-user-token")
-    identity = AgenticUser("agentic-app-instance-id", "agentic-user-id", tenant_id="tenant-id")
+    identity = AgenticIdentity("agentic-app-id", "agentic-user-id", tenant_id="tenant-id")
     client, recorder = create_token_provider_harness(token_provider, default_agentic_identity=identity)
 
     await client.post_resource()
@@ -267,7 +267,7 @@ async def test_default_agentic_identity_is_used_without_request_metadata():
 @pytest.mark.asyncio
 async def test_default_agentic_identity_is_passed_to_token_provider():
     token_provider = RecordingTokenProvider(token_value="agentic-user-token")
-    identity = AgenticUser("agentic-app-instance-id", "agentic-user-id", tenant_id="tenant-id")
+    identity = AgenticIdentity("agentic-app-id", "agentic-user-id", tenant_id="tenant-id")
     client, recorder = create_token_provider_harness(token_provider, default_agentic_identity=identity)
 
     await client.post_resource()
@@ -286,7 +286,7 @@ async def test_agentic_identity_requires_named_token_provider_capability():
             return "app-token"
 
     http_client, _ = create_client()
-    identity = AgenticUser("agentic-app-instance-id", "agentic-user-id", tenant_id="tenant-id")
+    identity = AgenticIdentity("agentic-app-id", "agentic-user-id", tenant_id="tenant-id")
     api_client = ApiClient(
         "https://test.service.url",
         http_client,

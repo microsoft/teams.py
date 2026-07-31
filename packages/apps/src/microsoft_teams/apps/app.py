@@ -16,7 +16,6 @@ from microsoft_teams.api import (
     ActivityBase,
     ActivityParams,
     AgenticIdentity,
-    AgenticUser,
     ApiClient,
     ClientCredentials,
     ConversationAccount,
@@ -342,29 +341,29 @@ class App(ActivityHandlerMixin):
             agentic_identity=agentic_identity,
         )
 
-    def get_agentic_user(
+    def get_agentic_identity(
         self,
-        agentic_app_instance_id: str,
+        agentic_app_id: str,
         agentic_user_id: str,
         *,
         tenant_id: Optional[str] = None,
-        agentic_blueprint_id: Optional[str] = None,
-    ) -> AgenticUser:
-        """Get an AgenticUser for API calls.
+        agentic_app_blueprint_id: Optional[str] = None,
+    ) -> AgenticIdentity:
+        """Get an AgenticIdentity for API calls.
 
-        When ``agentic_blueprint_id`` is omitted, it defaults to the app's own
+        When ``agentic_app_blueprint_id`` is omitted, it defaults to the app's own
         client/app id (``self.id``).
         """
         resolved_tenant_id = tenant_id or (self.credentials.tenant_id if self.credentials else None)
         if resolved_tenant_id is None:
-            raise ValueError("tenant_id is required to get an agentic user")
+            raise ValueError("tenant_id is required to get an agentic identity")
 
-        resolved_blueprint_id = agentic_blueprint_id or self.id
-        return AgenticUser(
-            agentic_app_instance_id=agentic_app_instance_id,
+        resolved_blueprint_id = agentic_app_blueprint_id or self.id
+        return AgenticIdentity(
+            agentic_app_id=agentic_app_id,
             agentic_user_id=agentic_user_id,
             tenant_id=resolved_tenant_id,
-            agentic_blueprint_id=resolved_blueprint_id,
+            agentic_app_blueprint_id=resolved_blueprint_id,
         )
 
     @overload

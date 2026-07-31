@@ -6,11 +6,8 @@ Licensed under the MIT License.
 from . import bot, conversation, meeting, reaction, team, user
 from .api_client import (
     AGENTIC_IDENTITY_CLEAR,
-    AGENTIC_USER_CLEAR,
     AgenticIdentityClear,
     AgenticIdentityScope,
-    AgenticUserClear,
-    AgenticUserScope,
     ApiClient,
 )
 from .api_client_settings import ApiClientSettings, merge_api_client_settings
@@ -26,11 +23,8 @@ __all__: list[str] = [
     "ApiClient",
     "ApiClientSettings",
     "AGENTIC_IDENTITY_CLEAR",
-    "AGENTIC_USER_CLEAR",
     "AgenticIdentityClear",
     "AgenticIdentityScope",
-    "AgenticUserClear",
-    "AgenticUserScope",
     "merge_api_client_settings",
 ]
 __all__.extend(bot.__all__)

@@ -11,7 +11,7 @@ import pytest
 from microsoft_teams.api.auth.cloud_environment import PUBLIC
 from microsoft_teams.api.clients import ApiClient
 from microsoft_teams.api.clients.team import TeamClient
-from microsoft_teams.api.models import AgenticUser, ChannelInfo, TeamDetails
+from microsoft_teams.api.models import AgenticIdentity, ChannelInfo, TeamDetails
 from microsoft_teams.common.http import Client, ClientOptions
 
 
@@ -19,7 +19,7 @@ class _TokenProviderAdapter:
     def get_app_token(self, scope: str, tenant_id: str | None = None):
         return self.token(scope=scope, agentic_identity=None)
 
-    def get_agentic_identity_token(self, scope: str, agentic_identity: AgenticUser):
+    def get_agentic_identity_token(self, scope: str, agentic_identity: AgenticIdentity):
         return self.token(scope=scope, agentic_identity=agentic_identity)
 
 
@@ -105,7 +105,7 @@ class TestTeamClient:
                 calls.append((scope, agentic_identity))
                 return "agentic-user-token"
 
-        identity = AgenticUser("agentic-app-instance-id", "agentic-user-id", tenant_id="tenant-id")
+        identity = AgenticIdentity("agentic-app-id", "agentic-user-id", tenant_id="tenant-id")
         client = ApiClient(
             "https://test.service.url", mock_http_client, token_provider=TestTokenProvider(), agentic_identity=identity
         ).teams

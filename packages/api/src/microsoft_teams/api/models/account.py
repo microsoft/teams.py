@@ -7,7 +7,7 @@ from typing import Any, Dict, Literal, Optional
 
 from pydantic import AliasChoices, Field
 
-from .agentic_user import AgenticUser
+from .agentic_identity import AgenticIdentity
 from .custom_base_model import CustomBaseModel
 
 AccountType = Literal["person", "tag", "channel", "team", "bot"]
@@ -62,33 +62,33 @@ class Account(CustomBaseModel):
         serialization_alias="agenticUserId",
     )
     """The Agent ID user-shaped identity object ID."""
-    agentic_app_instance_id: Optional[str] = Field(
+    agentic_app_id: Optional[str] = Field(
         default=None,
         validation_alias="agenticAppId",
         serialization_alias="agenticAppId",
     )
-    """The AgenticAppInstance app/client ID."""
-    agentic_blueprint_id: Optional[str] = Field(
+    """The Agent 365 app/client ID."""
+    agentic_app_blueprint_id: Optional[str] = Field(
         default=None,
         validation_alias="agenticAppBlueprintId",
         serialization_alias="agenticAppBlueprintId",
     )
-    """The AgenticBlueprint app/client ID."""
+    """The Agent 365 app blueprint ID."""
     callback_uri: Optional[str] = None
-    """The callback URI associated with the agentic user."""
+    """The callback URI associated with the agentic identity."""
     tenant_id: Optional[str] = None
     """The tenant ID associated with the account."""
 
     @property
-    def agentic_user(self) -> Optional[AgenticUser]:
-        if self.agentic_app_instance_id is None or self.agentic_user_id is None:
+    def agentic_identity(self) -> Optional[AgenticIdentity]:
+        if self.agentic_app_id is None:
             return None
 
-        return AgenticUser(
-            agentic_app_instance_id=self.agentic_app_instance_id,
+        return AgenticIdentity(
+            agentic_app_id=self.agentic_app_id,
             agentic_user_id=self.agentic_user_id,
             tenant_id=self.tenant_id,
-            agentic_blueprint_id=self.agentic_blueprint_id,
+            agentic_app_blueprint_id=self.agentic_app_blueprint_id,
         )
 
 

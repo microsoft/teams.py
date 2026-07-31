@@ -12,7 +12,7 @@ from ....models import CustomBaseModel
 
 
 class AgentLifecycleManager(CustomBaseModel):
-    """Manager profile carried by the ``AgenticUserIdentityCreated`` event."""
+    """Manager profile carried by the ``AgenticUserIdentityCreated`` service event."""
 
     user_id: Optional[str] = None
     """The Entra object ID of the manager."""
@@ -32,7 +32,7 @@ class AgentLifecycleManagerRef(CustomBaseModel):
 
 
 class AgentLifecycleUpdatedProperty(CustomBaseModel):
-    """A single property change carried by the ``AgenticUserIdentityUpdated`` event."""
+    """A single property change carried by the ``AgenticUserIdentityUpdated`` service event."""
 
     property_name: str
     """The name of the property that changed (e.g. ``Mail``, ``Alias``, ``UserPrincipalName``)."""
@@ -54,25 +54,25 @@ class AgentLifecycleValueBase(CustomBaseModel):
     )
     """The Agent ID user-shaped identity object ID."""
 
-    agentic_app_instance_id: Optional[str] = Field(
+    agentic_app_id: Optional[str] = Field(
         default=None,
         validation_alias="agenticAppInstanceId",
         serialization_alias="agenticAppInstanceId",
     )
-    """The concrete agent app instance ID."""
+    """The Agent 365 app/client ID."""
 
-    agentic_blueprint_id: Optional[str] = Field(
+    agentic_app_blueprint_id: Optional[str] = Field(
         default=None,
         validation_alias="agentIdentityBlueprintId",
         serialization_alias="agentIdentityBlueprintId",
     )
-    """The AgenticBlueprint app ID."""
+    """The Agent 365 app blueprint ID."""
 
     version: Optional[int] = None
     """Monotonic version of the agentic user state, when provided by the service."""
 
 
-class AgenticUserIdentityCreatedValue(AgentLifecycleValueBase):
+class AgenticIdentityCreatedValue(AgentLifecycleValueBase):
     """Payload for the ``agenticUserIdentityCreated`` event."""
 
     event_type: Literal["agenticUserIdentityCreated"] = "agenticUserIdentityCreated"
@@ -84,7 +84,7 @@ class AgenticUserIdentityCreatedValue(AgentLifecycleValueBase):
     """When the agentic user identity expires."""
 
 
-class AgenticUserIdentityUpdatedValue(AgentLifecycleValueBase):
+class AgenticIdentityUpdatedValue(AgentLifecycleValueBase):
     """Payload for the ``agenticUserIdentityUpdated`` event."""
 
     event_type: Literal["agenticUserIdentityUpdated"] = "agenticUserIdentityUpdated"
@@ -93,7 +93,7 @@ class AgenticUserIdentityUpdatedValue(AgentLifecycleValueBase):
     """The property that changed."""
 
 
-class AgenticUserManagerUpdatedValue(AgentLifecycleValueBase):
+class AgenticIdentityManagerUpdatedValue(AgentLifecycleValueBase):
     """Payload for the ``agenticUserManagerUpdated`` event."""
 
     event_type: Literal["agenticUserManagerUpdated"] = "agenticUserManagerUpdated"
@@ -102,19 +102,19 @@ class AgenticUserManagerUpdatedValue(AgentLifecycleValueBase):
     """The new manager reference. Absent when the manager was removed."""
 
 
-class AgenticUserEnabledValue(AgentLifecycleValueBase):
+class AgenticIdentityEnabledValue(AgentLifecycleValueBase):
     """Payload for the ``agenticUserEnabled`` event."""
 
     event_type: Literal["agenticUserEnabled"] = "agenticUserEnabled"
 
 
-class AgenticUserDisabledValue(AgentLifecycleValueBase):
+class AgenticIdentityDisabledValue(AgentLifecycleValueBase):
     """Payload for the ``agenticUserDisabled`` event."""
 
     event_type: Literal["agenticUserDisabled"] = "agenticUserDisabled"
 
 
-class AgenticUserDeletedValue(AgentLifecycleValueBase):
+class AgenticIdentityDeletedValue(AgentLifecycleValueBase):
     """Payload for the ``agenticUserDeleted`` event."""
 
     event_type: Literal["agenticUserDeleted"] = "agenticUserDeleted"
@@ -123,13 +123,13 @@ class AgenticUserDeletedValue(AgentLifecycleValueBase):
     """The reason the agentic user was deleted (e.g. ``UserSoftDelete``, ``UserHardDelete``)."""
 
 
-class AgenticUserUndeletedValue(AgentLifecycleValueBase):
+class AgenticIdentityUndeletedValue(AgentLifecycleValueBase):
     """Payload for the ``agenticUserUndeleted`` event."""
 
     event_type: Literal["agenticUserUndeleted"] = "agenticUserUndeleted"
 
 
-class AgenticUserWorkloadOnboardingUpdatedValue(AgentLifecycleValueBase):
+class AgenticIdentityWorkloadOnboardingUpdatedValue(AgentLifecycleValueBase):
     """Payload for the ``agenticUserWorkloadOnboardingUpdated`` event."""
 
     event_type: Literal["agenticUserWorkloadOnboardingUpdated"] = "agenticUserWorkloadOnboardingUpdated"
@@ -146,12 +146,12 @@ __all__ = [
     "AgentLifecycleManagerRef",
     "AgentLifecycleUpdatedProperty",
     "AgentLifecycleValueBase",
-    "AgenticUserIdentityCreatedValue",
-    "AgenticUserIdentityUpdatedValue",
-    "AgenticUserManagerUpdatedValue",
-    "AgenticUserEnabledValue",
-    "AgenticUserDisabledValue",
-    "AgenticUserDeletedValue",
-    "AgenticUserUndeletedValue",
-    "AgenticUserWorkloadOnboardingUpdatedValue",
+    "AgenticIdentityCreatedValue",
+    "AgenticIdentityUpdatedValue",
+    "AgenticIdentityManagerUpdatedValue",
+    "AgenticIdentityEnabledValue",
+    "AgenticIdentityDisabledValue",
+    "AgenticIdentityDeletedValue",
+    "AgenticIdentityUndeletedValue",
+    "AgenticIdentityWorkloadOnboardingUpdatedValue",
 ]

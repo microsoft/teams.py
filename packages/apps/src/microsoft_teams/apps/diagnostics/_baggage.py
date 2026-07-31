@@ -7,7 +7,7 @@ import math
 from types import TracebackType
 from typing import Any, Collection, Iterable, Literal, Mapping, Protocol, Self, TypedDict, TypeVar
 
-from microsoft_teams.api import ActivityBase, AgenticUser
+from microsoft_teams.api import ActivityBase, AgenticIdentity
 from opentelemetry import baggage
 from opentelemetry import context as otel_context
 
@@ -54,7 +54,7 @@ class Agent365ScopeOpener(Protocol):
     def __call__(
         self,
         *,
-        agentic_user: AgenticUser | None = None,
+        agentic_identity: AgenticIdentity | None = None,
         conversation_id: str | None = None,
         user_id: str | None = None,
         sender_name: str | None = None,
@@ -101,10 +101,10 @@ class Agent365Baggage:
             bridge.set(AGENT365_BAGGAGE_KEYS.channel_name, activity.channel_id)
             bridge.set(
                 AGENT365_BAGGAGE_KEYS.agent_id,
-                activity.recipient.agentic_app_instance_id or activity.recipient.id,
+                activity.recipient.agentic_app_id or activity.recipient.id,
             )
             bridge.set(AGENT365_BAGGAGE_KEYS.agentic_user_id, activity.recipient.agentic_user_id)
-            bridge.set(AGENT365_BAGGAGE_KEYS.agent_blueprint_id, activity.recipient.agentic_blueprint_id)
+            bridge.set(AGENT365_BAGGAGE_KEYS.agent_blueprint_id, activity.recipient.agentic_app_blueprint_id)
             bridge.set(AGENT365_BAGGAGE_KEYS.user_id, activity.from_.aad_object_id or activity.from_.id)
 
             if "senderName" in included:
@@ -196,7 +196,7 @@ def create_agent365_scope(options: Agent365ScopeOptions | Literal[False] | None 
 
     def open_scope(
         *,
-        agentic_user: AgenticUser | None = None,
+        agentic_identity: AgenticIdentity | None = None,
         conversation_id: str | None = None,
         user_id: str | None = None,
         sender_name: str | None = None,
@@ -210,16 +210,18 @@ def create_agent365_scope(options: Agent365ScopeOptions | Literal[False] | None 
             return Agent365Baggage()
 
         values: dict[str, Agent365BaggageValue] = {
-            AGENT365_BAGGAGE_KEYS.tenant_id: agentic_user.tenant_id if agentic_user else None,
+            AGENT365_BAGGAGE_KEYS.tenant_id: agentic_identity.tenant_id if agentic_identity else None,
             AGENT365_BAGGAGE_KEYS.conversation_id: conversation_id,
             AGENT365_BAGGAGE_KEYS.conversation_item_link: bound.get("service_url"),
             AGENT365_BAGGAGE_KEYS.channel_name: bound.get("channel_name"),
             AGENT365_BAGGAGE_KEYS.channel_link: bound.get("channel_link"),
             AGENT365_BAGGAGE_KEYS.agent_id: (
-                agentic_user.agentic_app_instance_id if agentic_user else bound.get("agent_id")
+                agentic_identity.agentic_app_id if agentic_identity else bound.get("agent_id")
             ),
-            AGENT365_BAGGAGE_KEYS.agentic_user_id: agentic_user.agentic_user_id if agentic_user else None,
-            AGENT365_BAGGAGE_KEYS.agent_blueprint_id: agentic_user.agentic_blueprint_id if agentic_user else None,
+            AGENT365_BAGGAGE_KEYS.agentic_user_id: agentic_identity.agentic_user_id if agentic_identity else None,
+            AGENT365_BAGGAGE_KEYS.agent_blueprint_id: (
+                agentic_identity.agentic_app_blueprint_id if agentic_identity else None
+            ),
             AGENT365_BAGGAGE_KEYS.user_id: user_id,
             AGENT365_BAGGAGE_KEYS.operation_source: bound.get("operation_source"),
         }
