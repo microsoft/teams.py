@@ -174,7 +174,12 @@ class ApiClient(BaseClient):
                 record_exception=False,
                 set_status_on_exception=False,
             ) as span:
-                flow = API_AUTH_FLOWS.agentic_identity if agentic_identity is not None else API_AUTH_FLOWS.app_only
+                if agentic_identity is None:
+                    flow = API_AUTH_FLOWS.app_only
+                elif agentic_identity.agentic_user_id:
+                    flow = API_AUTH_FLOWS.agentic_user
+                else:
+                    flow = API_AUTH_FLOWS.agentic_app
                 span.set_attribute(API_ATTRIBUTE_NAMES.auth_flow, flow)
                 try:
                     if agentic_identity is None:

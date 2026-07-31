@@ -197,7 +197,15 @@ async def test_token_provider_token_is_used_when_request_has_no_auth():
                 agentic_user_id="agentic-user-id",
                 tenant_id="tenant-id",
             ),
-            "agentic_identity",
+            "agentic_user",
+        ),
+        (
+            AgenticIdentity(
+                agentic_app_blueprint_id="blueprint-id",
+                agentic_app_id="agentic-app-id",
+                tenant_id="tenant-id",
+            ),
+            "agentic_app",
         ),
     ],
 )
