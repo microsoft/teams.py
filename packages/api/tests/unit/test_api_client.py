@@ -261,11 +261,9 @@ class TestApiClientScoping:
 
         service_scoped = client.from_service_url("https://override.service.url/")
         identity_scoped = client.from_agentic_identity(identity)
-        alias_scoped = client.for_agentic_identity(identity)
 
         assert service_scoped.service_url == "https://override.service.url"
         assert identity_scoped._default_agentic_identity is identity
-        assert alias_scoped._default_agentic_identity is identity
 
     @pytest.mark.asyncio
     async def test_clone_uses_scoped_agentic_identity_for_auth(self, request_capture, mock_activity):

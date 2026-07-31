@@ -7,7 +7,7 @@ import argparse
 import asyncio
 import logging
 
-from microsoft_teams.api import MessageActivityInput
+from microsoft_teams.api import AgenticIdentity, MessageActivityInput
 from microsoft_teams.apps import App
 
 logging.basicConfig(level=logging.INFO)
@@ -24,7 +24,17 @@ async def main():
     app = App()
     await app.initialize()
 
-    agentic_identity = app.get_agentic_identity(args.agentic_app_id, args.agentic_user_id)
+    if app.id is None:
+        raise ValueError("CLIENT_ID is required to construct an AgenticIdentity.")
+    if app.credentials is None or app.credentials.tenant_id is None:
+        raise ValueError("TENANT_ID is required to construct an AgenticIdentity.")
+
+    agentic_identity = AgenticIdentity(
+        agentic_app_blueprint_id=app.id,
+        agentic_app_id=args.agentic_app_id,
+        agentic_user_id=args.agentic_user_id,
+        tenant_id=app.credentials.tenant_id,
+    )
     sent = await app.send(
         args.conversation_id,
         "Hello from app.send with an AgenticIdentity.",

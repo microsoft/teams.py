@@ -140,10 +140,6 @@ class ApiClient(BaseClient):
         """Create a scoped API client for an agentic identity."""
         return self.clone(agentic_identity=agentic_identity)
 
-    def for_agentic_identity(self, agentic_identity: AgenticIdentity) -> "ApiClient":
-        """Alias for from_agentic_identity."""
-        return self.from_agentic_identity(agentic_identity)
-
     def _scope_conversations(
         self,
         service_url: str | None,
