@@ -105,7 +105,12 @@ class TestTeamClient:
                 calls.append((scope, agentic_identity))
                 return "agentic-user-token"
 
-        identity = AgenticIdentity("agentic-app-id", "agentic-user-id", tenant_id="tenant-id")
+        identity = AgenticIdentity(
+            agentic_app_blueprint_id="blueprint-id",
+            agentic_app_id="agentic-app-id",
+            agentic_user_id="agentic-user-id",
+            tenant_id="tenant-id",
+        )
         client = ApiClient(
             "https://test.service.url", mock_http_client, token_provider=TestTokenProvider(), agentic_identity=identity
         ).teams

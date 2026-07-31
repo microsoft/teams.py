@@ -190,7 +190,15 @@ async def test_token_provider_token_is_used_when_request_has_no_auth():
     ("agentic_identity", "expected_flow"),
     [
         (None, "app_only"),
-        (AgenticIdentity("agentic-app-id", "agentic-user-id", tenant_id="tenant-id"), "agentic_identity"),
+        (
+            AgenticIdentity(
+                agentic_app_blueprint_id="blueprint-id",
+                agentic_app_id="agentic-app-id",
+                agentic_user_id="agentic-user-id",
+                tenant_id="tenant-id",
+            ),
+            "agentic_identity",
+        ),
     ],
 )
 async def test_token_provider_token_records_auth_outbound_span(agentic_identity, expected_flow):
@@ -255,7 +263,12 @@ async def test_http_client_token_is_used_when_no_token_provider():
 @pytest.mark.asyncio
 async def test_default_agentic_identity_is_used_without_request_metadata():
     token_provider = RecordingTokenProvider(token_value="agentic-user-token")
-    identity = AgenticIdentity("agentic-app-id", "agentic-user-id", tenant_id="tenant-id")
+    identity = AgenticIdentity(
+        agentic_app_blueprint_id="blueprint-id",
+        agentic_app_id="agentic-app-id",
+        agentic_user_id="agentic-user-id",
+        tenant_id="tenant-id",
+    )
     client, recorder = create_token_provider_harness(token_provider, default_agentic_identity=identity)
 
     await client.post_resource()
@@ -267,7 +280,12 @@ async def test_default_agentic_identity_is_used_without_request_metadata():
 @pytest.mark.asyncio
 async def test_default_agentic_identity_is_passed_to_token_provider():
     token_provider = RecordingTokenProvider(token_value="agentic-user-token")
-    identity = AgenticIdentity("agentic-app-id", "agentic-user-id", tenant_id="tenant-id")
+    identity = AgenticIdentity(
+        agentic_app_blueprint_id="blueprint-id",
+        agentic_app_id="agentic-app-id",
+        agentic_user_id="agentic-user-id",
+        tenant_id="tenant-id",
+    )
     client, recorder = create_token_provider_harness(token_provider, default_agentic_identity=identity)
 
     await client.post_resource()
@@ -286,7 +304,12 @@ async def test_agentic_identity_requires_named_token_provider_capability():
             return "app-token"
 
     http_client, _ = create_client()
-    identity = AgenticIdentity("agentic-app-id", "agentic-user-id", tenant_id="tenant-id")
+    identity = AgenticIdentity(
+        agentic_app_blueprint_id="blueprint-id",
+        agentic_app_id="agentic-app-id",
+        agentic_user_id="agentic-user-id",
+        tenant_id="tenant-id",
+    )
     api_client = ApiClient(
         "https://test.service.url",
         http_client,

@@ -6,7 +6,7 @@ Licensed under the MIT License.
 from dataclasses import dataclass
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class AgenticIdentity:
     """Identifies the Agent 365 identity scope used for SDK operations.
 
@@ -18,10 +18,10 @@ class AgenticIdentity:
     SDK models for each service shape.
     """
 
-    agentic_app_id: str
+    agentic_app_blueprint_id: str
+    agentic_app_id: str | None = None
     agentic_user_id: str | None = None
     tenant_id: str | None = None
-    agentic_app_blueprint_id: str | None = None
 
 
 __all__ = ["AgenticIdentity"]

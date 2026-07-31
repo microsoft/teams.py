@@ -37,7 +37,12 @@ class TestApiClientReactionsProperty:
 
     def test_reactions_inherits_agentic_identity_auth_defaults(self, mock_http_client):
         """Test reactions inherits agentic identity auth defaults from ApiClient."""
-        identity = AgenticIdentity("agentic-app-id", "agentic-user-id", tenant_id="tenant-id")
+        identity = AgenticIdentity(
+            agentic_app_blueprint_id="blueprint-id",
+            agentic_app_id="agentic-app-id",
+            agentic_user_id="agentic-user-id",
+            tenant_id="tenant-id",
+        )
 
         class TestTokenProvider(_TokenProviderAdapter):
             def token(self, *, scope=None, agentic_identity=None):
@@ -135,7 +140,12 @@ class TestApiClientDeprecatedAccessors:
 @pytest.mark.unit
 class TestApiClientScoping:
     def test_clone_preserves_defaults_when_omitted(self, mock_http_client):
-        identity = AgenticIdentity("agentic-app-id", "agentic-user-id", tenant_id="tenant-id")
+        identity = AgenticIdentity(
+            agentic_app_blueprint_id="blueprint-id",
+            agentic_app_id="agentic-app-id",
+            agentic_user_id="agentic-user-id",
+            tenant_id="tenant-id",
+        )
         client = ApiClient("https://mock.service.url", mock_http_client, agentic_identity=identity)
 
         clone = client.clone()
@@ -150,7 +160,12 @@ class TestApiClientScoping:
             def token(self, *, scope=None, agentic_identity=None):
                 return "agentic-user-token"
 
-        identity = AgenticIdentity("agentic-app-id", "agentic-user-id", tenant_id="tenant-id")
+        identity = AgenticIdentity(
+            agentic_app_blueprint_id="blueprint-id",
+            agentic_app_id="agentic-app-id",
+            agentic_user_id="agentic-user-id",
+            tenant_id="tenant-id",
+        )
         client = ApiClient(
             "https://mock.service.url",
             mock_http_client,
@@ -169,8 +184,18 @@ class TestApiClientScoping:
             def token(self, *, scope=None, agentic_identity=None):
                 return "agentic-user-token"
 
-        default_identity = AgenticIdentity("default-app-id", "default-user-id", tenant_id="default-tenant-id")
-        override_identity = AgenticIdentity("override-app-id", "override-user-id", tenant_id="override-tenant-id")
+        default_identity = AgenticIdentity(
+            agentic_app_blueprint_id="blueprint-id",
+            agentic_app_id="default-app-id",
+            agentic_user_id="default-user-id",
+            tenant_id="default-tenant-id",
+        )
+        override_identity = AgenticIdentity(
+            agentic_app_blueprint_id="blueprint-id",
+            agentic_app_id="override-app-id",
+            agentic_user_id="override-user-id",
+            tenant_id="override-tenant-id",
+        )
         client = ApiClient(
             "https://mock.service.url",
             mock_http_client,
@@ -185,7 +210,12 @@ class TestApiClientScoping:
         assert clone._default_agentic_identity is override_identity
 
     def test_clone_preserves_agentic_identity_with_explicit_none(self, mock_http_client):
-        identity = AgenticIdentity("agentic-app-id", "agentic-user-id", tenant_id="tenant-id")
+        identity = AgenticIdentity(
+            agentic_app_blueprint_id="blueprint-id",
+            agentic_app_id="agentic-app-id",
+            agentic_user_id="agentic-user-id",
+            tenant_id="tenant-id",
+        )
         client = ApiClient("https://mock.service.url", mock_http_client, agentic_identity=identity)
 
         clone = client.clone(agentic_identity=None)
@@ -193,7 +223,12 @@ class TestApiClientScoping:
         assert clone._default_agentic_identity is identity
 
     def test_clone_can_override_service_url_and_clear_agentic_identity(self, mock_http_client):
-        identity = AgenticIdentity("agentic-app-id", "agentic-user-id", tenant_id="tenant-id")
+        identity = AgenticIdentity(
+            agentic_app_blueprint_id="blueprint-id",
+            agentic_app_id="agentic-app-id",
+            agentic_user_id="agentic-user-id",
+            tenant_id="tenant-id",
+        )
         client = ApiClient("https://mock.service.url", mock_http_client, agentic_identity=identity)
 
         clone = client.clone(service_url="https://override.service.url/", agentic_identity=AGENTIC_IDENTITY_CLEAR)
@@ -202,7 +237,12 @@ class TestApiClientScoping:
         assert clone._default_agentic_identity is None
 
     def test_scoped_helpers_create_expected_clones(self, mock_http_client):
-        identity = AgenticIdentity("agentic-app-id", "agentic-user-id", tenant_id="tenant-id")
+        identity = AgenticIdentity(
+            agentic_app_blueprint_id="blueprint-id",
+            agentic_app_id="agentic-app-id",
+            agentic_user_id="agentic-user-id",
+            tenant_id="tenant-id",
+        )
         client = ApiClient("https://mock.service.url", mock_http_client)
 
         service_scoped = client.from_service_url("https://override.service.url/")
@@ -222,8 +262,18 @@ class TestApiClientScoping:
                 calls.append((scope, agentic_identity))
                 return "agentic-user-token"
 
-        default_identity = AgenticIdentity("default-app-id", "default-user-id", tenant_id="default-tenant-id")
-        override_identity = AgenticIdentity("override-app-id", "override-user-id", tenant_id="override-tenant-id")
+        default_identity = AgenticIdentity(
+            agentic_app_blueprint_id="blueprint-id",
+            agentic_app_id="default-app-id",
+            agentic_user_id="default-user-id",
+            tenant_id="default-tenant-id",
+        )
+        override_identity = AgenticIdentity(
+            agentic_app_blueprint_id="blueprint-id",
+            agentic_app_id="override-app-id",
+            agentic_user_id="override-user-id",
+            tenant_id="override-tenant-id",
+        )
         client = ApiClient(
             "https://test.service.url",
             request_capture,
@@ -242,8 +292,18 @@ class TestApiClientScoping:
     @pytest.mark.asyncio
     async def test_clone_uses_token_for_each_scoped_agentic_identity(self, request_capture, mock_activity):
         calls = []
-        identity_1 = AgenticIdentity("agentic-app-id-1", "agentic-user-id-1", tenant_id="tenant-id")
-        identity_2 = AgenticIdentity("agentic-app-id-2", "agentic-user-id-2", tenant_id="tenant-id")
+        identity_1 = AgenticIdentity(
+            agentic_app_blueprint_id="blueprint-id",
+            agentic_app_id="agentic-app-id-1",
+            agentic_user_id="agentic-user-id-1",
+            tenant_id="tenant-id",
+        )
+        identity_2 = AgenticIdentity(
+            agentic_app_blueprint_id="blueprint-id",
+            agentic_app_id="agentic-app-id-2",
+            agentic_user_id="agentic-user-id-2",
+            tenant_id="tenant-id",
+        )
 
         class TestTokenProvider(_TokenProviderAdapter):
             def token(self, *, scope=None, agentic_identity=None):
@@ -279,8 +339,18 @@ class TestApiClientScoping:
     @pytest.mark.asyncio
     async def test_chained_clone_uses_token_for_new_scoped_agentic_identity(self, request_capture, mock_activity):
         calls = []
-        identity_1 = AgenticIdentity("agentic-app-id-1", "agentic-user-id-1", tenant_id="tenant-id")
-        identity_2 = AgenticIdentity("agentic-app-id-2", "agentic-user-id-2", tenant_id="tenant-id")
+        identity_1 = AgenticIdentity(
+            agentic_app_blueprint_id="blueprint-id",
+            agentic_app_id="agentic-app-id-1",
+            agentic_user_id="agentic-user-id-1",
+            tenant_id="tenant-id",
+        )
+        identity_2 = AgenticIdentity(
+            agentic_app_blueprint_id="blueprint-id",
+            agentic_app_id="agentic-app-id-2",
+            agentic_user_id="agentic-user-id-2",
+            tenant_id="tenant-id",
+        )
 
         class TestTokenProvider(_TokenProviderAdapter):
             def token(self, *, scope=None, agentic_identity=None):
@@ -328,7 +398,12 @@ class TestApiClientScoping:
                 calls.append((scope, agentic_identity))
                 return "bot-token"
 
-        default_identity = AgenticIdentity("default-app-id", "default-user-id", tenant_id="default-tenant-id")
+        default_identity = AgenticIdentity(
+            agentic_app_blueprint_id="blueprint-id",
+            agentic_app_id="default-app-id",
+            agentic_user_id="default-user-id",
+            tenant_id="default-tenant-id",
+        )
         client = ApiClient(
             "https://test.service.url",
             request_capture,
@@ -349,7 +424,12 @@ class TestApiClientScoping:
                 calls.append((scope, agentic_identity))
                 return "bot-token"
 
-        default_identity = AgenticIdentity("default-app-id", "default-user-id", tenant_id="default-tenant-id")
+        default_identity = AgenticIdentity(
+            agentic_app_blueprint_id="blueprint-id",
+            agentic_app_id="default-app-id",
+            agentic_user_id="default-user-id",
+            tenant_id="default-tenant-id",
+        )
         client = ApiClient(
             "https://test.service.url",
             request_capture,
@@ -375,5 +455,10 @@ class TestApiClientScoping:
                 "https://test.service.url",
                 request_capture_with_token,
                 token_provider=TestTokenProvider(),
-                agentic_identity=AgenticIdentity("agentic-app-id", "agentic-user-id", tenant_id="tenant-id"),
+                agentic_identity=AgenticIdentity(
+                    agentic_app_blueprint_id="blueprint-id",
+                    agentic_app_id="agentic-app-id",
+                    agentic_user_id="agentic-user-id",
+                    tenant_id="tenant-id",
+                ),
             )

@@ -184,7 +184,12 @@ class TestConversationClient:
                 calls.append((scope, agentic_identity))
                 return "agentic-user-token"
 
-        identity = AgenticIdentity("agentic-app-id", "agentic-user-id", tenant_id="tenant-id")
+        identity = AgenticIdentity(
+            agentic_app_blueprint_id="blueprint-id",
+            agentic_app_id="agentic-app-id",
+            agentic_user_id="agentic-user-id",
+            tenant_id="tenant-id",
+        )
         client = ApiClient(
             "https://test.service.url", request_capture, token_provider=TestTokenProvider(), agentic_identity=identity
         ).conversations
@@ -335,7 +340,12 @@ class TestConversationActivityOperations:
                 return "agentic-user-token"
 
         cloud = with_overrides(PUBLIC, agent_bot_scope="agentic-user-scope")
-        identity = AgenticIdentity("agentic-app-id", "agentic-user-id", tenant_id="tenant-id")
+        identity = AgenticIdentity(
+            agentic_app_blueprint_id="blueprint-id",
+            agentic_app_id="agentic-app-id",
+            agentic_user_id="agentic-user-id",
+            tenant_id="tenant-id",
+        )
         client = ApiClient(
             "https://test.service.url",
             request_capture,
@@ -361,8 +371,18 @@ class TestConversationActivityOperations:
                 calls.append((scope, agentic_identity))
                 return "override-token"
 
-        default_identity = AgenticIdentity("default-app-id", "default-user-id", tenant_id="default-tenant-id")
-        override_identity = AgenticIdentity("override-app-id", "override-user-id", tenant_id="override-tenant-id")
+        default_identity = AgenticIdentity(
+            agentic_app_blueprint_id="blueprint-id",
+            agentic_app_id="default-app-id",
+            agentic_user_id="default-user-id",
+            tenant_id="default-tenant-id",
+        )
+        override_identity = AgenticIdentity(
+            agentic_app_blueprint_id="blueprint-id",
+            agentic_app_id="override-app-id",
+            agentic_user_id="override-user-id",
+            tenant_id="override-tenant-id",
+        )
         client = (
             ApiClient(
                 "https://test.service.url",
@@ -390,7 +410,12 @@ class TestConversationActivityOperations:
                 calls.append((scope, agentic_identity))
                 return "override-token"
 
-        identity = AgenticIdentity("override-app-id", "override-user-id", tenant_id="override-tenant-id")
+        identity = AgenticIdentity(
+            agentic_app_blueprint_id="blueprint-id",
+            agentic_app_id="override-app-id",
+            agentic_user_id="override-user-id",
+            tenant_id="override-tenant-id",
+        )
         client = ApiClient(
             "https://default.service.url",
             request_capture,
@@ -419,7 +444,12 @@ class TestConversationActivityOperations:
                 calls.append((scope, agentic_identity))
                 return "override-token"
 
-        identity = AgenticIdentity("override-app-id", "override-user-id", tenant_id="override-tenant-id")
+        identity = AgenticIdentity(
+            agentic_app_blueprint_id="blueprint-id",
+            agentic_app_id="override-app-id",
+            agentic_user_id="override-user-id",
+            tenant_id="override-tenant-id",
+        )
         activities_client = ApiClient(
             "https://default.service.url",
             request_capture,
@@ -549,7 +579,12 @@ class TestConversationActivityOperations:
         self, request_capture, mock_activity
     ):
         """Test agentic user without an auth provider leaves auth resolution to the HTTP client."""
-        identity = AgenticIdentity("agentic-app-id", "agentic-user-id", tenant_id="tenant-id")
+        identity = AgenticIdentity(
+            agentic_app_blueprint_id="blueprint-id",
+            agentic_app_id="agentic-app-id",
+            agentic_user_id="agentic-user-id",
+            tenant_id="tenant-id",
+        )
         client = ApiClient("https://test.service.url", request_capture).from_agentic_identity(identity).conversations
 
         await client.activities("test_conversation_id").create(mock_activity)
@@ -1042,7 +1077,12 @@ class TestConversationMemberOperations:
                 calls.append((scope, agentic_identity))
                 return "agentic-user-token"
 
-        identity = AgenticIdentity("agentic-app-id", "agentic-user-id", tenant_id="tenant-id")
+        identity = AgenticIdentity(
+            agentic_app_blueprint_id="blueprint-id",
+            agentic_app_id="agentic-app-id",
+            agentic_user_id="agentic-user-id",
+            tenant_id="tenant-id",
+        )
         client = ApiClient(
             "https://test.service.url", request_capture, token_provider=TestTokenProvider(), agentic_identity=identity
         ).conversations

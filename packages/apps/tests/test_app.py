@@ -928,7 +928,12 @@ class TestApp:
         app.api.conversations.activities = MagicMock(return_value=activities)
         _wire_flat_activity_methods(app.api, activities)
         app.api.clone = MagicMock(return_value=app.api)
-        agentic_identity = AgenticIdentity("agentic-app-id", "agentic-user-id", tenant_id="tenant-id")
+        agentic_identity = AgenticIdentity(
+            agentic_app_blueprint_id="blueprint-id",
+            agentic_app_id="agentic-app-id",
+            agentic_user_id="agentic-user-id",
+            tenant_id="tenant-id",
+        )
         service_url = "https://override.service.url"
 
         result = await app.send(
@@ -1087,7 +1092,12 @@ class TestAppReply:
 
     @pytest.mark.asyncio
     async def test_reply_with_three_args_passes_service_url_and_agentic_user_to_scoped_api(self, started_app):
-        agentic_identity = AgenticIdentity("agentic-app-id", "agentic-user-id", tenant_id="tenant-id")
+        agentic_identity = AgenticIdentity(
+            agentic_app_blueprint_id="blueprint-id",
+            agentic_app_id="agentic-app-id",
+            agentic_user_id="agentic-user-id",
+            tenant_id="tenant-id",
+        )
         service_url = "https://override.service.url"
 
         await started_app.reply(
@@ -1117,7 +1127,12 @@ class TestAppReply:
 
     @pytest.mark.asyncio
     async def test_reply_with_two_args_passes_service_url_and_agentic_user_to_scoped_api(self, started_app):
-        agentic_identity = AgenticIdentity("agentic-app-id", "agentic-user-id", tenant_id="tenant-id")
+        agentic_identity = AgenticIdentity(
+            agentic_app_blueprint_id="blueprint-id",
+            agentic_app_id="agentic-app-id",
+            agentic_user_id="agentic-user-id",
+            tenant_id="tenant-id",
+        )
         service_url = "https://override.service.url"
 
         await started_app.reply(

@@ -208,6 +208,7 @@ class TokenManager:
         """Get a resource token for an AgenticIdentity."""
         if not agentic_identity.agentic_app_id:
             raise ValueError("agentic_identity.agentic_app_id is required to get an agentic identity token")
+        agentic_app_id = agentic_identity.agentic_app_id
 
         credentials = self._credentials
         if isinstance(credentials, TokenCredentials):
@@ -228,10 +229,11 @@ class TokenManager:
                 raise ValueError(
                     "agentic_identity.agentic_user_id is required to mint a user-backed agentic identity token"
                 )
+            agentic_user_id = resolved_agentic_identity.agentic_user_id
             return await self.get_agentic_user_token(
                 scope,
-                resolved_agentic_identity.agentic_app_id,
-                resolved_agentic_identity.agentic_user_id,
+                agentic_app_id,
+                agentic_user_id,
                 resolved_agentic_identity.tenant_id,
                 caller_name=caller_name,
             )
@@ -259,7 +261,7 @@ class TokenManager:
             raise ValueError("User-backed AgenticIdentity tokens require ClientCredentials")
         return await self.get_agentic_user_token(
             scope,
-            resolved_agentic_identity.agentic_app_id,
+            agentic_app_id,
             agentic_user_id,
             tenant_id,
             caller_name=caller_name or "get_agentic_identity_token",

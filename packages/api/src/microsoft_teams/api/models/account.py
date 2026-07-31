@@ -81,14 +81,14 @@ class Account(CustomBaseModel):
 
     @property
     def agentic_identity(self) -> Optional[AgenticIdentity]:
-        if self.agentic_app_id is None:
+        if self.agentic_app_blueprint_id is None:
             return None
 
         return AgenticIdentity(
+            agentic_app_blueprint_id=self.agentic_app_blueprint_id,
             agentic_app_id=self.agentic_app_id,
             agentic_user_id=self.agentic_user_id,
             tenant_id=self.tenant_id,
-            agentic_app_blueprint_id=self.agentic_app_blueprint_id,
         )
 
 

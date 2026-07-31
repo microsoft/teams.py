@@ -670,6 +670,7 @@ class TestActivityProcessor:
                     "name": "Test Bot",
                     "agenticAppId": "agentic-app-id",
                     "agenticUserId": "agentic-user-id",
+                    "agenticAppBlueprintId": "blueprint-id",
                     "tenantId": "tenant-id",
                 },
                 "channelId": "msteams",
@@ -694,6 +695,7 @@ class TestActivityProcessor:
         agentic_identity = mock_api_client_type.call_args.kwargs["agentic_identity"]
         assert agentic_identity.agentic_app_id == "agentic-app-id"
         assert agentic_identity.agentic_user_id == "agentic-user-id"
+        assert agentic_identity.agentic_app_blueprint_id == "blueprint-id"
         assert agentic_identity.tenant_id == "tenant-id"
 
     @pytest.mark.asyncio
