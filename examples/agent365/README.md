@@ -2,11 +2,7 @@
 
 Demonstrates scoping Teams API clients with `AgenticIdentity`.
 
-`AgenticIdentity` is the SDK operation/request/proactive scope. It always has
-an `agentic_app_blueprint_id`; `agentic_app_id` and `agentic_user_id` are added
-only for flows that need a concrete app-backed or user-backed token. Lifecycle
-handlers and explicit token helpers stay agentic-user/app-specific where the
-service behavior is specific.
+`AgenticIdentity` is the SDK operation/request/proactive scope for the program: it has an `agentic_app_blueprint_id`, can include an `agentic_app_id`, and that app can optionally be associated with an `agentic_user_id`. Token helpers and lifecycle handlers stay specific where the service behavior is specific.
 
 ## Reactive Echo
 
