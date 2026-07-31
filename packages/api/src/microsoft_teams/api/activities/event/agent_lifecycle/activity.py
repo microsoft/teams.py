@@ -9,14 +9,14 @@ from pydantic import Field
 
 from ....models import ActivityBase, CustomBaseModel
 from .value import (
-    AgenticIdentityCreatedValue,
-    AgenticIdentityDeletedValue,
-    AgenticIdentityDisabledValue,
-    AgenticIdentityEnabledValue,
-    AgenticIdentityManagerUpdatedValue,
-    AgenticIdentityUndeletedValue,
-    AgenticIdentityUpdatedValue,
-    AgenticIdentityWorkloadOnboardingUpdatedValue,
+    AgenticUserDeletedValue,
+    AgenticUserDisabledValue,
+    AgenticUserEnabledValue,
+    AgenticUserIdentityCreatedValue,
+    AgenticUserIdentityUpdatedValue,
+    AgenticUserManagerUpdatedValue,
+    AgenticUserUndeletedValue,
+    AgenticUserWorkloadOnboardingUpdatedValue,
 )
 
 
@@ -34,72 +34,72 @@ class AgentLifecycleEventActivityBase(ActivityBase, CustomBaseModel):
     """The name of the operation associated with an event activity."""
 
 
-class AgenticIdentityCreatedActivity(AgentLifecycleEventActivityBase):
-    """Fired when an agentic identity is created."""
+class AgenticUserIdentityCreatedActivity(AgentLifecycleEventActivityBase):
+    """Fired when an agentic user identity is created."""
 
     value_type: Literal["AgenticUserIdentityCreated"] = "AgenticUserIdentityCreated"
-    value: AgenticIdentityCreatedValue
+    value: AgenticUserIdentityCreatedValue
 
 
-class AgenticIdentityUpdatedActivity(AgentLifecycleEventActivityBase):
-    """Fired when an agentic identity property changes."""
+class AgenticUserIdentityUpdatedActivity(AgentLifecycleEventActivityBase):
+    """Fired when an agentic user identity property changes."""
 
     value_type: Literal["AgenticUserIdentityUpdated"] = "AgenticUserIdentityUpdated"
-    value: AgenticIdentityUpdatedValue
+    value: AgenticUserIdentityUpdatedValue
 
 
-class AgenticIdentityManagerUpdatedActivity(AgentLifecycleEventActivityBase):
-    """Fired when an agentic identity's manager changes."""
+class AgenticUserManagerUpdatedActivity(AgentLifecycleEventActivityBase):
+    """Fired when an agentic user's manager changes."""
 
     value_type: Literal["AgenticUserManagerUpdated"] = "AgenticUserManagerUpdated"
-    value: AgenticIdentityManagerUpdatedValue
+    value: AgenticUserManagerUpdatedValue
 
 
-class AgenticIdentityEnabledActivity(AgentLifecycleEventActivityBase):
-    """Fired when an agentic identity is enabled."""
+class AgenticUserEnabledActivity(AgentLifecycleEventActivityBase):
+    """Fired when an agentic user is enabled."""
 
     value_type: Literal["AgenticUserEnabled"] = "AgenticUserEnabled"
-    value: AgenticIdentityEnabledValue
+    value: AgenticUserEnabledValue
 
 
-class AgenticIdentityDisabledActivity(AgentLifecycleEventActivityBase):
-    """Fired when an agentic identity is disabled."""
+class AgenticUserDisabledActivity(AgentLifecycleEventActivityBase):
+    """Fired when an agentic user is disabled."""
 
     value_type: Literal["AgenticUserDisabled"] = "AgenticUserDisabled"
-    value: AgenticIdentityDisabledValue
+    value: AgenticUserDisabledValue
 
 
-class AgenticIdentityDeletedActivity(AgentLifecycleEventActivityBase):
-    """Fired when an agentic identity is deleted."""
+class AgenticUserDeletedActivity(AgentLifecycleEventActivityBase):
+    """Fired when an agentic user is deleted."""
 
     value_type: Literal["AgenticUserDeleted"] = "AgenticUserDeleted"
-    value: AgenticIdentityDeletedValue
+    value: AgenticUserDeletedValue
 
 
-class AgenticIdentityUndeletedActivity(AgentLifecycleEventActivityBase):
-    """Fired when a previously deleted agentic identity is restored."""
+class AgenticUserUndeletedActivity(AgentLifecycleEventActivityBase):
+    """Fired when a previously deleted agentic user is restored."""
 
     value_type: Literal["AgenticUserUndeleted"] = "AgenticUserUndeleted"
-    value: AgenticIdentityUndeletedValue
+    value: AgenticUserUndeletedValue
 
 
-class AgenticIdentityWorkloadOnboardingUpdatedActivity(AgentLifecycleEventActivityBase):
-    """Fired when a workload onboarding state changes for an agentic identity."""
+class AgenticUserWorkloadOnboardingUpdatedActivity(AgentLifecycleEventActivityBase):
+    """Fired when a workload onboarding state changes for an agentic user."""
 
     value_type: Literal["AgenticUserWorkloadOnboardingUpdated"] = "AgenticUserWorkloadOnboardingUpdated"
-    value: AgenticIdentityWorkloadOnboardingUpdatedValue
+    value: AgenticUserWorkloadOnboardingUpdatedValue
 
 
 AgentLifecycleEventActivity = Annotated[
     Union[
-        AgenticIdentityCreatedActivity,
-        AgenticIdentityUpdatedActivity,
-        AgenticIdentityManagerUpdatedActivity,
-        AgenticIdentityEnabledActivity,
-        AgenticIdentityDisabledActivity,
-        AgenticIdentityDeletedActivity,
-        AgenticIdentityUndeletedActivity,
-        AgenticIdentityWorkloadOnboardingUpdatedActivity,
+        AgenticUserIdentityCreatedActivity,
+        AgenticUserIdentityUpdatedActivity,
+        AgenticUserManagerUpdatedActivity,
+        AgenticUserEnabledActivity,
+        AgenticUserDisabledActivity,
+        AgenticUserDeletedActivity,
+        AgenticUserUndeletedActivity,
+        AgenticUserWorkloadOnboardingUpdatedActivity,
     ],
     Field(discriminator="value_type"),
 ]
@@ -107,13 +107,13 @@ AgentLifecycleEventActivity = Annotated[
 
 __all__ = [
     "AgentLifecycleEventActivityBase",
-    "AgenticIdentityCreatedActivity",
-    "AgenticIdentityUpdatedActivity",
-    "AgenticIdentityManagerUpdatedActivity",
-    "AgenticIdentityEnabledActivity",
-    "AgenticIdentityDisabledActivity",
-    "AgenticIdentityDeletedActivity",
-    "AgenticIdentityUndeletedActivity",
-    "AgenticIdentityWorkloadOnboardingUpdatedActivity",
+    "AgenticUserIdentityCreatedActivity",
+    "AgenticUserIdentityUpdatedActivity",
+    "AgenticUserManagerUpdatedActivity",
+    "AgenticUserEnabledActivity",
+    "AgenticUserDisabledActivity",
+    "AgenticUserDeletedActivity",
+    "AgenticUserUndeletedActivity",
+    "AgenticUserWorkloadOnboardingUpdatedActivity",
     "AgentLifecycleEventActivity",
 ]

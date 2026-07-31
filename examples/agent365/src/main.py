@@ -8,14 +8,14 @@ import logging
 import re
 
 from microsoft_teams.api import (
-    AgenticIdentityCreatedActivity,
-    AgenticIdentityDeletedActivity,
-    AgenticIdentityDisabledActivity,
-    AgenticIdentityEnabledActivity,
-    AgenticIdentityManagerUpdatedActivity,
-    AgenticIdentityUndeletedActivity,
-    AgenticIdentityUpdatedActivity,
-    AgenticIdentityWorkloadOnboardingUpdatedActivity,
+    AgenticUserDeletedActivity,
+    AgenticUserDisabledActivity,
+    AgenticUserEnabledActivity,
+    AgenticUserIdentityCreatedActivity,
+    AgenticUserIdentityUpdatedActivity,
+    AgenticUserManagerUpdatedActivity,
+    AgenticUserUndeletedActivity,
+    AgenticUserWorkloadOnboardingUpdatedActivity,
     AgentLifecycleEventActivity,
     MessageActivity,
 )
@@ -57,9 +57,9 @@ async def handle_agent_lifecycle(ctx: ActivityContext[AgentLifecycleEventActivit
     await ctx.next()
 
 
-@app.on_agentic_identity_created
-async def handle_agentic_identity_created(ctx: ActivityContext[AgenticIdentityCreatedActivity]) -> None:
-    """Log an agentic identity creation event."""
+@app.on_agentic_user_identity_created
+async def handle_agentic_user_identity_created(ctx: ActivityContext[AgenticUserIdentityCreatedActivity]) -> None:
+    """Log an agentic user identity creation event."""
     activity = ctx.activity
     _log_lifecycle_envelope(activity, "identity_created")
     logger.info(
@@ -69,9 +69,9 @@ async def handle_agentic_identity_created(ctx: ActivityContext[AgenticIdentityCr
     )
 
 
-@app.on_agentic_identity_updated
-async def handle_agentic_identity_updated(ctx: ActivityContext[AgenticIdentityUpdatedActivity]) -> None:
-    """Log an agentic identity property update event."""
+@app.on_agentic_user_identity_updated
+async def handle_agentic_user_identity_updated(ctx: ActivityContext[AgenticUserIdentityUpdatedActivity]) -> None:
+    """Log an agentic user identity property update event."""
     activity = ctx.activity
     _log_lifecycle_envelope(activity, "identity_updated")
     logger.info(
@@ -80,45 +80,45 @@ async def handle_agentic_identity_updated(ctx: ActivityContext[AgenticIdentityUp
     )
 
 
-@app.on_agentic_identity_manager_updated
-async def handle_agentic_identity_manager_updated(ctx: ActivityContext[AgenticIdentityManagerUpdatedActivity]) -> None:
-    """Log an agentic identity manager update event."""
+@app.on_agentic_user_manager_updated
+async def handle_agentic_user_manager_updated(ctx: ActivityContext[AgenticUserManagerUpdatedActivity]) -> None:
+    """Log an agentic user manager update event."""
     activity = ctx.activity
     _log_lifecycle_envelope(activity, "manager_updated")
     logger.info("[Agent365 lifecycle:manager_updated] manager=%s", activity.value.manager)
 
 
-@app.on_agentic_identity_enabled
-async def handle_agentic_identity_enabled(ctx: ActivityContext[AgenticIdentityEnabledActivity]) -> None:
-    """Log an agentic identity enabled event."""
+@app.on_agentic_user_enabled
+async def handle_agentic_user_enabled(ctx: ActivityContext[AgenticUserEnabledActivity]) -> None:
+    """Log an agentic user enabled event."""
     _log_lifecycle_envelope(ctx.activity, "enabled")
 
 
-@app.on_agentic_identity_disabled
-async def handle_agentic_identity_disabled(ctx: ActivityContext[AgenticIdentityDisabledActivity]) -> None:
-    """Log an agentic identity disabled event."""
+@app.on_agentic_user_disabled
+async def handle_agentic_user_disabled(ctx: ActivityContext[AgenticUserDisabledActivity]) -> None:
+    """Log an agentic user disabled event."""
     _log_lifecycle_envelope(ctx.activity, "disabled")
 
 
-@app.on_agentic_identity_deleted
-async def handle_agentic_identity_deleted(ctx: ActivityContext[AgenticIdentityDeletedActivity]) -> None:
-    """Log an agentic identity deleted event."""
+@app.on_agentic_user_deleted
+async def handle_agentic_user_deleted(ctx: ActivityContext[AgenticUserDeletedActivity]) -> None:
+    """Log an agentic user deleted event."""
     activity = ctx.activity
     _log_lifecycle_envelope(activity, "deleted")
     logger.info("[Agent365 lifecycle:deleted] deletion_reason=%s", activity.value.deletion_reason)
 
 
-@app.on_agentic_identity_undeleted
-async def handle_agentic_identity_undeleted(ctx: ActivityContext[AgenticIdentityUndeletedActivity]) -> None:
-    """Log an agentic identity undeleted event."""
+@app.on_agentic_user_undeleted
+async def handle_agentic_user_undeleted(ctx: ActivityContext[AgenticUserUndeletedActivity]) -> None:
+    """Log an agentic user undeleted event."""
     _log_lifecycle_envelope(ctx.activity, "undeleted")
 
 
-@app.on_agentic_identity_workload_onboarding_updated
-async def handle_agentic_identity_workload_onboarding_updated(
-    ctx: ActivityContext[AgenticIdentityWorkloadOnboardingUpdatedActivity],
+@app.on_agentic_user_workload_onboarding_updated
+async def handle_agentic_user_workload_onboarding_updated(
+    ctx: ActivityContext[AgenticUserWorkloadOnboardingUpdatedActivity],
 ) -> None:
-    """Log an agentic identity workload onboarding update event."""
+    """Log an agentic user workload onboarding update event."""
     activity = ctx.activity
     _log_lifecycle_envelope(activity, "workload_onboarding_updated")
     logger.info(
