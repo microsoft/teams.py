@@ -414,7 +414,7 @@ class TestConversationActivityOperations:
                 token_provider=TestTokenProvider(),
                 agentic_identity=default_identity,
             )
-            .from_agentic_identity(override_identity)
+            .for_agentic_identity(override_identity)
             .conversations
         )
 
@@ -609,7 +609,7 @@ class TestConversationActivityOperations:
             agentic_user_id="agentic-user-id",
             tenant_id="tenant-id",
         )
-        client = ApiClient("https://test.service.url", request_capture).from_agentic_identity(identity).conversations
+        client = ApiClient("https://test.service.url", request_capture).for_agentic_identity(identity).conversations
 
         await client.activities("test_conversation_id").create(mock_activity)
 

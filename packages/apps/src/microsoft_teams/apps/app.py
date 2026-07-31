@@ -341,6 +341,33 @@ class App(ActivityHandlerMixin):
             agentic_identity=agentic_identity,
         )
 
+    def get_agentic_identity(
+        self,
+        agentic_app_id: Optional[str] = None,
+        agentic_user_id: Optional[str] = None,
+        *,
+        tenant_id: Optional[str] = None,
+        agentic_app_blueprint_id: Optional[str] = None,
+    ) -> AgenticIdentity:
+        """Get an AgenticIdentity for API calls.
+
+        When ``agentic_app_blueprint_id`` is omitted, it defaults to the app's own
+        client/app id (``self.id``).
+        """
+        resolved_tenant_id = tenant_id or (self.credentials.tenant_id if self.credentials else None)
+        if resolved_tenant_id is None:
+            raise ValueError("tenant_id is required to get an agentic identity")
+
+        resolved_blueprint_id = agentic_app_blueprint_id or self.id
+        if resolved_blueprint_id is None:
+            raise ValueError("agentic_app_blueprint_id is required to get an agentic identity")
+        return AgenticIdentity(
+            agentic_app_blueprint_id=resolved_blueprint_id,
+            agentic_app_id=agentic_app_id,
+            agentic_user_id=agentic_user_id,
+            tenant_id=resolved_tenant_id,
+        )
+
     @overload
     async def reply(
         self,
