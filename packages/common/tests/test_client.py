@@ -3,6 +3,8 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
+import ssl
+
 import httpx
 import pytest
 from microsoft_teams.common.http import Client, ClientOptions, Interceptor
@@ -250,3 +252,59 @@ def test_clone_user_agent_multi_token_override():
     clone = client.clone(ClientOptions(headers={"User-Agent": "myapp/2.0 partner/3.0"}))
     ua = clone._options.headers["User-Agent"]
     assert ua == "teams-bot/1.0 myapp/2.0 partner/3.0"
+
+
+def _ssl_context_of(client: Client) -> ssl.SSLContext:
+    """Reach into httpx's transport to assert which SSL context is actually in use."""
+    return client.http._transport._pool._ssl_context  # pyright: ignore[reportAttributeAccessIssue, reportPrivateUsage]
+
+
+def test_verify_context_is_used_by_underlying_client():
+    ctx = ssl.create_default_context()
+    client = Client(ClientOptions(verify=ctx))
+    assert _ssl_context_of(client) is ctx
+
+
+def test_verify_context_is_shared_across_clients():
+    """The whole point: many clients, one context, so the CA bundle is loaded once."""
+    ctx = ssl.create_default_context()
+    clients = [Client(ClientOptions(verify=ctx)) for _ in range(5)]
+    assert {id(_ssl_context_of(c)) for c in clients} == {id(ctx)}
+
+
+def test_verify_context_survives_clone():
+    """Clients are derived via clone(), so a context that did not survive it would be pointless."""
+    ctx = ssl.create_default_context()
+    client = Client(ClientOptions(verify=ctx))
+    clone = client.clone(ClientOptions(token="tok"))
+    assert _ssl_context_of(clone) is ctx
+    assert clone.clone().__class__ is Client
+    assert _ssl_context_of(clone.clone()) is ctx
+
+
+def test_verify_context_can_be_overridden_on_clone():
+    first, second = ssl.create_default_context(), ssl.create_default_context()
+    clone = Client(ClientOptions(verify=first)).clone(ClientOptions(verify=second))
+    assert _ssl_context_of(clone) is second
+
+
+def test_clients_sharing_a_context_keep_separate_connection_pools():
+    """Sharing a context must not make clients share a connection pool."""
+    ctx = ssl.create_default_context()
+    a, b = Client(ClientOptions(verify=ctx)), Client(ClientOptions(verify=ctx))
+    assert a.http._transport is not b.http._transport  # pyright: ignore[reportPrivateUsage]
+
+
+def test_default_verify_behaviour_is_unchanged():
+    """Without verify, clients must keep building their own context exactly as before."""
+    a, b = Client(ClientOptions()), Client(ClientOptions())
+    assert _ssl_context_of(a) is not _ssl_context_of(b)
+    assert isinstance(_ssl_context_of(a), ssl.SSLContext)
+
+
+def test_verify_does_not_disturb_other_options():
+    ctx = ssl.create_default_context()
+    client = Client(ClientOptions(base_url="https://x.example", headers={"User-Agent": "ua/1.0"}, verify=ctx))
+    assert str(client.http.base_url) == "https://x.example"
+    assert client.http.headers["User-Agent"] == "ua/1.0"
+    assert client.http.timeout == httpx.Timeout(None)

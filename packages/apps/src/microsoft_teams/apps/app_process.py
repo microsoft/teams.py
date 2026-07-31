@@ -63,6 +63,7 @@ class ActivityProcessor:
         self.activity_sender = activity_sender
         self.cloud = cloud
         self.fetch_user_token = fetch_user_token
+        self._api_http_client = http_client.clone(ClientOptions(token=token_manager.get_bot_token))
 
         # This will be set after the EventManager is initialized due to
         # a circular dependency
@@ -95,7 +96,7 @@ class ActivityProcessor:
         )
         api_client = ApiClient(
             service_url,
-            self.http_client.clone(ClientOptions(token=self.token_manager.get_bot_token)),
+            self._api_http_client,
             self.api_client_settings,
         )
 

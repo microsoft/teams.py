@@ -11,6 +11,7 @@ import pytest
 from microsoft_teams.api import (
     Activity,
     ActivityBase,
+    ActivityTypeAdapter,
     ConversationReference,
     InvokeResponse,
     TokenProtocol,
@@ -430,3 +431,61 @@ class TestActivityProcessor:
 
         # Assert error event was called
         assert activity_processor.event_manager.on_error.called
+
+    @pytest.mark.asyncio
+    async def test_api_http_client_is_built_once_not_per_activity(self, mock_http_client):
+        """The api client's transport must be reused across activities."""
+        processor = ActivityProcessor(
+            MagicMock(spec=ActivityRouter),
+            "id",
+            MagicMock(spec=LocalStorage),
+            "default_connection",
+            mock_http_client,
+            MagicMock(spec=TokenManager),
+            None,
+            MagicMock(spec=ActivitySender),
+            PUBLIC,
+        )
+        clones_after_construction = mock_http_client.clone.call_count
+
+        contexts = []
+        for i in range(3):
+            activity = ActivityTypeAdapter.validate_python(
+                CoreActivity(
+                    type="message",
+                    id=f"activity-{i}",
+                    service_url="https://service.url",
+                    **{
+                        "from": {"id": "user-1", "name": "Test User"},
+                        "conversation": {"id": f"conv-{i}"},
+                        "recipient": {"id": "bot-1", "name": "Test Bot"},
+                        "channelId": "msteams",
+                    },
+                ).model_dump(by_alias=True, exclude_none=True)
+            )
+            token = MagicMock(spec=TokenProtocol)
+            token.service_url = "https://service.url"
+            contexts.append(await processor._build_context(activity, token, []))
+
+        assert clones_after_construction == 1
+        assert mock_http_client.clone.call_count == 1, "clone() must not be called per activity"
+        assert all(c.api.http is processor._api_http_client for c in contexts)
+
+    @pytest.mark.asyncio
+    async def test_shared_api_client_still_sends_a_freshly_resolved_token(self, mock_http_client):
+        """Reuse must not pin a stale token: the callable is resolved per request."""
+        token_manager = MagicMock(spec=TokenManager)
+        ActivityProcessor(
+            MagicMock(spec=ActivityRouter),
+            "id",
+            MagicMock(spec=LocalStorage),
+            "default_connection",
+            mock_http_client,
+            token_manager,
+            None,
+            MagicMock(spec=ActivitySender),
+            PUBLIC,
+        )
+        options = mock_http_client.clone.call_args.args[0]
+        assert options.token is token_manager.get_bot_token
+        assert callable(options.token), "token must stay a callable so it is resolved per request"
