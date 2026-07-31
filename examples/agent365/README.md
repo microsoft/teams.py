@@ -18,7 +18,7 @@ uv run --project examples/agent365 python src/main.py
 
 ## Proactive API Send
 
-`src/proactive.py` shows both `app.send(..., agentic_identity=...)` and a scoped lower-level conversation activity API client. This user-backed sample uses `app.get_agentic_identity(...)` with `agentic_app_id` and `agentic_user_id` because that token flow needs both IDs; the blueprint ID comes from `CLIENT_ID` and the tenant ID comes from `TENANT_ID`.
+`src/proactive.py` shows both `app.send(..., agentic_identity=...)` and a scoped lower-level conversation activity API client. This user-backed sample passes `agentic_app_id` and `agentic_user_id` because that token flow needs both IDs; the blueprint ID comes from `CLIENT_ID` unless explicitly overridden in code.
 
 ```bash
 export CLIENT_ID=<agentic-app-blueprint-id>
