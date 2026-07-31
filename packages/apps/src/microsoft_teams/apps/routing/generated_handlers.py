@@ -899,7 +899,9 @@ class GeneratedActivityHandlerMixin(ABC):
     ) -> BasicHandlerUnion[AgenticUserEnabledActivity]:
         """Register a agentic_user_enabled activity handler."""
 
-        def decorator(func: BasicHandler[AgenticUserEnabledActivity]) -> BasicHandler[AgenticUserEnabledActivity]:
+        def decorator(
+            func: BasicHandler[AgenticUserEnabledActivity],
+        ) -> BasicHandler[AgenticUserEnabledActivity]:
             validate_handler_type(
                 func, AgenticUserEnabledActivity, "on_agentic_user_enabled", "AgenticUserEnabledActivity"
             )
@@ -926,7 +928,9 @@ class GeneratedActivityHandlerMixin(ABC):
     ) -> BasicHandlerUnion[AgenticUserDisabledActivity]:
         """Register a agentic_user_disabled activity handler."""
 
-        def decorator(func: BasicHandler[AgenticUserDisabledActivity]) -> BasicHandler[AgenticUserDisabledActivity]:
+        def decorator(
+            func: BasicHandler[AgenticUserDisabledActivity],
+        ) -> BasicHandler[AgenticUserDisabledActivity]:
             validate_handler_type(
                 func, AgenticUserDisabledActivity, "on_agentic_user_disabled", "AgenticUserDisabledActivity"
             )
@@ -953,7 +957,9 @@ class GeneratedActivityHandlerMixin(ABC):
     ) -> BasicHandlerUnion[AgenticUserDeletedActivity]:
         """Register a agentic_user_deleted activity handler."""
 
-        def decorator(func: BasicHandler[AgenticUserDeletedActivity]) -> BasicHandler[AgenticUserDeletedActivity]:
+        def decorator(
+            func: BasicHandler[AgenticUserDeletedActivity],
+        ) -> BasicHandler[AgenticUserDeletedActivity]:
             validate_handler_type(
                 func, AgenticUserDeletedActivity, "on_agentic_user_deleted", "AgenticUserDeletedActivity"
             )
@@ -980,9 +986,14 @@ class GeneratedActivityHandlerMixin(ABC):
     ) -> BasicHandlerUnion[AgenticUserUndeletedActivity]:
         """Register a agentic_user_undeleted activity handler."""
 
-        def decorator(func: BasicHandler[AgenticUserUndeletedActivity]) -> BasicHandler[AgenticUserUndeletedActivity]:
+        def decorator(
+            func: BasicHandler[AgenticUserUndeletedActivity],
+        ) -> BasicHandler[AgenticUserUndeletedActivity]:
             validate_handler_type(
-                func, AgenticUserUndeletedActivity, "on_agentic_user_undeleted", "AgenticUserUndeletedActivity"
+                func,
+                AgenticUserUndeletedActivity,
+                "on_agentic_user_undeleted",
+                "AgenticUserUndeletedActivity",
             )
             config = ACTIVITY_ROUTES["agentic_user_undeleted"]
             self.router.add_handler(config.selector, func)

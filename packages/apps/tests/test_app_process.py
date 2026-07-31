@@ -656,7 +656,7 @@ class TestActivityProcessor:
         mock_api_client.users.get_token.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_build_context_scopes_api_to_inbound_agentic_user(self, activity_processor):
+    async def test_build_context_scopes_api_to_inbound_agentic_identity(self, activity_processor):
         """Inbound Agent ID activities scope ctx.api with the inbound agentic user."""
         core_activity = CoreActivity(
             type="message",
@@ -668,8 +668,9 @@ class TestActivityProcessor:
                 "recipient": {
                     "id": "bot-1",
                     "name": "Test Bot",
-                    "agenticAppId": "agentic-app-instance-id",
+                    "agenticAppId": "agentic-app-id",
                     "agenticUserId": "agentic-user-id",
+                    "agenticAppBlueprintId": "blueprint-id",
                     "tenantId": "tenant-id",
                 },
                 "channelId": "msteams",
@@ -691,10 +692,11 @@ class TestActivityProcessor:
 
         assert mock_api_client_type.call_args.kwargs["token_provider"] is activity_processor.token_provider
         assert mock_api_client_type.call_args.kwargs["cloud"] is activity_processor.cloud
-        agentic_user = mock_api_client_type.call_args.kwargs["agentic_user"]
-        assert agentic_user.agentic_app_instance_id == "agentic-app-instance-id"
-        assert agentic_user.agentic_user_id == "agentic-user-id"
-        assert agentic_user.tenant_id == "tenant-id"
+        agentic_identity = mock_api_client_type.call_args.kwargs["agentic_identity"]
+        assert agentic_identity.agentic_app_id == "agentic-app-id"
+        assert agentic_identity.agentic_user_id == "agentic-user-id"
+        assert agentic_identity.agentic_app_blueprint_id == "blueprint-id"
+        assert agentic_identity.tenant_id == "tenant-id"
 
     @pytest.mark.asyncio
     async def test_build_context_defers_graph_tenant_resolution(self, activity_processor):

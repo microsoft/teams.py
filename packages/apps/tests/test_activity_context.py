@@ -405,7 +405,7 @@ class TestActivityContextSend:
         recipient = Account(
             id="bot-id",
             name="Test Bot",
-            agentic_app_instance_id="agentic-app-instance-id",
+            agentic_app_id="agentic-app-id",
             agentic_user_id="agentic-user-id",
             tenant_id="tenant-id",
         )
@@ -423,7 +423,7 @@ class TestActivityContextSend:
         mock_sender.send.assert_called_once()
         ctx.api.clone.assert_called_once_with(
             service_url=ctx.conversation_ref.service_url,
-            agentic_user=recipient.agentic_user,
+            agentic_identity=recipient.agentic_identity,
         )
 
 
@@ -476,7 +476,7 @@ class TestActivityContextReply:
         recipient = Account(
             id="bot-id",
             name="Test Bot",
-            agentic_app_instance_id="agentic-app-instance-id",
+            agentic_app_id="agentic-app-id",
             agentic_user_id="agentic-user-id",
             tenant_id="tenant-id",
         )
@@ -494,7 +494,7 @@ class TestActivityContextReply:
         mock_sender.send.assert_called_once()
         ctx.api.clone.assert_called_once_with(
             service_url=ctx.conversation_ref.service_url,
-            agentic_user=recipient.agentic_user,
+            agentic_identity=recipient.agentic_identity,
         )
 
 

@@ -5,13 +5,11 @@ Licensed under the MIT License.
 
 import asyncio
 import logging
-from dataclasses import replace
 from inspect import isawaitable
 from typing import Any, Callable, Optional
 
 import requests
 from microsoft_teams.api import (
-    AgenticUser,
     ClientCredentials,
     Credentials,
     JsonWebToken,
@@ -19,7 +17,7 @@ from microsoft_teams.api import (
 )
 from microsoft_teams.api.auth.cloud_environment import PUBLIC, CloudEnvironment
 from microsoft_teams.api.auth.credentials import (
-    AgenticAppInstanceTokenProviderProtocol,
+    AgenticAppTokenProviderProtocol,
     AgenticUserTokenProviderProtocol,
     FederatedIdentityCredentials,
     ManagedIdentityCredentials,
@@ -52,9 +50,7 @@ class TokenManager:
         self._cloud = cloud or PUBLIC
         self._confidential_clients_by_tenant: dict[str, ConfidentialClientApplication] = {}
         self._federated_identity_clients_by_tenant: dict[str, ConfidentialClientApplication] = {}
-        self._agentic_app_instance_clients_by_tenant_and_app_instance_id: dict[
-            tuple[str, str], ConfidentialClientApplication
-        ] = {}
+        self._agentic_app_clients_by_tenant_and_app_id: dict[tuple[str, str], ConfidentialClientApplication] = {}
         self._managed_identity_client: Optional[ManagedIdentityClient] = None
 
     async def get_bot_token(self) -> Optional[TokenProtocol]:
@@ -99,35 +95,49 @@ class TokenManager:
     async def get_agentic_user_token(
         self,
         scope: str,
-        agentic_user: AgenticUser,
+        agentic_app_id: str,
+        agentic_user_id: str,
+        tenant_id: str | None = None,
         *,
         caller_name: str | None = None,
     ) -> Optional[TokenProtocol]:
-        """Get a resource token for an agentic user acting through its AgenticAppInstance."""
-        if not agentic_user.agentic_user_id:
-            raise ValueError("agentic_user.agentic_user_id is required to get an agentic user token")
-        if self._credentials is None:
+        """Get a resource token for an agentic user acting through its agentic app."""
+        if not agentic_app_id:
+            raise ValueError("agentic_app_id is required to get an agentic user token")
+        if not agentic_user_id:
+            raise ValueError("agentic_user_id is required to get an agentic user token")
+
+        credentials = self._credentials
+        if credentials is None:
             if caller_name:
                 logger.debug(f"No credentials provided for {caller_name}")
             return None
 
-        tenant_id = self._resolve_tenant_id(agentic_user.tenant_id, None)
-        if tenant_id is None:
+        resolved_tenant_id = self._resolve_tenant_id(tenant_id, None)
+        if resolved_tenant_id is None:
             raise ValueError("tenant_id is required to get an agentic user token")
-        resolved_agentic_user = (
-            agentic_user if agentic_user.tenant_id == tenant_id else replace(agentic_user, tenant_id=tenant_id)
-        )
 
-        credentials = self._credentials
         if isinstance(credentials, TokenCredentials):
-            return await self._get_agentic_user_token_with_provider(credentials, scope, resolved_agentic_user)
+            provider = credentials.token
+            if not isinstance(provider, AgenticUserTokenProviderProtocol):
+                raise ValueError(
+                    "Agentic user tokens require a token provider implementing get_agentic_user_token. "
+                    "Falling back to an app-only token would authenticate under the wrong identity."
+                )
+            result = provider.get_agentic_user_token(
+                scope,
+                agentic_app_id,
+                agentic_user_id,
+                resolved_tenant_id,
+            )
+            return await self._to_provider_token(result)
 
         if not isinstance(credentials, ClientCredentials):
             raise ValueError("Agentic user tokens require ClientCredentials")
-        t2_confidential_client, t2 = await self._acquire_agentic_app_instance_token(
+        t2_confidential_client, t2 = await self._acquire_agentic_app_token(
             TOKEN_EXCHANGE_SCOPE,
-            agentic_user.agentic_app_instance_id,
-            tenant_id,
+            agentic_app_id,
+            resolved_tenant_id,
             credentials,
         )
 
@@ -135,49 +145,51 @@ class TokenManager:
             lambda: t2_confidential_client.acquire_token_by_user_federated_identity_credential(
                 [scope],
                 assertion=t2,
-                user_object_id=agentic_user.agentic_user_id,
+                user_object_id=agentic_user_id,
                 username=None,
                 data={"requested_token_use": "on_behalf_of"},
             )
         )
         return self._handle_token_response(t3_raw, caller_name or "get_agentic_user_token")
 
-    async def get_agentic_app_instance_token(
+    async def get_agentic_app_token(
         self,
         scope: str,
-        agentic_app_instance_id: str,
+        agentic_app_id: str,
         tenant_id: str | None = None,
+        *,
+        caller_name: str | None = None,
     ) -> Optional[TokenProtocol]:
-        """Get an app-only token for an Agentic App Instance."""
-        if self._credentials is None:
+        """Get an app-only token for an agentic app."""
+        if not agentic_app_id:
+            raise ValueError("agentic_app_id is required to get an agentic app token")
+
+        credentials = self._credentials
+        if credentials is None:
+            if caller_name:
+                logger.debug(f"No credentials provided for {caller_name}")
             return None
 
         resolved_tenant_id = self._resolve_tenant_id(tenant_id, None)
         if resolved_tenant_id is None:
-            raise ValueError("tenant_id is required to get an Agentic App Instance token")
+            raise ValueError("tenant_id is required to get an agentic app token")
 
-        credentials = self._credentials
         if isinstance(credentials, TokenCredentials):
             provider = credentials.token
-            if not isinstance(provider, AgenticAppInstanceTokenProviderProtocol):
+            if not isinstance(provider, AgenticAppTokenProviderProtocol):
                 raise ValueError(
-                    "Agentic App Instance tokens require a token provider implementing "
-                    "get_agentic_app_instance_token. Falling back to an app-only token would authenticate "
-                    "under the wrong identity."
+                    "Agentic app tokens require a token provider implementing get_agentic_app_token. "
+                    "Falling back to an app-only token would authenticate under the wrong identity."
                 )
-            result = provider.get_agentic_app_instance_token(
-                scope,
-                agentic_app_instance_id,
-                resolved_tenant_id,
-            )
+            result = provider.get_agentic_app_token(scope, agentic_app_id, resolved_tenant_id)
             return await self._to_provider_token(result)
 
         if not isinstance(credentials, ClientCredentials):
-            raise ValueError("Agentic App Instance tokens require ClientCredentials")
+            raise ValueError("Agentic app tokens require ClientCredentials")
 
-        _, token = await self._acquire_agentic_app_instance_token(
+        _, token = await self._acquire_agentic_app_token(
             scope,
-            agentic_app_instance_id,
+            agentic_app_id,
             resolved_tenant_id,
             credentials,
         )
@@ -292,21 +304,6 @@ class TokenManager:
             result = provider(scope, tenant_id)
         return await self._to_provider_token(result)
 
-    async def _get_agentic_user_token_with_provider(
-        self,
-        credentials: TokenCredentials,
-        scope: str,
-        agentic_user: AgenticUser,
-    ) -> Optional[TokenProtocol]:
-        provider = credentials.token
-        if not isinstance(provider, AgenticUserTokenProviderProtocol):
-            raise ValueError(
-                "Agentic User tokens require a token provider implementing get_agentic_user_token. "
-                "Falling back to an app-only token would authenticate under the wrong identity."
-            )
-        result = provider.get_agentic_user_token(scope, agentic_user)
-        return await self._to_provider_token(result)
-
     async def _to_provider_token(self, result: Any) -> Optional[TokenProtocol]:
         value = await result if isawaitable(result) else result
         if value is None:
@@ -315,10 +312,10 @@ class TokenManager:
             return value
         return JsonWebToken(str(value))
 
-    async def _acquire_agentic_app_instance_token(
+    async def _acquire_agentic_app_token(
         self,
         scope: str,
-        agentic_app_instance_id: str,
+        agentic_app_id: str,
         tenant_id: str,
         credentials: ClientCredentials,
     ) -> tuple[ConfidentialClientApplication, str]:
@@ -327,13 +324,13 @@ class TokenManager:
         def get_blueprint_assertion(_context: dict[str, Any]) -> str:
             token_res: dict[str, Any] = confidential_client.acquire_token_for_client(
                 [TOKEN_EXCHANGE_SCOPE],
-                fmi_path=agentic_app_instance_id,
+                fmi_path=agentic_app_id,
             )
             return self._get_access_token_or_raise(token_res, "Agent token exchange step 1 failed")
 
-        agentic_client = self._get_agentic_app_instance_client(
+        agentic_client = self._get_agentic_app_client(
             tenant_id,
-            agentic_app_instance_id,
+            agentic_app_id,
             get_blueprint_assertion,
         )
         token_res: dict[str, Any] = await asyncio.to_thread(lambda: agentic_client.acquire_token_for_client([scope]))
@@ -389,24 +386,22 @@ class TokenManager:
         self._federated_identity_clients_by_tenant[tenant_id] = client
         return client
 
-    def _get_agentic_app_instance_client(
+    def _get_agentic_app_client(
         self,
         tenant_id: str,
-        agentic_app_instance_id: str,
+        agentic_app_id: str,
         client_assertion: Callable[[dict[str, Any]], str],
     ) -> ConfidentialClientApplication:
-        cached_client = self._agentic_app_instance_clients_by_tenant_and_app_instance_id.get(
-            (tenant_id, agentic_app_instance_id)
-        )
+        cached_client = self._agentic_app_clients_by_tenant_and_app_id.get((tenant_id, agentic_app_id))
         if cached_client:
             return cached_client
 
         client: ConfidentialClientApplication = ConfidentialClientApplication(
-            agentic_app_instance_id,
+            agentic_app_id,
             client_credential={"client_assertion": client_assertion},
             authority=f"{self._cloud.login_endpoint}/{tenant_id}",
         )
-        self._agentic_app_instance_clients_by_tenant_and_app_instance_id[(tenant_id, agentic_app_instance_id)] = client
+        self._agentic_app_clients_by_tenant_and_app_id[(tenant_id, agentic_app_id)] = client
         return client
 
     def _get_managed_identity_client(

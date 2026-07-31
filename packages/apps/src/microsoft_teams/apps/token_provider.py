@@ -3,17 +3,20 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from microsoft_teams.api import AgenticUser, TokenProtocol
+from microsoft_teams.api import TokenProtocol
 from microsoft_teams.api.auth.cloud_environment import PUBLIC, CloudEnvironment
 from microsoft_teams.api.auth.credentials import (
-    AgenticAppInstanceTokenProviderProtocol,
+    AgenticAppTokenProviderProtocol,
     AgenticUserTokenProviderProtocol,
 )
 
 from .token_manager import TokenManager
 
 
-class AppTokenProvider(AgenticUserTokenProviderProtocol, AgenticAppInstanceTokenProviderProtocol):
+class AppTokenProvider(
+    AgenticUserTokenProviderProtocol,
+    AgenticAppTokenProviderProtocol,
+):
     """Public token source backed by the credentials configured on an App."""
 
     def __init__(self, token_manager: TokenManager, cloud: CloudEnvironment = PUBLIC):
@@ -31,24 +34,28 @@ class AppTokenProvider(AgenticUserTokenProviderProtocol, AgenticAppInstanceToken
     async def get_agentic_user_token(
         self,
         scope: str | None,
-        agentic_user: AgenticUser,
-    ) -> TokenProtocol | None:
-        """Acquire a token carrying an Agentic User identity."""
-        return await self._token_manager.get_agentic_user_token(
-            scope or self._cloud.agent_bot_scope,
-            agentic_user,
-        )
-
-    async def get_agentic_app_instance_token(
-        self,
-        scope: str,
-        agentic_app_instance_id: str,
+        agentic_app_id: str,
+        agentic_user_id: str,
         tenant_id: str | None = None,
     ) -> TokenProtocol | None:
-        """Acquire an app-only token for an Agentic App Instance."""
-        return await self._token_manager.get_agentic_app_instance_token(
+        """Acquire a token carrying an agentic user identity."""
+        return await self._token_manager.get_agentic_user_token(
+            scope or self._cloud.agent_bot_scope,
+            agentic_app_id,
+            agentic_user_id,
+            tenant_id,
+        )
+
+    async def get_agentic_app_token(
+        self,
+        scope: str,
+        agentic_app_id: str,
+        tenant_id: str | None = None,
+    ) -> TokenProtocol | None:
+        """Acquire an app-only token for an agentic app."""
+        return await self._token_manager.get_agentic_app_token(
             scope,
-            agentic_app_instance_id,
+            agentic_app_id,
             tenant_id,
         )
 

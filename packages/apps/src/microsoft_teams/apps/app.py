@@ -15,7 +15,7 @@ from microsoft_teams.api import (
     Account,
     ActivityBase,
     ActivityParams,
-    AgenticUser,
+    AgenticIdentity,
     ApiClient,
     ClientCredentials,
     ConversationAccount,
@@ -305,7 +305,7 @@ class App(ActivityHandlerMixin):
         activity: str | ActivityParams | AdaptiveCard,
         *,
         service_url: Optional[str] = None,
-        agentic_user: Optional[AgenticUser] = None,
+        agentic_identity: Optional[AgenticIdentity] = None,
     ) -> SentActivity:
         """Send an activity proactively to a conversation.
 
@@ -338,32 +338,34 @@ class App(ActivityHandlerMixin):
             self.api,
             activity,
             conversation_ref,
-            agentic_user=agentic_user,
+            agentic_identity=agentic_identity,
         )
 
-    def get_agentic_user(
+    def get_agentic_identity(
         self,
-        agentic_app_instance_id: str,
-        agentic_user_id: str,
+        agentic_app_id: Optional[str] = None,
+        agentic_user_id: Optional[str] = None,
         *,
         tenant_id: Optional[str] = None,
-        agentic_blueprint_id: Optional[str] = None,
-    ) -> AgenticUser:
-        """Get an AgenticUser for API calls.
+        agentic_app_blueprint_id: Optional[str] = None,
+    ) -> AgenticIdentity:
+        """Get an AgenticIdentity for API calls.
 
-        When ``agentic_blueprint_id`` is omitted, it defaults to the app's own
+        When ``agentic_app_blueprint_id`` is omitted, it defaults to the app's own
         client/app id (``self.id``).
         """
         resolved_tenant_id = tenant_id or (self.credentials.tenant_id if self.credentials else None)
         if resolved_tenant_id is None:
-            raise ValueError("tenant_id is required to get an agentic user")
+            raise ValueError("tenant_id is required to get an agentic identity")
 
-        resolved_blueprint_id = agentic_blueprint_id or self.id
-        return AgenticUser(
-            agentic_app_instance_id=agentic_app_instance_id,
+        resolved_blueprint_id = agentic_app_blueprint_id or self.id
+        if resolved_blueprint_id is None:
+            raise ValueError("agentic_app_blueprint_id is required to get an agentic identity")
+        return AgenticIdentity(
+            agentic_app_blueprint_id=resolved_blueprint_id,
+            agentic_app_id=agentic_app_id,
             agentic_user_id=agentic_user_id,
             tenant_id=resolved_tenant_id,
-            agentic_blueprint_id=resolved_blueprint_id,
         )
 
     @overload
@@ -374,7 +376,7 @@ class App(ActivityHandlerMixin):
         activity: str | ActivityParams | AdaptiveCard,
         *,
         service_url: Optional[str] = None,
-        agentic_user: Optional[AgenticUser] = None,
+        agentic_identity: Optional[AgenticIdentity] = None,
     ) -> SentActivity: ...
 
     @overload
@@ -384,7 +386,7 @@ class App(ActivityHandlerMixin):
         message_id: str | ActivityParams | AdaptiveCard,
         *,
         service_url: Optional[str] = None,
-        agentic_user: Optional[AgenticUser] = None,
+        agentic_identity: Optional[AgenticIdentity] = None,
     ) -> SentActivity: ...
 
     async def reply(  # type: ignore[reportInconsistentOverload]
@@ -394,7 +396,7 @@ class App(ActivityHandlerMixin):
         activity: str | ActivityParams | AdaptiveCard | None = None,
         *,
         service_url: Optional[str] = None,
-        agentic_user: Optional[AgenticUser] = None,
+        agentic_identity: Optional[AgenticIdentity] = None,
     ) -> SentActivity:
         """Send an activity proactively to a conversation, optionally as a threaded reply.
 
@@ -419,14 +421,14 @@ class App(ActivityHandlerMixin):
                 to_threaded_conversation_id(conversation_id, message_id),
                 activity,
                 service_url=service_url,
-                agentic_user=agentic_user,
+                agentic_identity=agentic_identity,
             )
 
         return await self.send(
             conversation_id,
             message_id,
             service_url=service_url,
-            agentic_user=agentic_user,
+            agentic_identity=agentic_identity,
         )
 
     def use(self, middleware: Callable[[ActivityContext[ActivityBase]], Awaitable[None]]) -> None:
