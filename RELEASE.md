@@ -19,22 +19,25 @@ dotnet tool install -g nbgv
 
 | Branch | Versions | Published |
 |--------|----------|-----------|
-| `main` | `2.0.1.dev1`, `2.0.1.dev2`, ... | No |
-| `release` | `2.0.0` | Yes |
+| `main` | `2.1.0.dev1`, `2.1.0.dev2`, ... | No |
+| `release/v2.0` | `2.0.x` | Yes |
 
-`release` is a **long-lived branch** — it already exists. You don't create it; you bring `main` into it.
+Release branches are **long-lived per minor line** and use the `release/v<major>.<minor>` naming convention. Create a
+new release branch from `main` when that minor line enters its release phase; never reset an existing release branch.
 
 ## Workflow
 
 Development happens on `main`. When ready to release:
 
-1. Open a PR from a feature branch (e.g. `<you>/release-2.0.13`) into the existing `release` branch
-2. The PR should make `release` equal `main` plus the version bump in `version.json`
+1. Open a PR from a feature branch (e.g. `<you>/release-2.1.0`) into the matching release branch
+   (e.g. `release/v2.1`)
+2. The PR should make the release branch equal `main` plus the version bump in `version.json`
 3. Merge the PR, then run the publish pipeline
 
 ### Preparing the release branch
 
-Start from `main`, bump the version, then use `git merge -s ours origin/release` to mark `release` as merged without pulling in any of its content.
+Start from `main`, bump the version, then use `git merge -s ours origin/release/v<major>.<minor>` to mark the target
+release branch as merged without pulling in any of its content.
 
 1. Start a branch from latest `main`:
    ```bash
@@ -48,15 +51,15 @@ Start from `main`, bump the version, then use `git merge -s ours origin/release`
    git commit -m "Release <version>: set version to <version> stable"
    ```
 
-3. Merge `release` into your branch using `-s ours` (records release as a parent but keeps main's tree):
+3. Merge the target release branch into your branch using `-s ours` (records it as a parent but keeps main's tree):
    ```bash
-   git merge -s ours origin/release -m "Release <version>: merge main into release"
+   git merge -s ours origin/release/v<major>.<minor> -m "Release <version>: merge main into release/v<major>.<minor>"
    ```
 
-4. Push and open a PR targeting `release`:
+4. Push and open a PR targeting the matching release branch:
    ```bash
    git push -u origin <you>/prep-release-<version>
-   gh pr create --base release --title "Release <version>: merge main into release"
+   gh pr create --base "release/v<major>.<minor>" --title "Release <version>: merge main into release/v<major>.<minor>"
    ```
 
 ## Versioning
@@ -67,29 +70,31 @@ Versions are managed by **Nerdbank.GitVersioning** via [version.json](version.js
 
 ```json
 {
-  "version": "2.0.13-dev.{height}",
+  "version": "2.1.0-dev.{height}",
   "versionHeightOffset": 1
 }
 ```
 
-Builds on `main` produce dev versions like `2.0.1.dev1`, `2.0.1.dev2`, etc. These are not published.
+Builds on `main` produce dev versions like `2.1.0.dev1`, `2.1.0.dev2`, etc. These are not published. Changing the
+version core resets Nerdbank.GitVersioning's height for the new development line, so the offset remains `1`.
 
 ### Example Package Names
 
 | Branch | Package Name |
 |--------|--------------|
-| `main` | `microsoft_teams_apps-2.0.1.dev2.tar.gz` |
-| `release` | `microsoft_teams_apps-2.0.0.tar.gz` |
+| `main` | `microsoft_teams_apps-2.1.0.dev2.tar.gz` |
+| `release/v2.0` | `microsoft_teams_apps-2.0.14.tar.gz` |
 
-> **Note:** Running the pipeline on a branch not in `publicReleaseRefSpec` (e.g., a feature branch) produces versions with the commit hash appended, like `2.0.1.dev5+g1a2b3c4`. This is expected and useful for testing.
+> **Note:** Running the pipeline on a branch not in `publicReleaseRefSpec` (e.g., a feature branch) produces versions with the commit hash appended, like `2.1.0.dev5+g1a2b3c4`. This is expected and useful for testing.
 
 ### Producing a Stable Release
 
-The version on `release` should be a plain stable string (e.g. `2.0.0`, no `-dev` suffix). The PR opened in the [Workflow](#workflow) section above already handles this — just edit `version.json` before pushing:
+The version on a release branch should be a plain stable string (e.g. `2.1.0`, no `-dev` suffix). The PR opened in
+the [Workflow](#workflow) section above already handles this — just edit `version.json` before pushing:
 
 ```json
 {
-  "version": "2.0.0",
+  "version": "2.1.0",
   "versionHeightOffset": 1
 }
 ```
@@ -102,7 +107,7 @@ The [publish pipeline](https://dev.azure.com/DomoreexpGithub/Github_Pipelines/_b
 
 1. Go to **Pipelines** > **teams.py** in ADO
 2. Click **Run pipeline**
-3. Select the `release` branch
+3. Select the matching `release/v<major>.<minor>` branch
 4. Choose a **Publish Type**:
    - **Internal** — publishes unsigned packages to the Azure Artifacts `TeamsSDKPreviews` feed. No approval required. Packages are available immediately.
    - **Public** — signs packages via ESRP and publishes to PyPI. Requires approval via the `teams-sdk-publish` ADO environment before the ESRP release proceeds.
@@ -115,13 +120,14 @@ The [publish pipeline](https://dev.azure.com/DomoreexpGithub/Github_Pipelines/_b
 After the publish pipeline finishes and packages land on PyPI, tag the release and create a GitHub Release page:
 
 ```bash
-# Create a draft release at the release branch tip
+# Create a draft release at the matching release branch tip
 gh release create v<version> -R microsoft/teams.py \
-  --target release --title "v<version>" --draft \
+  --target "release/v<major>.<minor>" --title "v<version>" --draft \
   --generate-notes --notes-start-tag v<previous-version>
 ```
 
-**Note:** GitHub's auto-generated notes walk back from the `release` branch tip. Because the release PR is squash-merged, the auto-list shows only the merge PR. To get the real PR delta from `main`, query by date:
+**Note:** GitHub's auto-generated notes walk back from the release branch tip. Because the release PR is
+squash-merged, the auto-list shows only the merge PR. To get the real PR delta from `main`, query by date:
 
 ```bash
 # Note: macOS has no `tac` — the awk one-liner below works everywhere
