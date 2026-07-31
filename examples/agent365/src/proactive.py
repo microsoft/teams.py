@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 
 async def main():
-    parser = argparse.ArgumentParser(description="Send proactive messages using AgenticUser")
+    parser = argparse.ArgumentParser(description="Send proactive messages using AgenticIdentity scoping")
     parser.add_argument("conversation_id", help="The Teams conversation ID to send messages to")
     parser.add_argument("agentic_app_instance_id", help="The AgenticAppInstance client ID")
     parser.add_argument("agentic_user_id", help="The agentic user object ID")
