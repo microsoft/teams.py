@@ -217,7 +217,7 @@ class TestApiClientScoping:
             agentic_identity=default_identity,
         )
 
-        clone = client.from_agentic_identity(override_identity)
+        clone = client.for_agentic_identity(override_identity)
 
         assert clone.http is not client.http
         assert clone.http.http is client.http.http
@@ -260,12 +260,10 @@ class TestApiClientScoping:
         client = ApiClient("https://mock.service.url", mock_http_client)
 
         service_scoped = client.from_service_url("https://override.service.url/")
-        identity_scoped = client.from_agentic_identity(identity)
-        alias_scoped = client.for_agentic_identity(identity)
+        identity_scoped = client.for_agentic_identity(identity)
 
         assert service_scoped.service_url == "https://override.service.url"
         assert identity_scoped._default_agentic_identity is identity
-        assert alias_scoped._default_agentic_identity is identity
 
     @pytest.mark.asyncio
     async def test_clone_uses_scoped_agentic_identity_for_auth(self, request_capture, mock_activity):
@@ -295,7 +293,7 @@ class TestApiClientScoping:
             agentic_identity=default_identity,
         )
 
-        await client.from_agentic_identity(override_identity).conversations.create_activity(
+        await client.for_agentic_identity(override_identity).conversations.create_activity(
             "test_conversation_id", mock_activity
         )
 
@@ -334,11 +332,11 @@ class TestApiClientScoping:
             token_provider=TestTokenProvider(),
         )
 
-        await client.from_agentic_identity(identity_1).conversations.create_activity(
+        await client.for_agentic_identity(identity_1).conversations.create_activity(
             "test_conversation_id", mock_activity
         )
         first_request = request_capture._capture.last_request
-        await client.from_agentic_identity(identity_2).conversations.create_activity(
+        await client.for_agentic_identity(identity_2).conversations.create_activity(
             "test_conversation_id", mock_activity
         )
         second_request = request_capture._capture.last_request
@@ -383,13 +381,13 @@ class TestApiClientScoping:
 
         await (
             client.from_service_url("https://override.service.url")
-            .from_agentic_identity(identity_1)
+            .for_agentic_identity(identity_1)
             .conversations.create_activity("test_conversation_id", mock_activity)
         )
         first_request = request_capture._capture.last_request
         await (
-            client.from_agentic_identity(identity_1)
-            .from_agentic_identity(identity_2)
+            client.for_agentic_identity(identity_1)
+            .for_agentic_identity(identity_2)
             .conversations.create_activity("test_conversation_id", mock_activity)
         )
         second_request = request_capture._capture.last_request
