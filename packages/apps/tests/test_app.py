@@ -916,7 +916,7 @@ class TestApp:
         assert sent_activity.conversation.id == "conv-123"
 
     @pytest.mark.asyncio
-    async def test_send_passes_service_url_and_agentic_user_to_scoped_api(self, mock_storage) -> None:
+    async def test_send_passes_service_url_and_agentic_identity_to_scoped_api(self, mock_storage) -> None:
         options = AppOptions(storage=mock_storage, client_id="test-client-id", client_secret="test-secret")
         app = App(**options)
         app._initialized = True
@@ -956,7 +956,7 @@ class TestApp:
         assert result.id == "sent-activity-id"
 
     @pytest.mark.asyncio
-    async def test_send_uses_existing_api_when_agentic_user_is_none(self, mock_storage) -> None:
+    async def test_send_uses_existing_api_when_agentic_identity_is_none(self, mock_storage) -> None:
         options = AppOptions(storage=mock_storage, client_id="test-client-id", client_secret="test-secret")
         app = App(**options)
         app._initialized = True
@@ -1091,7 +1091,7 @@ class TestAppReply:
         started_app.api.conversations.activities.assert_called_once_with("19:abc@thread.skype;messageid=1680000000000")
 
     @pytest.mark.asyncio
-    async def test_reply_with_three_args_passes_service_url_and_agentic_user_to_scoped_api(self, started_app):
+    async def test_reply_with_three_args_passes_service_url_and_agentic_identity_to_scoped_api(self, started_app):
         agentic_identity = AgenticIdentity(
             agentic_app_blueprint_id="blueprint-id",
             agentic_app_id="agentic-app-id",
@@ -1126,7 +1126,7 @@ class TestAppReply:
         started_app.api.conversations.activities.assert_called_once_with("19:abc@thread.skype")
 
     @pytest.mark.asyncio
-    async def test_reply_with_two_args_passes_service_url_and_agentic_user_to_scoped_api(self, started_app):
+    async def test_reply_with_two_args_passes_service_url_and_agentic_identity_to_scoped_api(self, started_app):
         agentic_identity = AgenticIdentity(
             agentic_app_blueprint_id="blueprint-id",
             agentic_app_id="agentic-app-id",

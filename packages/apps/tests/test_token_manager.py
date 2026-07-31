@@ -279,6 +279,46 @@ class TestTokenManager:
         ]
 
     @pytest.mark.asyncio
+    async def test_agentic_identity_token_provider_accepts_blueprint_only_identity(self):
+        calls = []
+
+        class Provider:
+            def get_app_token(self, scope: str, tenant_id: str | None):
+                return VALID_TEST_TOKEN
+
+            async def get_agentic_identity_token(
+                self,
+                scope: str,
+                agentic_identity: AgenticIdentity,
+            ):
+                calls.append((scope, agentic_identity))
+                return VALID_TEST_TOKEN
+
+        credentials = TokenCredentials(
+            client_id="blueprint-client-id",
+            token=Provider(),
+            tenant_id="credential-tenant-id",
+        )
+        manager = TokenManager(credentials=credentials)
+
+        token = await manager.get_agentic_identity_token(
+            AGENT_BOT_API_SCOPE,
+            AgenticIdentity(agentic_app_blueprint_id="blueprint-id"),
+        )
+
+        assert token is not None
+        assert str(token) == VALID_TEST_TOKEN
+        assert calls == [
+            (
+                AGENT_BOT_API_SCOPE,
+                AgenticIdentity(
+                    agentic_app_blueprint_id="blueprint-id",
+                    tenant_id="credential-tenant-id",
+                ),
+            )
+        ]
+
+    @pytest.mark.asyncio
     async def test_agentic_identity_token_falls_back_to_agentic_user_provider(self):
         calls = []
 

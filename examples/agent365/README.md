@@ -2,6 +2,12 @@
 
 Demonstrates scoping Teams API clients with `AgenticIdentity`.
 
+`AgenticIdentity` is the SDK operation/request/proactive scope. It always has
+an `agentic_app_blueprint_id`; `agentic_app_id` and `agentic_user_id` are added
+only for flows that need a concrete app-backed or user-backed token. Lifecycle
+handlers and explicit token helpers stay agentic-user/app-specific where the
+service behavior is specific.
+
 ## Reactive Echo
 
 `src/main.py` mimics the echo example. Incoming messages are handled normally; the inbound service URL and agentic identity are carried by the context/API layer.
@@ -16,7 +22,7 @@ uv run --project examples/agent365 python src/main.py
 
 ## Proactive API Send
 
-`src/proactive.py` shows both `app.send(..., agentic_identity=...)` and a scoped lower-level conversation activity API client. In both cases the API layer asks the auth provider for the right Agent ID token and uses it in the request header.
+`src/proactive.py` shows both `app.send(..., agentic_identity=...)` and a scoped lower-level conversation activity API client. This user-backed sample passes `agentic_app_id` and `agentic_user_id` because that token flow needs both IDs; the blueprint ID comes from `CLIENT_ID` unless explicitly overridden in code.
 
 ```bash
 export CLIENT_ID=<agentic-app-blueprint-id>

@@ -206,44 +206,8 @@ class TokenManager:
         caller_name: str | None = None,
     ) -> Optional[TokenProtocol]:
         """Get a resource token for an AgenticIdentity."""
-        if not agentic_identity.agentic_app_id:
-            raise ValueError("agentic_identity.agentic_app_id is required to get an agentic identity token")
-        agentic_app_id = agentic_identity.agentic_app_id
-
         credentials = self._credentials
-        if isinstance(credentials, TokenCredentials):
-            tenant_id = self._resolve_tenant_id(agentic_identity.tenant_id, None)
-            if tenant_id is None:
-                raise ValueError("tenant_id is required to get an agentic identity token")
-            resolved_agentic_identity = (
-                agentic_identity
-                if agentic_identity.tenant_id == tenant_id
-                else replace(agentic_identity, tenant_id=tenant_id)
-            )
-
-            provider = credentials.token
-            if isinstance(provider, AgenticIdentityTokenProviderProtocol):
-                result = provider.get_agentic_identity_token(scope, resolved_agentic_identity)
-                return await self._to_provider_token(result)
-            if not resolved_agentic_identity.agentic_user_id:
-                raise ValueError(
-                    "agentic_identity.agentic_user_id is required to mint a user-backed agentic identity token"
-                )
-            agentic_user_id = resolved_agentic_identity.agentic_user_id
-            return await self.get_agentic_user_token(
-                scope,
-                agentic_app_id,
-                agentic_user_id,
-                resolved_agentic_identity.tenant_id,
-                caller_name=caller_name,
-            )
-
-        if not agentic_identity.agentic_user_id:
-            raise ValueError(
-                "agentic_identity.agentic_user_id is required to mint a user-backed agentic identity token"
-            )
-        agentic_user_id = agentic_identity.agentic_user_id
-        if self._credentials is None:
+        if credentials is None:
             if caller_name:
                 logger.debug(f"No credentials provided for {caller_name}")
             return None
@@ -257,12 +221,41 @@ class TokenManager:
             else replace(agentic_identity, tenant_id=tenant_id)
         )
 
+        if isinstance(credentials, TokenCredentials):
+            provider = credentials.token
+            if isinstance(provider, AgenticIdentityTokenProviderProtocol):
+                result = provider.get_agentic_identity_token(scope, resolved_agentic_identity)
+                return await self._to_provider_token(result)
+            if not resolved_agentic_identity.agentic_app_id:
+                raise ValueError(
+                    "agentic_identity.agentic_app_id is required to mint a user-backed agentic identity token"
+                )
+            if not resolved_agentic_identity.agentic_user_id:
+                raise ValueError(
+                    "agentic_identity.agentic_user_id is required to mint a user-backed agentic identity token"
+                )
+            agentic_app_id = resolved_agentic_identity.agentic_app_id
+            agentic_user_id = resolved_agentic_identity.agentic_user_id
+            return await self.get_agentic_user_token(
+                scope,
+                agentic_app_id,
+                agentic_user_id,
+                resolved_agentic_identity.tenant_id,
+                caller_name=caller_name,
+            )
+
+        if not resolved_agentic_identity.agentic_app_id:
+            raise ValueError("agentic_identity.agentic_app_id is required to mint a user-backed agentic identity token")
+        if not resolved_agentic_identity.agentic_user_id:
+            raise ValueError(
+                "agentic_identity.agentic_user_id is required to mint a user-backed agentic identity token"
+            )
         if not isinstance(credentials, ClientCredentials):
             raise ValueError("User-backed AgenticIdentity tokens require ClientCredentials")
         return await self.get_agentic_user_token(
             scope,
-            agentic_app_id,
-            agentic_user_id,
+            resolved_agentic_identity.agentic_app_id,
+            resolved_agentic_identity.agentic_user_id,
             tenant_id,
             caller_name=caller_name or "get_agentic_identity_token",
         )
