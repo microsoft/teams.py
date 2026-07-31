@@ -121,6 +121,10 @@ Available test apps for development and validation:
 2. **Run affected tests**: `pytest packages/[package-name]` for specific package (or `uv run pytest packages/[package-name]`)
 3. **Validate with test app**: Use `examples/echo` for basic functionality validation (starts a blocking server process)
 
+### Test Quality
+- Tests should be thoughtfully created to exercise the intended purpose, not just to turn green. When possible, do red-green tests: confirm the test fails when the behavior is wrong and passes when it is right, so it actually guards the behavior it claims to.
+- Consider mocking carefully. The goal is to guard against regressions for the intended behavior, so mocks should mirror the real contract (types, shapes, and edge values like `None`) rather than a simplified stand-in that a broken implementation could still satisfy.
+
 ### Debugging and Development
 - **Logging**: Apps provide structured logging for debugging
 - **Hot reload**: No hot reload - restart apps after changes
