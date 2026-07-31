@@ -16,6 +16,7 @@ from .http_stream import HttpStream
 from .options import AppOptions
 from .plugins import *  # noqa: F401, F403
 from .routing import ActivityContext
+from .token_provider import AppTokenProvider
 from .utils.thread import to_threaded_conversation_id
 
 logging.getLogger(__name__).addHandler(logging.NullHandler())
@@ -29,6 +30,7 @@ __all__: list[str] = [
     "FastAPIAdapter",
     "HttpStream",
     "ActivityContext",
+    "AppTokenProvider",
     "to_threaded_conversation_id",
 ]
 __all__.extend(auth.__all__)

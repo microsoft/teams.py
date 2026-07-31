@@ -6,13 +6,13 @@ Licensed under the MIT License.
 from __future__ import annotations
 
 import inspect
-from typing import TYPE_CHECKING, Any, Awaitable, Literal, Optional, Union, cast
+from typing import TYPE_CHECKING, Literal, Optional, Union
 
 from microsoft_teams.api.auth.credentials import ClientCredentials
 from microsoft_teams.common.http import Client, ClientOptions
 from pydantic import BaseModel
 
-from ...auth import Credentials, TokenCredentials
+from ...auth import Credentials, TokenCredentials, TokenProviderProtocol, TokenResult
 from ...auth.cloud_environment import PUBLIC
 from ..api_client_settings import ApiClientSettings, merge_api_client_settings
 from ..base_client import BaseClient
@@ -77,9 +77,7 @@ class BotTokenClient(BaseClient):
             The bot token response.
         """
         if isinstance(credentials, TokenCredentials):
-            token = self._call_token_provider(credentials, self._cloud.bot_scope)
-            if inspect.isawaitable(token):
-                token = await token
+            token = await self._get_token_provider_value(credentials, self._cloud.bot_scope)
 
             return GetBotTokenResponse(
                 token_type="Bearer",
@@ -115,9 +113,7 @@ class BotTokenClient(BaseClient):
             The bot token response.
         """
         if isinstance(credentials, TokenCredentials):
-            token = self._call_token_provider(credentials, self._cloud.graph_scope)
-            if inspect.isawaitable(token):
-                token = await token
+            token = await self._get_token_provider_value(credentials, self._cloud.graph_scope)
 
             return GetBotTokenResponse(
                 token_type="Bearer",
@@ -143,29 +139,15 @@ class BotTokenClient(BaseClient):
 
         return GetBotTokenResponse.model_validate(res.json())
 
-    def _call_token_provider(self, credentials: TokenCredentials, scope: str) -> str | Awaitable[str]:
-        token_provider = cast(Any, credentials.token)
-        try:
-            parameters = list(inspect.signature(token_provider).parameters.values())
-        except (TypeError, ValueError):
-            return cast(str | Awaitable[str], token_provider(scope, credentials.tenant_id))
+    async def _get_token_provider_value(self, credentials: TokenCredentials, scope: str) -> str:
+        result = self._call_token_provider(credentials, scope)
+        token = await result if inspect.isawaitable(result) else result
+        if token is None:
+            raise ValueError("Token provider returned no app token.")
+        return str(token)
 
-        accepts_agentic_user = any(
-            parameter.kind == inspect.Parameter.VAR_KEYWORD or parameter.name == "agentic_user"
-            for parameter in parameters
-        )
-        if accepts_agentic_user:
-            return cast(str | Awaitable[str], token_provider(scope, credentials.tenant_id, agentic_user=None))
-
-        positional_parameters = [
-            parameter
-            for parameter in parameters
-            if parameter.kind in (inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD)
-        ]
-        required_positional_parameters = [
-            parameter for parameter in positional_parameters if parameter.default is inspect.Parameter.empty
-        ]
-        if len(required_positional_parameters) >= 3:
-            return cast(str | Awaitable[str], token_provider(scope, credentials.tenant_id, None))
-
-        return cast(str | Awaitable[str], token_provider(scope, credentials.tenant_id))
+    def _call_token_provider(self, credentials: TokenCredentials, scope: str) -> TokenResult:
+        token_provider = credentials.token
+        if isinstance(token_provider, TokenProviderProtocol):
+            return token_provider.get_app_token(scope, credentials.tenant_id)
+        return token_provider(scope, credentials.tenant_id)

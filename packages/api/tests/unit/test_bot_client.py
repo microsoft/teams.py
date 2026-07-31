@@ -51,9 +51,40 @@ class TestBotClient:
         assert response.expires_in == -1
 
     @pytest.mark.asyncio
-    async def test_bot_token_get_with_uninspectable_token_provider_signature(self, mock_http_client):
-        from unittest.mock import patch
+    @pytest.mark.parametrize("method_name", ["get", "get_graph"])
+    async def test_bot_token_get_with_named_token_provider(self, mock_http_client, method_name):
+        calls = []
 
+        class NamedTokenProvider:
+            async def get_app_token(self, scope, tenant_id):
+                calls.append((scope, tenant_id))
+                return "named-token"
+
+        credentials = TokenCredentials(client_id="client-id", tenant_id="tenant-id", token=NamedTokenProvider())
+        client = BotClient(mock_http_client)
+
+        response = await getattr(client.token, method_name)(credentials)
+
+        expected_scope = (
+            "https://api.botframework.com/.default" if method_name == "get" else "https://graph.microsoft.com/.default"
+        )
+        assert response.access_token == "named-token"
+        assert calls == [(expected_scope, "tenant-id")]
+
+    @pytest.mark.asyncio
+    async def test_bot_token_get_rejects_empty_named_token(self, mock_http_client):
+        class EmptyTokenProvider:
+            def get_app_token(self, scope, tenant_id):
+                return None
+
+        credentials = TokenCredentials(client_id="client-id", token=EmptyTokenProvider())
+        client = BotClient(mock_http_client)
+
+        with pytest.raises(ValueError, match="returned no app token"):
+            await client.token.get(credentials)
+
+    @pytest.mark.asyncio
+    async def test_bot_token_get_with_callable_provider(self, mock_http_client):
         calls = []
 
         def token_provider(scope, tenant_id):
@@ -63,43 +94,10 @@ class TestBotClient:
         credentials = TokenCredentials(client_id="client-id", tenant_id="tenant-id", token=token_provider)
         client = BotClient(mock_http_client)
 
-        with patch("inspect.signature", side_effect=ValueError("no signature")):
-            response = await client.token.get(credentials)
+        response = await client.token.get(credentials)
 
         assert response.access_token == "token"
         assert calls == [("https://api.botframework.com/.default", "tenant-id")]
-
-    @pytest.mark.asyncio
-    async def test_bot_token_get_with_positional_agentic_user_provider(self, mock_http_client):
-        calls = []
-
-        def token_provider(scope, tenant_id, agentic_user):
-            calls.append((scope, tenant_id, agentic_user))
-            return "token"
-
-        credentials = TokenCredentials(client_id="client-id", tenant_id="tenant-id", token=token_provider)
-        client = BotClient(mock_http_client)
-
-        response = await client.token.get(credentials)
-
-        assert response.access_token == "token"
-        assert calls == [("https://api.botframework.com/.default", "tenant-id", None)]
-
-    @pytest.mark.asyncio
-    async def test_bot_token_get_with_optional_third_argument_uses_default(self, mock_http_client):
-        calls = []
-
-        def token_provider(scope, tenant_id, timeout=30):
-            calls.append((scope, tenant_id, timeout))
-            return "token"
-
-        credentials = TokenCredentials(client_id="client-id", tenant_id="tenant-id", token=token_provider)
-        client = BotClient(mock_http_client)
-
-        response = await client.token.get(credentials)
-
-        assert response.access_token == "token"
-        assert calls == [("https://api.botframework.com/.default", "tenant-id", 30)]
 
     @pytest.mark.asyncio
     async def test_bot_sign_in_get_url(self, mock_http_client):
@@ -124,20 +122,20 @@ class TestBotClient:
         assert response.token_exchange_resource is not None
 
     @pytest.mark.asyncio
-    async def test_bot_sign_in_uses_auth_provider_for_bot_token(self, request_capture):
+    async def test_bot_sign_in_uses_token_provider_for_bot_token(self, request_capture):
         calls = []
 
-        class TestAuthProvider:
-            def token(self, *, scope=None, agentic_user=None):
-                calls.append((scope, agentic_user))
+        class TestTokenProvider:
+            def get_app_token(self, scope, tenant_id=None):
+                calls.append((scope, tenant_id))
                 return "bot-token"
 
-        client = ApiClient("https://test.service.url", request_capture, auth_provider=TestAuthProvider())
+        client = ApiClient("https://test.service.url", request_capture, token_provider=TestTokenProvider())
         params = GetBotSignInResourceParams(state="test_state", code_challenge="test_challenge")
 
         await client.bots.sign_in.get_resource(params)
 
-        assert calls == [(None, None)]
+        assert calls == [("https://api.botframework.com/.default", None)]
         request = request_capture._capture.last_request
         assert request.headers["authorization"] == "Bearer bot-token"
 

@@ -10,6 +10,8 @@ from .cloud_environment import (
 )
 from .cloud_environment import from_name as config_from_cloud_name
 from .credentials import (
+    AgenticAppInstanceTokenProviderProtocol,
+    AgenticUserTokenProviderProtocol,
     BasicTokenProvider,
     ClientCredentials,
     Credentials,
@@ -17,6 +19,9 @@ from .credentials import (
     ManagedIdentityCredentials,
     TokenCredentials,
     TokenProvider,
+    TokenProviderProtocol,
+    TokenResult,
+    TokenValue,
 )
 from .json_web_token import JsonWebToken, JsonWebTokenPayload
 from .token import TokenProtocol
@@ -25,6 +30,8 @@ __all__ = [
     "CallerIds",
     "CallerType",
     "CloudEnvironment",
+    "AgenticAppInstanceTokenProviderProtocol",
+    "AgenticUserTokenProviderProtocol",
     "BasicTokenProvider",
     "ClientCredentials",
     "config_from_cloud_name",
@@ -33,6 +40,9 @@ __all__ = [
     "ManagedIdentityCredentials",
     "TokenCredentials",
     "TokenProvider",
+    "TokenProviderProtocol",
+    "TokenResult",
+    "TokenValue",
     "TokenProtocol",
     "JsonWebToken",
     "JsonWebTokenPayload",

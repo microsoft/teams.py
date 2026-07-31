@@ -27,7 +27,17 @@ from microsoft_teams.api import (
     TokenProtocol,
     TypingActivity,
 )
-from microsoft_teams.apps import ActivityContext, ActivityEvent, App, AppOptions, Plugin, PluginBase, PluginStartEvent
+from microsoft_teams.api.auth.cloud_environment import PUBLIC
+from microsoft_teams.apps import (
+    ActivityContext,
+    ActivityEvent,
+    App,
+    AppOptions,
+    AppTokenProvider,
+    Plugin,
+    PluginBase,
+    PluginStartEvent,
+)
 from microsoft_teams.apps.events import CoreActivity
 from microsoft_teams.common import Client, ClientOptions
 
@@ -508,6 +518,21 @@ class TestApp:
             res = await app.api.bots.token.get(app.credentials)
             assert token_called is True
             assert res.access_token == "test.jwt.token"
+
+    def test_app_exposes_token_provider(self):
+        app = App(client_id="test-client-id", client_secret="test-secret")
+
+        assert isinstance(app.token_provider, AppTokenProvider)
+        assert not hasattr(app, "_auth_provider")
+
+    @pytest.mark.asyncio
+    async def test_get_graph_token_uses_credentials_tenant(self):
+        app = App(client_id="test-client-id", client_secret="test-secret", tenant_id="credentials-tenant")
+
+        with patch.object(app.token_provider, "get_app_token", autospec=True, return_value=None) as get_app_token:
+            await app._get_graph_token()
+
+        get_app_token.assert_awaited_once_with(PUBLIC.graph_scope, "credentials-tenant")
 
     def test_middleware_registration(self, app_with_options: App) -> None:
         """Test that middleware is registered correctly using app.use()."""

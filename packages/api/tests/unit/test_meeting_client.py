@@ -8,6 +8,7 @@ from unittest.mock import AsyncMock, patch
 
 import httpx
 import pytest
+from microsoft_teams.api.auth.cloud_environment import PUBLIC
 from microsoft_teams.api.clients import ApiClient
 from microsoft_teams.api.clients.meeting import MeetingClient
 from microsoft_teams.api.models import (
@@ -20,6 +21,14 @@ from microsoft_teams.api.models import (
     MeetingParticipant,
 )
 from microsoft_teams.common.http import Client, ClientOptions
+
+
+class _TokenProviderAdapter:
+    def get_app_token(self, scope: str, tenant_id: str | None = None):
+        return self.token(scope=scope, agentic_user=None)
+
+    def get_agentic_user_token(self, scope: str, agentic_user: AgenticUser):
+        return self.token(scope=scope, agentic_user=agentic_user)
 
 
 @pytest.mark.unit
@@ -107,35 +116,35 @@ class TestMeetingClient:
         )
 
     @pytest.mark.asyncio
-    async def test_get_by_id_uses_auth_provider_for_bot_token(self, mock_http_client):
+    async def test_get_by_id_uses_token_provider_for_bot_token(self, mock_http_client):
         calls = []
 
-        class TestAuthProvider:
+        class TestTokenProvider(_TokenProviderAdapter):
             def token(self, *, scope=None, agentic_user=None):
                 calls.append((scope, agentic_user))
                 return "bot-token"
 
-        client = ApiClient("https://test.service.url", mock_http_client, auth_provider=TestAuthProvider()).meetings
+        client = ApiClient("https://test.service.url", mock_http_client, token_provider=TestTokenProvider()).meetings
         await client.get_by_id("meeting-id")
 
-        assert calls == [(None, None)]
+        assert calls == [(PUBLIC.bot_scope, None)]
 
     @pytest.mark.asyncio
     async def test_get_participant_uses_agentic_user(self, mock_http_client):
         calls = []
 
-        class TestAuthProvider:
+        class TestTokenProvider(_TokenProviderAdapter):
             def token(self, *, scope=None, agentic_user=None):
                 calls.append((scope, agentic_user))
                 return "agentic-user-token"
 
         identity = AgenticUser("agentic-app-instance-id", "agentic-user-id", tenant_id="tenant-id")
         client = ApiClient(
-            "https://test.service.url", mock_http_client, auth_provider=TestAuthProvider(), agentic_user=identity
+            "https://test.service.url", mock_http_client, token_provider=TestTokenProvider(), agentic_user=identity
         ).meetings
         await client.get_participant("meeting-id", "participant-id", "tenant-id")
 
-        assert calls == [(None, identity)]
+        assert calls == [(PUBLIC.agent_bot_scope, identity)]
 
     def test_http_client_property(self, mock_http_client):
         """Test HTTP client property getter and setter."""
