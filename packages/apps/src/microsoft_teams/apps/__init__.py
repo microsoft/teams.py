@@ -17,6 +17,18 @@ from .options import AppOptions, AppTelemetryOptions
 from .plugins import *  # noqa: F401, F403
 from .routing import ActivityContext
 from .token_provider import AppTokenProvider
+from .utils.html_widget import (
+    DisplayMode,
+    HtmlWidgetMarkdownOptions,
+    InjectWidgetProtocolOptions,
+    SecurityPolicyWarning,
+    WidgetNotification,
+    build_html_widget_markdown,
+    build_html_widget_message,
+    inject_widget_protocol,
+    try_get_widget_model_context,
+    validate_security_policy,
+)
 from .utils.thread import to_threaded_conversation_id
 
 logging.getLogger(__name__).addHandler(logging.NullHandler())
@@ -33,6 +45,16 @@ __all__: list[str] = [
     "ActivityContext",
     "AppTokenProvider",
     "to_threaded_conversation_id",
+    "build_html_widget_markdown",
+    "build_html_widget_message",
+    "inject_widget_protocol",
+    "try_get_widget_model_context",
+    "validate_security_policy",
+    "HtmlWidgetMarkdownOptions",
+    "InjectWidgetProtocolOptions",
+    "SecurityPolicyWarning",
+    "WidgetNotification",
+    "DisplayMode",
 ]
 __all__.extend(auth.__all__)
 __all__.extend(diagnostics.__all__)
