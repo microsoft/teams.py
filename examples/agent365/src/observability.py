@@ -11,6 +11,8 @@ from microsoft_teams.apps import AppTokenProvider
 from opentelemetry import trace
 from opentelemetry.sdk.trace import TracerProvider
 
+# OAuth scope for the first-party Agent365 observability service. Override it
+# with A365_OBSERVABILITY_SCOPE_OVERRIDE for a different observability resource.
 OBSERVABILITY_SCOPE = os.getenv(
     "A365_OBSERVABILITY_SCOPE_OVERRIDE",
     "api://9b975845-388f-4429-889e-eab1ef63949c/.default",

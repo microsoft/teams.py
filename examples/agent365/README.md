@@ -1,6 +1,7 @@
 # Agent365 OpenTelemetry
 
-Demonstrates Agent365 observability for reactive Teams turns and proactive sends.
+Demonstrates Agent365 observability for reactive Teams turns and proactive sends. For background on the
+underlying telemetry model, see the [OpenTelemetry documentation](https://opentelemetry.io/docs/).
 
 The Teams SDK owns Teams spans, metrics, token acquisition, and Agent365-compatible baggage. The app host owns the Microsoft OpenTelemetry distro, exporter configuration, and Agent365 operation scopes.
 
