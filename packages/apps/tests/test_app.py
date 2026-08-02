@@ -985,6 +985,9 @@ class TestApp:
         )
 
         assert identity.agentic_app_blueprint_id == "explicit-blueprint-id"
+        assert identity.agentic_app_id == "agentic-app-id"
+        assert identity.agentic_user_id == "agentic-user-id"
+        assert identity.tenant_id == "tenant-id"
 
     def test_get_agentic_identity_defaults_blueprint_id_to_client_id(self, mock_storage) -> None:
         """When agentic_app_blueprint_id is omitted, it should default to the app's client id."""
@@ -999,6 +1002,21 @@ class TestApp:
 
         assert identity.agentic_app_blueprint_id == app.id
         assert identity.agentic_app_blueprint_id == "test-client-id"
+
+    def test_get_agentic_identity_allows_nullable_agentic_app_id(self, mock_storage) -> None:
+        options = AppOptions(storage=mock_storage, client_id="test-client-id", client_secret="test-secret")
+        app = App(**options)
+
+        identity = app.get_agentic_identity(
+            agentic_user_id="agentic-user-id",
+            tenant_id="tenant-id",
+            agentic_app_blueprint_id="blueprint-id",
+        )
+
+        assert identity.agentic_app_blueprint_id == "blueprint-id"
+        assert identity.agentic_app_id is None
+        assert identity.agentic_user_id == "agentic-user-id"
+        assert identity.tenant_id == "tenant-id"
 
 
 class TestAppInitialize:
