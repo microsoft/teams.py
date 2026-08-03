@@ -159,7 +159,7 @@ extends:
               # Always use internal feed for dependency resolution (avoids firewall issues on 1ES pool)
               $env:UV_INDEX_URL = "https://build:$($env:SYSTEM_ACCESSTOKEN)@pkgs.dev.azure.com/DomoreexpGithub/Github_Pipelines/_packaging/TeamsSDKPreviews/pypi/simple/"
               Write-Host "Using authenticated Azure Artifacts feed"
-              uv sync --locked --python $pythonPath --all-packages --group dev
+              uv sync --frozen --python $pythonPath --all-packages --group dev
           env:
             SYSTEM_ACCESSTOKEN: $(System.AccessToken)
           target:
