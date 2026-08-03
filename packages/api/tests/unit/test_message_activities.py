@@ -372,12 +372,15 @@ class TestMessageActivity:
         """Test adding stream final with existing channel data"""
         activity = self.create_message_activity()
         activity.id = "stream-msg-456"
-        activity.channel_data = ChannelData()
+        activity.channel_data = ChannelData(stream_sequence=3)
 
         activity.add_stream_final()
 
-        # Should use existing channel data
         assert activity.channel_data is not None
+        assert activity.channel_data.stream_sequence is None
+        data = activity.model_dump(by_alias=True, exclude_none=True)
+        assert "streamSequence" not in data["channelData"]
+        assert "streamSequence" not in data["entities"][0]
 
     def test_complex_message_building(self):
         """Test building a complex message with multiple features"""

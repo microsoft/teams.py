@@ -316,6 +316,8 @@ class MessageActivityInput(_MessageBase, ActivityInputBase):
             self.channel_data.stream_id = self.id
         if hasattr(self.channel_data, "stream_type"):
             self.channel_data.stream_type = "final"
+        if hasattr(self.channel_data, "stream_sequence"):
+            self.channel_data.stream_sequence = None
 
         # Add stream info entity
         stream_entity = StreamInfoEntity(type="streaminfo", stream_id=self.id, stream_type="final")
