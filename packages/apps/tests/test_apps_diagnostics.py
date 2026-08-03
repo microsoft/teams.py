@@ -245,11 +245,11 @@ def test_sdk_source_does_not_import_microsoft_otel_or_agents_sdk():
     )
 
     for source_file in packages_dir.glob("*/src/**/*.py"):
-        source = source_file.read_text()
+        source = source_file.read_text(encoding="utf-8")
         assert not any(forbidden in source for forbidden in forbidden_imports), source_file
 
     for pyproject_file in packages_dir.glob("*/pyproject.toml"):
-        manifest = pyproject_file.read_text()
+        manifest = pyproject_file.read_text(encoding="utf-8")
         assert "microsoft-opentelemetry" not in manifest
         assert "microsoft-agents" not in manifest
 
