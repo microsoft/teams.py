@@ -162,6 +162,7 @@ The CI pipeline (`.github/workflows/ci.yml`) runs:
 - **ALWAYS activate virtual environment or use uv run** before running Python commands
 - **ALWAYS validate with a test app** after making changes to core packages
 - **ALWAYS run pre-commit validation** (`poe check && pyright`) before committing
+- **KEEP filesystem code and tests cross-platform** - Release validation runs on Windows and Linux. Use `pathlib` or path APIs, specify text encodings explicitly (normally UTF-8), and avoid locale-specific or Unix-only filesystem behavior.
 - **NEVER skip manual testing** - Automated tests don't cover integration scenarios
 
 ## Repository Quick Reference
