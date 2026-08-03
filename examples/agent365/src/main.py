@@ -51,15 +51,16 @@ def _log_lifecycle_envelope(activity: AgentLifecycleEventActivity, handler_name:
         activity.value.event_type,
         activity.channel_id,
         activity.from_.id,
-        activity.recipient.agentic_user,
+        activity.recipient.agentic_identity,
     )
     logger.info(
-        "[Agent365 lifecycle:%s] tenant_id=%s agentic_user_id=%s app_instance_id=%s blueprint_id=%s version=%s",
+        "[Agent365 lifecycle:%s] tenant_id=%s agentic_user_id=%s agentic_app_instance_id=%s "
+        "agent_identity_blueprint_id=%s version=%s",
         handler_name,
         activity.value.tenant_id,
         activity.value.agentic_user_id,
         activity.value.agentic_app_instance_id,
-        activity.value.agentic_blueprint_id,
+        activity.value.agent_identity_blueprint_id,
         activity.value.version,
     )
 
@@ -144,7 +145,7 @@ async def handle_agentic_user_workload_onboarding_updated(
 
 @app.on_message
 async def handle_message(ctx: ActivityContext[MessageActivity]):
-    """Echo incoming messages using the inbound AgenticUser when present."""
+    """Echo incoming messages using the inbound AgenticIdentity when present."""
     logger.info(
         "[Agent365 reactive] activity_id=%s conversation_id=%s from_id=%s recipient_id=%s",
         ctx.activity.id,
@@ -153,16 +154,16 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
         ctx.activity.recipient.id,
     )
 
-    agentic_user = ctx.activity.recipient.agentic_user
-    if agentic_user is None or agentic_user.tenant_id is None:
-        logger.warning("No Agent365 user on the activity; handling without an InvokeAgent scope")
+    agentic_identity = ctx.activity.recipient.agentic_identity
+    if agentic_identity is None or agentic_identity.agentic_app_id is None or agentic_identity.tenant_id is None:
+        logger.warning("No complete Agent365 identity on the activity; handling without an InvokeAgent scope")
         await _handle_message(ctx)
         return
 
     await token_cache.refresh(
         app.token_provider,
-        agentic_user.agentic_app_instance_id,
-        agentic_user.tenant_id,
+        agentic_identity.agentic_app_id,
+        agentic_identity.tenant_id,
     )
     parsed_service_url = urlparse(ctx.activity.service_url or "")
     endpoint = (
@@ -174,10 +175,10 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
         Request(conversation_id=ctx.activity.conversation.id),
         InvokeAgentScopeDetails(endpoint=endpoint),
         AgentDetails(
-            agent_id=agentic_user.agentic_app_instance_id,
-            agentic_user_id=agentic_user.agentic_user_id,
-            agent_blueprint_id=agentic_user.agentic_blueprint_id,
-            tenant_id=agentic_user.tenant_id,
+            agent_id=agentic_identity.agentic_app_id,
+            agentic_user_id=agentic_identity.agentic_user_id,
+            agent_blueprint_id=agentic_identity.agentic_app_blueprint_id,
+            tenant_id=agentic_identity.tenant_id,
         ),
     ):
         await _handle_message(ctx)

@@ -10,7 +10,7 @@ from .cloud_environment import (
 )
 from .cloud_environment import from_name as config_from_cloud_name
 from .credentials import (
-    AgenticAppInstanceTokenProviderProtocol,
+    AgenticAppTokenProviderProtocol,
     AgenticUserTokenProviderProtocol,
     BasicTokenProvider,
     ClientCredentials,
@@ -30,7 +30,7 @@ __all__ = [
     "CallerIds",
     "CallerType",
     "CloudEnvironment",
-    "AgenticAppInstanceTokenProviderProtocol",
+    "AgenticAppTokenProviderProtocol",
     "AgenticUserTokenProviderProtocol",
     "BasicTokenProvider",
     "ClientCredentials",

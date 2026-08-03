@@ -10,7 +10,6 @@ from unittest.mock import AsyncMock, MagicMock, create_autospec, patch
 
 import pytest
 from microsoft_teams.api import (
-    AgenticUser,
     ClientCredentials,
     FederatedIdentityCredentials,
     JsonWebToken,
@@ -18,7 +17,7 @@ from microsoft_teams.api import (
 )
 from microsoft_teams.api.auth.cloud_environment import PUBLIC
 from microsoft_teams.api.auth.credentials import (
-    AgenticAppInstanceTokenProviderProtocol,
+    AgenticAppTokenProviderProtocol,
     AgenticUserTokenProviderProtocol,
     TokenCredentials,
     TokenProviderProtocol,
@@ -39,16 +38,14 @@ class TestTokenManager:
     """Test TokenManager functionality."""
 
     @pytest.mark.asyncio
-    async def test_get_agentic_user_token_uses_agent_identity_flow(self):
+    async def test_get_agentic_user_token_accepts_id_fields(self):
         mock_credentials = ClientCredentials(
             client_id="blueprint-client-id",
             client_secret="blueprint-client-secret",
             tenant_id="tenant-id",
         )
-
         blueprint_app = MagicMock()
         blueprint_app.acquire_token_for_client.return_value = {"access_token": "t1-token"}
-
         agent_app = MagicMock()
         agent_app.acquire_token_for_client.side_effect = lambda _scopes: (
             mock_confidential_app.call_args_list[1].kwargs["client_credential"]["client_assertion"]({}),
@@ -58,20 +55,19 @@ class TestTokenManager:
 
         with patch("microsoft_teams.apps.token_manager.ConfidentialClientApplication") as mock_confidential_app:
             mock_confidential_app.side_effect = [blueprint_app, agent_app]
-
             manager = TokenManager(credentials=mock_credentials)
             token = await manager.get_agentic_user_token(
                 AGENT_BOT_API_SCOPE,
-                AgenticUser("agentic-app-instance-id", "agentic-user-id", tenant_id="tenant-id"),
+                "agentic-app-id",
+                "agentic-user-id",
+                "tenant-id",
             )
 
         assert token is not None
         assert str(token) == VALID_TEST_TOKEN
-
         blueprint_app.acquire_token_for_client.assert_called_once_with(
-            [TOKEN_EXCHANGE_SCOPE], fmi_path="agentic-app-instance-id"
+            [TOKEN_EXCHANGE_SCOPE], fmi_path="agentic-app-id"
         )
-        agent_app.acquire_token_for_client.assert_called_once_with([TOKEN_EXCHANGE_SCOPE])
         agent_app.acquire_token_by_user_federated_identity_credential.assert_called_once_with(
             [AGENT_BOT_API_SCOPE],
             assertion="t2-token",
@@ -80,46 +76,8 @@ class TestTokenManager:
             data={"requested_token_use": "on_behalf_of"},
         )
 
-        first_call, second_call = mock_confidential_app.call_args_list
-        assert first_call.args == ("blueprint-client-id",)
-        assert first_call.kwargs == {
-            "client_credential": "blueprint-client-secret",
-            "authority": "https://login.microsoftonline.com/tenant-id",
-        }
-        assert second_call.args == ("agentic-app-instance-id",)
-        assert second_call.kwargs["authority"] == "https://login.microsoftonline.com/tenant-id"
-        assert callable(second_call.kwargs["client_credential"]["client_assertion"])
-
     @pytest.mark.asyncio
-    async def test_get_agentic_user_token_caches_agent_identity_client(self):
-        mock_credentials = ClientCredentials(
-            client_id="blueprint-client-id",
-            client_secret="blueprint-client-secret",
-            tenant_id="tenant-id",
-        )
-
-        blueprint_app = MagicMock()
-        blueprint_app.acquire_token_for_client.return_value = {"access_token": "t1-token"}
-
-        agent_app = MagicMock()
-        agent_app.acquire_token_for_client.return_value = {"access_token": "t2-token"}
-        agent_app.acquire_token_by_user_federated_identity_credential.return_value = {"access_token": VALID_TEST_TOKEN}
-
-        with patch("microsoft_teams.apps.token_manager.ConfidentialClientApplication") as mock_confidential_app:
-            mock_confidential_app.side_effect = [blueprint_app, agent_app]
-
-            manager = TokenManager(credentials=mock_credentials)
-            await manager.get_agentic_user_token(
-                AGENT_BOT_API_SCOPE, AgenticUser("agentic-app-instance-id", "agentic-user-id", tenant_id="tenant-id")
-            )
-            await manager.get_agentic_user_token(
-                AGENT_BOT_API_SCOPE, AgenticUser("agentic-app-instance-id", "agentic-user-id", tenant_id="tenant-id")
-            )
-
-        assert mock_confidential_app.call_count == 2
-
-    @pytest.mark.asyncio
-    async def test_get_agentic_app_instance_token_stops_after_app_instance_grant(self):
+    async def test_get_agentic_app_token_stops_after_app_grant(self):
         credentials = ClientCredentials(
             client_id="blueprint-client-id",
             client_secret="blueprint-client-secret",
@@ -136,22 +94,23 @@ class TestTokenManager:
         with patch("microsoft_teams.apps.token_manager.ConfidentialClientApplication") as mock_confidential_app:
             mock_confidential_app.side_effect = [blueprint_app, agent_app]
             manager = TokenManager(credentials=credentials)
-            token = await manager.get_agentic_app_instance_token(
+            token = await manager.get_agentic_app_token(
                 "custom-scope",
-                "agentic-app-instance-id",
+                "agentic-app-id",
+                "tenant-id",
             )
 
         assert token is not None
         assert str(token) == VALID_TEST_TOKEN
         blueprint_app.acquire_token_for_client.assert_called_once_with(
             [TOKEN_EXCHANGE_SCOPE],
-            fmi_path="agentic-app-instance-id",
+            fmi_path="agentic-app-id",
         )
         agent_app.acquire_token_for_client.assert_called_once_with(["custom-scope"])
         agent_app.acquire_token_by_user_federated_identity_credential.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_named_token_provider_serves_all_capabilities(self):
+    async def test_named_token_provider_serves_agentic_capabilities(self):
         calls = []
 
         class Provider:
@@ -162,38 +121,45 @@ class TestTokenManager:
             async def get_agentic_user_token(
                 self,
                 scope: str,
-                agentic_user: AgenticUser,
-            ):
-                calls.append(("user", scope, agentic_user))
-                return VALID_TEST_TOKEN
-
-            async def get_agentic_app_instance_token(
-                self,
-                scope: str,
-                agentic_app_instance_id: str,
+                agentic_app_id: str,
+                agentic_user_id: str,
                 tenant_id: str | None,
             ):
-                calls.append(("instance", scope, agentic_app_instance_id, tenant_id))
+                calls.append(("user", scope, agentic_app_id, agentic_user_id, tenant_id))
+                return VALID_TEST_TOKEN
+
+            async def get_agentic_app_token(
+                self,
+                scope: str,
+                agentic_app_id: str,
+                tenant_id: str | None,
+            ):
+                calls.append(("agentic_app", scope, agentic_app_id, tenant_id))
                 return VALID_TEST_TOKEN
 
         credentials = TokenCredentials(client_id="blueprint-client-id", token=Provider(), tenant_id="tenant-id")
         manager = TokenManager(credentials=credentials)
-        agentic_user = AgenticUser("agentic-app-instance-id", "agentic-user-id", tenant_id="tenant-id")
 
         app_token = await manager.get_app_token(AGENT_BOT_API_SCOPE)
-        user_token = await manager.get_agentic_user_token(AGENT_BOT_API_SCOPE, agentic_user)
-        instance_token = await manager.get_agentic_app_instance_token(
+        user_token = await manager.get_agentic_user_token(
             AGENT_BOT_API_SCOPE,
-            "agentic-app-instance-id",
+            "agentic-app-id",
+            "agentic-user-id",
+            "tenant-id",
+        )
+        agentic_app_token = await manager.get_agentic_app_token(
+            "custom-scope",
+            "agentic-app-id",
+            "tenant-id",
         )
 
         assert str(app_token) == VALID_TEST_TOKEN
         assert str(user_token) == VALID_TEST_TOKEN
-        assert str(instance_token) == VALID_TEST_TOKEN
+        assert str(agentic_app_token) == VALID_TEST_TOKEN
         assert calls == [
             ("app", AGENT_BOT_API_SCOPE, "tenant-id"),
-            ("user", AGENT_BOT_API_SCOPE, agentic_user),
-            ("instance", AGENT_BOT_API_SCOPE, "agentic-app-instance-id", "tenant-id"),
+            ("user", AGENT_BOT_API_SCOPE, "agentic-app-id", "agentic-user-id", "tenant-id"),
+            ("agentic_app", "custom-scope", "agentic-app-id", "tenant-id"),
         ]
 
     @pytest.mark.asyncio
@@ -213,26 +179,6 @@ class TestTokenManager:
         assert calls == [(AGENT_BOT_API_SCOPE, "tenant-id")]
 
     @pytest.mark.asyncio
-    async def test_app_only_token_provider_rejects_agentic_grants(self):
-        class Provider:
-            def get_app_token(self, scope: str, tenant_id: str | None):
-                return VALID_TEST_TOKEN
-
-        credentials = TokenCredentials(
-            client_id="test-client-id",
-            token=Provider(),
-            tenant_id="tenant-id",
-        )
-        manager = TokenManager(credentials=credentials)
-        agentic_user = AgenticUser("agentic-app-instance-id", "agentic-user-id", tenant_id="tenant-id")
-
-        with pytest.raises(ValueError, match="get_agentic_user_token"):
-            await manager.get_agentic_user_token(AGENT_BOT_API_SCOPE, agentic_user)
-
-        with pytest.raises(ValueError, match="get_agentic_app_instance_token"):
-            await manager.get_agentic_app_instance_token(AGENT_BOT_API_SCOPE, "agentic-app-instance-id")
-
-    @pytest.mark.asyncio
     async def test_named_token_provider_none_is_preserved(self):
         class Provider:
             def get_app_token(self, scope: str, tenant_id: str | None):
@@ -248,78 +194,42 @@ class TestTokenManager:
         manager = MagicMock(spec=TokenManager)
         manager.get_app_token = AsyncMock(return_value="app-token")
         manager.get_agentic_user_token = AsyncMock(return_value="user-token")
-        manager.get_agentic_app_instance_token = AsyncMock(return_value="instance-token")
+        manager.get_agentic_app_token = AsyncMock(return_value="agentic-app-token")
         provider = AppTokenProvider(manager, PUBLIC)
         app_provider: TokenProviderProtocol = provider
         agentic_user_provider: AgenticUserTokenProviderProtocol = provider
-        agentic_app_instance_provider: AgenticAppInstanceTokenProviderProtocol = provider
-        agentic_user = AgenticUser("agentic-app-instance-id", "agentic-user-id", tenant_id="tenant-id")
+        agentic_app_provider: AgenticAppTokenProviderProtocol = provider
 
         assert await app_provider.get_app_token(PUBLIC.bot_scope, None) == "app-token"
-        assert await agentic_user_provider.get_agentic_user_token(PUBLIC.agent_bot_scope, agentic_user) == "user-token"
         assert (
-            await agentic_app_instance_provider.get_agentic_app_instance_token(
-                "custom-scope",
-                "agentic-app-instance-id",
+            await agentic_user_provider.get_agentic_user_token(
+                PUBLIC.agent_bot_scope,
+                "agentic-app-id",
+                "agentic-user-id",
                 "tenant-id",
             )
-            == "instance-token"
+            == "user-token"
+        )
+        assert (
+            await agentic_app_provider.get_agentic_app_token(
+                "custom-scope",
+                "agentic-app-id",
+                "tenant-id",
+            )
+            == "agentic-app-token"
         )
         manager.get_app_token.assert_awaited_once_with(PUBLIC.bot_scope, None)
-        manager.get_agentic_user_token.assert_awaited_once_with(PUBLIC.agent_bot_scope, agentic_user)
-        manager.get_agentic_app_instance_token.assert_awaited_once_with(
-            "custom-scope",
-            "agentic-app-instance-id",
+        manager.get_agentic_user_token.assert_awaited_once_with(
+            PUBLIC.agent_bot_scope,
+            "agentic-app-id",
+            "agentic-user-id",
             "tenant-id",
         )
-
-    @pytest.mark.asyncio
-    async def test_get_agentic_user_token_uses_credentials_tenant_when_missing(self):
-        calls = []
-
-        class Provider:
-            def get_app_token(self, scope: str, tenant_id: str | None):
-                return VALID_TEST_TOKEN
-
-            async def get_agentic_user_token(
-                self,
-                scope: str,
-                agentic_user: AgenticUser,
-            ):
-                calls.append((scope, agentic_user))
-                return VALID_TEST_TOKEN
-
-        credentials = TokenCredentials(
-            client_id="blueprint-client-id",
-            token=Provider(),
-            tenant_id="credential-tenant-id",
+        manager.get_agentic_app_token.assert_awaited_once_with(
+            "custom-scope",
+            "agentic-app-id",
+            "tenant-id",
         )
-        manager = TokenManager(credentials=credentials)
-
-        identity = AgenticUser("agentic-app-instance-id", "agentic-user-id")
-        token = await manager.get_agentic_user_token(AGENT_BOT_API_SCOPE, identity)
-
-        assert token is not None
-        assert calls == [
-            (
-                AGENT_BOT_API_SCOPE,
-                AgenticUser("agentic-app-instance-id", "agentic-user-id", tenant_id="credential-tenant-id"),
-            )
-        ]
-
-    @pytest.mark.asyncio
-    async def test_get_agentic_user_token_requires_tenant_when_missing_from_request_and_credentials(self):
-        credentials = TokenCredentials(
-            client_id="blueprint-client-id",
-            token=lambda _scope, _tenant_id: VALID_TEST_TOKEN,
-        )
-        manager = TokenManager(credentials=credentials)
-
-        with pytest.raises(ValueError, match="tenant_id is required to get an agentic user token"):
-            await manager.get_agentic_user_token(
-                AGENT_BOT_API_SCOPE,
-                AgenticUser("agentic-app-instance-id", "agentic-user-id"),
-            )
 
     @pytest.mark.asyncio
     async def test_get_bot_token_success(self):

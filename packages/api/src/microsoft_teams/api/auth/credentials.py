@@ -5,7 +5,7 @@ Licensed under the MIT License.
 
 from typing import Awaitable, Callable, Literal, Optional, Protocol, TypeAlias, Union, runtime_checkable
 
-from ..models import AgenticUser, CustomBaseModel
+from ..models import CustomBaseModel
 from .token import TokenProtocol
 
 TokenScope: TypeAlias = Union[str, list[str]]
@@ -27,23 +27,25 @@ class TokenProviderProtocol(Protocol):
 
 @runtime_checkable
 class AgenticUserTokenProviderProtocol(TokenProviderProtocol, Protocol):
-    """Optional named capability for acquiring Agentic User tokens."""
+    """Optional named capability for acquiring agentic user-scoped tokens."""
 
     def get_agentic_user_token(
         self,
         scope: str,
-        agentic_user: AgenticUser,
+        agentic_app_id: str,
+        agentic_user_id: str,
+        tenant_id: Optional[str],
     ) -> TokenResult: ...
 
 
 @runtime_checkable
-class AgenticAppInstanceTokenProviderProtocol(TokenProviderProtocol, Protocol):
-    """Optional named capability for acquiring Agentic App Instance tokens."""
+class AgenticAppTokenProviderProtocol(TokenProviderProtocol, Protocol):
+    """Optional named capability for acquiring agentic app-scoped tokens."""
 
-    def get_agentic_app_instance_token(
+    def get_agentic_app_token(
         self,
         scope: str,
-        agentic_app_instance_id: str,
+        agentic_app_id: str,
         tenant_id: Optional[str],
     ) -> TokenResult: ...
 

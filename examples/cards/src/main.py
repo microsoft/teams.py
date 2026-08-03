@@ -7,11 +7,16 @@ import asyncio
 import logging
 from datetime import datetime
 
-from microsoft_teams.api import AdaptiveCardInvokeActivity, MessageActivity, MessageActivityInput
+from microsoft_teams.api import AdaptiveCardInvokeActivity, MessageActivity, MessageActivityInput, SearchInvokeActivity
 from microsoft_teams.api.models.adaptive_card import (
     AdaptiveCardActionMessageResponse,
 )
 from microsoft_teams.api.models.invoke_response import AdaptiveCardInvokeResponse
+from microsoft_teams.api.models.search import (
+    SearchInvokeResponseValue,
+    SearchInvokeResult,
+    SearchResponse,
+)
 from microsoft_teams.apps import ActivityContext, App
 from microsoft_teams.cards import (
     ActionSet,
@@ -188,6 +193,55 @@ def create_feedback_card() -> AdaptiveCard:
     return card
 
 
+def create_dynamic_search_card() -> AdaptiveCard:
+    """Create a card with a dynamic typeahead ChoiceSet.
+
+    Instead of static 'choices', the ChoiceSet declares a 'choices.data' Data.Query
+    with a 'dataset'. As the user types, Teams sends an 'application/search' invoke,
+    handled by @app.on_card_search below.
+    """
+    return AdaptiveCard.model_validate(
+        {
+            "type": "AdaptiveCard",
+            "version": "1.5",
+            "body": [
+                {
+                    "type": "TextBlock",
+                    "text": "Pick a Nintendo game (type to search):",
+                    "wrap": True,
+                    "style": "heading",
+                },
+                {
+                    "type": "Input.ChoiceSet",
+                    "id": "game",
+                    "label": "Game",
+                    "placeholder": "Search for a game",
+                    "style": "filtered",
+                    "choices": [],
+                    "choices.data": {"type": "Data.Query", "dataset": "nintendoGames"},
+                },
+            ],
+            "actions": [
+                {"type": "Action.Execute", "title": "Submit", "data": {"action": "submit_game"}},
+            ],
+        }
+    )
+
+
+# The full catalog the typeahead searches over. In a real app this would be a
+# database or API call.
+NINTENDO_GAMES = [
+    "The Legend of Zelda: Tears of the Kingdom",
+    "Super Mario Odyssey",
+    "Animal Crossing: New Horizons",
+    "Metroid Dread",
+    "Splatoon 3",
+    "Mario Kart 8 Deluxe",
+    "Super Smash Bros. Ultimate",
+    "Pikmin 4",
+]
+
+
 @app.on_message_pattern("card")
 async def handle_card_message(ctx: ActivityContext[MessageActivity]):
     """Handle card request messages - specific action routing."""
@@ -273,6 +327,23 @@ async def handle_feedback_card(ctx: ActivityContext[MessageActivity]):
     await ctx.send(card)
 
 
+@app.on_message_pattern("search")
+async def handle_search_card(ctx: ActivityContext[MessageActivity]):
+    """Handle dynamic typeahead search card request messages."""
+    logger.info(f"[SEARCH] Dynamic search card requested by: {ctx.activity.from_}")
+    card = create_dynamic_search_card()
+    await ctx.send(card)
+
+
+@app.on_card_search
+async def handle_search(ctx: ActivityContext[SearchInvokeActivity]) -> SearchResponse:
+    """Handle the 'application/search' invoke from the dynamic typeahead ChoiceSet."""
+    query = (ctx.activity.value.query_text or "").lower()
+    logger.info(f"[SEARCH] query='{query}'")
+    results = [SearchInvokeResult(title=game, value=game) for game in NINTENDO_GAMES if query in game.lower()]
+    return SearchResponse(value=SearchInvokeResponseValue(results=results))
+
+
 @app.on_card_action_execute
 async def handle_all_execute_actions(ctx: ActivityContext[AdaptiveCardInvokeActivity]) -> AdaptiveCardInvokeResponse:
     """Handle all Action.Execute events without specific action routing (global handler)."""
@@ -351,6 +422,19 @@ async def handle_save_profile(ctx: ActivityContext[AdaptiveCardInvokeActivity]) 
         response_text += f"\nLocation: {location}"
 
     await ctx.send(response_text)
+    return AdaptiveCardActionMessageResponse(
+        status_code=200,
+        type="application/vnd.microsoft.activity.message",
+        value="Action processed successfully",
+    )
+
+
+@app.on_card_action_execute("submit_game")
+async def handle_submit_game(ctx: ActivityContext[AdaptiveCardInvokeActivity]) -> AdaptiveCardInvokeResponse:
+    """Handle the dynamic-search card submission."""
+    data = ctx.activity.value.action.data
+    game = data.get("game", "nothing")
+    await ctx.send(f"You picked: {game}")
     return AdaptiveCardActionMessageResponse(
         status_code=200,
         type="application/vnd.microsoft.activity.message",

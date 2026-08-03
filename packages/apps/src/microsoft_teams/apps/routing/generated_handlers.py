@@ -33,6 +33,7 @@ from microsoft_teams.api.activities import (
     ExecuteActionInvokeActivity,
     FileConsentInvokeActivity,
     HandoffActionInvokeActivity,
+    HtmlWidgetCallToolInvokeActivity,
     InstalledActivity,
     InstallUpdateActivity,
     InvokeActivity,
@@ -56,6 +57,7 @@ from microsoft_teams.api.activities import (
     MessageSubmitActionInvokeActivity,
     MessageUpdateActivity,
     ReadReceiptEventActivity,
+    SearchInvokeActivity,
     SignInFailureInvokeActivity,
     SignInTokenExchangeInvokeActivity,
     SignInVerifyStateInvokeActivity,
@@ -68,8 +70,10 @@ from microsoft_teams.api.activities import (
 from microsoft_teams.api.models.invoke_response import (
     AdaptiveCardInvokeResponse,
     ConfigInvokeResponse,
+    HtmlWidgetCallToolResponse,
     MessagingExtensionActionInvokeResponse,
     MessagingExtensionInvokeResponse,
+    SearchInvokeResponse,
     TabInvokeResponse,
     TaskModuleInvokeResponse,
     TokenExchangeInvokeResponseType,
@@ -895,7 +899,9 @@ class GeneratedActivityHandlerMixin(ABC):
     ) -> BasicHandlerUnion[AgenticUserEnabledActivity]:
         """Register a agentic_user_enabled activity handler."""
 
-        def decorator(func: BasicHandler[AgenticUserEnabledActivity]) -> BasicHandler[AgenticUserEnabledActivity]:
+        def decorator(
+            func: BasicHandler[AgenticUserEnabledActivity],
+        ) -> BasicHandler[AgenticUserEnabledActivity]:
             validate_handler_type(
                 func, AgenticUserEnabledActivity, "on_agentic_user_enabled", "AgenticUserEnabledActivity"
             )
@@ -922,7 +928,9 @@ class GeneratedActivityHandlerMixin(ABC):
     ) -> BasicHandlerUnion[AgenticUserDisabledActivity]:
         """Register a agentic_user_disabled activity handler."""
 
-        def decorator(func: BasicHandler[AgenticUserDisabledActivity]) -> BasicHandler[AgenticUserDisabledActivity]:
+        def decorator(
+            func: BasicHandler[AgenticUserDisabledActivity],
+        ) -> BasicHandler[AgenticUserDisabledActivity]:
             validate_handler_type(
                 func, AgenticUserDisabledActivity, "on_agentic_user_disabled", "AgenticUserDisabledActivity"
             )
@@ -949,7 +957,9 @@ class GeneratedActivityHandlerMixin(ABC):
     ) -> BasicHandlerUnion[AgenticUserDeletedActivity]:
         """Register a agentic_user_deleted activity handler."""
 
-        def decorator(func: BasicHandler[AgenticUserDeletedActivity]) -> BasicHandler[AgenticUserDeletedActivity]:
+        def decorator(
+            func: BasicHandler[AgenticUserDeletedActivity],
+        ) -> BasicHandler[AgenticUserDeletedActivity]:
             validate_handler_type(
                 func, AgenticUserDeletedActivity, "on_agentic_user_deleted", "AgenticUserDeletedActivity"
             )
@@ -976,9 +986,14 @@ class GeneratedActivityHandlerMixin(ABC):
     ) -> BasicHandlerUnion[AgenticUserUndeletedActivity]:
         """Register a agentic_user_undeleted activity handler."""
 
-        def decorator(func: BasicHandler[AgenticUserUndeletedActivity]) -> BasicHandler[AgenticUserUndeletedActivity]:
+        def decorator(
+            func: BasicHandler[AgenticUserUndeletedActivity],
+        ) -> BasicHandler[AgenticUserUndeletedActivity]:
             validate_handler_type(
-                func, AgenticUserUndeletedActivity, "on_agentic_user_undeleted", "AgenticUserUndeletedActivity"
+                func,
+                AgenticUserUndeletedActivity,
+                "on_agentic_user_undeleted",
+                "AgenticUserUndeletedActivity",
             )
             config = ACTIVITY_ROUTES["agentic_user_undeleted"]
             self.router.add_handler(config.selector, func)
@@ -1783,6 +1798,42 @@ class GeneratedActivityHandlerMixin(ABC):
         return decorator
 
     @overload
+    def on_widget_call_tool(
+        self, handler: InvokeHandler[HtmlWidgetCallToolInvokeActivity, HtmlWidgetCallToolResponse]
+    ) -> InvokeHandler[HtmlWidgetCallToolInvokeActivity, HtmlWidgetCallToolResponse]: ...
+
+    @overload
+    def on_widget_call_tool(
+        self,
+    ) -> Callable[
+        [InvokeHandler[HtmlWidgetCallToolInvokeActivity, HtmlWidgetCallToolResponse]],
+        InvokeHandler[HtmlWidgetCallToolInvokeActivity, HtmlWidgetCallToolResponse],
+    ]: ...
+
+    def on_widget_call_tool(
+        self,
+        handler: Optional[InvokeHandler[HtmlWidgetCallToolInvokeActivity, HtmlWidgetCallToolResponse]] = None,
+    ) -> InvokeHandlerUnion[HtmlWidgetCallToolInvokeActivity, HtmlWidgetCallToolResponse]:
+        """Register a widget.call_tool activity handler."""
+
+        def decorator(
+            func: InvokeHandler[HtmlWidgetCallToolInvokeActivity, HtmlWidgetCallToolResponse],
+        ) -> InvokeHandler[HtmlWidgetCallToolInvokeActivity, HtmlWidgetCallToolResponse]:
+            validate_handler_type(
+                func,
+                HtmlWidgetCallToolInvokeActivity,
+                "on_widget_call_tool",
+                "HtmlWidgetCallToolInvokeActivity",
+            )
+            config = ACTIVITY_ROUTES["widget.call_tool"]
+            self.router.add_handler(config.selector, func)
+            return func
+
+        if handler is not None:
+            return decorator(handler)
+        return decorator
+
+    @overload
     def on_card_action(
         self, handler: InvokeHandler[AdaptiveCardInvokeActivity, AdaptiveCardInvokeResponse]
     ) -> InvokeHandler[AdaptiveCardInvokeActivity, AdaptiveCardInvokeResponse]: ...
@@ -1805,6 +1856,36 @@ class GeneratedActivityHandlerMixin(ABC):
         ) -> InvokeHandler[AdaptiveCardInvokeActivity, AdaptiveCardInvokeResponse]:
             validate_handler_type(func, AdaptiveCardInvokeActivity, "on_card_action", "AdaptiveCardInvokeActivity")
             config = ACTIVITY_ROUTES["card.action"]
+            self.router.add_handler(config.selector, func)
+            return func
+
+        if handler is not None:
+            return decorator(handler)
+        return decorator
+
+    @overload
+    def on_card_search(
+        self, handler: InvokeHandler[SearchInvokeActivity, SearchInvokeResponse]
+    ) -> InvokeHandler[SearchInvokeActivity, SearchInvokeResponse]: ...
+
+    @overload
+    def on_card_search(
+        self,
+    ) -> Callable[
+        [InvokeHandler[SearchInvokeActivity, SearchInvokeResponse]],
+        InvokeHandler[SearchInvokeActivity, SearchInvokeResponse],
+    ]: ...
+
+    def on_card_search(
+        self, handler: Optional[InvokeHandler[SearchInvokeActivity, SearchInvokeResponse]] = None
+    ) -> InvokeHandlerUnion[SearchInvokeActivity, SearchInvokeResponse]:
+        """Register a card.search activity handler."""
+
+        def decorator(
+            func: InvokeHandler[SearchInvokeActivity, SearchInvokeResponse],
+        ) -> InvokeHandler[SearchInvokeActivity, SearchInvokeResponse]:
+            validate_handler_type(func, SearchInvokeActivity, "on_card_search", "SearchInvokeActivity")
+            config = ACTIVITY_ROUTES["card.search"]
             self.router.add_handler(config.selector, func)
             return func
 

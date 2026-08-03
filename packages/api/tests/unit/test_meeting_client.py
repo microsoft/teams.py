@@ -12,7 +12,7 @@ from microsoft_teams.api.auth.cloud_environment import PUBLIC
 from microsoft_teams.api.clients import ApiClient
 from microsoft_teams.api.clients.meeting import MeetingClient
 from microsoft_teams.api.models import (
-    AgenticUser,
+    AgenticIdentity,
     MeetingInfo,
     MeetingNotificationParams,
     MeetingNotificationResponse,
@@ -25,10 +25,34 @@ from microsoft_teams.common.http import Client, ClientOptions
 
 class _TokenProviderAdapter:
     def get_app_token(self, scope: str, tenant_id: str | None = None):
-        return self.token(scope=scope, agentic_user=None)
+        return self.token(scope=scope, agentic_identity=None)
 
-    def get_agentic_user_token(self, scope: str, agentic_user: AgenticUser):
-        return self.token(scope=scope, agentic_user=agentic_user)
+    def get_agentic_user_token(
+        self,
+        scope: str,
+        agentic_app_id: str,
+        agentic_user_id: str,
+        tenant_id: str | None,
+    ):
+        return self.token(
+            scope=scope,
+            agentic_identity=AgenticIdentity(
+                agentic_app_blueprint_id="blueprint-id",
+                agentic_app_id=agentic_app_id,
+                agentic_user_id=agentic_user_id,
+                tenant_id=tenant_id,
+            ),
+        )
+
+    def get_agentic_app_token(self, scope: str, agentic_app_id: str, tenant_id: str | None):
+        return self.token(
+            scope=scope,
+            agentic_identity=AgenticIdentity(
+                agentic_app_blueprint_id="blueprint-id",
+                agentic_app_id=agentic_app_id,
+                tenant_id=tenant_id,
+            ),
+        )
 
 
 @pytest.mark.unit
@@ -120,8 +144,8 @@ class TestMeetingClient:
         calls = []
 
         class TestTokenProvider(_TokenProviderAdapter):
-            def token(self, *, scope=None, agentic_user=None):
-                calls.append((scope, agentic_user))
+            def token(self, *, scope=None, agentic_identity=None):
+                calls.append((scope, agentic_identity))
                 return "bot-token"
 
         client = ApiClient("https://test.service.url", mock_http_client, token_provider=TestTokenProvider()).meetings
@@ -130,17 +154,22 @@ class TestMeetingClient:
         assert calls == [(PUBLIC.bot_scope, None)]
 
     @pytest.mark.asyncio
-    async def test_get_participant_uses_agentic_user(self, mock_http_client):
+    async def test_get_participant_uses_agentic_identity(self, mock_http_client):
         calls = []
 
         class TestTokenProvider(_TokenProviderAdapter):
-            def token(self, *, scope=None, agentic_user=None):
-                calls.append((scope, agentic_user))
+            def token(self, *, scope=None, agentic_identity=None):
+                calls.append((scope, agentic_identity))
                 return "agentic-user-token"
 
-        identity = AgenticUser("agentic-app-instance-id", "agentic-user-id", tenant_id="tenant-id")
+        identity = AgenticIdentity(
+            agentic_app_blueprint_id="blueprint-id",
+            agentic_app_id="agentic-app-id",
+            agentic_user_id="agentic-user-id",
+            tenant_id="tenant-id",
+        )
         client = ApiClient(
-            "https://test.service.url", mock_http_client, token_provider=TestTokenProvider(), agentic_user=identity
+            "https://test.service.url", mock_http_client, token_provider=TestTokenProvider(), agentic_identity=identity
         ).meetings
         await client.get_participant("meeting-id", "participant-id", "tenant-id")
 

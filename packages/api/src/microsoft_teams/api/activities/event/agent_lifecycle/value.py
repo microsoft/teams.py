@@ -12,7 +12,7 @@ from ....models import CustomBaseModel
 
 
 class AgentLifecycleManager(CustomBaseModel):
-    """Manager profile carried by the ``AgenticUserIdentityCreated`` event."""
+    """Manager profile carried by the ``AgenticUserIdentityCreated`` service event."""
 
     user_id: Optional[str] = None
     """The Entra object ID of the manager."""
@@ -32,7 +32,7 @@ class AgentLifecycleManagerRef(CustomBaseModel):
 
 
 class AgentLifecycleUpdatedProperty(CustomBaseModel):
-    """A single property change carried by the ``AgenticUserIdentityUpdated`` event."""
+    """A single property change carried by the ``AgenticUserIdentityUpdated`` service event."""
 
     property_name: str
     """The name of the property that changed (e.g. ``Mail``, ``Alias``, ``UserPrincipalName``)."""
@@ -59,14 +59,14 @@ class AgentLifecycleValueBase(CustomBaseModel):
         validation_alias="agenticAppInstanceId",
         serialization_alias="agenticAppInstanceId",
     )
-    """The concrete agent app instance ID."""
+    """The service-owned agentic app instance ID."""
 
-    agentic_blueprint_id: Optional[str] = Field(
+    agent_identity_blueprint_id: Optional[str] = Field(
         default=None,
         validation_alias="agentIdentityBlueprintId",
         serialization_alias="agentIdentityBlueprintId",
     )
-    """The AgenticBlueprint app ID."""
+    """The service-owned agent identity blueprint ID."""
 
     version: Optional[int] = None
     """Monotonic version of the agentic user state, when provided by the service."""

@@ -1,25 +1,34 @@
 # Agent365 OpenTelemetry
 
-Demonstrates Agent365 observability for reactive Teams turns and proactive sends. For background on the
-underlying telemetry model, see the [OpenTelemetry documentation](https://opentelemetry.io/docs/).
+Demonstrates Agent365 observability for reactive Teams turns and proactive sends using `AgenticIdentity`. For
+background on the underlying telemetry model, see the [OpenTelemetry documentation](https://opentelemetry.io/docs/).
 
-The Teams SDK owns Teams spans, metrics, token acquisition, and Agent365-compatible baggage. The app host owns the Microsoft OpenTelemetry distro, exporter configuration, and Agent365 operation scopes.
+`AgenticIdentity` is the SDK operation/request/proactive scope for the program: it has an
+`agentic_app_blueprint_id`, can include an `agentic_app_id`, and that app can optionally be associated with an
+`agentic_user_id`.
+
+The Teams SDK owns Teams spans, metrics, token acquisition, and Agent365-compatible baggage. The app host owns the
+Microsoft OpenTelemetry distro, exporter configuration, and Agent365 operation scopes.
 
 ## Configuration
 
 ```bash
 cd examples/agent365
 
-export CLIENT_ID=<agentic-blueprint-app-id>
-export CLIENT_SECRET=<agentic-blueprint-secret>
+export CLIENT_ID=<agentic-app-blueprint-id>
+export CLIENT_SECRET=<client-secret>
 export TENANT_ID=<tenant-id>
 ```
 
-`microsoft-opentelemetry` is an example-only dependency. The Teams SDK packages depend only on the standard OpenTelemetry API and do not configure exporters.
+`microsoft-opentelemetry` is an example-only dependency. The Teams SDK packages depend only on the standard
+OpenTelemetry API and do not configure exporters.
 
-`src/observability.py` configures the Agent365 exporter. Python's exporter token resolver is synchronous, so the example refreshes an app-instance token asynchronously through `app.token_provider` before opening an Agent365 scope, then exposes that cached token to the exporter.
+`src/observability.py` configures the Agent365 exporter. Python's exporter token resolver is synchronous, so the
+example refreshes an agentic app token asynchronously through `app.token_provider` before opening an Agent365 scope,
+then exposes that cached token to the exporter.
 
-Sensitive content recording remains disabled. The examples create `InvokeAgentScope` instances without recording message input or output.
+Sensitive content recording remains disabled. The examples create `InvokeAgentScope` instances without recording
+message input or output.
 
 ## Reactive flow
 
@@ -40,26 +49,33 @@ app = App(
 )
 ```
 
-Inbound Agent365 baggage is established before the SDK's root turn span, so the turn, handler, API, auth, and app-created Agent365 spans share the same identity. Identifier fields are included by default; names and email addresses require explicit `include` entries. Set `"agent365": False` to disable the bridge.
+Inbound Agent365 baggage is established before the SDK's root turn span, so the turn, handler, API, auth, and
+app-created Agent365 spans share the same identity. Identifier fields are included by default; names and email
+addresses require explicit `include` entries. Set `"agent365": False` to disable the bridge.
 
 ## Proactive flow
 
 ```bash
 uv run python src/proactive.py \
   <conversation-id> \
-  <agentic-app-instance-id> \
+  <agentic-app-id> \
   <agentic-user-id>
 ```
 
-There is no inbound activity for proactive work. `src/proactive.py` therefore creates a reusable `create_agent365_scope(...)` opener and supplies the per-operation `AgenticUser` and conversation ID. Everything inside that baggage scope, including `InvokeAgentScope`, `app.send`, lower-level API calls, and auth spans, carries the same identity.
+There is no inbound activity for proactive work. `src/proactive.py` therefore creates a reusable
+`create_agent365_scope(...)` opener and supplies the per-operation `AgenticIdentity` and conversation ID. Everything
+inside that baggage scope, including `InvokeAgentScope`, `app.send`, lower-level API calls, and auth spans, carries the
+same identity.
 
-The proactive process explicitly flushes the tracer provider before exit because the Agent365 exporter batches spans.
+The proactive process explicitly flushes the tracer provider in a `finally` block because the Agent365 exporter
+batches spans.
 
 ## Public integration surfaces
 
 - `app.token_provider.get_app_token(...)`
 - `app.token_provider.get_agentic_user_token(...)`
-- `app.token_provider.get_agentic_app_instance_token(...)`
+- `app.token_provider.get_agentic_app_token(...)`
+- `app.get_agentic_identity(...)`
 - `App(telemetry={"agent365": ...})`
 - `agent365_baggage(...)` for low-level/manual scopes
 - `create_agent365_scope(...)` for reusable proactive scopes

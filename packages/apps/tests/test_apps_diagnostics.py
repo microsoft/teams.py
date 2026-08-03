@@ -10,7 +10,7 @@ from unittest.mock import MagicMock, patch
 
 import microsoft_teams.apps as apps
 import pytest
-from microsoft_teams.api import ActivityTypeAdapter, AgenticUser
+from microsoft_teams.api import ActivityTypeAdapter, AgenticIdentity
 from microsoft_teams.apps import (
     TEAMS_BOT_APPLICATION_METER_NAME,
     TEAMS_BOT_APPLICATION_TRACER_NAME,
@@ -185,15 +185,15 @@ def test_create_agent365_scope_maps_proactive_identity_and_restores_context():
         "additional_baggage": {"host.key": "host"},
     }
     open_scope = create_agent365_scope(options)
-    agentic_user = AgenticUser(
-        agentic_app_instance_id="agent-app-1",
+    agentic_identity = AgenticIdentity(
+        agentic_app_id="agent-app-1",
         agentic_user_id="agent-user-1",
         tenant_id="tenant-1",
-        agentic_blueprint_id="blueprint-1",
+        agentic_app_blueprint_id="blueprint-1",
     )
 
     with open_scope(
-        agentic_user=agentic_user,
+        agentic_identity=agentic_identity,
         conversation_id="conv-789",
         user_id="caller-1",
         agent_name="Agent",

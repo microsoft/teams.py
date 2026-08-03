@@ -28,12 +28,12 @@ class Agent365TokenCache:
     async def refresh(
         self,
         token_provider: AppTokenProvider,
-        agentic_app_instance_id: str,
+        agentic_app_id: str,
         tenant_id: str,
     ) -> None:
-        token = await token_provider.get_agentic_app_instance_token(
+        token = await token_provider.get_agentic_app_token(
             OBSERVABILITY_SCOPE,
-            agentic_app_instance_id,
+            agentic_app_id,
             tenant_id,
         )
         value = str(token) if token is not None else None
@@ -41,10 +41,10 @@ class Agent365TokenCache:
             raise RuntimeError(
                 "Agent365 exporter could not mint an app token. Check CLIENT_ID, CLIENT_SECRET, and TENANT_ID."
             )
-        self._tokens[(agentic_app_instance_id, tenant_id)] = value
+        self._tokens[(agentic_app_id, tenant_id)] = value
 
-    def resolve(self, agentic_app_instance_id: str, tenant_id: str) -> str | None:
-        return self._tokens.get((agentic_app_instance_id, tenant_id))
+    def resolve(self, agentic_app_id: str, tenant_id: str) -> str | None:
+        return self._tokens.get((agentic_app_id, tenant_id))
 
 
 def use_agent365_exporter(token_cache: Agent365TokenCache) -> None:

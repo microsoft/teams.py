@@ -3,23 +3,30 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from typing import List, Literal, Optional
+from typing import List, Literal, Optional, Union
 
 from ...models import Account, ActivityBase, ChannelData, CustomBaseModel
 
-ConversationEventType = Literal[
-    "channelCreated",
-    "channelDeleted",
-    "channelRenamed",
-    "channelRestored",
-    "teamArchived",
-    "teamDeleted",
-    "teamHardDeleted",
-    "teamRenamed",
-    "teamRestored",
-    "teamUnarchived",
-    "teamMemberRemoved",
-    "teamMemberAdded",
+ConversationEventType = Union[
+    Literal[
+        "channelCreated",
+        "channelDeleted",
+        "channelRenamed",
+        "channelRestored",
+        "channelShared",
+        "channelUnshared",
+        "channelMemberAdded",
+        "channelMemberRemoved",
+        "teamArchived",
+        "teamDeleted",
+        "teamHardDeleted",
+        "teamRenamed",
+        "teamRestored",
+        "teamUnarchived",
+        "teamMemberRemoved",
+        "teamMemberAdded",
+    ],
+    str,
 ]
 
 
@@ -27,7 +34,13 @@ class ConversationChannelData(ChannelData, CustomBaseModel):
     """Extended ChannelData with event type."""
 
     event_type: Optional[ConversationEventType] = None
-    """The type of event that occurred."""
+    """The type of event that occurred.
+
+    Known values are enumerated by ``ConversationEventType``, which preserves
+    IDE completion for recognized event types while still accepting any string
+    so that unrecognized or newly introduced event types (e.g. from
+    private/shared channels) do not fail validation.
+    """
 
 
 class _ConversationUpdateBase(CustomBaseModel):
