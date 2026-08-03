@@ -4,10 +4,47 @@ Licensed under the MIT License.
 """
 # pyright: basic
 
+from unittest.mock import AsyncMock, patch
+
+import httpx
 import pytest
+from microsoft_teams.api.auth.cloud_environment import PUBLIC
+from microsoft_teams.api.clients import ApiClient
 from microsoft_teams.api.clients.team import TeamClient
-from microsoft_teams.api.models import ChannelInfo, TeamDetails
+from microsoft_teams.api.models import AgenticIdentity, ChannelInfo, TeamDetails
 from microsoft_teams.common.http import Client, ClientOptions
+
+
+class _TokenProviderAdapter:
+    def get_app_token(self, scope: str, tenant_id: str | None = None):
+        return self.token(scope=scope, agentic_identity=None)
+
+    def get_agentic_user_token(
+        self,
+        scope: str,
+        agentic_app_id: str,
+        agentic_user_id: str,
+        tenant_id: str | None,
+    ):
+        return self.token(
+            scope=scope,
+            agentic_identity=AgenticIdentity(
+                agentic_app_blueprint_id="blueprint-id",
+                agentic_app_id=agentic_app_id,
+                agentic_user_id=agentic_user_id,
+                tenant_id=tenant_id,
+            ),
+        )
+
+    def get_agentic_app_token(self, scope: str, agentic_app_id: str, tenant_id: str | None):
+        return self.token(
+            scope=scope,
+            agentic_identity=AgenticIdentity(
+                agentic_app_blueprint_id="blueprint-id",
+                agentic_app_id=agentic_app_id,
+                tenant_id=tenant_id,
+            ),
+        )
 
 
 @pytest.mark.unit
@@ -36,6 +73,74 @@ class TestTeamClient:
 
         assert isinstance(result, list)
         assert all(isinstance(channel, ChannelInfo) for channel in result)
+
+    @pytest.mark.asyncio
+    async def test_team_operations_use_scoped_service_url(self, mock_http_client):
+        client = (
+            ApiClient("https://test.service.url", mock_http_client)
+            .from_service_url("https://override.service.url/")
+            .teams
+        )
+
+        team_response = httpx.Response(
+            200,
+            json={"id": "team-id", "name": "Team"},
+            headers={"content-type": "application/json"},
+        )
+        with patch.object(client.http, "get", new_callable=AsyncMock, return_value=team_response) as mock_get:
+            await client.get_by_id("team-id")
+
+        mock_get.assert_called_once_with("https://override.service.url/v3/teams/team-id")
+
+        conversations_response = httpx.Response(
+            200,
+            json={"conversations": []},
+            headers={"content-type": "application/json"},
+        )
+        with patch.object(
+            client.http, "get", new_callable=AsyncMock, return_value=conversations_response
+        ) as mock_get_conversations:
+            await client.get_conversations("team-id")
+
+        mock_get_conversations.assert_called_once_with(
+            "https://override.service.url/v3/teams/team-id/conversations",
+        )
+
+    @pytest.mark.asyncio
+    async def test_get_by_id_uses_token_provider_for_bot_token(self, mock_http_client):
+        calls = []
+
+        class TestTokenProvider(_TokenProviderAdapter):
+            def token(self, *, scope=None, agentic_identity=None):
+                calls.append((scope, agentic_identity))
+                return "bot-token"
+
+        client = ApiClient("https://test.service.url", mock_http_client, token_provider=TestTokenProvider()).teams
+        await client.get_by_id("team-id")
+
+        assert calls == [(PUBLIC.bot_scope, None)]
+
+    @pytest.mark.asyncio
+    async def test_get_conversations_uses_agentic_identity(self, mock_http_client):
+        calls = []
+
+        class TestTokenProvider(_TokenProviderAdapter):
+            def token(self, *, scope=None, agentic_identity=None):
+                calls.append((scope, agentic_identity))
+                return "agentic-user-token"
+
+        identity = AgenticIdentity(
+            agentic_app_blueprint_id="blueprint-id",
+            agentic_app_id="agentic-app-id",
+            agentic_user_id="agentic-user-id",
+            tenant_id="tenant-id",
+        )
+        client = ApiClient(
+            "https://test.service.url", mock_http_client, token_provider=TestTokenProvider(), agentic_identity=identity
+        ).teams
+        await client.get_conversations("team-id")
+
+        assert calls == [(PUBLIC.agent_bot_scope, identity)]
 
     def test_http_client_property(self, mock_http_client):
         """Test HTTP client property getter and setter."""

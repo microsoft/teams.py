@@ -8,13 +8,14 @@ import asyncio
 import importlib.metadata
 import os
 import re
-from typing import Optional
+from typing import Any, Optional
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
 import pytest
 from microsoft_teams.api import (
     Account,
+    AgenticIdentity,
     ConversationAccount,
     FederatedIdentityCredentials,
     InvokeActivity,
@@ -26,7 +27,17 @@ from microsoft_teams.api import (
     TokenProtocol,
     TypingActivity,
 )
-from microsoft_teams.apps import ActivityContext, ActivityEvent, App, AppOptions, Plugin, PluginBase, PluginStartEvent
+from microsoft_teams.api.auth.cloud_environment import PUBLIC
+from microsoft_teams.apps import (
+    ActivityContext,
+    ActivityEvent,
+    App,
+    AppOptions,
+    AppTokenProvider,
+    Plugin,
+    PluginBase,
+    PluginStartEvent,
+)
 from microsoft_teams.apps.events import CoreActivity
 from microsoft_teams.common import Client, ClientOptions
 
@@ -67,6 +78,29 @@ class FakeToken(TokenProtocol):
 
     def __str__(self) -> str:
         return "FakeToken"
+
+
+def _wire_flat_activity_methods(api: Any, activities: MagicMock) -> None:
+    async def create_activity(conversation_id: str, activity: Any) -> SentActivity:
+        api.conversations.activities(conversation_id)
+        return await activities.create(activity)
+
+    async def update_activity(conversation_id: str, activity_id: str, activity: Any) -> SentActivity:
+        api.conversations.activities(conversation_id)
+        return await activities.update(activity_id, activity)
+
+    async def create_targeted_activity(conversation_id: str, activity: Any) -> SentActivity:
+        api.conversations.activities(conversation_id)
+        return await activities.create_targeted(activity)
+
+    async def update_targeted_activity(conversation_id: str, activity_id: str, activity: Any) -> SentActivity:
+        api.conversations.activities(conversation_id)
+        return await activities.update_targeted(activity_id, activity)
+
+    api.conversations.create_activity = AsyncMock(side_effect=create_activity)
+    api.conversations.update_activity = AsyncMock(side_effect=update_activity)
+    api.conversations.create_targeted_activity = AsyncMock(side_effect=create_targeted_activity)
+    api.conversations.update_targeted_activity = AsyncMock(side_effect=update_targeted_activity)
 
 
 class TestApp:
@@ -485,6 +519,30 @@ class TestApp:
             assert token_called is True
             assert res.access_token == "test.jwt.token"
 
+    def test_app_exposes_token_provider(self):
+        app = App(client_id="test-client-id", client_secret="test-secret")
+
+        assert isinstance(app.token_provider, AppTokenProvider)
+        assert not hasattr(app, "_auth_provider")
+
+    @pytest.mark.asyncio
+    async def test_get_graph_token_uses_credentials_tenant(self):
+        app = App(client_id="test-client-id", client_secret="test-secret", tenant_id="credentials-tenant")
+
+        with patch.object(app.token_provider, "get_app_token", autospec=True, return_value=None) as get_app_token:
+            await app._get_graph_token()
+
+        get_app_token.assert_awaited_once_with(PUBLIC.graph_scope, "credentials-tenant")
+
+    def test_app_passes_agent365_telemetry_options(self):
+        app = App(
+            client_id="test-client-id",
+            client_secret="test-secret",
+            telemetry={"agent365": False},
+        )
+
+        assert app.activity_processor.agent365_baggage_options is False
+
     def test_middleware_registration(self, app_with_options: App) -> None:
         """Test that middleware is registered correctly using app.use()."""
 
@@ -831,9 +889,17 @@ class TestApp:
         )
         app = App(**options)
         app._initialized = True
-        app.activity_sender.send = AsyncMock(
+        create = AsyncMock(
             return_value=SentActivity(id="sent-activity-id", activity_params=MessageActivityInput(text="sent"))
         )
+        activities = MagicMock()
+        activities.create = create
+        activities.create_targeted = AsyncMock(
+            return_value=SentActivity(id="sent-activity-id", activity_params=MessageActivityInput(text="sent"))
+        )
+        app.api.conversations.activities = MagicMock(return_value=activities)
+        _wire_flat_activity_methods(app.api, activities)
+        app.api.clone = MagicMock(return_value=app.api)
 
         # Create a targeted message with explicit recipient
         recipient = Account(id="user-456", name="Test User", role="user")
@@ -842,8 +908,115 @@ class TestApp:
         # Should not raise - explicit recipient provided
         result = await app.send("conv-123", activity)
 
-        app.activity_sender.send.assert_called_once()
+        activities.create_targeted.assert_called_once()
+        create.assert_not_called()
         assert result.id == "sent-activity-id"
+        sent_activity = activities.create_targeted.call_args.args[0]
+        assert sent_activity.from_.id == "test-client-id"
+        assert sent_activity.conversation.id == "conv-123"
+
+    @pytest.mark.asyncio
+    async def test_send_passes_service_url_and_agentic_identity_to_scoped_api(self, mock_storage) -> None:
+        options = AppOptions(storage=mock_storage, client_id="test-client-id", client_secret="test-secret")
+        app = App(**options)
+        app._initialized = True
+        create = AsyncMock(
+            return_value=SentActivity(id="sent-activity-id", activity_params=MessageActivityInput(text="sent"))
+        )
+        activities = MagicMock()
+        activities.create = create
+        app.api.conversations.activities = MagicMock(return_value=activities)
+        _wire_flat_activity_methods(app.api, activities)
+        app.api.clone = MagicMock(return_value=app.api)
+        agentic_identity = AgenticIdentity(
+            agentic_app_blueprint_id="blueprint-id",
+            agentic_app_id="agentic-app-id",
+            agentic_user_id="agentic-user-id",
+            tenant_id="tenant-id",
+        )
+        service_url = "https://override.service.url"
+
+        result = await app.send(
+            "conv-123",
+            "Hello",
+            service_url=service_url,
+            agentic_identity=agentic_identity,
+        )
+
+        app.api.conversations.activities.assert_called_once_with("conv-123")
+        app.api.clone.assert_called_once_with(
+            service_url=service_url,
+            agentic_identity=agentic_identity,
+        )
+        create.assert_called_once()
+        activity = create.call_args.args[0]
+        assert isinstance(activity, MessageActivityInput)
+        assert activity.text == "Hello"
+        assert create.call_args.kwargs == {}
+        assert result.id == "sent-activity-id"
+
+    @pytest.mark.asyncio
+    async def test_send_uses_existing_api_when_agentic_identity_is_none(self, mock_storage) -> None:
+        options = AppOptions(storage=mock_storage, client_id="test-client-id", client_secret="test-secret")
+        app = App(**options)
+        app._initialized = True
+        activities = MagicMock()
+        activities.create = AsyncMock(
+            return_value=SentActivity(id="sent-activity-id", activity_params=MessageActivityInput(text="sent"))
+        )
+        app.api.conversations.activities = MagicMock(return_value=activities)
+        _wire_flat_activity_methods(app.api, activities)
+        app.api.clone = MagicMock(return_value=app.api)
+
+        await app.send("conv-123", "Hello", agentic_identity=None)
+
+        app.api.clone.assert_not_called()
+
+    def test_get_agentic_identity_preserves_explicit_blueprint_id(self, mock_storage) -> None:
+        """An explicitly provided agentic_app_blueprint_id should be preserved."""
+        options = AppOptions(storage=mock_storage, client_id="test-client-id", client_secret="test-secret")
+        app = App(**options)
+
+        identity = app.get_agentic_identity(
+            "agentic-app-id",
+            "agentic-user-id",
+            tenant_id="tenant-id",
+            agentic_app_blueprint_id="explicit-blueprint-id",
+        )
+
+        assert identity.agentic_app_blueprint_id == "explicit-blueprint-id"
+        assert identity.agentic_app_id == "agentic-app-id"
+        assert identity.agentic_user_id == "agentic-user-id"
+        assert identity.tenant_id == "tenant-id"
+
+    def test_get_agentic_identity_defaults_blueprint_id_to_client_id(self, mock_storage) -> None:
+        """When agentic_app_blueprint_id is omitted, it should default to the app's client id."""
+        options = AppOptions(storage=mock_storage, client_id="test-client-id", client_secret="test-secret")
+        app = App(**options)
+
+        identity = app.get_agentic_identity(
+            "agentic-app-id",
+            "agentic-user-id",
+            tenant_id="tenant-id",
+        )
+
+        assert identity.agentic_app_blueprint_id == app.id
+        assert identity.agentic_app_blueprint_id == "test-client-id"
+
+    def test_get_agentic_identity_allows_nullable_agentic_app_id(self, mock_storage) -> None:
+        options = AppOptions(storage=mock_storage, client_id="test-client-id", client_secret="test-secret")
+        app = App(**options)
+
+        identity = app.get_agentic_identity(
+            agentic_user_id="agentic-user-id",
+            tenant_id="tenant-id",
+            agentic_app_blueprint_id="blueprint-id",
+        )
+
+        assert identity.agentic_app_blueprint_id == "blueprint-id"
+        assert identity.agentic_app_id is None
+        assert identity.agentic_user_id == "agentic-user-id"
+        assert identity.tenant_id == "tenant-id"
 
 
 class TestAppInitialize:
@@ -857,9 +1030,15 @@ class TestAppInitialize:
             client_secret="test-secret",
             dangerously_allow_unauthenticated_requests=True,
         )
-        app.activity_sender.send = AsyncMock(
-            return_value=SentActivity(id="msg-1", activity_params=MessageActivityInput(text="hi"))
+        create = AsyncMock(return_value=SentActivity(id="msg-1", activity_params=MessageActivityInput(text="hi")))
+        activities = MagicMock()
+        activities.create = create
+        activities.update = AsyncMock(
+            return_value=SentActivity(id="existing-msg-id", activity_params=MessageActivityInput(text="updated"))
         )
+        app.api.conversations.activities = MagicMock(return_value=activities)
+        _wire_flat_activity_methods(app.api, activities)
+        app.api.clone = MagicMock(return_value=app.api)
 
         with pytest.raises(ValueError, match="app not initialized"):
             await app.send("conv-1", "hello")
@@ -867,6 +1046,15 @@ class TestAppInitialize:
         await app.initialize()
         result = await app.send("conv-1", "hello")
         assert result.id == "msg-1"
+
+        activity = MessageActivityInput(text="updated")
+        activity.id = "existing-msg-id"
+        result = await app.send("conv-1", activity)
+        assert result.id == "existing-msg-id"
+        activities.update.assert_called_once_with(
+            "existing-msg-id",
+            activity,
+        )
 
     @pytest.mark.asyncio
     async def test_initialize_emits_error_on_plugin_failure(self):
@@ -901,34 +1089,93 @@ class TestAppReply:
         options = AppOptions(client_id="test-client-id", client_secret="test-secret")
         app = App(**options)
         app._initialized = True
-        app.activity_sender.send = AsyncMock(
+        create = AsyncMock(
             return_value=SentActivity(id="sent-activity-id", activity_params=MessageActivityInput(text="sent"))
         )
+        activities = MagicMock()
+        activities.create = create
+        activities.update = AsyncMock(
+            return_value=SentActivity(id="updated-activity-id", activity_params=MessageActivityInput(text="updated"))
+        )
+        app.api.conversations.activities = MagicMock(return_value=activities)
+        _wire_flat_activity_methods(app.api, activities)
+        app.api.clone = MagicMock(return_value=app.api)
         return app
 
     @pytest.mark.asyncio
     async def test_reply_with_three_args_constructs_threaded_id(self, started_app):
         await started_app.reply("19:abc@thread.skype", "1680000000000", "Hello thread")
 
-        started_app.activity_sender.send.assert_called_once()
-        _, ref = started_app.activity_sender.send.call_args[0]
-        assert ref.conversation.id == "19:abc@thread.skype;messageid=1680000000000"
+        started_app.api.conversations.activities.assert_called_once_with("19:abc@thread.skype;messageid=1680000000000")
+
+    @pytest.mark.asyncio
+    async def test_reply_with_three_args_passes_service_url_and_agentic_identity_to_scoped_api(self, started_app):
+        agentic_identity = AgenticIdentity(
+            agentic_app_blueprint_id="blueprint-id",
+            agentic_app_id="agentic-app-id",
+            agentic_user_id="agentic-user-id",
+            tenant_id="tenant-id",
+        )
+        service_url = "https://override.service.url"
+
+        await started_app.reply(
+            "19:abc@thread.skype",
+            "1680000000000",
+            "Hello thread",
+            service_url=service_url,
+            agentic_identity=agentic_identity,
+        )
+
+        started_app.api.conversations.activities.assert_called_once_with("19:abc@thread.skype;messageid=1680000000000")
+        started_app.api.clone.assert_called_once_with(
+            service_url=service_url,
+            agentic_identity=agentic_identity,
+        )
+        create = started_app.api.conversations.activities.return_value.create
+        activity = create.call_args.args[0]
+        assert isinstance(activity, MessageActivityInput)
+        assert activity.text == "Hello thread"
+        assert create.call_args.kwargs == {}
 
     @pytest.mark.asyncio
     async def test_reply_with_two_args_passes_conversation_id_as_is(self, started_app):
         await started_app.reply("19:abc@thread.skype", "Hello flat")
 
-        started_app.activity_sender.send.assert_called_once()
-        _, ref = started_app.activity_sender.send.call_args[0]
-        assert ref.conversation.id == "19:abc@thread.skype"
+        started_app.api.conversations.activities.assert_called_once_with("19:abc@thread.skype")
+
+    @pytest.mark.asyncio
+    async def test_reply_with_two_args_passes_service_url_and_agentic_identity_to_scoped_api(self, started_app):
+        agentic_identity = AgenticIdentity(
+            agentic_app_blueprint_id="blueprint-id",
+            agentic_app_id="agentic-app-id",
+            agentic_user_id="agentic-user-id",
+            tenant_id="tenant-id",
+        )
+        service_url = "https://override.service.url"
+
+        await started_app.reply(
+            "19:abc@thread.skype",
+            "Hello flat",
+            service_url=service_url,
+            agentic_identity=agentic_identity,
+        )
+
+        started_app.api.conversations.activities.assert_called_once_with("19:abc@thread.skype")
+        started_app.api.clone.assert_called_once_with(
+            service_url=service_url,
+            agentic_identity=agentic_identity,
+        )
+        create = started_app.api.conversations.activities.return_value.create
+        activity = create.call_args.args[0]
+        assert isinstance(activity, MessageActivityInput)
+        assert activity.text == "Hello flat"
+        assert create.call_args.kwargs == {}
 
     @pytest.mark.asyncio
     async def test_reply_with_pre_constructed_threaded_id(self, started_app):
         await started_app.reply("19:abc@thread.skype;messageid=123", "Hello")
 
-        started_app.activity_sender.send.assert_called_once()
-        _, ref = started_app.activity_sender.send.call_args[0]
-        assert ref.conversation.id == "19:abc@thread.skype;messageid=123"
+        started_app.api.conversations.activities.assert_called_once_with("19:abc@thread.skype;messageid=123")
 
     @pytest.mark.asyncio
     async def test_reply_with_invalid_message_id_raises(self, started_app):
@@ -982,4 +1229,5 @@ class TestFetchUserTokenResolution:
         options = InternalAppOptions.from_typeddict(
             AppOptions(default_connection_name="my-connection", fetch_user_token=False)
         )
+        assert options.fetch_user_token is False
         assert options.fetch_user_token is False

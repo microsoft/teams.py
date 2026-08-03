@@ -5,16 +5,18 @@ Licensed under the MIT License.
 
 import logging
 
-from . import auth, contexts, events, plugins
+from . import auth, contexts, diagnostics, events, plugins
 from .app import App
 from .auth import *  # noqa: F403
 from .contexts import *  # noqa: F403
+from .diagnostics import *  # noqa: F403
 from .events import *  # noqa: F401, F403
-from .http import FastAPIAdapter, HttpServerAdapter
+from .http import FastAPIAdapter, HttpServer, HttpServerAdapter
 from .http_stream import HttpStream
-from .options import AppOptions
+from .options import AppOptions, AppTelemetryOptions
 from .plugins import *  # noqa: F401, F403
 from .routing import ActivityContext
+from .token_provider import AppTokenProvider
 from .utils.html_widget import (
     DisplayMode,
     HtmlWidgetMarkdownOptions,
@@ -35,10 +37,13 @@ logging.getLogger(__name__).addHandler(logging.NullHandler())
 __all__: list[str] = [
     "App",
     "AppOptions",
+    "AppTelemetryOptions",
+    "HttpServer",
     "HttpServerAdapter",
     "FastAPIAdapter",
     "HttpStream",
     "ActivityContext",
+    "AppTokenProvider",
     "to_threaded_conversation_id",
     "build_html_widget_markdown",
     "build_html_widget_message",
@@ -52,6 +57,7 @@ __all__: list[str] = [
     "DisplayMode",
 ]
 __all__.extend(auth.__all__)
+__all__.extend(diagnostics.__all__)
 __all__.extend(events.__all__)
 __all__.extend(plugins.__all__)
 __all__.extend(contexts.__all__)

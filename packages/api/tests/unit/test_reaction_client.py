@@ -7,7 +7,42 @@ Licensed under the MIT License.
 from unittest.mock import AsyncMock, patch
 
 import pytest
+from microsoft_teams.api.auth.cloud_environment import PUBLIC, with_overrides
+from microsoft_teams.api.clients import ApiClient
 from microsoft_teams.api.clients.reaction import ReactionClient
+from microsoft_teams.api.models import AgenticIdentity
+
+
+class _TokenProviderAdapter:
+    def get_app_token(self, scope: str, tenant_id: str | None = None):
+        return self.token(scope=scope, agentic_identity=None)
+
+    def get_agentic_user_token(
+        self,
+        scope: str,
+        agentic_app_id: str,
+        agentic_user_id: str,
+        tenant_id: str | None,
+    ):
+        return self.token(
+            scope=scope,
+            agentic_identity=AgenticIdentity(
+                agentic_app_blueprint_id="blueprint-id",
+                agentic_app_id=agentic_app_id,
+                agentic_user_id=agentic_user_id,
+                tenant_id=tenant_id,
+            ),
+        )
+
+    def get_agentic_app_token(self, scope: str, agentic_app_id: str, tenant_id: str | None):
+        return self.token(
+            scope=scope,
+            agentic_identity=AgenticIdentity(
+                agentic_app_blueprint_id="blueprint-id",
+                agentic_app_id=agentic_app_id,
+                tenant_id=tenant_id,
+            ),
+        )
 
 
 @pytest.mark.unit
@@ -56,6 +91,69 @@ class TestReactionClient:
         mock_put.assert_called_once_with(expected_url)
 
     @pytest.mark.asyncio
+    async def test_reaction_operations_use_scoped_service_url(self, mock_http_client):
+        client = ReactionClient("https://override.service.url/", mock_http_client)
+
+        with patch.object(mock_http_client, "put", new_callable=AsyncMock) as mock_put:
+            await client.add("test_conversation_id", "test_activity_id", "like")
+
+        mock_put.assert_called_once_with(
+            "https://override.service.url/v3/conversations/test_conversation_id/activities/test_activity_id/reactions/like",
+        )
+
+        with patch.object(mock_http_client, "delete", new_callable=AsyncMock) as mock_delete:
+            await client.delete("test_conversation_id", "test_activity_id", "like")
+
+        mock_delete.assert_called_once_with(
+            "https://override.service.url/v3/conversations/test_conversation_id/activities/test_activity_id/reactions/like",
+        )
+
+    @pytest.mark.asyncio
+    async def test_add_reaction_uses_agentic_identity(self, mock_http_client):
+        """Test adding a reaction with an agentic identity token."""
+        calls = []
+
+        class TestTokenProvider(_TokenProviderAdapter):
+            def token(self, *, scope=None, agentic_identity=None):
+                calls.append((scope, agentic_identity))
+                return "agentic-user-token"
+
+        cloud = with_overrides(PUBLIC, agent_bot_scope="agentic-user-scope")
+        identity = AgenticIdentity(
+            agentic_app_blueprint_id="blueprint-id",
+            agentic_app_id="agentic-app-id",
+            agentic_user_id="agentic-user-id",
+            tenant_id="tenant-id",
+        )
+        client = ApiClient(
+            "https://test.service.url",
+            mock_http_client,
+            token_provider=TestTokenProvider(),
+            agentic_identity=identity,
+            cloud=cloud,
+        ).reactions
+
+        await client.add("test_conversation_id", "test_activity_id", "like")
+
+        assert calls == [("agentic-user-scope", identity)]
+
+    @pytest.mark.asyncio
+    async def test_add_reaction_uses_token_provider_for_bot_token(self, mock_http_client):
+        """Test adding a reaction with a token provider but no agentic user."""
+        calls = []
+
+        class TestTokenProvider(_TokenProviderAdapter):
+            def token(self, *, scope=None, agentic_identity=None):
+                calls.append((scope, agentic_identity))
+                return "bot-token"
+
+        client = ApiClient("https://test.service.url", mock_http_client, token_provider=TestTokenProvider()).reactions
+
+        await client.add("test_conversation_id", "test_activity_id", "like")
+
+        assert calls == [(PUBLIC.bot_scope, None)]
+
+    @pytest.mark.asyncio
     async def test_add_heart_reaction(self, mock_http_client):
         """Test adding a heart reaction to an activity."""
         service_url = "https://test.service.url"
@@ -90,6 +188,30 @@ class TestReactionClient:
             f"{service_url}/v3/conversations/{conversation_id}/activities/{activity_id}/reactions/{reaction_type}"
         )
         mock_delete.assert_called_once_with(expected_url)
+
+    @pytest.mark.asyncio
+    async def test_delete_reaction_uses_scoped_agentic_identity(self, mock_http_client):
+        """Test removing a reaction with a scoped agentic identity token."""
+        calls = []
+
+        class TestTokenProvider(_TokenProviderAdapter):
+            def token(self, *, scope=None, agentic_identity=None):
+                calls.append((scope, agentic_identity))
+                return "agentic-user-token"
+
+        identity = AgenticIdentity(
+            agentic_app_blueprint_id="blueprint-id",
+            agentic_app_id="agentic-app-id",
+            agentic_user_id="agentic-user-id",
+            tenant_id="tenant-id",
+        )
+        client = ApiClient(
+            "https://test.service.url", mock_http_client, token_provider=TestTokenProvider(), agentic_identity=identity
+        ).reactions
+
+        await client.delete("test_conversation_id", "test_activity_id", "like")
+
+        assert calls == [(PUBLIC.agent_bot_scope, identity)]
 
     @pytest.mark.asyncio
     async def test_delete_laugh_reaction(self, mock_http_client):

@@ -3,10 +3,11 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from typing import Optional, Union
+from typing import Optional, Union, cast
 
-from microsoft_teams.common.http import Client, ClientOptions
+from microsoft_teams.common import Client, ClientOptions
 
+from ..diagnostics._outbound import ensure_outbound_telemetry_middleware
 from .api_client_settings import ApiClientSettings, merge_api_client_settings
 
 
@@ -21,7 +22,7 @@ class BaseClient:
         """Initialize the BaseClient.
 
         Args:
-            options: Optional Client or ClientOptions instance. If not provided, a default Client will be created.
+            options: Optional Client or ClientOptions instance. If not provided, a default Client is created.
             api_client_settings: Optional API client settings.
         """
         if options is None:
@@ -32,6 +33,7 @@ class BaseClient:
             self._http = Client(options)
 
         self._api_client_settings = merge_api_client_settings(api_client_settings)
+        ensure_outbound_telemetry_middleware(self._http)
 
     @property
     def http(self) -> Client:
@@ -41,4 +43,12 @@ class BaseClient:
     @http.setter
     def http(self, value: Client) -> None:
         """Set the HTTP client instance."""
+        ensure_outbound_telemetry_middleware(value)
         self._http = value
+
+    def _get_service_url(self, service_url: str | None = None) -> str:
+        current_service_url = cast(str | None, getattr(self, "service_url", None))
+        resolved_service_url = service_url or current_service_url
+        if resolved_service_url is None:
+            raise ValueError("service_url is required")
+        return resolved_service_url.rstrip("/")

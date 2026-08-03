@@ -8,8 +8,11 @@ from unittest.mock import AsyncMock, patch
 
 import httpx
 import pytest
+from microsoft_teams.api.auth.cloud_environment import PUBLIC
+from microsoft_teams.api.clients import ApiClient
 from microsoft_teams.api.clients.meeting import MeetingClient
 from microsoft_teams.api.models import (
+    AgenticIdentity,
     MeetingInfo,
     MeetingNotificationParams,
     MeetingNotificationResponse,
@@ -18,6 +21,38 @@ from microsoft_teams.api.models import (
     MeetingParticipant,
 )
 from microsoft_teams.common.http import Client, ClientOptions
+
+
+class _TokenProviderAdapter:
+    def get_app_token(self, scope: str, tenant_id: str | None = None):
+        return self.token(scope=scope, agentic_identity=None)
+
+    def get_agentic_user_token(
+        self,
+        scope: str,
+        agentic_app_id: str,
+        agentic_user_id: str,
+        tenant_id: str | None,
+    ):
+        return self.token(
+            scope=scope,
+            agentic_identity=AgenticIdentity(
+                agentic_app_blueprint_id="blueprint-id",
+                agentic_app_id=agentic_app_id,
+                agentic_user_id=agentic_user_id,
+                tenant_id=tenant_id,
+            ),
+        )
+
+    def get_agentic_app_token(self, scope: str, agentic_app_id: str, tenant_id: str | None):
+        return self.token(
+            scope=scope,
+            agentic_identity=AgenticIdentity(
+                agentic_app_blueprint_id="blueprint-id",
+                agentic_app_id=agentic_app_id,
+                tenant_id=tenant_id,
+            ),
+        )
 
 
 @pytest.mark.unit
@@ -47,6 +82,98 @@ class TestMeetingClient:
         result = await client.get_participant(meeting_id, participant_id, tenant_id)
 
         assert isinstance(result, MeetingParticipant)
+
+    @pytest.mark.asyncio
+    async def test_meeting_operations_use_scoped_service_url(self, mock_http_client):
+        client = (
+            ApiClient("https://test.service.url", mock_http_client)
+            .from_service_url("https://override.service.url/")
+            .meetings
+        )
+
+        meeting_response = httpx.Response(
+            200,
+            json={
+                "id": "meeting-id",
+                "details": {
+                    "id": "meeting-id",
+                    "type": "meetingChat",
+                    "joinUrl": "https://teams.microsoft.com/l/meetup-join/meeting-id",
+                    "title": "Meeting",
+                    "msGraphResourceId": "graph-resource-id",
+                },
+            },
+            headers={"content-type": "application/json"},
+        )
+        with patch.object(client.http, "get", new_callable=AsyncMock, return_value=meeting_response) as mock_get:
+            await client.get_by_id("meeting-id")
+
+        mock_get.assert_called_once_with("https://override.service.url/v1/meetings/meeting-id")
+
+        participant_response = httpx.Response(
+            200,
+            json={"user": {"id": "participant-id"}},
+            headers={"content-type": "application/json"},
+        )
+        with patch.object(
+            client.http, "get", new_callable=AsyncMock, return_value=participant_response
+        ) as mock_get_participant:
+            await client.get_participant("meeting-id", "participant-id", "tenant-id")
+
+        mock_get_participant.assert_called_once_with(
+            "https://override.service.url/v1/meetings/meeting-id/participants/participant-id?tenantId=tenant-id",
+        )
+
+        params = MeetingNotificationParams(
+            value=MeetingNotificationValue(
+                recipients=["mock_aad_oid"],
+                surfaces=[MeetingNotificationSurface(surface="meetingTabIcon", tab_entity_id="test")],
+            )
+        )
+        notification_response = httpx.Response(202, content=b"", headers={"content-type": "application/json"})
+        with patch.object(client.http, "post", new_callable=AsyncMock, return_value=notification_response) as mock_post:
+            await client.send_notification("meeting-id", params)
+
+        mock_post.assert_called_once_with(
+            "https://override.service.url/v1/meetings/meeting-id/notification",
+            json=params.model_dump(by_alias=True, exclude_none=True),
+        )
+
+    @pytest.mark.asyncio
+    async def test_get_by_id_uses_token_provider_for_bot_token(self, mock_http_client):
+        calls = []
+
+        class TestTokenProvider(_TokenProviderAdapter):
+            def token(self, *, scope=None, agentic_identity=None):
+                calls.append((scope, agentic_identity))
+                return "bot-token"
+
+        client = ApiClient("https://test.service.url", mock_http_client, token_provider=TestTokenProvider()).meetings
+        await client.get_by_id("meeting-id")
+
+        assert calls == [(PUBLIC.bot_scope, None)]
+
+    @pytest.mark.asyncio
+    async def test_get_participant_uses_agentic_identity(self, mock_http_client):
+        calls = []
+
+        class TestTokenProvider(_TokenProviderAdapter):
+            def token(self, *, scope=None, agentic_identity=None):
+                calls.append((scope, agentic_identity))
+                return "agentic-user-token"
+
+        identity = AgenticIdentity(
+            agentic_app_blueprint_id="blueprint-id",
+            agentic_app_id="agentic-app-id",
+            agentic_user_id="agentic-user-id",
+            tenant_id="tenant-id",
+        )
+        client = ApiClient(
+            "https://test.service.url", mock_http_client, token_provider=TestTokenProvider(), agentic_identity=identity
+        ).meetings
+        await client.get_participant("meeting-id", "participant-id", "tenant-id")
+
+        assert calls == [(PUBLIC.agent_bot_scope, identity)]
 
     def test_http_client_property(self, mock_http_client):
         """Test HTTP client property getter and setter."""

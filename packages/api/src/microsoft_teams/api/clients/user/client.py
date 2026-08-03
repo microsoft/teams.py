@@ -3,13 +3,17 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
+from __future__ import annotations
+
 from typing import Dict, List, Optional, Union
 
 from microsoft_teams.common.http import Client, ClientOptions
 from typing_extensions import deprecated
 
+from ...auth.cloud_environment import PUBLIC, CloudEnvironment
+from ...diagnostics._outbound import ensure_outbound_telemetry_middleware
 from ...models import TokenResponse, TokenStatus
-from ..api_client_settings import ApiClientSettings
+from ..api_client_settings import ApiClientSettings, merge_api_client_settings
 from ..base_client import BaseClient
 from .params import (
     ExchangeUserTokenParams,
@@ -28,6 +32,8 @@ class UserClient(BaseClient):
         self,
         options: Optional[Union[Client, ClientOptions]] = None,
         api_client_settings: Optional[ApiClientSettings] = None,
+        *,
+        cloud: Optional[CloudEnvironment] = None,
     ) -> None:
         """
         Initialize the UserClient.
@@ -36,8 +42,10 @@ class UserClient(BaseClient):
             options: Optional Client or ClientOptions instance. If not provided, a default Client will be created.
             api_client_settings: Optional API client settings.
         """
-        super().__init__(options, api_client_settings)
-        self._token = UserTokenClient(self.http, self._api_client_settings)
+        self._cloud = cloud or PUBLIC
+        merged_settings = merge_api_client_settings(api_client_settings, self._cloud)
+        super().__init__(options, merged_settings)
+        self._token = UserTokenClient(self.http, self._api_client_settings, cloud=self._cloud)
 
     @property
     def http(self) -> Client:
@@ -47,6 +55,7 @@ class UserClient(BaseClient):
     @http.setter
     def http(self, value: Client) -> None:
         """Set the HTTP client instance and propagate to sub-clients."""
+        ensure_outbound_telemetry_middleware(value)
         self._http = value
         self._token.http = value
 

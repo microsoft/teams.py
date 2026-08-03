@@ -3,10 +3,13 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
+from __future__ import annotations
+
 from typing import Dict, List, Optional, Union
 
 from microsoft_teams.common.http import Client, ClientOptions
 
+from ...auth.cloud_environment import PUBLIC, CloudEnvironment
 from ...models import TokenResponse, TokenStatus
 from ..api_client_settings import ApiClientSettings, merge_api_client_settings
 from ..base_client import BaseClient
@@ -35,6 +38,8 @@ class UserTokenClient(BaseClient):
         self,
         options: Optional[Union[Client, ClientOptions]] = None,
         api_client_settings: Optional[ApiClientSettings] = None,
+        *,
+        cloud: Optional[CloudEnvironment] = None,
     ) -> None:
         """
         Initialize the UserTokenClient.
@@ -43,8 +48,9 @@ class UserTokenClient(BaseClient):
             options: Optional Client or ClientOptions instance. If not provided, a default Client will be created.
             api_client_settings: Optional API client settings.
         """
-        super().__init__(options)
-        self._api_client_settings = merge_api_client_settings(api_client_settings)
+        self._cloud = cloud or PUBLIC
+        merged_settings = merge_api_client_settings(api_client_settings, self._cloud)
+        super().__init__(options, merged_settings)
 
     async def get(self, params: GetUserTokenParams) -> TokenResponse:
         """

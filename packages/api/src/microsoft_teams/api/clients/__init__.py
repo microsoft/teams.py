@@ -4,7 +4,12 @@ Licensed under the MIT License.
 """
 
 from . import bot, conversation, meeting, reaction, team, user
-from .api_client import ApiClient
+from .api_client import (
+    AGENTIC_IDENTITY_CLEAR,
+    AgenticIdentityClear,
+    AgenticIdentityScope,
+    ApiClient,
+)
 from .api_client_settings import ApiClientSettings, merge_api_client_settings
 from .bot import *  # noqa: F403
 from .conversation import *  # noqa: F403
@@ -17,6 +22,9 @@ from .user import *  # noqa: F403
 __all__: list[str] = [
     "ApiClient",
     "ApiClientSettings",
+    "AGENTIC_IDENTITY_CLEAR",
+    "AgenticIdentityClear",
+    "AgenticIdentityScope",
     "merge_api_client_settings",
 ]
 __all__.extend(bot.__all__)

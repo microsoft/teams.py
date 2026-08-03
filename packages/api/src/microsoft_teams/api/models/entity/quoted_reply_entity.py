@@ -10,8 +10,7 @@ from .entity_base import EntityBase
 
 
 class QuotedReplyData(CustomBaseModel):
-    """Data for a quoted reply entity
-    """
+    """Data for a quoted reply entity"""
 
     message_id: str
     "ID of the message being quoted"
@@ -36,8 +35,7 @@ class QuotedReplyData(CustomBaseModel):
 
 
 class QuotedReplyEntity(EntityBase):
-    """Entity containing quoted reply information
-    """
+    """Entity containing quoted reply information"""
 
     type: Literal["quotedReply"] = "quotedReply"
     "Type identifier for quoted reply"

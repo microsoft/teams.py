@@ -3,10 +3,13 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
+from __future__ import annotations
+
 from typing import Optional, Union, cast
 
 from microsoft_teams.common.http import Client, ClientOptions
 
+from ...auth.cloud_environment import PUBLIC, CloudEnvironment
 from ...models import SignInUrlResponse
 from ..api_client_settings import ApiClientSettings, merge_api_client_settings
 from ..base_client import BaseClient
@@ -26,6 +29,7 @@ class BotSignInClient(BaseClient):
         self,
         options: Union[Client, ClientOptions, None] = None,
         api_client_settings: Optional[ApiClientSettings] = None,
+        cloud: Optional[CloudEnvironment] = None,
     ) -> None:
         """Initialize the bot sign-in client.
 
@@ -33,8 +37,9 @@ class BotSignInClient(BaseClient):
             options: Optional Client or ClientOptions instance.
             api_client_settings: Optional API client settings.
         """
-        super().__init__(options)
-        self._api_client_settings = merge_api_client_settings(api_client_settings)
+        self._cloud = cloud or PUBLIC
+        merged_settings = merge_api_client_settings(api_client_settings, self._cloud)
+        super().__init__(options, merged_settings)
 
     async def get_url(self, params: GetBotSignInUrlParams) -> str:
         """Get a sign-in URL.

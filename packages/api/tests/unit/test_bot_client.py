@@ -5,7 +5,14 @@ Licensed under the MIT License.
 # pyright: basic
 
 import pytest
-from microsoft_teams.api import ApiClientSettings, BotClient, GetBotSignInResourceParams, GetBotSignInUrlParams
+from microsoft_teams.api import (
+    ApiClient,
+    ApiClientSettings,
+    BotClient,
+    GetBotSignInResourceParams,
+    GetBotSignInUrlParams,
+)
+from microsoft_teams.api.auth.credentials import TokenCredentials
 from microsoft_teams.common.http import Client, ClientOptions
 
 
@@ -44,6 +51,55 @@ class TestBotClient:
         assert response.expires_in == -1
 
     @pytest.mark.asyncio
+    @pytest.mark.parametrize("method_name", ["get", "get_graph"])
+    async def test_bot_token_get_with_named_token_provider(self, mock_http_client, method_name):
+        calls = []
+
+        class NamedTokenProvider:
+            async def get_app_token(self, scope, tenant_id):
+                calls.append((scope, tenant_id))
+                return "named-token"
+
+        credentials = TokenCredentials(client_id="client-id", tenant_id="tenant-id", token=NamedTokenProvider())
+        client = BotClient(mock_http_client)
+
+        response = await getattr(client.token, method_name)(credentials)
+
+        expected_scope = (
+            "https://api.botframework.com/.default" if method_name == "get" else "https://graph.microsoft.com/.default"
+        )
+        assert response.access_token == "named-token"
+        assert calls == [(expected_scope, "tenant-id")]
+
+    @pytest.mark.asyncio
+    async def test_bot_token_get_rejects_empty_named_token(self, mock_http_client):
+        class EmptyTokenProvider:
+            def get_app_token(self, scope, tenant_id):
+                return None
+
+        credentials = TokenCredentials(client_id="client-id", token=EmptyTokenProvider())
+        client = BotClient(mock_http_client)
+
+        with pytest.raises(ValueError, match="returned no app token"):
+            await client.token.get(credentials)
+
+    @pytest.mark.asyncio
+    async def test_bot_token_get_with_callable_provider(self, mock_http_client):
+        calls = []
+
+        def token_provider(scope, tenant_id):
+            calls.append((scope, tenant_id))
+            return "token"
+
+        credentials = TokenCredentials(client_id="client-id", tenant_id="tenant-id", token=token_provider)
+        client = BotClient(mock_http_client)
+
+        response = await client.token.get(credentials)
+
+        assert response.access_token == "token"
+        assert calls == [("https://api.botframework.com/.default", "tenant-id")]
+
+    @pytest.mark.asyncio
     async def test_bot_sign_in_get_url(self, mock_http_client):
         client = BotClient(mock_http_client)
         params = GetBotSignInUrlParams(
@@ -64,6 +120,24 @@ class TestBotClient:
         assert response.sign_in_link is not None
         assert response.sign_in_link.startswith("http")
         assert response.token_exchange_resource is not None
+
+    @pytest.mark.asyncio
+    async def test_bot_sign_in_uses_token_provider_for_bot_token(self, request_capture):
+        calls = []
+
+        class TestTokenProvider:
+            def get_app_token(self, scope, tenant_id=None):
+                calls.append((scope, tenant_id))
+                return "bot-token"
+
+        client = ApiClient("https://test.service.url", request_capture, token_provider=TestTokenProvider())
+        params = GetBotSignInResourceParams(state="test_state", code_challenge="test_challenge")
+
+        await client.bots.sign_in.get_resource(params)
+
+        assert calls == [("https://api.botframework.com/.default", None)]
+        request = request_capture._capture.last_request
+        assert request.headers["authorization"] == "Bearer bot-token"
 
 
 @pytest.mark.unit
@@ -105,6 +179,12 @@ class TestBotClientSovereignCloud:
         assert client.token._cloud is US_GOV
         assert client.token._cloud.bot_scope == "https://api.botframework.us/.default"
         assert client.token._cloud.login_endpoint == "https://login.microsoftonline.us"
+
+    def test_bot_sign_in_client_uses_cloud_token_service_url(self):
+        from microsoft_teams.api.auth.cloud_environment import US_GOV
+
+        client = BotClient(cloud=US_GOV)
+        assert client.sign_in._api_client_settings.oauth_url == US_GOV.token_service_url
 
     def test_bot_token_client_defaults_to_public(self):
         from microsoft_teams.api.auth.cloud_environment import PUBLIC

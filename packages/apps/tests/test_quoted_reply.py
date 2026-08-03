@@ -7,7 +7,7 @@ from typing import Any, Optional
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from microsoft_teams.api import Account, MessageActivityInput, SentActivity
+from microsoft_teams.api import Account, ConversationAccount, ConversationReference, MessageActivityInput, SentActivity
 from microsoft_teams.api.models.entity import QuotedReplyEntity
 from microsoft_teams.apps.routing.activity_context import ActivityContext
 
@@ -36,19 +36,34 @@ class TestActivityContextReply:
             )
         )
         mock_activity_sender.create_stream = MagicMock(return_value=MagicMock())
+        activities = MagicMock()
+        activities.create = mock_activity_sender.send
+        api = MagicMock()
+        api.conversations.activities.return_value = activities
+        api.clone.return_value = api
 
-        mock_conversation_ref = MagicMock()
+        async def create_activity(conversation_id: str, activity: Any) -> SentActivity:
+            api.conversations.activities(conversation_id)
+            return await activities.create(activity)
+
+        api.conversations.create_activity = AsyncMock(side_effect=create_activity)
+
+        conversation_ref = ConversationReference(
+            bot=Account(id="bot-id", name="Test Bot"),
+            conversation=ConversationAccount(id="test-conversation"),
+            channel_id="msteams",
+            service_url="https://service.example",
+        )
 
         return ActivityContext(
             activity=mock_activity,
             app_id="test-app-id",
             storage=MagicMock(),
-            api=MagicMock(),
+            api=api,
             user_token=None,
-            conversation_ref=mock_conversation_ref,
+            conversation_ref=conversation_ref,
             is_signed_in=False,
             connection_name="test-connection",
-            activity_sender=mock_activity_sender,
             app_token=MagicMock(),
         )
 
@@ -58,7 +73,7 @@ class TestActivityContextReply:
         ctx = self._create_activity_context(activity_id="msg-abc")
         await ctx.reply("Thanks!")
 
-        sent_activity = ctx._activity_sender.send.call_args[0][0]
+        sent_activity = ctx.api.conversations.activities.return_value.create.call_args[0][0]
         assert sent_activity.entities is not None
         assert len(sent_activity.entities) == 1
         entity = sent_activity.entities[0]
@@ -71,7 +86,7 @@ class TestActivityContextReply:
         ctx = self._create_activity_context(activity_id="msg-abc")
         await ctx.reply("Thanks!")
 
-        sent_activity = ctx._activity_sender.send.call_args[0][0]
+        sent_activity = ctx.api.conversations.activities.return_value.create.call_args[0][0]
         assert sent_activity.text == '<quoted messageId="msg-abc"/> Thanks!'
 
     @pytest.mark.asyncio
@@ -81,7 +96,7 @@ class TestActivityContextReply:
         activity = MessageActivityInput(text="")
         await ctx.reply(activity)
 
-        sent_activity = ctx._activity_sender.send.call_args[0][0]
+        sent_activity = ctx.api.conversations.activities.return_value.create.call_args[0][0]
         assert sent_activity.text == '<quoted messageId="msg-abc"/>'
 
     @pytest.mark.asyncio
@@ -91,7 +106,7 @@ class TestActivityContextReply:
         activity = MessageActivityInput()
         await ctx.reply(activity)
 
-        sent_activity = ctx._activity_sender.send.call_args[0][0]
+        sent_activity = ctx.api.conversations.activities.return_value.create.call_args[0][0]
         assert sent_activity.text == '<quoted messageId="msg-abc"/>'
 
     @pytest.mark.asyncio
@@ -100,7 +115,7 @@ class TestActivityContextReply:
         ctx = self._create_activity_context(activity_id=None)
         await ctx.reply("Thanks!")
 
-        sent_activity = ctx._activity_sender.send.call_args[0][0]
+        sent_activity = ctx.api.conversations.activities.return_value.create.call_args[0][0]
         assert sent_activity.text == "Thanks!"
         assert sent_activity.entities is None
 
@@ -114,7 +129,7 @@ class TestActivityContextReply:
 
         await ctx.reply(activity)
 
-        sent_activity = ctx._activity_sender.send.call_args[0][0]
+        sent_activity = ctx.api.conversations.activities.return_value.create.call_args[0][0]
         assert sent_activity.entities is not None
         assert len(sent_activity.entities) == 2
         assert sent_activity.entities[0] is existing_entity
@@ -127,7 +142,7 @@ class TestActivityContextReply:
         activity = MessageActivityInput(text="Hello world")
         await ctx.reply(activity)
 
-        sent_activity = ctx._activity_sender.send.call_args[0][0]
+        sent_activity = ctx.api.conversations.activities.return_value.create.call_args[0][0]
         assert sent_activity.text == '<quoted messageId="msg-abc"/> Hello world'
 
 
@@ -148,19 +163,34 @@ class TestActivityContextQuoteReply:
             )
         )
         mock_activity_sender.create_stream = MagicMock(return_value=MagicMock())
+        activities = MagicMock()
+        activities.create = mock_activity_sender.send
+        api = MagicMock()
+        api.conversations.activities.return_value = activities
+        api.clone.return_value = api
 
-        mock_conversation_ref = MagicMock()
+        async def create_activity(conversation_id: str, activity: Any) -> SentActivity:
+            api.conversations.activities(conversation_id)
+            return await activities.create(activity)
+
+        api.conversations.create_activity = AsyncMock(side_effect=create_activity)
+
+        conversation_ref = ConversationReference(
+            bot=Account(id="bot-id", name="Test Bot"),
+            conversation=ConversationAccount(id="test-conversation"),
+            channel_id="msteams",
+            service_url="https://service.example",
+        )
 
         return ActivityContext(
             activity=mock_activity,
             app_id="test-app-id",
             storage=MagicMock(),
-            api=MagicMock(),
+            api=api,
             user_token=None,
-            conversation_ref=mock_conversation_ref,
+            conversation_ref=conversation_ref,
             is_signed_in=False,
             connection_name="test-connection",
-            activity_sender=mock_activity_sender,
             app_token=MagicMock(),
         )
 
@@ -170,7 +200,7 @@ class TestActivityContextQuoteReply:
         ctx = self._create_activity_context()
         await ctx.quote("arbitrary-msg-id", "Quoting this!")
 
-        sent_activity = ctx._activity_sender.send.call_args[0][0]
+        sent_activity = ctx.api.conversations.activities.return_value.create.call_args[0][0]
         assert sent_activity.entities is not None
         assert len(sent_activity.entities) == 1
         entity = sent_activity.entities[0]
@@ -183,7 +213,7 @@ class TestActivityContextQuoteReply:
         ctx = self._create_activity_context()
         await ctx.quote("msg-xyz", "My reply text")
 
-        sent_activity = ctx._activity_sender.send.call_args[0][0]
+        sent_activity = ctx.api.conversations.activities.return_value.create.call_args[0][0]
         assert sent_activity.text == '<quoted messageId="msg-xyz"/> My reply text'
 
     @pytest.mark.asyncio
@@ -193,7 +223,7 @@ class TestActivityContextQuoteReply:
         activity = MessageActivityInput(text="")
         await ctx.quote("msg-xyz", activity)
 
-        sent_activity = ctx._activity_sender.send.call_args[0][0]
+        sent_activity = ctx.api.conversations.activities.return_value.create.call_args[0][0]
         assert sent_activity.text == '<quoted messageId="msg-xyz"/>'
 
     @pytest.mark.asyncio
@@ -203,7 +233,7 @@ class TestActivityContextQuoteReply:
         activity = MessageActivityInput(text="Hello world")
         await ctx.quote("msg-xyz", activity)
 
-        sent_activity = ctx._activity_sender.send.call_args[0][0]
+        sent_activity = ctx.api.conversations.activities.return_value.create.call_args[0][0]
         assert sent_activity.text == '<quoted messageId="msg-xyz"/> Hello world'
         assert sent_activity.entities is not None
         assert len(sent_activity.entities) == 1

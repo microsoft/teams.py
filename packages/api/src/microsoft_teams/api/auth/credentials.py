@@ -3,9 +3,54 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from typing import Awaitable, Callable, Literal, Optional, Union
+from typing import Awaitable, Callable, Literal, Optional, Protocol, TypeAlias, Union, runtime_checkable
 
 from ..models import CustomBaseModel
+from .token import TokenProtocol
+
+TokenScope: TypeAlias = Union[str, list[str]]
+TokenValue: TypeAlias = Union[str, TokenProtocol, None]
+TokenResult: TypeAlias = Union[TokenValue, Awaitable[TokenValue]]
+BasicTokenProvider: TypeAlias = Callable[[TokenScope, Optional[str]], TokenResult]
+
+
+@runtime_checkable
+class TokenProviderProtocol(Protocol):
+    """Named token capabilities for apps that need more than app-only tokens."""
+
+    def get_app_token(
+        self,
+        scope: str,
+        tenant_id: Optional[str],
+    ) -> TokenResult: ...
+
+
+@runtime_checkable
+class AgenticUserTokenProviderProtocol(TokenProviderProtocol, Protocol):
+    """Optional named capability for acquiring agentic user-scoped tokens."""
+
+    def get_agentic_user_token(
+        self,
+        scope: str,
+        agentic_app_id: str,
+        agentic_user_id: str,
+        tenant_id: Optional[str],
+    ) -> TokenResult: ...
+
+
+@runtime_checkable
+class AgenticAppTokenProviderProtocol(TokenProviderProtocol, Protocol):
+    """Optional named capability for acquiring agentic app-scoped tokens."""
+
+    def get_agentic_app_token(
+        self,
+        scope: str,
+        agentic_app_id: str,
+        tenant_id: Optional[str],
+    ) -> TokenResult: ...
+
+
+TokenProvider: TypeAlias = Union[BasicTokenProvider, TokenProviderProtocol]
 
 
 class ClientCredentials(CustomBaseModel):
@@ -36,10 +81,9 @@ class TokenCredentials(CustomBaseModel):
     """
     The tenant ID.
     """
-    # (scope: string | string[], tenantId?: string) => string | Promise<string>
-    token: Callable[[Union[str, list[str]], Optional[str]], Union[str, Awaitable[str]]]
+    token: TokenProvider
     """
-    The token function.
+    A callable for app-only tokens, or a named token provider for app-only and agentic grants.
     """
 
 

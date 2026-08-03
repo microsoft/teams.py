@@ -1,9 +1,6 @@
 """
-Integration test fixture for Microsoft Teams Python SDK.
-
-Provides shared authentication and configuration for all integration tests.
-Uses azure-identity for token acquisition and caches conversation
-members to avoid 429 throttling.
+Copyright (c) Microsoft Corporation. All rights reserved.
+Licensed under the MIT License.
 """
 
 import os
@@ -48,7 +45,7 @@ class TestFixture:
         return "canary" in self.config.service_url.lower()
 
     @property
-    def is_agentic(self) -> bool:
+    def is_agentic_identity(self) -> bool:
         return self.config.agentic_app_id is not None and self.config.agentic_app_id != ""
 
 

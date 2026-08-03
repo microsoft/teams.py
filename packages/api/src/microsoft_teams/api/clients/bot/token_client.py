@@ -12,7 +12,7 @@ from microsoft_teams.api.auth.credentials import ClientCredentials
 from microsoft_teams.common.http import Client, ClientOptions
 from pydantic import BaseModel
 
-from ...auth import Credentials, TokenCredentials
+from ...auth import Credentials, TokenCredentials, TokenProviderProtocol, TokenResult
 from ...auth.cloud_environment import PUBLIC
 from ..api_client_settings import ApiClientSettings, merge_api_client_settings
 from ..base_client import BaseClient
@@ -44,7 +44,11 @@ class GetBotTokenResponse(BaseModel):
 
 
 class BotTokenClient(BaseClient):
-    """Client for managing bot tokens."""
+    """Deprecated client for managing bot tokens.
+
+    Token minting for Teams apps now happens through the MSAL-backed TokenManager
+    in microsoft-teams-apps.
+    """
 
     def __init__(
         self,
@@ -59,9 +63,9 @@ class BotTokenClient(BaseClient):
             api_client_settings: Optional API client settings.
             cloud: Optional cloud environment for sovereign cloud support.
         """
-        super().__init__(options)
         self._cloud = cloud or PUBLIC
-        self._api_client_settings = merge_api_client_settings(api_client_settings, self._cloud)
+        merged_settings = merge_api_client_settings(api_client_settings, self._cloud)
+        super().__init__(options, merged_settings)
 
     async def get(self, credentials: Credentials) -> GetBotTokenResponse:
         """Get a bot token.
@@ -73,12 +77,7 @@ class BotTokenClient(BaseClient):
             The bot token response.
         """
         if isinstance(credentials, TokenCredentials):
-            token = credentials.token(
-                self._cloud.bot_scope,
-                credentials.tenant_id,
-            )
-            if inspect.isawaitable(token):
-                token = await token
+            token = await self._get_token_provider_value(credentials, self._cloud.bot_scope)
 
             return GetBotTokenResponse(
                 token_type="Bearer",
@@ -114,12 +113,7 @@ class BotTokenClient(BaseClient):
             The bot token response.
         """
         if isinstance(credentials, TokenCredentials):
-            token = credentials.token(
-                self._cloud.graph_scope,
-                credentials.tenant_id,
-            )
-            if inspect.isawaitable(token):
-                token = await token
+            token = await self._get_token_provider_value(credentials, self._cloud.graph_scope)
 
             return GetBotTokenResponse(
                 token_type="Bearer",
@@ -144,3 +138,16 @@ class BotTokenClient(BaseClient):
         )
 
         return GetBotTokenResponse.model_validate(res.json())
+
+    async def _get_token_provider_value(self, credentials: TokenCredentials, scope: str) -> str:
+        result = self._call_token_provider(credentials, scope)
+        token = await result if inspect.isawaitable(result) else result
+        if token is None:
+            raise ValueError("Token provider returned no app token.")
+        return str(token)
+
+    def _call_token_provider(self, credentials: TokenCredentials, scope: str) -> TokenResult:
+        token_provider = credentials.token
+        if isinstance(token_provider, TokenProviderProtocol):
+            return token_provider.get_app_token(scope, credentials.tenant_id)
+        return token_provider(scope, credentials.tenant_id)

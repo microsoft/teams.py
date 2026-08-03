@@ -8,13 +8,15 @@ from __future__ import annotations
 import os
 import warnings
 from dataclasses import dataclass, field
-from typing import Any, Awaitable, Callable, List, Optional, TypedDict, Union, cast
+from typing import Any, List, Literal, Optional, TypedDict, Union, cast
 
 from microsoft_teams.api import ApiClientSettings
 from microsoft_teams.api.auth.cloud_environment import CloudEnvironment
+from microsoft_teams.api.auth.credentials import TokenProvider
 from microsoft_teams.common import Client, ClientOptions, Storage
 from typing_extensions import Unpack
 
+from .diagnostics import Agent365BaggageOptions
 from .http.adapter import HttpServerAdapter
 from .plugins import PluginBase
 
@@ -47,6 +49,12 @@ def _warn_skip_auth_deprecated() -> None:
     )
 
 
+class AppTelemetryOptions(TypedDict, total=False):
+    """Telemetry options applied across SDK-owned app flows."""
+
+    agent365: Agent365BaggageOptions | Literal[False]
+
+
 class AppOptions(TypedDict, total=False):
     """Configuration options for the Teams App."""
 
@@ -60,7 +68,7 @@ class AppOptions(TypedDict, total=False):
     """Application ID URI from the Azure portal. Used for user authentication.
     Matches webApplicationInfo.resource in the app manifest."""
     # Custom token provider function
-    token: Optional[Callable[[Union[str, list[str]], Optional[str]], Union[str, Awaitable[str]]]]
+    token: Optional[TokenProvider]
     """Custom token provider function. If provided with client_id (no client_secret), uses TokenCredentials."""
 
     # Managed identity configuration (used when client_id provided without client_secret or token)
@@ -128,6 +136,8 @@ class AppOptions(TypedDict, total=False):
     Valid env var values: "Public", "USGov", "USGovDoD", "China".
     Defaults to PUBLIC (commercial cloud).
     """
+    telemetry: Optional[AppTelemetryOptions]
+    """Telemetry configuration. Agent365 baggage is enabled by default; pass False to disable it."""
 
 
 @dataclass
@@ -163,7 +173,7 @@ class InternalAppOptions:
     application_id_uri: Optional[str] = None
     """Application ID URI from the Azure portal. Used for user authentication.
     Matches webApplicationInfo.resource in the app manifest."""
-    token: Optional[Callable[[Union[str, list[str]], Optional[str]], Union[str, Awaitable[str]]]] = None
+    token: Optional[TokenProvider] = None
     """Custom token provider function. If provided with client_id (no client_secret), uses TokenCredentials."""
     managed_identity_client_id: Optional[str] = None
     """
@@ -185,6 +195,8 @@ class InternalAppOptions:
     """URL path for the Teams messaging endpoint. Defaults to '/api/messages'."""
     cloud: Optional[CloudEnvironment] = None
     """Cloud environment for sovereign cloud support."""
+    telemetry: Optional[AppTelemetryOptions] = None
+    """Telemetry configuration."""
 
     @classmethod
     def from_typeddict(cls, options: AppOptions) -> "InternalAppOptions":

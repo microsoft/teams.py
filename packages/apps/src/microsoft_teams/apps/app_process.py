@@ -4,7 +4,8 @@ Licensed under the MIT License.
 """
 
 import logging
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union, cast
+from time import perf_counter
+from typing import TYPE_CHECKING, Any, Awaitable, Callable, Dict, List, Optional, TypeGuard, Union, cast
 
 from microsoft_teams.api import (
     ActivityBase,
@@ -18,23 +19,43 @@ from microsoft_teams.api import (
     TokenProtocol,
     is_invoke_response,
 )
+from microsoft_teams.api.activities import Activity as ValidatedActivity
+from microsoft_teams.api.activities.invoke_activity import InvokeActivity as InvokeActivityBase
 from microsoft_teams.api.auth.cloud_environment import PUBLIC, CloudEnvironment
 from microsoft_teams.api.clients.user.params import GetUserTokenParams
 from microsoft_teams.cards import AdaptiveCard
-from microsoft_teams.common import Client, ClientOptions, LocalStorage, Storage
+from microsoft_teams.common import Client, LocalStorage, Storage
+from opentelemetry.trace import Span
 
 if TYPE_CHECKING:
     from .app_events import EventManager
 
-from .activity_sender import ActivitySender
+from .diagnostics._baggage import Agent365BaggageOptions, agent365_baggage
+from .diagnostics._constants import APP_ATTRIBUTE_NAMES, APP_HANDLER_DISPATCHES, APP_SPAN_NAMES
+from .diagnostics._helpers import (
+    get_tracer,
+    record_activity_received,
+    record_exception,
+    record_handler_dispatched,
+    record_handler_duration,
+    record_handler_failure,
+    record_handler_unmatched,
+    record_turn_duration,
+)
 from .events import ActivityEvent, ActivityResponseEvent, ActivitySentEvent, ErrorEvent
 from .plugins import PluginActivityEvent, PluginBase, StreamCancelledError
 from .routing.activity_context import ActivityContext
 from .routing.router import ActivityHandler, ActivityRouter
-from .token_manager import TokenManager
+from .token_provider import AppTokenProvider
 from .utils import extract_tenant_id
 
 logger = logging.getLogger(__name__)
+
+
+def _is_agent365_baggage_options(
+    value: Agent365BaggageOptions | bool | None,
+) -> TypeGuard[Agent365BaggageOptions]:
+    return isinstance(value, dict)
 
 
 class ActivityProcessor:
@@ -47,22 +68,24 @@ class ActivityProcessor:
         storage: Union[Storage[str, Any], LocalStorage[Any]],
         default_connection_name: str,
         http_client: Client,
-        token_manager: TokenManager,
+        token_provider: AppTokenProvider,
+        get_app_graph_token: Callable[[Optional[str]], Awaitable[Optional[TokenProtocol]]],
         api_client_settings: Optional[ApiClientSettings],
-        activity_sender: ActivitySender,
         cloud: CloudEnvironment = PUBLIC,
         fetch_user_token: bool = True,
+        agent365_baggage_options: Agent365BaggageOptions | bool | None = None,
     ) -> None:
         self.router = router
         self.id = id
         self.storage = storage
         self.default_connection_name = default_connection_name
         self.http_client = http_client
-        self.token_manager = token_manager
+        self.token_provider = token_provider
+        self.get_app_graph_token = get_app_graph_token
         self.api_client_settings = api_client_settings
-        self.activity_sender = activity_sender
         self.cloud = cloud
         self.fetch_user_token = fetch_user_token
+        self.agent365_baggage_options = agent365_baggage_options
 
         # This will be set after the EventManager is initialized due to
         # a circular dependency
@@ -95,8 +118,11 @@ class ActivityProcessor:
         )
         api_client = ApiClient(
             service_url,
-            self.http_client.clone(ClientOptions(token=self.token_manager.get_bot_token)),
+            self.http_client,
             self.api_client_settings,
+            cloud=self.cloud,
+            token_provider=self.token_provider,
+            agentic_identity=activity.recipient.agentic_identity,
         )
 
         # Check if user is signed in.
@@ -132,8 +158,7 @@ class ActivityProcessor:
             conversation_ref,
             is_signed_in,
             self.default_connection_name,
-            activity_sender=self.activity_sender,
-            app_token=lambda: self.token_manager.get_graph_token(tenant_id),
+            app_token=lambda: self.get_app_graph_token(tenant_id),
             cloud=self.cloud,
         )
 
@@ -181,7 +206,52 @@ class ActivityProcessor:
     async def process_activity(self, plugins: List[PluginBase], event: ActivityEvent) -> InvokeResponse[Any]:
         activity_dict = event.body.model_dump(by_alias=True, exclude_none=True)
         activity = ActivityTypeAdapter.validate_python(activity_dict)
+        options = self.agent365_baggage_options
+        if _is_agent365_baggage_options(options):
+            with agent365_baggage(
+                activity,
+                include=options.get("include"),
+                operation_source=options.get("operation_source"),
+                channel_link=options.get("channel_link"),
+                additional_baggage=options.get("additional_baggage"),
+            ):
+                return await self._trace_activity(plugins, event, activity)
 
+        if options is False:
+            return await self._trace_activity(plugins, event, activity)
+
+        with agent365_baggage(activity):
+            return await self._trace_activity(plugins, event, activity)
+
+    async def _trace_activity(
+        self,
+        plugins: List[PluginBase],
+        event: ActivityEvent,
+        activity: ValidatedActivity,
+    ) -> InvokeResponse[Any]:
+        activity_type = activity.type
+        record_activity_received(activity_type)
+
+        with get_tracer().start_as_current_span(
+            APP_SPAN_NAMES.turn,
+            record_exception=False,
+            set_status_on_exception=False,
+        ) as turn_span:
+            self._set_turn_span_attributes(turn_span, activity)
+            turn_started_at = perf_counter()
+            try:
+                response = await self._process_activity_core(plugins, event, activity)
+            except Exception as error:
+                record_exception(turn_span, error)
+                raise
+            finally:
+                record_turn_duration((perf_counter() - turn_started_at) * 1000, activity_type)
+
+        return response
+
+    async def _process_activity_core(
+        self, plugins: List[PluginBase], event: ActivityEvent, activity: ValidatedActivity
+    ) -> InvokeResponse[Any]:
         activityCtx = await self._build_context(activity, event.token, plugins)
 
         logger.debug(f"Received activity: {activityCtx.activity}")
@@ -210,6 +280,9 @@ class ActivityProcessor:
         handlers = plugin_routes + handlers
 
         response: InvokeResponse[Any]
+
+        if not handlers:
+            record_handler_unmatched(activity.type, self._invoke_name(activity))
 
         if not self.event_manager:
             raise ValueError("EventManager was not initialized properly")
@@ -245,6 +318,37 @@ class ActivityProcessor:
 
         return response
 
+    def _activity_attributes(self, activity: ActivityBase) -> dict[str, str]:
+        attributes = {
+            APP_ATTRIBUTE_NAMES.activity_type: activity.type,
+            APP_ATTRIBUTE_NAMES.activity_id: activity.id,
+            APP_ATTRIBUTE_NAMES.conversation_id: activity.conversation.id,
+            APP_ATTRIBUTE_NAMES.channel_id: activity.channel_id,
+            APP_ATTRIBUTE_NAMES.bot_id: activity.recipient.id,
+        }
+        if activity.service_url:
+            attributes[APP_ATTRIBUTE_NAMES.service_url] = activity.service_url
+        return attributes
+
+    def _handler_dispatch(self, activity: ActivityBase) -> str:
+        if isinstance(activity, InvokeActivityBase):
+            return APP_HANDLER_DISPATCHES.invoke
+        return APP_HANDLER_DISPATCHES.type
+
+    def _handler_type(self, activity: ActivityBase) -> str:
+        if isinstance(activity, InvokeActivityBase):
+            return activity.name
+        return activity.type
+
+    def _invoke_name(self, activity: ActivityBase) -> str | None:
+        if isinstance(activity, InvokeActivityBase):
+            return activity.name
+        return None
+
+    def _set_turn_span_attributes(self, span: Span, activity: ActivityBase) -> None:
+        for key, value in self._activity_attributes(activity).items():
+            span.set_attribute(key, value)
+
     async def execute_middleware_chain(
         self, ctx: ActivityContext[ActivityBase], handlers: List[ActivityHandler]
     ) -> Optional[Dict[str, Any]]:
@@ -279,7 +383,7 @@ class ActivityProcessor:
                         ctx.set_next(noop)
 
                     # Execute current handler and capture return value
-                    result = await handlers[index](ctx)
+                    result = await self._execute_handler(ctx, handlers[index])
 
                     # Update the response iff response hasn't already been received
                     if result is not None:
@@ -292,3 +396,28 @@ class ActivityProcessor:
         await first_handler()
 
         return response
+
+    async def _execute_handler(self, ctx: ActivityContext[ActivityBase], handler: ActivityHandler) -> Optional[Any]:
+        handler_type = self._handler_type(ctx.activity)
+        handler_dispatch = self._handler_dispatch(ctx.activity)
+        attributes = {
+            APP_ATTRIBUTE_NAMES.handler_type: handler_type,
+            APP_ATTRIBUTE_NAMES.handler_dispatch: handler_dispatch,
+        }
+        record_handler_dispatched(handler_type, handler_dispatch)
+        started_at = perf_counter()
+        with get_tracer().start_as_current_span(
+            APP_SPAN_NAMES.handler,
+            record_exception=False,
+            set_status_on_exception=False,
+        ) as span:
+            for key, value in attributes.items():
+                span.set_attribute(key, value)
+            try:
+                return await handler(ctx)
+            except Exception as exception:
+                record_exception(span, exception)
+                record_handler_failure(handler_type, handler_dispatch)
+                raise
+            finally:
+                record_handler_duration((perf_counter() - started_at) * 1000, handler_type, handler_dispatch)

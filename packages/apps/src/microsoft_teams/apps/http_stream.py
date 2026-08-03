@@ -57,8 +57,8 @@ class HttpStream(StreamerProtocol):
             ref (ConversationReference): Reference to the Teams conversation.
         """
         super().__init__()
-        self._client = client
         self._ref = ref
+        self._client = client.from_service_url(ref.service_url)
         self._events = EventEmitter[StreamerEvent]()
 
         self._result: Optional[SentActivity] = None
