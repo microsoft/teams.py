@@ -95,14 +95,16 @@ For the first alpha on a new release branch, use:
 ```json
 {
   "version": "2.1.0-alpha.{height}",
-  "versionHeightOffset": 1
+  "versionHeightOffset": -1
 }
 ```
 
-On the public release branch, the first version commit resolves to SemVer `2.1.0-alpha.1`; the package build normalizes
-that to PEP 440 `2.1.0a1`. Keep this configuration for later alphas so each release commit advances the height. To
-start beta, change `alpha` to `beta` and reset `versionHeightOffset` to `1`, producing `2.1.0b1`. Only use a higher
-offset when continuing an already-published prerelease sequence.
+The example assumes a one-commit preparation PR followed by the required merge commit. Set `versionHeightOffset` to
+`1 - VersionHeight` for the expected merge commit, then verify that commit with
+`nbgv get-version --public-release=true`. This makes the public SemVer `2.1.0-alpha.1`; the package build normalizes
+it to PEP 440 `2.1.0a1`. Keep this configuration for later alphas so each release commit advances the height. To
+start beta, change `alpha` to `beta`, recalculate the offset for the expected merge commit, and verify that it produces
+`2.1.0b1`. Use the same process when continuing an already-published prerelease sequence, targeting the next ordinal.
 
 ### Producing a Stable Release
 
@@ -111,8 +113,7 @@ To promote a release branch from prerelease to stable, replace the prerelease te
 
 ```json
 {
-  "version": "2.1.0",
-  "versionHeightOffset": 1
+  "version": "2.1.0"
 }
 ```
 
