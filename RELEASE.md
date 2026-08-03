@@ -20,6 +20,7 @@ dotnet tool install -g nbgv
 | Branch | Versions | Published |
 |--------|----------|-----------|
 | `main` | `2.1.0.dev1`, `2.1.0.dev2`, ... | No |
+| `release/v2.1` | `2.1.0a1` → `2.1.0b1` → `2.1.0` | Yes |
 | `release/v2.0` | `2.0.x` | Yes |
 
 Release branches are **long-lived per minor line** and use the `release/v<major>.<minor>` naming convention. Create a
@@ -45,10 +46,10 @@ release branch as merged without pulling in any of its content.
    git checkout -b <you>/prep-release-<version> origin/main
    ```
 
-2. Edit `version.json` and change `"version"` from `"X.Y.Z-dev.{height}"` to `"X.Y.Z"` (the stable version you're releasing), then commit:
+2. Edit `version.json` for the release stage described below, then commit:
    ```bash
    git add version.json
-   git commit -m "Release <version>: set version to <version> stable"
+   git commit -m "Prepare <version> release"
    ```
 
 3. Merge the target release branch into your branch using `-s ours` (records it as a parent but keeps main's tree):
@@ -87,10 +88,26 @@ version core resets Nerdbank.GitVersioning's height for the new development line
 
 > **Note:** Running the pipeline on a branch not in `publicReleaseRefSpec` (e.g., a feature branch) produces versions with the commit hash appended, like `2.1.0.dev5+g1a2b3c4`. This is expected and useful for testing.
 
+### Producing Prereleases
+
+For the first alpha on a new release branch, use:
+
+```json
+{
+  "version": "2.1.0-alpha.{height}",
+  "versionHeightOffset": 1
+}
+```
+
+On the public release branch, the first version commit resolves to SemVer `2.1.0-alpha.1`; the package build normalizes
+that to PEP 440 `2.1.0a1`. Keep this configuration for later alphas so each release commit advances the height. To
+start beta, change `alpha` to `beta` and reset `versionHeightOffset` to `1`, producing `2.1.0b1`. Only use a higher
+offset when continuing an already-published prerelease sequence.
+
 ### Producing a Stable Release
 
-The version on a release branch should be a plain stable string (e.g. `2.1.0`, no `-dev` suffix). The PR opened in
-the [Workflow](#workflow) section above already handles this — just edit `version.json` before pushing:
+To promote a release branch from prerelease to stable, replace the prerelease template with a plain stable string
+(e.g. `2.1.0`, with no suffix):
 
 ```json
 {
