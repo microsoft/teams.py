@@ -84,7 +84,7 @@ class ClientOptions:
         timeout: Default request timeout in seconds.
         token: Default authorization token (string, string-like, or callable).
         interceptors: List of interceptors for request/response middleware.
-        verify: SSL context used to verify server certificates. Sharing one
+        ssl_context: SSL context used to verify server certificates. Sharing one
             pre-built context across clients avoids rebuilding it each time.
     """
 
@@ -93,7 +93,7 @@ class ClientOptions:
     timeout: Optional[float] = None
     token: Optional[Token] = None
     interceptors: Optional[List[Interceptor]] = None
-    verify: Optional[ssl.SSLContext] = None
+    ssl_context: Optional[ssl.SSLContext] = None
 
 
 @dataclass
@@ -166,7 +166,7 @@ class Client:
             timeout=options.timeout,
             # httpx accepts an SSLContext here and reuses it as-is, unlike a custom
             # transport, which would also bypass env proxy detection and pool isolation.
-            verify=options.verify if options.verify is not None else True,
+            verify=options.ssl_context if options.ssl_context is not None else True,
         )
         self._update_event_hooks()
 
@@ -584,7 +584,7 @@ class Client:
             interceptors=list(overrides.interceptors)
             if overrides.interceptors is not None
             else list(self._interceptors),
-            verify=overrides.verify if overrides.verify is not None else self._options.verify,
+            ssl_context=overrides.ssl_context if overrides.ssl_context is not None else self._options.ssl_context,
         )
         cloned = Client(merged_options, _http=self.http if share_http else None)
         cloned._middlewares = list(self._middlewares)
