@@ -547,6 +547,10 @@ def test_verify_context_is_used_by_underlying_client():
     assert _ssl_context_of(client) is ctx
 
 
+def test_verify_rejects_bool():
+    with pytest.raises(TypeError):
+        Client(ClientOptions(verify=cast(ssl.SSLContext, False)))
+
 def test_verify_context_is_shared_across_clients():
     ctx = ssl.create_default_context()
     a = Client(ClientOptions(verify=ctx))
