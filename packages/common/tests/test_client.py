@@ -4,6 +4,9 @@ Licensed under the MIT License.
 """
 # pyright: basic
 
+import ssl
+from typing import Optional, cast
+
 import httpx
 import pytest
 from microsoft_teams.common.http import (
@@ -530,3 +533,60 @@ def test_clone_user_agent_multi_token_override():
     clone = client.clone(ClientOptions(headers={"User-Agent": "myapp/2.0 partner/3.0"}))
     ua = clone._options.headers["User-Agent"]
     assert ua == "teams-bot/1.0 myapp/2.0 partner/3.0"
+
+
+def _ssl_context_of(client: Client) -> Optional[ssl.SSLContext]:
+    """Reach the SSL context the underlying httpx client actually uses."""
+    transport = cast(httpx.AsyncHTTPTransport, client.http._transport)
+    return transport._pool._ssl_context
+
+
+def test_verify_context_is_used_by_underlying_client():
+    ctx = ssl.create_default_context()
+    client = Client(ClientOptions(verify=ctx))
+    assert _ssl_context_of(client) is ctx
+
+
+def test_verify_context_is_shared_across_clients():
+    ctx = ssl.create_default_context()
+    a = Client(ClientOptions(verify=ctx))
+    b = Client(ClientOptions(verify=ctx))
+    assert _ssl_context_of(a) is _ssl_context_of(b) is ctx
+
+
+def test_verify_context_survives_clone():
+    ctx = ssl.create_default_context()
+    client = Client(ClientOptions(verify=ctx))
+    clone = client.clone(ClientOptions(base_url="https://example.com"))
+    assert _ssl_context_of(clone) is ctx
+
+
+def test_verify_context_can_be_overridden_on_clone():
+    ctx = ssl.create_default_context()
+    other = ssl.create_default_context()
+    client = Client(ClientOptions(verify=ctx))
+    clone = client.clone(ClientOptions(verify=other))
+    assert _ssl_context_of(clone) is other
+
+
+def test_clients_sharing_a_context_keep_separate_connection_pools():
+    ctx = ssl.create_default_context()
+    a = Client(ClientOptions(verify=ctx))
+    b = Client(ClientOptions(verify=ctx))
+    assert a.http is not b.http
+    assert a.http._transport is not b.http._transport
+
+
+def test_default_verify_behaviour_is_unchanged():
+    client = Client(ClientOptions())
+    context = _ssl_context_of(client)
+    assert context is not None
+    assert context.verify_mode == ssl.CERT_REQUIRED
+    assert context.check_hostname is True
+
+
+def test_verify_does_not_disturb_other_options():
+    ctx = ssl.create_default_context()
+    client = Client(ClientOptions(base_url="https://example.com", timeout=5, verify=ctx))
+    assert str(client.http.base_url) == "https://example.com"
+    assert client.http.timeout.connect == 5
