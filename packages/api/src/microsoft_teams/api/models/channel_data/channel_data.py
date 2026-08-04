@@ -9,6 +9,7 @@ from pydantic import model_validator
 
 from ..custom_base_model import CustomBaseModel
 from ..meetings import MeetingInfo
+from .app_info import AppInfo
 from .channel_info import ChannelInfo
 from .feedback_loop import FeedbackLoop
 from .notification_info import NotificationInfo
@@ -24,6 +25,9 @@ class ChannelData(CustomBaseModel):
 
     channel: Optional[ChannelInfo] = None
     "Information about the channel in which the message was sent."
+
+    app: Optional[AppInfo] = None
+    "Information about the app that sent the message."
 
     event_type: Optional[str] = None
     "Type of event."

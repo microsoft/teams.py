@@ -48,9 +48,6 @@ class _MessageBase(CustomBaseModel):
     text: Optional[str] = None
     """The text content of the message."""
 
-    summary: Optional[str] = None
-    """The text to display if the channel cannot render cards."""
-
     text_format: Optional[TextFormat] = None
     """Format of text fields. Default: markdown. Possible values: 'markdown', 'plain', 'xml', 'extendedmarkdown'."""
 
@@ -63,18 +60,21 @@ class _MessageBase(CustomBaseModel):
     suggested_actions: Optional[SuggestedActions] = None
     """The suggested actions for the activity."""
 
-    delivery_mode: Optional[DeliveryMode] = None
-    """A delivery hint to signal to the recipient alternate delivery paths for the activity."""
-
-    value: Optional[Any] = None
-    """A value that is associated with the activity."""
-
 
 class MessageActivity(_MessageBase, ActivityBase):
     """Output model for received message activities with required fields and read-only properties."""
 
     text: str = ""  # pyright: ignore [reportGeneralTypeIssues, reportIncompatibleVariableOverride]
     """The text content of the message."""
+
+    summary: Optional[str] = None
+    """The text to display if the channel cannot render cards."""
+
+    delivery_mode: Optional[DeliveryMode] = None
+    """A delivery hint to signal to the recipient alternate delivery paths for the activity."""
+
+    value: Optional[Any] = None
+    """A value that is associated with the activity."""
 
     def get_quoted_messages(self) -> list[QuotedReplyEntity]:
         """
@@ -154,19 +154,6 @@ class MessageActivityInput(_MessageBase, ActivityInputBase):
         self.text = text
         return self
 
-    def with_summary(self, summary: str) -> Self:
-        """
-        Set the text to display if the channel cannot render cards.
-
-        Args:
-            summary: Summary text
-
-        Returns:
-            Self for method chaining
-        """
-        self.summary = summary
-        return self
-
     def with_text_format(self, text_format: TextFormat) -> Self:
         """
         Set the format of text fields.
@@ -204,19 +191,6 @@ class MessageActivityInput(_MessageBase, ActivityInputBase):
             Self for method chaining
         """
         self.suggested_actions = suggested_actions
-        return self
-
-    def with_delivery_mode(self, delivery_mode: DeliveryMode) -> Self:
-        """
-        Set the delivery mode for the activity.
-
-        Args:
-            delivery_mode: Delivery mode (normal, notification)
-
-        Returns:
-            Self for method chaining
-        """
-        self.delivery_mode = delivery_mode
         return self
 
     def add_text(self, text: str) -> Self:

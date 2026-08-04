@@ -72,7 +72,7 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
                     )
                     updated_message.id = message_id
 
-                    await ctx.api.conversations.activities(conversation_id).update_targeted(message_id, updated_message)
+                    await ctx.api.conversations.update_targeted_activity(conversation_id, message_id, updated_message)
                     logger.info("[UPDATE] Updated targeted message")
                 except Exception as err:
                     logger.error(f"[UPDATE] Error: {err}")
@@ -97,7 +97,7 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
             async def delete_after_delay():
                 await asyncio.sleep(3)
                 try:
-                    await ctx.api.conversations.activities(conversation_id).delete_targeted(message_id)
+                    await ctx.api.conversations.delete_targeted_activity(conversation_id, message_id)
                     logger.info("[DELETE] Deleted targeted message")
                 except Exception as err:
                     logger.error(f"[DELETE] Error: {err}")

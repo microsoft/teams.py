@@ -379,12 +379,13 @@ class HttpStream(StreamerProtocol):
 
         to_send.from_ = self._ref.bot
         to_send.conversation = self._ref.conversation
+        to_send.reply_to_id = self._ref.activity_id
 
         try:
             if to_send.id and not any(e.type == "streaminfo" for e in (to_send.entities or [])):
-                res = await self._client.conversations.activities(self._ref.conversation.id).update(to_send.id, to_send)
+                res = await self._client.conversations.update_activity(self._ref.conversation.id, to_send.id, to_send)
             else:
-                res = await self._client.conversations.activities(self._ref.conversation.id).create(to_send)
+                res = await self._client.conversations.create_activity(self._ref.conversation.id, to_send)
 
             return SentActivity.merge(to_send, res)
         except HTTPStatusError as e:
@@ -410,7 +411,7 @@ class HttpStream(StreamerProtocol):
                     self._canceled = True
                     logger.warning("The streaming was stopped by the user.")
                     raise StreamCancelledError(message) from e
-                elif "not allowed" in normalized:
+                elif "not allowed" in normalized and "completed streamed message" not in normalized:
                     logger.warning("The streaming API isn't allowed for the user or bot.")
                     raise StreamNotAllowedError(message) from e
                 else:

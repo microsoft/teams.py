@@ -24,6 +24,7 @@ from microsoft_teams.api.activities import (
     ExecuteActionInvokeActivity,
     FileConsentInvokeActivity,
     HandoffActionInvokeActivity,
+    HtmlWidgetCallToolInvokeActivity,
     InstalledActivity,
     InstallUpdateActivity,
     InvokeActivity,
@@ -47,6 +48,7 @@ from microsoft_teams.api.activities import (
     MessageSubmitActionInvokeActivity,
     MessageUpdateActivity,
     ReadReceiptEventActivity,
+    SearchInvokeActivity,
     SignInFailureInvokeActivity,
     SignInTokenExchangeInvokeActivity,
     SignInVerifyStateInvokeActivity,
@@ -59,8 +61,10 @@ from microsoft_teams.api.activities import (
 from microsoft_teams.api.models.invoke_response import (
     AdaptiveCardInvokeResponse,
     ConfigInvokeResponse,
+    HtmlWidgetCallToolResponse,
     MessagingExtensionActionInvokeResponse,
     MessagingExtensionInvokeResponse,
+    SearchInvokeResponse,
     TabInvokeResponse,
     TaskModuleInvokeResponse,
     TokenExchangeInvokeResponseType,
@@ -1385,8 +1389,7 @@ class GeneratedActivityHandlerMixin(ABC):
     def on_suggested_action_submit(
         self,
     ) -> Callable[
-        [VoidInvokeHandler[SuggestedActionSubmitInvokeActivity]],
-        VoidInvokeHandler[SuggestedActionSubmitInvokeActivity],
+        [VoidInvokeHandler[SuggestedActionSubmitInvokeActivity]], VoidInvokeHandler[SuggestedActionSubmitInvokeActivity]
     ]: ...
 
     def on_suggested_action_submit(
@@ -1503,6 +1506,42 @@ class GeneratedActivityHandlerMixin(ABC):
         return decorator
 
     @overload
+    def on_widget_call_tool(
+        self, handler: InvokeHandler[HtmlWidgetCallToolInvokeActivity, HtmlWidgetCallToolResponse]
+    ) -> InvokeHandler[HtmlWidgetCallToolInvokeActivity, HtmlWidgetCallToolResponse]: ...
+
+    @overload
+    def on_widget_call_tool(
+        self,
+    ) -> Callable[
+        [InvokeHandler[HtmlWidgetCallToolInvokeActivity, HtmlWidgetCallToolResponse]],
+        InvokeHandler[HtmlWidgetCallToolInvokeActivity, HtmlWidgetCallToolResponse],
+    ]: ...
+
+    def on_widget_call_tool(
+        self,
+        handler: Optional[InvokeHandler[HtmlWidgetCallToolInvokeActivity, HtmlWidgetCallToolResponse]] = None,
+    ) -> InvokeHandlerUnion[HtmlWidgetCallToolInvokeActivity, HtmlWidgetCallToolResponse]:
+        """Register a widget.call_tool activity handler."""
+
+        def decorator(
+            func: InvokeHandler[HtmlWidgetCallToolInvokeActivity, HtmlWidgetCallToolResponse],
+        ) -> InvokeHandler[HtmlWidgetCallToolInvokeActivity, HtmlWidgetCallToolResponse]:
+            validate_handler_type(
+                func,
+                HtmlWidgetCallToolInvokeActivity,
+                "on_widget_call_tool",
+                "HtmlWidgetCallToolInvokeActivity",
+            )
+            config = ACTIVITY_ROUTES["widget.call_tool"]
+            self.router.add_handler(config.selector, func)
+            return func
+
+        if handler is not None:
+            return decorator(handler)
+        return decorator
+
+    @overload
     def on_card_action(
         self, handler: InvokeHandler[AdaptiveCardInvokeActivity, AdaptiveCardInvokeResponse]
     ) -> InvokeHandler[AdaptiveCardInvokeActivity, AdaptiveCardInvokeResponse]: ...
@@ -1525,6 +1564,36 @@ class GeneratedActivityHandlerMixin(ABC):
         ) -> InvokeHandler[AdaptiveCardInvokeActivity, AdaptiveCardInvokeResponse]:
             validate_handler_type(func, AdaptiveCardInvokeActivity, "on_card_action", "AdaptiveCardInvokeActivity")
             config = ACTIVITY_ROUTES["card.action"]
+            self.router.add_handler(config.selector, func)
+            return func
+
+        if handler is not None:
+            return decorator(handler)
+        return decorator
+
+    @overload
+    def on_card_search(
+        self, handler: InvokeHandler[SearchInvokeActivity, SearchInvokeResponse]
+    ) -> InvokeHandler[SearchInvokeActivity, SearchInvokeResponse]: ...
+
+    @overload
+    def on_card_search(
+        self,
+    ) -> Callable[
+        [InvokeHandler[SearchInvokeActivity, SearchInvokeResponse]],
+        InvokeHandler[SearchInvokeActivity, SearchInvokeResponse],
+    ]: ...
+
+    def on_card_search(
+        self, handler: Optional[InvokeHandler[SearchInvokeActivity, SearchInvokeResponse]] = None
+    ) -> InvokeHandlerUnion[SearchInvokeActivity, SearchInvokeResponse]:
+        """Register a card.search activity handler."""
+
+        def decorator(
+            func: InvokeHandler[SearchInvokeActivity, SearchInvokeResponse],
+        ) -> InvokeHandler[SearchInvokeActivity, SearchInvokeResponse]:
+            validate_handler_type(func, SearchInvokeActivity, "on_card_search", "SearchInvokeActivity")
+            config = ACTIVITY_ROUTES["card.search"]
             self.router.add_handler(config.selector, func)
             return func
 

@@ -44,7 +44,7 @@ class HttpServer:
         self._messaging_endpoint = normalized_endpoint
         self._on_request: Optional[Callable[[ActivityEvent], Awaitable[InvokeResponse[Any]]]] = None
         self._token_validator: Optional[TokenValidator] = None
-        self._skip_auth: bool = False
+        self._dangerously_allow_unauthenticated_requests: bool = False
         self._cloud: CloudEnvironment = PUBLIC
         self._initialized: bool = False
 
@@ -70,40 +70,42 @@ class HttpServer:
     def initialize(
         self,
         credentials: Optional[Credentials] = None,
-        skip_auth: bool = False,
         cloud: Optional[CloudEnvironment] = None,
+        dangerously_allow_unauthenticated_requests: bool = False,
     ) -> None:
         """
         Set up JWT validation and register the messaging endpoint route.
 
         Args:
             credentials: App credentials for JWT validation.
-            skip_auth: Whether to skip JWT validation.
             cloud: Optional cloud environment for sovereign cloud support.
+            dangerously_allow_unauthenticated_requests: Whether to skip JWT validation.
         """
         if self._initialized:
             return
 
-        self._skip_auth = skip_auth
+        self._dangerously_allow_unauthenticated_requests = dangerously_allow_unauthenticated_requests
         self._cloud = cloud or PUBLIC
 
         app_id = getattr(credentials, "client_id", None) if credentials else None
-        if app_id and not skip_auth:
+        if app_id and not dangerously_allow_unauthenticated_requests:
             self._token_validator = TokenValidator.for_service(
                 app_id,
                 cloud=self._cloud,
             )
             logger.debug("JWT validation enabled for %s", self._messaging_endpoint)
-        elif not app_id and not skip_auth:
+        elif not app_id and not dangerously_allow_unauthenticated_requests:
             logger.warning(
-                "No credentials configured and skip_auth is not enabled. "
+                "No credentials configured and dangerously_allow_unauthenticated_requests is not enabled. "
                 "All incoming requests will be rejected. Configure client authentication "
-                "to securely receive messages, or set skip_auth=True for local development."
+                "to securely receive messages, or set dangerously_allow_unauthenticated_requests=True "
+                "for local development."
             )
-        elif not app_id and skip_auth:
+        elif not app_id and dangerously_allow_unauthenticated_requests:
             logger.warning(
                 "No credentials configured (CLIENT_ID / CLIENT_SECRET / TENANT_ID), "
-                "but skip_auth is enabled. Bot will accept unauthenticated requests on %s.",
+                "but dangerously_allow_unauthenticated_requests is enabled. "
+                "Bot will accept unauthenticated requests on %s.",
                 self._messaging_endpoint,
             )
 
@@ -122,8 +124,8 @@ class HttpServer:
             # Validate JWT token
             authorization = headers.get("authorization") or headers.get("Authorization") or ""
 
-            if self._skip_auth:
-                # Auth explicitly skipped — use a default token
+            if self._dangerously_allow_unauthenticated_requests:
+                # Unauthenticated requests explicitly allowed: use a default token.
                 service_url = cast(Optional[str], body.get("serviceUrl"))
                 token: TokenProtocol = cast(
                     TokenProtocol,

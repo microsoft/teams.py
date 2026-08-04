@@ -9,10 +9,11 @@ from typing import TYPE_CHECKING, Optional, Union
 
 from microsoft_teams.common import Client as HttpClient
 from microsoft_teams.common import ClientOptions
+from typing_extensions import deprecated
 
 from .api_client_settings import ApiClientSettings
 from .base_client import BaseClient
-from .bot import BotClient
+from .bot import BotClient  # pyright: ignore[reportDeprecated]
 from .conversation import ConversationClient
 from .meeting import MeetingClient
 from .reaction import ReactionClient
@@ -45,7 +46,9 @@ class ApiClient(BaseClient):
         self.service_url = service_url.rstrip("/")
 
         # Initialize all client types
-        self.bots = BotClient(self._http, self._api_client_settings, cloud=cloud)
+        self._bots = BotClient(  # pyright: ignore[reportDeprecated]
+            self._http, self._api_client_settings, cloud=cloud
+        )
         self.users = UserClient(self._http, self._api_client_settings)
         self.conversations = ConversationClient(self.service_url, self._http, self._api_client_settings)
         self.teams = TeamClient(self.service_url, self._http, self._api_client_settings)
@@ -53,6 +56,16 @@ class ApiClient(BaseClient):
         self._reactions: Optional[ReactionClient] = None
 
     @property
+    @deprecated("The bot client is no longer used and will be removed in a future release.")
+    def bots(self):
+        """Get the bot client."""
+        return self._bots
+
+    @property
+    @deprecated(
+        "Use `conversations.add_reaction(...)` and `conversations.delete_reaction(...)` instead. "
+        "This will be removed in a future release."
+    )
     def reactions(self) -> ReactionClient:
         """Get the reactions client (preview). Lazily instantiated to avoid warnings for non-users."""
         if self._reactions is None:
@@ -67,7 +80,7 @@ class ApiClient(BaseClient):
     @http.setter
     def http(self, value: HttpClient) -> None:
         """Set the HTTP client instance and propagate to all sub-clients."""
-        self.bots.http = value
+        self._bots.http = value
         self.conversations.http = value
         self.users.http = value
         self.teams.http = value

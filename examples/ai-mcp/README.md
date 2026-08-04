@@ -1,6 +1,3 @@
-> [!CAUTION]
-> This project is in public preview. We'll do our best to maintain compatibility, but there may be breaking changes in upcoming releases.
-
 # Teams AI Agent with MCP tools
 
 A Teams bot powered by [agent-framework](https://github.com/microsoft/agent-framework) and Azure OpenAI. It streams responses token-by-token, attaches inline citations from MCP search results, asks clarifying questions via Adaptive Cards, and suggests follow-up questions after each reply.

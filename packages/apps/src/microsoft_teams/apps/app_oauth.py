@@ -49,7 +49,7 @@ class OauthHandlers:
                 )
 
             try:
-                token = await api.users.token.exchange(
+                token = await api.users.exchange_token(
                     ExchangeUserTokenParams(
                         connection_name=activity.value.connection_name,
                         user_id=activity.from_.id,
@@ -59,6 +59,8 @@ class OauthHandlers:
                         ),
                     )
                 )
+                ctx.is_signed_in = True
+                ctx.user_token = token.token
                 self.event_emitter.emit("sign_in", SignInEvent(activity_ctx=ctx, token_response=token))
                 return None
             except Exception as e:
@@ -166,7 +168,7 @@ class OauthHandlers:
             )
 
             try:
-                token = await api.users.token.get(
+                token = await api.users.get_token(
                     GetUserTokenParams(
                         connection_name=self.default_connection_name,
                         user_id=activity.from_.id,
@@ -174,6 +176,8 @@ class OauthHandlers:
                         code=activity.value.state,
                     )
                 )
+                ctx.is_signed_in = True
+                ctx.user_token = token.token
                 self.event_emitter.emit("sign_in", SignInEvent(activity_ctx=ctx, token_response=token))
                 logger.debug(
                     f"Sign-in state verified for user {activity.from_.id} in conversation {activity.conversation.id}"

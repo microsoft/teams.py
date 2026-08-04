@@ -8,6 +8,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Optional, Union
 
 from microsoft_teams.common.http import Client, ClientOptions
+from typing_extensions import deprecated
 
 from ..api_client_settings import ApiClientSettings
 from ..base_client import BaseClient
@@ -18,6 +19,7 @@ if TYPE_CHECKING:
     from ...auth.cloud_environment import CloudEnvironment
 
 
+@deprecated("The bot client is deprecated and will be removed in a future release.")
 class BotClient(BaseClient):
     """Client for managing bot operations."""
 

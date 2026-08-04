@@ -12,12 +12,23 @@ from microsoft_teams.api import (
     ConfigResponse,
     InvokeResponse,
 )
-from microsoft_teams.apps.http import FastAPIAdapter, HttpServer
+from microsoft_teams.apps.http import FastAPIAdapter
 from microsoft_teams.apps.http.adapter import HttpRequest, HttpResponse
+from microsoft_teams.apps.http.http_server import HttpServer
 
 
 class TestHttpServer:
-    """Test cases for HttpServer public interface."""
+    """Test cases for HttpServer implementation."""
+
+    def test_http_server_is_not_publicly_exported(self):
+        """HttpServer is an implementation detail and should not be exported."""
+        import microsoft_teams.apps as apps
+        import microsoft_teams.apps.http as http
+
+        assert "HttpServer" not in apps.__all__
+        assert not hasattr(apps, "HttpServer")
+        assert "HttpServer" not in http.__all__
+        assert not hasattr(http, "HttpServer")
 
     @pytest.fixture
     def mock_adapter(self):
@@ -41,8 +52,8 @@ class TestHttpServer:
 
     def test_initialize_idempotent(self, server, mock_adapter):
         """Test that initialize can be called multiple times safely."""
-        server.initialize(skip_auth=True)
-        server.initialize(skip_auth=True)
+        server.initialize(dangerously_allow_unauthenticated_requests=True)
+        server.initialize(dangerously_allow_unauthenticated_requests=True)
         # Should only register route once
         assert mock_adapter.register_route.call_count == 1
 
@@ -115,7 +126,7 @@ class TestHttpServer:
             return expected_response
 
         server.on_request = mock_handler
-        server.initialize(skip_auth=True)
+        server.initialize(dangerously_allow_unauthenticated_requests=True)
 
         request = HttpRequest(
             body={
@@ -139,7 +150,7 @@ class TestHttpServer:
             raise ValueError("Handler failed")
 
         server.on_request = failing_handler
-        server.initialize(skip_auth=True)
+        server.initialize(dangerously_allow_unauthenticated_requests=True)
 
         request = HttpRequest(
             body={"type": "message", "id": "test-123"},
@@ -153,7 +164,7 @@ class TestHttpServer:
     @pytest.mark.asyncio
     async def test_handle_activity_no_handler(self, server):
         """Test activity handling when no on_request handler is set."""
-        server.initialize(skip_auth=True)
+        server.initialize(dangerously_allow_unauthenticated_requests=True)
 
         request = HttpRequest(
             body={"type": "message", "id": "test-123"},
@@ -200,7 +211,7 @@ class TestHttpServer:
 
 
 class TestHttpServerNoCredentials:
-    """Test cases for HttpServer when no credentials are configured and skip_auth is not set."""
+    """Test cases for HttpServer when no credentials are configured and unauthenticated requests are not allowed."""
 
     @pytest.fixture
     def mock_adapter(self):
@@ -213,7 +224,7 @@ class TestHttpServerNoCredentials:
     @pytest.fixture
     def server(self, mock_adapter):
         server = HttpServer(mock_adapter)
-        server.initialize(credentials=None, skip_auth=False)
+        server.initialize(credentials=None, dangerously_allow_unauthenticated_requests=False)
         return server
 
     @pytest.mark.asyncio

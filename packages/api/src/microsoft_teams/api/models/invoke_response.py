@@ -8,8 +8,10 @@ from typing import Any, Generic, Optional, TypeVar, Union
 from .adaptive_card.adaptive_card_action_response import AdaptiveCardActionResponse
 from .config.config_response import ConfigResponse
 from .custom_base_model import CustomBaseModel
+from .html_widget.call_tool_result import HtmlWidgetCallToolResponse
 from .messaging_extension.messaging_extension_action_response import MessagingExtensionActionResponse
 from .messaging_extension.messaging_extension_response import MessagingExtensionResponse
+from .search.search_response import SearchResponse
 from .tab.tab_response import TabResponse
 from .task_module.task_module_response import TaskModuleResponse
 from .token_exchange.invoke_response import TokenExchangeInvokeResponse
@@ -26,7 +28,9 @@ InvokeResponseBody = Union[
     TaskModuleResponse,  # task/fetch, task/submit
     TabResponse,  # tab/fetch, tab/submit
     AdaptiveCardActionResponse,  # adaptiveCard/action
+    SearchResponse,  # application/search
     TokenExchangeInvokeResponse,  # signin/tokenExchange
+    HtmlWidgetCallToolResponse,  # htmlwidget/calltool
 ]  # Type variable for generic invoke response
 
 T = TypeVar("T", bound=InvokeResponseBody)
@@ -69,4 +73,5 @@ MessagingExtensionActionInvokeResponse = MessagingExtensionActionResponse
 TaskModuleInvokeResponse = TaskModuleResponse
 TabInvokeResponse = TabResponse
 AdaptiveCardInvokeResponse = AdaptiveCardActionResponse
+SearchInvokeResponse = SearchResponse
 TokenExchangeInvokeResponseType = Union[TokenExchangeInvokeResponse, None]

@@ -102,9 +102,7 @@ class FunctionContext(ClientContext, Generic[T]):
         # Validate that both the bot and user are members of the conversation.
         if self._resolved_conversation_id:
             try:
-                member = await self.api.conversations.members_client.get_by_id(
-                    self._resolved_conversation_id, self.user_id
-                )
+                member = await self.api.conversations.get_member_by_id(self._resolved_conversation_id, self.user_id)
                 if not member:
                     logger.warning(
                         f"User {self.user_id} is not a member of conversation {self._resolved_conversation_id}"
