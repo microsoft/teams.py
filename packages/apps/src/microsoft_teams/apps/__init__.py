@@ -5,12 +5,13 @@ Licensed under the MIT License.
 
 import logging
 
-from . import auth, contexts, diagnostics, events, plugins
+from . import auth, contexts, diagnostics, events, files, plugins
 from .app import App
 from .auth import *  # noqa: F403
 from .contexts import *  # noqa: F403
 from .diagnostics import *  # noqa: F403
 from .events import *  # noqa: F401, F403
+from .files import *  # noqa: F403
 from .http import FastAPIAdapter, HttpServer, HttpServerAdapter
 from .http_stream import HttpStream
 from .options import AppOptions, AppTelemetryOptions
@@ -59,5 +60,6 @@ __all__: list[str] = [
 __all__.extend(auth.__all__)
 __all__.extend(diagnostics.__all__)
 __all__.extend(events.__all__)
+__all__.extend(files.__all__)
 __all__.extend(plugins.__all__)
 __all__.extend(contexts.__all__)
