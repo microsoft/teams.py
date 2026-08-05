@@ -41,6 +41,7 @@ from microsoft_teams.common.experimental import ExperimentalWarning
 from microsoft_teams.common.http.client_token import Token
 
 from ..activity_send import send_or_update_activity
+from ..files import FilesAccessor
 from ..http_stream import HttpStream
 from ..plugins.streamer import StreamerProtocol
 from ..utils import create_graph_client
@@ -102,6 +103,7 @@ class ActivityContext(Generic[T]):
         self.cloud = cloud
         self._app_token = app_token
         self._stream: Optional[StreamerProtocol] = None
+        self._files: Optional[FilesAccessor] = None
 
         self._next_handler: Optional[Callable[[], Awaitable[None]]] = None
 
@@ -114,6 +116,16 @@ class ActivityContext(Generic[T]):
         if self._stream is None:
             self._stream = HttpStream(self.api, self.conversation_ref)
         return self._stream
+
+    @property
+    def files(self) -> FilesAccessor:
+        """
+        The uploaded files on the current inbound activity, i.e. the `content_type: file.download.info` subset of
+        `activity.attachments`, mapped to `IncomingFile`. See `FilesAccessor`.
+        """
+        if self._files is None:
+            self._files = FilesAccessor(self.activity, self.logger)
+        return self._files
 
     @property
     def user_graph(self) -> "GraphServiceClient":
