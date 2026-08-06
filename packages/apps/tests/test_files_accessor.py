@@ -76,6 +76,20 @@ async def test_skips_a_malformed_file_download_info_missing_download_url() -> No
     assert files == []
 
 
+async def test_skips_a_file_download_info_whose_content_fails_validation() -> None:
+    # `content` is a dict but the wire shape is wrong (downloadUrl is not a string), so
+    # `FileDownloadInfo.model_validate` would raise. The accessor must skip it, not throw.
+    attachment = Attachment(
+        content_type=FILE_DOWNLOAD_INFO_CONTENT_TYPE,
+        name="broken.pdf",
+        content={"downloadUrl": {"not": "a string"}},
+    )
+
+    files = await FilesAccessor(_activity_with([attachment]), log).list()
+
+    assert files == []
+
+
 async def test_skips_a_file_download_info_missing_a_name() -> None:
     attachment = Attachment(
         content_type=FILE_DOWNLOAD_INFO_CONTENT_TYPE,

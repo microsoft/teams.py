@@ -56,7 +56,7 @@ async def open_file_stream(
     until their Graph receive path lands.
     """
     if target.scope != "personal":
-        raise FileScopeNotSupportedError(str(target.scope))
+        raise FileScopeNotSupportedError(target.scope)
 
     async with _open_personal_file_stream(target, prior_fetch_succeeded=prior_fetch_succeeded, client=client) as opened:
         yield opened

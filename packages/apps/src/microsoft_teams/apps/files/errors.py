@@ -5,6 +5,8 @@ Licensed under the MIT License.
 
 from typing import Literal, Optional
 
+from microsoft_teams.api import ConversationType
+
 FileUrlExpiredReason = Literal["first_fetch", "reread"]
 
 
@@ -51,10 +53,10 @@ class FileScopeNotSupportedError(Exception):
     `download()`/`stream()` throws until that path lands.
     """
 
-    scope: str
+    scope: ConversationType
     """The conversation scope that is not yet fetchable."""
 
-    def __init__(self, scope: str, message: Optional[str] = None) -> None:
+    def __init__(self, scope: ConversationType, message: Optional[str] = None) -> None:
         if message is None:
             message = f"downloading files from '{scope}' conversations is not supported via SDK at this time"
         super().__init__(message)

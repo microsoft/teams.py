@@ -14,6 +14,7 @@ from microsoft_teams.api import (
     FileDownloadInfo,
     MessageActivity,
 )
+from pydantic import ValidationError
 
 from .incoming_file import IncomingFile
 
@@ -88,7 +89,7 @@ class FilesAccessor:
         if attachment.content_type != FILE_DOWNLOAD_INFO_CONTENT_TYPE:
             return None
 
-        content = self._coerce_content(attachment.content)
+        content = self._coerce_content(attachment.content, index)
         download_url = content.download_url if content else None
         name = attachment.name
 
@@ -114,11 +115,16 @@ class FilesAccessor:
             download_url=download_url,
         )
 
-    @staticmethod
-    def _coerce_content(content: object) -> Optional[FileDownloadInfo]:
+    def _coerce_content(self, content: object, index: int) -> Optional[FileDownloadInfo]:
         """Normalize the attachment's raw `content` (a wire dict or an already-parsed model) to `FileDownloadInfo`."""
         if isinstance(content, FileDownloadInfo):
             return content
         if isinstance(content, dict):
-            return FileDownloadInfo.model_validate(content)
+            try:
+                return FileDownloadInfo.model_validate(content)
+            except ValidationError:
+                self._logger.debug(
+                    f"files: skipping file.download.info attachment at index {index}; content failed validation"
+                )
+                return None
         return None
