@@ -35,7 +35,11 @@ class IncomingFile:
     """Display name including extension when known."""
 
     content_type: Optional[str]
-    """MIME type when known."""
+    """
+    The file's MIME type, when Teams provides it with the file. Files received today do not include one, so this is
+    usually `None`; the type resolved from the download response is on the returned `DownloadedFile`, not written back
+    here.
+    """
 
     extension: Optional[str]
     """

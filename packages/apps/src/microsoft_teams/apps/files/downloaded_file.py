@@ -23,7 +23,9 @@ class DownloadedFile:
     """The file bytes, buffered from `stream()` read to completion."""
 
     content_type: str
-    """MIME type resolved from the response or the incoming file."""
+    """MIME type resolved from the download response header, or the incoming file's metadata type if the
+    response omits one. Falls back to `application/octet-stream` when neither provides a type, so this is
+    never empty."""
 
     filename: str
     """Resolved filename."""

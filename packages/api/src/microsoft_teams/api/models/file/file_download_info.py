@@ -3,7 +3,7 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from typing import Any, Optional
+from typing import Optional
 
 from ..custom_base_model import CustomBaseModel
 
@@ -29,5 +29,8 @@ class FileDownloadInfo(CustomBaseModel):
     file_type: Optional[str] = None
     "Type of file (extension, e.g. `pdf`, `docx`)."
 
-    etag: Optional[Any] = None
-    "ETag for the file."
+    etag: Optional[str] = None
+    """
+    A server-assigned version tag identifying this version of the file's contents, for detecting whether the file
+    changed between reads. Read-only; populated when Teams provides it with the file.
+    """
