@@ -18,6 +18,8 @@ from pydantic import ValidationError
 
 from .incoming_file import IncomingFile
 
+logger = logging.getLogger(__name__)
+
 
 class FilesAccessor:
     """
@@ -36,9 +38,8 @@ class FilesAccessor:
     file. An image sent as a file appears here, but the same image pasted inline does not.
     """
 
-    def __init__(self, activity: ActivityBase, logger: logging.Logger) -> None:
+    def __init__(self, activity: ActivityBase) -> None:
         self._activity = activity
-        self._logger = logger
 
     async def list(self) -> List[IncomingFile]:
         """
@@ -97,7 +98,7 @@ class FilesAccessor:
         # leave a breadcrumb rather than throwing.
         if not download_url or not name:
             missing = "name" if not name else "download_url"
-            self._logger.debug(f"files: skipping file.download.info attachment at index {index}; missing {missing}")
+            logger.debug(f"files: skipping file.download.info attachment at index {index}; missing {missing}")
             return None
 
         return IncomingFile(
@@ -123,7 +124,7 @@ class FilesAccessor:
             try:
                 return FileDownloadInfo.model_validate(content)
             except ValidationError:
-                self._logger.debug(
+                logger.debug(
                     f"files: skipping file.download.info attachment at index {index}; content failed validation"
                 )
                 return None

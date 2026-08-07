@@ -5,7 +5,6 @@ Licensed under the MIT License.
 
 # pyright: basic
 
-import logging
 from typing import List, Optional
 
 from microsoft_teams.api import (
@@ -17,8 +16,6 @@ from microsoft_teams.api import (
 )
 from microsoft_teams.api.activities.typing import TypingActivity
 from microsoft_teams.apps.files import FilesAccessor
-
-log = logging.getLogger("test_files_accessor")
 
 
 def _activity_with(attachments: List[Attachment], conversation_type: Optional[str] = "personal") -> MessageActivity:
@@ -43,7 +40,7 @@ async def test_maps_a_file_download_info_attachment_to_an_incoming_file() -> Non
         },
     )
 
-    files = await FilesAccessor(_activity_with([attachment]), log).list()
+    files = await FilesAccessor(_activity_with([attachment])).list()
 
     assert len(files) == 1
     file = files[0]
@@ -59,7 +56,7 @@ async def test_maps_a_file_download_info_attachment_to_an_incoming_file() -> Non
 async def test_ignores_attachments_that_are_not_uploaded_files() -> None:
     card = Attachment(content_type="application/vnd.microsoft.card.adaptive", content={})
 
-    files = await FilesAccessor(_activity_with([card]), log).list()
+    files = await FilesAccessor(_activity_with([card])).list()
 
     assert files == []
 
@@ -71,7 +68,7 @@ async def test_skips_a_malformed_file_download_info_missing_download_url() -> No
         content={"uniqueId": "no-url"},
     )
 
-    files = await FilesAccessor(_activity_with([attachment]), log).list()
+    files = await FilesAccessor(_activity_with([attachment])).list()
 
     assert files == []
 
@@ -85,7 +82,7 @@ async def test_skips_a_file_download_info_whose_content_fails_validation() -> No
         content={"downloadUrl": {"not": "a string"}},
     )
 
-    files = await FilesAccessor(_activity_with([attachment]), log).list()
+    files = await FilesAccessor(_activity_with([attachment])).list()
 
     assert files == []
 
@@ -96,7 +93,7 @@ async def test_skips_a_file_download_info_missing_a_name() -> None:
         content={"downloadUrl": "https://download.example/anon"},
     )
 
-    files = await FilesAccessor(_activity_with([attachment]), log).list()
+    files = await FilesAccessor(_activity_with([attachment])).list()
 
     assert files == []
 
@@ -108,7 +105,7 @@ async def test_maps_a_file_that_has_no_unique_id() -> None:
         content={"downloadUrl": "https://download.example/anon.pdf"},
     )
 
-    files = await FilesAccessor(_activity_with([attachment]), log).list()
+    files = await FilesAccessor(_activity_with([attachment])).list()
 
     file = files[0]
     assert file.name == "anon.pdf"
@@ -122,13 +119,13 @@ async def test_defaults_the_scope_to_personal_when_conversation_type_is_absent()
         content={"downloadUrl": "https://download.example/a.pdf", "uniqueId": "a"},
     )
 
-    files = await FilesAccessor(_activity_with([attachment], conversation_type=None), log).list()
+    files = await FilesAccessor(_activity_with([attachment], conversation_type=None)).list()
 
     assert files[0].scope == "personal"
 
 
 async def test_returns_empty_list_when_the_activity_has_no_attachments() -> None:
-    files = await FilesAccessor(_activity_with([]), log).list()
+    files = await FilesAccessor(_activity_with([])).list()
 
     assert files == []
 
@@ -141,7 +138,7 @@ async def test_returns_empty_list_when_the_attachments_field_is_absent() -> None
         conversation=ConversationAccount(id="conversation-id", conversation_type="personal"),
     )
 
-    files = await FilesAccessor(activity, log).list()
+    files = await FilesAccessor(activity).list()
 
     assert files == []
 
@@ -154,7 +151,7 @@ async def test_returns_empty_list_for_non_message_activities() -> None:
         conversation=ConversationAccount(id="conversation-id", conversation_type="personal"),
     )
 
-    files = await FilesAccessor(typing, log).list()
+    files = await FilesAccessor(typing).list()
 
     assert files == []
 
@@ -166,5 +163,5 @@ async def test_first_returns_the_first_mapped_file_or_none() -> None:
         content={"downloadUrl": "https://download.example/a.pdf", "uniqueId": "a"},
     )
 
-    assert await FilesAccessor(_activity_with([attachment]), log).first() is not None
-    assert await FilesAccessor(_activity_with([]), log).first() is None
+    assert await FilesAccessor(_activity_with([attachment])).first() is not None
+    assert await FilesAccessor(_activity_with([])).first() is None

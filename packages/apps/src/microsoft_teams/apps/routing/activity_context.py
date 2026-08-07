@@ -124,7 +124,7 @@ class ActivityContext(Generic[T]):
         `activity.attachments`, mapped to `IncomingFile`. See `FilesAccessor`.
         """
         if self._files is None:
-            self._files = FilesAccessor(self.activity, self.logger)
+            self._files = FilesAccessor(self.activity)
         return self._files
 
     @property
