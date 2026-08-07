@@ -72,7 +72,10 @@ async def _open_personal_file_stream(
     url = target.download_url
 
     if not url:
-        raise RuntimeError("cannot download personal file: no download URL is available")
+        raise RuntimeError("cannot download file: no download URL is available")
+
+    if not url.lower().startswith("https://"):
+        raise RuntimeError("cannot download file: download URL must use https")
 
     owns_client = client is None
     http = client or httpx.AsyncClient()

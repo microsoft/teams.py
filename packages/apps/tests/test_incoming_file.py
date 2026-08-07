@@ -121,6 +121,12 @@ class TestDownloadFailures:
                 await file.download()
             assert len(calls) == 0
 
+    async def test_raises_when_a_personal_file_download_url_is_not_https(self) -> None:
+        async with _personal_file([_json_body("unused")], download_url="http://dl.example/x") as (file, calls):
+            with pytest.raises(RuntimeError, match="must use https"):
+                await file.download()
+            assert len(calls) == 0
+
     async def test_raises_on_a_non_auth_error_response(self) -> None:
         async with _personal_file([httpx.Response(500)]) as (file, _):
             with pytest.raises(RuntimeError, match="failed to download file: 500"):
