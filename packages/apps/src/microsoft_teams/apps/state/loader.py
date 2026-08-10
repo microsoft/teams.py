@@ -7,10 +7,10 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any, Dict, Optional, cast
+from typing import Any, Dict, Optional, Union, cast
 from urllib.parse import quote
 
-from microsoft_teams.common import Storage
+from microsoft_teams.common import LocalStorage, Storage
 
 from .container import TurnStateContainer
 from .options import StateOptions
@@ -160,3 +160,28 @@ class TurnStateLoader:
         if not all(isinstance(key, str) for key in mapping):
             return None
         return cast(Dict[str, Any], mapping)
+
+
+def create_state_loader(
+    state: Optional[Union[bool, "StateOptions"]],
+    fallback_storage: Storage[str, Any],
+) -> Optional[TurnStateLoader]:
+    """Resolve the ``App(state=...)`` option into a loader (or ``None`` when off).
+
+    ``state`` is the opt-in value: falsy disables state; ``True`` enables it with
+    defaults; a ``StateOptions`` configures it. The loader's storage is the one on
+    ``StateOptions`` when provided, otherwise the app's shared ``fallback_storage``.
+    A warning is logged when that resolves to in-memory ``LocalStorage``.
+    """
+    if not state:
+        return None
+
+    options = StateOptions() if state is True else state
+    storage: Storage[str, Any] = options.storage if options.storage is not None else fallback_storage
+
+    if isinstance(storage, LocalStorage):
+        logger.warning(
+            "State is enabled with in-memory storage (LocalStorage): per-turn state is lost on "
+            + "restart and is not shared across instances."
+        )
+    return TurnStateLoader(storage=storage, options=options)

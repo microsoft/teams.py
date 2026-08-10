@@ -22,6 +22,7 @@ from microsoft_teams.apps.app_events import EventManager
 from microsoft_teams.apps.app_process import ActivityProcessor
 from microsoft_teams.apps.events import CoreActivity
 from microsoft_teams.apps.routing.router import ActivityHandler, ActivityRouter
+from microsoft_teams.apps.state import TurnStateLoader, TurnStateSealedError
 from microsoft_teams.apps.token_provider import AppTokenProvider
 from microsoft_teams.common import Client, LocalStorage
 from opentelemetry import baggage
@@ -846,3 +847,112 @@ class TestActivityProcessor:
 
         # Assert error event was called
         assert activity_processor.event_manager.on_error.called
+
+    # --- Per-turn state (App(state=...)) integration -----------------------
+
+    @staticmethod
+    def _message_event(activity_id: str = "activity-state") -> ActivityEvent:
+        core_activity = CoreActivity(
+            type="message",
+            id=activity_id,
+            service_url="https://service.url",
+            **{
+                "from": {"id": "user-123", "name": "Test User"},
+                "conversation": {"id": "conv-789"},
+                "recipient": {"id": "bot-456", "name": "Test Bot"},
+                "channelId": "msteams",
+            },
+        )
+        mock_token = MagicMock(spec=TokenProtocol)
+        mock_token.service_url = "https://service.url"
+        return ActivityEvent(body=core_activity, token=mock_token)
+
+    def _wire_event_manager(self, activity_processor):
+        activity_processor.event_manager = MagicMock()
+        activity_processor.event_manager.on_activity_response = AsyncMock()
+        activity_processor.event_manager.on_error = AsyncMock()
+
+    @pytest.mark.asyncio
+    async def test_state_disabled_leaves_ctx_state_none(self, activity_processor):
+        """With no state loader, ctx.state is None for handlers."""
+        captured: dict[str, Any] = {}
+
+        async def handler(ctx: ActivityContext[Activity]) -> None:
+            captured["state"] = ctx.state
+
+        activity_processor.state_loader = None
+        activity_processor.router.select_handlers = MagicMock(return_value=[handler])
+        self._wire_event_manager(activity_processor)
+
+        await activity_processor.process_activity([], self._message_event())
+
+        assert captured["state"] is None
+
+    @pytest.mark.asyncio
+    async def test_state_enabled_exposes_scopes_and_persists_across_turns(self, activity_processor):
+        """Handlers see loaded scopes, and writes persist to the next turn."""
+
+        storage: LocalStorage[str] = LocalStorage()
+        activity_processor.state_loader = TurnStateLoader(storage)
+        self._wire_event_manager(activity_processor)
+
+        async def writer(ctx: ActivityContext[Activity]) -> None:
+            assert ctx.state is not None
+            ctx.state.conversation["greeted"] = True
+            assert ctx.state.user is not None
+            ctx.state.user["count"] = 1
+
+        activity_processor.router.select_handlers = MagicMock(return_value=[writer])
+        await activity_processor.process_activity([], self._message_event("turn-1"))
+
+        seen: dict[str, Any] = {}
+
+        async def reader(ctx: ActivityContext[Activity]) -> None:
+            assert ctx.state is not None and ctx.state.user is not None
+            seen["greeted"] = ctx.state.conversation.get("greeted")
+            seen["count"] = ctx.state.user.get("count")
+
+        activity_processor.router.select_handlers = MagicMock(return_value=[reader])
+        await activity_processor.process_activity([], self._message_event("turn-2"))
+
+        assert seen == {"greeted": True, "count": 1}
+
+    @pytest.mark.asyncio
+    async def test_state_is_sealed_after_turn(self, activity_processor):
+        """State is sealed once the turn ends; later access raises."""
+
+        storage: LocalStorage[str] = LocalStorage()
+        activity_processor.state_loader = TurnStateLoader(storage)
+        self._wire_event_manager(activity_processor)
+
+        holder: dict[str, Any] = {}
+
+        async def handler(ctx: ActivityContext[Activity]) -> None:
+            holder["state"] = ctx.state
+
+        activity_processor.router.select_handlers = MagicMock(return_value=[handler])
+        await activity_processor.process_activity([], self._message_event())
+
+        with pytest.raises(TurnStateSealedError):
+            _ = holder["state"].conversation["greeted"]
+
+    @pytest.mark.asyncio
+    async def test_state_saved_even_when_handler_raises(self, activity_processor):
+        """Dirty state is persisted in the finally even if the handler throws."""
+
+        storage: LocalStorage[str] = LocalStorage()
+        activity_processor.state_loader = TurnStateLoader(storage)
+        self._wire_event_manager(activity_processor)
+
+        async def boom(ctx: ActivityContext[Activity]) -> None:
+            assert ctx.state is not None
+            ctx.state.conversation["partial"] = True
+            raise RuntimeError("boom")
+
+        activity_processor.router.select_handlers = MagicMock(return_value=[boom])
+
+        with pytest.raises(RuntimeError, match="boom"):
+            await activity_processor.process_activity([], self._message_event())
+
+        reloaded = await TurnStateLoader(storage).load("conv-789", "user-123")
+        assert reloaded.conversation["partial"] is True

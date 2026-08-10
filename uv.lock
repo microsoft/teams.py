@@ -37,6 +37,7 @@ members = [
     "microsoft-teams-m365extensions",
     "oauth",
     "proactive-messaging",
+    "state",
     "stream",
     "suggested-actions",
     "tab",
@@ -3233,6 +3234,23 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/eb/e3/7c1dc7381d9f8ab7d854328ebfa884e62cb3f3d8549ddfd37c7814f42afa/starlette-1.3.1.tar.gz", hash = "sha256:05d0213193f2fbaae60e2ecb593b4add4262ad4e46536b54abe36f11a71724e0", size = 2703240, upload-time = "2026-06-12T09:23:11.602Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/ec/bb/2799cc2ede3ed41131f8975621e7213dfc7ef4acbbaadfa440f32500c370/starlette-1.3.1-py3-none-any.whl", hash = "sha256:c7372aae11c3c3f26a42df7bd626cec2f47d03483d261d369516a615a53714c6", size = 73632, upload-time = "2026-06-12T09:23:10.017Z" },
+]
+
+[[package]]
+name = "state"
+version = "0.1.0"
+source = { virtual = "examples/state" }
+dependencies = [
+    { name = "dotenv" },
+    { name = "microsoft-teams-api" },
+    { name = "microsoft-teams-apps" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "dotenv", specifier = ">=0.9.9" },
+    { name = "microsoft-teams-api", editable = "packages/api" },
+    { name = "microsoft-teams-apps", editable = "packages/apps" },
 ]
 
 [[package]]

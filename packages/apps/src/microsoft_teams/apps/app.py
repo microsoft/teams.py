@@ -60,6 +60,7 @@ from .options import AppOptions, InternalAppOptions
 from .plugins import PluginBase, PluginStartEvent
 from .routing import ActivityHandlerMixin, ActivityRouter
 from .routing.activity_context import ActivityContext
+from .state import create_state_loader
 from .token_manager import DEFAULT_TENANT_FOR_GRAPH_TOKEN, TokenManager
 from .token_provider import AppTokenProvider
 from .utils import create_graph_client
@@ -91,6 +92,8 @@ class App(ActivityHandlerMixin):
         self.cloud = self.options.cloud or (cloud_from_name(cloud_env_name) if cloud_env_name else PUBLIC)
 
         self.storage = self.options.storage or LocalStorage()
+
+        self._state_loader = create_state_loader(self.options.state, self.storage)
 
         self.http_client = self._init_http_client()
 
@@ -143,6 +146,7 @@ class App(ActivityHandlerMixin):
             self.cloud,
             fetch_user_token=self.options.fetch_user_token,
             agent365_baggage_options=self.options.telemetry.get("agent365") if self.options.telemetry else None,
+            state_loader=self._state_loader,
         )
         self.event_manager = EventManager(self._events)
         self.activity_processor.event_manager = self.event_manager
