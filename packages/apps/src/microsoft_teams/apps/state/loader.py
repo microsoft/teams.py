@@ -73,6 +73,10 @@ class TurnStateLoader:
         save always targets the same keys the container was loaded from.
         Empty-but-dirty scopes are deleted.
         """
+        if not container.conversation_id:
+            raise ValueError("TurnStateContainer.conversation_id must be set to save state.")
+        if container.user is not None and not container.user_id:
+            raise ValueError("TurnStateContainer.user_id must be set to save user state.")
         await self._save_scope(self.conversation_key(container.conversation_id), container.conversation)
         if container.user is not None and container.user_id is not None:
             await self._save_scope(self.user_key(container.conversation_id, container.user_id), container.user)
@@ -116,7 +120,9 @@ class TurnStateLoader:
 
         if self._options.ttl is not None:
             saved_at = blob.get("ts")
-            if isinstance(saved_at, (int, float)) and (time.time() - saved_at) > self._options.ttl:
+            if not isinstance(saved_at, (int, float)):
+                return {}
+            if (time.time() - saved_at) > self._options.ttl:
                 return {}
 
         data = blob.get("data")

@@ -41,7 +41,7 @@ class TurnStateContainer:
     async def delete(self) -> None:
         """Clear both scopes and remove them from the backing store.
 
-        Clearing marks the scopes empty so a later save is a no-op, and the
+        Clearing marks the scopes dirty+empty (so a later save deletes the keys), and the
         injected deleter removes the keys immediately.
         """
         self.conversation.clear()
