@@ -1,3 +1,8 @@
+"""
+Copyright (c) Microsoft Corporation. All rights reserved.
+Licensed under the MIT License.
+"""
+
 from microsoft_teams.api import MessageActivity, MessageActivityInput
 from microsoft_teams.apps import ActivityContext
 

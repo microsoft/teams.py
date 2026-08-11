@@ -1,7 +1,12 @@
+"""
+Copyright (c) Microsoft Corporation. All rights reserved.
+Licensed under the MIT License.
+"""
+
 import asyncio
 import logging
 
-from microsoft_teams.api import MessageActivity
+from microsoft_teams.api import MessageActivity, MessageReactionActivity
 from microsoft_teams.apps import ActivityContext, App
 
 logger = logging.getLogger(__name__)
@@ -58,9 +63,22 @@ async def handle_proactive_reaction(app: App, ctx: ActivityContext[MessageActivi
         ctx.conversation_ref.conversation.id,
         "This message was sent and reacted to using app-level APIs.",
     )
-    await ctx.api.conversations.add_reaction(
+    api = app.api.clone(service_url=ctx.conversation_ref.service_url)
+    await api.conversations.add_reaction(
         conversation_id=ctx.activity.conversation.id,
         activity_id=sent.id,
         reaction_type="like",
     )
     return True
+
+
+async def handle_reaction_event(ctx: ActivityContext[MessageReactionActivity]) -> None:
+    """Report reactions users add to or remove from bot messages."""
+    for reaction in ctx.activity.reactions_added or []:
+        user_name = reaction.user.display_name if reaction.user and reaction.user.display_name else "Someone"
+        logger.info("%s added a %s reaction", user_name, reaction.type)
+        await ctx.send(f"Thanks for the {reaction.type} reaction, {user_name}!")
+
+    for reaction in ctx.activity.reactions_removed or []:
+        user_name = reaction.user.display_name if reaction.user and reaction.user.display_name else "Someone"
+        logger.info("%s removed a %s reaction", user_name, reaction.type)
