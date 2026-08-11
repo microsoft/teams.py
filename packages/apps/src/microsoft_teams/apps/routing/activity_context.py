@@ -124,7 +124,10 @@ class ActivityContext(Generic[T]):
         `activity.attachments`, mapped to `IncomingFile`. See `FilesAccessor`.
         """
         if self._files is None:
-            self._files = FilesAccessor(self.activity)
+            # Reuse the API client's underlying connection pool rather than building a new one per download. The raw
+            # `httpx.AsyncClient` is used deliberately: the SDK wrapper injects the bot's `Authorization` header per
+            # request, and a download URL carries its own `tempauth` credential that a bearer token can displace.
+            self._files = FilesAccessor(self.activity, self.api.http.http)
         return self._files
 
     @property

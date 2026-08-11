@@ -7,6 +7,7 @@ Licensed under the MIT License.
 
 from typing import List, Optional
 
+import httpx
 from microsoft_teams.api import (
     FILE_DOWNLOAD_INFO_CONTENT_TYPE,
     Account,
@@ -165,3 +166,42 @@ async def test_first_returns_the_first_mapped_file_or_none() -> None:
 
     assert await FilesAccessor(_activity_with([attachment])).first() is not None
     assert await FilesAccessor(_activity_with([])).first() is None
+
+
+async def test_threads_the_shared_client_into_every_mapped_file() -> None:
+    """The injected client must reach the download path; otherwise each download builds its own connection pool."""
+    calls: List[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(str(request.url))
+        return httpx.Response(200, content=b"shared", headers={"content-type": "text/plain"})
+
+    shared = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    attachment = Attachment(
+        content_type=FILE_DOWNLOAD_INFO_CONTENT_TYPE,
+        name="notes.txt",
+        content={"downloadUrl": "https://download.example/notes.txt?tempauth=abc"},
+    )
+
+    try:
+        files = await FilesAccessor(_activity_with([attachment]), shared).list()
+        downloaded = await files[0].download()
+    finally:
+        await shared.aclose()
+
+    # A file that fell back to its own client would never hit this transport.
+    assert calls == ["https://download.example/notes.txt?tempauth=abc"]
+    assert downloaded.text() == "shared"
+
+
+async def test_falls_back_to_a_private_client_when_none_is_injected() -> None:
+    """Omitting the client stays supported: the accessor is constructible and usable without one."""
+    attachment = Attachment(
+        content_type=FILE_DOWNLOAD_INFO_CONTENT_TYPE,
+        name="notes.txt",
+        content={"downloadUrl": "https://download.example/notes.txt"},
+    )
+
+    files = await FilesAccessor(_activity_with([attachment])).list()
+
+    assert len(files) == 1
