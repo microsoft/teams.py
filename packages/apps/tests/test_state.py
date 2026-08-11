@@ -102,13 +102,13 @@ class TestTurnState:
 
 class TestTurnStateContainer:
     def test_seal_seals_both_scopes(self):
-        container = TurnStateContainer(conversation=TurnState(), user=TurnState())
+        container = TurnStateContainer(conversation=TurnState(), conversation_id="c1", user=TurnState())
         container.seal()
         assert container.conversation.is_sealed
         assert container.user is not None and container.user.is_sealed
 
     def test_seal_tolerates_missing_user(self):
-        container = TurnStateContainer(conversation=TurnState(), user=None)
+        container = TurnStateContainer(conversation=TurnState(), conversation_id="c1", user=None)
         container.seal()  # must not raise
         assert container.conversation.is_sealed
 
@@ -120,6 +120,7 @@ class TestTurnStateContainer:
 
         container = TurnStateContainer(
             conversation=TurnState({"a": 1}),
+            conversation_id="c1",
             user=TurnState({"b": 2}),
             _deleter=deleter,
         )

@@ -13,7 +13,7 @@ from .turn_state import TurnState
 _Deleter = Callable[[], Awaitable[None]]
 
 
-@dataclass
+@dataclass(kw_only=True)
 class TurnStateContainer:
     """The state scopes loaded for one turn, together with the identity they
     were loaded for.
@@ -24,11 +24,14 @@ class TurnStateContainer:
     ``conversation_id``/``user_id`` record the identity this container was loaded
     for. The loader reads them back off the container when saving, so a save can
     never be told to persist under a different key than it was loaded from.
+
+    Fields are keyword-only so the public constructor is not tied to positional
+    order and can evolve without breaking callers.
     """
 
     conversation: TurnState
+    conversation_id: str
     user: Optional[TurnState] = None
-    conversation_id: str = ""
     user_id: Optional[str] = None
     _deleter: Optional[_Deleter] = field(default=None, repr=False, compare=False)
 
