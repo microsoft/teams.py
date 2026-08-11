@@ -1,0 +1,63 @@
+"""
+Copyright (c) Microsoft Corporation. All rights reserved.
+Licensed under the MIT License.
+"""
+
+from typing import Literal, Optional
+
+from microsoft_teams.api import ConversationType
+
+FileUrlExpiredReason = Literal["first_fetch", "reread"]
+
+
+class FileUrlExpiredError(Exception):
+    """
+    Raised when an inbound file's short-lived download URL has expired and can no longer fetch bytes.
+
+    A personal file's pre-authorized `tempauth` download URL is valid only briefly.
+    A fetch after it lapses gets a `401`/`403` from the platform. A handler that downloads once (and does not keep the
+    handle) should not hit this.
+    `reason` distinguishes the two cases:
+    - `first_fetch`: the first fetch came after the URL lapsed, so no bytes were retrieved. Recovery needs Graph
+      drive-item re-resolution, not available via the SDK at this time.
+    - `reread`: edge case. An earlier download succeeded, then a later re-fetch through the same handle lapsed. Avoid it
+      by calling `download()` once and reusing the returned `DownloadedFile` rather than re-reading the handle.
+    """
+
+    reason: FileUrlExpiredReason
+    """
+    Lets callers branch without string-matching the message.
+    `first_fetch`: no bytes were ever fetched.
+    `reread`: the uncommon case, a previously successful handle re-fetched too late.
+    """
+
+    def __init__(self, reason: FileUrlExpiredReason, message: Optional[str] = None) -> None:
+        if message is None:
+            message = (
+                "file download URL expired before any bytes were fetched; recovery needs Graph drive-item "
+                "re-resolution (not available via the SDK at this time)"
+                if reason == "first_fetch"
+                else "file download URL expired before a repeat read; reuse a single DownloadedFile from one "
+                "download() call instead of re-reading the handle"
+            )
+        super().__init__(message)
+        self.reason = reason
+
+
+class FileScopeNotSupportedError(Exception):
+    """
+    Raised when file bytes are requested for a conversation scope whose download path is not implemented.
+
+    Only `personal` (1:1) uploaded files download directly.
+    `groupChat` files are surfaced by `list()`, but fetching their bytes needs Graph;
+    `download()`/`stream()` throws until that path lands.
+    """
+
+    scope: ConversationType
+    """The conversation scope that is not yet fetchable."""
+
+    def __init__(self, scope: ConversationType, message: Optional[str] = None) -> None:
+        if message is None:
+            message = f"downloading files from '{scope}' conversations is not supported via SDK at this time"
+        super().__init__(message)
+        self.scope = scope

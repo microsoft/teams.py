@@ -8,6 +8,7 @@ from typing import Any, Dict, Literal, Optional
 from pydantic import AliasChoices, Field
 
 from .agentic_identity import AgenticIdentity
+from .conversation_type import ConversationType
 from .custom_base_model import CustomBaseModel
 
 AccountType = Literal["person", "tag", "channel", "team", "bot"]
@@ -158,7 +159,7 @@ class ConversationAccount(CustomBaseModel):
     """
     The tenant ID for the conversation.
     """
-    conversation_type: Optional[str] = None
+    conversation_type: Optional[ConversationType] = None
     """
     The type of conversation (personal, groupChat, etc.).
     """
