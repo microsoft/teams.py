@@ -29,7 +29,7 @@ from .diagnostics._constants import (
     APP_SPAN_NAMES,
 )
 from .diagnostics._helpers import get_tracer, record_exception, record_oauth_error, record_oauth_operation
-from .events import ErrorEvent, EventType, SignInEvent
+from .events import ErrorEvent, EventType, SignInEvent, SignInFailureEvent
 from .routing import ActivityContext
 
 logger = logging.getLogger(__name__)
@@ -196,6 +196,15 @@ class OauthHandlers:
                     ErrorEvent(
                         error=Exception(f"Sign-in failure: {failure.code} — {failure.message}"),
                         context={"activity": activity},
+                    ),
+                )
+                self.event_emitter.emit(
+                    "sign_in_failure",
+                    SignInFailureEvent(
+                        activity_ctx=ctx,
+                        connection_name=connection_name,
+                        code=failure.code,
+                        message=failure.message,
                     ),
                 )
                 span.set_attribute(APP_ATTRIBUTE_NAMES.oauth_callback_invoked, True)

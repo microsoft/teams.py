@@ -11,6 +11,7 @@ from microsoft_teams.api import (
     ConversationReference,
     InvokeResponse,
     SentActivity,
+    SignInFailureInvokeActivity,
     SignInTokenExchangeInvokeActivity,
     SignInVerifyStateInvokeActivity,
     TokenProtocol,
@@ -117,3 +118,13 @@ class SignInEvent:
         ActivityContext[SignInTokenExchangeInvokeActivity],
     ]
     token_response: TokenResponse
+
+
+@dataclass
+class SignInFailureEvent:
+    """Event emitted when a sign-in (silent SSO) attempt fails."""
+
+    activity_ctx: ActivityContext[SignInFailureInvokeActivity]
+    connection_name: Optional[str] = None
+    code: Optional[str] = None
+    message: Optional[str] = None
