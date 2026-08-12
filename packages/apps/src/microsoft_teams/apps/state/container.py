@@ -44,11 +44,13 @@ class TurnStateContainer:
     async def delete(self) -> None:
         """Clear both scopes and remove them from the backing store.
 
-        Clearing marks the scopes dirty+empty (so a later save deletes the keys), and the
-        injected deleter removes the keys immediately.
+        The injected deleter removes the keys immediately, then in-memory scopes
+        are cleared so state reflects the deletion during the current turn.
         """
+        if self._deleter is None:
+            raise RuntimeError("State deletion is not available. Call UseState() during service registration.")
+
+        await self._deleter()
         self.conversation.clear()
         if self.user is not None:
             self.user.clear()
-        if self._deleter is not None:
-            await self._deleter()

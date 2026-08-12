@@ -9,6 +9,7 @@ import json
 import logging
 import time
 from typing import Any, Dict, Optional, cast
+from urllib.parse import quote
 
 from microsoft_teams.common import Storage
 
@@ -40,12 +41,12 @@ class TurnStateLoader:
         return self._options
 
     def conversation_key(self, conversation_id: str) -> str:
-        """Key for the conversation-scoped blob (mirrors C#'s ``ts:conv:{id}``)."""
-        return f"{self._options.key_prefix}:conv:{conversation_id}"
+        """Key for the conversation-scoped blob."""
+        return f"{self._options.key_prefix}:conv:{quote(conversation_id, safe='')}"
 
     def user_key(self, conversation_id: str, user_id: str) -> str:
-        """Key for the user-scoped blob (mirrors C#'s ``ts:user:{convId}:{userId}``)."""
-        return f"{self._options.key_prefix}:user:{conversation_id}:{user_id}"
+        """Key for the user-scoped blob."""
+        return f"{self._options.key_prefix}:user:{quote(conversation_id, safe='')}:{quote(user_id, safe='')}"
 
     async def load(self, conversation_id: str, user_id: Optional[str] = None) -> TurnStateContainer:
         """Load both scopes for the turn. ``user`` is ``None`` when ``user_id`` is."""
@@ -77,9 +78,27 @@ class TurnStateLoader:
             raise ValueError("TurnStateContainer.conversation_id must be set to save state.")
         if container.user is not None and not container.user_id:
             raise ValueError("TurnStateContainer.user_id must be set to save user state.")
-        await self._save_scope(self.conversation_key(container.conversation_id), container.conversation)
+
+        pending_deletes: list[str] = []
+        pending_sets: list[tuple[str, str]] = []
+        self._prepare_scope_save(
+            self.conversation_key(container.conversation_id),
+            container.conversation,
+            pending_deletes,
+            pending_sets,
+        )
         if container.user is not None and container.user_id is not None:
-            await self._save_scope(self.user_key(container.conversation_id, container.user_id), container.user)
+            self._prepare_scope_save(
+                self.user_key(container.conversation_id, container.user_id),
+                container.user,
+                pending_deletes,
+                pending_sets,
+            )
+
+        for key in pending_deletes:
+            await self._storage.async_delete(key)
+        for key, value in pending_sets:
+            await self._storage.async_set(key, value)
 
     async def delete(self, conversation_id: str, user_id: Optional[str] = None) -> None:
         """Delete both scope blobs for the turn's identity."""
@@ -89,43 +108,54 @@ class TurnStateLoader:
 
     async def _load_scope(self, key: str) -> TurnState:
         raw = await self._storage.async_get(key)
-        return TurnState(self._deserialize(raw))
+        if raw is None:
+            return TurnState()
 
-    async def _save_scope(self, key: str, scope: TurnState) -> None:
+        blob = self._deserialize(raw)
+        if blob is None or self._is_expired(blob):
+            await self._storage.async_delete(key)
+            return TurnState()
+
+        data = blob.get("data")
+        if not isinstance(data, dict):
+            await self._storage.async_delete(key)
+            return TurnState()
+
+        return TurnState(cast(Dict[str, Any], data))
+
+    def _prepare_scope_save(
+        self,
+        key: str,
+        scope: TurnState,
+        pending_deletes: list[str],
+        pending_sets: list[tuple[str, str]],
+    ) -> None:
         if not scope.is_dirty:
             return
         if scope.is_empty:
-            await self._storage.async_delete(key)
+            pending_deletes.append(key)
             return
         blob = {"ts": time.time(), "data": scope.to_dict()}
-        await self._storage.async_set(key, json.dumps(blob))
+        pending_sets.append((key, json.dumps(blob)))
 
-    def _deserialize(self, raw: Optional[Any]) -> Dict[str, Any]:
-        """Turn a stored blob back into a scope dict.
+    def _deserialize(self, raw: Any) -> Optional[Dict[str, Any]]:
+        """Parse a stored blob.
 
-        Never raises: an absent, unreadable, or expired blob is treated as an
-        empty scope.
+        Never raises: unreadable or malformed blobs are treated as missing.
         """
-        if not raw:
-            return {}
         try:
             parsed: Any = json.loads(raw)
         except (ValueError, TypeError):
             logger.debug("Discarding unreadable state blob at load")
-            return {}
+            return None
 
         if not isinstance(parsed, dict):
-            return {}
-        blob = cast(Dict[str, Any], parsed)
+            return None
+        return cast(Dict[str, Any], parsed)
 
-        if self._options.ttl is not None:
-            saved_at = blob.get("ts")
-            if not isinstance(saved_at, (int, float)):
-                return {}
-            if (time.time() - saved_at) > self._options.ttl:
-                return {}
+    def _is_expired(self, blob: Dict[str, Any]) -> bool:
+        if self._options.ttl is None:
+            return False
 
-        data = blob.get("data")
-        if isinstance(data, dict):
-            return cast(Dict[str, Any], data)
-        return {}
+        saved_at = blob.get("ts")
+        return not isinstance(saved_at, (int, float)) or (time.time() - saved_at) > self._options.ttl

@@ -69,6 +69,23 @@ class TestTurnState:
         snapshot["a"] = 999
         assert state["a"] == 1  # original untouched
 
+    def test_nested_dict_mutation_marks_dirty(self):
+        state = TurnState({"oauth": {"github": {"pending": False}}})
+        state["oauth"]["github"]["pending"] = True
+        assert state.is_dirty is True
+
+    def test_nested_list_mutation_marks_dirty(self):
+        state = TurnState({"items": [1, 2]})
+        state["items"].append(3)
+        assert state.is_dirty is True
+
+    def test_mutate_then_revert_is_clean(self):
+        state = TurnState({"x": 1})
+        state["x"] = 2
+        assert state.is_dirty is True
+        state["x"] = 1
+        assert state.is_dirty is False
+
     def test_seal_blocks_access(self):
         state = TurnState({"a": 1})
         state.seal()
@@ -129,6 +146,19 @@ class TestTurnStateContainer:
         assert container.user is not None and container.user.is_empty
         assert calls == [True]
 
+    async def test_delete_without_deleter_raises(self):
+        container = TurnStateContainer(
+            conversation=TurnState({"a": 1}),
+            conversation_id="c1",
+            user=TurnState({"b": 2}),
+        )
+
+        with pytest.raises(RuntimeError, match="State deletion is not available"):
+            await container.delete()
+
+        assert container.conversation["a"] == 1
+        assert container.user is not None and container.user["b"] == 2
+
 
 # ---------------------------------------------------------------------------
 # TurnStateLoader
@@ -144,6 +174,11 @@ class TestTurnStateLoader:
         loader = TurnStateLoader(LocalStorage())
         assert loader.conversation_key("c1") == "ts:conv:c1"
         assert loader.user_key("c1", "u1") == "ts:user:c1:u1"
+
+    def test_key_segments_are_escaped(self):
+        loader = TurnStateLoader(LocalStorage())
+        assert loader.conversation_key("c:1;tenant=a") == "ts:conv:c%3A1%3Btenant%3Da"
+        assert loader.user_key("c:1", "u;1=a/b") == "ts:user:c%3A1:u%3B1%3Da%2Fb"
 
     def test_key_prefix_is_configurable(self):
         loader = TurnStateLoader(LocalStorage(), StateOptions(key_prefix="mybot"))
@@ -173,6 +208,20 @@ class TestTurnStateLoader:
         assert reloaded.conversation["greeted"] is True
         assert reloaded.user is not None and reloaded.user["step"] == 3
 
+    async def test_nested_mutation_persists(self):
+        storage = LocalStorage()
+        loader = TurnStateLoader(storage)
+        container = await loader.load("c1")
+        container.conversation["oauth"] = {"github": {"pending": False}}
+        await loader.save(container)
+
+        again = await loader.load("c1")
+        again.conversation["oauth"]["github"]["pending"] = True
+        await loader.save(again)
+
+        reloaded = await loader.load("c1")
+        assert reloaded.conversation["oauth"]["github"]["pending"] is True
+
     async def test_save_persists_json_string(self):
         storage = LocalStorage()
         loader = TurnStateLoader(storage)
@@ -193,6 +242,27 @@ class TestTurnStateLoader:
         # never mutated -> nothing written
         await loader.save(container)
         assert storage.get("ts:conv:c1") is None
+
+    async def test_save_serializes_all_scopes_before_writing(self):
+        storage = LocalStorage()
+        loader = TurnStateLoader(storage)
+        container = await loader.load("c1", "u1")
+        container.conversation["value"] = "old"
+        assert container.user is not None
+        container.user["value"] = "old"
+        await loader.save(container)
+
+        again = await loader.load("c1", "u1")
+        again.conversation["value"] = "new"
+        assert again.user is not None
+        again.user["bad"] = object()
+
+        with pytest.raises(TypeError):
+            await loader.save(again)
+
+        reloaded = await loader.load("c1", "u1")
+        assert reloaded.conversation["value"] == "old"
+        assert reloaded.user is not None and reloaded.user["value"] == "old"
 
     async def test_emptied_scope_is_deleted(self):
         storage = LocalStorage()
@@ -247,6 +317,15 @@ class TestTurnStateLoader:
         loader = TurnStateLoader(storage, StateOptions(ttl=100))
         container = await loader.load("c1")
         assert container.conversation.is_empty
+        assert storage.get("ts:conv:c1") is None
+
+    async def test_malformed_ttl_blob_is_deleted(self):
+        storage = LocalStorage()
+        await storage.async_set("ts:conv:c1", json.dumps({"data": {"a": 1}}))
+        loader = TurnStateLoader(storage, StateOptions(ttl=100))
+        container = await loader.load("c1")
+        assert container.conversation.is_empty
+        assert storage.get("ts:conv:c1") is None
 
     async def test_unexpired_blob_loads_normally(self):
         storage = LocalStorage()

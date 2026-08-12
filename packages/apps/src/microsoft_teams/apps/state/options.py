@@ -27,4 +27,10 @@ class StateOptions:
     """Namespace prefix for scope keys (``{prefix}:conv:...`` / ``{prefix}:user:...``)."""
 
     ttl: Optional[int] = None
-    """Optional time-to-live, in **seconds**, applied by the loader on load."""
+    """Optional lazy, sliding time-to-live in **seconds**.
+
+    The loader stamps each successful state write and treats the scope as
+    expired when that saved timestamp is older than ``ttl`` during a later load.
+    Expiry is sliding from the last write (not absolute from creation) and is
+    enforced lazily on load because ``Storage`` has no native TTL concept.
+    """

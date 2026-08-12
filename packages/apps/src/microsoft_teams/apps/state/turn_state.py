@@ -5,6 +5,8 @@ Licensed under the MIT License.
 
 from __future__ import annotations
 
+import hashlib
+import json
 from collections.abc import Iterator, Mapping, MutableMapping
 from typing import Any, Dict, Optional
 
@@ -18,8 +20,8 @@ class TurnState(MutableMapping[str, Any]):
 
     Behaves like a ``dict`` but adds two things the loader relies on:
 
-    * **Dirty tracking** — the loader only writes a scope back when it was
-      mutated, so an untouched scope costs nothing to "save".
+    * **Dirty tracking** — the loader compares the current contents to the
+      loaded snapshot, so nested mutations are persisted without dirtying reads.
     * **Sealing** — at the end of a turn the scope is sealed; any later access
       raises :class:`TurnStateSealedError`.
 
@@ -32,13 +34,13 @@ class TurnState(MutableMapping[str, Any]):
 
     def __init__(self, data: Optional[Mapping[str, Any]] = None) -> None:
         self._data: Dict[str, Any] = dict(data) if data else {}
-        self._dirty = False
+        self._baseline = self._fingerprint(self._data)
         self._sealed = False
 
     @property
     def is_dirty(self) -> bool:
         """Whether the scope has been mutated since it was loaded."""
-        return self._dirty
+        return self._fingerprint(self._data) != self._baseline
 
     @property
     def is_empty(self) -> bool:
@@ -66,6 +68,11 @@ class TurnState(MutableMapping[str, Any]):
         if self._sealed:
             raise TurnStateSealedError("TurnState has been sealed and can no longer be accessed.")
 
+    @staticmethod
+    def _fingerprint(data: Mapping[str, Any]) -> str:
+        canonical = json.dumps(data, sort_keys=True, default=repr, separators=(",", ":"))
+        return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
     def __getitem__(self, key: str) -> Any:
         self._ensure_active()
         return self._data[key]
@@ -73,12 +80,10 @@ class TurnState(MutableMapping[str, Any]):
     def __setitem__(self, key: str, value: Any) -> None:
         self._ensure_active()
         self._data[key] = value
-        self._dirty = True
 
     def __delitem__(self, key: str) -> None:
         self._ensure_active()
         del self._data[key]
-        self._dirty = True
 
     def __iter__(self) -> Iterator[str]:
         self._ensure_active()
@@ -93,5 +98,5 @@ class TurnState(MutableMapping[str, Any]):
         return key in self._data
 
     def __repr__(self) -> str:
-        status = "sealed" if self._sealed else ("dirty" if self._dirty else "clean")
+        status = "sealed" if self._sealed else ("dirty" if self.is_dirty else "clean")
         return f"TurnState({self._data!r}, {status})"
