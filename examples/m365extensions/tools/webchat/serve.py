@@ -20,7 +20,7 @@ def _load_secret() -> str:
     secret = os.environ.get("DIRECTLINE_SECRET", "")
     env_file = HERE / ".env"
     if not secret and env_file.exists():
-        for line in env_file.read_text().splitlines():
+        for line in env_file.read_text(encoding="utf-8").splitlines():
             line = line.strip()
             if line.startswith("DIRECTLINE_SECRET="):
                 secret = line.split("=", 1)[1].strip()
