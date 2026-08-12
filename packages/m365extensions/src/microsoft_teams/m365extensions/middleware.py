@@ -75,7 +75,9 @@ class TeamsMiddleware(Middleware):
 
         ctx_token = agent_sdk_context.set(context)
         try:
-            invoke_response = await self._teams_app.activity_processor.process_activity(plugins=self._teams_app.plugins, event=event)
+            invoke_response = await self._teams_app.activity_processor.process_activity(
+                plugins=self._teams_app.plugins, event=event
+            )
         finally:
             agent_sdk_context.reset(ctx_token)
 
