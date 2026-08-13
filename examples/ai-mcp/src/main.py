@@ -12,6 +12,7 @@ from typing import Any, cast
 
 from agent import agent, client, tool_logger
 from agent_framework import AgentSession, ChatResponse, Message
+from agent_framework.openai import OpenAIChatClient, OpenAIChatOptions
 from local_tools import CLARIFICATION_INPUT_ID, CLARIFICATION_VERB, pending_cards
 from microsoft_teams.api import (
     AdaptiveCardActionMessageResponse,
@@ -33,6 +34,7 @@ from microsoft_teams.api import (
 )
 from microsoft_teams.apps import ActivityContext, App
 from microsoft_teams.cards import AdaptiveCard, SubmitAction, TextBlock, TextInput
+from pydantic import BaseModel, Field
 
 logging.basicConfig(level=getenv("LOG_LEVEL", "INFO").upper())
 logger = logging.getLogger(__name__)
@@ -50,20 +52,37 @@ _FOLLOW_UPS_PROMPT = (
 )
 
 
+class FollowUps(BaseModel):
+    follow_ups: list[str] = Field(alias="followUps", min_length=2, max_length=2)
+
+
 async def _generate_follow_ups(last_user_text: str, last_ai_text: str) -> list[CardAction]:
     """Generate 2 dynamic follow-up suggestions with the selected provider."""
     try:
+        messages = [
+            Message(
+                "user",
+                contents=[
+                    f"{_FOLLOW_UPS_PROMPT}\n\n"
+                    f"Last user message: {last_user_text}\n"
+                    f"Last assistant response: {last_ai_text}"
+                ],
+            )
+        ]
+
+        if isinstance(client, OpenAIChatClient):
+            options: OpenAIChatOptions[FollowUps] = {
+                "max_tokens": 200,
+                "response_format": FollowUps,
+            }
+            response = await client.get_response(messages, options=options)
+            questions = FollowUps.model_validate_json(response.text).follow_ups
+            return [
+                CardAction(type=CardActionType.IM_BACK, title=question, value=question) for question in questions[:2]
+            ]
+
         response: ChatResponse[Any] = await client.get_response(
-            [
-                Message(
-                    "user",
-                    contents=[
-                        f"{_FOLLOW_UPS_PROMPT}\n\n"
-                        f"Last user message: {last_user_text}\n"
-                        f"Last assistant response: {last_ai_text}"
-                    ],
-                )
-            ],
+            messages,
             options={"max_tokens": 200},
         )
         content = response.text or "{}"
