@@ -8,6 +8,7 @@ Licensed under the MIT License.
 from typing import List, Optional
 
 import httpx
+import pytest
 from microsoft_teams.api import (
     FILE_DOWNLOAD_INFO_CONTENT_TYPE,
     Account,
@@ -16,7 +17,7 @@ from microsoft_teams.api import (
     MessageActivity,
 )
 from microsoft_teams.api.activities.typing import TypingActivity
-from microsoft_teams.apps.files import FilesAccessor
+from microsoft_teams.apps.files import FilesAccessor, download
 
 
 def _activity_with(attachments: List[Attachment], conversation_type: Optional[str] = "personal") -> MessageActivity:
@@ -195,13 +196,31 @@ async def test_threads_the_shared_client_into_every_mapped_file() -> None:
 
 
 async def test_falls_back_to_a_private_client_when_none_is_injected() -> None:
-    """Omitting the client stays supported: the accessor is constructible and usable without one."""
+    """Omitting the client must still download, through a private client the download path creates and then closes."""
+    created: List[httpx.AsyncClient] = []
+    real_client_cls = httpx.AsyncClient
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, content=b"private", headers={"content-type": "text/plain"})
+
+    def fake_client_cls(*_args: object, **_kwargs: object) -> httpx.AsyncClient:
+        client = real_client_cls(transport=httpx.MockTransport(handler))
+        created.append(client)
+        return client
+
     attachment = Attachment(
         content_type=FILE_DOWNLOAD_INFO_CONTENT_TYPE,
         name="notes.txt",
         content={"downloadUrl": "https://download.example/notes.txt"},
     )
 
-    files = await FilesAccessor(_activity_with([attachment])).list()
+    with pytest.MonkeyPatch.context() as monkeypatch:
+        monkeypatch.setattr(download.httpx, "AsyncClient", fake_client_cls)
+        files = await FilesAccessor(_activity_with([attachment])).list()
+        downloaded = await files[0].download()
 
     assert len(files) == 1
+    assert downloaded.text() == "private"
+    # The download path owns the client it created, so it must also close it rather than leak the pool.
+    assert len(created) == 1
+    assert created[0].is_closed
