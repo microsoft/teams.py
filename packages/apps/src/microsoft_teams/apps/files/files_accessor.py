@@ -6,6 +6,7 @@ Licensed under the MIT License.
 import logging
 from typing import List, Optional
 
+import httpx
 from microsoft_teams.api import (
     FILE_DOWNLOAD_INFO_CONTENT_TYPE,
     ActivityBase,
@@ -36,10 +37,16 @@ class FilesAccessor:
     This covers the file-upload path, not "any uploaded media". What matters is how the content arrived, not the
     file's MIME type, so file *type* is unrestricted (pdf, docx, png, etc.) as long as it was sent as an uploaded
     file. An image sent as a file appears here, but the same image pasted inline does not.
+
+    The optional `client` is the app's shared `httpx.AsyncClient`, threaded into every `IncomingFile` so downloads
+    reuse one connection pool instead of building and tearing down a client per file. It is the raw client rather
+    than the SDK's wrapper on purpose: a download URL embeds its own `tempauth` credential, so the request must not
+    pick up the bot's `Authorization` header. When omitted, each download creates and closes its own client.
     """
 
-    def __init__(self, activity: ActivityBase) -> None:
+    def __init__(self, activity: ActivityBase, client: Optional[httpx.AsyncClient] = None) -> None:
         self._activity = activity
+        self._client = client
 
     async def list(self) -> List[IncomingFile]:
         """
@@ -114,6 +121,7 @@ class FilesAccessor:
             web_url=attachment.content_url,
             raw=attachment,
             download_url=download_url,
+            client=self._client,
         )
 
     def _coerce_content(self, content: object, index: int) -> Optional[FileDownloadInfo]:

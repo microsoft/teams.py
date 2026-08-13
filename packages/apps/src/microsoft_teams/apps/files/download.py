@@ -82,8 +82,14 @@ async def _open_personal_file_stream(
 
     try:
         # Plain GET with no bearer token: the download URL embeds its own `tempauth` credential, and attaching a
-        # credential can get the request rejected.
-        async with http.stream("GET", url) as response:
+        # credential can get the request rejected. The shared client is configured with the bot's default headers,
+        # so strip `Authorization` off this request rather than assuming the client carries none; otherwise it
+        # would be sent to a third-party storage host.
+        request = http.build_request("GET", url)
+        request.headers.pop("Authorization", None)
+        response = await http.send(request, stream=True)
+
+        try:
             if response.status_code in (401, 403):
                 raise FileUrlExpiredError("reread" if prior_fetch_succeeded else "first_fetch")
 
@@ -92,6 +98,8 @@ async def _open_personal_file_stream(
 
             content_type = response.headers.get("content-type") or target.content_type or "application/octet-stream"
             yield OpenedFileStream(chunks=response.aiter_bytes(), source_url=url, content_type=content_type)
+        finally:
+            await response.aclose()
     finally:
         if owns_client:
             await http.aclose()
