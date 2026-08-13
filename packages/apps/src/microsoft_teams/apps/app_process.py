@@ -290,9 +290,9 @@ class ActivityProcessor:
         if not self.event_manager:
             raise ValueError("EventManager was not initialized properly")
 
-        await self._load_turn_state(activityCtx, activity)
-
         try:
+            await self._load_turn_state(activityCtx, activity)
+
             # If no registered handlers, middleware_result is set to None
             middleware_result = await self.execute_middleware_chain(activityCtx, handlers)
 
@@ -317,7 +317,7 @@ class ActivityProcessor:
             response = InvokeResponse[Any](status=200)
         except Exception as error:
             await self.event_manager.on_error(ErrorEvent(error=error, activity=activity), plugins)
-            raise error
+            raise
         finally:
             await self._persist_turn_state(activityCtx)
 
@@ -346,8 +346,10 @@ class ActivityProcessor:
         container = ctx.state
         if self.state_loader is None or container is None:
             return
-        await self.state_loader.save(container)
-        container.seal()
+        try:
+            await self.state_loader.save(container)
+        finally:
+            container.seal()
 
     def _activity_attributes(self, activity: ActivityBase) -> dict[str, str]:
         attributes = {

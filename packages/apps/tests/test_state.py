@@ -380,6 +380,12 @@ class TestTurnStateLoader:
 
 
 class TestCreateStateLoader:
+    def test_create_state_loader_is_exported_from_apps_surface(self):
+        import microsoft_teams.apps as apps
+
+        assert apps.create_state_loader is create_state_loader
+        assert "create_state_loader" in apps.__all__
+
     def test_returns_none_when_disabled(self):
         assert create_state_loader(None, LocalStorage()) is None
         assert create_state_loader(False, LocalStorage()) is None

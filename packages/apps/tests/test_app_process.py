@@ -22,7 +22,7 @@ from microsoft_teams.apps.app_events import EventManager
 from microsoft_teams.apps.app_process import ActivityProcessor
 from microsoft_teams.apps.events import CoreActivity
 from microsoft_teams.apps.routing.router import ActivityHandler, ActivityRouter
-from microsoft_teams.apps.state import TurnStateLoader, TurnStateSealedError
+from microsoft_teams.apps.state import TurnState, TurnStateContainer, TurnStateLoader, TurnStateSealedError
 from microsoft_teams.apps.token_provider import AppTokenProvider
 from microsoft_teams.common import Client, LocalStorage
 from opentelemetry import baggage
@@ -848,6 +848,27 @@ class TestActivityProcessor:
         # Assert error event was called
         assert activity_processor.event_manager.on_error.called
 
+    @pytest.mark.asyncio
+    async def test_state_load_failure_emits_error_event(self, activity_processor):
+        """State load failures are handled by the same on_error path as handler failures."""
+        mock_plugins = []
+        mock_activity_event = self._message_event("activity-load-failure")
+        load_error = RuntimeError("storage unavailable")
+
+        activity_processor.state_loader = MagicMock()
+        activity_processor.state_loader.load = AsyncMock(side_effect=load_error)
+        activity_processor.state_loader.save = AsyncMock()
+        activity_processor.router.select_handlers = MagicMock(return_value=[])
+        activity_processor.execute_middleware_chain = AsyncMock()
+        activity_processor.event_manager = MagicMock()
+        activity_processor.event_manager.on_error = AsyncMock()
+
+        with pytest.raises(RuntimeError, match="storage unavailable"):
+            await activity_processor.process_activity(mock_plugins, mock_activity_event)
+
+        activity_processor.event_manager.on_error.assert_called_once()
+        activity_processor.execute_middleware_chain.assert_not_called()
+
     # --- Per-turn state (App(state=...)) integration -----------------------
 
     @staticmethod
@@ -956,3 +977,26 @@ class TestActivityProcessor:
 
         reloaded = await TurnStateLoader(storage).load("conv-789", "user-123")
         assert reloaded.conversation["partial"] is True
+
+    @pytest.mark.asyncio
+    async def test_state_is_sealed_when_save_raises(self, activity_processor):
+        """State is sealed even when persistence fails."""
+        container = TurnStateContainer(
+            conversation=TurnState({"value": "dirty"}),
+            conversation_id="conv-789",
+            user=TurnState({"value": "dirty"}),
+            user_id="user-123",
+        )
+        container.conversation["value"] = "changed"
+
+        activity_processor.state_loader = MagicMock()
+        activity_processor.state_loader.load = AsyncMock(return_value=container)
+        activity_processor.state_loader.save = AsyncMock(side_effect=RuntimeError("save failed"))
+        self._wire_event_manager(activity_processor)
+        activity_processor.router.select_handlers = MagicMock(return_value=[])
+
+        with pytest.raises(RuntimeError, match="save failed"):
+            await activity_processor.process_activity([], self._message_event())
+
+        assert container.conversation.is_sealed is True
+        assert container.user is not None and container.user.is_sealed is True
