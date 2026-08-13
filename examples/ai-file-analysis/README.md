@@ -18,7 +18,7 @@ The distinction matters because most of the code volume here is guardrails. Rece
 
 ## Prerequisites
 
-- Python 3.11+
+- Python
 - A Teams bot registration
 - A Teams app manifest with `supportsFiles` set to `true` on the bot entry (see [Enable file support in the manifest](#enable-file-support-in-the-manifest))
 - An Azure OpenAI deployment (use a vision-capable model to analyze images)
