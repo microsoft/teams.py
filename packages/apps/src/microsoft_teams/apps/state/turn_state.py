@@ -34,13 +34,16 @@ class TurnState(MutableMapping[str, Any]):
 
     def __init__(self, data: Optional[Mapping[str, Any]] = None) -> None:
         self._data: Dict[str, Any] = dict(data) if data else {}
-        self._baseline = self._fingerprint(self._data)
+        self._baseline = self._try_fingerprint(self._data)
         self._sealed = False
 
     @property
     def is_dirty(self) -> bool:
         """Whether the scope has been mutated since it was loaded."""
-        return self._fingerprint(self._data) != self._baseline
+        fingerprint = self._try_fingerprint(self._data)
+        if fingerprint is None:
+            return True
+        return fingerprint != self._baseline
 
     @property
     def is_empty(self) -> bool:
@@ -56,6 +59,12 @@ class TurnState(MutableMapping[str, Any]):
         """Seal the scope; subsequent access raises :class:`TurnStateSealedError`."""
         self._sealed = True
 
+    def mark_clean(self) -> None:
+        """Mark the current contents as clean after a successful save."""
+        fingerprint = self._try_fingerprint(self._data)
+        if fingerprint is not None:
+            self._baseline = fingerprint
+
     def to_dict(self) -> Dict[str, Any]:
         """Return a shallow copy of the raw contents (used for serialization).
 
@@ -69,8 +78,11 @@ class TurnState(MutableMapping[str, Any]):
             raise TurnStateSealedError("TurnState has been sealed and can no longer be accessed.")
 
     @staticmethod
-    def _fingerprint(data: Mapping[str, Any]) -> str:
-        canonical = json.dumps(data, sort_keys=True, default=repr, separators=(",", ":"))
+    def _try_fingerprint(data: Mapping[str, Any]) -> Optional[str]:
+        try:
+            canonical = json.dumps(data, sort_keys=True, default=repr, separators=(",", ":"))
+        except (TypeError, ValueError):
+            return None
         return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
     def __getitem__(self, key: str) -> Any:

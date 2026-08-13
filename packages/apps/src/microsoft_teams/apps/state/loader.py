@@ -81,11 +81,13 @@ class TurnStateLoader:
 
         pending_deletes: list[str] = []
         pending_sets: list[tuple[str, str]] = []
+        pending_clean: list[TurnState] = []
         self._prepare_scope_save(
             self.conversation_key(container.conversation_id),
             container.conversation,
             pending_deletes,
             pending_sets,
+            pending_clean,
         )
         if container.user is not None and container.user_id is not None:
             self._prepare_scope_save(
@@ -93,12 +95,15 @@ class TurnStateLoader:
                 container.user,
                 pending_deletes,
                 pending_sets,
+                pending_clean,
             )
 
         for key in pending_deletes:
             await self._storage.async_delete(key)
         for key, value in pending_sets:
             await self._storage.async_set(key, value)
+        for scope in pending_clean:
+            scope.mark_clean()
 
     async def delete(self, conversation_id: str, user_id: Optional[str] = None) -> None:
         """Delete both scope blobs for the turn's identity."""
@@ -129,14 +134,17 @@ class TurnStateLoader:
         scope: TurnState,
         pending_deletes: list[str],
         pending_sets: list[tuple[str, str]],
+        pending_clean: list[TurnState],
     ) -> None:
         if not scope.is_dirty:
             return
         if scope.is_empty:
             pending_deletes.append(key)
+            pending_clean.append(scope)
             return
         blob = {"ts": time.time(), "data": scope.to_dict()}
         pending_sets.append((key, json.dumps(blob)))
+        pending_clean.append(scope)
 
     def _deserialize(self, raw: Any) -> Optional[Dict[str, Any]]:
         """Parse a stored blob.

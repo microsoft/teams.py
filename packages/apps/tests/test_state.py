@@ -86,6 +86,15 @@ class TestTurnState:
         state["x"] = 1
         assert state.is_dirty is False
 
+    def test_circular_value_is_dirty_without_raising(self):
+        state = TurnState()
+        value: dict[str, object] = {}
+        value["self"] = value
+
+        state["value"] = value
+
+        assert state.is_dirty is True
+
     def test_seal_blocks_access(self):
         state = TurnState({"a": 1})
         state.seal()
@@ -207,6 +216,33 @@ class TestTurnStateLoader:
         reloaded = await loader.load("c1", "u1")
         assert reloaded.conversation["greeted"] is True
         assert reloaded.user is not None and reloaded.user["step"] == 3
+
+    async def test_save_marks_saved_scopes_clean(self):
+        storage = LocalStorage()
+        loader = TurnStateLoader(storage)
+        container = await loader.load("c1", "u1")
+        container.conversation["saved"] = True
+        assert container.user is not None
+        container.user["saved"] = True
+
+        await loader.save(container)
+
+        assert container.conversation.is_dirty is False
+        assert container.user.is_dirty is False
+
+    async def test_save_surfaces_circular_value_during_serialization(self):
+        storage = LocalStorage()
+        loader = TurnStateLoader(storage)
+        container = await loader.load("c1")
+        value: dict[str, object] = {}
+        value["self"] = value
+        container.conversation["value"] = value
+
+        with pytest.raises(ValueError):
+            await loader.save(container)
+
+        assert storage.get("ts:conv:c1") is None
+        assert container.conversation.is_dirty is True
 
     async def test_nested_mutation_persists(self):
         storage = LocalStorage()

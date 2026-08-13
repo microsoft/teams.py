@@ -32,5 +32,6 @@ class StateOptions:
     The loader stamps each successful state write and treats the scope as
     expired when that saved timestamp is older than ``ttl`` during a later load.
     Expiry is sliding from the last write (not absolute from creation) and is
-    enforced lazily on load because ``Storage`` has no native TTL concept.
+    enforced lazily on load because ``Storage`` has no native TTL concept. Load
+    hits do not refresh the timestamp; only a later successful save does.
     """
