@@ -224,3 +224,60 @@ async def test_falls_back_to_a_private_client_when_none_is_injected() -> None:
     # The download path owns the client it created, so it must also close it rather than leak the pool.
     assert len(created) == 1
     assert created[0].is_closed
+
+
+async def test_does_not_forward_the_shared_clients_authorization_header() -> None:
+    """
+    The shared client carries the bot's default headers. The download URL embeds its own `tempauth` credential and
+    points at third-party storage, so the bot's `Authorization` must never ride along.
+    """
+    seen: List[Optional[str]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request.headers.get("authorization"))
+        return httpx.Response(200, content=b"ok", headers={"content-type": "text/plain"})
+
+    shared = httpx.AsyncClient(
+        transport=httpx.MockTransport(handler),
+        headers={"Authorization": "Bearer super-secret-app-token", "User-Agent": "teams.py-test/1.0"},
+    )
+    attachment = Attachment(
+        content_type=FILE_DOWNLOAD_INFO_CONTENT_TYPE,
+        name="notes.txt",
+        content={"downloadUrl": "https://download.example/notes.txt?tempauth=abc"},
+    )
+
+    try:
+        files = await FilesAccessor(_activity_with([attachment]), shared).list()
+        await files[0].download()
+    finally:
+        await shared.aclose()
+
+    assert seen == [None]
+
+
+async def test_preserves_the_shared_clients_other_default_headers() -> None:
+    """Stripping `Authorization` must not cost us the rest of the client's configuration."""
+    seen: List[Optional[str]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request.headers.get("user-agent"))
+        return httpx.Response(200, content=b"ok", headers={"content-type": "text/plain"})
+
+    shared = httpx.AsyncClient(
+        transport=httpx.MockTransport(handler),
+        headers={"Authorization": "Bearer super-secret-app-token", "User-Agent": "teams.py-test/1.0"},
+    )
+    attachment = Attachment(
+        content_type=FILE_DOWNLOAD_INFO_CONTENT_TYPE,
+        name="notes.txt",
+        content={"downloadUrl": "https://download.example/notes.txt?tempauth=abc"},
+    )
+
+    try:
+        files = await FilesAccessor(_activity_with([attachment]), shared).list()
+        await files[0].download()
+    finally:
+        await shared.aclose()
+
+    assert seen == ["teams.py-test/1.0"]
