@@ -14,6 +14,7 @@ members = [
     "a2a",
     "agent365",
     "ai-agentframework",
+    "ai-file-analysis",
     "botbuilder",
     "cards",
     "dialogs",
@@ -172,6 +173,27 @@ requires-dist = [
     { name = "agent-framework-openai" },
     { name = "dotenv", specifier = ">=0.9.9" },
     { name = "microsoft-teams-apps", editable = "packages/apps" },
+]
+
+[[package]]
+name = "ai-file-analysis"
+version = "0.1.0"
+source = { virtual = "examples/ai-file-analysis" }
+dependencies = [
+    { name = "dotenv" },
+    { name = "microsoft-teams-api" },
+    { name = "microsoft-teams-apps" },
+    { name = "microsoft-teams-cards" },
+    { name = "openai" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "dotenv", specifier = ">=0.9.9" },
+    { name = "microsoft-teams-api", editable = "packages/api" },
+    { name = "microsoft-teams-apps", editable = "packages/apps" },
+    { name = "microsoft-teams-cards", editable = "packages/cards" },
+    { name = "openai", specifier = ">=1.60.0" },
 ]
 
 [[package]]
