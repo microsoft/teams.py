@@ -4,7 +4,7 @@ Licensed under the MIT License.
 """
 
 import json
-import time
+from typing import Any
 
 import pytest
 from microsoft_teams.apps.state import (
@@ -14,7 +14,7 @@ from microsoft_teams.apps.state import (
     TurnStateLoader,
     TurnStateSealedError,
 )
-from microsoft_teams.common import LocalStorage
+from microsoft_teams.common import LocalStorage, StorageOptions
 
 # ---------------------------------------------------------------------------
 # TurnState
@@ -268,8 +268,7 @@ class TestTurnStateLoader:
         stored = storage.get("ts:conv:c1")
         assert isinstance(stored, str)  # design §13.1: always a str
         parsed = json.loads(stored)
-        assert parsed["data"] == {"k": "v"}
-        assert "ts" in parsed
+        assert parsed == {"k": "v"}
 
     async def test_clean_scope_is_not_written(self):
         storage = LocalStorage()
@@ -336,42 +335,58 @@ class TestTurnStateLoader:
         loader = TurnStateLoader(storage)
         container = await loader.load("c1")
         assert container.conversation.is_empty
+        assert storage.get("ts:conv:c1") is None
 
-    async def test_blob_without_data_loads_as_empty(self):
+    async def test_non_mapping_blob_loads_as_empty_and_is_deleted(self):
         storage = LocalStorage()
-        await storage.async_set("ts:conv:c1", json.dumps({"ts": time.time()}))
+        await storage.async_set("ts:conv:c1", json.dumps(["not", "state"]))
         loader = TurnStateLoader(storage)
         container = await loader.load("c1")
         assert container.conversation.is_empty
-
-    async def test_expired_blob_loads_as_empty(self):
-        storage = LocalStorage()
-        await storage.async_set(
-            "ts:conv:c1",
-            json.dumps({"ts": time.time() - 500, "data": {"a": 1}}),
-        )
-        loader = TurnStateLoader(storage, StateOptions(ttl=100))
-        container = await loader.load("c1")
-        assert container.conversation.is_empty
         assert storage.get("ts:conv:c1") is None
 
-    async def test_malformed_ttl_blob_is_deleted(self):
-        storage = LocalStorage()
-        await storage.async_set("ts:conv:c1", json.dumps({"data": {"a": 1}}))
-        loader = TurnStateLoader(storage, StateOptions(ttl=100))
-        container = await loader.load("c1")
-        assert container.conversation.is_empty
-        assert storage.get("ts:conv:c1") is None
-
-    async def test_unexpired_blob_loads_normally(self):
-        storage = LocalStorage()
-        await storage.async_set(
-            "ts:conv:c1",
-            json.dumps({"ts": time.time(), "data": {"a": 1}}),
-        )
-        loader = TurnStateLoader(storage, StateOptions(ttl=100))
+    async def test_already_deserialized_dict_loads_normally(self):
+        storage: LocalStorage[Any] = LocalStorage()
+        await storage.async_set("ts:conv:c1", {"a": 1})
+        loader = TurnStateLoader(storage)
         container = await loader.load("c1")
         assert container.conversation["a"] == 1
+
+    async def test_dict_with_non_string_key_is_deleted(self):
+        storage: LocalStorage[Any] = LocalStorage()
+        await storage.async_set("ts:conv:c1", {1: "not state"})
+        loader = TurnStateLoader(storage)
+        container = await loader.load("c1")
+        assert container.conversation.is_empty
+        assert storage.get("ts:conv:c1") is None
+
+    async def test_storage_managed_ttl_expires_state(self, monkeypatch):
+        now = [100.0]
+        monkeypatch.setattr("microsoft_teams.common.storage.local_storage.monotonic", lambda: now[0])
+        storage: LocalStorage[str] = LocalStorage()
+        loader = TurnStateLoader(
+            storage,
+            StateOptions(storage_options=StorageOptions(ttl=10)),
+        )
+        container = await loader.load("c1")
+        container.conversation["a"] = 1
+        await loader.save(container)
+
+        reloaded = await loader.load("c1")
+        assert reloaded.conversation["a"] == 1
+
+        now[0] = 111.0
+        expired = await loader.load("c1")
+        assert expired.conversation.is_empty
+        assert storage.get("ts:conv:c1") is None
+
+    async def test_storage_options_are_optional_for_legacy_storage(self):
+        storage = LocalStorage()
+        loader = TurnStateLoader(storage, StateOptions(storage_options=StorageOptions()))
+        container = await loader.load("c1")
+        container.conversation["a"] = 1
+        await loader.save(container)
+        assert storage.get("ts:conv:c1") is not None
 
     async def test_storage_from_options_is_used(self):
         storage = LocalStorage()

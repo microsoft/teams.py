@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import json
 import logging
-import time
 from typing import Any, Dict, Optional, cast
 from urllib.parse import quote
 
@@ -24,17 +23,16 @@ class TurnStateLoader:
     """Loads and persists :class:`TurnState` scopes over a ``Storage`` backend.
 
     Values are stored as JSON **strings** so any ``Storage`` implementation works
-    regardless of how it serializes values. Each blob carries a save timestamp
-    that powers the loader-applied TTL, since ``Storage`` has no native expiry.
-
+    regardless of how it serializes values. Expiry and other write behavior are
+    delegated to the storage implementation through ``StorageOptions``.
     """
 
-    def __init__(self, storage: Optional[Storage[str, str]] = None, options: Optional[StateOptions] = None) -> None:
+    def __init__(self, storage: Optional[Storage[str, Any]] = None, options: Optional[StateOptions] = None) -> None:
         self._options = options or StateOptions()
         resolved = storage if storage is not None else self._options.storage
         if resolved is None:
             raise ValueError("TurnStateLoader requires a Storage backend (pass one explicitly or via StateOptions).")
-        self._storage: Storage[str, str] = resolved
+        self._storage: Storage[str, Any] = resolved
 
     @property
     def options(self) -> StateOptions:
@@ -101,7 +99,10 @@ class TurnStateLoader:
         for key in pending_deletes:
             await self._storage.async_delete(key)
         for key, value in pending_sets:
-            await self._storage.async_set(key, value)
+            if self._options.storage_options is None:
+                await self._storage.async_set(key, value)
+            else:
+                await self._storage.async_set_with_options(key, value, self._options.storage_options)
         for scope in pending_clean:
             scope.mark_clean()
 
@@ -116,17 +117,12 @@ class TurnStateLoader:
         if raw is None:
             return TurnState()
 
-        blob = self._deserialize(raw)
-        if blob is None or self._is_expired(blob):
+        data = self._deserialize(raw)
+        if data is None:
             await self._storage.async_delete(key)
             return TurnState()
 
-        data = blob.get("data")
-        if not isinstance(data, dict):
-            await self._storage.async_delete(key)
-            return TurnState()
-
-        return TurnState(cast(Dict[str, Any], data))
+        return TurnState(data)
 
     def _prepare_scope_save(
         self,
@@ -142,8 +138,7 @@ class TurnStateLoader:
             pending_deletes.append(key)
             pending_clean.append(scope)
             return
-        blob = {"ts": time.time(), "data": scope.to_dict()}
-        pending_sets.append((key, json.dumps(blob)))
+        pending_sets.append((key, json.dumps(scope.to_dict())))
         pending_clean.append(scope)
 
     def _deserialize(self, raw: Any) -> Optional[Dict[str, Any]]:
@@ -151,19 +146,20 @@ class TurnStateLoader:
 
         Never raises: unreadable or malformed blobs are treated as missing.
         """
-        try:
-            parsed: Any = json.loads(raw)
-        except (ValueError, TypeError):
-            logger.debug("Discarding unreadable state blob at load")
+        if isinstance(raw, dict):
+            parsed: Any = cast(Dict[Any, Any], raw)
+        elif isinstance(raw, str):
+            try:
+                parsed = json.loads(raw)
+            except ValueError:
+                logger.debug("Discarding unreadable state blob at load")
+                return None
+        else:
             return None
 
         if not isinstance(parsed, dict):
             return None
-        return cast(Dict[str, Any], parsed)
-
-    def _is_expired(self, blob: Dict[str, Any]) -> bool:
-        if self._options.ttl is None:
-            return False
-
-        saved_at = blob.get("ts")
-        return not isinstance(saved_at, (int, float)) or (time.time() - saved_at) > self._options.ttl
+        mapping = cast(Dict[object, Any], parsed)
+        if not all(isinstance(key, str) for key in mapping):
+            return None
+        return cast(Dict[str, Any], mapping)
