@@ -1,0 +1,44 @@
+[project]
+name = "microsoft-teams-m365extensions"
+dynamic = ["version"]
+description = "Extension package that embeds the Teams SDK inside an M365 Agents Application."
+readme = "README.md"
+repository = "https://github.com/microsoft/teams.py"
+keywords = ["microsoft", "teams", "ai", "bot", "agents", "m365"]
+license = "MIT"
+authors = [{ name = "Microsoft", email = "TeamsAISDKFeedback@microsoft.com" }]
+requires-python = ">=3.11,<4.0"
+dependencies = [
+    "microsoft-agents-activity>=1.3.0",
+    "microsoft-agents-hosting-core>=1.3.0",
+    "microsoft-teams-api",
+    "microsoft-teams-apps",
+]
+
+[project.urls]
+Homepage = "https://github.com/microsoft/teams.py/tree/main/packages/m365extensions/src/microsoft_teams/m365extensions"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.4.0",
+    "pytest-asyncio>=1.0.0",
+]
+
+[build-system]
+requires = ["hatchling", "hatch-teams-build"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+source = "teams-build"
+
+[tool.hatch.metadata.hooks.teams-build]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/microsoft_teams", "src/microsoft"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src"]
+
+[tool.uv.sources]
+microsoft-teams-api = { workspace = true }
+microsoft-teams-apps = { workspace = true }
