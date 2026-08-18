@@ -3,11 +3,13 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
+from typing import Optional
+
 from ..custom_base_model import CustomBaseModel
 
 
 class EntityBase(CustomBaseModel):
     """Base entity for entity types."""
 
-    type: str
+    type: Optional[str] = None
     "Type identifier for the entity."
