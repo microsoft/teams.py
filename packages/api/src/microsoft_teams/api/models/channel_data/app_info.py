@@ -13,7 +13,7 @@ class AppInfo(CustomBaseModel):
     Describes an app
     """
 
-    id: str
+    id: Optional[str] = None
     "Unique identifier representing an app"
 
     version: Optional[str] = None

@@ -14,7 +14,7 @@ class TeamInfo(CustomBaseModel):
     Describes a team
     """
 
-    id: str
+    id: Optional[str] = None
     "Unique identifier representing a team"
 
     name: Optional[str] = None
