@@ -47,7 +47,7 @@ jobs:
           fetch-depth: 0
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
         with:
           dotnet-version: '8.x'
 
@@ -55,7 +55,7 @@ jobs:
         run: dotnet tool install -g nbgv
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v6
+        uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6.8.0
         with:
           enable-cache: true
 
