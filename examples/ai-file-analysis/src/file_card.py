@@ -6,14 +6,23 @@ Licensed under the MIT License.
 from microsoft_teams.apps import DownloadedFile, IncomingFile
 from microsoft_teams.cards import AdaptiveCard, Container, Fact, FactSet, TextBlock
 
+UNSUPPORTED_NOTE = (
+    "I downloaded this file but did not analyze it. This sample sends only text files and PNG, JPEG, GIF, "
+    "or WebP images to the model."
+)
 
-def unsupported_file_card(file: IncomingFile, downloaded: DownloadedFile) -> AdaptiveCard:
+
+def unsupported_file_card(file: IncomingFile, downloaded: DownloadedFile, note: str = UNSUPPORTED_NOTE) -> AdaptiveCard:
     """
     FILE RECEIVE: the no-LLM response for a file this sample will not send to the model.
 
     Nothing here touches Azure OpenAI. It reports what the file API exposes (`scope`, `source`, resolved content type)
     plus the byte count that was actually downloaded, so the file round-trip is still demonstrated for formats the
     model never sees.
+
+    Args:
+        note: Overrides the closing explanation. Defaults to the unsupported-format wording; the no-model path
+            passes its own so the card does not imply the file type was the problem.
     """
     return AdaptiveCard(
         body=[
@@ -33,10 +42,7 @@ def unsupported_file_card(file: IncomingFile, downloaded: DownloadedFile) -> Ada
                 ]
             ),
             TextBlock(
-                text=(
-                    "I downloaded this file but did not analyze it. This sample sends only text files and PNG, JPEG, "
-                    "GIF, or WebP images to the model."
-                ),
+                text=note,
                 wrap=True,
                 is_subtle=True,
                 spacing="Medium",

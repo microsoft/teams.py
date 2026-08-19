@@ -154,21 +154,17 @@ def prepare_analysis(user_text: str, files: List[AnalyzableFile]) -> AnalysisReq
         truncated = included_bytes < len(downloaded.bytes)
         total_text_bytes += included_bytes
 
-        parts.append(
-            {
-                "type": "text",
-                "text": "\n".join(
-                    [
-                        f"Attached file: {downloaded.filename}",
-                        "",
-                        "<file>",
-                        text,
-                        "\n[File content truncated by the sample.]" if truncated else "",
-                        "</file>",
-                    ]
-                ),
-            }
-        )
+        lines = [
+            f"Attached file: {downloaded.filename}",
+            "",
+            "<file>",
+            text,
+        ]
+        if truncated:
+            lines.append("[File content truncated by the sample.]")
+        lines.append("</file>")
+
+        parts.append({"type": "text", "text": "\n".join(lines)})
 
         if truncated:
             warnings.append(f"{downloaded.filename} was truncated before being sent to the model.")
@@ -176,8 +172,8 @@ def prepare_analysis(user_text: str, files: List[AnalyzableFile]) -> AnalysisReq
 
     if len(files) > MAX_FILES:
         warnings.append(
-            f"{len(files) - MAX_FILES} additional file(s) were not sent to the model because this sample accepts "
-            f"up to {MAX_FILES} files per message."
+            f"{len(files) - MAX_FILES} supported file(s) were not sent to the model because this sample "
+            f"analyzes up to {MAX_FILES} files per message. Unsupported files are reported separately."
         )
 
     return AnalysisRequest(content=parts, warnings=warnings, file_count=file_count)

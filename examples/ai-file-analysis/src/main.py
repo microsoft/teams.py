@@ -15,7 +15,7 @@ import asyncio
 import logging
 from typing import List
 
-from ai import AnalyzableFile, classify_file, prepare_analysis, run_analysis
+from ai import AnalyzableFile, classify_file, is_ai_configured, prepare_analysis, run_analysis
 from file_card import unsupported_file_card
 from microsoft_teams.api import MessageActivity, TypingActivityInput
 from microsoft_teams.apps import ActivityContext, App
@@ -24,6 +24,21 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("ai-file-analysis")
 
 app = App()
+
+# SAMPLE GUARDRAIL: the file API needs no model, so the sample stays usable without Azure OpenAI settings. Without
+# them it answers every file with the metadata card instead of analyzing it, which keeps download, content type,
+# scope, and source demonstrable with no model subscription.
+_ai_configured = is_ai_configured()
+if not _ai_configured:
+    logger.warning(
+        "Azure OpenAI is not configured, so files will be reported but not analyzed. Set AZURE_OPENAI_ENDPOINT, "
+        "AZURE_OPENAI_API_KEY, and AZURE_OPENAI_MODEL_DEPLOYMENT_NAME in .env to enable analysis."
+    )
+
+NO_MODEL_NOTE = (
+    "I downloaded this file, but no model is configured for this sample, so I did not analyze it. "
+    "Set the Azure OpenAI values in .env to enable analysis."
+)
 
 
 @app.on_message
@@ -36,6 +51,9 @@ async def handle_message(ctx: ActivityContext[MessageActivity]) -> None:
     if not attached:
         await ctx.send(
             "Attach one or more files. I analyze text files and images, and describe anything else I cannot read."
+            if _ai_configured
+            else "Attach one or more files. No model is configured, so I will report what I received "
+            "without analyzing it."
         )
         return
 
@@ -49,6 +67,10 @@ async def handle_message(ctx: ActivityContext[MessageActivity]) -> None:
         except Exception as err:
             logger.warning("Could not download %s: %s", file.name, err)
             await ctx.send(f"I could not download {file.name}.")
+            continue
+
+        if not _ai_configured:
+            await ctx.send(unsupported_file_card(file, downloaded, NO_MODEL_NOTE))
             continue
 
         # SAMPLE GUARDRAIL: the SDK hands over every attached file regardless of type. This sample is what narrows

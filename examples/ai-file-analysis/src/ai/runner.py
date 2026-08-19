@@ -5,7 +5,7 @@ Licensed under the MIT License.
 
 import logging
 from os import getenv
-from typing import Any, cast
+from typing import Any, Optional, Tuple, cast
 
 from dotenv import find_dotenv, load_dotenv
 from microsoft_teams.api import MessageActivityInput
@@ -23,6 +23,15 @@ Base your answer on the user's message and the attached content. State clearly w
 a conclusion. Do not claim to have inspected files that were not included. Keep the response concise and practical."""
 
 
+REQUIRED_SETTINGS = (
+    "AZURE_OPENAI_ENDPOINT",
+    "AZURE_OPENAI_API_KEY",
+    "AZURE_OPENAI_MODEL_DEPLOYMENT_NAME",
+)
+
+_client: Optional[AsyncAzureOpenAI] = None
+
+
 def _required(name: str) -> str:
     value = getenv(name)
     if not value:
@@ -30,12 +39,33 @@ def _required(name: str) -> str:
     return value
 
 
-_deployment = _required("AZURE_OPENAI_MODEL_DEPLOYMENT_NAME")
-_client = AsyncAzureOpenAI(
-    azure_endpoint=_required("AZURE_OPENAI_ENDPOINT"),
-    api_key=_required("AZURE_OPENAI_API_KEY"),
-    api_version=getenv("AZURE_OPENAI_API_VERSION") or "2024-10-21",
-)
+def is_ai_configured() -> bool:
+    """
+    Whether every Azure OpenAI setting this sample needs is present.
+
+    The sample runs without them: run_analysis is skipped and each file is answered with the metadata card
+    instead, so the Teams file API can still be exercised with no model subscription. Nothing here validates
+    the values, only that they were supplied.
+    """
+    return all(getenv(name) for name in REQUIRED_SETTINGS)
+
+
+def _get_client() -> Tuple[AsyncAzureOpenAI, str]:
+    """
+    Builds the Azure OpenAI client on first use.
+
+    Deliberately lazy: constructing it at import time would make a missing .env crash the whole bot on
+    startup, including the metadata-card path that needs no model at all.
+    """
+    global _client
+    deployment = _required("AZURE_OPENAI_MODEL_DEPLOYMENT_NAME")
+    if _client is None:
+        _client = AsyncAzureOpenAI(
+            azure_endpoint=_required("AZURE_OPENAI_ENDPOINT"),
+            api_key=_required("AZURE_OPENAI_API_KEY"),
+            api_version=getenv("AZURE_OPENAI_API_VERSION") or "2024-10-21",
+        )
+    return _client, deployment
 
 
 async def run_analysis(request: AnalysisRequest, stream: StreamerProtocol, log: logging.Logger) -> None:
@@ -49,8 +79,9 @@ async def run_analysis(request: AnalysisRequest, stream: StreamerProtocol, log: 
     try:
         stream.update("Analyzing files...")
 
-        completion = await _client.chat.completions.create(
-            model=_deployment,
+        client, deployment = _get_client()
+        completion = await client.chat.completions.create(
+            model=deployment,
             messages=[
                 {"role": "system", "content": SYSTEM_PROMPT},
                 {"role": "user", "content": cast(Any, request.content)},
