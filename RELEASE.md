@@ -192,6 +192,12 @@ If the number is wrong, correct `versionHeightOffset` and re-check. A corrective
 > ```
 > Delete the local branch afterwards so it cannot be pushed by accident.
 
+### After a release
+
+Leave `version.json` alone once a release ships. A stable branch keeps its literal version, so the next release PR has to bump it; a preview branch increments `{height}` on its own and needs nothing.
+
+Sitting on an already-published stable version is deliberate: PyPI rejecting the re-upload is the only guard against an accidental publish, and a `-dev` version would publish cleanly instead.
+
 ## Publishing
 
 The [publish pipeline](https://dev.azure.com/DomoreexpGithub/Github_Pipelines/_build?definitionId=51&_a=summary) (`.azdo/publish.yml`) is manually triggered and requires selecting a **Publish Type**: `Internal` or `Public`.
