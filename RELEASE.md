@@ -77,10 +77,15 @@ The workflow above cuts a release by bringing all of `main` into a release branc
 
 2. Cherry-pick the fix. Use `-x` so the commit records where it came from:
    ```bash
-   git cherry-pick -x <merge-commit-sha-from-main>
+   git cherry-pick -x <sha-on-main>
    ```
 
-   Most PRs are squash-merged into `main`, so the merge commit has a single parent and a plain `cherry-pick` works. If you are picking a true merge commit, you need `-m 1`. Check with `git rev-list --parents -n 1 <sha>`: three entries means it is a merge commit, two means it is a squash.
+   PRs are squash-merged into `main`, so each merged PR is a single ordinary commit and a plain `cherry-pick` works. Find it by PR number:
+   ```bash
+   git log origin/main --oneline --grep "(#<pr>)"
+   ```
+
+   If you are ever picking an actual merge commit, add `-m 1` to pick its change relative to the first parent. To tell the two apart, `git rev-list --parents -n 1 <sha>` prints the commit followed by its parents: two entries is an ordinary commit, three or more is a merge.
 
 3. Set the version for the release. For a stable line, edit `version.json` to the next patch version. For a preview line, adjust `versionHeightOffset` instead. See [Preview releases](#preview-releases).
 
@@ -91,7 +96,7 @@ The workflow above cuts a release by bringing all of `main` into a release branc
 Keep backport PRs to the fix itself. Sweeping in unrelated commits from `main` turns a hotfix into an untested release.
 
 > [!IMPORTANT]
-> Merge backport PRs with a **merge commit**, not a squash. On a preview line the version number is derived from commit height, so squashing changes the resulting version. See [Preview releases](#preview-releases).
+> Unlike PRs into `main`, backport PRs must be merged with a **merge commit**, not a squash. On a preview line the version number is derived from commit height, so squashing changes the resulting version. See [Preview releases](#preview-releases).
 
 ## Versioning
 
