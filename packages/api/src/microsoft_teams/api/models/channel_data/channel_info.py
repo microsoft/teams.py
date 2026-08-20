@@ -13,7 +13,7 @@ class ChannelInfo(CustomBaseModel):
     A channel info object which describes the channel.
     """
 
-    id: str
+    id: Optional[str] = None
     "Unique identifier representing a channel"
 
     name: Optional[str] = None

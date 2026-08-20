@@ -36,9 +36,10 @@ class IncomingFile:
 
     content_type: Optional[str]
     """
-    The file's MIME type, when Teams provides it with the file. Files received today do not include one, so this is
-    usually `None`; the type resolved from the download response is on the returned `DownloadedFile`, not written back
-    here.
+    The file's MIME type when the source provides one. Always `None` for `botActivity` files: a `file.download.info`
+    attachment carries no MIME type, only the `file_type` extension surfaced as `extension`. Populated for sources
+    that do carry one, such as a `graph` drive item. To learn the type of the bytes you actually received, read
+    `DownloadedFile.content_type`, which is resolved from the download response.
     """
 
     extension: Optional[str]

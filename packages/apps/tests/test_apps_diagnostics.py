@@ -244,11 +244,23 @@ def test_sdk_source_does_not_import_microsoft_otel_or_agents_sdk():
         "microsoft_agents",
     )
 
+    # m365extensions is a deliberate Agents SDK bridge package; it is expected
+    # to depend on the Agents SDK and is therefore exempt from this guard.
+    exempt_packages = {"m365extensions"}
+
+    def _is_exempt(path: Path) -> bool:
+        rel = path.relative_to(packages_dir)
+        return rel.parts[0] in exempt_packages
+
     for source_file in packages_dir.glob("*/src/**/*.py"):
+        if _is_exempt(source_file):
+            continue
         source = source_file.read_text(encoding="utf-8")
         assert not any(forbidden in source for forbidden in forbidden_imports), source_file
 
     for pyproject_file in packages_dir.glob("*/pyproject.toml"):
+        if _is_exempt(pyproject_file):
+            continue
         manifest = pyproject_file.read_text(encoding="utf-8")
         assert "microsoft-opentelemetry" not in manifest
         assert "microsoft-agents" not in manifest
