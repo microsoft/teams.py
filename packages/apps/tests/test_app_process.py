@@ -817,6 +817,43 @@ class TestActivityProcessor:
         assert result.status == 200
 
     @pytest.mark.asyncio
+    async def test_process_activity_handles_response_event_stream_cancelled(self, activity_processor):
+        """StreamCancelledError from the response event retains the legacy 200 response."""
+        from microsoft_teams.apps.plugins import StreamCancelledError
+
+        core_activity = CoreActivity(
+            type="message",
+            id="activity-response-cancel",
+            service_url="https://service.url",
+            **{
+                "from": {"id": "user-1", "name": "Test User"},
+                "conversation": {"id": "conv-1"},
+                "recipient": {"id": "bot-1", "name": "Test Bot"},
+                "channelId": "msteams",
+            },
+        )
+        mock_token = MagicMock(spec=TokenProtocol)
+        mock_token.service_url = "https://service.url"
+        mock_activity_event = ActivityEvent(body=core_activity, token=mock_token)
+
+        activity_processor.router.select_handlers = MagicMock(return_value=[])
+        activity_processor.execute_middleware_chain = AsyncMock(
+            return_value=InvokeResponse(status=202, body={"accepted": True})
+        )
+        activity_processor.event_manager = MagicMock()
+        activity_processor.event_manager.on_activity_response = AsyncMock(side_effect=StreamCancelledError())
+        activity_processor.event_manager.on_error = AsyncMock()
+
+        with patch("microsoft_teams.apps.routing.activity_context.HttpStream") as mock_stream_class:
+            mock_stream = mock_stream_class.return_value
+            mock_stream.close = AsyncMock()
+
+            result = await activity_processor.process_activity([], mock_activity_event)
+
+        assert result.status == 200
+        assert mock_stream.close.await_count == 2
+
+    @pytest.mark.asyncio
     async def test_process_activity_raises_exception(self, activity_processor):
         """Test process_activity raises exception when middleware chain fails."""
         # Setup mocks

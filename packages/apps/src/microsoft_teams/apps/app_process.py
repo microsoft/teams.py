@@ -332,7 +332,9 @@ class ActivityProcessor:
                 plugins=plugins,
             )
         except StreamCancelledError:
-            logger.debug("Activity response processing was cancelled")
+            logger.debug("Activity processing was cancelled (stream stopped)")
+            await activityCtx.stream.close()
+            response = InvokeResponse[Any](status=200)
         except Exception as error:
             await self.event_manager.on_error(ErrorEvent(error=error, activity=activity), plugins)
             raise
