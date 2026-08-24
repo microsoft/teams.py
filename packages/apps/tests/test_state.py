@@ -152,7 +152,9 @@ class TestTurnStateContainer:
         )
         await container.delete()
         assert container.conversation.is_empty
+        assert container.conversation.is_dirty is False
         assert container.user is not None and container.user.is_empty
+        assert container.user.is_dirty is False
         assert calls == [True]
 
     async def test_delete_without_deleter_raises(self):

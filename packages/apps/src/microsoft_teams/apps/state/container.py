@@ -52,5 +52,7 @@ class TurnStateContainer:
 
         await self._deleter()
         self.conversation.clear()
+        self.conversation.mark_clean()
         if self.user is not None:
             self.user.clear()
+            self.user.mark_clean()
