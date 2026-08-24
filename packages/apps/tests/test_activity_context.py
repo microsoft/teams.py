@@ -269,9 +269,10 @@ class TestActivityContextSendTargeted:
         assert sent_activity.recipient.is_targeted is True
 
     @pytest.mark.asyncio
-    async def test_targeted_update_preserves_recipient(self) -> None:
+    async def test_targeted_update_drops_recipient_from_payload(self) -> None:
         """
-        When updating a targeted message, the recipient should be preserved.
+        Teams rejects targeted updates that carry a recipient, so the recipient only selects the
+        targeted endpoint and is stripped from the outbound payload.
         """
         incoming_sender = Account(id="user-123", name="Test User")
         ctx, mock_sender = self._create_activity_context(from_account=incoming_sender)
@@ -280,16 +281,23 @@ class TestActivityContextSendTargeted:
         activity = MessageActivityInput(text="Updated text").with_recipient(incoming_sender, is_targeted=True)
         activity.id = "existing-activity-id"  # This makes it an update
 
-        await ctx.send(activity)
+        result = await ctx.send(activity)
 
         ctx.api.conversations.activities.return_value.update_targeted.assert_called_once()
-        sent_activity = ctx.api.conversations.activities.return_value.update_targeted.call_args.args[1]
+        ctx.api.conversations.activities.return_value.create_targeted.assert_not_called()
+        activity_id, sent_activity = ctx.api.conversations.activities.return_value.update_targeted.call_args.args
 
-        # Verify recipient was preserved
-        assert sent_activity.recipient is not None
-        assert sent_activity.recipient.id == incoming_sender.id
-        assert sent_activity.recipient.name == incoming_sender.name
-        assert sent_activity.recipient.is_targeted is True
+        # The targeted endpoint is still chosen, but the wire payload carries no recipient
+        assert activity_id == "existing-activity-id"
+        assert sent_activity.text == "Updated text"
+        assert sent_activity.recipient is None
+        assert "recipient" not in sent_activity.model_dump(by_alias=True, exclude_none=True)
+
+        # The caller still gets the recipient back
+        assert result.activity_params.recipient is not None
+        assert result.activity_params.recipient.id == incoming_sender.id
+        assert result.activity_params.recipient.is_targeted is True
+        mock_sender.send.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_send_existing_activity_updates(self) -> None:
