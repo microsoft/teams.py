@@ -4,6 +4,7 @@ Licensed under the MIT License.
 """
 # pyright: basic
 
+import asyncio
 from contextlib import contextmanager
 from typing import Any, Iterator
 from unittest.mock import AsyncMock, MagicMock, create_autospec, patch
@@ -491,6 +492,10 @@ class TestActivityProcessor:
         # Assert
         assert result.status == expected_result.status
         assert result.body == expected_result.body
+        activity_processor.event_manager.on_activity_response.assert_awaited_once()
+        response_event = activity_processor.event_manager.on_activity_response.await_args.args[0]
+        assert response_event.response.status == expected_result.status
+        assert response_event.response.body == expected_result.body
 
     @pytest.mark.asyncio
     async def test_process_activity_invokes_plugin_route_when_plugin_qualifies(self, activity_processor):
@@ -981,6 +986,7 @@ class TestActivityProcessor:
     @pytest.mark.asyncio
     async def test_state_is_sealed_when_save_raises(self, activity_processor):
         """State is sealed even when persistence fails."""
+        save_error = RuntimeError("save failed")
         container = TurnStateContainer(
             conversation=TurnState({"value": "dirty"}),
             conversation_id="conv-789",
@@ -991,7 +997,7 @@ class TestActivityProcessor:
 
         activity_processor.state_loader = MagicMock()
         activity_processor.state_loader.load = AsyncMock(return_value=container)
-        activity_processor.state_loader.save = AsyncMock(side_effect=RuntimeError("save failed"))
+        activity_processor.state_loader.save = AsyncMock(side_effect=save_error)
         self._wire_event_manager(activity_processor)
         activity_processor.router.select_handlers = MagicMock(return_value=[])
 
@@ -1000,3 +1006,92 @@ class TestActivityProcessor:
 
         assert container.conversation.is_sealed is True
         assert container.user is not None and container.user.is_sealed is True
+        error_event = activity_processor.event_manager.on_error.await_args.args[0]
+        assert error_event.error is save_error
+        activity_processor.event_manager.on_activity_response.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_state_save_failure_does_not_mask_handler_error(self, activity_processor):
+        """A persistence failure is reported without replacing the handler failure."""
+        handler_error = ValueError("handler failed")
+        save_error = RuntimeError("save failed")
+        reporting_error = RuntimeError("error reporter failed")
+        container = TurnStateContainer(
+            conversation=TurnState(),
+            conversation_id="conv-789",
+        )
+
+        async def handler(ctx: ActivityContext[Activity]) -> None:
+            assert ctx.state is container
+            ctx.state.conversation["value"] = "changed"
+            raise handler_error
+
+        activity_processor.state_loader = MagicMock()
+        activity_processor.state_loader.load = AsyncMock(return_value=container)
+        activity_processor.state_loader.save = AsyncMock(side_effect=save_error)
+        self._wire_event_manager(activity_processor)
+        activity_processor.event_manager.on_error.side_effect = [None, reporting_error]
+        activity_processor.router.select_handlers = MagicMock(return_value=[handler])
+
+        with pytest.raises(ValueError, match="handler failed") as exc_info:
+            await activity_processor.process_activity([], self._message_event())
+
+        assert exc_info.value is handler_error
+        assert container.conversation.is_sealed is True
+        errors = [call.args[0].error for call in activity_processor.event_manager.on_error.await_args_list]
+        assert errors == [handler_error, save_error]
+        activity_processor.event_manager.on_activity_response.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_state_save_failure_does_not_mask_task_cancellation(self, activity_processor):
+        """Task cancellation remains authoritative when persistence also fails."""
+        save_error = RuntimeError("save failed")
+        container = TurnStateContainer(
+            conversation=TurnState(),
+            conversation_id="conv-789",
+        )
+
+        async def handler(ctx: ActivityContext[Activity]) -> None:
+            assert ctx.state is container
+            ctx.state.conversation["value"] = "changed"
+            raise asyncio.CancelledError()
+
+        activity_processor.state_loader = MagicMock()
+        activity_processor.state_loader.load = AsyncMock(return_value=container)
+        activity_processor.state_loader.save = AsyncMock(side_effect=save_error)
+        self._wire_event_manager(activity_processor)
+        activity_processor.router.select_handlers = MagicMock(return_value=[handler])
+
+        with pytest.raises(asyncio.CancelledError):
+            await activity_processor.process_activity([], self._message_event())
+
+        assert container.conversation.is_sealed is True
+        error_event = activity_processor.event_manager.on_error.await_args.args[0]
+        assert error_event.error is save_error
+        activity_processor.event_manager.on_activity_response.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_activity_response_failure_occurs_after_state_is_persisted(self, activity_processor):
+        """Response-event failures are reported after state has been safely persisted."""
+        response_error = RuntimeError("response event failed")
+        storage: LocalStorage[str] = LocalStorage()
+        activity_processor.state_loader = TurnStateLoader(storage)
+        self._wire_event_manager(activity_processor)
+        activity_processor.event_manager.on_activity_response.side_effect = response_error
+        holder: dict[str, TurnStateContainer] = {}
+
+        async def handler(ctx: ActivityContext[Activity]) -> None:
+            assert ctx.state is not None
+            holder["state"] = ctx.state
+            ctx.state.conversation["value"] = "saved"
+
+        activity_processor.router.select_handlers = MagicMock(return_value=[handler])
+
+        with pytest.raises(RuntimeError, match="response event failed"):
+            await activity_processor.process_activity([], self._message_event())
+
+        assert holder["state"].conversation.is_sealed is True
+        reloaded = await TurnStateLoader(storage).load("conv-789", "user-123")
+        assert reloaded.conversation["value"] == "saved"
+        error_event = activity_processor.event_manager.on_error.await_args.args[0]
+        assert error_event.error is response_error

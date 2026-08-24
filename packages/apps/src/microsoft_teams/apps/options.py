@@ -94,7 +94,7 @@ class AppOptions(TypedDict, total=False):
 
     ``state=True`` enables state on the app's shared ``storage`` (in-memory by
     default). Pass a ``StateOptions`` to configure the
-    key prefix, TTL, or a dedicated ``Storage`` backend. When enabled, handlers
+    key prefix or a dedicated ``Storage`` backend. When enabled, handlers
     read/write ``ctx.state.conversation`` and ``ctx.state.user``; when off,
     ``ctx.state`` is ``None``."""
     dangerously_allow_unauthenticated_requests: Optional[bool]
@@ -194,7 +194,7 @@ class InternalAppOptions:
     storage: Optional[Storage[str, Any]] = None
     state: Optional[Union[bool, StateOptions]] = None
     """Per-turn state opt-in. ``None``/``False`` disables it; ``True`` enables it on
-    the app's shared storage; a ``StateOptions`` configures prefix/TTL/backend."""
+    the app's shared storage; a ``StateOptions`` configures the key prefix or backend."""
     service_url: Optional[str] = None
     """
     Base Service URL for BotBackend.

@@ -4,6 +4,7 @@ Licensed under the MIT License.
 """
 
 import logging
+import sys
 from time import perf_counter
 from typing import TYPE_CHECKING, Any, Awaitable, Callable, Dict, List, Optional, TypeGuard, Union, cast
 
@@ -302,7 +303,26 @@ class ActivityProcessor:
                 response = cast(InvokeResponse[Any], middleware_result)
             else:
                 response = InvokeResponse[Any](status=200, body=middleware_result)
+        except StreamCancelledError:
+            logger.debug("Activity processing was cancelled (stream stopped)")
+            await activityCtx.stream.close()
+            response = InvokeResponse[Any](status=200)
+        except Exception as error:
+            await self.event_manager.on_error(ErrorEvent(error=error, activity=activity), plugins)
+            raise
+        finally:
+            error_in_flight = sys.exc_info()[1] is not None
+            try:
+                await self._persist_turn_state(activityCtx)
+            except Exception as error:
+                try:
+                    await self.event_manager.on_error(ErrorEvent(error=error, activity=activity), plugins)
+                except Exception:
+                    logger.exception("Error handler failed while reporting state persistence failure")
+                if not error_in_flight:
+                    raise
 
+        try:
             await self.event_manager.on_activity_response(
                 ActivityResponseEvent(
                     activity=activity,
@@ -312,14 +332,10 @@ class ActivityProcessor:
                 plugins=plugins,
             )
         except StreamCancelledError:
-            logger.debug("Activity processing was cancelled (stream stopped)")
-            await activityCtx.stream.close()
-            response = InvokeResponse[Any](status=200)
+            logger.debug("Activity response processing was cancelled")
         except Exception as error:
             await self.event_manager.on_error(ErrorEvent(error=error, activity=activity), plugins)
             raise
-        finally:
-            await self._persist_turn_state(activityCtx)
 
         logger.debug("Completed processing activity")
 
