@@ -24,7 +24,7 @@ class TurnStateLoader:
 
     Values are stored as JSON **strings** so any ``Storage`` implementation works
     regardless of how it serializes values. Expiry and other write behavior are
-    delegated to the storage implementation through ``StorageOptions``.
+    configured directly on the selected storage provider.
     """
 
     def __init__(self, storage: Optional[Storage[str, Any]] = None, options: Optional[StateOptions] = None) -> None:
@@ -99,10 +99,7 @@ class TurnStateLoader:
         for key in pending_deletes:
             await self._storage.async_delete(key)
         for key, value in pending_sets:
-            if self._options.storage_options is None:
-                await self._storage.async_set(key, value)
-            else:
-                await self._storage.async_set_with_options(key, value, self._options.storage_options)
+            await self._storage.async_set(key, value)
         for scope in pending_clean:
             scope.mark_clean()
 

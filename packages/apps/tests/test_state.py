@@ -14,7 +14,7 @@ from microsoft_teams.apps.state import (
     TurnStateLoader,
     TurnStateSealedError,
 )
-from microsoft_teams.common import LocalStorage, StorageOptions
+from microsoft_teams.common import LocalStorage
 
 # ---------------------------------------------------------------------------
 # TurnState
@@ -361,34 +361,6 @@ class TestTurnStateLoader:
         container = await loader.load("c1")
         assert container.conversation.is_empty
         assert storage.get("ts:conv:c1") is None
-
-    async def test_storage_managed_ttl_expires_state(self, monkeypatch):
-        now = [100.0]
-        monkeypatch.setattr("microsoft_teams.common.storage.local_storage.monotonic", lambda: now[0])
-        storage: LocalStorage[str] = LocalStorage()
-        loader = TurnStateLoader(
-            storage,
-            StateOptions(storage_options=StorageOptions(ttl=10)),
-        )
-        container = await loader.load("c1")
-        container.conversation["a"] = 1
-        await loader.save(container)
-
-        reloaded = await loader.load("c1")
-        assert reloaded.conversation["a"] == 1
-
-        now[0] = 111.0
-        expired = await loader.load("c1")
-        assert expired.conversation.is_empty
-        assert storage.get("ts:conv:c1") is None
-
-    async def test_storage_options_are_optional_for_legacy_storage(self):
-        storage = LocalStorage()
-        loader = TurnStateLoader(storage, StateOptions(storage_options=StorageOptions()))
-        container = await loader.load("c1")
-        container.conversation["a"] = 1
-        await loader.save(container)
-        assert storage.get("ts:conv:c1") is not None
 
     async def test_storage_from_options_is_used(self):
         storage = LocalStorage()

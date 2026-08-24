@@ -4,19 +4,10 @@ Licensed under the MIT License.
 """
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
 from typing import Callable, Generic, List, Optional, TypeVar
 
 K = TypeVar("K")
 V = TypeVar("V")
-
-
-@dataclass(frozen=True)
-class StorageOptions:
-    """Options applied when writing a value to storage."""
-
-    ttl: Optional[int] = None
-    """Optional time-to-live in seconds after the value is written."""
 
 
 class Storage(Generic[K, V], ABC):
@@ -41,28 +32,6 @@ class Storage(Generic[K, V], ABC):
     async def async_set(self, key: K, value: V) -> None:
         """Asynchronously set a value by key."""
         pass
-
-    def set_with_options(self, key: K, value: V, options: StorageOptions) -> None:
-        """Synchronously set a value with storage-specific write options.
-
-        Existing storage implementations inherit this method. Writes without
-        effective options delegate to :meth:`set`; implementations that support
-        TTL should override it.
-        """
-        if options.ttl is not None:
-            raise NotImplementedError(f"{type(self).__name__} does not support TTL")
-        self.set(key, value)
-
-    async def async_set_with_options(self, key: K, value: V, options: StorageOptions) -> None:
-        """Asynchronously set a value with storage-specific write options.
-
-        Existing storage implementations inherit this method. Writes without
-        effective options delegate to :meth:`async_set`; implementations that
-        support TTL should override it.
-        """
-        if options.ttl is not None:
-            raise NotImplementedError(f"{type(self).__name__} does not support TTL")
-        await self.async_set(key, value)
 
     @abstractmethod
     def delete(self, key: K) -> None:
