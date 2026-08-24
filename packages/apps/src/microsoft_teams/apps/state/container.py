@@ -1,0 +1,58 @@
+"""
+Copyright (c) Microsoft Corporation. All rights reserved.
+Licensed under the MIT License.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from typing import Awaitable, Callable, Optional
+
+from .turn_state import TurnState
+
+_Deleter = Callable[[], Awaitable[None]]
+
+
+@dataclass(kw_only=True)
+class TurnStateContainer:
+    """The state scopes loaded for one turn, together with the identity they
+    were loaded for.
+
+    ``conversation`` is always present. ``user`` is ``None`` when the activity has
+    no ``from`` identity, so there is no per-user scope to load or persist.
+
+    ``conversation_id``/``user_id`` record the identity this container was loaded
+    for. The loader reads them back off the container when saving, so a save can
+    never be told to persist under a different key than it was loaded from.
+
+    Fields are keyword-only so the public constructor is not tied to positional
+    order and can evolve without breaking callers.
+    """
+
+    conversation: TurnState
+    conversation_id: str
+    user: Optional[TurnState] = None
+    user_id: Optional[str] = None
+    _deleter: Optional[_Deleter] = field(default=None, repr=False, compare=False)
+
+    def seal(self) -> None:
+        """Seal every scope so post-turn access raises."""
+        self.conversation.seal()
+        if self.user is not None:
+            self.user.seal()
+
+    async def delete(self) -> None:
+        """Clear both scopes and remove them from the backing store.
+
+        The injected deleter removes the keys immediately, then in-memory scopes
+        are cleared so state reflects the deletion during the current turn.
+        """
+        if self._deleter is None:
+            raise RuntimeError("State deletion is not available. Call UseState() during service registration.")
+
+        await self._deleter()
+        self.conversation.clear()
+        self.conversation.mark_clean()
+        if self.user is not None:
+            self.user.clear()
+            self.user.mark_clean()
