@@ -11,6 +11,7 @@ from typing import Awaitable, Callable, Optional
 from .turn_state import TurnState
 
 _Deleter = Callable[[], Awaitable[None]]
+_Saver = Callable[["TurnStateContainer"], Awaitable[None]]
 
 
 @dataclass(kw_only=True)
@@ -34,6 +35,7 @@ class TurnStateContainer:
     user: Optional[TurnState] = None
     user_id: Optional[str] = None
     _deleter: Optional[_Deleter] = field(default=None, repr=False, compare=False)
+    _saver: Optional[_Saver] = field(default=None, repr=False, compare=False)
 
     def seal(self) -> None:
         """Seal every scope so post-turn access raises."""
@@ -56,3 +58,7 @@ class TurnStateContainer:
         if self.user is not None:
             self.user.clear()
             self.user.mark_clean()
+
+    async def _save(self) -> None:
+        if self._saver is not None:
+            await self._saver(self)

@@ -3,7 +3,9 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
+import asyncio
 import logging
+import time
 from contextlib import contextmanager
 from typing import Any, Iterator
 from unittest.mock import AsyncMock, MagicMock, Mock
@@ -35,6 +37,7 @@ from microsoft_teams.apps.oauth_flow import OAuthFlow, OAuthFlowRegistry
 from microsoft_teams.apps.routing import ActivityContext
 from microsoft_teams.apps.routing.activity_route_configs import ACTIVITY_ROUTES
 from microsoft_teams.apps.routing.router import ActivityRouter
+from microsoft_teams.apps.state import TurnState, TurnStateContainer
 from microsoft_teams.apps.token_provider import AppTokenProvider
 from microsoft_teams.common import EventEmitter, LocalStorage
 
@@ -62,6 +65,39 @@ class RecordingTracer:
         yield span
 
 
+def create_turn_state(user_data: dict[str, Any] | None = None) -> TurnStateContainer:
+    return TurnStateContainer(
+        conversation=TurnState(),
+        conversation_id="conv-456",
+        user=TurnState(user_data),
+        user_id="user-123",
+    )
+
+
+def create_pending_state(*hints: tuple[str, float, bool]) -> TurnStateContainer:
+    return create_turn_state(
+        {
+            "__oauth:pending": {
+                "version": 1,
+                "hints": [
+                    {
+                        "connection_name": connection_name,
+                        "created_at": created_at,
+                        "sso_offered": sso_offered,
+                    }
+                    for connection_name, created_at, sso_offered in hints
+                ],
+            }
+        }
+    )
+
+
+def oauth_http_error(status: int, message: str) -> HTTPStatusError:
+    request = Request("GET", "https://token.example")
+    response = Response(status, request=request)
+    return HTTPStatusError(message, request=request, response=response)
+
+
 class TestOauthHandlers:
     """Test cases for OauthHandlers class."""
 
@@ -84,6 +120,7 @@ class TestOauthHandlers:
         context.api.users.exchange_token = AsyncMock()
         context.api.users.get_token = AsyncMock()
         context.next = AsyncMock()
+        context.state = None
         return context
 
     @pytest.fixture
@@ -153,8 +190,13 @@ class TestOauthHandlers:
         assert call_args.exchange_request.token == "test-token"
 
         # Verify event emission
-        oauth_handlers.event_emitter.emit.assert_called_once_with(
-            "sign_in", SignInEvent(activity_ctx=mock_context, token_response=mock_token_response)
+        oauth_handlers.event_emitter.emit_async.assert_awaited_once_with(
+            "sign_in",
+            SignInEvent(
+                activity_ctx=mock_context,
+                token_response=mock_token_response,
+                connection_name="test-connection",
+            ),
         )
 
         # Verify the context is marked signed-in with the exchanged token so
@@ -247,7 +289,7 @@ class TestOauthHandlers:
         result = await oauth_handlers.sign_in_token_exchange(mock_context)
 
         # Verify no error event emitted for 404
-        oauth_handlers.event_emitter.emit.assert_not_called()
+        oauth_handlers.event_emitter.emit_async.assert_not_awaited()
 
         # Verify failure response
         assert isinstance(result, InvokeResponse) and isinstance(result.body, TokenExchangeInvokeResponse)
@@ -309,7 +351,7 @@ class TestOauthHandlers:
         result = await oauth_handlers.sign_in_token_exchange(mock_context)
 
         # Verify error event emitted for 500
-        oauth_handlers.event_emitter.emit.assert_called_once_with(
+        oauth_handlers.event_emitter.emit_async.assert_awaited_once_with(
             "error", ErrorEvent(error=http_error, context={"activity": token_exchange_activity})
         )
 
@@ -374,7 +416,7 @@ class TestOauthHandlers:
         result = await oauth_handlers.sign_in_token_exchange(mock_context)
 
         # Verify error event emitted for non-HTTP exceptions
-        oauth_handlers.event_emitter.emit.assert_called_once_with(
+        oauth_handlers.event_emitter.emit_async.assert_awaited_once_with(
             "error", ErrorEvent(error=generic_error, context={"activity": token_exchange_activity})
         )
 
@@ -443,8 +485,13 @@ class TestOauthHandlers:
         assert call_args.code == "verify-state"
 
         # Verify event emission
-        oauth_handlers.event_emitter.emit.assert_called_once_with(
-            "sign_in", SignInEvent(activity_ctx=mock_context, token_response=mock_token_response)
+        oauth_handlers.event_emitter.emit_async.assert_awaited_once_with(
+            "sign_in",
+            SignInEvent(
+                activity_ctx=mock_context,
+                token_response=mock_token_response,
+                connection_name="test-connection",
+            ),
         )
 
         # Verify the context is marked signed-in with the verified token so
@@ -524,7 +571,7 @@ class TestOauthHandlers:
         result = await oauth_handlers.sign_in_verify_state(mock_context)
 
         # Verify error event emitted
-        oauth_handlers.event_emitter.emit.assert_called_once_with(
+        oauth_handlers.event_emitter.emit_async.assert_awaited_once_with(
             "error", ErrorEvent(error=http_error, context={"activity": verify_state_activity})
         )
 
@@ -684,7 +731,7 @@ class TestOauthHandlers:
 
         await oauth_handlers.sign_in_failure(mock_context)
 
-        error_calls = [c for c in oauth_handlers.event_emitter.emit.call_args_list if c[0][0] == "error"]
+        error_calls = [c for c in oauth_handlers.event_emitter.emit_async.call_args_list if c[0][0] == "error"]
         assert len(error_calls) == 1
         error_event = error_calls[0][0][1]
         assert isinstance(error_event, ErrorEvent)
@@ -699,7 +746,9 @@ class TestOauthHandlers:
 
         await oauth_handlers.sign_in_failure(mock_context)
 
-        failure_calls = [c for c in oauth_handlers.event_emitter.emit.call_args_list if c[0][0] == "sign_in_failure"]
+        failure_calls = [
+            c for c in oauth_handlers.event_emitter.emit_async.call_args_list if c[0][0] == "sign_in_failure"
+        ]
         assert len(failure_calls) == 1
         event = failure_calls[0][0][1]
         assert isinstance(event, SignInFailureEvent)
@@ -752,6 +801,638 @@ class TestOauthHandlers:
         await oauth_handlers.sign_in_failure(mock_context)
 
         mock_context.next.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_token_exchange_routes_case_insensitive_explicit_connection_without_state(
+        self, oauth_handlers, mock_context, token_exchange_activity, mock_token_response
+    ):
+        graph = oauth_handlers.oauth_registry.add(OAuthFlow("Graph"))
+        github = oauth_handlers.oauth_registry.add(OAuthFlow("GitHub"))
+        calls = []
+
+        @graph.on_signin
+        async def on_graph(event):
+            calls.append(("graph", event.connection_name))
+
+        @github.on_signin
+        async def on_github(event):
+            calls.append(("github", event.connection_name))
+
+        oauth_handlers.event_emitter.emit_async.side_effect = lambda name, event: calls.append(
+            (f"global:{name}", getattr(event, "connection_name", None))
+        )
+        token_exchange_activity.value.connection_name = "gItHuB"
+        mock_context.activity = token_exchange_activity
+        mock_context.state = None
+        mock_context.api.users.exchange_token.return_value = mock_token_response
+
+        result = await oauth_handlers.sign_in_token_exchange(mock_context)
+
+        assert result is None
+        assert calls == [("global:sign_in", "GitHub"), ("github", "GitHub")]
+        params = mock_context.api.users.exchange_token.call_args.args[0]
+        assert params.connection_name == "gItHuB"
+
+    @pytest.mark.asyncio
+    async def test_token_exchange_invokes_global_then_flow_handlers_in_registration_order(
+        self, oauth_handlers, mock_context, token_exchange_activity, mock_token_response
+    ):
+        flow = oauth_handlers.oauth_registry.add(OAuthFlow("test-connection"))
+        calls = []
+        oauth_handlers.event_emitter.emit_async.side_effect = lambda name, _: calls.append(f"global:{name}")
+
+        @flow.on_signin
+        async def first(_):
+            calls.append("flow:first")
+
+        @flow.on_signin
+        async def second(_):
+            calls.append("flow:second")
+
+        mock_context.activity = token_exchange_activity
+        mock_context.api.users.exchange_token.return_value = mock_token_response
+
+        await oauth_handlers.sign_in_token_exchange(mock_context)
+
+        assert calls == ["global:sign_in", "flow:first", "flow:second"]
+
+    @pytest.mark.asyncio
+    async def test_async_global_handler_completes_before_flow_handler(
+        self, mock_context, token_exchange_activity, mock_token_response
+    ):
+        emitter = EventEmitter()
+        registry = OAuthFlowRegistry()
+        flow = registry.add(OAuthFlow("test-connection"))
+        handlers = OauthHandlers("test-connection", emitter, registry)
+        calls = []
+
+        async def global_handler(_):
+            await asyncio.sleep(0)
+            calls.append("global")
+
+        emitter.on("sign_in", global_handler)
+
+        @flow.on_signin
+        async def flow_handler(_):
+            calls.append("flow")
+
+        mock_context.activity = token_exchange_activity
+        mock_context.api.users.exchange_token.return_value = mock_token_response
+
+        await handlers.sign_in_token_exchange(mock_context)
+
+        assert calls == ["global", "flow"]
+
+    @pytest.mark.asyncio
+    async def test_flow_handler_error_propagates_stops_later_handlers_and_still_calls_next(
+        self, oauth_handlers, mock_context, token_exchange_activity, mock_token_response
+    ):
+        flow = oauth_handlers.oauth_registry.add(OAuthFlow("test-connection"))
+        calls = []
+        oauth_handlers.event_emitter.emit_async.side_effect = lambda name, _: calls.append(f"global:{name}")
+
+        @flow.on_signin
+        async def failing(_):
+            calls.append("flow:failing")
+            raise RuntimeError("handler failed")
+
+        @flow.on_signin
+        async def skipped(_):
+            calls.append("flow:skipped")
+
+        mock_context.activity = token_exchange_activity
+        mock_context.api.users.exchange_token.return_value = mock_token_response
+
+        with pytest.raises(RuntimeError, match="handler failed"):
+            await oauth_handlers.sign_in_token_exchange(mock_context)
+
+        assert calls == ["global:sign_in", "flow:failing"]
+        mock_context.next.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_duplicate_token_exchange_is_not_deduplicated_in_pr4(
+        self, oauth_handlers, mock_context, token_exchange_activity, mock_token_response
+    ):
+        flow = oauth_handlers.oauth_registry.add(OAuthFlow("test-connection"))
+        callback_count = 0
+
+        @flow.on_signin
+        async def on_signin(_):
+            nonlocal callback_count
+            callback_count += 1
+
+        mock_context.activity = token_exchange_activity
+        mock_context.api.users.exchange_token.return_value = mock_token_response
+
+        await oauth_handlers.sign_in_token_exchange(mock_context)
+        await oauth_handlers.sign_in_token_exchange(mock_context)
+
+        assert mock_context.api.users.exchange_token.await_count == 2
+        assert callback_count == 2
+
+    @pytest.mark.asyncio
+    async def test_verify_state_routes_to_pending_non_default_flow(
+        self, oauth_handlers, mock_context, verify_state_activity, mock_token_response
+    ):
+        default = oauth_handlers.oauth_registry.add(OAuthFlow("test-connection"))
+        github = oauth_handlers.oauth_registry.add(OAuthFlow("GitHub"))
+        calls = []
+
+        @default.on_signin
+        async def on_default(_):
+            calls.append("default")
+
+        @github.on_signin
+        async def on_github(event):
+            calls.append(f"github:{event.connection_name}")
+
+        state = create_pending_state(("github", time.time(), False))
+        oauth_handlers.event_emitter.emit_async.side_effect = lambda name, event: calls.append(
+            f"global:{name}:{event.connection_name}"
+        )
+        mock_context.activity = verify_state_activity
+        mock_context.state = state
+        mock_context.api.users.get_token.return_value = mock_token_response
+
+        result = await oauth_handlers.sign_in_verify_state(mock_context)
+
+        assert result is None
+        assert calls == ["global:sign_in:GitHub", "github:GitHub"]
+        params = mock_context.api.users.get_token.call_args.args[0]
+        assert params.connection_name == "GitHub"
+        assert state.user is not None
+        assert "__oauth:pending" not in state.user
+
+    @pytest.mark.asyncio
+    async def test_verify_state_probes_pending_hints_then_remaining_flows(
+        self, oauth_handlers, mock_context, verify_state_activity, mock_token_response
+    ):
+        graph = oauth_handlers.oauth_registry.add(OAuthFlow("Graph"))
+        github = oauth_handlers.oauth_registry.add(OAuthFlow("GitHub"))
+        calls = []
+
+        @graph.on_signin
+        async def on_graph(_):
+            calls.append("graph")
+
+        @github.on_signin
+        async def on_github(event):
+            calls.append(f"github:{event.connection_name}")
+
+        state = create_pending_state(
+            ("GitHub", time.time() - 10, False),
+            ("graph", time.time(), True),
+        )
+        mock_context.activity = verify_state_activity
+        mock_context.state = state
+        mock_context.api.users.get_token.side_effect = [
+            oauth_http_error(404, "Not found for Graph"),
+            mock_token_response,
+        ]
+
+        result = await oauth_handlers.sign_in_verify_state(mock_context)
+
+        assert result is None
+        attempted = [call.args[0].connection_name for call in mock_context.api.users.get_token.await_args_list]
+        assert attempted == ["Graph", "GitHub"]
+        assert calls == ["github:GitHub"]
+        assert state.user is not None
+        remaining = state.user["__oauth:pending"]["hints"]
+        assert [hint["connection_name"] for hint in remaining] == ["graph"]
+
+    @pytest.mark.asyncio
+    async def test_sso_failure_keeps_hint_so_button_click_still_routes_to_that_flow(
+        self, oauth_handlers, mock_context, failure_activity, verify_state_activity, mock_token_response
+    ):
+        """After silent SSO fails, Teams shows the sign-in button on the same card.
+
+        The follow-up verify-state carries no connection name, so the retired hint is what
+        keeps it on GitHub instead of probing (and possibly mis-attributing to) Graph.
+        """
+        oauth_handlers.oauth_registry.add(OAuthFlow("Graph"))
+        github = oauth_handlers.oauth_registry.add(OAuthFlow("GitHub"))
+        calls = []
+
+        @github.on_signin
+        async def on_github(event):
+            calls.append(f"github:{event.connection_name}")
+
+        state = create_pending_state(("GitHub", time.time(), True))
+        mock_context.state = state
+
+        mock_context.activity = failure_activity
+        await oauth_handlers.sign_in_failure(mock_context)
+
+        mock_context.activity = verify_state_activity
+        mock_context.api.users.get_token.return_value = mock_token_response
+        result = await oauth_handlers.sign_in_verify_state(mock_context)
+
+        assert result is None
+        attempted = [call.args[0].connection_name for call in mock_context.api.users.get_token.await_args_list]
+        assert attempted == ["GitHub"]
+        assert calls == ["github:GitHub"]
+        assert state.user is not None
+        assert "__oauth:pending" not in state.user
+
+    @pytest.mark.asyncio
+    async def test_retired_sso_hint_does_not_attribute_a_second_failure(
+        self, oauth_handlers, mock_context, failure_activity
+    ):
+        github = oauth_handlers.oauth_registry.add(OAuthFlow("GitHub"))
+        calls = []
+
+        @github.on_signin_failure
+        async def on_github(event):
+            calls.append(f"github:{event.connection_name}")
+
+        mock_context.activity = failure_activity
+        mock_context.state = create_pending_state(("GitHub", time.time(), True))
+
+        await oauth_handlers.sign_in_failure(mock_context)
+        assert calls == ["github:GitHub"]
+
+        # Second failure: the hint's SSO marker is spent, so this falls back to the
+        # notify-all-registered-flows path rather than re-attributing to GitHub.
+        await oauth_handlers.sign_in_failure(mock_context)
+        assert calls == ["github:GitHub", "github:GitHub"]
+        assert mock_context.state.user is not None
+        assert [hint["sso_offered"] for hint in mock_context.state.user["__oauth:pending"]["hints"]] == [False]
+
+    @pytest.mark.asyncio
+    async def test_legacy_default_connection_hint_is_cleared_without_warning(
+        self, oauth_handlers, mock_context, verify_state_activity, mock_token_response, caplog
+    ):
+        """A legacy app (no registered flows) must not log warnings on its happy path."""
+        state = create_pending_state(("test-connection", time.time(), True))
+        mock_context.activity = verify_state_activity
+        mock_context.state = state
+        mock_context.api.users.get_token.return_value = mock_token_response
+
+        with caplog.at_level(logging.WARNING, logger="microsoft_teams.apps.oauth_flow"):
+            result = await oauth_handlers.sign_in_verify_state(mock_context)
+
+        assert result is None
+        assert caplog.records == []
+        params = mock_context.api.users.get_token.call_args.args[0]
+        assert params.connection_name == "test-connection"
+        assert state.user is not None
+        assert "__oauth:pending" not in state.user
+
+    @pytest.mark.asyncio
+    async def test_sign_in_failure_routes_to_pending_flow_after_global_events(
+        self, oauth_handlers, mock_context, failure_activity
+    ):
+        default = oauth_handlers.oauth_registry.add(OAuthFlow("test-connection"))
+        github = oauth_handlers.oauth_registry.add(OAuthFlow("GitHub"))
+        calls = []
+
+        @default.on_signin_failure
+        async def on_default(_):
+            calls.append("default")
+
+        @github.on_signin_failure
+        async def on_github(event):
+            calls.append(f"github:{event.connection_name}")
+
+        state = create_pending_state(
+            ("test-connection", time.time() - 10, True),
+            ("GitHub", time.time(), True),
+        )
+        oauth_handlers.event_emitter.emit_async.side_effect = lambda name, event: calls.append(
+            f"global:{name}:{getattr(event, 'connection_name', None)}"
+        )
+        mock_context.activity = failure_activity
+        mock_context.state = state
+
+        result = await oauth_handlers.sign_in_failure(mock_context)
+
+        assert result is None
+        assert calls == [
+            "global:error:None",
+            "global:sign_in_failure:GitHub",
+            "github:GitHub",
+        ]
+        assert state.user is not None
+        remaining = state.user["__oauth:pending"]["hints"]
+        # The failed connection keeps its hint (the card's sign-in button is still live) but
+        # loses its SSO marker so it cannot re-attribute a second failure.
+        assert {hint["connection_name"]: hint["sso_offered"] for hint in remaining} == {
+            "test-connection": True,
+            "GitHub": False,
+        }
+
+    @pytest.mark.asyncio
+    async def test_sign_in_failure_preserves_replacement_hint_created_by_global_handler(
+        self, oauth_handlers, mock_context, failure_activity
+    ):
+        github = oauth_handlers.oauth_registry.add(OAuthFlow("GitHub"))
+        state = create_pending_state(("GitHub", time.time(), True))
+        oauth_handlers.event_emitter = EventEmitter()
+
+        async def replace_hint(event):
+            assert event.connection_name == "GitHub"
+            assert state.user is not None
+            assert [hint["sso_offered"] for hint in state.user["__oauth:pending"]["hints"]] == [False]
+            state.user["__oauth:pending"] = {
+                "version": 1,
+                "hints": [
+                    {
+                        "connection_name": "GitHub",
+                        "created_at": time.time(),
+                        "sso_offered": True,
+                    }
+                ],
+            }
+
+        oauth_handlers.event_emitter.on("sign_in_failure", replace_hint)
+        mock_context.activity = failure_activity
+        mock_context.state = state
+
+        await oauth_handlers.sign_in_failure(mock_context)
+
+        assert state.user is not None
+        remaining = state.user["__oauth:pending"]["hints"]
+        assert [hint["connection_name"] for hint in remaining] == [github.connection_name]
+        assert [hint["sso_offered"] for hint in remaining] == [True]
+
+    @pytest.mark.asyncio
+    async def test_sign_in_failure_ignores_more_recent_non_sso_hint(
+        self, oauth_handlers, mock_context, failure_activity
+    ):
+        graph = oauth_handlers.oauth_registry.add(OAuthFlow("Graph"))
+        github = oauth_handlers.oauth_registry.add(OAuthFlow("GitHub"))
+        calls = []
+
+        @graph.on_signin_failure
+        async def on_graph(event):
+            calls.append(f"graph:{event.connection_name}")
+
+        @github.on_signin_failure
+        async def on_github(_):
+            calls.append("github")
+
+        mock_context.activity = failure_activity
+        mock_context.state = create_pending_state(
+            ("Graph", time.time() - 10, True),
+            ("GitHub", time.time(), False),
+        )
+
+        await oauth_handlers.sign_in_failure(mock_context)
+
+        assert calls == ["graph:Graph"]
+
+    @pytest.mark.asyncio
+    async def test_sign_in_failure_without_attribution_notifies_all_registered_flows(
+        self, oauth_handlers, mock_context, failure_activity
+    ):
+        graph = oauth_handlers.oauth_registry.add(OAuthFlow("Graph"))
+        github = oauth_handlers.oauth_registry.add(OAuthFlow("GitHub"))
+        calls = []
+        oauth_handlers.event_emitter.emit_async.side_effect = lambda name, event: calls.append(
+            f"global:{name}:{getattr(event, 'connection_name', None)}"
+        )
+
+        @graph.on_signin_failure
+        async def on_graph(event):
+            calls.append(f"graph:{event.connection_name}")
+
+        @github.on_signin_failure
+        async def on_github(event):
+            calls.append(f"github:{event.connection_name}")
+
+        mock_context.activity = failure_activity
+        mock_context.state = None
+
+        await oauth_handlers.sign_in_failure(mock_context)
+
+        assert calls == [
+            "global:error:None",
+            "global:sign_in_failure:test-connection",
+            "graph:Graph",
+            "github:GitHub",
+        ]
+
+    @pytest.mark.asyncio
+    async def test_registered_default_flow_handles_connectionless_callbacks_without_state(
+        self, oauth_handlers, mock_context, verify_state_activity, failure_activity, mock_token_response
+    ):
+        flow = oauth_handlers.oauth_registry.add(OAuthFlow("Test-Connection"))
+        calls = []
+
+        @flow.on_signin
+        async def on_signin(event):
+            calls.append(f"success:{event.connection_name}")
+
+        @flow.on_signin_failure
+        async def on_failure(event):
+            calls.append(f"failure:{event.connection_name}")
+
+        mock_context.state = None
+        mock_context.activity = verify_state_activity
+        mock_context.api.users.get_token.return_value = mock_token_response
+        await oauth_handlers.sign_in_verify_state(mock_context)
+        mock_context.activity = failure_activity
+        await oauth_handlers.sign_in_failure(mock_context)
+
+        assert calls == ["success:Test-Connection", "failure:Test-Connection"]
+
+    @pytest.mark.parametrize(
+        "pending_kind",
+        ["malformed", "unknown", "stale", "future", "nonfinite", "oversized"],
+    )
+    @pytest.mark.asyncio
+    async def test_invalid_pending_attribution_falls_back_to_default_and_is_cleared(
+        self,
+        pending_kind,
+        oauth_handlers,
+        mock_context,
+        verify_state_activity,
+        mock_token_response,
+        caplog,
+    ):
+        default = oauth_handlers.oauth_registry.add(OAuthFlow("Test-Connection"))
+        github = oauth_handlers.oauth_registry.add(OAuthFlow("GitHub"))
+        calls = []
+
+        @default.on_signin
+        async def on_default(event):
+            calls.append(f"default:{event.connection_name}")
+
+        @github.on_signin
+        async def on_github(_):
+            calls.append("github")
+
+        if pending_kind == "malformed":
+            pending: Any = {
+                "version": 1,
+                "hints": [
+                    {
+                        "connection_name": ["GitHub"],
+                        "created_at": time.time(),
+                        "sso_offered": True,
+                    }
+                ],
+            }
+        elif pending_kind == "unknown":
+            pending = {
+                "version": 1,
+                "hints": [
+                    {
+                        "connection_name": "Missing",
+                        "created_at": time.time(),
+                        "sso_offered": True,
+                    }
+                ],
+            }
+        elif pending_kind == "stale":
+            pending = {
+                "version": 1,
+                "hints": [
+                    {
+                        "connection_name": "GitHub",
+                        "created_at": time.time() - 301,
+                        "sso_offered": True,
+                    }
+                ],
+            }
+        elif pending_kind == "future":
+            pending = {
+                "version": 1,
+                "hints": [
+                    {
+                        "connection_name": "GitHub",
+                        "created_at": time.time() + 61,
+                        "sso_offered": True,
+                    }
+                ],
+            }
+        elif pending_kind == "nonfinite":
+            pending = {
+                "version": 1,
+                "hints": [
+                    {
+                        "connection_name": "GitHub",
+                        "created_at": float("inf"),
+                        "sso_offered": True,
+                    }
+                ],
+            }
+        else:
+            pending = {
+                "version": 1,
+                "hints": [
+                    {
+                        "connection_name": "GitHub",
+                        "created_at": 10**1000,
+                        "sso_offered": True,
+                    }
+                ],
+            }
+
+        state = create_turn_state({"__oauth:pending": pending})
+        mock_context.activity = verify_state_activity
+        mock_context.state = state
+        mock_context.api.users.get_token.return_value = mock_token_response
+
+        with caplog.at_level(logging.DEBUG):
+            await oauth_handlers.sign_in_verify_state(mock_context)
+
+        assert calls == ["default:Test-Connection"]
+        params = mock_context.api.users.get_token.call_args.args[0]
+        assert params.connection_name == "Test-Connection"
+        assert state.user is not None
+        assert "__oauth:pending" not in state.user
+        assert "Discarding" in caplog.text
+        warnings = [record for record in caplog.records if record.levelno >= logging.WARNING]
+        if pending_kind == "unknown":
+            # A hint for an unregistered connection is normal (every legacy `ctx.sign_in()`
+            # produces one), so it is discarded quietly.
+            assert warnings == []
+        else:
+            # Corrupt or impossible state is worth surfacing.
+            assert warnings != []
+
+    @pytest.mark.asyncio
+    async def test_verify_state_without_attribution_probes_registered_flow(
+        self, oauth_handlers, mock_context, verify_state_activity, mock_token_response
+    ):
+        github = oauth_handlers.oauth_registry.add(OAuthFlow("GitHub"))
+        called = False
+
+        @github.on_signin
+        async def on_github(_):
+            nonlocal called
+            called = True
+
+        mock_context.activity = verify_state_activity
+        mock_context.state = None
+        mock_context.api.users.get_token.return_value = mock_token_response
+
+        await oauth_handlers.sign_in_verify_state(mock_context)
+
+        params = mock_context.api.users.get_token.call_args.args[0]
+        assert params.connection_name == "GitHub"
+        assert called is True
+        emitted_event = oauth_handlers.event_emitter.emit_async.call_args.args[1]
+        assert emitted_event.connection_name == "GitHub"
+
+    @pytest.mark.asyncio
+    async def test_verify_state_probe_falls_back_to_legacy_default(
+        self, oauth_handlers, mock_context, verify_state_activity, mock_token_response
+    ):
+        github = oauth_handlers.oauth_registry.add(OAuthFlow("GitHub"))
+        called = False
+
+        @github.on_signin
+        async def on_github(_):
+            nonlocal called
+            called = True
+
+        mock_context.activity = verify_state_activity
+        mock_context.state = None
+        mock_context.api.users.get_token.side_effect = [
+            oauth_http_error(404, "Not found for GitHub"),
+            mock_token_response,
+        ]
+
+        await oauth_handlers.sign_in_verify_state(mock_context)
+
+        attempted = [call.args[0].connection_name for call in mock_context.api.users.get_token.await_args_list]
+        assert attempted == ["GitHub", "test-connection"]
+        assert called is False
+        emitted_event = oauth_handlers.event_emitter.emit_async.call_args.args[1]
+        assert emitted_event.connection_name == "test-connection"
+
+    @pytest.mark.asyncio
+    async def test_verify_state_non_404_service_error_keeps_status_with_pending_flow(
+        self, oauth_handlers, mock_context, verify_state_activity
+    ):
+        github = oauth_handlers.oauth_registry.add(OAuthFlow("GitHub"))
+        called = False
+
+        @github.on_signin
+        async def on_github(_):
+            nonlocal called
+            called = True
+
+        oauth_handlers.oauth_registry.add(OAuthFlow("test-connection"))
+        state = create_pending_state(("github", time.time(), True))
+        response = Mock(spec=Response)
+        response.status_code = 503
+        mock_context.api.users.get_token.side_effect = HTTPStatusError(
+            "Unavailable",
+            request=Mock(spec=Request),
+            response=response,
+        )
+        mock_context.activity = verify_state_activity
+        mock_context.state = state
+
+        result = await oauth_handlers.sign_in_verify_state(mock_context)
+
+        assert isinstance(result, InvokeResponse)
+        assert result.status == 503
+        assert called is False
+        assert mock_context.api.users.get_token.await_count == 1
 
     def test_oauth_handlers_initialization(self, mock_event_emitter):
         """Test OauthHandlers initialization."""

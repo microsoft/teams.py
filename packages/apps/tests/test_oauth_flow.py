@@ -56,6 +56,15 @@ class TestOAuthFlowOperations:
         assert passed.connection_name == "graph"
 
     @pytest.mark.asyncio
+    async def test_sign_in_without_state_remains_supported(self) -> None:
+        flow = OAuthFlow("graph")
+        ctx = MagicMock()
+        ctx.sign_in = AsyncMock(return_value=None)
+        ctx.state = None
+
+        assert await flow.sign_in(ctx) is None
+
+    @pytest.mark.asyncio
     async def test_sign_out_targets_flow_connection(self) -> None:
         flow = OAuthFlow("graph")
         ctx = MagicMock()

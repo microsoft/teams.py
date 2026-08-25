@@ -459,6 +459,15 @@ class App(ActivityHandlerMixin):
         Returns:
             The registered ``OAuthFlow``.
 
+        Notes:
+            Enable per-turn state with ``App(state=True)`` (or ``StateOptions``)
+            to record pending connection hints. Connection-less verify-state
+            callbacks probe hinted flows first, then the remaining registered
+            flows and legacy default connection. Sign-in failures use pending
+            silent-SSO hints for attribution and notify registered flows as a
+            fallback. Token-exchange callbacks carry their connection name and
+            route correctly without state.
+
         Raises:
             ValueError: if a flow for this connection is already registered
                 (connection names are case-insensitive).

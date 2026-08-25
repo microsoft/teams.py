@@ -9,6 +9,11 @@ from dataclasses import replace
 from typing import Any, Awaitable, Callable, Iterator, List, Mapping, Optional
 
 from .events import SignInEvent, SignInFailureEvent
+from .oauth_state import (
+    clear_pending_oauth_sign_in,
+    get_pending_oauth_sign_ins,
+    mark_pending_oauth_sso_consumed,
+)
 from .routing import ActivityContext, SignInOptions
 
 logger = logging.getLogger(__name__)
@@ -57,6 +62,14 @@ class OAuthFlow:
         self._on_signin_failure.append(func)
         return func
 
+    async def _invoke_signin_handlers(self, event: SignInEvent) -> None:
+        for handler in tuple(self._on_signin):
+            await handler(event)
+
+    async def _invoke_signin_failure_handlers(self, event: SignInFailureEvent) -> None:
+        for handler in tuple(self._on_signin_failure):
+            await handler(event)
+
     # -- operations -----------------------------------------------------------
 
     async def sign_in(self, ctx: ActivityContext[Any], options: Optional[SignInOptions] = None) -> Optional[str]:
@@ -66,7 +79,12 @@ class OAuthFlow:
         OAuth card and returns ``None``. If the caller passes their own
         ``SignInOptions`` their card text wins, but the connection name is
         always forced to this flow's — you cannot accidentally sign in on the
-        wrong connection through a flow object.
+        wrong connection through a flow object. When per-turn state is enabled,
+        a pending hint is recorded so connection-less verify-state callbacks
+        probe likely flows first and silent-SSO failures can be attributed to
+        this flow. Without state, verify-state probes the registered flows and
+        legacy default connection, while failures use the registered-flow
+        fallback.
         """
         base = self._defaults if options is None else options
         return await ctx.sign_in(replace(base, connection_name=self.connection_name))
@@ -113,3 +131,27 @@ class OAuthFlowRegistry(Mapping[str, OAuthFlow]):
             )
         self._flows[key] = flow
         return flow
+
+    def _pending_flows(self, ctx: ActivityContext[Any], *, sso_only: bool = False) -> List[OAuthFlow]:
+        flows: List[OAuthFlow] = []
+        for pending in get_pending_oauth_sign_ins(ctx.state):
+            if sso_only and not pending.sso_offered:
+                continue
+            flow = self.get(pending.connection_name)
+            if flow is None:
+                # Expected whenever ``ctx.sign_in()`` was used without registering a flow
+                # (the legacy default-connection app), so this is not a warning.
+                logger.debug(
+                    "Discarding pending OAuth sign-in state for connection '%s': no registered OAuth flow.",
+                    pending.connection_name,
+                )
+                clear_pending_oauth_sign_in(ctx.state, pending.connection_name)
+                continue
+            flows.append(flow)
+        return flows
+
+    def _clear_pending(self, ctx: ActivityContext[Any], connection_name: Optional[str] = None) -> None:
+        clear_pending_oauth_sign_in(ctx.state, connection_name)
+
+    def _mark_sso_consumed(self, ctx: ActivityContext[Any], connection_name: str) -> None:
+        mark_pending_oauth_sso_consumed(ctx.state, connection_name)

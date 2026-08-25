@@ -46,6 +46,11 @@ from microsoft_teams.common.http.client_token import Token
 from ..activity_send import send_or_update_activity
 from ..files import FilesAccessor
 from ..http_stream import HttpStream
+from ..oauth_state import (
+    get_pending_oauth_sign_ins,
+    record_pending_oauth_sign_in,
+    replace_pending_oauth_sign_ins,
+)
 from ..plugins.streamer import StreamerProtocol
 from ..state import TurnStateContainer
 from ..utils import create_graph_client
@@ -397,7 +402,33 @@ class ActivityContext(Generic[T]):
             )
         )
 
-        await self.send(payload, self.conversation_ref)
+        previous_pending = get_pending_oauth_sign_ins(self.state)
+        try:
+            record_pending_oauth_sign_in(
+                self.state,
+                connection_name,
+                sso_offered=not is_channel and resource.token_exchange_resource is not None,
+            )
+            if self.state is not None:
+                await self.state._save()  # pyright: ignore[reportPrivateUsage]
+            await self.send(payload, self.conversation_ref)
+        except Exception:
+            # Best-effort rollback: the card never went out, so the pending hint must not
+            # linger and mis-route a later callback. A failure here must not replace the
+            # error the caller actually needs to see.
+            try:
+                replace_pending_oauth_sign_ins(self.state, previous_pending)
+                if self.state is not None:
+                    if self.state.user is not None:
+                        self.state.user._mark_dirty()  # pyright: ignore[reportPrivateUsage]
+                    await self.state._save()  # pyright: ignore[reportPrivateUsage]
+            except Exception:
+                self.logger.warning(
+                    "Failed to roll back pending OAuth sign-in state for connection '%s'.",
+                    connection_name,
+                    exc_info=True,
+                )
+            raise
 
         return None
 

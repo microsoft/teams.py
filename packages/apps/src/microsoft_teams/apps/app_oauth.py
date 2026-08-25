@@ -30,7 +30,7 @@ from .diagnostics._constants import (
 )
 from .diagnostics._helpers import get_tracer, record_exception, record_oauth_error, record_oauth_operation
 from .events import ErrorEvent, EventType, SignInEvent, SignInFailureEvent
-from .oauth_flow import OAuthFlowRegistry
+from .oauth_flow import OAuthFlow, OAuthFlowRegistry
 from .routing import ActivityContext
 
 logger = logging.getLogger(__name__)
@@ -68,7 +68,10 @@ class OauthHandlers:
                 span.set_attribute(APP_ATTRIBUTE_NAMES.oauth_connection, connection_name)
                 span.set_attribute(APP_ATTRIBUTE_NAMES.oauth_operation, APP_OAUTH_OPERATIONS.token_exchange)
 
-                if connection_name != self.default_connection_name and connection_name not in self.oauth_registry:
+                flow = self.oauth_registry.get(connection_name)
+                event_connection_name = flow.connection_name if flow is not None else connection_name
+
+                if connection_name.lower() != self.default_connection_name.lower() and flow is None:
                     logger.warning(
                         f"Sign-in token exchange invoked with connection name '{connection_name}', "
                         f"but it is neither the default connection '{self.default_connection_name}' "
@@ -87,13 +90,6 @@ class OauthHandlers:
                             ),
                         )
                     )
-                    ctx.is_signed_in = True
-                    ctx.user_token = token.token
-                    self.event_emitter.emit("sign_in", SignInEvent(activity_ctx=ctx, token_response=token))
-                    span.set_attribute(APP_ATTRIBUTE_NAMES.oauth_callback_invoked, True)
-                    result = APP_OAUTH_RESULTS.success
-                    span.set_attribute(APP_ATTRIBUTE_NAMES.oauth_result, result)
-                    return None
                 except Exception as e:
                     if isinstance(e, HTTPStatusError):
                         status = e.response.status_code
@@ -102,7 +98,10 @@ class OauthHandlers:
                                 f"Error exchanging token for user {activity.from_.id} in "
                                 f"conversation {activity.conversation.id}: {e}"
                             )
-                            self.event_emitter.emit("error", ErrorEvent(error=e, context={"activity": activity}))
+                            await self.event_emitter.emit_async(
+                                "error",
+                                ErrorEvent(error=e, context={"activity": activity}),
+                            )
                             error_type = APP_OAUTH_ERROR_TYPES.http_error
                             span.set_attribute(APP_ATTRIBUTE_NAMES.oauth_error_type, error_type)
                             record_exception(span, e)
@@ -121,7 +120,10 @@ class OauthHandlers:
                             f"Unable to exchange token for user {activity.from_.id} in "
                             f"conversation {activity.conversation.id}: {e}"
                         )
-                        self.event_emitter.emit("error", ErrorEvent(error=e, context={"activity": activity}))
+                        await self.event_emitter.emit_async(
+                            "error",
+                            ErrorEvent(error=e, context={"activity": activity}),
+                        )
                         error_type = APP_OAUTH_ERROR_TYPES.exception
                         span.set_attribute(APP_ATTRIBUTE_NAMES.oauth_error_type, error_type)
                         record_exception(span, e)
@@ -138,6 +140,24 @@ class OauthHandlers:
                             failure_detail=str(e) or "unable to exchange token...",
                         ),
                     )
+
+                ctx.is_signed_in = True
+                ctx.user_token = token.token
+                self.oauth_registry._clear_pending(  # pyright: ignore[reportPrivateUsage]
+                    ctx, event_connection_name
+                )
+                event = SignInEvent(
+                    activity_ctx=ctx,
+                    token_response=token,
+                    connection_name=event_connection_name,
+                )
+                result = APP_OAUTH_RESULTS.success
+                span.set_attribute(APP_ATTRIBUTE_NAMES.oauth_callback_invoked, True)
+                span.set_attribute(APP_ATTRIBUTE_NAMES.oauth_result, result)
+                await self.event_emitter.emit_async("sign_in", event)
+                if flow is not None:
+                    await flow._invoke_signin_handlers(event)  # pyright: ignore[reportPrivateUsage]
+                return None
         finally:
             record_oauth_operation(
                 connection_name,
@@ -177,7 +197,11 @@ class OauthHandlers:
         """
         activity = ctx.activity
         next_handler = ctx.next
-        connection_name = self.default_connection_name
+        pending_flows = self.oauth_registry._pending_flows(  # pyright: ignore[reportPrivateUsage]
+            ctx, sso_only=True
+        )
+        target_flow = pending_flows[0] if pending_flows else None
+        connection_name = target_flow.connection_name if target_flow is not None else self.default_connection_name
         result = APP_OAUTH_RESULTS.notified
         started_at = perf_counter()
         try:
@@ -199,24 +223,41 @@ class OauthHandlers:
                     f"registration has 'Expose an API' configured with the correct "
                     f"Application ID URI matching your OAuth connection's Token Exchange URL."
                 )
-                self.event_emitter.emit(
+                if target_flow is not None:
+                    self.oauth_registry._mark_sso_consumed(  # pyright: ignore[reportPrivateUsage]
+                        ctx, target_flow.connection_name
+                    )
+                await self.event_emitter.emit_async(
                     "error",
                     ErrorEvent(
                         error=Exception(f"Sign-in failure: {failure.code} — {failure.message}"),
                         context={"activity": activity},
                     ),
                 )
-                self.event_emitter.emit(
-                    "sign_in_failure",
-                    SignInFailureEvent(
-                        activity_ctx=ctx,
-                        connection_name=connection_name,
-                        code=failure.code,
-                        message=failure.message,
-                    ),
+                event = SignInFailureEvent(
+                    activity_ctx=ctx,
+                    connection_name=connection_name,
+                    code=failure.code,
+                    message=failure.message,
                 )
+                await self.event_emitter.emit_async("sign_in_failure", event)
                 span.set_attribute(APP_ATTRIBUTE_NAMES.oauth_callback_invoked, True)
                 span.set_attribute(APP_ATTRIBUTE_NAMES.oauth_result, result)
+                callback_flows = [target_flow] if target_flow is not None else list(self.oauth_registry.values())
+                for flow in callback_flows:
+                    flow_event = (
+                        event
+                        if target_flow is not None
+                        else SignInFailureEvent(
+                            activity_ctx=ctx,
+                            connection_name=flow.connection_name,
+                            code=failure.code,
+                            message=failure.message,
+                        )
+                    )
+                    await flow._invoke_signin_failure_handlers(  # pyright: ignore[reportPrivateUsage]
+                        flow_event
+                    )
                 return None
         finally:
             record_oauth_operation(
@@ -236,7 +277,36 @@ class OauthHandlers:
         activity = ctx.activity
         api = ctx.api
         next_handler = ctx.next
-        connection_name = self.default_connection_name
+        pending_flows = self.oauth_registry._pending_flows(ctx)  # pyright: ignore[reportPrivateUsage]
+        candidates: list[tuple[str, Optional[OAuthFlow]]] = []
+        seen_connections: set[str] = set()
+        for flow in [*pending_flows, *self.oauth_registry.values()]:
+            key = flow.connection_name.lower()
+            if key in seen_connections:
+                continue
+            seen_connections.add(key)
+            candidates.append((flow.connection_name, flow))
+
+        default_flow = self.oauth_registry.get(self.default_connection_name)
+        default_connection_name = (
+            default_flow.connection_name if default_flow is not None else self.default_connection_name
+        )
+        if default_connection_name.lower() not in seen_connections:
+            candidates.append((default_connection_name, default_flow))
+
+        connection_name = candidates[0][0]
+        if len(candidates) > 1:
+            # ``signin/verifyState`` carries no connection name, so unhinted callbacks are
+            # resolved by probing the Token Service once per candidate until one returns a
+            # token. Hinted flows come first, so the normal path costs a single call; the
+            # fan-out below is the fallback for missing/stale hints (state disabled, expired
+            # sign-in, restarted storage). It is intentionally uncapped: dropping candidates
+            # would turn a slow sign-in into a silently failed one.
+            logger.debug(
+                "Probing %d OAuth connection(s) for connection-less verify-state callback: %s",
+                len(candidates),
+                ", ".join(name for name, _ in candidates),
+            )
         result = APP_OAUTH_RESULTS.failure
         started_at = perf_counter()
         try:
@@ -263,35 +333,38 @@ class OauthHandlers:
                     f"{activity.conversation.id} with state {activity.value.state}"
                 )
 
-                try:
-                    token = await api.users.get_token(
-                        GetUserTokenParams(
-                            connection_name=connection_name,
-                            user_id=activity.from_.id,
-                            channel_id=activity.channel_id,
-                            code=activity.value.state,
+                for candidate_connection_name, flow in candidates:
+                    # Deliberately rebind the outer name: the ``finally`` block below records
+                    # telemetry against the connection that was probed last, which is the one
+                    # the outcome (success, 412, or exhausted candidates) actually belongs to.
+                    connection_name = candidate_connection_name
+                    span.set_attribute(APP_ATTRIBUTE_NAMES.oauth_connection, connection_name)
+                    try:
+                        token = await api.users.get_token(
+                            GetUserTokenParams(
+                                connection_name=connection_name,
+                                user_id=activity.from_.id,
+                                channel_id=activity.channel_id,
+                                code=activity.value.state,
+                            )
                         )
-                    )
-                    ctx.is_signed_in = True
-                    ctx.user_token = token.token
-                    self.event_emitter.emit("sign_in", SignInEvent(activity_ctx=ctx, token_response=token))
-                    span.set_attribute(APP_ATTRIBUTE_NAMES.oauth_callback_invoked, True)
-                    logger.debug(
-                        f"Sign-in state verified for user {activity.from_.id} in conversation "
-                        f"{activity.conversation.id}"
-                    )
-                    result = APP_OAUTH_RESULTS.success
-                    span.set_attribute(APP_ATTRIBUTE_NAMES.oauth_result, result)
-                    return None
-                except Exception as e:
-                    logger.error(
-                        f"Error verifying sign-in state for user {activity.from_.id} in conversation"
-                        f"{activity.conversation.id}: {e}"
-                    )
-                    if isinstance(e, HTTPStatusError):
+                    except HTTPStatusError as e:
                         status = e.response.status_code
-                        if status not in (404, 400, 412):
-                            self.event_emitter.emit("error", ErrorEvent(error=e, context={"activity": activity}))
+                        if status == 404:
+                            logger.debug(
+                                f"No token found for OAuth connection '{connection_name}' while verifying "
+                                f"state for user {activity.from_.id} in conversation {activity.conversation.id}."
+                            )
+                            continue
+                        logger.error(
+                            f"Error verifying sign-in state for user {activity.from_.id} in conversation"
+                            f"{activity.conversation.id}: {e}"
+                        )
+                        if status not in (400, 412):
+                            await self.event_emitter.emit_async(
+                                "error",
+                                ErrorEvent(error=e, context={"activity": activity}),
+                            )
                             error_type = APP_OAUTH_ERROR_TYPES.http_error
                             span.set_attribute(APP_ATTRIBUTE_NAMES.oauth_error_type, error_type)
                             record_exception(span, e)
@@ -301,17 +374,50 @@ class OauthHandlers:
                             span.set_attribute(APP_ATTRIBUTE_NAMES.oauth_result, result)
                             return InvokeResponse(status=status)
                         result = APP_OAUTH_RESULTS.failure
-                    else:
+                        span.set_attribute(APP_ATTRIBUTE_NAMES.invoke_response_status, 412)
+                        span.set_attribute(APP_ATTRIBUTE_NAMES.oauth_result, result)
+                        return InvokeResponse(status=412)
+                    except Exception as e:
+                        logger.error(
+                            f"Error verifying sign-in state for user {activity.from_.id} in conversation"
+                            f"{activity.conversation.id}: {e}"
+                        )
                         error_type = APP_OAUTH_ERROR_TYPES.exception
                         span.set_attribute(APP_ATTRIBUTE_NAMES.oauth_error_type, error_type)
                         record_exception(span, e)
                         record_oauth_error(connection_name, APP_OAUTH_OPERATIONS.verify_state, error_type)
                         result = APP_OAUTH_RESULTS.failure
-                    span.set_attribute(APP_ATTRIBUTE_NAMES.invoke_response_status, 412)
-                    span.set_attribute(APP_ATTRIBUTE_NAMES.oauth_result, result)
-                    return InvokeResponse(
-                        status=412,
+                        span.set_attribute(APP_ATTRIBUTE_NAMES.invoke_response_status, 412)
+                        span.set_attribute(APP_ATTRIBUTE_NAMES.oauth_result, result)
+                        return InvokeResponse(status=412)
+
+                    ctx.is_signed_in = True
+                    ctx.user_token = token.token
+                    self.oauth_registry._clear_pending(  # pyright: ignore[reportPrivateUsage]
+                        ctx, connection_name
                     )
+                    event = SignInEvent(
+                        activity_ctx=ctx,
+                        token_response=token,
+                        connection_name=connection_name,
+                    )
+                    result = APP_OAUTH_RESULTS.success
+                    span.set_attribute(APP_ATTRIBUTE_NAMES.oauth_callback_invoked, True)
+                    span.set_attribute(APP_ATTRIBUTE_NAMES.oauth_result, result)
+                    await self.event_emitter.emit_async("sign_in", event)
+                    if flow is not None:
+                        await flow._invoke_signin_handlers(  # pyright: ignore[reportPrivateUsage]
+                            event
+                        )
+                    logger.debug(
+                        f"Sign-in state verified for user {activity.from_.id} in conversation "
+                        f"{activity.conversation.id}"
+                    )
+                    return None
+
+                span.set_attribute(APP_ATTRIBUTE_NAMES.invoke_response_status, 412)
+                span.set_attribute(APP_ATTRIBUTE_NAMES.oauth_result, result)
+                return InvokeResponse(status=412)
         finally:
             record_oauth_operation(
                 connection_name,
