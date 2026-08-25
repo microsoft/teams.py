@@ -1,7 +1,7 @@
 [project]
-name = "quoting"
+name = "interacting-with-messages"
 version = "0.1.0"
-description = "Quoting example - demonstrates various ways to quote previous messages in conversations"
+description = "Demonstrates quoting, threading, and reactions between Teams messages"
 readme = "README.md"
 requires-python = ">=3.11,<4.0"
 dependencies = [

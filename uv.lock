@@ -23,6 +23,7 @@ members = [
     "graph",
     "html-widgets",
     "http-adapters",
+    "interacting-with-messages",
     "m365extensions",
     "mcp-server",
     "meetings",
@@ -36,13 +37,10 @@ members = [
     "microsoft-teams-m365extensions",
     "oauth",
     "proactive-messaging",
-    "quoting",
-    "reactions",
     "stream",
     "suggested-actions",
     "tab",
     "targeted-messages",
-    "threading",
 ]
 
 [manifest.dependency-groups]
@@ -1416,6 +1414,23 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/f2/97/ebf4da567aa6827c909642694d71c9fcf53e5b504f2d96afea02718862f3/iniconfig-2.1.0.tar.gz", hash = "sha256:3abbd2e30b36733fee78f9c7f7308f2d0050e88f0087fd25c2645f63c773e1c7", size = 4793, upload-time = "2025-03-19T20:09:59.721Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/2c/e1/e6716421ea10d38022b952c159d5161ca1193197fb744506875fbb87ea7b/iniconfig-2.1.0-py3-none-any.whl", hash = "sha256:9deba5723312380e77435581c6bf4935c94cbfab9b1ed33ef8d238ea168eb760", size = 6050, upload-time = "2025-03-19T20:10:01.071Z" },
+]
+
+[[package]]
+name = "interacting-with-messages"
+version = "0.1.0"
+source = { virtual = "examples/interacting-with-messages" }
+dependencies = [
+    { name = "dotenv" },
+    { name = "microsoft-teams-api" },
+    { name = "microsoft-teams-apps" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "dotenv", specifier = ">=0.9.9" },
+    { name = "microsoft-teams-api", editable = "packages/api" },
+    { name = "microsoft-teams-apps", editable = "packages/apps" },
 ]
 
 [[package]]
@@ -2977,40 +2992,6 @@ wheels = [
 ]
 
 [[package]]
-name = "quoting"
-version = "0.1.0"
-source = { virtual = "examples/quoting" }
-dependencies = [
-    { name = "dotenv" },
-    { name = "microsoft-teams-api" },
-    { name = "microsoft-teams-apps" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "dotenv", specifier = ">=0.9.9" },
-    { name = "microsoft-teams-api", editable = "packages/api" },
-    { name = "microsoft-teams-apps", editable = "packages/apps" },
-]
-
-[[package]]
-name = "reactions"
-version = "0.1.0"
-source = { virtual = "examples/reactions" }
-dependencies = [
-    { name = "dotenv" },
-    { name = "microsoft-teams-api" },
-    { name = "microsoft-teams-apps" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "dotenv", specifier = ">=0.9.9" },
-    { name = "microsoft-teams-api", editable = "packages/api" },
-    { name = "microsoft-teams-apps", editable = "packages/apps" },
-]
-
-[[package]]
 name = "referencing"
 version = "0.36.2"
 source = { registry = "https://pypi.org/simple" }
@@ -3350,23 +3331,6 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/ab/e2/e9a00f0ccb71718418230718b3d900e71a5d16e701a3dae079a21e9cd8f8/text-unidecode-1.3.tar.gz", hash = "sha256:bad6603bb14d279193107714b288be206cac565dfa49aa5b105294dd5c4aab93", size = 76885, upload-time = "2019-08-30T21:36:45.405Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/a6/a5/c0b6468d3824fe3fde30dbb5e1f687b291608f9473681bbf7dabbf5a87d7/text_unidecode-1.3-py2.py3-none-any.whl", hash = "sha256:1311f10e8b895935241623731c2ba64f4c455287888b18189350b67134a822e8", size = 78154, upload-time = "2019-08-30T21:37:03.543Z" },
-]
-
-[[package]]
-name = "threading"
-version = "0.1.0"
-source = { virtual = "examples/threading" }
-dependencies = [
-    { name = "dotenv" },
-    { name = "microsoft-teams-api" },
-    { name = "microsoft-teams-apps" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "dotenv", specifier = ">=0.9.9" },
-    { name = "microsoft-teams-api", editable = "packages/api" },
-    { name = "microsoft-teams-apps", editable = "packages/apps" },
 ]
 
 [[package]]
