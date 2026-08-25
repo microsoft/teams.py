@@ -35,16 +35,19 @@ def record_pending_oauth_sign_in(
     if state is None or state.user is None:
         return
 
-    pending = [
-        hint for hint in get_pending_oauth_sign_ins(state) if hint.connection_name.lower() != connection_name.lower()
+    existing = [
+        hint
+        for hint in get_pending_oauth_sign_ins(state)
+        if hint.connection_name.lower() != connection_name.lower()
     ]
-    pending.append(
+    pending = [
         PendingOAuthSignIn(
             connection_name=connection_name,
             created_at=time(),
             sso_offered=sso_offered,
-        )
-    )
+        ),
+        *existing,
+    ]
     _write_pending_oauth_sign_ins(state, pending)
 
 
