@@ -34,7 +34,7 @@ async def handle_message(ctx: ActivityContext[MessageActivity]) -> None:
     count = ctx.state.conversation.get("message_count", 0) + 1
     ctx.state.conversation["message_count"] = count
 
-    # User scope: per-sender. `user` is None only when the activity has no sender.
+    # User scope: per-sender. `user` is None when the activity has no usable, non-empty sender ID.
     greeting = ""
     if ctx.state.user is not None:
         if "name" not in ctx.state.user:
