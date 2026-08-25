@@ -13,6 +13,11 @@ from .state import TurnStateContainer
 
 logger = logging.getLogger(__name__)
 
+# Reserved user-state key holding the pending sign-in hints used to attribute
+# connection-less OAuth callbacks. The stored document is
+# ``{"version": 1, "hints": [{"connection_name", "created_at", "sso_offered"}, ...]}``
+# with at most one hint per connection (compared case-insensitively) and hints
+# ordered newest-first. Treat it as private; app code should not read or write it.
 _PENDING_OAUTH_STATE_KEY = "__oauth:pending"
 _PENDING_OAUTH_STATE_VERSION = 1
 _PENDING_OAUTH_MAX_AGE_SECONDS = 5 * 60
@@ -36,9 +41,7 @@ def record_pending_oauth_sign_in(
         return
 
     existing = [
-        hint
-        for hint in get_pending_oauth_sign_ins(state)
-        if hint.connection_name.lower() != connection_name.lower()
+        hint for hint in get_pending_oauth_sign_ins(state) if hint.connection_name.lower() != connection_name.lower()
     ]
     pending = [
         PendingOAuthSignIn(
@@ -72,7 +75,7 @@ def get_pending_oauth_sign_ins(state: Optional[TurnStateContainer]) -> List[Pend
     pending: List[PendingOAuthSignIn] = []
     seen: set[str] = set()
     stale_found = False
-    for raw_hint in reversed(cast(List[Any], raw_hints)):
+    for raw_hint in cast(List[Any], raw_hints):
         hint = _parse_hint(raw_hint)
         if hint is None:
             _discard_malformed(state)
@@ -89,7 +92,9 @@ def get_pending_oauth_sign_ins(state: Optional[TurnStateContainer]) -> List[Pend
         seen.add(key)
         pending.append(hint)
 
-    # Iteration above was newest-first, so this is already the order callers want.
+    # Hints are stored newest-first, so ``seen`` already keeps the freshest entry per
+    # connection. Sort anyway so callers can rely on the ordering even if the stored
+    # document was written by a different version or edited by hand.
     pending.sort(key=lambda hint: hint.created_at, reverse=True)
     if stale_found:
         logger.warning("Discarding stale pending OAuth sign-in state.")
@@ -187,6 +192,10 @@ def _write_pending_oauth_sign_ins(
         state.user.pop(_PENDING_OAUTH_STATE_KEY, None)
         return
 
+    # Every mutation funnels through here, so normalizing the order once keeps the
+    # stored ``hints`` list newest-first no matter which caller wrote it. The sort is
+    # stable, so hints sharing a ``created_at`` keep the order they were inserted in.
+    ordered = sorted(pending, key=lambda hint: hint.created_at, reverse=True)
     state.user[_PENDING_OAUTH_STATE_KEY] = {
         "version": _PENDING_OAUTH_STATE_VERSION,
         "hints": [
@@ -195,7 +204,7 @@ def _write_pending_oauth_sign_ins(
                 "created_at": hint.created_at,
                 "sso_offered": hint.sso_offered,
             }
-            for hint in pending
+            for hint in ordered
         ],
     }
 

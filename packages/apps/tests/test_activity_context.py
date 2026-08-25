@@ -1003,6 +1003,54 @@ class TestActivityContextSignIn:
         token_get_params = ctx.api.users.get_token.call_args[0][0]
         assert token_get_params.connection_name == "custom-connection"
 
+    @pytest.mark.asyncio
+    async def test_sign_in_stores_pending_hints_newest_first(self) -> None:
+        """The stored hints document keeps the most recent sign-in first."""
+        from microsoft_teams.apps.routing.activity_context import SignInOptions
+
+        mock_activity = MessageActivity(
+            id="activity-id",
+            channel_id="msteams",
+            from_=Account(id="user-001"),
+            recipient=Account(id="bot-id"),
+            conversation=ConversationAccount(id="test-conversation", is_group=False),
+        )
+
+        ctx, _ = _create_activity_context(activity=mock_activity)
+        loader = TurnStateLoader(LocalStorage())
+        ctx.state = await loader.load("test-conversation", "user-001")
+        ctx.api.users.get_token = AsyncMock(side_effect=Exception("no token"))
+
+        resource_response = MagicMock()
+        resource_response.token_exchange_resource = None
+        resource_response.token_post_resource = None
+        resource_response.sign_in_link = "https://login.example.com"
+        ctx.api._bots.sign_in.get_resource = AsyncMock(return_value=resource_response)
+
+        token_state = MagicMock()
+        token_state.model_dump = MagicMock(return_value={"connection_name": "test-connection"})
+        with (
+            patch(
+                "microsoft_teams.apps.routing.activity_context.TokenExchangeState",
+                return_value=token_state,
+            ),
+            patch("microsoft_teams.apps.routing.activity_context.GetBotSignInResourceParams"),
+        ):
+            await ctx.sign_in()
+            await ctx.sign_in(options=SignInOptions(connection_name="second-connection"))
+
+        assert ctx.state.user is not None
+        hints = ctx.state.user["__oauth:pending"]["hints"]
+        assert [hint["connection_name"] for hint in hints] == ["second-connection", "test-connection"]
+        assert hints[0]["created_at"] >= hints[1]["created_at"]
+
+        reloaded = await loader.load("test-conversation", "user-001")
+        assert reloaded.user is not None
+        assert [hint["connection_name"] for hint in reloaded.user["__oauth:pending"]["hints"]] == [
+            "second-connection",
+            "test-connection",
+        ]
+
 
 class TestActivityContextSignOut:
     """Tests for ActivityContext.sign_out()."""

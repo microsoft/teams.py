@@ -687,6 +687,23 @@ class TestOauthHandlers:
         assert isinstance(result, InvokeResponse) and result.body is None
         assert result.status == 412
 
+    @pytest.mark.asyncio
+    async def test_sign_in_verify_state_generic_exception_emits_error_event(
+        self, oauth_handlers, mock_context, verify_state_activity
+    ):
+        """A non-HTTP crash still reaches the app's global error handler."""
+        mock_context.activity = verify_state_activity
+        generic_error = ValueError("Generic error")
+        mock_context.api.users.get_token.side_effect = generic_error
+
+        result = await oauth_handlers.sign_in_verify_state(mock_context)
+
+        oauth_handlers.event_emitter.emit_async.assert_awaited_once_with(
+            "error", ErrorEvent(error=generic_error, context={"activity": verify_state_activity})
+        )
+        assert isinstance(result, InvokeResponse) and result.body is None
+        assert result.status == 412
+
     @pytest.fixture
     def failure_activity(self):
         """Create a SignInFailureInvokeActivity."""

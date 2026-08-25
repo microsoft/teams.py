@@ -382,6 +382,10 @@ class OauthHandlers:
                             f"Error verifying sign-in state for user {activity.from_.id} in conversation"
                             f"{activity.conversation.id}: {e}"
                         )
+                        await self.event_emitter.emit_async(
+                            "error",
+                            ErrorEvent(error=e, context={"activity": activity}),
+                        )
                         error_type = APP_OAUTH_ERROR_TYPES.exception
                         span.set_attribute(APP_ATTRIBUTE_NAMES.oauth_error_type, error_type)
                         record_exception(span, e)
