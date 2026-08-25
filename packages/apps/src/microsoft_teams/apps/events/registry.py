@@ -13,12 +13,15 @@ from .types import (
     ActivitySentEvent,
     ErrorEvent,
     SignInEvent,
+    SignInFailureEvent,
     StartEvent,
     StopEvent,
 )
 
 # Core event type literals for type safety
-CoreEventType = Literal["activity", "error", "start", "stop", "sign_in", "activity_response", "activity_sent"]
+CoreEventType = Literal[
+    "activity", "error", "start", "stop", "sign_in", "sign_in_failure", "activity_response", "activity_sent"
+]
 EventType = Union[CoreEventType, str]
 
 # Registry mapping event names to their corresponding event classes
@@ -28,6 +31,7 @@ EVENT_TYPE_REGISTRY: Dict[str, Type[EventProtocol]] = {
     "start": StartEvent,
     "stop": StopEvent,
     "sign_in": SignInEvent,
+    "sign_in_failure": SignInFailureEvent,
     "activity_response": ActivityResponseEvent,
     "activity_sent": ActivitySentEvent,
 }

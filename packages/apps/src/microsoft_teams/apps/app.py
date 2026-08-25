@@ -56,6 +56,7 @@ from .events import (
 from .http import FastAPIAdapter
 from .http.adapter import HttpRequest, HttpResponse
 from .http.http_server import HttpServer
+from .oauth_flow import DEFAULT_OAUTH_CARD_TEXT, DEFAULT_SIGN_IN_BUTTON_TEXT, OAuthFlow, OAuthFlowRegistry
 from .options import AppOptions, InternalAppOptions
 from .plugins import PluginBase, PluginStartEvent
 from .routing import ActivityHandlerMixin, ActivityRouter
@@ -99,6 +100,7 @@ class App(ActivityHandlerMixin):
 
         self._events = EventEmitter[EventType]()
         self._router = ActivityRouter()
+        self._oauth_registry = OAuthFlowRegistry()
 
         self.credentials = self._init_credentials()
 
@@ -159,6 +161,7 @@ class App(ActivityHandlerMixin):
         oauth_handlers = OauthHandlers(
             default_connection_name=self.options.default_connection_name,
             event_emitter=self._events,
+            oauth_registry=self._oauth_registry,
         )
         self.on_signin_token_exchange(oauth_handlers.sign_in_token_exchange)
         self.on_signin_verify_state(oauth_handlers.sign_in_verify_state)
@@ -438,6 +441,55 @@ class App(ActivityHandlerMixin):
     def use(self, middleware: Callable[[ActivityContext[ActivityBase]], Awaitable[None]]) -> None:
         """Add middleware to run on all activities."""
         self.router.add_handler(lambda _: True, middleware)
+
+    def add_oauth_flow(
+        self,
+        connection_name: str,
+        *,
+        oauth_card_text: str = DEFAULT_OAUTH_CARD_TEXT,
+        sign_in_button_text: str = DEFAULT_SIGN_IN_BUTTON_TEXT,
+    ) -> OAuthFlow:
+        """Register an OAuth connection and return its object.
+
+        Args:
+            connection_name: The OAuth connection name configured on the bot.
+            oauth_card_text: Default text shown on the OAuth card for this flow.
+            sign_in_button_text: Default sign-in button label for this flow.
+
+        Returns:
+            The registered ``OAuthFlow``.
+
+        Raises:
+            ValueError: if a flow for this connection is already registered
+                (connection names are case-insensitive).
+        """
+        return self._oauth_registry.add(
+            OAuthFlow(
+                connection_name,
+                oauth_card_text=oauth_card_text,
+                sign_in_button_text=sign_in_button_text,
+            )
+        )
+
+    def get_oauth_flow(self, connection_name: str) -> OAuthFlow:
+        """Retrieve a previously registered OAuth flow by connection name.
+
+        Args:
+            connection_name: The OAuth connection name (case-insensitive).
+
+        Returns:
+            The registered ``OAuthFlow``.
+
+        Raises:
+            ValueError: if no flow is registered for this connection.
+        """
+        flow = self._oauth_registry.get(connection_name)
+        if flow is None:
+            registered = ", ".join(f.connection_name for f in self._oauth_registry.values()) or "<none>"
+            raise ValueError(
+                f"No OAuth flow registered for connection '{connection_name}'. Registered connections: {registered}."
+            )
+        return flow
 
     def _init_http_client(self) -> Client:
         """Initialize the HTTP client from options or create a default one.

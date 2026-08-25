@@ -61,9 +61,10 @@ class GetUserTokenStatusParams(CustomBaseModel):
     """
     The channel ID.
     """
-    include_filter: str
+    include_filter: Optional[str] = None
     """
-    The include filter.
+    The include filter. When omitted, status for every connection registered on
+    the bot is returned.
     """
 
 

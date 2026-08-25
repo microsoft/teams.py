@@ -9,6 +9,7 @@ from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from httpx import HTTPStatusError, Request, Response
 from microsoft_teams.api import (
     Account,
     ConversationAccount,
@@ -104,6 +105,13 @@ def _create_activity_context(
         cloud=PUBLIC,
     )
     return ctx, mock_activity_sender
+
+
+def _http_status_error(status_code: int) -> HTTPStatusError:
+    """Build an httpx.HTTPStatusError carrying the given status code."""
+    request = Request("GET", "https://token.example/api/usertoken/GetToken")
+    response = Response(status_code, request=request)
+    return HTTPStatusError(f"HTTP {status_code}", request=request, response=response)
 
 
 class TestActivityContextSendTargeted:
@@ -835,6 +843,151 @@ class TestActivityContextSignOut:
             mock_log_error.assert_called_once()
             logged_message = mock_log_error.call_args[0][0]
             assert "Failed to sign out user" in logged_message
+
+
+class TestActivityContextTokenHelpers:
+    """Tests for sign_out(connection_name=), get_user_token, and get_token_status."""
+
+    @pytest.mark.asyncio
+    async def test_sign_out_uses_override_connection_name(self) -> None:
+        """sign_out(connection_name=...) targets the named connection."""
+        mock_activity = MagicMock()
+        mock_activity.channel_id = "msteams"
+        mock_activity.from_.id = "user-1"
+
+        ctx, _ = _create_activity_context(activity=mock_activity)
+        ctx.api.users.sign_out = AsyncMock(return_value=None)
+
+        await ctx.sign_out(connection_name="github")
+
+        ctx.api.users.sign_out.assert_awaited_once()
+        params = ctx.api.users.sign_out.call_args[0][0]
+        assert params.connection_name == "github"
+        assert params.user_id == "user-1"
+
+    @pytest.mark.asyncio
+    async def test_sign_out_defaults_to_ctx_connection(self) -> None:
+        """sign_out() with no argument falls back to the context's connection."""
+        mock_activity = MagicMock()
+        mock_activity.channel_id = "msteams"
+        mock_activity.from_.id = "user-1"
+
+        ctx, _ = _create_activity_context(activity=mock_activity)
+        ctx.api.users.sign_out = AsyncMock(return_value=None)
+
+        await ctx.sign_out()
+
+        params = ctx.api.users.sign_out.call_args[0][0]
+        assert params.connection_name == "test-connection"
+
+    @pytest.mark.asyncio
+    async def test_get_user_token_returns_token(self) -> None:
+        """get_user_token returns the token for the requested connection."""
+        mock_activity = MagicMock()
+        mock_activity.channel_id = "msteams"
+        mock_activity.from_.id = "user-1"
+
+        ctx, _ = _create_activity_context(activity=mock_activity)
+        token_res = MagicMock()
+        token_res.token = "the-token"
+        ctx.api.users.get_token = AsyncMock(return_value=token_res)
+
+        result = await ctx.get_user_token(connection_name="github")
+
+        assert result == "the-token"
+        params = ctx.api.users.get_token.call_args[0][0]
+        assert params.connection_name == "github"
+        assert params.user_id == "user-1"
+
+    @pytest.mark.asyncio
+    async def test_get_user_token_defaults_to_ctx_connection(self) -> None:
+        """get_user_token() defaults to the context's connection name."""
+        mock_activity = MagicMock()
+        mock_activity.channel_id = "msteams"
+        mock_activity.from_.id = "user-1"
+
+        ctx, _ = _create_activity_context(activity=mock_activity)
+        token_res = MagicMock()
+        token_res.token = "the-token"
+        ctx.api.users.get_token = AsyncMock(return_value=token_res)
+
+        await ctx.get_user_token()
+
+        params = ctx.api.users.get_token.call_args[0][0]
+        assert params.connection_name == "test-connection"
+
+    @pytest.mark.asyncio
+    async def test_get_user_token_returns_none_when_not_signed_in(self) -> None:
+        """A 404 from the Token Service means 'not signed in' and yields None."""
+        mock_activity = MagicMock()
+        mock_activity.channel_id = "msteams"
+        mock_activity.from_.id = "user-1"
+
+        ctx, _ = _create_activity_context(activity=mock_activity)
+        ctx.api.users.get_token = AsyncMock(side_effect=_http_status_error(404))
+
+        result = await ctx.get_user_token()
+
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_get_user_token_propagates_service_errors(self) -> None:
+        """A non-404 HTTP error (e.g. Token Service down) is surfaced, not masked as logged-out."""
+        mock_activity = MagicMock()
+        mock_activity.channel_id = "msteams"
+        mock_activity.from_.id = "user-1"
+
+        ctx, _ = _create_activity_context(activity=mock_activity)
+        ctx.api.users.get_token = AsyncMock(side_effect=_http_status_error(500))
+
+        with pytest.raises(HTTPStatusError):
+            await ctx.get_user_token()
+
+    @pytest.mark.asyncio
+    async def test_get_user_token_propagates_non_http_errors(self) -> None:
+        """Network/transport errors propagate rather than being reported as not signed in."""
+        mock_activity = MagicMock()
+        mock_activity.channel_id = "msteams"
+        mock_activity.from_.id = "user-1"
+
+        ctx, _ = _create_activity_context(activity=mock_activity)
+        ctx.api.users.get_token = AsyncMock(side_effect=RuntimeError("connection reset"))
+
+        with pytest.raises(RuntimeError):
+            await ctx.get_user_token()
+
+    @pytest.mark.asyncio
+    async def test_get_token_status_returns_all_connections(self) -> None:
+        """get_token_status makes a single call and returns the status list unfiltered."""
+        mock_activity = MagicMock()
+        mock_activity.channel_id = "msteams"
+        mock_activity.from_.id = "user-1"
+
+        ctx, _ = _create_activity_context(activity=mock_activity)
+        statuses = [MagicMock(), MagicMock()]
+        ctx.api.users.get_token_status = AsyncMock(return_value=statuses)
+
+        result = await ctx.get_token_status()
+
+        assert result is statuses
+        ctx.api.users.get_token_status.assert_awaited_once()
+        params = ctx.api.users.get_token_status.call_args[0][0]
+        assert params.include_filter is None
+        assert params.user_id == "user-1"
+        assert params.channel_id == "msteams"
+
+    @pytest.mark.asyncio
+    async def test_get_token_status_propagates_errors(self) -> None:
+        """Unlike get_user_token, get_token_status lets service failures surface."""
+        mock_activity = MagicMock()
+        mock_activity.channel_id = "msteams"
+        mock_activity.from_.id = "user-1"
+
+        ctx, _ = _create_activity_context(activity=mock_activity)
+        ctx.api.users.get_token_status = AsyncMock(side_effect=RuntimeError("service down"))
+
+        with pytest.raises(RuntimeError):
+            await ctx.get_token_status()
 
 
 class TestActivityContextPromptPreview:

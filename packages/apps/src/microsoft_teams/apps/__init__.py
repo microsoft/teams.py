@@ -14,6 +14,7 @@ from .events import *  # noqa: F401, F403
 from .files import *  # noqa: F403
 from .http import FastAPIAdapter, HttpServer, HttpServerAdapter
 from .http_stream import HttpStream
+from .oauth_flow import OAuthFlow, OAuthFlowRegistry
 from .options import AppOptions, AppTelemetryOptions
 from .plugins import *  # noqa: F401, F403
 from .routing import ActivityContext
@@ -46,6 +47,8 @@ __all__: list[str] = [
     "HttpStream",
     "ActivityContext",
     "AppTokenProvider",
+    "OAuthFlow",
+    "OAuthFlowRegistry",
     "StateOptions",
     "TurnState",
     "TurnStateContainer",

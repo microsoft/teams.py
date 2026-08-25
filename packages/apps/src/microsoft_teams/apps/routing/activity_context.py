@@ -8,8 +8,9 @@ import json
 import logging
 import warnings
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Awaitable, Callable, Generic, Optional, TypeGuard, TypeVar
+from typing import TYPE_CHECKING, Any, Awaitable, Callable, Generic, List, Optional, TypeGuard, TypeVar
 
+from httpx import HTTPStatusError
 from microsoft_teams.api import (
     Account,
     ActivityBase,
@@ -20,6 +21,7 @@ from microsoft_teams.api import (
     ConversationReference,
     GetBotSignInResourceParams,
     GetUserTokenParams,
+    GetUserTokenStatusParams,
     JsonWebToken,
     MessageActivity,
     MessageActivityInput,
@@ -28,6 +30,7 @@ from microsoft_teams.api import (
     TokenExchangeResource,
     TokenExchangeState,
     TokenPostResource,
+    TokenStatus,
 )
 from microsoft_teams.api.auth.cloud_environment import PUBLIC, CloudEnvironment
 from microsoft_teams.api.models.attachment.card_attachment import (
@@ -398,19 +401,71 @@ class ActivityContext(Generic[T]):
 
         return None
 
-    async def sign_out(self) -> None:
+    async def sign_out(self, connection_name: Optional[str] = None) -> None:
         """
         Sign out the user by clearing their token.
 
         This method will remove the user's token from the storage.
+
+        Args:
+            connection_name: The connection to sign out of. Defaults to the
+                app's default connection.
         """
+        connection_name = connection_name or self.connection_name
         try:
             sign_out_params = SignOutUserParams(
                 channel_id=self.activity.channel_id,
                 user_id=self.activity.from_.id,
-                connection_name=self.connection_name,
+                connection_name=connection_name,
             )
             await self.api.users.sign_out(sign_out_params)
-            self.logger.debug(f"User {self.activity.from_.id} signed out successfully.")
+            self.logger.debug(f"User {self.activity.from_.id} signed out of '{connection_name}'.")
         except Exception as e:
             self.logger.error(f"Failed to sign out user: {e}")
+
+    async def get_user_token(self, connection_name: Optional[str] = None) -> Optional[str]:
+        """
+        Get the user's token for a connection.
+
+        Args:
+            connection_name: The connection to read. Defaults to the app's
+                default connection.
+
+        Returns:
+            The token if the user is signed in, or ``None`` if they are not
+            (the Token Service returns 404 when no token is cached).
+
+        Raises:
+            HTTPStatusError: for any non-404 failure (e.g. the Token Service is
+                unavailable). Such errors are surfaced rather than being masked
+                as "not signed in", so a genuine outage is not mistaken for a
+                logged-out user.
+        """
+        try:
+            res = await self.api.users.get_token(
+                GetUserTokenParams(
+                    channel_id=self.activity.channel_id,
+                    user_id=self.activity.from_.id,
+                    connection_name=connection_name or self.connection_name,
+                )
+            )
+            return res.token
+        except HTTPStatusError as e:
+            if e.response.status_code == 404:
+                return None
+            raise
+
+    async def get_token_status(self) -> List[TokenStatus]:
+        """
+        Get the token status for every OAuth connection registered on the bot.
+
+        A single Token Service call returns the status for all connections, so
+        the developer never needs to enumerate connection names manually.
+        Service failures propagate rather than being reported as signed out.
+        """
+        return await self.api.users.get_token_status(
+            GetUserTokenStatusParams(
+                channel_id=self.activity.channel_id,
+                user_id=self.activity.from_.id,
+            )
+        )
