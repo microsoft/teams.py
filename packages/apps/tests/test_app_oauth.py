@@ -1005,9 +1005,14 @@ class TestOauthHandlers:
         mock_context.next.assert_awaited_once()
 
     @pytest.mark.asyncio
-    async def test_duplicate_token_exchange_is_not_deduplicated_in_pr4(
+    async def test_duplicate_token_exchange_runs_sign_in_side_effects_once(
         self, oauth_handlers, mock_context, token_exchange_activity, mock_token_response
     ):
+        """A repeat of the same exchange id is a 200 no-op.
+
+        Broader dedup coverage lives in ``test_app_oauth_dedup.py``; this guards the
+        interaction with the PR4 routing path that resolves the flow.
+        """
         flow = oauth_handlers.oauth_registry.add(OAuthFlow("test-connection"))
         callback_count = 0
 
@@ -1019,11 +1024,14 @@ class TestOauthHandlers:
         mock_context.activity = token_exchange_activity
         mock_context.api.users.exchange_token.return_value = mock_token_response
 
-        await oauth_handlers.sign_in_token_exchange(mock_context)
-        await oauth_handlers.sign_in_token_exchange(mock_context)
+        assert await oauth_handlers.sign_in_token_exchange(mock_context) is None
+        duplicate = await oauth_handlers.sign_in_token_exchange(mock_context)
 
-        assert mock_context.api.users.exchange_token.await_count == 2
-        assert callback_count == 2
+        assert isinstance(duplicate, InvokeResponse)
+        assert duplicate.status == 200
+        assert mock_context.api.users.exchange_token.await_count == 1
+        assert callback_count == 1
+        assert mock_context.next.await_count == 1
 
     @pytest.mark.asyncio
     async def test_verify_state_routes_to_pending_non_default_flow(

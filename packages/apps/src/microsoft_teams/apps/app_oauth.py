@@ -3,9 +3,12 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
+import asyncio
 import logging
-from time import perf_counter
-from typing import Optional, Union
+from asyncio import Future
+from dataclasses import dataclass
+from time import perf_counter, time
+from typing import Dict, Optional, Union
 
 from httpx import HTTPStatusError
 from microsoft_teams.api import (
@@ -32,9 +35,29 @@ from .diagnostics._helpers import get_tracer, record_exception, record_oauth_err
 from .events import ErrorEvent, EventType, SignInEvent, SignInFailureEvent
 from .oauth_connection import connection_lookup_key
 from .oauth_flow import OAuthFlow, OAuthFlowRegistry
+from .oauth_state import (
+    TOKEN_EXCHANGE_DEDUP_TTL_SECONDS,
+    has_completed_token_exchange,
+    record_completed_token_exchange,
+)
 from .routing import ActivityContext
 
 logger = logging.getLogger(__name__)
+
+TokenExchangeResult = Union[TokenExchangeInvokeResponseType, InvokeResponse[TokenExchangeInvokeResponseType]]
+
+_TOKEN_EXCHANGE_DEDUP_MAX_ENTRIES = 1000
+"""Cap on the in-memory completed-marker set, so a long-lived process cannot grow it
+without bound even if entries are added faster than the TTL retires them."""
+
+
+@dataclass(frozen=True)
+class _TokenExchangeOutcome:
+    """How an owned token exchange settled, replayed to concurrent duplicates."""
+
+    response: TokenExchangeResult = None
+    error: Optional[BaseException] = None
+    token_redeemed: bool = False
 
 
 class OauthHandlers:
@@ -47,13 +70,66 @@ class OauthHandlers:
         self.default_connection_name = default_connection_name
         self.event_emitter = event_emitter
         self.oauth_registry = oauth_registry
+        # Dedup bookkeeping is per-``App`` instance state rather than module-level
+        # globals, so two apps in one process (and two tests in one session) never
+        # short-circuit each other's exchanges.
+        self._token_exchange_in_flight: Dict[str, Future[_TokenExchangeOutcome]] = {}
+        self._token_exchange_completed: Dict[str, float] = {}
 
     async def sign_in_token_exchange(
         self, ctx: ActivityContext[SignInTokenExchangeInvokeActivity]
-    ) -> Union[TokenExchangeInvokeResponseType, InvokeResponse[TokenExchangeInvokeResponseType]]:
+    ) -> TokenExchangeResult:
+        """Handle ``signin/tokenExchange``, deduplicating repeats of the same exchange.
+
+        Teams fans the same exchange out to every signed-in client endpoint, so the
+        bot can see it several times. Duplicates short-circuit to a ``200`` no-op and
+        deliberately skip ``ctx.next()``: the whole point of dedup is that the sign-in
+        side effects — the ``sign_in`` event, the flow callbacks, and the rest of the
+        middleware chain — run exactly once per exchange.
         """
-        Decorator to register a function that handles the sign-in token exchange.
-        """
+        exchange_id = ctx.activity.value.id
+        if not exchange_id:
+            # Teams normally stamps every exchange with an id. Without one there is
+            # nothing safe to key on, and collapsing every id-less exchange onto a
+            # shared empty key would drop unrelated sign-ins, so run undeduplicated.
+            return await self._run_token_exchange(ctx)
+
+        # Claim the exchange. The in-flight lookup, the in-flight insert and the
+        # completed-marker check below contain no ``await``, so the event loop cannot
+        # switch coroutines part way through: on a single loop this claim is atomic,
+        # which is what stops two concurrent duplicates from both starting an exchange.
+        #
+        # In-flight is checked first so a running exchange always wins over its own
+        # completed marker. The marker is stamped the moment the token is redeemed,
+        # while the owner still has sign-in callbacks to run, and a duplicate that
+        # landed in that window must mirror the owner rather than answer ahead of it.
+        in_flight = self._token_exchange_in_flight.get(exchange_id)
+        if in_flight is not None:
+            return await self._await_token_exchange(ctx, exchange_id, in_flight)
+        if self._is_completed_token_exchange(ctx, exchange_id):
+            return self._replay_completed_token_exchange(ctx, exchange_id)
+        owned: Future[_TokenExchangeOutcome] = asyncio.get_running_loop().create_future()
+        self._token_exchange_in_flight[exchange_id] = owned
+
+        try:
+            response = await self._run_token_exchange(ctx)
+        except BaseException as error:
+            # ``BaseException`` so cancellation also releases the entry and wakes
+            # waiters, instead of leaking the id until the process restarts.
+            self._settle_token_exchange(exchange_id, owned, _TokenExchangeOutcome(error=error))
+            raise
+        self._settle_token_exchange(
+            exchange_id,
+            owned,
+            _TokenExchangeOutcome(
+                response=response,
+                token_redeemed=exchange_id in self._token_exchange_completed,
+            ),
+        )
+        return response
+
+    async def _run_token_exchange(self, ctx: ActivityContext[SignInTokenExchangeInvokeActivity]) -> TokenExchangeResult:
+        """Perform the exchange itself for the request that owns this exchange id."""
         activity = ctx.activity
         api = ctx.api
         next_handler = ctx.next
@@ -149,6 +225,11 @@ class OauthHandlers:
                     span.set_attribute(APP_ATTRIBUTE_NAMES.oauth_result, result)
                     raise
 
+                # Recorded as soon as the exchange succeeds, before any sign-in side
+                # effects: the exchange token is spent at this point, so a retry could
+                # never succeed anyway. A failed exchange is never marked, leaving the
+                # id free for a genuine retry.
+                self._record_completed_token_exchange(ctx, activity.value.id)
                 ctx.is_signed_in = True
                 ctx.user_token = token.token
                 self.oauth_registry._clear_pending(  # pyright: ignore[reportPrivateUsage]
@@ -174,6 +255,136 @@ class OauthHandlers:
                 (perf_counter() - started_at) * 1000,
             )
             await next_handler()
+
+    def _is_completed_token_exchange(
+        self, ctx: ActivityContext[SignInTokenExchangeInvokeActivity], exchange_id: str
+    ) -> bool:
+        self._prune_completed_token_exchanges()
+        if exchange_id in self._token_exchange_completed:
+            return True
+        return has_completed_token_exchange(ctx.state, exchange_id)
+
+    def _record_completed_token_exchange(
+        self, ctx: ActivityContext[SignInTokenExchangeInvokeActivity], exchange_id: str
+    ) -> None:
+        if not exchange_id:
+            return
+
+        self._prune_completed_token_exchanges()
+        self._token_exchange_completed[exchange_id] = time()
+        while len(self._token_exchange_completed) > _TOKEN_EXCHANGE_DEDUP_MAX_ENTRIES:
+            del self._token_exchange_completed[next(iter(self._token_exchange_completed))]
+        # Persisted too, so a duplicate handled by another process instance still sees
+        # it. Best-effort only: state has no compare-and-set, so the in-memory layer
+        # above remains the authoritative same-instance guard.
+        record_completed_token_exchange(ctx.state, exchange_id)
+
+    def _prune_completed_token_exchanges(self) -> None:
+        cutoff = time() - TOKEN_EXCHANGE_DEDUP_TTL_SECONDS
+        expired = [
+            exchange_id
+            for exchange_id, completed_at in self._token_exchange_completed.items()
+            if completed_at <= cutoff
+        ]
+        for exchange_id in expired:
+            del self._token_exchange_completed[exchange_id]
+
+    def _settle_token_exchange(
+        self, exchange_id: str, owned: Future[_TokenExchangeOutcome], outcome: _TokenExchangeOutcome
+    ) -> None:
+        self._token_exchange_in_flight.pop(exchange_id, None)
+        if not owned.done():
+            owned.set_result(outcome)
+
+    def _stamp_completed_token_exchange(
+        self, ctx: ActivityContext[SignInTokenExchangeInvokeActivity], exchange_id: str
+    ) -> None:
+        """Copy the completed marker into a deduplicated request's own turn state.
+
+        Each turn loads its own state snapshot, and saves are last-write-wins with no
+        compare-and-set. A duplicate whose snapshot predates the owner's write would
+        otherwise erase that freshly persisted marker when its own save lands last.
+        Only the in-memory marker is left alone here, so the TTL stays anchored to the
+        moment the token was actually redeemed rather than being extended by every
+        duplicate that arrives.
+        """
+        if not has_completed_token_exchange(ctx.state, exchange_id):
+            record_completed_token_exchange(ctx.state, exchange_id)
+
+    def _replay_completed_token_exchange(
+        self, ctx: ActivityContext[SignInTokenExchangeInvokeActivity], exchange_id: str
+    ) -> TokenExchangeResult:
+        """Answer a duplicate that arrived after its exchange already completed."""
+        logger.debug("Duplicate signin/tokenExchange with id '%s' - returning 200 no-op.", exchange_id)
+        self._stamp_completed_token_exchange(ctx, exchange_id)
+        connection_name = ctx.activity.value.connection_name
+        started_at = perf_counter()
+        try:
+            with get_tracer().start_as_current_span(
+                APP_SPAN_NAMES.oauth_token_exchange,
+                record_exception=False,
+                set_status_on_exception=False,
+            ) as span:
+                span.set_attribute(APP_ATTRIBUTE_NAMES.oauth_connection, connection_name)
+                span.set_attribute(APP_ATTRIBUTE_NAMES.oauth_operation, APP_OAUTH_OPERATIONS.token_exchange)
+                span.set_attribute(APP_ATTRIBUTE_NAMES.oauth_result, APP_OAUTH_RESULTS.duplicate)
+                span.set_attribute(APP_ATTRIBUTE_NAMES.invoke_response_status, 200)
+                return InvokeResponse(status=200)
+        finally:
+            record_oauth_operation(
+                connection_name,
+                APP_OAUTH_OPERATIONS.token_exchange,
+                APP_OAUTH_RESULTS.duplicate,
+                (perf_counter() - started_at) * 1000,
+            )
+
+    async def _await_token_exchange(
+        self,
+        ctx: ActivityContext[SignInTokenExchangeInvokeActivity],
+        exchange_id: str,
+        in_flight: Future[_TokenExchangeOutcome],
+    ) -> TokenExchangeResult:
+        """Answer a duplicate that arrived while its exchange is still running.
+
+        The waiter mirrors whatever the owning request produced, so a caller that lost
+        the race still learns that the exchange failed (``412``) instead of being told
+        the sign-in succeeded.
+        """
+        connection_name = ctx.activity.value.connection_name
+        result = APP_OAUTH_RESULTS.duplicate
+        started_at = perf_counter()
+        try:
+            with get_tracer().start_as_current_span(
+                APP_SPAN_NAMES.oauth_token_exchange,
+                record_exception=False,
+                set_status_on_exception=False,
+            ) as span:
+                span.set_attribute(APP_ATTRIBUTE_NAMES.oauth_connection, connection_name)
+                span.set_attribute(APP_ATTRIBUTE_NAMES.oauth_operation, APP_OAUTH_OPERATIONS.token_exchange)
+                # Shielded: cancelling this waiter must not cancel the future the
+                # owning request still has to resolve.
+                outcome = await asyncio.shield(in_flight)
+                if outcome.error is not None:
+                    result = APP_OAUTH_RESULTS.failure
+                    span.set_attribute(APP_ATTRIBUTE_NAMES.oauth_result, result)
+                    raise outcome.error
+                if outcome.token_redeemed:
+                    self._stamp_completed_token_exchange(ctx, exchange_id)
+                response = outcome.response
+                # The owning request signals success by returning ``None``, which the
+                # activity processor materializes as a 200. Duplicates say so
+                # explicitly instead, matching the C# SDK's 200 no-op.
+                status = response.status if isinstance(response, InvokeResponse) else 200
+                span.set_attribute(APP_ATTRIBUTE_NAMES.oauth_result, result)
+                span.set_attribute(APP_ATTRIBUTE_NAMES.invoke_response_status, status)
+                return response if isinstance(response, InvokeResponse) else InvokeResponse(status=200)
+        finally:
+            record_oauth_operation(
+                connection_name,
+                APP_OAUTH_OPERATIONS.token_exchange,
+                result,
+                (perf_counter() - started_at) * 1000,
+            )
 
     async def sign_in_failure(
         self, ctx: ActivityContext[SignInFailureInvokeActivity]

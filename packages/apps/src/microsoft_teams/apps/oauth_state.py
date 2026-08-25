@@ -32,6 +32,19 @@ _PENDING_OAUTH_SSO_KEY_PREFIX = f"{_PENDING_OAUTH_KEY_PREFIX}{_SSO_MARKER_INFIX}
 _PENDING_OAUTH_MAX_AGE_SECONDS = 5 * 60
 _PENDING_OAUTH_MAX_CLOCK_SKEW_SECONDS = 60
 
+# Reserved conversation-state key prefix holding the completed marker for a single
+# ``signin/tokenExchange``. The full key is ``__oauth:exchange:{id}`` and the value is an
+# ISO 8601 UTC timestamp, mirroring the C# SDK (``OAuthFlow.cs``) so all three SDKs
+# describe this state identically. That is design parity, not wire compatibility: the
+# SDKs encode the enclosing scope key differently, so they never resolve to the same
+# stored document. Conversation scope rather than user scope, because duplicates arrive
+# from several of the user's clients but always on the same conversation. Treat the key
+# as private: app code should neither read nor write it.
+_COMPLETED_EXCHANGE_STATE_KEY_PREFIX = "__oauth:exchange:"
+
+# Completed markers age out on the same schedule as pending sign-ins.
+TOKEN_EXCHANGE_DEDUP_TTL_SECONDS = _PENDING_OAUTH_MAX_AGE_SECONDS
+
 
 @dataclass(frozen=True)
 class PendingOAuthSignIn:
@@ -280,3 +293,84 @@ def _parse_timestamp(raw: Any) -> Optional[float]:
     if parsed.tzinfo is None:
         parsed = parsed.replace(tzinfo=timezone.utc)
     return parsed.timestamp()
+
+
+def completed_token_exchange_state_key(exchange_id: str) -> str:
+    """Reserved conversation-state key holding the completed marker for ``exchange_id``."""
+    return f"{_COMPLETED_EXCHANGE_STATE_KEY_PREFIX}{exchange_id}"
+
+
+def has_completed_token_exchange(state: Optional[TurnStateContainer], exchange_id: str) -> bool:
+    """Whether ``exchange_id`` has already been redeemed on this conversation.
+
+    Read from conversation state so a duplicate routed to a different process instance
+    still short-circuits. Turn state is a last-write-wins document with no ETag/CAS in
+    ``Storage``, so this cross-instance layer is best-effort; the caller's in-process
+    guard is what makes same-instance dedup atomic. The C# SDK carries the same caveat.
+    """
+    if state is None or not exchange_id:
+        return False
+
+    key = completed_token_exchange_state_key(exchange_id)
+    raw = state.conversation.get(key)
+    if raw is None:
+        return False
+
+    completed_at = _parse_completed_at(raw)
+    if completed_at is None:
+        logger.warning("Discarding malformed completed OAuth token exchange state.")
+        state.conversation.pop(key, None)
+        return False
+    if time() - completed_at > TOKEN_EXCHANGE_DEDUP_TTL_SECONDS:
+        state.conversation.pop(key, None)
+        return False
+    return True
+
+
+def record_completed_token_exchange(state: Optional[TurnStateContainer], exchange_id: str) -> None:
+    """Persist the completed marker for ``exchange_id``.
+
+    The marker is deliberately never cleared when the exchange finishes: a late
+    duplicate from a second Teams endpoint can arrive after the original settles, and
+    an already-removed marker would let it run as a brand new exchange. Markers are
+    pruned only once they age past :data:`TOKEN_EXCHANGE_DEDUP_TTL_SECONDS`.
+    """
+    if state is None or not exchange_id:
+        return
+    _write_completed_token_exchange(state, exchange_id)
+
+
+def _write_completed_token_exchange(state: TurnStateContainer, exchange_id: str) -> None:
+    """Single write chokepoint for completed markers.
+
+    Pruning here keeps the invariant that the conversation document never carries an
+    expired or unparsable marker, no matter which caller wrote it.
+    """
+    _prune_completed_token_exchanges(state)
+    state.conversation[completed_token_exchange_state_key(exchange_id)] = _format_timestamp(time())
+
+
+def _prune_completed_token_exchanges(state: TurnStateContainer) -> None:
+    """Drop expired or malformed markers so the conversation document stays bounded."""
+    now = time()
+    for key in list(state.conversation):
+        if not key.startswith(_COMPLETED_EXCHANGE_STATE_KEY_PREFIX):
+            continue
+        completed_at = _parse_completed_at(state.conversation.get(key))
+        if completed_at is None or now - completed_at > TOKEN_EXCHANGE_DEDUP_TTL_SECONDS:
+            state.conversation.pop(key, None)
+
+
+def _parse_completed_at(raw: Any) -> Optional[float]:
+    """Parse a stored marker, rejecting timestamps too far in the future.
+
+    ``_parse_timestamp`` already rejects anything that is not a parseable ISO 8601
+    string. The extra guard is for clock skew between instances: a marker stamped well
+    ahead of this instance's clock would otherwise read as fresh long past its TTL.
+    """
+    completed_at = _parse_timestamp(raw)
+    if completed_at is None:
+        return None
+    if completed_at > time() + _PENDING_OAUTH_MAX_CLOCK_SKEW_SECONDS:
+        return None
+    return completed_at
