@@ -22,6 +22,7 @@ from microsoft_teams.apps import ActivityContext, ActivityEvent, App
 from microsoft_teams.apps.app_events import EventManager
 from microsoft_teams.apps.app_process import ActivityProcessor
 from microsoft_teams.apps.events import CoreActivity
+from microsoft_teams.apps.plugins import StreamCancelledError
 from microsoft_teams.apps.routing.router import ActivityHandler, ActivityRouter
 from microsoft_teams.apps.state import TurnState, TurnStateContainer, TurnStateLoader, TurnStateSealedError
 from microsoft_teams.apps.token_provider import AppTokenProvider
@@ -789,8 +790,6 @@ class TestActivityProcessor:
     @pytest.mark.asyncio
     async def test_process_activity_handles_stream_cancelled(self, activity_processor):
         """StreamCancelledError from middleware is caught; response status is 200."""
-        from microsoft_teams.apps.plugins import StreamCancelledError
-
         core_activity = CoreActivity(
             type="message",
             id="activity-cancel",
@@ -817,10 +816,32 @@ class TestActivityProcessor:
         assert result.status == 200
 
     @pytest.mark.asyncio
+    async def test_process_activity_stream_cancelled_raises_state_save_failure(self, activity_processor):
+        """A handled stream cancellation does not hide a persistence failure."""
+        save_error = RuntimeError("save failed")
+        container = TurnStateContainer(
+            conversation=TurnState(),
+            conversation_id="conv-789",
+        )
+
+        activity_processor.state_loader = MagicMock()
+        activity_processor.state_loader.load = AsyncMock(return_value=container)
+        activity_processor.state_loader.save = AsyncMock(side_effect=save_error)
+        activity_processor.router.select_handlers = MagicMock(return_value=[])
+        activity_processor.execute_middleware_chain = AsyncMock(side_effect=StreamCancelledError())
+        self._wire_event_manager(activity_processor)
+
+        with pytest.raises(RuntimeError) as exc_info:
+            await activity_processor.process_activity([], self._message_event())
+
+        assert exc_info.value is save_error
+        error_event = activity_processor.event_manager.on_error.await_args.args[0]
+        assert error_event.error is save_error
+        activity_processor.event_manager.on_activity_response.assert_not_awaited()
+
+    @pytest.mark.asyncio
     async def test_process_activity_handles_response_event_stream_cancelled(self, activity_processor):
         """StreamCancelledError from the response event retains the legacy 200 response."""
-        from microsoft_teams.apps.plugins import StreamCancelledError
-
         core_activity = CoreActivity(
             type="message",
             id="activity-response-cancel",
@@ -914,13 +935,13 @@ class TestActivityProcessor:
     # --- Per-turn state (App(state=...)) integration -----------------------
 
     @staticmethod
-    def _message_event(activity_id: str = "activity-state") -> ActivityEvent:
+    def _message_event(activity_id: str = "activity-state", user_id: str = "user-123") -> ActivityEvent:
         core_activity = CoreActivity(
             type="message",
             id=activity_id,
             service_url="https://service.url",
             **{
-                "from": {"id": "user-123", "name": "Test User"},
+                "from": {"id": user_id, "name": "Test User"},
                 "conversation": {"id": "conv-789"},
                 "recipient": {"id": "bot-456", "name": "Test Bot"},
                 "channelId": "msteams",
@@ -979,6 +1000,29 @@ class TestActivityProcessor:
         await activity_processor.process_activity([], self._message_event("turn-2"))
 
         assert seen == {"greeted": True, "count": 1}
+
+    @pytest.mark.asyncio
+    async def test_state_empty_sender_id_persists_conversation_without_user_scope(self, activity_processor):
+        """An empty sender ID omits user state without blocking conversation persistence."""
+        storage: LocalStorage[str] = LocalStorage()
+        activity_processor.state_loader = TurnStateLoader(storage)
+        self._wire_event_manager(activity_processor)
+        holder: dict[str, TurnStateContainer] = {}
+
+        async def handler(ctx: ActivityContext[Activity]) -> None:
+            assert ctx.state is not None
+            holder["state"] = ctx.state
+            assert ctx.state.user is None
+            ctx.state.conversation["value"] = "saved"
+
+        activity_processor.router.select_handlers = MagicMock(return_value=[handler])
+
+        response = await activity_processor.process_activity([], self._message_event(user_id=""))
+
+        assert response.status == 200
+        assert holder["state"].user is None
+        reloaded = await TurnStateLoader(storage).load("conv-789")
+        assert reloaded.conversation["value"] == "saved"
 
     @pytest.mark.asyncio
     async def test_state_is_sealed_after_turn(self, activity_processor):
@@ -1048,6 +1092,32 @@ class TestActivityProcessor:
         activity_processor.event_manager.on_activity_response.assert_not_awaited()
 
     @pytest.mark.asyncio
+    async def test_state_save_failure_raised_inside_unrelated_exception_handler(self, activity_processor):
+        """A caller's handled exception does not hide a persistence failure."""
+        save_error = RuntimeError("save failed")
+        container = TurnStateContainer(
+            conversation=TurnState(),
+            conversation_id="conv-789",
+        )
+
+        activity_processor.state_loader = MagicMock()
+        activity_processor.state_loader.load = AsyncMock(return_value=container)
+        activity_processor.state_loader.save = AsyncMock(side_effect=save_error)
+        self._wire_event_manager(activity_processor)
+        activity_processor.router.select_handlers = MagicMock(return_value=[])
+
+        try:
+            raise ValueError("unrelated caller error")
+        except ValueError:
+            with pytest.raises(RuntimeError) as exc_info:
+                await activity_processor.process_activity([], self._message_event())
+
+        assert exc_info.value is save_error
+        error_event = activity_processor.event_manager.on_error.await_args.args[0]
+        assert error_event.error is save_error
+        activity_processor.event_manager.on_activity_response.assert_not_awaited()
+
+    @pytest.mark.asyncio
     async def test_state_save_failure_does_not_mask_handler_error(self, activity_processor):
         """A persistence failure is reported without replacing the handler failure."""
         handler_error = ValueError("handler failed")
@@ -1080,8 +1150,8 @@ class TestActivityProcessor:
         activity_processor.event_manager.on_activity_response.assert_not_awaited()
 
     @pytest.mark.asyncio
-    async def test_state_save_failure_does_not_mask_task_cancellation(self, activity_processor):
-        """Task cancellation remains authoritative when persistence also fails."""
+    async def test_state_save_failure_does_not_mask_handler_cancellation(self, activity_processor):
+        """Handler cancellation remains authoritative when persistence also fails."""
         save_error = RuntimeError("save failed")
         container = TurnStateContainer(
             conversation=TurnState(),
@@ -1105,6 +1175,36 @@ class TestActivityProcessor:
         assert container.conversation.is_sealed is True
         error_event = activity_processor.event_manager.on_error.await_args.args[0]
         assert error_event.error is save_error
+        activity_processor.event_manager.on_activity_response.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_task_cancellation_during_state_save_seals_state(self, activity_processor):
+        """Cancellation during persistence propagates after sealing state."""
+        container = TurnStateContainer(
+            conversation=TurnState(),
+            conversation_id="conv-789",
+        )
+        save_started = asyncio.Event()
+        block_save = asyncio.Event()
+
+        async def save(_: TurnStateContainer) -> None:
+            save_started.set()
+            await block_save.wait()
+
+        activity_processor.state_loader = MagicMock()
+        activity_processor.state_loader.load = AsyncMock(return_value=container)
+        activity_processor.state_loader.save = AsyncMock(side_effect=save)
+        self._wire_event_manager(activity_processor)
+        activity_processor.router.select_handlers = MagicMock(return_value=[])
+
+        task = asyncio.create_task(activity_processor.process_activity([], self._message_event()))
+        await save_started.wait()
+        task.cancel()
+
+        with pytest.raises(asyncio.CancelledError):
+            await task
+
+        assert container.conversation.is_sealed is True
         activity_processor.event_manager.on_activity_response.assert_not_awaited()
 
     @pytest.mark.asyncio

@@ -4,7 +4,6 @@ Licensed under the MIT License.
 """
 
 import logging
-import sys
 from time import perf_counter
 from typing import TYPE_CHECKING, Any, Awaitable, Callable, Dict, List, Optional, TypeGuard, Union, cast
 
@@ -291,6 +290,7 @@ class ActivityProcessor:
         if not self.event_manager:
             raise ValueError("EventManager was not initialized properly")
 
+        processing_completed = False
         try:
             await self._load_turn_state(activityCtx, activity)
 
@@ -303,15 +303,16 @@ class ActivityProcessor:
                 response = cast(InvokeResponse[Any], middleware_result)
             else:
                 response = InvokeResponse[Any](status=200, body=middleware_result)
+            processing_completed = True
         except StreamCancelledError:
             logger.debug("Activity processing was cancelled (stream stopped)")
             await activityCtx.stream.close()
             response = InvokeResponse[Any](status=200)
+            processing_completed = True
         except Exception as error:
             await self.event_manager.on_error(ErrorEvent(error=error, activity=activity), plugins)
             raise
         finally:
-            error_in_flight = sys.exc_info()[1] is not None
             try:
                 await self._persist_turn_state(activityCtx)
             except Exception as error:
@@ -319,7 +320,7 @@ class ActivityProcessor:
                     await self.event_manager.on_error(ErrorEvent(error=error, activity=activity), plugins)
                 except Exception:
                     logger.exception("Error handler failed while reporting state persistence failure")
-                if not error_in_flight:
+                if processing_completed:
                     raise
 
         try:
@@ -352,7 +353,7 @@ class ActivityProcessor:
         """
         if self.state_loader is None:
             return
-        ctx.state = await self.state_loader.load(activity.conversation.id, activity.from_.id)
+        ctx.state = await self.state_loader.load(activity.conversation.id, activity.from_.id or None)
 
     async def _persist_turn_state(self, ctx: ActivityContext[ActivityBase]) -> None:
         """Save dirty scopes and seal state at the end of the turn.
