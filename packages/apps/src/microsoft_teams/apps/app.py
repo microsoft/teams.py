@@ -161,6 +161,7 @@ class App(ActivityHandlerMixin):
         oauth_handlers = OauthHandlers(
             default_connection_name=self.options.default_connection_name,
             event_emitter=self._events,
+            oauth_registry=self._oauth_registry,
         )
         self.on_signin_token_exchange(oauth_handlers.sign_in_token_exchange)
         self.on_signin_verify_state(oauth_handlers.sign_in_verify_state)

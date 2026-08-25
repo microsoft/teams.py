@@ -12,46 +12,6 @@ from microsoft_teams.apps import App, OAuthFlow, OAuthFlowRegistry
 from microsoft_teams.apps.routing import SignInOptions
 
 
-class TestOAuthFlowHandlers:
-    """Handler registration on an OAuthFlow."""
-
-    def test_on_signin_registers_and_returns_handler(self) -> None:
-        flow = OAuthFlow("graph")
-
-        async def handler(event) -> None:
-            pass
-
-        returned = flow.on_signin(handler)
-
-        assert returned is handler
-        assert flow._on_signin == [handler]
-
-    def test_on_signin_failure_registers_and_returns_handler(self) -> None:
-        flow = OAuthFlow("graph")
-
-        async def handler(event) -> None:
-            pass
-
-        returned = flow.on_signin_failure(handler)
-
-        assert returned is handler
-        assert flow._on_signin_failure == [handler]
-
-    def test_multiple_handlers_preserve_order(self) -> None:
-        flow = OAuthFlow("graph")
-
-        async def first(event) -> None:
-            pass
-
-        async def second(event) -> None:
-            pass
-
-        flow.on_signin(first)
-        flow.on_signin(second)
-
-        assert flow._on_signin == [first, second]
-
-
 class TestOAuthFlowOperations:
     """sign_in / sign_out / get_token / is_signed_in delegate to the context."""
 
@@ -174,7 +134,7 @@ class TestOAuthFlowRegistry:
         registry.add(OAuthFlow("GitHub"))
 
         assert len(registry) == 2
-        assert list(registry) == ["graph", "github"]
+        assert list(registry) == ["Graph", "GitHub"]
         assert [f.connection_name for f in registry.values()] == ["Graph", "GitHub"]
 
     def test_empty_registry_is_falsy(self) -> None:

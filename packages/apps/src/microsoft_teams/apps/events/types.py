@@ -118,6 +118,7 @@ class SignInEvent:
         ActivityContext[SignInTokenExchangeInvokeActivity],
     ]
     token_response: TokenResponse
+    connection_name: Optional[str] = None
 
 
 @dataclass

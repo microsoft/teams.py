@@ -3,6 +3,7 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
+import logging
 from contextlib import contextmanager
 from typing import Any, Iterator
 from unittest.mock import AsyncMock, MagicMock, Mock
@@ -30,6 +31,7 @@ from microsoft_teams.api.models import (
 from microsoft_teams.apps.app_oauth import OauthHandlers
 from microsoft_teams.apps.app_process import ActivityProcessor
 from microsoft_teams.apps.events import ErrorEvent, SignInEvent, SignInFailureEvent
+from microsoft_teams.apps.oauth_flow import OAuthFlow, OAuthFlowRegistry
 from microsoft_teams.apps.routing import ActivityContext
 from microsoft_teams.apps.routing.activity_route_configs import ACTIVITY_ROUTES
 from microsoft_teams.apps.routing.router import ActivityRouter
@@ -71,7 +73,7 @@ class TestOauthHandlers:
     @pytest.fixture
     def oauth_handlers(self, mock_event_emitter):
         """Create OauthHandlers instance."""
-        return OauthHandlers("test-connection", mock_event_emitter)
+        return OauthHandlers("test-connection", mock_event_emitter, OAuthFlowRegistry())
 
     @pytest.fixture
     def mock_context(self):
@@ -201,17 +203,33 @@ class TestOauthHandlers:
 
     @pytest.mark.asyncio
     async def test_sign_in_token_exchange_connection_name_warning(
-        self, oauth_handlers, mock_context, token_exchange_activity, mock_token_response
+        self, oauth_handlers, mock_context, token_exchange_activity, mock_token_response, caplog
     ):
         """Test token exchange with different connection name."""
         token_exchange_activity.value.connection_name = "different-connection"
         mock_context.activity = token_exchange_activity
         mock_context.api.users.exchange_token.return_value = mock_token_response
 
-        await oauth_handlers.sign_in_token_exchange(mock_context)
+        with caplog.at_level(logging.WARNING, logger="microsoft_teams.apps.app_oauth"):
+            await oauth_handlers.sign_in_token_exchange(mock_context)
 
-        # Exchange still succeeds despite connection name mismatch
         mock_context.api.users.exchange_token.assert_called_once()
+        assert "nor a registered OAuth flow" in caplog.text
+
+    @pytest.mark.asyncio
+    async def test_sign_in_token_exchange_registered_connection_does_not_warn(
+        self, oauth_handlers, mock_context, token_exchange_activity, mock_token_response, caplog
+    ):
+        token_exchange_activity.value.connection_name = "different-connection"
+        oauth_handlers.oauth_registry.add(OAuthFlow("Different-Connection"))
+        mock_context.activity = token_exchange_activity
+        mock_context.api.users.exchange_token.return_value = mock_token_response
+
+        with caplog.at_level(logging.WARNING, logger="microsoft_teams.apps.app_oauth"):
+            await oauth_handlers.sign_in_token_exchange(mock_context)
+
+        mock_context.api.users.exchange_token.assert_called_once()
+        assert "Token verification will likely fail" not in caplog.text
 
     @pytest.mark.asyncio
     async def test_sign_in_token_exchange_http_error_404(self, oauth_handlers, mock_context, token_exchange_activity):
@@ -737,10 +755,12 @@ class TestOauthHandlers:
 
     def test_oauth_handlers_initialization(self, mock_event_emitter):
         """Test OauthHandlers initialization."""
-        handlers = OauthHandlers("my-connection", mock_event_emitter)
+        registry = OAuthFlowRegistry()
+        handlers = OauthHandlers("my-connection", mock_event_emitter, registry)
 
         assert handlers.default_connection_name == "my-connection"
         assert handlers.event_emitter == mock_event_emitter
+        assert handlers.oauth_registry is registry
 
 
 @pytest.mark.unit

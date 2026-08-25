@@ -30,15 +30,22 @@ from .diagnostics._constants import (
 )
 from .diagnostics._helpers import get_tracer, record_exception, record_oauth_error, record_oauth_operation
 from .events import ErrorEvent, EventType, SignInEvent, SignInFailureEvent
+from .oauth_flow import OAuthFlowRegistry
 from .routing import ActivityContext
 
 logger = logging.getLogger(__name__)
 
 
 class OauthHandlers:
-    def __init__(self, default_connection_name: str, event_emitter: EventEmitter[EventType]) -> None:
+    def __init__(
+        self,
+        default_connection_name: str,
+        event_emitter: EventEmitter[EventType],
+        oauth_registry: OAuthFlowRegistry,
+    ) -> None:
         self.default_connection_name = default_connection_name
         self.event_emitter = event_emitter
+        self.oauth_registry = oauth_registry
 
     async def sign_in_token_exchange(
         self, ctx: ActivityContext[SignInTokenExchangeInvokeActivity]
@@ -61,10 +68,11 @@ class OauthHandlers:
                 span.set_attribute(APP_ATTRIBUTE_NAMES.oauth_connection, connection_name)
                 span.set_attribute(APP_ATTRIBUTE_NAMES.oauth_operation, APP_OAUTH_OPERATIONS.token_exchange)
 
-                if connection_name != self.default_connection_name:
+                if connection_name != self.default_connection_name and connection_name not in self.oauth_registry:
                     logger.warning(
                         f"Sign-in token exchange invoked with connection name '{connection_name}', "
-                        f"but default connection name is '{self.default_connection_name}'. "
+                        f"but it is neither the default connection '{self.default_connection_name}' "
+                        f"nor a registered OAuth flow. "
                         f"Token verification will likely fail."
                     )
 

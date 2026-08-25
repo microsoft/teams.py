@@ -98,7 +98,7 @@ class OAuthFlowRegistry(Mapping[str, OAuthFlow]):
         return self._flows[connection_name.lower()]
 
     def __iter__(self) -> Iterator[str]:
-        return iter(self._flows)
+        return (flow.connection_name for flow in self._flows.values())
 
     def __len__(self) -> int:
         return len(self._flows)
