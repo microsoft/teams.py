@@ -19,6 +19,7 @@ from typing_extensions import Unpack
 from .diagnostics import Agent365BaggageOptions
 from .http.adapter import HttpServerAdapter
 from .plugins import PluginBase
+from .state import StateOptions
 
 DANGEROUSLY_ALLOW_UNAUTHENTICATED_REQUESTS_ENV_VAR = "DANGEROUSLY_ALLOW_UNAUTHENTICATED_REQUESTS"
 _TRUE_ENV_VALUES = {"1", "true", "yes", "on"}
@@ -88,6 +89,14 @@ class AppOptions(TypedDict, total=False):
     # Infrastructure
     storage: Optional[Storage[str, Any]]
     plugins: Optional[List[PluginBase]]
+    state: Optional[Union[bool, StateOptions]]
+    """Per-turn state opt-in. Off by default (``None``/``False``).
+
+    ``state=True`` enables state on the app's shared ``storage`` (in-memory by
+    default). Pass a ``StateOptions`` to configure the
+    key prefix or a dedicated ``Storage`` backend. When enabled, handlers
+    read/write ``ctx.state.conversation`` and ``ctx.state.user``; when off,
+    ``ctx.state`` is ``None``."""
     dangerously_allow_unauthenticated_requests: Optional[bool]
     """
     Whether to accept incoming requests without JWT validation.
@@ -183,6 +192,9 @@ class InternalAppOptions:
     If not set or equals client_id, uses direct managed identity (no federation).
     """
     storage: Optional[Storage[str, Any]] = None
+    state: Optional[Union[bool, StateOptions]] = None
+    """Per-turn state opt-in. ``None``/``False`` disables it; ``True`` enables it on
+    the app's shared storage; a ``StateOptions`` configures the key prefix or backend."""
     service_url: Optional[str] = None
     """
     Base Service URL for BotBackend.

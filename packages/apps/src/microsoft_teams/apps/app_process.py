@@ -46,6 +46,7 @@ from .events import ActivityEvent, ActivityResponseEvent, ActivitySentEvent, Err
 from .plugins import PluginActivityEvent, PluginBase, StreamCancelledError
 from .routing.activity_context import ActivityContext
 from .routing.router import ActivityHandler, ActivityRouter
+from .state import TurnStateLoader
 from .token_provider import AppTokenProvider
 from .utils import extract_tenant_id
 
@@ -74,6 +75,7 @@ class ActivityProcessor:
         cloud: CloudEnvironment = PUBLIC,
         fetch_user_token: bool = True,
         agent365_baggage_options: Agent365BaggageOptions | bool | None = None,
+        state_loader: Optional[TurnStateLoader] = None,
     ) -> None:
         self.router = router
         self.id = id
@@ -86,6 +88,7 @@ class ActivityProcessor:
         self.cloud = cloud
         self.fetch_user_token = fetch_user_token
         self.agent365_baggage_options = agent365_baggage_options
+        self.state_loader = state_loader
 
         # This will be set after the EventManager is initialized due to
         # a circular dependency
@@ -287,7 +290,10 @@ class ActivityProcessor:
         if not self.event_manager:
             raise ValueError("EventManager was not initialized properly")
 
+        processing_completed = False
         try:
+            await self._load_turn_state(activityCtx, activity)
+
             # If no registered handlers, middleware_result is set to None
             middleware_result = await self.execute_middleware_chain(activityCtx, handlers)
 
@@ -297,7 +303,27 @@ class ActivityProcessor:
                 response = cast(InvokeResponse[Any], middleware_result)
             else:
                 response = InvokeResponse[Any](status=200, body=middleware_result)
+            processing_completed = True
+        except StreamCancelledError:
+            logger.debug("Activity processing was cancelled (stream stopped)")
+            await activityCtx.stream.close()
+            response = InvokeResponse[Any](status=200)
+            processing_completed = True
+        except Exception as error:
+            await self.event_manager.on_error(ErrorEvent(error=error, activity=activity), plugins)
+            raise
+        finally:
+            try:
+                await self._persist_turn_state(activityCtx)
+            except Exception as error:
+                try:
+                    await self.event_manager.on_error(ErrorEvent(error=error, activity=activity), plugins)
+                except Exception:
+                    logger.exception("Error handler failed while reporting state persistence failure")
+                if processing_completed:
+                    raise
 
+        try:
             await self.event_manager.on_activity_response(
                 ActivityResponseEvent(
                     activity=activity,
@@ -312,11 +338,37 @@ class ActivityProcessor:
             response = InvokeResponse[Any](status=200)
         except Exception as error:
             await self.event_manager.on_error(ErrorEvent(error=error, activity=activity), plugins)
-            raise error
+            raise
 
         logger.debug("Completed processing activity")
 
         return response
+
+    async def _load_turn_state(self, ctx: ActivityContext[ActivityBase], activity: ValidatedActivity) -> None:
+        """Load per-turn state onto ``ctx.state`` when state is enabled.
+
+        Loads both the conversation scope and the user scope (keyed by the
+        activity's ``from`` identity). A no-op when state is disabled, leaving
+        ``ctx.state`` as ``None``.
+        """
+        if self.state_loader is None:
+            return
+        ctx.state = await self.state_loader.load(activity.conversation.id, activity.from_.id or None)
+
+    async def _persist_turn_state(self, ctx: ActivityContext[ActivityBase]) -> None:
+        """Save dirty scopes and seal state at the end of the turn.
+
+        Runs in a ``finally`` so dirty state is persisted even when the handler
+        raised. Sealing makes any post-turn access raise, guarding against use of
+        per-turn state in background work.
+        """
+        container = ctx.state
+        if self.state_loader is None or container is None:
+            return
+        try:
+            await self.state_loader.save(container)
+        finally:
+            container.seal()
 
     def _activity_attributes(self, activity: ActivityBase) -> dict[str, str]:
         attributes = {

@@ -17,6 +17,7 @@ from .http_stream import HttpStream
 from .options import AppOptions, AppTelemetryOptions
 from .plugins import *  # noqa: F401, F403
 from .routing import ActivityContext
+from .state import StateOptions, TurnState, TurnStateContainer, TurnStateSealedError, create_state_loader
 from .token_provider import AppTokenProvider
 from .utils.html_widget import (
     DisplayMode,
@@ -45,6 +46,11 @@ __all__: list[str] = [
     "HttpStream",
     "ActivityContext",
     "AppTokenProvider",
+    "StateOptions",
+    "TurnState",
+    "TurnStateContainer",
+    "TurnStateSealedError",
+    "create_state_loader",
     "to_threaded_conversation_id",
     "build_html_widget_markdown",
     "build_html_widget_message",

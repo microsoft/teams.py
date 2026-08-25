@@ -4,7 +4,7 @@ Licensed under the MIT License.
 """
 
 from .container import TurnStateContainer
-from .loader import TurnStateLoader
+from .loader import TurnStateLoader, create_state_loader
 from .options import StateOptions
 from .turn_state import TurnState, TurnStateSealedError
 
@@ -14,4 +14,5 @@ __all__ = [
     "TurnStateContainer",
     "TurnStateLoader",
     "StateOptions",
+    "create_state_loader",
 ]

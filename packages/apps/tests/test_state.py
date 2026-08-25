@@ -4,7 +4,9 @@ Licensed under the MIT License.
 """
 
 import json
+import logging
 from typing import Any
+from unittest.mock import MagicMock
 
 import pytest
 from microsoft_teams.apps.state import (
@@ -13,8 +15,9 @@ from microsoft_teams.apps.state import (
     TurnStateContainer,
     TurnStateLoader,
     TurnStateSealedError,
+    create_state_loader,
 )
-from microsoft_teams.common import LocalStorage
+from microsoft_teams.common import LocalStorage, Storage
 
 # ---------------------------------------------------------------------------
 # TurnState
@@ -369,3 +372,47 @@ class TestTurnStateLoader:
         container.conversation["k"] = "v"
         await loader.save(container)
         assert storage.get("ts:conv:c1") is not None
+
+
+# ---------------------------------------------------------------------------
+# create_state_loader (App(state=...) resolution)
+# ---------------------------------------------------------------------------
+
+
+class TestCreateStateLoader:
+    def test_create_state_loader_is_exported_from_apps_surface(self):
+        import microsoft_teams.apps as apps
+
+        assert apps.create_state_loader is create_state_loader
+        assert "create_state_loader" in apps.__all__
+
+    def test_returns_none_when_disabled(self):
+        assert create_state_loader(None, LocalStorage()) is None
+        assert create_state_loader(False, LocalStorage()) is None
+
+    def test_true_enables_on_fallback_storage_and_warns(self, caplog):
+        fallback = LocalStorage()
+        with caplog.at_level(logging.WARNING):
+            loader = create_state_loader(True, fallback)
+        assert isinstance(loader, TurnStateLoader)
+        assert any("localstorage" in r.message.lower() for r in caplog.records)
+
+    async def test_options_storage_is_used_over_fallback(self):
+        dedicated: LocalStorage[str] = LocalStorage()
+        fallback: LocalStorage[str] = LocalStorage()
+        loader = create_state_loader(StateOptions(storage=dedicated), fallback)
+        assert loader is not None
+
+        container = await loader.load("c1")
+        container.conversation["k"] = "v"
+        await loader.save(container)
+
+        assert dedicated.get("ts:conv:c1") is not None
+        assert fallback.get("ts:conv:c1") is None
+
+    def test_non_local_storage_does_not_warn(self, caplog):
+        fake_storage = MagicMock(spec=Storage)
+        with caplog.at_level(logging.WARNING):
+            loader = create_state_loader(StateOptions(storage=fake_storage), LocalStorage())
+        assert isinstance(loader, TurnStateLoader)
+        assert not any("localstorage" in r.message.lower() for r in caplog.records)

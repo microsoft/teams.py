@@ -44,6 +44,7 @@ from ..activity_send import send_or_update_activity
 from ..files import FilesAccessor
 from ..http_stream import HttpStream
 from ..plugins.streamer import StreamerProtocol
+from ..state import TurnStateContainer
 from ..utils import create_graph_client
 
 if TYPE_CHECKING:
@@ -101,6 +102,7 @@ class ActivityContext(Generic[T]):
         self.connection_name = connection_name
         self.is_signed_in = is_signed_in
         self.cloud = cloud
+        self.state: Optional[TurnStateContainer] = None
         self._app_token = app_token
         self._stream: Optional[StreamerProtocol] = None
         self._files: Optional[FilesAccessor] = None
