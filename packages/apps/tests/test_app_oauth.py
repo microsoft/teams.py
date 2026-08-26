@@ -7,6 +7,7 @@ import asyncio
 import logging
 import time
 from contextlib import contextmanager
+from datetime import datetime, timezone
 from typing import Any, Iterator
 from unittest.mock import AsyncMock, MagicMock, Mock
 
@@ -74,22 +75,28 @@ def create_turn_state(user_data: dict[str, Any] | None = None) -> TurnStateConta
     )
 
 
+def iso(epoch_seconds: float) -> str:
+    return datetime.fromtimestamp(epoch_seconds, tz=timezone.utc).isoformat()
+
+
+def pending_marker_keys(state: TurnStateContainer) -> set[str]:
+    """The reserved pending sign-in keys currently stored in user state.
+
+    Asserting on the raw keys keeps these tests pinned to the on-the-wire layout
+    shared with the C# SDK, rather than to whatever the helpers happen to return.
+    """
+    assert state.user is not None
+    return {key for key in state.user if key.startswith("__oauth:pending:")}
+
+
 def create_pending_state(*hints: tuple[str, float, bool]) -> TurnStateContainer:
-    return create_turn_state(
-        {
-            "__oauth:pending": {
-                "version": 1,
-                "hints": [
-                    {
-                        "connection_name": connection_name,
-                        "created_at": created_at,
-                        "sso_offered": sso_offered,
-                    }
-                    for connection_name, created_at, sso_offered in hints
-                ],
-            }
-        }
-    )
+    user_data: dict[str, Any] = {}
+    for connection_name, created_at, sso_offered in hints:
+        stamp = iso(created_at)
+        user_data[f"__oauth:pending:{connection_name}"] = stamp
+        if sso_offered:
+            user_data[f"__oauth:pending:sso:{connection_name}"] = stamp
+    return create_turn_state(user_data)
 
 
 def oauth_http_error(status: int, message: str) -> HTTPStatusError:
@@ -978,7 +985,7 @@ class TestOauthHandlers:
         params = mock_context.api.users.get_token.call_args.args[0]
         assert params.connection_name == "GitHub"
         assert state.user is not None
-        assert "__oauth:pending" not in state.user
+        assert pending_marker_keys(state) == set()
 
     @pytest.mark.asyncio
     async def test_verify_state_probes_pending_hints_then_remaining_flows(
@@ -1014,8 +1021,7 @@ class TestOauthHandlers:
         assert attempted == ["Graph", "GitHub"]
         assert calls == ["github:GitHub"]
         assert state.user is not None
-        remaining = state.user["__oauth:pending"]["hints"]
-        assert [hint["connection_name"] for hint in remaining] == ["graph"]
+        assert pending_marker_keys(state) == {"__oauth:pending:graph", "__oauth:pending:sso:graph"}
 
     @pytest.mark.asyncio
     async def test_sso_failure_keeps_hint_so_button_click_still_routes_to_that_flow(
@@ -1049,7 +1055,7 @@ class TestOauthHandlers:
         assert attempted == ["GitHub"]
         assert calls == ["github:GitHub"]
         assert state.user is not None
-        assert "__oauth:pending" not in state.user
+        assert pending_marker_keys(state) == set()
 
     @pytest.mark.asyncio
     async def test_retired_sso_hint_does_not_attribute_a_second_failure(
@@ -1073,7 +1079,8 @@ class TestOauthHandlers:
         await oauth_handlers.sign_in_failure(mock_context)
         assert calls == ["github:GitHub", "github:GitHub"]
         assert mock_context.state.user is not None
-        assert [hint["sso_offered"] for hint in mock_context.state.user["__oauth:pending"]["hints"]] == [False]
+        # The SSO marker is retired; the sign-in itself is still pending.
+        assert pending_marker_keys(mock_context.state) == {"__oauth:pending:GitHub"}
 
     @pytest.mark.asyncio
     async def test_legacy_default_connection_hint_is_cleared_without_warning(
@@ -1093,7 +1100,7 @@ class TestOauthHandlers:
         params = mock_context.api.users.get_token.call_args.args[0]
         assert params.connection_name == "test-connection"
         assert state.user is not None
-        assert "__oauth:pending" not in state.user
+        assert pending_marker_keys(state) == set()
 
     @pytest.mark.asyncio
     async def test_sign_in_failure_routes_to_pending_flow_after_global_events(
@@ -1130,12 +1137,12 @@ class TestOauthHandlers:
             "github:GitHub",
         ]
         assert state.user is not None
-        remaining = state.user["__oauth:pending"]["hints"]
         # The failed connection keeps its hint (the card's sign-in button is still live) but
         # loses its SSO marker so it cannot re-attribute a second failure.
-        assert {hint["connection_name"]: hint["sso_offered"] for hint in remaining} == {
-            "test-connection": True,
-            "GitHub": False,
+        assert pending_marker_keys(state) == {
+            "__oauth:pending:test-connection",
+            "__oauth:pending:sso:test-connection",
+            "__oauth:pending:GitHub",
         }
 
     @pytest.mark.asyncio
@@ -1149,17 +1156,9 @@ class TestOauthHandlers:
         async def replace_hint(event):
             assert event.connection_name == "GitHub"
             assert state.user is not None
-            assert [hint["sso_offered"] for hint in state.user["__oauth:pending"]["hints"]] == [False]
-            state.user["__oauth:pending"] = {
-                "version": 1,
-                "hints": [
-                    {
-                        "connection_name": "GitHub",
-                        "created_at": time.time(),
-                        "sso_offered": True,
-                    }
-                ],
-            }
+            assert pending_marker_keys(state) == {"__oauth:pending:GitHub"}
+            state.user["__oauth:pending:GitHub"] = datetime.now(timezone.utc).isoformat()
+            state.user["__oauth:pending:sso:GitHub"] = state.user["__oauth:pending:GitHub"]
 
         oauth_handlers.event_emitter.on("sign_in_failure", replace_hint)
         mock_context.activity = failure_activity
@@ -1168,9 +1167,10 @@ class TestOauthHandlers:
         await oauth_handlers.sign_in_failure(mock_context)
 
         assert state.user is not None
-        remaining = state.user["__oauth:pending"]["hints"]
-        assert [hint["connection_name"] for hint in remaining] == [github.connection_name]
-        assert [hint["sso_offered"] for hint in remaining] == [True]
+        assert pending_marker_keys(state) == {
+            f"__oauth:pending:{github.connection_name}",
+            f"__oauth:pending:sso:{github.connection_name}",
+        }
 
     @pytest.mark.asyncio
     async def test_sign_in_failure_ignores_more_recent_non_sso_hint(
@@ -1255,7 +1255,7 @@ class TestOauthHandlers:
 
     @pytest.mark.parametrize(
         "pending_kind",
-        ["malformed", "unknown", "stale", "future", "nonfinite", "oversized"],
+        ["malformed", "not-iso", "unknown", "stale", "future", "nonfinite", "oversized"],
     )
     @pytest.mark.asyncio
     async def test_invalid_pending_attribution_falls_back_to_default_and_is_cleared(
@@ -1279,74 +1279,30 @@ class TestOauthHandlers:
         async def on_github(_):
             calls.append("github")
 
+        now = time.time()
         if pending_kind == "malformed":
-            pending: Any = {
-                "version": 1,
-                "hints": [
-                    {
-                        "connection_name": ["GitHub"],
-                        "created_at": time.time(),
-                        "sso_offered": True,
-                    }
-                ],
-            }
+            # A list is not a timestamp.
+            pending: Any = ["GitHub"]
+        elif pending_kind == "not-iso":
+            pending = "not-a-timestamp"
         elif pending_kind == "unknown":
-            pending = {
-                "version": 1,
-                "hints": [
-                    {
-                        "connection_name": "Missing",
-                        "created_at": time.time(),
-                        "sso_offered": True,
-                    }
-                ],
-            }
+            pending = iso(now)
         elif pending_kind == "stale":
-            pending = {
-                "version": 1,
-                "hints": [
-                    {
-                        "connection_name": "GitHub",
-                        "created_at": time.time() - 301,
-                        "sso_offered": True,
-                    }
-                ],
-            }
+            pending = iso(now - 301)
         elif pending_kind == "future":
-            pending = {
-                "version": 1,
-                "hints": [
-                    {
-                        "connection_name": "GitHub",
-                        "created_at": time.time() + 61,
-                        "sso_offered": True,
-                    }
-                ],
-            }
+            pending = iso(now + 61)
         elif pending_kind == "nonfinite":
-            pending = {
-                "version": 1,
-                "hints": [
-                    {
-                        "connection_name": "GitHub",
-                        "created_at": float("inf"),
-                        "sso_offered": True,
-                    }
-                ],
-            }
+            pending = float("inf")
         else:
-            pending = {
-                "version": 1,
-                "hints": [
-                    {
-                        "connection_name": "GitHub",
-                        "created_at": 10**1000,
-                        "sso_offered": True,
-                    }
-                ],
-            }
+            pending = 10**1000
 
-        state = create_turn_state({"__oauth:pending": pending})
+        connection = "Missing" if pending_kind == "unknown" else "GitHub"
+        state = create_turn_state(
+            {
+                f"__oauth:pending:{connection}": pending,
+                f"__oauth:pending:sso:{connection}": pending,
+            }
+        )
         mock_context.activity = verify_state_activity
         mock_context.state = state
         mock_context.api.users.get_token.return_value = mock_token_response
@@ -1358,7 +1314,7 @@ class TestOauthHandlers:
         params = mock_context.api.users.get_token.call_args.args[0]
         assert params.connection_name == "Test-Connection"
         assert state.user is not None
-        assert "__oauth:pending" not in state.user
+        assert pending_marker_keys(state) == set()
         assert "Discarding" in caplog.text
         warnings = [record for record in caplog.records if record.levelno >= logging.WARNING]
         if pending_kind == "unknown":

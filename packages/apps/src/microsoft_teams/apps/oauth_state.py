@@ -5,21 +5,30 @@ Licensed under the MIT License.
 
 import logging
 from dataclasses import dataclass, replace
-from math import isfinite
+from datetime import datetime, timezone
 from time import time
-from typing import Any, Dict, List, Optional, cast
+from typing import Any, Dict, Iterator, List, Mapping, MutableMapping, Optional, Tuple
 
 from .state import TurnStateContainer
 
 logger = logging.getLogger(__name__)
 
-# Reserved user-state key holding the pending sign-in hints used to attribute
-# connection-less OAuth callbacks. The stored document is
-# ``{"version": 1, "hints": [{"connection_name", "created_at", "sso_offered"}, ...]}``
-# with at most one hint per connection (compared case-insensitively) and hints
-# ordered newest-first. Treat it as private; app code should not read or write it.
-_PENDING_OAUTH_STATE_KEY = "__oauth:pending"
-_PENDING_OAUTH_STATE_VERSION = 1
+# Reserved user-state keys recording the sign-ins that are still awaiting a
+# callback, used to attribute callbacks that do not name their connection:
+#
+#   ``__oauth:pending:{connection}``      written whenever a sign-in card is sent
+#   ``__oauth:pending:sso:{connection}``  also written when that card offered silent SSO
+#
+# Each holds an ISO 8601 UTC timestamp. Key layout and value format mirror the C#
+# SDK (``OAuthFlow.cs``) so all three SDKs describe this state identically; the
+# in-memory representation below stays Pythonic and converts at the boundary.
+#
+# Connection names are stored verbatim to preserve the casing the app registered,
+# while lookups compare case-insensitively. Treat these keys as private: they are
+# an implementation detail and app code should neither read nor write them.
+_PENDING_OAUTH_KEY_PREFIX = "__oauth:pending:"
+_SSO_MARKER_INFIX = "sso:"
+_PENDING_OAUTH_SSO_KEY_PREFIX = f"{_PENDING_OAUTH_KEY_PREFIX}{_SSO_MARKER_INFIX}"
 _PENDING_OAUTH_MAX_AGE_SECONDS = 5 * 60
 _PENDING_OAUTH_MAX_CLOCK_SKEW_SECONDS = 60
 
@@ -40,66 +49,29 @@ def record_pending_oauth_sign_in(
     if state is None or state.user is None:
         return
 
-    existing = [
-        hint for hint in get_pending_oauth_sign_ins(state) if hint.connection_name.lower() != connection_name.lower()
-    ]
-    pending = [
-        PendingOAuthSignIn(
-            connection_name=connection_name,
-            created_at=time(),
-            sso_offered=sso_offered,
-        ),
-        *existing,
-    ]
-    _write_pending_oauth_sign_ins(state, pending)
+    # Reading prunes expired and malformed markers, so a long-lived user state
+    # cannot accumulate entries for sign-ins that were never completed.
+    _read_markers(state)
+    # Drop any earlier attempt for this connection first: the stored casing may
+    # differ from the caller's, and only the newest attempt should survive.
+    _remove_connection(state, connection_name)
+
+    stamp = _format_timestamp(time())
+    state.user[_pending_key(connection_name)] = stamp
+    if sso_offered:
+        state.user[_sso_key(connection_name)] = stamp
 
 
 def get_pending_oauth_sign_ins(state: Optional[TurnStateContainer]) -> List[PendingOAuthSignIn]:
     if state is None or state.user is None:
         return []
 
-    raw = state.user.get(_PENDING_OAUTH_STATE_KEY)
-    if raw is None:
-        return []
-    if not isinstance(raw, dict):
-        _discard_malformed(state)
-        return []
-
-    value = cast(Dict[str, Any], raw)
-    raw_hints = value.get("hints")
-    if value.get("version") != _PENDING_OAUTH_STATE_VERSION or not isinstance(raw_hints, list):
-        _discard_malformed(state)
-        return []
-
-    now = time()
-    pending: List[PendingOAuthSignIn] = []
-    seen: set[str] = set()
-    stale_found = False
-    for raw_hint in cast(List[Any], raw_hints):
-        hint = _parse_hint(raw_hint)
-        if hint is None:
-            _discard_malformed(state)
-            return []
-        if hint.created_at > now + _PENDING_OAUTH_MAX_CLOCK_SKEW_SECONDS:
-            _discard_malformed(state)
-            return []
-        if now - hint.created_at > _PENDING_OAUTH_MAX_AGE_SECONDS:
-            stale_found = True
-            continue
-        key = hint.connection_name.lower()
-        if key in seen:
-            continue
-        seen.add(key)
-        pending.append(hint)
-
-    # Hints are stored newest-first, so ``seen`` already keeps the freshest entry per
-    # connection. Sort anyway so callers can rely on the ordering even if the stored
-    # document was written by a different version or edited by hand.
-    pending.sort(key=lambda hint: hint.created_at, reverse=True)
-    if stale_found:
-        logger.warning("Discarding stale pending OAuth sign-in state.")
-        _write_pending_oauth_sign_ins(state, pending)
-    return pending
+    # Newest first, so callers can attribute a callback to the most recent attempt.
+    # Connection name breaks ties to keep the order independent of storage order.
+    return sorted(
+        _read_markers(state).values(),
+        key=lambda hint: (-hint.created_at, hint.connection_name.lower()),
+    )
 
 
 def clear_pending_oauth_sign_in(
@@ -109,13 +81,11 @@ def clear_pending_oauth_sign_in(
     if state is None or state.user is None:
         return
     if connection_name is None:
-        state.user.pop(_PENDING_OAUTH_STATE_KEY, None)
+        for key in [key for key in state.user if key.startswith(_PENDING_OAUTH_KEY_PREFIX)]:
+            state.user.pop(key, None)
         return
 
-    pending = [
-        hint for hint in get_pending_oauth_sign_ins(state) if hint.connection_name.lower() != connection_name.lower()
-    ]
-    _write_pending_oauth_sign_ins(state, pending)
+    _remove_connection(state, connection_name)
 
 
 def mark_pending_oauth_sso_consumed(
@@ -134,82 +104,149 @@ def mark_pending_oauth_sso_consumed(
     if state is None or state.user is None:
         return
 
-    pending = get_pending_oauth_sign_ins(state)
-    updated = [
-        replace(hint, sso_offered=False) if hint.connection_name.lower() == connection_name.lower() else hint
-        for hint in pending
-    ]
-    if updated != pending:
-        _write_pending_oauth_sign_ins(state, updated)
+    target = connection_name.lower()
+    for key, name, is_sso_marker in _iter_markers(state.user):
+        if is_sso_marker and name.lower() == target:
+            state.user.pop(key, None)
 
 
 def replace_pending_oauth_sign_ins(
     state: Optional[TurnStateContainer],
     pending: List[PendingOAuthSignIn],
 ) -> None:
-    if state is not None:
-        _write_pending_oauth_sign_ins(state, pending)
-
-
-def _parse_hint(raw: Any) -> Optional[PendingOAuthSignIn]:
-    if not isinstance(raw, dict):
-        return None
-
-    value = cast(Dict[str, Any], raw)
-    connection_name = value.get("connection_name")
-    created_at = value.get("created_at")
-    sso_offered = value.get("sso_offered")
-    if (
-        not isinstance(connection_name, str)
-        or not connection_name
-        or isinstance(created_at, bool)
-        or not isinstance(created_at, (int, float))
-        or not isinstance(sso_offered, bool)
-    ):
-        return None
-
-    try:
-        normalized_created_at = float(created_at)
-    except (OverflowError, TypeError, ValueError):
-        return None
-    if not isfinite(normalized_created_at):
-        return None
-
-    return PendingOAuthSignIn(
-        connection_name=connection_name,
-        created_at=normalized_created_at,
-        sso_offered=sso_offered,
-    )
-
-
-def _write_pending_oauth_sign_ins(
-    state: TurnStateContainer,
-    pending: List[PendingOAuthSignIn],
-) -> None:
-    if state.user is None:
-        return
-    if not pending:
-        state.user.pop(_PENDING_OAUTH_STATE_KEY, None)
+    if state is None or state.user is None:
         return
 
-    # Every mutation funnels through here, so normalizing the order once keeps the
-    # stored ``hints`` list newest-first no matter which caller wrote it. The sort is
-    # stable, so hints sharing a ``created_at`` keep the order they were inserted in.
-    ordered = sorted(pending, key=lambda hint: hint.created_at, reverse=True)
-    state.user[_PENDING_OAUTH_STATE_KEY] = {
-        "version": _PENDING_OAUTH_STATE_VERSION,
-        "hints": [
-            {
-                "connection_name": hint.connection_name,
-                "created_at": hint.created_at,
-                "sso_offered": hint.sso_offered,
-            }
-            for hint in ordered
-        ],
+    clear_pending_oauth_sign_in(state)
+    for hint in pending:
+        stamp = _format_timestamp(hint.created_at)
+        state.user[_pending_key(hint.connection_name)] = stamp
+        if hint.sso_offered:
+            state.user[_sso_key(hint.connection_name)] = stamp
+
+
+def _pending_key(connection_name: str) -> str:
+    return f"{_PENDING_OAUTH_KEY_PREFIX}{connection_name}"
+
+
+def _sso_key(connection_name: str) -> str:
+    return f"{_PENDING_OAUTH_SSO_KEY_PREFIX}{connection_name}"
+
+
+def _iter_markers(user: Mapping[str, Any]) -> Iterator[Tuple[str, str, bool]]:
+    """Yield ``(key, connection_name, is_sso_marker)`` for every pending marker.
+
+    ``sso:`` is a legal start to a connection name, so ``__oauth:pending:sso:x``
+    only counts as the SSO marker for ``x`` when ``x``'s own marker is present;
+    otherwise it is the marker for a connection literally named ``sso:x``. The
+    two are indistinguishable only when connections ``x`` and ``sso:x`` are both
+    registered and ``x`` offered SSO, which the C# layout cannot express either.
+    """
+    keys = [key for key in user if key.startswith(_PENDING_OAUTH_KEY_PREFIX)]
+    present = set(keys)
+    for key in keys:
+        name = key[len(_PENDING_OAUTH_KEY_PREFIX) :]
+        if name.startswith(_SSO_MARKER_INFIX):
+            owner = name[len(_SSO_MARKER_INFIX) :]
+            if _pending_key(owner) in present:
+                yield key, owner, True
+                continue
+        yield key, name, False
+
+
+def _read_markers(state: TurnStateContainer) -> Dict[str, PendingOAuthSignIn]:
+    """Parse live markers into hints keyed by lowercased connection name.
+
+    Malformed, future-dated and expired markers are dropped from state as they
+    are encountered, so a single bad key never invalidates the others.
+    """
+    user = state.user
+    if user is None:
+        return {}
+
+    now = time()
+    hints: Dict[str, PendingOAuthSignIn] = {}
+    sso_owners: Dict[str, str] = {}
+    for key, name, is_sso_marker in list(_iter_markers(user)):
+        if key not in user:
+            # Already discarded while resolving a duplicate.
+            continue
+        created_at = _parse_timestamp(user.get(key))
+        if created_at is None:
+            logger.warning("Discarding malformed pending OAuth sign-in state at '%s'.", key)
+            user.pop(key, None)
+            continue
+        if created_at - now > _PENDING_OAUTH_MAX_CLOCK_SKEW_SECONDS:
+            logger.warning("Discarding pending OAuth sign-in state at '%s' dated in the future.", key)
+            user.pop(key, None)
+            continue
+        if now - created_at > _PENDING_OAUTH_MAX_AGE_SECONDS:
+            logger.warning("Discarding stale pending OAuth sign-in state at '%s'.", key)
+            user.pop(key, None)
+            continue
+
+        if is_sso_marker:
+            sso_owners[name.lower()] = name
+            continue
+
+        candidate = PendingOAuthSignIn(connection_name=name, created_at=created_at, sso_offered=False)
+        existing = hints.get(name.lower())
+        if existing is None:
+            hints[name.lower()] = candidate
+            continue
+        # Two keys differing only in case, which we never write but another SDK
+        # might. Keep the newer attempt so the choice is deterministic, and drop
+        # the loser's keys rather than leaving them to linger until they expire.
+        # ``sso_offered`` ends up true if either casing offered SSO.
+        loser, winner = (existing, candidate) if candidate.created_at >= existing.created_at else (candidate, existing)
+        _discard_marker(user, loser.connection_name)
+        hints[name.lower()] = winner
+
+    # An SSO marker must not outlive the sign-in it describes.
+    for lowered, owner in sso_owners.items():
+        if lowered not in hints:
+            user.pop(_sso_key(owner), None)
+
+    return {
+        lowered: replace(hint, sso_offered=True) if lowered in sso_owners else hint for lowered, hint in hints.items()
     }
 
 
-def _discard_malformed(state: TurnStateContainer) -> None:
-    logger.warning("Discarding malformed pending OAuth sign-in state.")
-    if state.user is not None:
-        state.user.pop(_PENDING_OAUTH_STATE_KEY, None)
+def _discard_marker(user: MutableMapping[str, Any], connection_name: str) -> None:
+    user.pop(_pending_key(connection_name), None)
+    user.pop(_sso_key(connection_name), None)
+
+
+def _remove_connection(state: TurnStateContainer, connection_name: str) -> None:
+    user = state.user
+    if user is None:
+        return
+
+    target = connection_name.lower()
+    for key, name, _ in list(_iter_markers(user)):
+        if name.lower() == target:
+            user.pop(key, None)
+
+
+def _format_timestamp(epoch_seconds: float) -> str:
+    return datetime.fromtimestamp(epoch_seconds, tz=timezone.utc).isoformat()
+
+
+def _parse_timestamp(raw: Any) -> Optional[float]:
+    """Parse a stored ISO 8601 timestamp, tolerating every shape C# emits.
+
+    ``datetime.fromisoformat`` accepts arbitrary fractional-second precision and
+    a ``Z`` suffix from Python 3.11 on, which covers .NET's ``DateTimeOffset``
+    serialization. A value carrying no offset is read as UTC; forcing the result
+    to be timezone-aware also makes ``timestamp()`` pure arithmetic, so it can
+    neither raise nor return a non-finite value for any parseable input.
+    """
+    if not isinstance(raw, str):
+        return None
+    try:
+        parsed = datetime.fromisoformat(raw)
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.timestamp()

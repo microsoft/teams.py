@@ -6,6 +6,7 @@ Licensed under the MIT License.
 # pyright: basic
 
 import time
+from datetime import datetime, timezone
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -25,6 +26,7 @@ from microsoft_teams.api.activities.typing import TypingActivityInput
 from microsoft_teams.api.auth.cloud_environment import PUBLIC
 from microsoft_teams.api.models.entity import QuotedReplyData, QuotedReplyEntity
 from microsoft_teams.apps import TurnState, TurnStateContainer
+from microsoft_teams.apps.oauth_state import get_pending_oauth_sign_ins
 from microsoft_teams.apps.routing.activity_context import ActivityContext
 from microsoft_teams.apps.state import TurnStateLoader
 from microsoft_teams.common import LocalStorage
@@ -117,6 +119,11 @@ def _http_status_error(status_code: int) -> HTTPStatusError:
     request = Request("GET", "https://token.example/api/usertoken/GetToken")
     response = Response(status_code, request=request)
     return HTTPStatusError(f"HTTP {status_code}", request=request, response=response)
+
+
+def pending_iso(epoch_seconds: float) -> str:
+    """Render a pending sign-in timestamp the way it is stored on the wire."""
+    return datetime.fromtimestamp(epoch_seconds, tz=timezone.utc).isoformat()
 
 
 class TestActivityContextSendTargeted:
@@ -675,7 +682,7 @@ class TestActivityContextSignIn:
         async def send_after_hint_persisted(activity):
             persisted = await loader.load("test-conversation", "user-001")
             assert persisted.user is not None
-            assert persisted.user["__oauth:pending"]["hints"][0]["connection_name"] == "test-connection"
+            assert "__oauth:pending:test-connection" in persisted.user
             return SentActivity(id="sent-activity-id", activity_params=activity)
 
         mock_sender.send.side_effect = send_after_hint_persisted
@@ -696,15 +703,15 @@ class TestActivityContextSignIn:
         assert sent_payload.recipient is not None
         assert sent_payload.recipient.is_targeted is not True
         assert ctx.state.user is not None
-        pending = ctx.state.user["__oauth:pending"]
-        assert pending["version"] == 1
-        assert pending["hints"][0]["connection_name"] == "test-connection"
-        assert pending["hints"][0]["sso_offered"] is False
-        assert isinstance(pending["hints"][0]["created_at"], float)
+        # Two keys per connection with ISO 8601 values: the layout shared with the C# SDK.
+        # No SSO was offered here, so only the base marker is written.
+        pending = ctx.state.user["__oauth:pending:test-connection"]
+        assert "__oauth:pending:sso:test-connection" not in ctx.state.user
+        assert datetime.fromisoformat(pending).tzinfo is not None
 
         reloaded = await loader.load("test-conversation", "user-001")
         assert reloaded.user is not None
-        assert reloaded.user["__oauth:pending"] == pending
+        assert reloaded.user["__oauth:pending:test-connection"] == pending
 
     @pytest.mark.asyncio
     async def test_sign_in_restores_persisted_hints_when_card_send_fails(self) -> None:
@@ -719,17 +726,8 @@ class TestActivityContextSignIn:
         loader = TurnStateLoader(LocalStorage())
         ctx.state = await loader.load("test-conversation", "user-001")
         assert ctx.state.user is not None
-        previous = {
-            "version": 1,
-            "hints": [
-                {
-                    "connection_name": "existing-connection",
-                    "created_at": time.time(),
-                    "sso_offered": False,
-                }
-            ],
-        }
-        ctx.state.user["__oauth:pending"] = previous
+        previous = pending_iso(time.time())
+        ctx.state.user["__oauth:pending:existing-connection"] = previous
         await loader.save(ctx.state)
 
         ctx.api.users.get_token = AsyncMock(side_effect=Exception("no token"))
@@ -755,7 +753,8 @@ class TestActivityContextSignIn:
 
         reloaded = await loader.load("test-conversation", "user-001")
         assert reloaded.user is not None
-        assert reloaded.user["__oauth:pending"] == previous
+        assert reloaded.user["__oauth:pending:existing-connection"] == previous
+        assert "__oauth:pending:test-connection" not in reloaded.user
 
     @pytest.mark.asyncio
     async def test_sign_in_restores_hint_when_pre_send_persistence_fails(self) -> None:
@@ -771,17 +770,8 @@ class TestActivityContextSignIn:
         loader = TurnStateLoader(storage)
         ctx.state = await loader.load("test-conversation", "user-001")
         assert ctx.state.user is not None
-        previous = {
-            "version": 1,
-            "hints": [
-                {
-                    "connection_name": "existing-connection",
-                    "created_at": time.time(),
-                    "sso_offered": False,
-                }
-            ],
-        }
-        ctx.state.user["__oauth:pending"] = previous
+        previous = pending_iso(time.time())
+        ctx.state.user["__oauth:pending:existing-connection"] = previous
         await loader.save(ctx.state)
         storage.async_set = AsyncMock(side_effect=[RuntimeError("save failed"), None])
 
@@ -807,7 +797,8 @@ class TestActivityContextSignIn:
 
         mock_sender.send.assert_not_called()
         assert storage.async_set.await_count == 2
-        assert ctx.state.user["__oauth:pending"] == previous
+        assert ctx.state.user["__oauth:pending:existing-connection"] == previous
+        assert "__oauth:pending:test-connection" not in ctx.state.user
         await loader.save(ctx.state)
         assert storage.async_set.await_count == 2
 
@@ -828,16 +819,7 @@ class TestActivityContextSignIn:
         assert ctx.state.user is not None
         # A pre-existing hint means the rollback is a write (not a delete), so the
         # patched ``async_set`` below is what fails.
-        ctx.state.user["__oauth:pending"] = {
-            "version": 1,
-            "hints": [
-                {
-                    "connection_name": "existing-connection",
-                    "created_at": time.time(),
-                    "sso_offered": False,
-                }
-            ],
-        }
+        ctx.state.user["__oauth:pending:existing-connection"] = pending_iso(time.time())
         await loader.save(ctx.state)
 
         ctx.api.users.get_token = AsyncMock(side_effect=Exception("no token"))
@@ -917,8 +899,9 @@ class TestActivityContextSignIn:
         # SSO token exchange remains available in group chats.
         assert sent_payload.attachments[0].content.token_exchange_resource is resource_response.token_exchange_resource
         assert ctx.state.user is not None
-        pending = ctx.state.user["__oauth:pending"]
-        assert pending["hints"][0]["sso_offered"] is True
+        # SSO was offered, so both markers are written.
+        assert "__oauth:pending:test-connection" in ctx.state.user
+        assert "__oauth:pending:sso:test-connection" in ctx.state.user
 
     @pytest.mark.asyncio
     async def test_sign_in_channel_targets_and_omits_token_exchange(self) -> None:
@@ -1005,7 +988,7 @@ class TestActivityContextSignIn:
 
     @pytest.mark.asyncio
     async def test_sign_in_stores_pending_hints_newest_first(self) -> None:
-        """The stored hints document keeps the most recent sign-in first."""
+        """Pending hints are read back with the most recent sign-in first."""
         from microsoft_teams.apps.routing.activity_context import SignInOptions
 
         mock_activity = MessageActivity(
@@ -1040,13 +1023,16 @@ class TestActivityContextSignIn:
             await ctx.sign_in(options=SignInOptions(connection_name="second-connection"))
 
         assert ctx.state.user is not None
-        hints = ctx.state.user["__oauth:pending"]["hints"]
-        assert [hint["connection_name"] for hint in hints] == ["second-connection", "test-connection"]
-        assert hints[0]["created_at"] >= hints[1]["created_at"]
+        # Storage is one key per connection and carries no ordering of its own; the
+        # newest-first guarantee is applied when the hints are read back.
+        assert [hint.connection_name for hint in get_pending_oauth_sign_ins(ctx.state)] == [
+            "second-connection",
+            "test-connection",
+        ]
 
         reloaded = await loader.load("test-conversation", "user-001")
         assert reloaded.user is not None
-        assert [hint["connection_name"] for hint in reloaded.user["__oauth:pending"]["hints"]] == [
+        assert [hint.connection_name for hint in get_pending_oauth_sign_ins(reloaded)] == [
             "second-connection",
             "test-connection",
         ]
