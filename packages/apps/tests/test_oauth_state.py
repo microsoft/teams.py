@@ -209,6 +209,18 @@ class TestPendingSignInPruning:
         assert [hint.connection_name for hint in get_pending_oauth_sign_ins(state)] == ["healthy"]
         assert stored_keys(state) == {"__oauth:pending:healthy"}
 
+    def test_state_from_an_earlier_layout_reads_as_absent(self) -> None:
+        legacy = {"version": 1, "hints": [{"connection_name": "GitHub", "created_at": time.time()}]}
+        state = make_state({"__oauth:pending": legacy, "__oauth:pending:healthy": iso(time.time())})
+
+        # The earlier layout kept every hint in one `__oauth:pending` document. That key
+        # has no trailing separator, so the prefix scan never sees it: it reads as absent
+        # and sign-in simply starts over. Nothing needs migrating, and nothing else is
+        # disturbed by leftovers.
+        assert [hint.connection_name for hint in get_pending_oauth_sign_ins(state)] == ["healthy"]
+        assert state.user is not None
+        assert state.user["__oauth:pending"] == legacy
+
     def test_expired_and_future_dated_markers_are_pruned_on_read(self) -> None:
         now = time.time()
         state = make_state(

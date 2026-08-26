@@ -1251,7 +1251,7 @@ class TestOauthHandlers:
 
     @pytest.mark.parametrize(
         "pending_kind",
-        ["malformed", "not-iso", "unknown", "stale", "future", "nonfinite", "oversized"],
+        ["non-string", "not-iso", "unknown", "stale", "future"],
     )
     @pytest.mark.asyncio
     async def test_invalid_pending_attribution_falls_back_to_default_and_is_cleared(
@@ -1276,7 +1276,7 @@ class TestOauthHandlers:
             calls.append("github")
 
         now = time.time()
-        if pending_kind == "malformed":
+        if pending_kind == "non-string":
             # A list is not a timestamp.
             pending: Any = ["GitHub"]
         elif pending_kind == "not-iso":
@@ -1285,12 +1285,8 @@ class TestOauthHandlers:
             pending = iso(now)
         elif pending_kind == "stale":
             pending = iso(now - 301)
-        elif pending_kind == "future":
-            pending = iso(now + 61)
-        elif pending_kind == "nonfinite":
-            pending = float("inf")
         else:
-            pending = 10**1000
+            pending = iso(now + 61)
 
         connection = "Missing" if pending_kind == "unknown" else "GitHub"
         state = create_turn_state(
