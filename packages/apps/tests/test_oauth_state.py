@@ -38,8 +38,6 @@ def iso(epoch_seconds: float) -> str:
 
 
 class TestPendingSignInStorageLayout:
-    """The stored layout is a cross-SDK contract, mirroring C#'s ``OAuthFlow``."""
-
     def test_records_one_key_per_connection_holding_an_iso_timestamp(self) -> None:
         state = make_state()
         record_pending_oauth_sign_in(state, "Graph", sso_offered=False)
@@ -47,7 +45,6 @@ class TestPendingSignInStorageLayout:
         assert stored_keys(state) == {"__oauth:pending:Graph"}
         assert state.user is not None
         stored = state.user["__oauth:pending:Graph"]
-        # A bare ISO 8601 string, not a wrapper document: C# stores a DateTimeOffset here.
         assert isinstance(stored, str)
         assert datetime.fromisoformat(stored).tzinfo is not None
 
@@ -63,7 +60,6 @@ class TestPendingSignInStorageLayout:
         state = make_state()
         record_pending_oauth_sign_in(state, "GitHub", sso_offered=True)
 
-        # C# preserves the registered casing in the key, so we do too.
         assert stored_keys(state) == {"__oauth:pending:GitHub", "__oauth:pending:sso:GitHub"}
         assert [hint.connection_name for hint in get_pending_oauth_sign_ins(state)] == ["GitHub"]
 

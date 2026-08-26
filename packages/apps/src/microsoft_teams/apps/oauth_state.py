@@ -19,9 +19,7 @@ logger = logging.getLogger(__name__)
 #   ``__oauth:pending:{connection}``      written whenever a sign-in card is sent
 #   ``__oauth:pending:sso:{connection}``  also written when that card offered silent SSO
 #
-# Each holds an ISO 8601 UTC timestamp. Key layout and value format mirror the C#
-# SDK (``OAuthFlow.cs``) so all three SDKs describe this state identically; the
-# in-memory representation below stays Pythonic and converts at the boundary.
+# Each holds an ISO 8601 UTC timestamp.
 #
 # Connection names are stored verbatim to preserve the casing the app registered,
 # while lookups compare case-insensitively. Treat these keys as private: they are
@@ -140,7 +138,7 @@ def _iter_markers(user: Mapping[str, Any]) -> Iterator[Tuple[str, str, bool]]:
     only counts as the SSO marker for ``x`` when ``x``'s own marker is present;
     otherwise it is the marker for a connection literally named ``sso:x``. The
     two are indistinguishable only when connections ``x`` and ``sso:x`` are both
-    registered and ``x`` offered SSO, which the C# layout cannot express either.
+    registered and ``x`` offered SSO.
     """
     keys = [key for key in user if key.startswith(_PENDING_OAUTH_KEY_PREFIX)]
     present = set(keys)
@@ -233,7 +231,7 @@ def _format_timestamp(epoch_seconds: float) -> str:
 
 
 def _parse_timestamp(raw: Any) -> Optional[float]:
-    """Parse a stored ISO 8601 timestamp, tolerating every shape C# emits.
+    """Parse a stored ISO 8601 timestamp.
 
     ``datetime.fromisoformat`` accepts arbitrary fractional-second precision and
     a ``Z`` suffix from Python 3.11 on, which covers .NET's ``DateTimeOffset``

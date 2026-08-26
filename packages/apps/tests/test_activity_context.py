@@ -703,7 +703,7 @@ class TestActivityContextSignIn:
         assert sent_payload.recipient is not None
         assert sent_payload.recipient.is_targeted is not True
         assert ctx.state.user is not None
-        # Two keys per connection with ISO 8601 values: the layout shared with the C# SDK.
+        # Two keys per connection with ISO 8601 values.
         # No SSO was offered here, so only the base marker is written.
         pending = ctx.state.user["__oauth:pending:test-connection"]
         assert "__oauth:pending:sso:test-connection" not in ctx.state.user

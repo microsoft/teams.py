@@ -80,11 +80,7 @@ def iso(epoch_seconds: float) -> str:
 
 
 def pending_marker_keys(state: TurnStateContainer) -> set[str]:
-    """The reserved pending sign-in keys currently stored in user state.
-
-    Asserting on the raw keys keeps these tests pinned to the on-the-wire layout
-    shared with the C# SDK, rather than to whatever the helpers happen to return.
-    """
+    """The reserved pending sign-in keys currently stored in user state."""
     assert state.user is not None
     return {key for key in state.user if key.startswith("__oauth:pending:")}
 
