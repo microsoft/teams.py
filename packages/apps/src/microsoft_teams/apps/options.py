@@ -89,6 +89,7 @@ class AppOptions(TypedDict, total=False):
     # Infrastructure
     storage: Optional[Storage[str, Any]]
     plugins: Optional[List[PluginBase]]
+    """Deprecated. Prefer explicit middleware, application events, host lifecycle hooks, and route registration."""
     state: Optional[Union[bool, StateOptions]]
     """Per-turn state opt-in. Off by default (``None``/``False``).
 

@@ -1022,6 +1022,70 @@ class TestApp:
 class TestAppInitialize:
     """Test cases for App.initialize() method."""
 
+    def test_register_routes_is_synchronous_and_idempotent(self):
+        adapter = MagicMock()
+        app = App(
+            http_server_adapter=adapter,
+            dangerously_allow_unauthenticated_requests=True,
+        )
+
+        app.register_routes()
+        app.register_routes()
+
+        adapter.register_route.assert_called_once()
+        method, path, handler = adapter.register_route.call_args.args
+        assert method == "POST"
+        assert path == "/api/messages"
+        assert handler == app.server.handle_request
+        assert app.server.on_request is not None
+
+    @pytest.mark.asyncio
+    async def test_initialize_does_not_duplicate_pre_registered_routes(self):
+        adapter = MagicMock()
+        app = App(
+            http_server_adapter=adapter,
+            dangerously_allow_unauthenticated_requests=True,
+        )
+        app.register_routes()
+
+        await app.initialize()
+
+        adapter.register_route.assert_called_once()
+
+    def test_register_routes_does_not_initialize_plugins(self):
+        @Plugin(name="LegacyPlugin")
+        class LegacyPlugin(PluginBase):
+            def __init__(self):
+                self.initialized = False
+
+            async def on_init(self):
+                self.initialized = True
+
+        plugin = LegacyPlugin()
+        with pytest.warns(DeprecationWarning, match="plugin API is deprecated"):
+            app = App(
+                plugins=[plugin],
+                dangerously_allow_unauthenticated_requests=True,
+            )
+
+        app.register_routes()
+
+        assert not plugin.initialized
+
+    def test_plugins_option_emits_deprecation_warning(self):
+        @Plugin(name="LegacyPlugin")
+        class LegacyPlugin(PluginBase):
+            pass
+
+        plugin = LegacyPlugin()
+        with pytest.warns(DeprecationWarning, match="plugin API is deprecated"):
+            app = App(
+                plugins=[plugin],
+                dangerously_allow_unauthenticated_requests=True,
+            )
+
+        assert app.plugins == [plugin]
+
     @pytest.mark.asyncio
     async def test_initialize_enables_send(self):
         """After initialize(), app.send() should work without starting the server."""
