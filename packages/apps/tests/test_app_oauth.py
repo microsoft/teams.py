@@ -9,7 +9,7 @@ import time
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from typing import Any, Iterator
-from unittest.mock import AsyncMock, MagicMock, Mock
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import pytest
 from httpx import HTTPStatusError, Request, Response
@@ -977,9 +977,12 @@ class TestOauthHandlers:
         assert calls == ["global", "flow"]
 
     @pytest.mark.asyncio
-    async def test_flow_handler_error_propagates_stops_later_handlers_and_still_calls_next(
+    async def test_flow_handler_error_does_not_stop_later_handlers_and_still_calls_next(
         self, oauth_handlers, mock_context, token_exchange_activity, mock_token_response
     ):
+        # Per-flow handlers go through EventEmitter.emit_async, which isolates
+        # them: a raising handler is logged, later handlers still run, and the
+        # failure does not escape into the invoke response.
         flow = oauth_handlers.oauth_registry.add(OAuthFlow("test-connection"))
         calls = []
         oauth_handlers.event_emitter.emit_async.side_effect = lambda name, _: calls.append(f"global:{name}")
@@ -990,16 +993,15 @@ class TestOauthHandlers:
             raise RuntimeError("handler failed")
 
         @flow.on_signin
-        async def skipped(_):
-            calls.append("flow:skipped")
+        async def still_runs(_):
+            calls.append("flow:still_runs")
 
         mock_context.activity = token_exchange_activity
         mock_context.api.users.exchange_token.return_value = mock_token_response
 
-        with pytest.raises(RuntimeError, match="handler failed"):
-            await oauth_handlers.sign_in_token_exchange(mock_context)
+        assert await oauth_handlers.sign_in_token_exchange(mock_context) is None
 
-        assert calls == ["global:sign_in", "flow:failing"]
+        assert calls == ["global:sign_in", "flow:failing", "flow:still_runs"]
         mock_context.next.assert_awaited_once()
 
     @pytest.mark.asyncio
@@ -1293,10 +1295,65 @@ class TestOauthHandlers:
 
         assert calls == [
             "global:error:None",
-            "global:sign_in_failure:test-connection",
+            # Registered flows exist but nothing attributed the callback, so the
+            # failed connection is unknown rather than the default. Fan-out still
+            # reaches every flow, each with its own canonical name.
+            "global:sign_in_failure:None",
             "graph:Graph",
             "github:GitHub",
         ]
+
+    @pytest.mark.asyncio
+    async def test_legacy_mode_without_registered_flows_reports_default_connection(
+        self, oauth_handlers, mock_context, failure_activity
+    ):
+        # No flows registered, so the default connection is the only connection
+        # there is. Naming it is accurate here, unlike the registered case.
+        calls = []
+        oauth_handlers.event_emitter.emit_async.side_effect = lambda name, event: calls.append(
+            f"global:{name}:{getattr(event, 'connection_name', None)}"
+        )
+        mock_context.activity = failure_activity
+        mock_context.state = None
+
+        with patch("microsoft_teams.apps.app_oauth.record_oauth_operation") as record:
+            assert await oauth_handlers.sign_in_failure(mock_context) is None
+
+        assert calls == ["global:error:None", "global:sign_in_failure:test-connection"]
+        assert record.call_args[0][0] == "test-connection"
+
+    @pytest.mark.asyncio
+    async def test_unattributed_failure_telemetry_does_not_name_the_default_connection(
+        self, oauth_handlers, mock_context, failure_activity
+    ):
+        # The whole point of reporting None: a dashboard must not show
+        # "test-connection" failing when the failed connection is unknown.
+        oauth_handlers.oauth_registry.add(OAuthFlow("Graph"))
+        oauth_handlers.oauth_registry.add(OAuthFlow("GitHub"))
+        mock_context.activity = failure_activity
+        mock_context.state = None
+
+        with patch("microsoft_teams.apps.app_oauth.record_oauth_operation") as record:
+            assert await oauth_handlers.sign_in_failure(mock_context) is None
+
+        assert record.call_args[0][0] is None
+
+    @pytest.mark.asyncio
+    async def test_attributed_failure_telemetry_names_the_resolved_flow(
+        self, oauth_handlers, mock_context, failure_activity
+    ):
+        oauth_handlers.oauth_registry.add(OAuthFlow("test-connection"))
+        oauth_handlers.oauth_registry.add(OAuthFlow("GitHub"))
+        mock_context.activity = failure_activity
+        mock_context.state = create_pending_state(
+            ("test-connection", time.time() - 10, True),
+            ("GitHub", time.time(), True),
+        )
+
+        with patch("microsoft_teams.apps.app_oauth.record_oauth_operation") as record:
+            assert await oauth_handlers.sign_in_failure(mock_context) is None
+
+        assert record.call_args[0][0] == "GitHub"
 
     @pytest.mark.asyncio
     async def test_registered_default_flow_handles_connectionless_callbacks_without_state(

@@ -379,3 +379,33 @@ def _agent365_activity():
         },
     )
     return ActivityTypeAdapter.validate_python(core_activity.model_dump(by_alias=True, exclude_none=True))
+
+
+def test_oauth_operation_without_a_connection_omits_the_connection_attribute():
+    """An unattributed signin/failure must not be filed under a guessed connection.
+
+    Omitting the attribute keeps the operation countable while leaving the
+    connection genuinely absent, so no dashboard blames an uninvolved connection.
+    """
+    metric_reader = InMemoryMetricReader()
+    meter_provider = MeterProvider(metric_readers=[metric_reader])
+    meter = meter_provider.get_meter("Microsoft.Teams.Apps")
+
+    with patch("microsoft_teams.apps.diagnostics._helpers.get_meter", return_value=meter):
+        record_oauth_operation(None, "signin_failure", "notified", 1.5)
+
+    metrics = {}
+    metrics_data = metric_reader.get_metrics_data()
+    assert metrics_data is not None
+    for resource_metric in metrics_data.resource_metrics:
+        for scope_metric in resource_metric.scope_metrics:
+            for metric in scope_metric.metrics:
+                metrics[metric.name] = metric
+
+    point = metrics["microsoft.teams.oauth.operations"].data.data_points[0]
+    assert point.value == 1
+    assert point.attributes == {"oauth.operation": "signin_failure", "oauth.result": "notified"}
+    assert "oauth.connection" not in point.attributes
+
+    duration_point = metrics["microsoft.teams.oauth.operation.duration"].data.data_points[0]
+    assert "oauth.connection" not in duration_point.attributes

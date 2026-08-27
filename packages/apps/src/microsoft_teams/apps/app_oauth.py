@@ -186,6 +186,26 @@ class OauthHandlers:
         logs the failure details and emits an error event so developers are
         notified rather than having the failure silently swallowed.
 
+        **Connection attribution.** A ``signin/failure`` callback does not carry a
+        connection name, so the failed connection is recovered from the pending
+        sign-in recorded when the flow started — durable state when state is
+        enabled, otherwise a short-lived process-local cache. Three outcomes:
+
+            - No flows registered (legacy mode): the default connection is the only
+              connection there is, so it is reported as the failed one.
+            - A pending sign-in resolves: that flow is reported, and only its
+              failure handlers run.
+            - Flows are registered but nothing resolves — most commonly because the
+              callback reached a different process than the one that started the
+              sign-in, and state is not enabled to bridge them. The failed
+              connection is genuinely unknown, so the global
+              ``SignInFailureEvent.connection_name`` is ``None`` and telemetry omits
+              the connection attribute rather than blaming the default. As a
+              last resort **every** registered flow's failure handlers are notified,
+              each with its own connection name, so no listener silently misses a
+              failure that may have been theirs. Enable state to make attribution
+              reliable across processes.
+
         Known failure codes (sent by the Teams client):
             - ``installappfailed``: Failed to install the app in the user's personal
               scope (non-silent).
@@ -209,7 +229,17 @@ class OauthHandlers:
             ctx, sso_only=True
         )
         target_flow = pending_flows[0] if pending_flows else None
-        connection_name = target_flow.connection_name if target_flow is not None else self.default_connection_name
+        registered_flows = list(self.oauth_registry.values())
+        if target_flow is not None:
+            connection_name = target_flow.connection_name
+        elif registered_flows:
+            # Registered flows exist but nothing attributed this callback, so the
+            # failed connection is genuinely unknown. Naming the default here would
+            # blame a connection that may not have been involved at all.
+            connection_name = None
+        else:
+            # Legacy mode: the default connection is the only one there is.
+            connection_name = self.default_connection_name
         result = APP_OAUTH_RESULTS.notified
         started_at = perf_counter()
         try:
@@ -218,7 +248,8 @@ class OauthHandlers:
                 record_exception=False,
                 set_status_on_exception=False,
             ) as span:
-                span.set_attribute(APP_ATTRIBUTE_NAMES.oauth_connection, connection_name)
+                if connection_name is not None:
+                    span.set_attribute(APP_ATTRIBUTE_NAMES.oauth_connection, connection_name)
                 span.set_attribute(APP_ATTRIBUTE_NAMES.oauth_operation, APP_OAUTH_OPERATIONS.signin_failure)
                 failure = activity.value
                 if failure.code:
@@ -251,7 +282,7 @@ class OauthHandlers:
                 await self.event_emitter.emit_async("sign_in_failure", event)
                 span.set_attribute(APP_ATTRIBUTE_NAMES.oauth_callback_invoked, True)
                 span.set_attribute(APP_ATTRIBUTE_NAMES.oauth_result, result)
-                callback_flows = [target_flow] if target_flow is not None else list(self.oauth_registry.values())
+                callback_flows = [target_flow] if target_flow is not None else registered_flows
                 for flow in callback_flows:
                     flow_event = (
                         event

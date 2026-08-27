@@ -5,6 +5,7 @@ Licensed under the MIT License.
 
 # pyright: basic
 
+import asyncio
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -259,3 +260,134 @@ class TestConnectionNameNormalization:
         await flow.sign_in(ctx)
 
         assert ctx.sign_in.call_args[0][0].connection_name == "graph"
+
+
+class TestFlowHandlerDispatch:
+    """Per-flow handlers accept sync or async callables and are isolated from
+    each other, while still running strictly in registration order."""
+
+    @pytest.mark.asyncio
+    async def test_handlers_run_in_order_each_completing_before_the_next(self) -> None:
+        flow = OAuthFlow("graph")
+        calls: list[str] = []
+
+        @flow.on_signin
+        def first(_) -> None:
+            calls.append("first")
+
+        @flow.on_signin
+        async def second(_) -> None:
+            calls.append("second-start")
+            await asyncio.sleep(0.01)
+            calls.append("second-end")
+
+        @flow.on_signin
+        def third(_) -> None:
+            calls.append("third")
+
+        await flow._invoke_signin_handlers(MagicMock())
+
+        # "third" lands after "second-end", not between the two halves of the
+        # async handler: dispatch awaits each handler before starting the next.
+        assert calls == ["first", "second-start", "second-end", "third"]
+
+    @pytest.mark.asyncio
+    async def test_sync_handler_returning_an_awaitable_is_awaited(self) -> None:
+        flow = OAuthFlow("graph")
+        calls: list[str] = []
+
+        @flow.on_signin
+        def returns_awaitable(_):
+            async def finish() -> None:
+                calls.append("awaited")
+
+            calls.append("called")
+            return finish()
+
+        @flow.on_signin
+        def after(_) -> None:
+            calls.append("after")
+
+        await flow._invoke_signin_handlers(MagicMock())
+
+        assert calls == ["called", "awaited", "after"]
+
+    @pytest.mark.asyncio
+    async def test_raising_sync_handler_does_not_stop_later_handlers(self) -> None:
+        flow = OAuthFlow("graph")
+        calls: list[str] = []
+
+        @flow.on_signin
+        def boom(_) -> None:
+            calls.append("boom")
+            raise RuntimeError("sync handler failed")
+
+        @flow.on_signin
+        async def later(_) -> None:
+            calls.append("later")
+
+        assert await flow._invoke_signin_handlers(MagicMock()) is None
+        assert calls == ["boom", "later"]
+
+    @pytest.mark.asyncio
+    async def test_raising_async_handler_does_not_stop_later_handlers(self) -> None:
+        flow = OAuthFlow("graph")
+        calls: list[str] = []
+
+        @flow.on_signin
+        async def boom(_) -> None:
+            calls.append("boom")
+            raise RuntimeError("async handler failed")
+
+        @flow.on_signin
+        def later(_) -> None:
+            calls.append("later")
+
+        assert await flow._invoke_signin_handlers(MagicMock()) is None
+        assert calls == ["boom", "later"]
+
+    @pytest.mark.asyncio
+    async def test_failure_handlers_are_isolated_and_ordered_too(self) -> None:
+        flow = OAuthFlow("graph")
+        calls: list[str] = []
+
+        @flow.on_signin_failure
+        def boom(_) -> None:
+            calls.append("boom")
+            raise RuntimeError("failure handler failed")
+
+        @flow.on_signin_failure
+        async def later(_) -> None:
+            calls.append("later")
+
+        assert await flow._invoke_signin_failure_handlers(MagicMock()) is None
+        assert calls == ["boom", "later"]
+
+    @pytest.mark.asyncio
+    async def test_success_and_failure_handlers_do_not_cross_over(self) -> None:
+        flow = OAuthFlow("graph")
+        calls: list[str] = []
+
+        @flow.on_signin
+        async def on_success(_) -> None:
+            calls.append("success")
+
+        @flow.on_signin_failure
+        def on_failure(_) -> None:
+            calls.append("failure")
+
+        await flow._invoke_signin_handlers(MagicMock())
+        assert calls == ["success"]
+
+        await flow._invoke_signin_failure_handlers(MagicMock())
+        assert calls == ["success", "failure"]
+
+    def test_decorators_return_the_registered_function(self) -> None:
+        flow = OAuthFlow("graph")
+
+        async def success_handler(_) -> None: ...
+
+        def failure_handler(_) -> None: ...
+
+        assert flow.on_signin(success_handler) is success_handler
+        assert flow.on_signin_failure(failure_handler) is failure_handler
