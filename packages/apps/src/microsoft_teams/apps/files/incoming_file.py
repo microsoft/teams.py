@@ -58,7 +58,7 @@ class IncomingFile:
     """
     Browsable URL to the file in OneDrive/SharePoint, as sent on the attachment's `content_url`.
 
-    Not fetchable for bytes despite the name; those come from `download_url`.
+    Not fetchable for bytes despite the name; those come from `download()` or `stream()`.
     """
 
     raw: Any
