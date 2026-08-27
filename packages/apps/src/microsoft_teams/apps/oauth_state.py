@@ -9,6 +9,8 @@ from datetime import datetime, timezone
 from time import time
 from typing import Any, Dict, Iterator, List, Mapping, MutableMapping, Optional, Tuple
 
+from . import oauth_pending_local
+from .oauth_connection import connection_lookup_key
 from .state import TurnStateContainer
 
 logger = logging.getLogger(__name__)
@@ -43,8 +45,16 @@ def record_pending_oauth_sign_in(
     connection_name: str,
     *,
     sso_offered: bool,
+    conversation_id: Optional[str] = None,
+    user_id: Optional[str] = None,
 ) -> None:
     if state is None or state.user is None:
+        oauth_pending_local.record(
+            conversation_id or "",
+            user_id or "",
+            connection_name,
+            sso_offered=sso_offered,
+        )
         return
 
     # Reading prunes expired and malformed markers, so a long-lived user state
@@ -60,9 +70,16 @@ def record_pending_oauth_sign_in(
         state.user[_sso_key(connection_name)] = stamp
 
 
-def get_pending_oauth_sign_ins(state: Optional[TurnStateContainer]) -> List[PendingOAuthSignIn]:
+def get_pending_oauth_sign_ins(
+    state: Optional[TurnStateContainer],
+    conversation_id: Optional[str] = None,
+    user_id: Optional[str] = None,
+) -> List[PendingOAuthSignIn]:
     if state is None or state.user is None:
-        return []
+        return [
+            PendingOAuthSignIn(connection_name=name, created_at=created_at, sso_offered=sso_offered)
+            for name, created_at, sso_offered in oauth_pending_local.entries(conversation_id or "", user_id or "")
+        ]
 
     # Newest first, so callers can attribute a callback to the most recent attempt.
     # Connection name breaks ties to keep the order independent of storage order.
@@ -75,8 +92,11 @@ def get_pending_oauth_sign_ins(state: Optional[TurnStateContainer]) -> List[Pend
 def clear_pending_oauth_sign_in(
     state: Optional[TurnStateContainer],
     connection_name: Optional[str] = None,
+    conversation_id: Optional[str] = None,
+    user_id: Optional[str] = None,
 ) -> None:
     if state is None or state.user is None:
+        oauth_pending_local.clear(conversation_id or "", user_id or "", connection_name)
         return
     if connection_name is None:
         for key in [key for key in state.user if key.startswith(_PENDING_OAUTH_KEY_PREFIX)]:
@@ -89,6 +109,8 @@ def clear_pending_oauth_sign_in(
 def mark_pending_oauth_sso_consumed(
     state: Optional[TurnStateContainer],
     connection_name: str,
+    conversation_id: Optional[str] = None,
+    user_id: Optional[str] = None,
 ) -> None:
     """Retire a hint's silent-SSO marker while keeping it for callback routing.
 
@@ -100,19 +122,27 @@ def mark_pending_oauth_sso_consumed(
     hint expires on its original schedule.
     """
     if state is None or state.user is None:
+        oauth_pending_local.mark_sso_consumed(conversation_id or "", user_id or "", connection_name)
         return
 
-    target = connection_name.lower()
+    target = connection_lookup_key(connection_name)
     for key, name, is_sso_marker in _iter_markers(state.user):
-        if is_sso_marker and name.lower() == target:
+        if is_sso_marker and connection_lookup_key(name) == target:
             state.user.pop(key, None)
 
 
 def replace_pending_oauth_sign_ins(
     state: Optional[TurnStateContainer],
     pending: List[PendingOAuthSignIn],
+    conversation_id: Optional[str] = None,
+    user_id: Optional[str] = None,
 ) -> None:
     if state is None or state.user is None:
+        oauth_pending_local.replace(
+            conversation_id or "",
+            user_id or "",
+            [(hint.connection_name, hint.created_at, hint.sso_offered) for hint in pending],
+        )
         return
 
     clear_pending_oauth_sign_in(state)
@@ -124,11 +154,13 @@ def replace_pending_oauth_sign_ins(
 
 
 def _pending_key(connection_name: str) -> str:
-    return f"{_PENDING_OAUTH_KEY_PREFIX}{connection_name}"
+    # Trim at the storage boundary so a stray space cannot create a second,
+    # unreachable marker for a connection that already has one.
+    return f"{_PENDING_OAUTH_KEY_PREFIX}{connection_name.strip()}"
 
 
 def _sso_key(connection_name: str) -> str:
-    return f"{_PENDING_OAUTH_SSO_KEY_PREFIX}{connection_name}"
+    return f"{_PENDING_OAUTH_SSO_KEY_PREFIX}{connection_name.strip()}"
 
 
 def _iter_markers(user: Mapping[str, Any]) -> Iterator[Tuple[str, str, bool]]:
@@ -220,9 +252,9 @@ def _remove_connection(state: TurnStateContainer, connection_name: str) -> None:
     if user is None:
         return
 
-    target = connection_name.lower()
+    target = connection_lookup_key(connection_name)
     for key, name, _ in list(_iter_markers(user)):
-        if name.lower() == target:
+        if connection_lookup_key(name) == target:
             user.pop(key, None)
 
 

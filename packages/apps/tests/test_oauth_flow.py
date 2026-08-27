@@ -186,3 +186,76 @@ class TestAppOAuthFlowIntegration:
     def test_get_missing_flow_on_empty_registry_lists_none(self, app: App) -> None:
         with pytest.raises(ValueError, match="<none>"):
             app.get_oauth_flow("missing")
+
+
+class TestConnectionNameNormalization:
+    """Connection names are trimmed, non-blank, and matched case-insensitively."""
+
+    @pytest.mark.parametrize("name", ["  graph", "graph  ", "\tgraph\n", " graph "])
+    def test_surrounding_whitespace_is_trimmed(self, name: str) -> None:
+        """A stray space in config must not create a second, unreachable flow."""
+        assert OAuthFlow(name).connection_name == "graph"
+
+    def test_inner_whitespace_is_preserved(self) -> None:
+        """Only the edges are noise; the name itself is the service's business."""
+        assert OAuthFlow(" my graph ").connection_name == "my graph"
+
+    @pytest.mark.parametrize("name", ["", " ", "\t", "\n", "   \t  "])
+    def test_blank_names_are_rejected(self, name: str) -> None:
+        """A blank name addresses nothing, so it fails at registration."""
+        with pytest.raises(ValueError, match="connection name"):
+            OAuthFlow(name)
+
+    def test_original_casing_is_preserved(self) -> None:
+        """Events and the Token Service see the name the developer wrote."""
+        assert OAuthFlow("GraphMail").connection_name == "GraphMail"
+
+    @pytest.mark.parametrize("lookup", ["graph", "GRAPH", "Graph", "  graph  "])
+    def test_lookup_is_case_and_whitespace_insensitive(self, lookup: str) -> None:
+        registry = OAuthFlowRegistry()
+        flow = registry.add(OAuthFlow("Graph"))
+
+        assert registry.get(lookup) is flow
+        assert lookup in registry
+
+    @pytest.mark.parametrize("duplicate", ["graph", "GRAPH", " Graph "])
+    def test_duplicates_are_detected_across_casing_and_whitespace(self, duplicate: str) -> None:
+        """Red-green: without trimming, ' Graph ' registers a silent second flow."""
+        registry = OAuthFlowRegistry()
+        registry.add(OAuthFlow("Graph"))
+
+        with pytest.raises(ValueError, match="already"):
+            registry.add(OAuthFlow(duplicate))
+
+    def test_blank_lookup_returns_none_rather_than_raising(self) -> None:
+        """``.get()`` and ``in`` are Mapping operations and must stay total.
+
+        The registry subclasses Mapping, so ``.get()`` only absorbs KeyError. A
+        blank name raising ValueError here would escape through ``.get('')``.
+        """
+        registry = OAuthFlowRegistry()
+        registry.add(OAuthFlow("graph"))
+
+        assert registry.get("") is None
+        assert registry.get("   ") is None
+        assert "" not in registry
+        with pytest.raises(KeyError):
+            registry[""]
+
+    def test_iteration_yields_original_casing(self) -> None:
+        registry = OAuthFlowRegistry()
+        registry.add(OAuthFlow("GraphMail"))
+        registry.add(OAuthFlow(" GraphUser "))
+
+        assert list(registry) == ["GraphMail", "GraphUser"]
+
+    @pytest.mark.asyncio
+    async def test_flow_defaults_carry_the_normalized_name(self) -> None:
+        """The trimmed name is what reaches ctx.sign_in, not the raw one."""
+        flow = OAuthFlow("  graph  ")
+        ctx = MagicMock()
+        ctx.sign_in = AsyncMock(return_value=None)
+
+        await flow.sign_in(ctx)
+
+        assert ctx.sign_in.call_args[0][0].connection_name == "graph"

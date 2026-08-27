@@ -411,22 +411,24 @@ class TestOauthHandlers:
     async def test_sign_in_token_exchange_generic_exception(
         self, oauth_handlers, mock_context, token_exchange_activity
     ):
-        """Test token exchange with generic exception."""
+        """A non-HTTP crash propagates instead of being reported as a 412 miss.
+
+        412 tells Teams the exchange merely missed and to offer the sign-in
+        button. A transport fault or a bug is not a miss, so it travels up to the
+        app's error handling, which emits the ErrorEvent once and re-raises.
+        """
         mock_context.activity = token_exchange_activity
         generic_error = ValueError("Generic error")
         mock_context.api.users.exchange_token.side_effect = generic_error
 
-        result = await oauth_handlers.sign_in_token_exchange(mock_context)
+        with pytest.raises(ValueError, match="Generic error"):
+            await oauth_handlers.sign_in_token_exchange(mock_context)
 
-        # Verify error event emitted for non-HTTP exceptions
-        oauth_handlers.event_emitter.emit_async.assert_awaited_once_with(
-            "error", ErrorEvent(error=generic_error, context={"activity": token_exchange_activity})
-        )
-
-        # Verify failure response
-        assert isinstance(result, InvokeResponse) and isinstance(result.body, TokenExchangeInvokeResponse)
-        assert result.status == 412
-        assert result.body.failure_detail == "Generic error"
+        # The app processor owns the ErrorEvent for propagated errors; emitting
+        # here too would report the same failure twice.
+        oauth_handlers.event_emitter.emit_async.assert_not_awaited()
+        # next() still runs, so the middleware chain is not left dangling.
+        mock_context.next.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_sign_in_token_exchange_unexpected_exception_records_failure_oauth_error(
@@ -455,13 +457,14 @@ class TestOauthHandlers:
                 lambda *args: record_exception_calls.append(args),
             )
 
-            await oauth_handlers.sign_in_token_exchange(mock_context)
+            with pytest.raises(ValueError, match="Generic error"):
+                await oauth_handlers.sign_in_token_exchange(mock_context)
 
+        # No invoke.response.status: the handler never produced a response.
         assert tracer.spans[0].attributes == {
             "oauth.connection": "test-connection",
             "oauth.operation": "token_exchange",
             "oauth.error.type": "exception",
-            "invoke.response.status": 412,
             "oauth.result": "failure",
         }
         assert operation_calls[0][:3] == ("test-connection", "token_exchange", "failure")
@@ -609,13 +612,14 @@ class TestOauthHandlers:
                 lambda *args: record_exception_calls.append(args),
             )
 
-            await oauth_handlers.sign_in_verify_state(mock_context)
+            with pytest.raises(ValueError, match="Generic error"):
+                await oauth_handlers.sign_in_verify_state(mock_context)
 
+        # No invoke.response.status: the handler never produced a response.
         assert tracer.spans[0].attributes == {
             "oauth.connection": "test-connection",
             "oauth.operation": "verify_state",
             "oauth.error.type": "exception",
-            "invoke.response.status": 412,
             "oauth.result": "failure",
         }
         assert operation_calls[0][:3] == ("test-connection", "verify_state", "failure")
@@ -626,6 +630,7 @@ class TestOauthHandlers:
     async def test_sign_in_verify_state_expected_http_error_records_failure_without_oauth_error(
         self, oauth_handlers, mock_context, verify_state_activity
     ):
+        """An expected miss is not an OAuth error and ends as 404, not 412."""
         mock_context.activity = verify_state_activity
         mock_request = Mock(spec=Request)
         mock_response = Mock(spec=Response)
@@ -652,15 +657,85 @@ class TestOauthHandlers:
         assert tracer.spans[0].attributes == {
             "oauth.connection": "test-connection",
             "oauth.operation": "verify_state",
-            "invoke.response.status": 412,
-            "oauth.result": "failure",
+            "invoke.response.status": 404,
+            "oauth.result": "no_token",
         }
-        assert operation_calls[0][:3] == ("test-connection", "verify_state", "failure")
+        assert operation_calls[0][:3] == ("test-connection", "verify_state", "no_token")
         assert error_calls == []
 
     @pytest.mark.asyncio
+    @pytest.mark.parametrize("status_code", [400, 404, 412])
+    async def test_sign_in_verify_state_expected_miss_statuses_end_as_404(
+        self, oauth_handlers, mock_context, verify_state_activity, status_code
+    ):
+        """400, 404 and 412 are all candidate misses, not terminal failures.
+
+        ``signin/verifyState`` carries no connection name, so the Token Service
+        rejecting a code only rules out the connection that was probed. Treating
+        400 or 412 as terminal would abandon the remaining candidates.
+        """
+        mock_context.activity = verify_state_activity
+        mock_response = Mock(spec=Response)
+        mock_response.status_code = status_code
+        mock_context.api.users.get_token.side_effect = HTTPStatusError(
+            f"HTTP {status_code}", request=Mock(spec=Request), response=mock_response
+        )
+
+        result = await oauth_handlers.sign_in_verify_state(mock_context)
+
+        assert isinstance(result, InvokeResponse) and result.body is None
+        assert result.status == 404
+
+    @pytest.mark.asyncio
+    async def test_sign_in_verify_state_probes_every_candidate_before_giving_up(
+        self, oauth_handlers, mock_context, verify_state_activity, mock_token_response
+    ):
+        """A miss on one candidate must not stop the probe.
+
+        Red-green: with 400 treated as terminal, the second connection is never
+        probed and this returns 404 instead of signing the user in.
+        """
+        mock_context.activity = verify_state_activity
+        flow = oauth_handlers.oauth_registry.add(OAuthFlow("graph"))
+
+        def responses(params):
+            if params.connection_name == "graph":
+                return mock_token_response
+            mock_response = Mock(spec=Response)
+            mock_response.status_code = 400
+            raise HTTPStatusError("Bad request", request=Mock(spec=Request), response=mock_response)
+
+        mock_context.api.users.get_token.side_effect = responses
+
+        result = await oauth_handlers.sign_in_verify_state(mock_context)
+
+        assert result is None
+        probed = [call.args[0].connection_name for call in mock_context.api.users.get_token.await_args_list]
+        assert "graph" in probed
+        assert flow.connection_name == "graph"
+
+    @pytest.mark.asyncio
+    async def test_sign_in_verify_state_unexpected_http_status_stops_immediately(
+        self, oauth_handlers, mock_context, verify_state_activity
+    ):
+        """A 500 is not a miss, so probing stops and the status is preserved."""
+        mock_context.activity = verify_state_activity
+        oauth_handlers.oauth_registry.add(OAuthFlow("graph"))
+        mock_response = Mock(spec=Response)
+        mock_response.status_code = 500
+        mock_context.api.users.get_token.side_effect = HTTPStatusError(
+            "Server error", request=Mock(spec=Request), response=mock_response
+        )
+
+        result = await oauth_handlers.sign_in_verify_state(mock_context)
+
+        assert isinstance(result, InvokeResponse)
+        assert result.status == 500
+        assert mock_context.api.users.get_token.await_count == 1
+
+    @pytest.mark.asyncio
     async def test_sign_in_verify_state_http_error_404(self, oauth_handlers, mock_context, verify_state_activity):
-        """Test state verification with HTTP 404 error."""
+        """A 404 from the only candidate exhausts the probe and returns 404."""
         mock_context.activity = verify_state_activity
 
         # Create mock HTTP error
@@ -673,39 +748,37 @@ class TestOauthHandlers:
 
         result = await oauth_handlers.sign_in_verify_state(mock_context)
 
-        # Verify 412 response
         assert isinstance(result, InvokeResponse) and result.body is None
-        assert result.status == 412
+        assert result.status == 404
 
     @pytest.mark.asyncio
     async def test_sign_in_verify_state_generic_exception(self, oauth_handlers, mock_context, verify_state_activity):
-        """Test state verification with generic exception."""
+        """A non-HTTP crash propagates rather than being flattened into a 412."""
         mock_context.activity = verify_state_activity
         generic_error = ValueError("Generic error")
         mock_context.api.users.get_token.side_effect = generic_error
 
-        result = await oauth_handlers.sign_in_verify_state(mock_context)
-
-        # Verify 412 response
-        assert isinstance(result, InvokeResponse) and result.body is None
-        assert result.status == 412
+        with pytest.raises(ValueError, match="Generic error"):
+            await oauth_handlers.sign_in_verify_state(mock_context)
 
     @pytest.mark.asyncio
-    async def test_sign_in_verify_state_generic_exception_emits_error_event(
+    async def test_sign_in_verify_state_generic_exception_does_not_double_report(
         self, oauth_handlers, mock_context, verify_state_activity
     ):
-        """A non-HTTP crash still reaches the app's global error handler."""
+        """The propagated crash is reported once, by the app processor.
+
+        ``ActivityProcessor`` already emits an ErrorEvent and re-raises for any
+        exception out of a handler, so emitting here as well would surface the
+        same failure twice. ``next()`` still runs from the finally block.
+        """
         mock_context.activity = verify_state_activity
-        generic_error = ValueError("Generic error")
-        mock_context.api.users.get_token.side_effect = generic_error
+        mock_context.api.users.get_token.side_effect = ValueError("Generic error")
 
-        result = await oauth_handlers.sign_in_verify_state(mock_context)
+        with pytest.raises(ValueError, match="Generic error"):
+            await oauth_handlers.sign_in_verify_state(mock_context)
 
-        oauth_handlers.event_emitter.emit_async.assert_awaited_once_with(
-            "error", ErrorEvent(error=generic_error, context={"activity": verify_state_activity})
-        )
-        assert isinstance(result, InvokeResponse) and result.body is None
-        assert result.status == 412
+        oauth_handlers.event_emitter.emit_async.assert_not_awaited()
+        mock_context.next.assert_awaited_once()
 
     @pytest.fixture
     def failure_activity(self):

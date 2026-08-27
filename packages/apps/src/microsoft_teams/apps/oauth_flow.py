@@ -6,9 +6,10 @@ Licensed under the MIT License.
 import logging
 from collections import OrderedDict
 from dataclasses import replace
-from typing import Any, Awaitable, Callable, Iterator, List, Mapping, Optional
+from typing import Any, Awaitable, Callable, Iterator, List, Mapping, Optional, Tuple
 
 from .events import SignInEvent, SignInFailureEvent
+from .oauth_connection import connection_lookup_key, normalize_connection_name
 from .oauth_state import (
     clear_pending_oauth_sign_in,
     get_pending_oauth_sign_ins,
@@ -38,11 +39,11 @@ class OAuthFlow:
         oauth_card_text: str = DEFAULT_OAUTH_CARD_TEXT,
         sign_in_button_text: str = DEFAULT_SIGN_IN_BUTTON_TEXT,
     ) -> None:
-        self.connection_name = connection_name
+        self.connection_name = normalize_connection_name(connection_name)
         self._defaults = SignInOptions(
             oauth_card_text=oauth_card_text,
             sign_in_button_text=sign_in_button_text,
-            connection_name=connection_name,
+            connection_name=self.connection_name,
         )
         self._on_signin: List[SignInHandler] = []
         self._on_signin_failure: List[SignInFailureHandler] = []
@@ -113,7 +114,12 @@ class OAuthFlowRegistry(Mapping[str, OAuthFlow]):
         self._flows: "OrderedDict[str, OAuthFlow]" = OrderedDict()
 
     def __getitem__(self, connection_name: str) -> OAuthFlow:
-        return self._flows[connection_name.lower()]
+        key = connection_lookup_key(connection_name)
+        if key is None:
+            # Blank or non-string names address nothing. Raising ``KeyError``
+            # rather than ``ValueError`` keeps ``.get()`` and ``in`` working.
+            raise KeyError(connection_name)
+        return self._flows[key]
 
     def __iter__(self) -> Iterator[str]:
         return (flow.connection_name for flow in self._flows.values())
@@ -123,7 +129,7 @@ class OAuthFlowRegistry(Mapping[str, OAuthFlow]):
 
     def add(self, flow: OAuthFlow) -> OAuthFlow:
         """Register a flow. Raises ``ValueError`` if the connection already exists."""
-        key = flow.connection_name.lower()
+        key = normalize_connection_name(flow.connection_name).lower()
         if key in self._flows:
             raise ValueError(
                 f"An OAuth flow for connection '{flow.connection_name}' is already "
@@ -133,8 +139,9 @@ class OAuthFlowRegistry(Mapping[str, OAuthFlow]):
         return flow
 
     def _pending_flows(self, ctx: ActivityContext[Any], *, sso_only: bool = False) -> List[OAuthFlow]:
+        conversation_id, user_id = _pending_scope(ctx)
         flows: List[OAuthFlow] = []
-        for pending in get_pending_oauth_sign_ins(ctx.state):
+        for pending in get_pending_oauth_sign_ins(ctx.state, conversation_id, user_id):
             if sso_only and not pending.sso_offered:
                 continue
             flow = self.get(pending.connection_name)
@@ -145,13 +152,22 @@ class OAuthFlowRegistry(Mapping[str, OAuthFlow]):
                     "Discarding pending OAuth sign-in state for connection '%s': no registered OAuth flow.",
                     pending.connection_name,
                 )
-                clear_pending_oauth_sign_in(ctx.state, pending.connection_name)
+                clear_pending_oauth_sign_in(ctx.state, pending.connection_name, conversation_id, user_id)
                 continue
             flows.append(flow)
         return flows
 
     def _clear_pending(self, ctx: ActivityContext[Any], connection_name: Optional[str] = None) -> None:
-        clear_pending_oauth_sign_in(ctx.state, connection_name)
+        conversation_id, user_id = _pending_scope(ctx)
+        clear_pending_oauth_sign_in(ctx.state, connection_name, conversation_id, user_id)
 
     def _mark_sso_consumed(self, ctx: ActivityContext[Any], connection_name: str) -> None:
-        mark_pending_oauth_sso_consumed(ctx.state, connection_name)
+        conversation_id, user_id = _pending_scope(ctx)
+        mark_pending_oauth_sso_consumed(ctx.state, connection_name, conversation_id, user_id)
+
+
+def _pending_scope(ctx: ActivityContext[Any]) -> Tuple[Optional[str], Optional[str]]:
+    """Conversation and user identifiers used to scope process-local pending hints."""
+    conversation = getattr(ctx.activity, "conversation", None)
+    sender = getattr(ctx.activity, "from_", None)
+    return getattr(conversation, "id", None), getattr(sender, "id", None)

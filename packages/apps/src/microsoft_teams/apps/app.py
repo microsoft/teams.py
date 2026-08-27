@@ -149,6 +149,7 @@ class App(ActivityHandlerMixin):
             fetch_user_token=self.options.fetch_user_token,
             agent365_baggage_options=self.options.telemetry.get("agent365") if self.options.telemetry else None,
             state_loader=self._state_loader,
+            oauth_registry=self._oauth_registry,
         )
         self.event_manager = EventManager(self._events)
         self.activity_processor.event_manager = self.event_manager
