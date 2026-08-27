@@ -11,6 +11,8 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from microsoft_teams.apps import App, OAuthFlow, OAuthFlowRegistry
 from microsoft_teams.apps.routing import SignInOptions
+from microsoft_teams.apps.state import StateOptions, TurnStateLoader
+from microsoft_teams.common.storage import LocalStorage
 
 
 class TestOAuthFlowOperations:
@@ -391,3 +393,104 @@ class TestFlowHandlerDispatch:
 
         assert flow.on_signin(success_handler) is success_handler
         assert flow.on_signin_failure(failure_handler) is failure_handler
+
+
+class TestOAuthAutoEnablesState:
+    """Registering a flow turns state on when the app never said either way.
+
+    Connection-less ``signin/verifyState`` and ``signin/failure`` callbacks can
+    only be attributed from a durable pending record, so state defaults on once
+    a flow exists — matching the C# and TypeScript SDKs. An explicit ``state``
+    value, including ``False``, is always left alone.
+    """
+
+    @staticmethod
+    def _app(**options) -> App:
+        return App(client_id="test-client-id", client_secret="test-secret", **options)
+
+    def test_omitted_state_stays_off_without_a_flow(self) -> None:
+        app = self._app()
+
+        assert app.options.state is None
+        assert app._state_loader is None
+        assert app.activity_processor.state_loader is None
+
+    def test_omitted_state_is_enabled_by_registering_a_flow(self) -> None:
+        app = self._app()
+
+        app.add_oauth_flow("graph")
+
+        assert isinstance(app._state_loader, TurnStateLoader)
+        # The processor reads its own reference at dispatch time, so updating
+        # the app alone would leave turns without state.
+        assert app.activity_processor.state_loader is app._state_loader
+
+    def test_auto_enabled_state_uses_the_apps_shared_storage(self) -> None:
+        storage = LocalStorage()
+        app = self._app(storage=storage)
+
+        app.add_oauth_flow("graph")
+
+        assert app._state_loader is not None
+        assert app._state_loader._storage is storage
+
+    def test_explicit_false_is_not_overridden_by_registering_a_flow(self) -> None:
+        app = self._app(state=False)
+
+        app.add_oauth_flow("graph")
+
+        assert app.options.state is False
+        assert app._state_loader is None
+        assert app.activity_processor.state_loader is None
+
+    def test_explicit_true_keeps_its_existing_loader(self) -> None:
+        app = self._app(state=True)
+        loader = app._state_loader
+
+        app.add_oauth_flow("graph")
+
+        assert isinstance(loader, TurnStateLoader)
+        assert app._state_loader is loader
+
+    def test_custom_state_options_are_preserved_exactly(self) -> None:
+        storage = LocalStorage()
+        app = self._app(state=StateOptions(storage=storage, key_prefix="custom"))
+        loader = app._state_loader
+
+        app.add_oauth_flow("graph")
+
+        assert app._state_loader is loader
+        assert app._state_loader is not None
+        assert app._state_loader._storage is storage
+        assert app._state_loader._options.key_prefix == "custom"
+
+    def test_registering_a_second_flow_does_not_rebuild_the_loader(self) -> None:
+        app = self._app()
+        app.add_oauth_flow("graph")
+        loader = app._state_loader
+
+        app.add_oauth_flow("github")
+
+        assert app._state_loader is loader
+        assert app.activity_processor.state_loader is loader
+
+    def test_a_rejected_registration_does_not_enable_state(self) -> None:
+        # State is a side effect of a flow existing. A blank name never becomes
+        # a flow, so it must not switch state on either.
+        app = self._app()
+
+        with pytest.raises(ValueError):
+            app.add_oauth_flow("   ")
+
+        assert app._state_loader is None
+        assert app.activity_processor.state_loader is None
+
+    def test_a_rejected_duplicate_keeps_the_existing_loader(self) -> None:
+        app = self._app()
+        app.add_oauth_flow("graph")
+        loader = app._state_loader
+
+        with pytest.raises(ValueError):
+            app.add_oauth_flow("GRAPH")
+
+        assert app._state_loader is loader
