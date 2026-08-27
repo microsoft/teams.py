@@ -5,7 +5,7 @@ Licensed under the MIT License.
 
 from typing import Literal, Optional, Self
 
-from ..models import ActivityBase, ActivityInputBase, ChannelData, CustomBaseModel, StreamInfoEntity
+from ..models import ActivityBase, ActivityInputBase, ChannelData, CustomBaseModel, StreamInfoEntity, TextFormat
 
 
 class _TypingBase(CustomBaseModel):
@@ -16,6 +16,11 @@ class _TypingBase(CustomBaseModel):
     text: Optional[str] = None
     """
     The text content of the message.
+    """
+
+    text_format: Optional[TextFormat] = None
+    """
+    Format of the `text` field (ex. `'extendedmarkdown'`). Default: `'markdown'`.
     """
 
 
@@ -29,6 +34,11 @@ class TypingActivityInput(_TypingBase, ActivityInputBase):
     def with_text(self, value: str) -> Self:
         """Set the text content of the message."""
         self.text = value
+        return self
+
+    def with_text_format(self, value: TextFormat) -> Self:
+        """Set the format of the `text` field."""
+        self.text_format = value
         return self
 
     def add_text(self, text: str) -> Self:

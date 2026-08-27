@@ -44,10 +44,24 @@ SECOND_STREAM_MESSAGES = [
     "[stream 2] The app processor will close this stream when the handler returns.",
 ]
 
+EXTENDED_MARKDOWN_DELTAS = [
+    "**On it — here's where your `v2.3.0` release stands:**\n\n",
+    "- [x] Run unit + integration tests\n",
+    "- [x] Build and publish packages\n",
+    "- [ ] ~~Manual smoke test~~ (skipped — covered by the integration suite)\n",
+    "- [x] Tag the release and push\n",
+    "- [ ] Publish release notes\n",
+]
+
 
 def should_run_multi_stream(text: str | None) -> bool:
     normalized = (text or "").lower().replace("-", " ")
     return "multi stream" in normalized
+
+
+def should_run_extended_markdown(text: str | None) -> bool:
+    normalized = (text or "").lower().replace("-", " ")
+    return "extended markdown" in normalized or "extendedmarkdown" in normalized
 
 
 def should_send_simple_card(text: str | None) -> bool:
@@ -99,6 +113,15 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
         for message in SECOND_STREAM_MESSAGES:
             await asyncio.sleep(0.5)
             ctx.stream.emit(message)
+        return
+
+    if should_run_extended_markdown(ctx.activity.text):
+        ctx.stream.update("Checking the release status...")
+        await asyncio.sleep(1)
+
+        for delta in EXTENDED_MARKDOWN_DELTAS:
+            await asyncio.sleep(0.5)
+            ctx.stream.emit(MessageActivityInput(text=delta).with_text_format("extendedmarkdown"))
         return
 
     ctx.stream.update("Stream starting...")

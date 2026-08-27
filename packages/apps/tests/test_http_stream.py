@@ -601,6 +601,90 @@ class TestHttpStream:
             assert result.activity_params.suggested_actions.actions[0].title == "Option A"
 
     @pytest.mark.asyncio
+    async def test_text_format_retained_on_intermediate_chunks_and_final_message(
+        self, mock_api_client, conversation_reference, patch_loop_call_later
+    ):
+        """Last emitted message's text_format applies to intermediate typing chunks and the
+        final message (matches the attachments/entities/suggested_actions last-wins behavior)."""
+        loop = asyncio.get_running_loop()
+        patcher, scheduled = patch_loop_call_later(loop)
+        with patcher:
+            stream = HttpStream(mock_api_client, conversation_reference)
+
+            # First message carries no text_format.
+            stream.emit(MessageActivityInput(text="hello "))
+            await asyncio.sleep(0)
+            await self._run_scheduled_flushes(scheduled)
+
+            # A later message sets text_format; last-message-wins semantics apply.
+            stream.emit(MessageActivityInput(text="world").with_text_format("extendedmarkdown"))
+            await asyncio.sleep(0)
+            await self._run_scheduled_flushes(scheduled)
+
+            result = await stream.close()
+
+            sent = mock_api_client.sent_activities
+            # First intermediate chunk (sent before text_format was ever emitted) has none.
+            assert sent[0].type == "typing"
+            assert sent[0].text_format is None
+
+            # Second intermediate chunk, sent after the text_format-carrying message, retains it.
+            assert sent[1].type == "typing"
+            assert sent[1].text_format == "extendedmarkdown"
+
+            # Final message also carries the last emitted text_format.
+            assert result is not None
+            assert result.activity_params.type == "message"
+            assert result.activity_params.text_format == "extendedmarkdown"
+            assert result.activity_params.text == "hello world"
+
+    @pytest.mark.asyncio
+    async def test_final_send_timeout_retains_text_format(
+        self, mock_api_client, conversation_reference, patch_loop_call_later
+    ):
+        """The timeout fallback (sendFinal-equivalent) still carries the last emitted text_format
+        since it reuses the same buffered final activity."""
+        create_calls = 0
+        updates: list[dict] = []
+        loop = asyncio.get_running_loop()
+        patcher, scheduled = patch_loop_call_later(loop)
+        with patcher:
+
+            async def mock_create(conversation_id, activity):
+                nonlocal create_calls
+                create_calls += 1
+                if create_calls == 2:
+                    raise HTTPStatusError(
+                        "Forbidden",
+                        request=Request("POST", "https://example.com"),
+                        response=Response(
+                            403,
+                            json={"error": {"message": "Content stream finished due to exceeded streaming time."}},
+                        ),
+                    )
+                return SentActivity(id="stream-1", activity_params=activity)
+
+            async def mock_update(conversation_id, activity_id, activity):
+                updates.append({"id": activity_id, "text": activity.text, "text_format": activity.text_format})
+                return SentActivity(id=activity_id, activity_params=activity)
+
+            mock_api_client.conversations.create_activity = mock_create
+            mock_api_client.conversations.update_activity = mock_update
+            stream = HttpStream(mock_api_client, conversation_reference)
+
+            stream.emit(MessageActivityInput(text="Final answer").with_text_format("extendedmarkdown"))
+            await asyncio.sleep(0)
+            await self._run_scheduled_flushes(scheduled)
+
+            result = await stream.close()
+
+            assert stream._timed_out is True
+            assert len(updates) == 1
+            assert updates[0]["text"] == "Final answer"
+            assert updates[0]["text_format"] == "extendedmarkdown"
+            assert result is not None
+
+    @pytest.mark.asyncio
     async def test_close_waits_for_flush_to_complete(self, mock_api_client, conversation_reference):
         """close() must not send the final message while a flush is still mid-await."""
         stream = HttpStream(mock_api_client, conversation_reference)
