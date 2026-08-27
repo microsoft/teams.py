@@ -792,3 +792,170 @@ class TestOtherSignInCallbacksAreNotDeduplicated:
         assert failures == ["invokeerror", "invokeerror"]
         assert first.next.await_count == 1
         assert second.next.await_count == 1
+
+
+class TestDedupFailureIsolation:
+    """Dedup must not turn a state hiccup, a cancellation, or a post-redemption
+    failure into a stalled turn or a lost completion marker."""
+
+    @pytest.mark.asyncio
+    async def test_unreadable_marker_state_still_completes_the_turn(self, monkeypatch):
+        """An unreadable store degrades to in-memory dedup instead of stalling.
+
+        The persisted read happens before ``_run_token_exchange`` opens its
+        ``try``/``finally``, so an escaping error would skip ``ctx.next()`` and leave
+        the middleware chain hanging.
+        """
+        handlers, emitter, _flow = make_handlers()
+        monkeypatch.setattr(
+            "microsoft_teams.apps.app_oauth.has_completed_token_exchange",
+            MagicMock(side_effect=RuntimeError("state store unavailable")),
+        )
+
+        api = make_api()
+        ctx = make_context(exchange_activity(), api, make_state())
+
+        assert await handlers.sign_in_token_exchange(ctx) is None
+        assert api.users.exchange_token.await_count == 1
+        assert len(emitted(emitter, "sign_in")) == 1
+        assert ctx.next.await_count == 1
+
+    @pytest.mark.asyncio
+    async def test_completed_marker_is_flushed_before_sign_in_callbacks_run(self):
+        """The marker reaches storage mid-turn, not at end of turn.
+
+        The owner still has callbacks to run after redeeming the token. A duplicate
+        racing on another process instance loads its own snapshot, so the marker has
+        to be durable before those callbacks start or the duplicate exchanges again.
+        """
+        handlers, _emitter, flow = make_handlers()
+        state = make_state()
+        marker_key = f"{EXCHANGE_STATE_KEY_PREFIX}exchange-1"
+        order: List[str] = []
+
+        async def capture_save() -> None:
+            order.append("save" if marker_key in state.conversation else "save-without-marker")
+
+        state._save = capture_save
+
+        @flow.on_signin
+        async def on_signin(_event):
+            order.append("signin")
+
+        ctx = make_context(exchange_activity(), make_api(), state)
+        await handlers.sign_in_token_exchange(ctx)
+
+        assert order == ["save", "signin"]
+
+    @pytest.mark.asyncio
+    async def test_failure_after_redemption_still_lets_duplicates_stamp_the_marker(self):
+        """A failure *after* the token is spent must not cost the completion marker.
+
+        ``_clear_pending`` runs once the marker is already recorded, which is the
+        window this covers. A raising sign-in handler cannot reach it -- the flow
+        isolates listener failures -- so a state operation is the honest trigger.
+
+        Both halves of the bug are load-bearing here: if the owner reports
+        ``token_redeemed=False``, or if the waiter checks ``outcome.error`` before
+        stamping, the waiter's last-write-wins save erases the owner's completion and
+        a later duplicate redeems the spent exchange again.
+        """
+        handlers, _emitter, _flow = make_handlers()
+        handlers.oauth_registry._clear_pending = MagicMock(side_effect=RuntimeError("state store unavailable"))
+
+        api = make_api(exchange=slow_exchange())
+        owner_state, waiter_state = make_state(), make_state()
+        owner = make_context(exchange_activity(), api, owner_state)
+        waiter = make_context(exchange_activity(), api, waiter_state)
+
+        owner_result, waiter_result = await asyncio.gather(
+            handlers.sign_in_token_exchange(owner),
+            handlers.sign_in_token_exchange(waiter),
+            return_exceptions=True,
+        )
+
+        marker_key = f"{EXCHANGE_STATE_KEY_PREFIX}exchange-1"
+        assert api.users.exchange_token.await_count == 1
+        assert isinstance(owner_result, RuntimeError)
+        assert marker_key in owner_state.conversation
+        assert isinstance(waiter_result, InvokeResponse)
+        assert waiter_result.status == 412
+        assert marker_key in waiter_state.conversation
+
+    @pytest.mark.asyncio
+    async def test_cancelling_the_owner_does_not_cancel_its_duplicate(self):
+        """A duplicate never incurred the owner's cancellation, so it must not report one.
+
+        Re-raising the owner's ``CancelledError`` would make an uncancelled task claim
+        it was cancelled and trip any ``except CancelledError`` cleanup above it.
+        """
+        handlers, _emitter, _flow = make_handlers()
+        api = make_api(exchange=slow_exchange(delay=0.05))
+        owner = make_context(exchange_activity(), api)
+        waiter = make_context(exchange_activity(), api)
+
+        owner_task = asyncio.create_task(handlers.sign_in_token_exchange(owner))
+        await asyncio.sleep(0.01)
+        waiter_task = asyncio.create_task(handlers.sign_in_token_exchange(waiter))
+        await asyncio.sleep(0.01)
+        owner_task.cancel()
+
+        result = await waiter_task
+
+        assert owner_task.cancelled()
+        assert not waiter_task.cancelled()
+        assert isinstance(result, InvokeResponse)
+        assert result.status == 412
+
+    @pytest.mark.asyncio
+    async def test_duplicates_are_not_handed_the_owners_exception_object(self):
+        """Several waiters must not share one exception instance.
+
+        A shared instance has every waiter appending frames to the same
+        ``__traceback__``, so each report contaminates the others.
+        """
+        handlers, _emitter, _flow = make_handlers()
+        api = make_api(exchange=slow_exchange(RuntimeError("token service exploded")))
+        contexts = [make_context(exchange_activity(), api) for _ in range(3)]
+
+        owner_result, *waiter_results = await asyncio.gather(
+            *(handlers.sign_in_token_exchange(ctx) for ctx in contexts),
+            return_exceptions=True,
+        )
+
+        assert api.users.exchange_token.await_count == 1
+        assert isinstance(owner_result, RuntimeError)
+        assert [status_of(result) for result in waiter_results] == [412, 412]
+        for result in waiter_results:
+            assert isinstance(result, InvokeResponse)
+        assert waiter_results[0] is not waiter_results[1]
+
+    @pytest.mark.asyncio
+    async def test_duplicate_paths_report_the_registered_connection_casing(self, monkeypatch):
+        """Teams echoes the card's casing back, which must not split one connection
+        into several telemetry series."""
+        emitter = MagicMock(spec=EventEmitter)
+        registry = OAuthFlowRegistry()
+        registry.add(OAuthFlow("Test-Connection"))
+        handlers = OauthHandlers("Test-Connection", emitter, registry)
+
+        recorded: List[str] = []
+        monkeypatch.setattr(
+            "microsoft_teams.apps.app_oauth.record_oauth_operation",
+            lambda connection_name, *_args, **_kwargs: recorded.append(connection_name),
+        )
+
+        api = make_api(exchange=slow_exchange())
+        activity = exchange_activity()
+        activity.value.connection_name = "test-connection"
+
+        # Concurrent pair exercises the in-flight waiter, then a late request
+        # exercises the completed-marker replay.
+        await asyncio.gather(
+            handlers.sign_in_token_exchange(make_context(activity, api)),
+            handlers.sign_in_token_exchange(make_context(activity, api)),
+        )
+        await handlers.sign_in_token_exchange(make_context(activity, api))
+
+        assert recorded.count("Test-Connection") == 2
+        assert "test-connection" not in recorded[1:]
