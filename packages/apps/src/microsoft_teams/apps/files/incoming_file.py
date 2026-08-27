@@ -54,8 +54,12 @@ class IncomingFile:
     source: FileSource
     """Where the SDK found the file. Only `botActivity` is produced today."""
 
-    web_url: Optional[str]
-    """Web URL to the file in OneDrive/SharePoint when known."""
+    content_url: Optional[str]
+    """
+    Browsable URL to the file in OneDrive/SharePoint, as sent on the attachment's `content_url`.
+
+    Not fetchable for bytes despite the name; those come from `download_url`.
+    """
 
     raw: Any
     """The raw underlying attachment/graph object for escape-hatch access."""
@@ -69,7 +73,7 @@ class IncomingFile:
         unique_id: Optional[str] = None,
         content_type: Optional[str] = None,
         extension: Optional[str] = None,
-        web_url: Optional[str] = None,
+        content_url: Optional[str] = None,
         raw: Any = None,
         download_url: Optional[str] = None,
         client: Optional[httpx.AsyncClient] = None,
@@ -80,7 +84,7 @@ class IncomingFile:
         self.unique_id = unique_id
         self.content_type = content_type
         self.extension = extension
-        self.web_url = web_url
+        self.content_url = content_url
         self.raw = raw
         self._download_url = download_url
         self._client = client

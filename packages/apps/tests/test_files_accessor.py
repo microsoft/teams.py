@@ -51,7 +51,7 @@ async def test_maps_a_file_download_info_attachment_to_an_incoming_file() -> Non
     assert file.extension == "pdf"
     assert file.scope == "personal"
     assert file.source == "botActivity"
-    assert file.web_url == "https://contoso.sharepoint.com/report.pdf"
+    assert file.content_url == "https://contoso.sharepoint.com/report.pdf"
     assert file.raw is attachment
 
 
