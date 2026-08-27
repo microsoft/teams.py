@@ -225,7 +225,13 @@ class TestConcurrentTokenExchangeDedup:
         assert emitted(emitter, "sign_in") == []
 
     @pytest.mark.asyncio
-    async def test_concurrent_duplicate_sees_the_same_handler_exception(self):
+    async def test_broken_sign_in_handler_does_not_break_dedup(self):
+        """A raising ``on_signin`` listener is contained by the flow.
+
+        Handler isolation means one broken listener must not turn a successful
+        callback into a failed invoke response -- so neither the owner nor its
+        duplicate fails, and the token is still exchanged exactly once.
+        """
         handlers, emitter, flow = make_handlers()
 
         @flow.on_signin
@@ -243,8 +249,9 @@ class TestConcurrentTokenExchangeDedup:
         )
 
         assert api.users.exchange_token.await_count == 1
-        assert all(isinstance(result, RuntimeError) for result in results)
-        assert all(str(result) == "handler failed" for result in results)
+        assert not any(isinstance(result, BaseException) for result in results)
+        assert [status_of(result) for result in results] == [200, 200]
+        assert len(emitted(emitter, "sign_in")) == 1
 
     @pytest.mark.asyncio
     async def test_duplicate_arriving_during_sign_in_callbacks_awaits_the_owner(self):
@@ -256,12 +263,13 @@ class TestConcurrentTokenExchangeDedup:
         handlers, _emitter, flow = make_handlers()
         handler_started = asyncio.Event()
         release_handler = asyncio.Event()
+        finished: List[str] = []
 
         @flow.on_signin
         async def on_signin(_event):
             handler_started.set()
             await release_handler.wait()
-            raise RuntimeError("handler failed")
+            finished.append("handler")
 
         api = make_api()
         first = make_context(exchange_activity(), api)
@@ -271,13 +279,18 @@ class TestConcurrentTokenExchangeDedup:
         await handler_started.wait()
         duplicate = asyncio.create_task(handlers.sign_in_token_exchange(second))
         await asyncio.sleep(0)
+
+        # Still parked on the owner's future: the marker alone must not let it answer.
+        assert not duplicate.done()
+        assert finished == []
         release_handler.set()
 
-        results = await asyncio.gather(owner, duplicate, return_exceptions=True)
+        results = await asyncio.gather(owner, duplicate)
 
         assert api.users.exchange_token.await_count == 1
-        assert all(isinstance(result, RuntimeError) for result in results)
-        assert all(str(result) == "handler failed" for result in results)
+        # The owner's callbacks ran to completion before the duplicate was answered.
+        assert finished == ["handler"]
+        assert [status_of(result) for result in results] == [200, 200]
 
     @pytest.mark.asyncio
     async def test_concurrent_exchanges_with_distinct_ids_both_run(self):
@@ -411,8 +424,9 @@ class TestLateTokenExchangeDedup:
         first = make_context(exchange_activity(), api)
         second = make_context(exchange_activity(), api)
 
-        with pytest.raises(RuntimeError, match="handler failed"):
-            await handlers.sign_in_token_exchange(first)
+        # Handler isolation contains the failure, so the exchange still succeeds --
+        # but the marker must be stamped either way, which is what the duplicate proves.
+        assert await handlers.sign_in_token_exchange(first) is None
         # PR4 guarantee: the owning request still advances the middleware chain.
         assert first.next.await_count == 1
 
