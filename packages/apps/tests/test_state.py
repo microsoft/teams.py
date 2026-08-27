@@ -173,6 +173,105 @@ class TestTurnStateContainer:
         assert container.conversation["a"] == 1
         assert container.user is not None and container.user["b"] == 2
 
+    @pytest.mark.parametrize(("field_name", "expected"), [("conversation_id", "c1"), ("user_id", "u1")])
+    def test_identity_cannot_be_reassigned_after_construction(self, field_name: str, expected: str):
+        """Identity is fixed at construction so a save cannot be redirected mid-turn.
+
+        ``TurnStateLoader.save`` reads ``conversation_id``/``user_id`` back off the
+        container to build its storage keys, so rebinding either one after load
+        would persist this turn's state under a different conversation or user.
+        """
+        container = TurnStateContainer(conversation=TurnState(), conversation_id="c1", user=TurnState(), user_id="u1")
+
+        # setattr rather than a literal assignment: the runtime guard is what is
+        # under test, and assigning to a setter-less property is also a static
+        # type error, which would fail type-checking instead of running.
+        with pytest.raises(AttributeError):
+            setattr(container, field_name, "hijacked")
+
+        assert getattr(container, field_name) == expected
+
+    def test_scope_contents_stay_mutable(self):
+        """Binding the identity must not make the state itself read-only."""
+        container = TurnStateContainer(conversation=TurnState(), conversation_id="c1", user=TurnState(), user_id="u1")
+        assert container.conversation.is_dirty is False
+
+        container.conversation["a"] = 1
+        assert container.user is not None
+        container.user["b"] = 2
+        del container.conversation["a"]
+        container.conversation["c"] = 3
+
+        assert container.conversation.to_dict() == {"c": 3}
+        assert container.user.to_dict() == {"b": 2}
+        assert container.conversation.is_dirty is True
+        assert container.user.is_dirty is True
+
+    def test_scope_slots_stay_assignable(self):
+        """Only the identity is bound; the scope slots themselves are not.
+
+        Guards against a future change tightening this into a fully frozen
+        container, which would break ``seal()``/``delete()`` and the loader's
+        ability to inject its hooks.
+        """
+        container = TurnStateContainer(conversation=TurnState(), conversation_id="c1")
+        replacement = TurnState({"swapped": True})
+
+        container.conversation = replacement
+        container.user = replacement
+
+        assert container.conversation is replacement
+        assert container.user is replacement
+
+    def test_equality_ignores_injected_hooks(self):
+        """``__eq__`` is hand-written now, so pin the semantics it replaced."""
+
+        async def saver(_: TurnStateContainer) -> None:
+            return None
+
+        base = TurnStateContainer(
+            conversation=TurnState({"a": 1}), conversation_id="c1", user=TurnState(), user_id="u1"
+        )
+        same = TurnStateContainer(
+            conversation=TurnState({"a": 1}), conversation_id="c1", user=TurnState(), user_id="u1"
+        )
+        with_saver = TurnStateContainer(
+            conversation=TurnState({"a": 1}),
+            conversation_id="c1",
+            user=TurnState(),
+            user_id="u1",
+            _saver=saver,
+        )
+        other_conversation = TurnStateContainer(
+            conversation=TurnState({"a": 1}), conversation_id="other", user=TurnState(), user_id="u1"
+        )
+        other_user = TurnStateContainer(
+            conversation=TurnState({"a": 1}), conversation_id="c1", user=TurnState(), user_id="other"
+        )
+
+        assert base == same
+        assert base == with_saver
+        assert base != other_conversation
+        assert base != other_user
+        assert base != "not a container"
+
+    def test_repr_shows_identity_and_hides_injected_hooks(self):
+        """``__repr__`` is hand-written now; keep hooks out of logs and errors."""
+
+        async def saver(_: TurnStateContainer) -> None:
+            return None
+
+        container = TurnStateContainer(
+            conversation=TurnState(), conversation_id="c1", user=TurnState(), user_id="u1", _saver=saver
+        )
+
+        text = repr(container)
+        assert text.startswith("TurnStateContainer(")
+        assert "conversation_id='c1'" in text
+        assert "user_id='u1'" in text
+        assert "saver" not in text
+        assert "deleter" not in text
+
 
 # ---------------------------------------------------------------------------
 # TurnStateLoader

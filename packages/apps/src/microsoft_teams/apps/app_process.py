@@ -43,6 +43,7 @@ from .diagnostics._helpers import (
     record_turn_duration,
 )
 from .events import ActivityEvent, ActivityResponseEvent, ActivitySentEvent, ErrorEvent
+from .oauth_flow import OAuthFlowRegistry
 from .plugins import PluginActivityEvent, PluginBase, StreamCancelledError
 from .routing.activity_context import ActivityContext
 from .routing.router import ActivityHandler, ActivityRouter
@@ -76,6 +77,7 @@ class ActivityProcessor:
         fetch_user_token: bool = True,
         agent365_baggage_options: Agent365BaggageOptions | bool | None = None,
         state_loader: Optional[TurnStateLoader] = None,
+        oauth_registry: Optional[OAuthFlowRegistry] = None,
     ) -> None:
         self.router = router
         self.id = id
@@ -89,6 +91,7 @@ class ActivityProcessor:
         self.fetch_user_token = fetch_user_token
         self.agent365_baggage_options = agent365_baggage_options
         self.state_loader = state_loader
+        self.oauth_registry = oauth_registry
 
         # This will be set after the EventManager is initialized due to
         # a circular dependency
@@ -163,6 +166,7 @@ class ActivityProcessor:
             self.default_connection_name,
             app_token=lambda: self.get_app_graph_token(tenant_id),
             cloud=self.cloud,
+            oauth_connection_names=list(self.oauth_registry) if self.oauth_registry is not None else None,
         )
 
         send = activityCtx.send

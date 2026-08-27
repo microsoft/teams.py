@@ -5,11 +5,13 @@ Licensed under the MIT License.
 
 # pyright: basic
 
+import time
+from datetime import datetime, timezone
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from httpx import HTTPStatusError, Request, Response
+from httpx import ConnectError, HTTPStatusError, Request, Response
 from microsoft_teams.api import (
     Account,
     ConversationAccount,
@@ -18,17 +20,24 @@ from microsoft_teams.api import (
     MessageActivityInput,
     SentActivity,
     TargetedMessageInfoEntity,
+    TokenExchangeResource,
+    TokenStatus,
 )
 from microsoft_teams.api.activities.typing import TypingActivityInput
 from microsoft_teams.api.auth.cloud_environment import PUBLIC
 from microsoft_teams.api.models.entity import QuotedReplyData, QuotedReplyEntity
-from microsoft_teams.apps.routing.activity_context import ActivityContext
+from microsoft_teams.apps import TurnState, TurnStateContainer
+from microsoft_teams.apps.oauth_state import get_pending_oauth_sign_ins
+from microsoft_teams.apps.routing.activity_context import ActivityContext, SignInOptions
+from microsoft_teams.apps.state import TurnStateLoader
+from microsoft_teams.common import LocalStorage
 
 
 def _create_activity_context(
     is_signed_in: bool = False,
     user_token: str | None = None,
     activity: Any = None,
+    oauth_connection_names: list[str] | None = None,
 ) -> tuple[ActivityContext[Any], MagicMock]:
     mock_activity = activity if activity is not None else MagicMock()
 
@@ -103,6 +112,7 @@ def _create_activity_context(
         connection_name="test-connection",
         app_token=MagicMock(),
         cloud=PUBLIC,
+        oauth_connection_names=oauth_connection_names,
     )
     return ctx, mock_activity_sender
 
@@ -112,6 +122,11 @@ def _http_status_error(status_code: int) -> HTTPStatusError:
     request = Request("GET", "https://token.example/api/usertoken/GetToken")
     response = Response(status_code, request=request)
     return HTTPStatusError(f"HTTP {status_code}", request=request, response=response)
+
+
+def pending_iso(epoch_seconds: float) -> str:
+    """Render a pending sign-in timestamp the way it is stored on the wire."""
+    return datetime.fromtimestamp(epoch_seconds, tz=timezone.utc).isoformat()
 
 
 class TestActivityContextSendTargeted:
@@ -654,7 +669,9 @@ class TestActivityContextSignIn:
         )
 
         ctx, mock_sender = _create_activity_context(activity=mock_activity)
-        ctx.api.users.get_token = AsyncMock(side_effect=Exception("no token"))
+        loader = TurnStateLoader(LocalStorage())
+        ctx.state = await loader.load("test-conversation", "user-001")
+        ctx.api.users.get_token = AsyncMock(side_effect=_http_status_error(404))
 
         resource_response = MagicMock()
         resource_response.token_exchange_resource = None
@@ -664,6 +681,14 @@ class TestActivityContextSignIn:
 
         token_state = MagicMock()
         token_state.model_dump = MagicMock(return_value={"connection_name": "test-connection"})
+
+        async def send_after_hint_persisted(activity):
+            persisted = await loader.load("test-conversation", "user-001")
+            assert persisted.user is not None
+            assert "__oauth:pending:test-connection" in persisted.user
+            return SentActivity(id="sent-activity-id", activity_params=activity)
+
+        mock_sender.send.side_effect = send_after_hint_persisted
         with (
             patch(
                 "microsoft_teams.apps.routing.activity_context.TokenExchangeState",
@@ -680,6 +705,150 @@ class TestActivityContextSignIn:
         sent_payload = mock_sender.send.call_args.args[0]
         assert sent_payload.recipient is not None
         assert sent_payload.recipient.is_targeted is not True
+        assert ctx.state.user is not None
+        # Two keys per connection with ISO 8601 values.
+        # No SSO was offered here, so only the base marker is written.
+        pending = ctx.state.user["__oauth:pending:test-connection"]
+        assert "__oauth:pending:sso:test-connection" not in ctx.state.user
+        assert datetime.fromisoformat(pending).tzinfo is not None
+
+        reloaded = await loader.load("test-conversation", "user-001")
+        assert reloaded.user is not None
+        assert reloaded.user["__oauth:pending:test-connection"] == pending
+
+    @pytest.mark.asyncio
+    async def test_sign_in_restores_persisted_hints_when_card_send_fails(self) -> None:
+        mock_activity = MessageActivity(
+            id="activity-id",
+            channel_id="msteams",
+            from_=Account(id="user-001"),
+            recipient=Account(id="bot-id"),
+            conversation=ConversationAccount(id="test-conversation", is_group=False),
+        )
+        ctx, mock_sender = _create_activity_context(activity=mock_activity)
+        loader = TurnStateLoader(LocalStorage())
+        ctx.state = await loader.load("test-conversation", "user-001")
+        assert ctx.state.user is not None
+        previous = pending_iso(time.time())
+        ctx.state.user["__oauth:pending:existing-connection"] = previous
+        await loader.save(ctx.state)
+
+        ctx.api.users.get_token = AsyncMock(side_effect=_http_status_error(404))
+        resource_response = MagicMock(
+            token_exchange_resource=None,
+            token_post_resource=None,
+            sign_in_link="https://login.example.com",
+        )
+        ctx.api._bots.sign_in.get_resource = AsyncMock(return_value=resource_response)
+        mock_sender.send.side_effect = RuntimeError("send failed")
+
+        token_state = MagicMock()
+        token_state.model_dump = MagicMock(return_value={"connection_name": "test-connection"})
+        with (
+            patch(
+                "microsoft_teams.apps.routing.activity_context.TokenExchangeState",
+                return_value=token_state,
+            ),
+            patch("microsoft_teams.apps.routing.activity_context.GetBotSignInResourceParams"),
+            pytest.raises(RuntimeError, match="send failed"),
+        ):
+            await ctx.sign_in()
+
+        reloaded = await loader.load("test-conversation", "user-001")
+        assert reloaded.user is not None
+        assert reloaded.user["__oauth:pending:existing-connection"] == previous
+        assert "__oauth:pending:test-connection" not in reloaded.user
+
+    @pytest.mark.asyncio
+    async def test_sign_in_restores_hint_when_pre_send_persistence_fails(self) -> None:
+        mock_activity = MessageActivity(
+            id="activity-id",
+            channel_id="msteams",
+            from_=Account(id="user-001"),
+            recipient=Account(id="bot-id"),
+            conversation=ConversationAccount(id="test-conversation", is_group=False),
+        )
+        ctx, mock_sender = _create_activity_context(activity=mock_activity)
+        storage = LocalStorage()
+        loader = TurnStateLoader(storage)
+        ctx.state = await loader.load("test-conversation", "user-001")
+        assert ctx.state.user is not None
+        previous = pending_iso(time.time())
+        ctx.state.user["__oauth:pending:existing-connection"] = previous
+        await loader.save(ctx.state)
+        storage.async_set = AsyncMock(side_effect=[RuntimeError("save failed"), None])
+
+        ctx.api.users.get_token = AsyncMock(side_effect=_http_status_error(404))
+        resource_response = MagicMock(
+            token_exchange_resource=None,
+            token_post_resource=None,
+            sign_in_link="https://login.example.com",
+        )
+        ctx.api._bots.sign_in.get_resource = AsyncMock(return_value=resource_response)
+
+        token_state = MagicMock()
+        token_state.model_dump = MagicMock(return_value={"connection_name": "test-connection"})
+        with (
+            patch(
+                "microsoft_teams.apps.routing.activity_context.TokenExchangeState",
+                return_value=token_state,
+            ),
+            patch("microsoft_teams.apps.routing.activity_context.GetBotSignInResourceParams"),
+            pytest.raises(RuntimeError, match="save failed"),
+        ):
+            await ctx.sign_in()
+
+        mock_sender.send.assert_not_called()
+        assert storage.async_set.await_count == 2
+        assert ctx.state.user["__oauth:pending:existing-connection"] == previous
+        assert "__oauth:pending:test-connection" not in ctx.state.user
+        await loader.save(ctx.state)
+        assert storage.async_set.await_count == 2
+
+    @pytest.mark.asyncio
+    async def test_sign_in_rollback_failure_does_not_mask_original_error(self) -> None:
+        mock_activity = MessageActivity(
+            id="activity-id",
+            channel_id="msteams",
+            from_=Account(id="user-001"),
+            recipient=Account(id="bot-id"),
+            conversation=ConversationAccount(id="test-conversation", is_group=False),
+        )
+        ctx, mock_sender = _create_activity_context(activity=mock_activity)
+        storage = LocalStorage()
+        loader = TurnStateLoader(storage)
+        ctx.state = await loader.load("test-conversation", "user-001")
+        ctx.logger = MagicMock()
+        assert ctx.state.user is not None
+        # A pre-existing hint means the rollback is a write (not a delete), so the
+        # patched ``async_set`` below is what fails.
+        ctx.state.user["__oauth:pending:existing-connection"] = pending_iso(time.time())
+        await loader.save(ctx.state)
+
+        ctx.api.users.get_token = AsyncMock(side_effect=_http_status_error(404))
+        resource_response = MagicMock(
+            token_exchange_resource=None,
+            token_post_resource=None,
+            sign_in_link="https://login.example.com",
+        )
+        ctx.api._bots.sign_in.get_resource = AsyncMock(return_value=resource_response)
+        mock_sender.send.side_effect = RuntimeError("send failed")
+        # First write (the pre-send flush) succeeds; the rollback write blows up.
+        storage.async_set = AsyncMock(side_effect=[None, RuntimeError("rollback save failed")])
+
+        token_state = MagicMock()
+        token_state.model_dump = MagicMock(return_value={"connection_name": "test-connection"})
+        with (
+            patch(
+                "microsoft_teams.apps.routing.activity_context.TokenExchangeState",
+                return_value=token_state,
+            ),
+            patch("microsoft_teams.apps.routing.activity_context.GetBotSignInResourceParams"),
+            pytest.raises(RuntimeError, match="send failed"),
+        ):
+            await ctx.sign_in()
+
+        ctx.logger.warning.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_sign_in_group_chat_sends_targeted_card(self) -> None:
@@ -692,11 +861,21 @@ class TestActivityContextSignIn:
         mock_activity.conversation.conversation_type = "groupChat"
 
         ctx, mock_sender = _create_activity_context(activity=mock_activity)
-        ctx.api.users.get_token = AsyncMock(side_effect=Exception("no token"))
+        ctx.state = TurnStateContainer(
+            conversation=TurnState(),
+            conversation_id="test-conversation",
+            user=TurnState(),
+            user_id="user-001",
+        )
+        ctx.api.users.get_token = AsyncMock(side_effect=_http_status_error(404))
         ctx.api.conversations.create = AsyncMock()
 
         resource_response = MagicMock()
-        resource_response.token_exchange_resource = None
+        resource_response.token_exchange_resource = TokenExchangeResource(
+            id="exchange-id",
+            uri="api://resource",
+            provider_id="provider",
+        )
         resource_response.token_post_resource = None
         resource_response.sign_in_link = "https://login.example.com"
         ctx.api._bots.sign_in.get_resource = AsyncMock(return_value=resource_response)
@@ -722,6 +901,10 @@ class TestActivityContextSignIn:
         assert sent_payload.recipient.is_targeted is True
         # SSO token exchange remains available in group chats.
         assert sent_payload.attachments[0].content.token_exchange_resource is resource_response.token_exchange_resource
+        assert ctx.state.user is not None
+        # SSO was offered, so both markers are written.
+        assert "__oauth:pending:test-connection" in ctx.state.user
+        assert "__oauth:pending:sso:test-connection" in ctx.state.user
 
     @pytest.mark.asyncio
     async def test_sign_in_channel_targets_and_omits_token_exchange(self) -> None:
@@ -734,7 +917,7 @@ class TestActivityContextSignIn:
         mock_activity.conversation.conversation_type = "channel"
 
         ctx, mock_sender = _create_activity_context(activity=mock_activity)
-        ctx.api.users.get_token = AsyncMock(side_effect=Exception("no token"))
+        ctx.api.users.get_token = AsyncMock(side_effect=_http_status_error(404))
         ctx.api.conversations.create = AsyncMock()
 
         resource_response = MagicMock()
@@ -777,7 +960,7 @@ class TestActivityContextSignIn:
         )
 
         ctx, _ = _create_activity_context(activity=mock_activity)
-        ctx.api.users.get_token = AsyncMock(side_effect=Exception("no token"))
+        ctx.api.users.get_token = AsyncMock(side_effect=_http_status_error(404))
 
         resource_response = MagicMock()
         resource_response.token_exchange_resource = None
@@ -806,6 +989,57 @@ class TestActivityContextSignIn:
         token_get_params = ctx.api.users.get_token.call_args[0][0]
         assert token_get_params.connection_name == "custom-connection"
 
+    @pytest.mark.asyncio
+    async def test_sign_in_stores_pending_hints_newest_first(self) -> None:
+        """Pending hints are read back with the most recent sign-in first."""
+        from microsoft_teams.apps.routing.activity_context import SignInOptions
+
+        mock_activity = MessageActivity(
+            id="activity-id",
+            channel_id="msteams",
+            from_=Account(id="user-001"),
+            recipient=Account(id="bot-id"),
+            conversation=ConversationAccount(id="test-conversation", is_group=False),
+        )
+
+        ctx, _ = _create_activity_context(activity=mock_activity)
+        loader = TurnStateLoader(LocalStorage())
+        ctx.state = await loader.load("test-conversation", "user-001")
+        ctx.api.users.get_token = AsyncMock(side_effect=_http_status_error(404))
+
+        resource_response = MagicMock()
+        resource_response.token_exchange_resource = None
+        resource_response.token_post_resource = None
+        resource_response.sign_in_link = "https://login.example.com"
+        ctx.api._bots.sign_in.get_resource = AsyncMock(return_value=resource_response)
+
+        token_state = MagicMock()
+        token_state.model_dump = MagicMock(return_value={"connection_name": "test-connection"})
+        with (
+            patch(
+                "microsoft_teams.apps.routing.activity_context.TokenExchangeState",
+                return_value=token_state,
+            ),
+            patch("microsoft_teams.apps.routing.activity_context.GetBotSignInResourceParams"),
+        ):
+            await ctx.sign_in()
+            await ctx.sign_in(options=SignInOptions(connection_name="second-connection"))
+
+        assert ctx.state.user is not None
+        # Storage is one key per connection and carries no ordering of its own; the
+        # newest-first guarantee is applied when the hints are read back.
+        assert [hint.connection_name for hint in get_pending_oauth_sign_ins(ctx.state)] == [
+            "second-connection",
+            "test-connection",
+        ]
+
+        reloaded = await loader.load("test-conversation", "user-001")
+        assert reloaded.user is not None
+        assert [hint.connection_name for hint in get_pending_oauth_sign_ins(reloaded)] == [
+            "second-connection",
+            "test-connection",
+        ]
+
 
 class TestActivityContextSignOut:
     """Tests for ActivityContext.sign_out()."""
@@ -827,22 +1061,21 @@ class TestActivityContextSignOut:
             assert "user-success" in logged
 
     @pytest.mark.asyncio
-    async def test_sign_out_logs_error_and_does_not_raise_on_failure(self) -> None:
-        """sign_out logs the error but does not propagate exceptions."""
+    async def test_sign_out_propagates_token_service_failure(self) -> None:
+        """sign_out surfaces Token Service failures instead of swallowing them.
+
+        A failed sign-out leaves the token in place. Logging and returning would
+        tell the caller the user is signed out when they are not.
+        """
         mock_activity = MagicMock()
         mock_activity.channel_id = "msteams"
         mock_activity.from_.id = "user-003"
 
         ctx, _ = _create_activity_context(activity=mock_activity)
-        ctx.api.users.sign_out = AsyncMock(side_effect=Exception("API failure"))
+        ctx.api.users.sign_out = AsyncMock(side_effect=_http_status_error(500))
 
-        with patch.object(ctx.logger, "error") as mock_log_error:
-            # Should not raise
+        with pytest.raises(HTTPStatusError):
             await ctx.sign_out()
-
-            mock_log_error.assert_called_once()
-            logged_message = mock_log_error.call_args[0][0]
-            assert "Failed to sign out user" in logged_message
 
 
 class TestActivityContextTokenHelpers:
@@ -1084,3 +1317,324 @@ class TestActivityContextPromptPreview:
 
         sent_activity = mock_sender.send.call_args[0][0]
         assert sent_activity.entities is None
+
+
+class TestSignInCachedTokenErrorPrecedence:
+    """sign_in only falls back to a card when the Token Service says 404."""
+
+    @staticmethod
+    def _context() -> tuple[ActivityContext[Any], MagicMock]:
+        activity = MessageActivity(
+            id="activity-id",
+            channel_id="msteams",
+            from_=Account(id="user-001"),
+            recipient=Account(id="bot-id"),
+            conversation=ConversationAccount(id="test-conversation", is_group=False),
+        )
+        ctx, sender = _create_activity_context(activity=activity)
+        resource = MagicMock()
+        resource.token_exchange_resource = None
+        resource.token_post_resource = None
+        resource.sign_in_link = "https://login.example.com"
+        ctx.api._bots.sign_in.get_resource = AsyncMock(return_value=resource)
+        return ctx, sender
+
+    @pytest.mark.asyncio
+    async def test_404_falls_back_to_the_oauth_card(self) -> None:
+        """404 is the only "user has no token yet" answer."""
+        ctx, sender = self._context()
+        ctx.api.users.get_token = AsyncMock(side_effect=_http_status_error(404))
+
+        assert await ctx.sign_in() is None
+        sender.send.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("status_code", [400, 401, 412, 429, 500, 503])
+    async def test_other_http_statuses_propagate(self, status_code: int) -> None:
+        """A rejected request or an outage is not a signed-out user.
+
+        Swallowing these showed the user a sign-in card during an incident and
+        hid the real cause from the developer.
+        """
+        ctx, sender = self._context()
+        ctx.api.users.get_token = AsyncMock(side_effect=_http_status_error(status_code))
+
+        with pytest.raises(HTTPStatusError):
+            await ctx.sign_in()
+        sender.send.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_transport_failure_propagates(self) -> None:
+        """A connection error never reached the Token Service at all."""
+        ctx, sender = self._context()
+        ctx.api.users.get_token = AsyncMock(side_effect=ConnectError("connection refused"))
+
+        with pytest.raises(ConnectError):
+            await ctx.sign_in()
+        sender.send.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_programming_error_propagates(self) -> None:
+        """A bug in the token path must not be reported as "please sign in"."""
+        ctx, sender = self._context()
+        ctx.api.users.get_token = AsyncMock(side_effect=TypeError("bad argument"))
+
+        with pytest.raises(TypeError):
+            await ctx.sign_in()
+        sender.send.assert_not_awaited()
+
+
+class TestSignInOverrideActivity:
+    """SignInOptions.override_sign_in_activity replaces the default OAuth card."""
+
+    @staticmethod
+    def _context(is_group: bool = False, conversation_type: str | None = None):
+        activity = MessageActivity(
+            id="activity-id",
+            channel_id="msteams",
+            from_=Account(id="user-001"),
+            recipient=Account(id="bot-id"),
+            conversation=ConversationAccount(
+                id="test-conversation",
+                is_group=is_group,
+                conversation_type=conversation_type,
+            ),
+        )
+        ctx, sender = _create_activity_context(activity=activity)
+        ctx.api.users.get_token = AsyncMock(side_effect=_http_status_error(404))
+        resource = MagicMock()
+        resource.token_exchange_resource = TokenExchangeResource(id="exchange-id")
+        resource.token_post_resource = None
+        resource.sign_in_link = "https://login.example.com"
+        ctx.api._bots.sign_in.get_resource = AsyncMock(return_value=resource)
+        return ctx, sender
+
+    @pytest.mark.asyncio
+    async def test_override_activity_is_sent_instead_of_the_card(self) -> None:
+        """Red-green: before this change the option was read by nothing at all."""
+        ctx, sender = self._context()
+        override = MessageActivityInput(text="custom sign-in prompt")
+
+        assert await ctx.sign_in(SignInOptions(override_sign_in_activity=lambda *_: override)) is None
+
+        sent = sender.send.call_args[0][0]
+        assert sent is override
+        assert sent.attachments is None
+
+    @pytest.mark.asyncio
+    async def test_override_receives_the_sign_in_resource(self) -> None:
+        """The callback needs the resource to build its own sign-in affordance."""
+        ctx, _ = self._context()
+        seen: list[Any] = []
+
+        def build(exchange_resource, post_resource, link):
+            seen.append((exchange_resource, post_resource, link))
+            return MessageActivityInput(text="custom")
+
+        await ctx.sign_in(SignInOptions(override_sign_in_activity=build))
+
+        assert len(seen) == 1
+        exchange_resource, _, link = seen[0]
+        assert exchange_resource is not None and exchange_resource.id == "exchange-id"
+        assert link == "https://login.example.com"
+
+    @pytest.mark.asyncio
+    async def test_override_in_a_channel_gets_no_exchange_resource(self) -> None:
+        """Channels cannot exchange silently, so the override must not offer it."""
+        ctx, _ = self._context(is_group=True, conversation_type="channel")
+        seen: list[Any] = []
+
+        def build(exchange_resource, post_resource, link):
+            seen.append(exchange_resource)
+            return MessageActivityInput(text="custom")
+
+        await ctx.sign_in(SignInOptions(override_sign_in_activity=build))
+
+        assert seen == [None]
+
+    @pytest.mark.asyncio
+    async def test_override_is_targeted_in_group_conversations(self) -> None:
+        """An override replaces the card, not the group-chat privacy rule."""
+        ctx, _ = self._context(is_group=True)
+
+        await ctx.sign_in(SignInOptions(override_sign_in_activity=lambda *_: MessageActivityInput(text="custom")))
+
+        ctx.api.conversations.create_targeted_activity.assert_called_once()
+        sent = ctx.api.conversations.create_targeted_activity.call_args.args[1]
+        assert sent.recipient is not None
+        assert sent.recipient.id == "user-001"
+        assert sent.recipient.is_targeted is True
+
+    @pytest.mark.asyncio
+    async def test_override_keeps_its_own_recipient(self) -> None:
+        """An explicit recipient is the caller's decision and is left alone.
+
+        It is also not silently promoted to a targeted message: targeting follows
+        ``recipient.is_targeted``, which the override did not set.
+        """
+        ctx, sender = self._context(is_group=True)
+        chosen = Account(id="someone-else")
+
+        await ctx.sign_in(
+            SignInOptions(override_sign_in_activity=lambda *_: MessageActivityInput(text="custom", recipient=chosen))
+        )
+
+        ctx.api.conversations.create_targeted_activity.assert_not_called()
+        assert sender.send.call_args[0][0].recipient.id == "someone-else"
+
+    @pytest.mark.asyncio
+    async def test_override_still_records_pending_attribution(self) -> None:
+        """Routing the callback must not depend on which activity was sent."""
+        loader = TurnStateLoader(LocalStorage())
+        ctx, _ = self._context()
+        ctx.state = await loader.load("test-conversation", "user-001")
+
+        await ctx.sign_in(
+            SignInOptions(
+                connection_name="graph",
+                override_sign_in_activity=lambda *_: MessageActivityInput(text="custom"),
+            )
+        )
+
+        pending = get_pending_oauth_sign_ins(ctx.state)
+        assert [hint.connection_name for hint in pending] == ["graph"]
+        assert pending[0].sso_offered is True
+
+    @pytest.mark.asyncio
+    async def test_override_send_failure_rolls_back_pending(self) -> None:
+        """A card that never went out must not leave a hint that mis-routes."""
+        loader = TurnStateLoader(LocalStorage())
+        ctx, sender = self._context()
+        ctx.state = await loader.load("test-conversation", "user-001")
+        sender.send.side_effect = RuntimeError("send failed")
+
+        with pytest.raises(RuntimeError, match="send failed"):
+            await ctx.sign_in(
+                SignInOptions(
+                    connection_name="graph",
+                    override_sign_in_activity=lambda *_: MessageActivityInput(text="custom"),
+                )
+            )
+
+        assert get_pending_oauth_sign_ins(ctx.state) == []
+
+
+class TestGetTokenStatusRegistryAware:
+    """get_token_status corrects the bulk call for registered flows."""
+
+    @staticmethod
+    def _context(connection_names: list[str] | None = None):
+        activity = MagicMock()
+        activity.channel_id = "msteams"
+        activity.from_.id = "user-1"
+        return _create_activity_context(activity=activity, oauth_connection_names=connection_names)[0]
+
+    @staticmethod
+    def _status(connection_name: str, has_token: bool) -> TokenStatus:
+        return TokenStatus(
+            channel_id="msteams",
+            connection_name=connection_name,
+            has_token=has_token,
+            service_provider_display_name="Contoso",
+        )
+
+    @pytest.mark.asyncio
+    async def test_without_registered_flows_the_bulk_result_is_returned_verbatim(self) -> None:
+        """Legacy single-connection apps see exactly what the service said."""
+        ctx = self._context()
+        statuses = [self._status("legacy", False)]
+        ctx.api.users.get_token_status = AsyncMock(return_value=statuses)
+        ctx.api.users.get_token = AsyncMock(side_effect=AssertionError("must not probe"))
+
+        assert await ctx.get_token_status() is statuses
+
+    @pytest.mark.asyncio
+    async def test_false_status_for_a_registered_flow_is_corrected(self) -> None:
+        """The bulk call can lag a token that was just written.
+
+        Red-green: without the per-flow lookup this reports has_token=False for a
+        connection the user is demonstrably signed in to.
+        """
+        ctx = self._context(["graph"])
+        ctx.api.users.get_token_status = AsyncMock(return_value=[self._status("graph", False)])
+        ctx.api.users.get_token = AsyncMock(return_value=MagicMock(token="a-token"))
+
+        result = await ctx.get_token_status()
+
+        assert [(s.connection_name, s.has_token) for s in result] == [("graph", True)]
+
+    @pytest.mark.asyncio
+    async def test_a_genuine_miss_stays_false(self) -> None:
+        """A confirmed absence is not rewritten."""
+        ctx = self._context(["graph"])
+        ctx.api.users.get_token_status = AsyncMock(return_value=[self._status("graph", False)])
+        ctx.api.users.get_token = AsyncMock(side_effect=_http_status_error(404))
+
+        result = await ctx.get_token_status()
+
+        assert [(s.connection_name, s.has_token) for s in result] == [("graph", False)]
+
+    @pytest.mark.asyncio
+    async def test_a_registered_flow_missing_from_the_bulk_result_is_added(self) -> None:
+        """The service only lists connections it knows; a flow may be absent."""
+        ctx = self._context(["graph"])
+        ctx.api.users.get_token_status = AsyncMock(return_value=[self._status("legacy", True)])
+        ctx.api.users.get_token = AsyncMock(return_value=MagicMock(token="a-token"))
+
+        result = await ctx.get_token_status()
+
+        assert [(s.connection_name, s.has_token) for s in result] == [("legacy", True), ("graph", True)]
+
+    @pytest.mark.asyncio
+    async def test_unregistered_connections_are_passed_through_untouched(self) -> None:
+        """Only registered flows are re-checked; everything else is verbatim."""
+        ctx = self._context(["graph"])
+        legacy = self._status("legacy", False)
+        ctx.api.users.get_token_status = AsyncMock(return_value=[legacy, self._status("graph", True)])
+        probes: list[str] = []
+
+        async def probe(params):
+            probes.append(params.connection_name)
+            return MagicMock(token="a-token")
+
+        ctx.api.users.get_token = AsyncMock(side_effect=probe)
+
+        result = await ctx.get_token_status()
+
+        assert result[0] is legacy
+        assert probes == []
+
+    @pytest.mark.asyncio
+    async def test_registry_casing_is_matched_case_insensitively(self) -> None:
+        """The service may echo a different casing than the app registered."""
+        ctx = self._context(["Graph"])
+        ctx.api.users.get_token_status = AsyncMock(return_value=[self._status("GRAPH", False)])
+        ctx.api.users.get_token = AsyncMock(return_value=MagicMock(token="a-token"))
+
+        result = await ctx.get_token_status()
+
+        # Corrected in place: one row, keeping the service's own casing.
+        assert [(s.connection_name, s.has_token) for s in result] == [("GRAPH", True)]
+
+    @pytest.mark.asyncio
+    async def test_order_and_shape_are_preserved(self) -> None:
+        """Existing rows keep their order; additions go on the end."""
+        ctx = self._context(["b", "missing"])
+        ctx.api.users.get_token_status = AsyncMock(
+            return_value=[self._status("a", True), self._status("b", True), self._status("c", False)]
+        )
+        ctx.api.users.get_token = AsyncMock(side_effect=_http_status_error(404))
+
+        result = await ctx.get_token_status()
+
+        assert [s.connection_name for s in result] == ["a", "b", "c", "missing"]
+
+    @pytest.mark.asyncio
+    async def test_non_404_lookup_failure_propagates(self) -> None:
+        """An outage during the correction is not silently reported as False."""
+        ctx = self._context(["graph"])
+        ctx.api.users.get_token_status = AsyncMock(return_value=[self._status("graph", False)])
+        ctx.api.users.get_token = AsyncMock(side_effect=_http_status_error(503))
+
+        with pytest.raises(HTTPStatusError):
+            await ctx.get_token_status()
