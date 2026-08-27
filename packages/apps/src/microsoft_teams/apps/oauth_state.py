@@ -45,6 +45,15 @@ _COMPLETED_EXCHANGE_STATE_KEY_PREFIX = "__oauth:exchange:"
 # Completed markers age out on the same schedule as pending sign-ins.
 TOKEN_EXCHANGE_DEDUP_TTL_SECONDS = _PENDING_OAUTH_MAX_AGE_SECONDS
 
+# Hard ceiling on how many completed markers one conversation document may carry.
+# The TTL above is the primary bound and the only one that should ever bind in
+# practice: these markers are scoped to a single conversation, and every duplicate of
+# an exchange reuses its id, so a conversation would have to begin a thousand
+# *distinct* sign-ins inside five minutes to reach this. The cap is a backstop that
+# keeps a pathological burst from growing the stored document without limit, matching
+# the 1000-entry bound the TypeScript SDK places on its completed list.
+_COMPLETED_EXCHANGE_MAX_ENTRIES = 1000
+
 
 @dataclass(frozen=True)
 class PendingOAuthSignIn:
@@ -333,7 +342,9 @@ def record_completed_token_exchange(state: Optional[TurnStateContainer], exchang
     The marker is deliberately never cleared when the exchange finishes: a late
     duplicate from a second Teams endpoint can arrive after the original settles, and
     an already-removed marker would let it run as a brand new exchange. Markers are
-    pruned only once they age past :data:`TOKEN_EXCHANGE_DEDUP_TTL_SECONDS`.
+    dropped only once they age past :data:`TOKEN_EXCHANGE_DEDUP_TTL_SECONDS`, or -- far
+    more rarely -- when a conversation exceeds
+    :data:`_COMPLETED_EXCHANGE_MAX_ENTRIES` and the oldest are trimmed to fit.
     """
     if state is None or not exchange_id:
         return
@@ -344,10 +355,49 @@ def _write_completed_token_exchange(state: TurnStateContainer, exchange_id: str)
     """Single write chokepoint for completed markers.
 
     Pruning here keeps the invariant that the conversation document never carries an
-    expired or unparsable marker, no matter which caller wrote it.
+    expired or unparsable marker, no matter which caller wrote it. The ceiling is
+    enforced afterwards, with the new marker already in place, so the exchange being
+    recorded can never be the one evicted to make room. Every marker enters through
+    this function, so bounding on write bounds the stored set for good.
     """
     _prune_completed_token_exchanges(state)
-    state.conversation[completed_token_exchange_state_key(exchange_id)] = _format_timestamp(time())
+    key = completed_token_exchange_state_key(exchange_id)
+    state.conversation[key] = _format_timestamp(time())
+    _enforce_completed_token_exchange_cap(state, key)
+
+
+def _enforce_completed_token_exchange_cap(state: TurnStateContainer, keep: str) -> None:
+    """Drop the oldest markers once a conversation exceeds the cap.
+
+    Expired markers are pruned before this runs, so everything still stored is live and
+    evicting any of it costs real dedup coverage. Oldest-first is the least damaging
+    order available: those markers are the closest to ageing out on their own, so they
+    have the least protection left to give.
+
+    ``keep`` is the marker just written and is never evicted -- it is the one the
+    current exchange depends on, and it would otherwise become a candidate whenever its
+    timestamp ties with another. Remaining ties are broken on the key so that eviction
+    is deterministic across instances instead of following dict insertion order.
+    """
+    keys = [key for key in state.conversation if key.startswith(_COMPLETED_EXCHANGE_STATE_KEY_PREFIX)]
+    overflow = len(keys) - _COMPLETED_EXCHANGE_MAX_ENTRIES
+    if overflow <= 0:
+        return
+
+    def _age_order(key: str) -> tuple[float, str]:
+        completed_at = _parse_completed_at(state.conversation.get(key))
+        # Unparsable markers sort first. Pruning should have removed them already, and
+        # anything that slipped through carries no usable expiry, so it is the safest
+        # thing to give up.
+        return (completed_at if completed_at is not None else float("-inf"), key)
+
+    for key in sorted(keys, key=_age_order):
+        if overflow <= 0:
+            break
+        if key == keep:
+            continue
+        state.conversation.pop(key, None)
+        overflow -= 1
 
 
 def _prune_completed_token_exchanges(state: TurnStateContainer) -> None:
