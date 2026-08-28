@@ -144,6 +144,16 @@ class OauthHandlers:
         api = ctx.api
         next_handler = ctx.next
         connection_name = activity.value.connection_name
+        # Resolved before the ``try`` so the ``finally`` below can always report it. The
+        # lookup is a plain dict access; computing it inside the ``try`` left it unbound
+        # whenever anything above it raised, which would turn the metric write in
+        # ``finally`` into an ``UnboundLocalError`` masking the original exception.
+        flow = self.oauth_registry.get(connection_name)
+        # Teams echoes back whatever casing the sign-in card carried, so telemetry keyed
+        # on the raw name splits one connection into several series. ``connection_name``
+        # stays raw: it is what goes on the wire to the Token Service, and rewriting that
+        # would be a behavior change rather than a telemetry fix.
+        event_connection_name = flow.connection_name if flow is not None else connection_name
         result = APP_OAUTH_RESULTS.failure
         started_at = perf_counter()
         try:
@@ -152,11 +162,8 @@ class OauthHandlers:
                 record_exception=False,
                 set_status_on_exception=False,
             ) as span:
-                span.set_attribute(APP_ATTRIBUTE_NAMES.oauth_connection, connection_name)
+                span.set_attribute(APP_ATTRIBUTE_NAMES.oauth_connection, event_connection_name)
                 span.set_attribute(APP_ATTRIBUTE_NAMES.oauth_operation, APP_OAUTH_OPERATIONS.token_exchange)
-
-                flow = self.oauth_registry.get(connection_name)
-                event_connection_name = flow.connection_name if flow is not None else connection_name
 
                 if (
                     connection_lookup_key(connection_name) != connection_lookup_key(self.default_connection_name)
@@ -194,7 +201,7 @@ class OauthHandlers:
                         error_type = APP_OAUTH_ERROR_TYPES.http_error
                         span.set_attribute(APP_ATTRIBUTE_NAMES.oauth_error_type, error_type)
                         record_exception(span, e)
-                        record_oauth_error(connection_name, APP_OAUTH_OPERATIONS.token_exchange, error_type)
+                        record_oauth_error(event_connection_name, APP_OAUTH_OPERATIONS.token_exchange, error_type)
                         status = status or 500
                         result = APP_OAUTH_RESULTS.failure
                         span.set_attribute(APP_ATTRIBUTE_NAMES.invoke_response_status, status)
@@ -230,7 +237,7 @@ class OauthHandlers:
                     error_type = APP_OAUTH_ERROR_TYPES.exception
                     span.set_attribute(APP_ATTRIBUTE_NAMES.oauth_error_type, error_type)
                     record_exception(span, e)
-                    record_oauth_error(connection_name, APP_OAUTH_OPERATIONS.token_exchange, error_type)
+                    record_oauth_error(event_connection_name, APP_OAUTH_OPERATIONS.token_exchange, error_type)
                     result = APP_OAUTH_RESULTS.failure
                     span.set_attribute(APP_ATTRIBUTE_NAMES.oauth_result, result)
                     raise
@@ -259,7 +266,7 @@ class OauthHandlers:
                 return None
         finally:
             record_oauth_operation(
-                connection_name,
+                event_connection_name,
                 APP_OAUTH_OPERATIONS.token_exchange,
                 result,
                 (perf_counter() - started_at) * 1000,

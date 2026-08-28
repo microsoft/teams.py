@@ -957,5 +957,109 @@ class TestDedupFailureIsolation:
         )
         await handlers.sign_in_token_exchange(make_context(activity, api))
 
-        assert recorded.count("Test-Connection") == 2
-        assert "test-connection" not in recorded[1:]
+        # Owner, in-flight waiter and late replay all land on one series.
+        assert recorded == ["Test-Connection"] * 3
+        assert "test-connection" not in recorded
+
+
+class TestConnectionNameTelemetryCasing:
+    """Teams echoes back whatever casing the sign-in card carried, so one connection
+    must not fan out into several telemetry series."""
+
+    @staticmethod
+    def _capture(monkeypatch) -> tuple[List[str], List[str]]:
+        operations: List[str] = []
+        errors: List[str] = []
+        monkeypatch.setattr(
+            "microsoft_teams.apps.app_oauth.record_oauth_operation",
+            lambda connection_name, *_a, **_kw: operations.append(connection_name),
+        )
+        monkeypatch.setattr(
+            "microsoft_teams.apps.app_oauth.record_oauth_error",
+            lambda connection_name, *_a, **_kw: errors.append(connection_name),
+        )
+        return operations, errors
+
+    @staticmethod
+    def _handlers() -> OauthHandlers:
+        registry = OAuthFlowRegistry()
+        registry.add(OAuthFlow("Test-Connection"))
+        return OauthHandlers("Test-Connection", MagicMock(spec=EventEmitter), registry)
+
+    @staticmethod
+    def _activity() -> SignInTokenExchangeInvokeActivity:
+        activity = exchange_activity()
+        # The casing Teams echoes back, which differs from the registered name.
+        activity.value.connection_name = "test-connection"
+        return activity
+
+    @pytest.mark.asyncio
+    async def test_success_reports_the_registered_casing(self, monkeypatch):
+        operations, _errors = self._capture(monkeypatch)
+        handlers = self._handlers()
+        api = make_api()
+
+        await handlers.sign_in_token_exchange(make_context(self._activity(), api))
+
+        assert operations == ["Test-Connection"]
+        # The wire call keeps the name Teams sent: canonicalizing it would change what
+        # reaches the Token Service, which is a behavior change, not a telemetry fix.
+        assert api.users.exchange_token.await_args.args[0].connection_name == "test-connection"
+
+    @pytest.mark.asyncio
+    async def test_failure_reports_the_registered_casing(self, monkeypatch):
+        """The failure path is what exercises the ``finally`` after an exception.
+
+        A 500 rather than a 400: 404/400/412 are expected exchange misses that report
+        no error, so only an unexpected status reaches ``record_oauth_error``.
+        """
+        operations, errors = self._capture(monkeypatch)
+        handlers = self._handlers()
+        api = make_api(exchange=AsyncMock(side_effect=oauth_http_error(500)))
+
+        await handlers.sign_in_token_exchange(make_context(self._activity(), api))
+
+        assert operations == ["Test-Connection"]
+        assert errors == ["Test-Connection"]
+
+    @pytest.mark.asyncio
+    async def test_expected_miss_reports_the_registered_casing(self, monkeypatch):
+        """A 412 fall-back-to-card miss still has to land on the canonical series."""
+        operations, errors = self._capture(monkeypatch)
+        handlers = self._handlers()
+        api = make_api(exchange=AsyncMock(side_effect=oauth_http_error(404)))
+
+        result = await handlers.sign_in_token_exchange(make_context(self._activity(), api))
+
+        assert isinstance(result, InvokeResponse)
+        assert result.status == 412
+        assert operations == ["Test-Connection"]
+        assert errors == []
+
+    @pytest.mark.asyncio
+    async def test_registry_failure_does_not_mask_itself_in_the_finally(self, monkeypatch):
+        """The name must be resolved before the ``try``.
+
+        Resolving inside it left the variable unbound when anything above raised, so
+        the metric write in ``finally`` died with ``UnboundLocalError`` and buried the
+        real exception.
+        """
+        self._capture(monkeypatch)
+        handlers = self._handlers()
+        handlers.oauth_registry.get = MagicMock(side_effect=RuntimeError("registry exploded"))
+
+        with pytest.raises(RuntimeError, match="registry exploded"):
+            await handlers.sign_in_token_exchange(make_context(self._activity(), make_api()))
+
+    @pytest.mark.asyncio
+    async def test_unregistered_connection_is_reported_as_teams_sent_it(self, monkeypatch):
+        """An unknown connection has no registered casing to fall back to, and the
+        diagnostic is only useful if it shows what actually arrived."""
+        operations, _errors = self._capture(monkeypatch)
+        handlers = self._handlers()
+        activity = exchange_activity()
+        activity.value.connection_name = "not-registered"
+
+        await handlers.sign_in_token_exchange(make_context(activity, make_api()))
+
+        assert operations == ["not-registered"]
