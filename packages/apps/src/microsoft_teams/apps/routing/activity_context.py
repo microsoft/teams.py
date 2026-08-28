@@ -103,8 +103,8 @@ class ActivityContext(Generic[T]):
         The single-connection OAuth surface here - :attr:`is_signed_in`,
         :attr:`user_token`, :attr:`user_graph`, :meth:`sign_in`,
         :meth:`sign_out` and :meth:`get_user_token` - predates
-        multi-connection support and is deprecated. 
-        
+        multi-connection support and is deprecated.
+
         Register connections with
         ``app.add_oauth_flow(name)`` and use the returned ``OAuthFlow``, which
         pins every operation to the connection that owns it.
@@ -177,7 +177,7 @@ class ActivityContext(Generic[T]):
             Built from :attr:`user_token`, which holds the token for whichever
             connection signed in most recently rather than the one that talks to
             Microsoft Graph.
-            
+
             Read the token from the owning flow instead::
                 token = await app.get_oauth_flow("graph").get_token(ctx)
 
