@@ -70,7 +70,9 @@ async def on_any_signin(event: SignInEvent) -> None:
 
 @app.on_message
 async def handle_message(ctx: ActivityContext[MessageActivity]) -> None:
-    text = (ctx.activity.text or "").strip().lower()
+    # The bot is @mentioned in group chats and channels, so drop the mention
+    # before dispatching to keep the same commands working in every scope.
+    text = (ctx.activity.strip_mentions_text().text or "").strip().lower()
 
     if text == "sign in profile":
         # Returns the token directly when one is already cached, otherwise sends a
