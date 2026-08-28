@@ -1079,7 +1079,7 @@ class TestActivityContextSignOut:
 
 
 class TestActivityContextTokenHelpers:
-    """Tests for sign_out(connection_name=), get_user_token, and get_token_status."""
+    """Tests for sign_out(connection_name=), get_user_token, and get_connection_status."""
 
     @pytest.mark.asyncio
     async def test_sign_out_uses_override_connection_name(self) -> None:
@@ -1190,8 +1190,8 @@ class TestActivityContextTokenHelpers:
             await ctx.get_user_token()
 
     @pytest.mark.asyncio
-    async def test_get_token_status_returns_all_connections(self) -> None:
-        """get_token_status makes a single call and returns the status list unfiltered."""
+    async def test_get_connection_status_returns_all_connections(self) -> None:
+        """get_connection_status makes a single call and returns the status list unfiltered."""
         mock_activity = MagicMock()
         mock_activity.channel_id = "msteams"
         mock_activity.from_.id = "user-1"
@@ -1200,7 +1200,7 @@ class TestActivityContextTokenHelpers:
         statuses = [MagicMock(), MagicMock()]
         ctx.api.users.get_token_status = AsyncMock(return_value=statuses)
 
-        result = await ctx.get_token_status()
+        result = await ctx.get_connection_status()
 
         assert result is statuses
         ctx.api.users.get_token_status.assert_awaited_once()
@@ -1210,8 +1210,8 @@ class TestActivityContextTokenHelpers:
         assert params.channel_id == "msteams"
 
     @pytest.mark.asyncio
-    async def test_get_token_status_propagates_errors(self) -> None:
-        """Unlike get_user_token, get_token_status lets service failures surface."""
+    async def test_get_connection_status_propagates_errors(self) -> None:
+        """Unlike get_user_token, get_connection_status lets service failures surface."""
         mock_activity = MagicMock()
         mock_activity.channel_id = "msteams"
         mock_activity.from_.id = "user-1"
@@ -1220,7 +1220,7 @@ class TestActivityContextTokenHelpers:
         ctx.api.users.get_token_status = AsyncMock(side_effect=RuntimeError("service down"))
 
         with pytest.raises(RuntimeError):
-            await ctx.get_token_status()
+            await ctx.get_connection_status()
 
 
 class TestActivityContextPromptPreview:
@@ -1520,7 +1520,7 @@ class TestSignInOverrideActivity:
 
 
 class TestGetTokenStatusRegistryAware:
-    """get_token_status corrects the bulk call for registered flows."""
+    """get_connection_status corrects the bulk call for registered flows."""
 
     @staticmethod
     def _context(connection_names: list[str] | None = None):
@@ -1546,7 +1546,7 @@ class TestGetTokenStatusRegistryAware:
         ctx.api.users.get_token_status = AsyncMock(return_value=statuses)
         ctx.api.users.get_token = AsyncMock(side_effect=AssertionError("must not probe"))
 
-        assert await ctx.get_token_status() is statuses
+        assert await ctx.get_connection_status() is statuses
 
     @pytest.mark.asyncio
     async def test_false_status_for_a_registered_flow_is_corrected(self) -> None:
@@ -1559,7 +1559,7 @@ class TestGetTokenStatusRegistryAware:
         ctx.api.users.get_token_status = AsyncMock(return_value=[self._status("graph", False)])
         ctx.api.users.get_token = AsyncMock(return_value=MagicMock(token="a-token"))
 
-        result = await ctx.get_token_status()
+        result = await ctx.get_connection_status()
 
         assert [(s.connection_name, s.has_token) for s in result] == [("graph", True)]
 
@@ -1570,7 +1570,7 @@ class TestGetTokenStatusRegistryAware:
         ctx.api.users.get_token_status = AsyncMock(return_value=[self._status("graph", False)])
         ctx.api.users.get_token = AsyncMock(side_effect=_http_status_error(404))
 
-        result = await ctx.get_token_status()
+        result = await ctx.get_connection_status()
 
         assert [(s.connection_name, s.has_token) for s in result] == [("graph", False)]
 
@@ -1581,7 +1581,7 @@ class TestGetTokenStatusRegistryAware:
         ctx.api.users.get_token_status = AsyncMock(return_value=[self._status("legacy", True)])
         ctx.api.users.get_token = AsyncMock(return_value=MagicMock(token="a-token"))
 
-        result = await ctx.get_token_status()
+        result = await ctx.get_connection_status()
 
         assert [(s.connection_name, s.has_token) for s in result] == [("legacy", True), ("graph", True)]
 
@@ -1599,7 +1599,7 @@ class TestGetTokenStatusRegistryAware:
 
         ctx.api.users.get_token = AsyncMock(side_effect=probe)
 
-        result = await ctx.get_token_status()
+        result = await ctx.get_connection_status()
 
         assert result[0] is legacy
         assert probes == []
@@ -1611,7 +1611,7 @@ class TestGetTokenStatusRegistryAware:
         ctx.api.users.get_token_status = AsyncMock(return_value=[self._status("GRAPH", False)])
         ctx.api.users.get_token = AsyncMock(return_value=MagicMock(token="a-token"))
 
-        result = await ctx.get_token_status()
+        result = await ctx.get_connection_status()
 
         # Corrected in place: one row, keeping the service's own casing.
         assert [(s.connection_name, s.has_token) for s in result] == [("GRAPH", True)]
@@ -1625,7 +1625,7 @@ class TestGetTokenStatusRegistryAware:
         )
         ctx.api.users.get_token = AsyncMock(side_effect=_http_status_error(404))
 
-        result = await ctx.get_token_status()
+        result = await ctx.get_connection_status()
 
         assert [s.connection_name for s in result] == ["a", "b", "c", "missing"]
 
@@ -1637,4 +1637,27 @@ class TestGetTokenStatusRegistryAware:
         ctx.api.users.get_token = AsyncMock(side_effect=_http_status_error(503))
 
         with pytest.raises(HTTPStatusError):
-            await ctx.get_token_status()
+            await ctx.get_connection_status()
+
+
+class TestConnectionStatusRename:
+    """``ctx.get_token_status`` was renamed to ``ctx.get_connection_status``."""
+
+    def test_old_context_name_is_gone(self) -> None:
+        """Renamed outright rather than aliased - the method was never released."""
+        ctx, _ = _create_activity_context()
+
+        assert not hasattr(ctx, "get_token_status")
+        assert hasattr(ctx, "get_connection_status")
+
+    def test_api_client_keeps_the_endpoint_name(self) -> None:
+        """The API layer must keep its name; renaming both would undo the fix.
+
+        ``api.users.get_token_status`` is the Token Service endpoint and returns
+        the service answer verbatim, while ``ctx.get_connection_status`` adds the
+        silent-SSO correction pass. One name for two behaviors was the problem.
+        """
+        from microsoft_teams.api.clients.user.client import UserClient
+
+        assert hasattr(UserClient, "get_token_status")
+        assert not hasattr(UserClient, "get_connection_status")

@@ -97,7 +97,18 @@ DEFAULT_SIGNIN_OPTIONS = SignInOptions()
 
 
 class ActivityContext(Generic[T]):
-    """Context object passed to activity handlers with middleware support."""
+    """Context object passed to activity handlers with middleware support.
+
+    .. note::
+        The single-connection OAuth surface here - :attr:`is_signed_in`,
+        :attr:`user_token`, :attr:`user_graph`, :meth:`sign_in`,
+        :meth:`sign_out` and :meth:`get_user_token` - predates
+        multi-connection support and is deprecated. 
+        
+        Register connections with
+        ``app.add_oauth_flow(name)`` and use the returned ``OAuthFlow``, which
+        pins every operation to the connection that owns it.
+    """
 
     def __init__(
         self,
@@ -161,6 +172,14 @@ class ActivityContext(Generic[T]):
     def user_graph(self) -> "GraphServiceClient":
         """
         Get a Microsoft Graph client configured with the user's token.
+
+        .. deprecated::
+            Built from :attr:`user_token`, which holds the token for whichever
+            connection signed in most recently rather than the one that talks to
+            Microsoft Graph.
+            
+            Read the token from the owning flow instead::
+                token = await app.get_oauth_flow("graph").get_token(ctx)
 
         Raises:
             ValueError: If the user is not signed in or doesn't have a valid token.
@@ -350,6 +369,12 @@ class ActivityContext(Generic[T]):
         """
         Initiate a sign-in flow for the user.
 
+        .. deprecated::
+            Targets the app's single ``connection_name``, which does not
+            generalize past one connection. Use
+            ``app.get_oauth_flow(name).sign_in(ctx, options)``, which pins the
+            connection to the flow that owns it.
+
         Args:
             options: Optional signin options to customize the flow
 
@@ -480,6 +505,10 @@ class ActivityContext(Generic[T]):
 
         This method will remove the user's token from the storage.
 
+        .. deprecated::
+            Use ``app.get_oauth_flow(name).sign_out(ctx)``, which cannot sign
+            out of the wrong connection.
+
         Args:
             connection_name: The connection to sign out of. Defaults to the
                 app's default connection.
@@ -501,6 +530,10 @@ class ActivityContext(Generic[T]):
     async def get_user_token(self, connection_name: Optional[str] = None) -> Optional[str]:
         """
         Get the user's token for a connection.
+
+        .. deprecated::
+            Use ``app.get_oauth_flow(name).get_token(ctx)``, which reads the
+            token from the flow that owns the connection.
 
         Args:
             connection_name: The connection to read. Defaults to the app's
@@ -530,7 +563,7 @@ class ActivityContext(Generic[T]):
                 return None
             raise
 
-    async def get_token_status(self) -> List[TokenStatus]:
+    async def get_connection_status(self) -> List[TokenStatus]:
         """
         Get the token status for every OAuth connection registered on the bot.
 
