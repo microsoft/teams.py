@@ -128,31 +128,6 @@ def clear_pending_oauth_sign_in(
     _remove_connection(state, connection_name)
 
 
-def mark_pending_oauth_sso_consumed(
-    state: Optional[TurnStateContainer],
-    connection_name: str,
-    conversation_id: Optional[str] = None,
-    user_id: Optional[str] = None,
-) -> None:
-    """Retire a hint's silent-SSO marker while keeping it for callback routing.
-
-    Teams renders the sign-in button on the same OAuth card after a silent-SSO
-    failure, so the sign-in is still pending even though its SSO attempt is
-    spent. Dropping ``sso_offered`` stops the hint from re-attributing later
-    ``signin/failure`` callbacks while a follow-up ``signin/verifyState`` can
-    still be routed to the right connection. ``created_at`` is preserved so the
-    hint expires on its original schedule.
-    """
-    if state is None or state.user is None:
-        oauth_pending_local.mark_sso_consumed(conversation_id or "", user_id or "", connection_name)
-        return
-
-    target = connection_lookup_key(connection_name)
-    for key, name, is_sso_marker in _iter_markers(state.user):
-        if is_sso_marker and connection_lookup_key(name) == target:
-            state.user.pop(key, None)
-
-
 def replace_pending_oauth_sign_ins(
     state: Optional[TurnStateContainer],
     pending: List[PendingOAuthSignIn],

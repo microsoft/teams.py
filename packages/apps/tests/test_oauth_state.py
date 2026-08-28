@@ -18,7 +18,6 @@ from microsoft_teams.apps.oauth_state import (
     completed_token_exchange_state_key,
     get_pending_oauth_sign_ins,
     has_completed_token_exchange,
-    mark_pending_oauth_sso_consumed,
     record_completed_token_exchange,
     record_pending_oauth_sign_in,
     replace_pending_oauth_sign_ins,
@@ -158,18 +157,16 @@ class TestPendingSignInLookup:
 
 
 class TestSsoMarkerHandling:
-    def test_marking_sso_consumed_retires_only_the_sso_marker(self) -> None:
+    def test_clearing_retires_the_hint_and_its_sso_marker_together(self) -> None:
+        """Both keys retire as a unit, so no orphan can re-attribute a later callback."""
         state = make_state()
         record_pending_oauth_sign_in(state, "Graph", sso_offered=True)
-        assert state.user is not None
-        original = state.user["__oauth:pending:Graph"]
+        assert stored_keys(state) == {"__oauth:pending:Graph", "__oauth:pending:sso:Graph"}
 
-        mark_pending_oauth_sso_consumed(state, "graph")
+        clear_pending_oauth_sign_in(state, "graph")
 
-        # The sign-in is still pending on its original schedule; only SSO is spent.
-        assert stored_keys(state) == {"__oauth:pending:Graph"}
-        assert state.user["__oauth:pending:Graph"] == original
-        assert [(h.connection_name, h.sso_offered) for h in get_pending_oauth_sign_ins(state)] == [("Graph", False)]
+        assert stored_keys(state) == set()
+        assert get_pending_oauth_sign_ins(state) == []
 
     def test_connection_named_sso_is_not_mistaken_for_an_sso_marker(self) -> None:
         # ``sso:`` is a legal start to a connection name. Without its own base marker,
@@ -292,7 +289,6 @@ class TestMissingState:
         assert get_pending_oauth_sign_ins(None) == []
         record_pending_oauth_sign_in(None, "Graph", sso_offered=True)
         clear_pending_oauth_sign_in(None, "Graph")
-        mark_pending_oauth_sso_consumed(None, "Graph")
         replace_pending_oauth_sign_ins(None, [])
 
     def test_helpers_are_no_ops_without_a_user_scope(self) -> None:
@@ -306,7 +302,6 @@ class TestMissingState:
         assert get_pending_oauth_sign_ins(state) == []
         record_pending_oauth_sign_in(state, "Graph", sso_offered=True)
         clear_pending_oauth_sign_in(state, "Graph")
-        mark_pending_oauth_sso_consumed(state, "Graph")
         replace_pending_oauth_sign_ins(state, [])
 
 

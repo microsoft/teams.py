@@ -1103,13 +1103,14 @@ class TestOauthHandlers:
         assert pending_marker_keys(state) == {"__oauth:pending:graph", "__oauth:pending:sso:graph"}
 
     @pytest.mark.asyncio
-    async def test_sso_failure_keeps_hint_so_button_click_still_routes_to_that_flow(
+    async def test_sso_failure_clears_hint_and_verify_state_still_resolves_by_probing(
         self, oauth_handlers, mock_context, failure_activity, verify_state_activity, mock_token_response
     ):
-        """After silent SSO fails, Teams shows the sign-in button on the same card.
+        """The retired hint costs extra probes, not correctness.
 
-        The follow-up verify-state carries no connection name, so the retired hint is what
-        keeps it on GitHub instead of probing (and possibly mis-attributing to) Graph.
+        Clearing on failure matches C#/TS. The follow-up verify-state carries no
+        connection name, so it probes each flow; the code is single-use and
+        connection-scoped, so only the issuing connection accepts it.
         """
         oauth_handlers.oauth_registry.add(OAuthFlow("Graph"))
         github = oauth_handlers.oauth_registry.add(OAuthFlow("GitHub"))
@@ -1125,19 +1126,28 @@ class TestOauthHandlers:
         mock_context.activity = failure_activity
         await oauth_handlers.sign_in_failure(mock_context)
 
+        # Both keys retired, so nothing routes the follow-up.
+        assert state.user is not None
+        assert pending_marker_keys(state) == set()
+
+        # Only GitHub issued this code; Graph rejects it the way the Token Service would.
+        def get_token(params):
+            if params.connection_name == "GitHub":
+                return mock_token_response
+            raise oauth_http_error(400, "wrong connection")
+
         mock_context.activity = verify_state_activity
-        mock_context.api.users.get_token.return_value = mock_token_response
+        mock_context.api.users.get_token.side_effect = get_token
+
         result = await oauth_handlers.sign_in_verify_state(mock_context)
 
         assert result is None
         attempted = [call.args[0].connection_name for call in mock_context.api.users.get_token.await_args_list]
-        assert attempted == ["GitHub"]
+        assert attempted == ["Graph", "GitHub"]
         assert calls == ["github:GitHub"]
-        assert state.user is not None
-        assert pending_marker_keys(state) == set()
 
     @pytest.mark.asyncio
-    async def test_retired_sso_hint_does_not_attribute_a_second_failure(
+    async def test_cleared_hint_does_not_attribute_a_second_failure(
         self, oauth_handlers, mock_context, failure_activity
     ):
         github = oauth_handlers.oauth_registry.add(OAuthFlow("GitHub"))
@@ -1153,13 +1163,12 @@ class TestOauthHandlers:
         await oauth_handlers.sign_in_failure(mock_context)
         assert calls == ["github:GitHub"]
 
-        # Second failure: the hint's SSO marker is spent, so this falls back to the
+        # Second failure: the hint is gone, so this falls back to the
         # notify-all-registered-flows path rather than re-attributing to GitHub.
         await oauth_handlers.sign_in_failure(mock_context)
         assert calls == ["github:GitHub", "github:GitHub"]
         assert mock_context.state.user is not None
-        # The SSO marker is retired; the sign-in itself is still pending.
-        assert pending_marker_keys(mock_context.state) == {"__oauth:pending:GitHub"}
+        assert pending_marker_keys(mock_context.state) == set()
 
     @pytest.mark.asyncio
     async def test_legacy_default_connection_hint_is_cleared_without_warning(
@@ -1216,12 +1225,11 @@ class TestOauthHandlers:
             "github:GitHub",
         ]
         assert state.user is not None
-        # The failed connection keeps its hint (the card's sign-in button is still live) but
-        # loses its SSO marker so it cannot re-attribute a second failure.
+        # Only the flow that was notified loses its hint; the unrelated pending
+        # sign-in on test-connection is left intact.
         assert pending_marker_keys(state) == {
             "__oauth:pending:test-connection",
             "__oauth:pending:sso:test-connection",
-            "__oauth:pending:GitHub",
         }
 
     @pytest.mark.asyncio
@@ -1235,7 +1243,9 @@ class TestOauthHandlers:
         async def replace_hint(event):
             assert event.connection_name == "GitHub"
             assert state.user is not None
-            assert pending_marker_keys(state) == {"__oauth:pending:GitHub"}
+            # Already retired by the time handlers run, so what this records is a
+            # genuinely new sign-in rather than a survivor of the failed one.
+            assert pending_marker_keys(state) == set()
             state.user["__oauth:pending:GitHub"] = datetime.now(timezone.utc).isoformat()
             state.user["__oauth:pending:sso:GitHub"] = state.user["__oauth:pending:GitHub"]
 
@@ -1250,6 +1260,91 @@ class TestOauthHandlers:
             f"__oauth:pending:{github.connection_name}",
             f"__oauth:pending:sso:{github.connection_name}",
         }
+
+    @pytest.mark.asyncio
+    async def test_sign_in_failure_clears_both_keys_for_the_resolved_flow(
+        self, oauth_handlers, mock_context, failure_activity
+    ):
+        """Parity with C#/TS: the base hint retires alongside its SSO marker."""
+        oauth_handlers.oauth_registry.add(OAuthFlow("GitHub"))
+        mock_context.activity = failure_activity
+        state = create_pending_state(("GitHub", time.time(), True))
+        mock_context.state = state
+        assert pending_marker_keys(state) == {"__oauth:pending:GitHub", "__oauth:pending:sso:GitHub"}
+
+        await oauth_handlers.sign_in_failure(mock_context)
+
+        assert pending_marker_keys(state) == set()
+
+    @pytest.mark.asyncio
+    async def test_sign_in_failure_without_a_hint_clears_every_notified_flow(
+        self, oauth_handlers, mock_context, failure_activity
+    ):
+        """With nothing to attribute the callback, every notified flow retires its hint."""
+        oauth_handlers.oauth_registry.add(OAuthFlow("Graph"))
+        oauth_handlers.oauth_registry.add(OAuthFlow("GitHub"))
+        mock_context.activity = failure_activity
+        # Non-SSO hints, so none of them can resolve a target for this callback.
+        state = create_pending_state(
+            ("Graph", time.time(), False),
+            ("GitHub", time.time(), False),
+        )
+        mock_context.state = state
+
+        await oauth_handlers.sign_in_failure(mock_context)
+
+        assert pending_marker_keys(state) == set()
+
+    @pytest.mark.asyncio
+    async def test_unexpected_token_exchange_error_clears_pending(
+        self, oauth_handlers, mock_context, token_exchange_activity
+    ):
+        """An operational fault ends the sign-in, so its hint must not outlive it."""
+        mock_context.activity = token_exchange_activity
+        state = create_pending_state(("test-connection", time.time(), True))
+        mock_context.state = state
+        mock_context.api.users.exchange_token.side_effect = oauth_http_error(500, "boom")
+
+        result = await oauth_handlers.sign_in_token_exchange(mock_context)
+
+        assert result is not None and result.status == 500
+        assert pending_marker_keys(state) == set()
+
+    @pytest.mark.asyncio
+    async def test_expected_token_exchange_failure_keeps_pending(
+        self, oauth_handlers, mock_context, token_exchange_activity
+    ):
+        """Regression guard: the 412 fallback needs its hint to route the button click."""
+        mock_context.activity = token_exchange_activity
+        state = create_pending_state(("test-connection", time.time(), True))
+        mock_context.state = state
+        mock_context.api.users.exchange_token.side_effect = oauth_http_error(404, "no token")
+
+        result = await oauth_handlers.sign_in_token_exchange(mock_context)
+
+        assert result is not None and result.status == 412
+        assert pending_marker_keys(state) == {
+            "__oauth:pending:test-connection",
+            "__oauth:pending:sso:test-connection",
+        }
+
+    @pytest.mark.asyncio
+    async def test_unexpected_verify_state_error_clears_pending(
+        self, oauth_handlers, mock_context, verify_state_activity
+    ):
+        """An operational fault ends the sign-in, unlike an expected candidate miss."""
+        # Registered so the hint survives candidate resolution and reaches the probe;
+        # an unregistered connection's hint is discarded before this branch is hit.
+        oauth_handlers.oauth_registry.add(OAuthFlow("test-connection"))
+        mock_context.activity = verify_state_activity
+        state = create_pending_state(("test-connection", time.time(), True))
+        mock_context.state = state
+        mock_context.api.users.get_token.side_effect = oauth_http_error(500, "boom")
+
+        result = await oauth_handlers.sign_in_verify_state(mock_context)
+
+        assert result is not None and result.status == 500
+        assert pending_marker_keys(state) == set()
 
     @pytest.mark.asyncio
     async def test_sign_in_failure_ignores_more_recent_non_sso_hint(

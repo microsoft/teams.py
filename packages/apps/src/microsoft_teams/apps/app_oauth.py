@@ -190,6 +190,9 @@ class OauthHandlers:
                 except HTTPStatusError as e:
                     status = e.response.status_code
                     if status not in (404, 400, 412):
+                        self.oauth_registry._clear_pending(  # pyright: ignore[reportPrivateUsage]
+                            ctx, event_connection_name
+                        )
                         logger.error(
                             f"Error exchanging token for user {activity.from_.id} in "
                             f"conversation {activity.conversation.id}: {e}"
@@ -558,9 +561,11 @@ class OauthHandlers:
                     f"registration has 'Expose an API' configured with the correct "
                     f"Application ID URI matching your OAuth connection's Token Exchange URL."
                 )
-                if target_flow is not None:
-                    self.oauth_registry._mark_sso_consumed(  # pyright: ignore[reportPrivateUsage]
-                        ctx, target_flow.connection_name
+                callback_flows = [target_flow] if target_flow is not None else registered_flows
+
+                for flow in callback_flows:
+                    self.oauth_registry._clear_pending(  # pyright: ignore[reportPrivateUsage]
+                        ctx, flow.connection_name
                     )
                 await self.event_emitter.emit_async(
                     "error",
@@ -578,7 +583,6 @@ class OauthHandlers:
                 await self.event_emitter.emit_async("sign_in_failure", event)
                 span.set_attribute(APP_ATTRIBUTE_NAMES.oauth_callback_invoked, True)
                 span.set_attribute(APP_ATTRIBUTE_NAMES.oauth_result, result)
-                callback_flows = [target_flow] if target_flow is not None else registered_flows
                 for flow in callback_flows:
                     flow_event = (
                         event
@@ -696,6 +700,9 @@ class OauthHandlers:
                                 f"{activity.conversation.id} (HTTP {status})."
                             )
                             continue
+                        self.oauth_registry._clear_pending(  # pyright: ignore[reportPrivateUsage]
+                            ctx, connection_name
+                        )
                         logger.error(
                             f"Error verifying sign-in state for user {activity.from_.id} in conversation"
                             f"{activity.conversation.id}: {e}"

@@ -17,7 +17,6 @@ from .oauth_connection import connection_lookup_key, normalize_connection_name
 from .oauth_state import (
     clear_pending_oauth_sign_in,
     get_pending_oauth_sign_ins,
-    mark_pending_oauth_sso_consumed,
 )
 from .routing import ActivityContext, SignInOptions
 
@@ -239,10 +238,6 @@ class OAuthFlowRegistry(Mapping[str, OAuthFlow]):
     def _clear_pending(self, ctx: ActivityContext[Any], connection_name: Optional[str] = None) -> None:
         conversation_id, user_id = _pending_scope(ctx)
         clear_pending_oauth_sign_in(ctx.state, connection_name, conversation_id, user_id)
-
-    def _mark_sso_consumed(self, ctx: ActivityContext[Any], connection_name: str) -> None:
-        conversation_id, user_id = _pending_scope(ctx)
-        mark_pending_oauth_sso_consumed(ctx.state, connection_name, conversation_id, user_id)
 
 
 def _pending_scope(ctx: ActivityContext[Any]) -> Tuple[Optional[str], Optional[str]]:
