@@ -120,7 +120,14 @@ class AppOptions(TypedDict, total=False):
 
     # OAuth
     default_connection_name: Optional[str]
-    """The OAuth connection name to use for authentication. Defaults to 'graph'."""
+    """The OAuth connection name to use for authentication. Defaults to 'graph'.
+
+    .. deprecated::
+        Names a single connection for the whole app, which does not generalize
+        past one. Register each connection with ``app.add_oauth_flow(name)`` and
+        hold on to the returned ``OAuthFlow`` instead. Still honoured as the
+        default for the deprecated ``ctx.sign_in`` / ``ctx.sign_out`` /
+        ``ctx.get_user_token`` surface."""
 
     fetch_user_token: Optional[bool]
     """Whether to eagerly look up the user's OAuth token on every inbound activity.
@@ -163,7 +170,10 @@ class InternalAppOptions:
     dangerously_allow_unauthenticated_requests: bool = False
     """Whether to accept incoming requests without JWT validation."""
     default_connection_name: str = "graph"
-    """The OAuth connection name to use for authentication."""
+    """The OAuth connection name to use for authentication.
+
+    .. deprecated::
+        Use ``app.add_oauth_flow(name)`` and the returned ``OAuthFlow``."""
     fetch_user_token: bool = False
     """When True, eagerly looks up the user's OAuth token on every inbound activity.
     The token is used to compute ``ctx.is_signed_in`` and ``ctx.user_token``, and to authenticate

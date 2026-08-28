@@ -214,15 +214,13 @@ class TestProcessLocalStoreMechanics:
 
         assert get_pending_oauth_sign_ins(None, "c", "u") == []
 
-    def test_consuming_sso_keeps_the_hint_for_routing(self) -> None:
-        """The sign-in is still pending; only its silent-SSO attempt is spent."""
+    def test_clearing_retires_an_sso_hint_entirely(self) -> None:
+        """The whole hint goes, SSO marker included, so nothing survives to re-route."""
         record_pending_oauth_sign_in(None, "graph", sso_offered=True, conversation_id="c", user_id="u")
 
-        local.mark_sso_consumed("c", "u", "GRAPH")
+        clear_pending_oauth_sign_in(None, "GRAPH", "c", "u")
 
-        hints = get_pending_oauth_sign_ins(None, "c", "u")
-        assert len(hints) == 1
-        assert hints[0].sso_offered is False
+        assert get_pending_oauth_sign_ins(None, "c", "u") == []
 
     def test_replace_restores_the_original_timestamps(self) -> None:
         """Rollback puts back what was there, not a fresh set of hints."""

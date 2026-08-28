@@ -103,18 +103,6 @@ def replace(conversation_id: str, user_id: str, restored: List[_Entry]) -> None:
             _entries[(conversation_id, user_id, connection_key)] = (name.strip(), created_at, sso_offered)
 
 
-def mark_sso_consumed(conversation_id: str, user_id: str, connection_name: str) -> None:
-    """Retire a hint's silent-SSO marker, keeping it available for routing."""
-    key = _key(conversation_id, user_id, connection_name)
-    if key is None:
-        return
-
-    with _lock:
-        existing = _entries.get(key)
-        if existing is not None:
-            _entries[key] = (existing[0], existing[1], False)
-
-
 def _key(conversation_id: str, user_id: str, connection_name: str) -> Optional[_Key]:
     if not conversation_id or not user_id:
         return None

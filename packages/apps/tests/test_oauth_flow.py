@@ -9,14 +9,34 @@ import asyncio
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from httpx import HTTPStatusError, Request, Response
 from microsoft_teams.apps import App, OAuthFlow, OAuthFlowRegistry
 from microsoft_teams.apps.routing import SignInOptions
 from microsoft_teams.apps.state import StateOptions, TurnStateLoader
 from microsoft_teams.common.storage import LocalStorage
 
 
+def _api_ctx() -> MagicMock:
+    """Context mock whose activity fields survive pydantic validation.
+
+    ``sign_out`` and ``get_token`` build Token Service params themselves, so
+    ``channel_id`` and ``from_.id`` must be real values rather than MagicMocks.
+    """
+    ctx = MagicMock()
+    ctx.activity.channel_id = "msteams"
+    ctx.activity.from_.id = "user-1"
+    return ctx
+
+
+def _http_status_error(status_code: int) -> HTTPStatusError:
+    """Build an httpx.HTTPStatusError carrying the given status code."""
+    request = Request("GET", "https://token.example/api/usertoken/GetToken")
+    response = Response(status_code, request=request)
+    return HTTPStatusError(f"HTTP {status_code}", request=request, response=response)
+
+
 class TestOAuthFlowOperations:
-    """sign_in / sign_out / get_token / is_signed_in delegate to the context."""
+    """sign_in / sign_out / get_token / is_signed_in, always on this flow's connection."""
 
     @pytest.mark.asyncio
     async def test_sign_in_forces_flow_connection_name(self) -> None:
@@ -70,37 +90,63 @@ class TestOAuthFlowOperations:
     @pytest.mark.asyncio
     async def test_sign_out_targets_flow_connection(self) -> None:
         flow = OAuthFlow("graph")
-        ctx = MagicMock()
-        ctx.sign_out = AsyncMock(return_value=None)
+        ctx = _api_ctx()
+        ctx.api.users.sign_out = AsyncMock(return_value=None)
 
         await flow.sign_out(ctx)
 
-        ctx.sign_out.assert_awaited_once_with(connection_name="graph")
+        ctx.api.users.sign_out.assert_awaited_once()
+        params = ctx.api.users.sign_out.call_args[0][0]
+        assert params.connection_name == "graph"
+        assert params.channel_id == "msteams"
+        assert params.user_id == "user-1"
 
     @pytest.mark.asyncio
-    async def test_get_token_returns_ctx_token(self) -> None:
+    async def test_get_token_targets_flow_connection(self) -> None:
         flow = OAuthFlow("graph")
-        ctx = MagicMock()
-        ctx.get_user_token = AsyncMock(return_value="tok")
+        ctx = _api_ctx()
+        ctx.api.users.get_token = AsyncMock(return_value=MagicMock(token="tok"))
 
         result = await flow.get_token(ctx)
 
         assert result == "tok"
-        ctx.get_user_token.assert_awaited_once_with(connection_name="graph")
+        params = ctx.api.users.get_token.call_args[0][0]
+        assert params.connection_name == "graph"
+        assert params.channel_id == "msteams"
+        assert params.user_id == "user-1"
+
+    @pytest.mark.asyncio
+    async def test_get_token_returns_none_when_no_token_cached(self) -> None:
+        """404 is the Token Service saying "not signed in", not a failure."""
+        flow = OAuthFlow("graph")
+        ctx = _api_ctx()
+        ctx.api.users.get_token = AsyncMock(side_effect=_http_status_error(404))
+
+        assert await flow.get_token(ctx) is None
+
+    @pytest.mark.asyncio
+    async def test_get_token_reraises_non_404(self) -> None:
+        """An outage must not be reported as a logged-out user."""
+        flow = OAuthFlow("graph")
+        ctx = _api_ctx()
+        ctx.api.users.get_token = AsyncMock(side_effect=_http_status_error(503))
+
+        with pytest.raises(HTTPStatusError):
+            await flow.get_token(ctx)
 
     @pytest.mark.asyncio
     async def test_is_signed_in_true_when_token_present(self) -> None:
         flow = OAuthFlow("graph")
-        ctx = MagicMock()
-        ctx.get_user_token = AsyncMock(return_value="tok")
+        ctx = _api_ctx()
+        ctx.api.users.get_token = AsyncMock(return_value=MagicMock(token="tok"))
 
         assert await flow.is_signed_in(ctx) is True
 
     @pytest.mark.asyncio
     async def test_is_signed_in_false_when_no_token(self) -> None:
         flow = OAuthFlow("graph")
-        ctx = MagicMock()
-        ctx.get_user_token = AsyncMock(return_value=None)
+        ctx = _api_ctx()
+        ctx.api.users.get_token = AsyncMock(side_effect=_http_status_error(404))
 
         assert await flow.is_signed_in(ctx) is False
 

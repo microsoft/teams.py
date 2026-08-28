@@ -9,12 +9,14 @@ from collections import OrderedDict
 from dataclasses import replace
 from typing import Any, Awaitable, Callable, Iterator, List, Mapping, Optional, Sequence, Tuple, TypeVar, Union
 
+from httpx import HTTPStatusError
+from microsoft_teams.api import GetUserTokenParams, SignOutUserParams
+
 from .events import SignInEvent, SignInFailureEvent
 from .oauth_connection import connection_lookup_key, normalize_connection_name
 from .oauth_state import (
     clear_pending_oauth_sign_in,
     get_pending_oauth_sign_ins,
-    mark_pending_oauth_sso_consumed,
 )
 from .routing import ActivityContext, SignInOptions
 
@@ -150,15 +152,33 @@ class OAuthFlow:
 
     async def sign_out(self, ctx: ActivityContext[Any]) -> None:
         """Sign the user out of this connection."""
-        await ctx.sign_out(connection_name=self.connection_name)
+        await ctx.api.users.sign_out(
+            SignOutUserParams(
+                channel_id=ctx.activity.channel_id,
+                user_id=ctx.activity.from_.id,
+                connection_name=self.connection_name,
+            )
+        )
 
     async def get_token(self, ctx: ActivityContext[Any]) -> Optional[str]:
         """The user's token for this connection, or ``None`` if not signed in."""
-        return await ctx.get_user_token(connection_name=self.connection_name)
+        try:
+            res = await ctx.api.users.get_token(
+                GetUserTokenParams(
+                    channel_id=ctx.activity.channel_id,
+                    user_id=ctx.activity.from_.id,
+                    connection_name=self.connection_name,
+                )
+            )
+            return res.token
+        except HTTPStatusError as e:
+            if e.response.status_code == 404:
+                return None
+            raise
 
     async def is_signed_in(self, ctx: ActivityContext[Any]) -> bool:
         """Whether the user currently has a token for this connection."""
-        return await ctx.get_user_token(connection_name=self.connection_name) is not None
+        return await self.get_token(ctx) is not None
 
 
 class OAuthFlowRegistry(Mapping[str, OAuthFlow]):
@@ -218,10 +238,6 @@ class OAuthFlowRegistry(Mapping[str, OAuthFlow]):
     def _clear_pending(self, ctx: ActivityContext[Any], connection_name: Optional[str] = None) -> None:
         conversation_id, user_id = _pending_scope(ctx)
         clear_pending_oauth_sign_in(ctx.state, connection_name, conversation_id, user_id)
-
-    def _mark_sso_consumed(self, ctx: ActivityContext[Any], connection_name: str) -> None:
-        conversation_id, user_id = _pending_scope(ctx)
-        mark_pending_oauth_sso_consumed(ctx.state, connection_name, conversation_id, user_id)
 
 
 def _pending_scope(ctx: ActivityContext[Any]) -> Tuple[Optional[str], Optional[str]]:
