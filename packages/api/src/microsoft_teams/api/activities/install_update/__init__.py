@@ -9,11 +9,16 @@ from pydantic import Field
 
 from .add import InstalledActivity
 from .remove import UninstalledActivity
+from .upgrade import UpgradedActivity
 
-InstallUpdateActivity = Annotated[Union[InstalledActivity, UninstalledActivity], Field(discriminator="action")]
+InstallUpdateActivity = Annotated[
+    Union[InstalledActivity, UninstalledActivity, UpgradedActivity],
+    Field(discriminator="action"),
+]
 
 __all__ = [
     "InstalledActivity",
     "UninstalledActivity",
+    "UpgradedActivity",
     "InstallUpdateActivity",
 ]
