@@ -96,7 +96,13 @@ class AppOptions(TypedDict, total=False):
     default). Pass a ``StateOptions`` to configure the
     key prefix or a dedicated ``Storage`` backend. When enabled, handlers
     read/write ``ctx.state.conversation`` and ``ctx.state.user``; when off,
-    ``ctx.state`` is ``None``."""
+    ``ctx.state`` is ``None``.
+
+    Omitting this option leaves the decision open: registering an OAuth flow with
+    ``add_oauth_flow`` then enables state automatically, because connection-less
+    ``signin/verifyState`` and ``signin/failure`` callbacks need durable pending
+    attribution to reach the right flow. Pass ``state=False`` to opt out
+    explicitly — an explicit value is never overridden."""
     dangerously_allow_unauthenticated_requests: Optional[bool]
     """
     Whether to accept incoming requests without JWT validation.
@@ -114,7 +120,14 @@ class AppOptions(TypedDict, total=False):
 
     # OAuth
     default_connection_name: Optional[str]
-    """The OAuth connection name to use for authentication. Defaults to 'graph'."""
+    """The OAuth connection name to use for authentication. Defaults to 'graph'.
+
+    .. deprecated::
+        Names a single connection for the whole app, which does not generalize
+        past one. Register each connection with ``app.add_oauth_flow(name)`` and
+        hold on to the returned ``OAuthFlow`` instead. Still honoured as the
+        default for the deprecated ``ctx.sign_in`` / ``ctx.sign_out`` /
+        ``ctx.get_user_token`` surface."""
 
     fetch_user_token: Optional[bool]
     """Whether to eagerly look up the user's OAuth token on every inbound activity.
@@ -157,7 +170,10 @@ class InternalAppOptions:
     dangerously_allow_unauthenticated_requests: bool = False
     """Whether to accept incoming requests without JWT validation."""
     default_connection_name: str = "graph"
-    """The OAuth connection name to use for authentication."""
+    """The OAuth connection name to use for authentication.
+
+    .. deprecated::
+        Use ``app.add_oauth_flow(name)`` and the returned ``OAuthFlow``."""
     fetch_user_token: bool = False
     """When True, eagerly looks up the user's OAuth token on every inbound activity.
     The token is used to compute ``ctx.is_signed_in`` and ``ctx.user_token``, and to authenticate
@@ -194,7 +210,11 @@ class InternalAppOptions:
     storage: Optional[Storage[str, Any]] = None
     state: Optional[Union[bool, StateOptions]] = None
     """Per-turn state opt-in. ``None``/``False`` disables it; ``True`` enables it on
-    the app's shared storage; a ``StateOptions`` configures the key prefix or backend."""
+    the app's shared storage; a ``StateOptions`` configures the key prefix or backend.
+
+    ``None`` means "unset" rather than "off": registering an OAuth flow with
+    ``add_oauth_flow`` turns state on, since connection-less callbacks need durable
+    pending attribution. ``False`` is an explicit opt-out and is never overridden."""
     service_url: Optional[str] = None
     """
     Base Service URL for BotBackend.

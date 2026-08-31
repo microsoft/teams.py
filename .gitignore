@@ -35,7 +35,6 @@ coverage.xml
 *.tmp
 
 ref/
-py.typed
 
 .env.claude/
 .claude/

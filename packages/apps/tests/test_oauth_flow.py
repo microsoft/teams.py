@@ -5,15 +5,38 @@ Licensed under the MIT License.
 
 # pyright: basic
 
+import asyncio
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from httpx import HTTPStatusError, Request, Response
 from microsoft_teams.apps import App, OAuthFlow, OAuthFlowRegistry
 from microsoft_teams.apps.routing import SignInOptions
+from microsoft_teams.apps.state import StateOptions, TurnStateLoader
+from microsoft_teams.common.storage import LocalStorage
+
+
+def _api_ctx() -> MagicMock:
+    """Context mock whose activity fields survive pydantic validation.
+
+    ``sign_out`` and ``get_token`` build Token Service params themselves, so
+    ``channel_id`` and ``from_.id`` must be real values rather than MagicMocks.
+    """
+    ctx = MagicMock()
+    ctx.activity.channel_id = "msteams"
+    ctx.activity.from_.id = "user-1"
+    return ctx
+
+
+def _http_status_error(status_code: int) -> HTTPStatusError:
+    """Build an httpx.HTTPStatusError carrying the given status code."""
+    request = Request("GET", "https://token.example/api/usertoken/GetToken")
+    response = Response(status_code, request=request)
+    return HTTPStatusError(f"HTTP {status_code}", request=request, response=response)
 
 
 class TestOAuthFlowOperations:
-    """sign_in / sign_out / get_token / is_signed_in delegate to the context."""
+    """sign_in / sign_out / get_token / is_signed_in, always on this flow's connection."""
 
     @pytest.mark.asyncio
     async def test_sign_in_forces_flow_connection_name(self) -> None:
@@ -56,39 +79,74 @@ class TestOAuthFlowOperations:
         assert passed.connection_name == "graph"
 
     @pytest.mark.asyncio
-    async def test_sign_out_targets_flow_connection(self) -> None:
+    async def test_sign_in_without_state_remains_supported(self) -> None:
         flow = OAuthFlow("graph")
         ctx = MagicMock()
-        ctx.sign_out = AsyncMock(return_value=None)
+        ctx.sign_in = AsyncMock(return_value=None)
+        ctx.state = None
+
+        assert await flow.sign_in(ctx) is None
+
+    @pytest.mark.asyncio
+    async def test_sign_out_targets_flow_connection(self) -> None:
+        flow = OAuthFlow("graph")
+        ctx = _api_ctx()
+        ctx.api.users.sign_out = AsyncMock(return_value=None)
 
         await flow.sign_out(ctx)
 
-        ctx.sign_out.assert_awaited_once_with(connection_name="graph")
+        ctx.api.users.sign_out.assert_awaited_once()
+        params = ctx.api.users.sign_out.call_args[0][0]
+        assert params.connection_name == "graph"
+        assert params.channel_id == "msteams"
+        assert params.user_id == "user-1"
 
     @pytest.mark.asyncio
-    async def test_get_token_returns_ctx_token(self) -> None:
+    async def test_get_token_targets_flow_connection(self) -> None:
         flow = OAuthFlow("graph")
-        ctx = MagicMock()
-        ctx.get_user_token = AsyncMock(return_value="tok")
+        ctx = _api_ctx()
+        ctx.api.users.get_token = AsyncMock(return_value=MagicMock(token="tok"))
 
         result = await flow.get_token(ctx)
 
         assert result == "tok"
-        ctx.get_user_token.assert_awaited_once_with(connection_name="graph")
+        params = ctx.api.users.get_token.call_args[0][0]
+        assert params.connection_name == "graph"
+        assert params.channel_id == "msteams"
+        assert params.user_id == "user-1"
+
+    @pytest.mark.asyncio
+    async def test_get_token_returns_none_when_no_token_cached(self) -> None:
+        """404 is the Token Service saying "not signed in", not a failure."""
+        flow = OAuthFlow("graph")
+        ctx = _api_ctx()
+        ctx.api.users.get_token = AsyncMock(side_effect=_http_status_error(404))
+
+        assert await flow.get_token(ctx) is None
+
+    @pytest.mark.asyncio
+    async def test_get_token_reraises_non_404(self) -> None:
+        """An outage must not be reported as a logged-out user."""
+        flow = OAuthFlow("graph")
+        ctx = _api_ctx()
+        ctx.api.users.get_token = AsyncMock(side_effect=_http_status_error(503))
+
+        with pytest.raises(HTTPStatusError):
+            await flow.get_token(ctx)
 
     @pytest.mark.asyncio
     async def test_is_signed_in_true_when_token_present(self) -> None:
         flow = OAuthFlow("graph")
-        ctx = MagicMock()
-        ctx.get_user_token = AsyncMock(return_value="tok")
+        ctx = _api_ctx()
+        ctx.api.users.get_token = AsyncMock(return_value=MagicMock(token="tok"))
 
         assert await flow.is_signed_in(ctx) is True
 
     @pytest.mark.asyncio
     async def test_is_signed_in_false_when_no_token(self) -> None:
         flow = OAuthFlow("graph")
-        ctx = MagicMock()
-        ctx.get_user_token = AsyncMock(return_value=None)
+        ctx = _api_ctx()
+        ctx.api.users.get_token = AsyncMock(side_effect=_http_status_error(404))
 
         assert await flow.is_signed_in(ctx) is False
 
@@ -177,3 +235,308 @@ class TestAppOAuthFlowIntegration:
     def test_get_missing_flow_on_empty_registry_lists_none(self, app: App) -> None:
         with pytest.raises(ValueError, match="<none>"):
             app.get_oauth_flow("missing")
+
+
+class TestConnectionNameNormalization:
+    """Connection names are trimmed, non-blank, and matched case-insensitively."""
+
+    @pytest.mark.parametrize("name", ["  graph", "graph  ", "\tgraph\n", " graph "])
+    def test_surrounding_whitespace_is_trimmed(self, name: str) -> None:
+        """A stray space in config must not create a second, unreachable flow."""
+        assert OAuthFlow(name).connection_name == "graph"
+
+    def test_inner_whitespace_is_preserved(self) -> None:
+        """Only the edges are noise; the name itself is the service's business."""
+        assert OAuthFlow(" my graph ").connection_name == "my graph"
+
+    @pytest.mark.parametrize("name", ["", " ", "\t", "\n", "   \t  "])
+    def test_blank_names_are_rejected(self, name: str) -> None:
+        """A blank name addresses nothing, so it fails at registration."""
+        with pytest.raises(ValueError, match="connection name"):
+            OAuthFlow(name)
+
+    def test_original_casing_is_preserved(self) -> None:
+        """Events and the Token Service see the name the developer wrote."""
+        assert OAuthFlow("GraphMail").connection_name == "GraphMail"
+
+    @pytest.mark.parametrize("lookup", ["graph", "GRAPH", "Graph", "  graph  "])
+    def test_lookup_is_case_and_whitespace_insensitive(self, lookup: str) -> None:
+        registry = OAuthFlowRegistry()
+        flow = registry.add(OAuthFlow("Graph"))
+
+        assert registry.get(lookup) is flow
+        assert lookup in registry
+
+    @pytest.mark.parametrize("duplicate", ["graph", "GRAPH", " Graph "])
+    def test_duplicates_are_detected_across_casing_and_whitespace(self, duplicate: str) -> None:
+        """Red-green: without trimming, ' Graph ' registers a silent second flow."""
+        registry = OAuthFlowRegistry()
+        registry.add(OAuthFlow("Graph"))
+
+        with pytest.raises(ValueError, match="already"):
+            registry.add(OAuthFlow(duplicate))
+
+    def test_blank_lookup_returns_none_rather_than_raising(self) -> None:
+        """``.get()`` and ``in`` are Mapping operations and must stay total.
+
+        The registry subclasses Mapping, so ``.get()`` only absorbs KeyError. A
+        blank name raising ValueError here would escape through ``.get('')``.
+        """
+        registry = OAuthFlowRegistry()
+        registry.add(OAuthFlow("graph"))
+
+        assert registry.get("") is None
+        assert registry.get("   ") is None
+        assert "" not in registry
+        with pytest.raises(KeyError):
+            registry[""]
+
+    def test_iteration_yields_original_casing(self) -> None:
+        registry = OAuthFlowRegistry()
+        registry.add(OAuthFlow("GraphMail"))
+        registry.add(OAuthFlow(" GraphUser "))
+
+        assert list(registry) == ["GraphMail", "GraphUser"]
+
+    @pytest.mark.asyncio
+    async def test_flow_defaults_carry_the_normalized_name(self) -> None:
+        """The trimmed name is what reaches ctx.sign_in, not the raw one."""
+        flow = OAuthFlow("  graph  ")
+        ctx = MagicMock()
+        ctx.sign_in = AsyncMock(return_value=None)
+
+        await flow.sign_in(ctx)
+
+        assert ctx.sign_in.call_args[0][0].connection_name == "graph"
+
+
+class TestFlowHandlerDispatch:
+    """Per-flow handlers accept sync or async callables and are isolated from
+    each other, while still running strictly in registration order."""
+
+    @pytest.mark.asyncio
+    async def test_handlers_run_in_order_each_completing_before_the_next(self) -> None:
+        flow = OAuthFlow("graph")
+        calls: list[str] = []
+
+        @flow.on_signin
+        def first(_) -> None:
+            calls.append("first")
+
+        @flow.on_signin
+        async def second(_) -> None:
+            calls.append("second-start")
+            await asyncio.sleep(0.01)
+            calls.append("second-end")
+
+        @flow.on_signin
+        def third(_) -> None:
+            calls.append("third")
+
+        await flow._invoke_signin_handlers(MagicMock())
+
+        # "third" lands after "second-end", not between the two halves of the
+        # async handler: dispatch awaits each handler before starting the next.
+        assert calls == ["first", "second-start", "second-end", "third"]
+
+    @pytest.mark.asyncio
+    async def test_sync_handler_returning_an_awaitable_is_awaited(self) -> None:
+        flow = OAuthFlow("graph")
+        calls: list[str] = []
+
+        @flow.on_signin
+        def returns_awaitable(_):
+            async def finish() -> None:
+                calls.append("awaited")
+
+            calls.append("called")
+            return finish()
+
+        @flow.on_signin
+        def after(_) -> None:
+            calls.append("after")
+
+        await flow._invoke_signin_handlers(MagicMock())
+
+        assert calls == ["called", "awaited", "after"]
+
+    @pytest.mark.asyncio
+    async def test_raising_sync_handler_does_not_stop_later_handlers(self) -> None:
+        flow = OAuthFlow("graph")
+        calls: list[str] = []
+
+        @flow.on_signin
+        def boom(_) -> None:
+            calls.append("boom")
+            raise RuntimeError("sync handler failed")
+
+        @flow.on_signin
+        async def later(_) -> None:
+            calls.append("later")
+
+        assert await flow._invoke_signin_handlers(MagicMock()) is None
+        assert calls == ["boom", "later"]
+
+    @pytest.mark.asyncio
+    async def test_raising_async_handler_does_not_stop_later_handlers(self) -> None:
+        flow = OAuthFlow("graph")
+        calls: list[str] = []
+
+        @flow.on_signin
+        async def boom(_) -> None:
+            calls.append("boom")
+            raise RuntimeError("async handler failed")
+
+        @flow.on_signin
+        def later(_) -> None:
+            calls.append("later")
+
+        assert await flow._invoke_signin_handlers(MagicMock()) is None
+        assert calls == ["boom", "later"]
+
+    @pytest.mark.asyncio
+    async def test_failure_handlers_are_isolated_and_ordered_too(self) -> None:
+        flow = OAuthFlow("graph")
+        calls: list[str] = []
+
+        @flow.on_signin_failure
+        def boom(_) -> None:
+            calls.append("boom")
+            raise RuntimeError("failure handler failed")
+
+        @flow.on_signin_failure
+        async def later(_) -> None:
+            calls.append("later")
+
+        assert await flow._invoke_signin_failure_handlers(MagicMock()) is None
+        assert calls == ["boom", "later"]
+
+    @pytest.mark.asyncio
+    async def test_success_and_failure_handlers_do_not_cross_over(self) -> None:
+        flow = OAuthFlow("graph")
+        calls: list[str] = []
+
+        @flow.on_signin
+        async def on_success(_) -> None:
+            calls.append("success")
+
+        @flow.on_signin_failure
+        def on_failure(_) -> None:
+            calls.append("failure")
+
+        await flow._invoke_signin_handlers(MagicMock())
+        assert calls == ["success"]
+
+        await flow._invoke_signin_failure_handlers(MagicMock())
+        assert calls == ["success", "failure"]
+
+    def test_decorators_return_the_registered_function(self) -> None:
+        flow = OAuthFlow("graph")
+
+        async def success_handler(_) -> None: ...
+
+        def failure_handler(_) -> None: ...
+
+        assert flow.on_signin(success_handler) is success_handler
+        assert flow.on_signin_failure(failure_handler) is failure_handler
+
+
+class TestOAuthAutoEnablesState:
+    """Registering a flow turns state on when the app never said either way.
+
+    Connection-less ``signin/verifyState`` and ``signin/failure`` callbacks can
+    only be attributed from a durable pending record, so state defaults on once
+    a flow exists — matching the C# and TypeScript SDKs. An explicit ``state``
+    value, including ``False``, is always left alone.
+    """
+
+    @staticmethod
+    def _app(**options) -> App:
+        return App(client_id="test-client-id", client_secret="test-secret", **options)
+
+    def test_omitted_state_stays_off_without_a_flow(self) -> None:
+        app = self._app()
+
+        assert app.options.state is None
+        assert app._state_loader is None
+        assert app.activity_processor.state_loader is None
+
+    def test_omitted_state_is_enabled_by_registering_a_flow(self) -> None:
+        app = self._app()
+
+        app.add_oauth_flow("graph")
+
+        assert isinstance(app._state_loader, TurnStateLoader)
+        # The processor reads its own reference at dispatch time, so updating
+        # the app alone would leave turns without state.
+        assert app.activity_processor.state_loader is app._state_loader
+
+    def test_auto_enabled_state_uses_the_apps_shared_storage(self) -> None:
+        storage = LocalStorage()
+        app = self._app(storage=storage)
+
+        app.add_oauth_flow("graph")
+
+        assert app._state_loader is not None
+        assert app._state_loader._storage is storage
+
+    def test_explicit_false_is_not_overridden_by_registering_a_flow(self) -> None:
+        app = self._app(state=False)
+
+        app.add_oauth_flow("graph")
+
+        assert app.options.state is False
+        assert app._state_loader is None
+        assert app.activity_processor.state_loader is None
+
+    def test_explicit_true_keeps_its_existing_loader(self) -> None:
+        app = self._app(state=True)
+        loader = app._state_loader
+
+        app.add_oauth_flow("graph")
+
+        assert isinstance(loader, TurnStateLoader)
+        assert app._state_loader is loader
+
+    def test_custom_state_options_are_preserved_exactly(self) -> None:
+        storage = LocalStorage()
+        app = self._app(state=StateOptions(storage=storage, key_prefix="custom"))
+        loader = app._state_loader
+
+        app.add_oauth_flow("graph")
+
+        assert app._state_loader is loader
+        assert app._state_loader is not None
+        assert app._state_loader._storage is storage
+        assert app._state_loader._options.key_prefix == "custom"
+
+    def test_registering_a_second_flow_does_not_rebuild_the_loader(self) -> None:
+        app = self._app()
+        app.add_oauth_flow("graph")
+        loader = app._state_loader
+
+        app.add_oauth_flow("github")
+
+        assert app._state_loader is loader
+        assert app.activity_processor.state_loader is loader
+
+    def test_a_rejected_registration_does_not_enable_state(self) -> None:
+        # State is a side effect of a flow existing. A blank name never becomes
+        # a flow, so it must not switch state on either.
+        app = self._app()
+
+        with pytest.raises(ValueError):
+            app.add_oauth_flow("   ")
+
+        assert app._state_loader is None
+        assert app.activity_processor.state_loader is None
+
+    def test_a_rejected_duplicate_keeps_the_existing_loader(self) -> None:
+        app = self._app()
+        app.add_oauth_flow("graph")
+        loader = app._state_loader
+
+        with pytest.raises(ValueError):
+            app.add_oauth_flow("GRAPH")
+
+        assert app._state_loader is loader

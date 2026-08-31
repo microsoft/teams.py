@@ -65,6 +65,9 @@ class TurnState(MutableMapping[str, Any]):
         if fingerprint is not None:
             self._baseline = fingerprint
 
+    def _mark_dirty(self) -> None:
+        self._baseline = None
+
     def to_dict(self) -> Dict[str, Any]:
         """Return a shallow copy of the raw contents (used for serialization).
 

@@ -3,6 +3,8 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
+from typing import Optional
+
 from opentelemetry import metrics, trace
 from opentelemetry.metrics import Counter, Histogram, Meter
 from opentelemetry.trace import Span, Status, StatusCode, Tracer
@@ -113,12 +115,20 @@ def record_oauth_error(connection_name: str, operation: str, error_type: str) ->
     )
 
 
-def record_oauth_operation(connection_name: str, operation: str, result: str, duration_ms: float) -> None:
+def record_oauth_operation(connection_name: Optional[str], operation: str, result: str, duration_ms: float) -> None:
+    """Record an OAuth operation.
+
+    ``connection_name`` is optional because a ``signin/failure`` callback cannot
+    always be attributed to a connection. When it is ``None`` the connection
+    attribute is omitted rather than guessed, so queries never see an unrelated
+    connection blamed for the failure.
+    """
     attributes = {
-        APP_ATTRIBUTE_NAMES.oauth_connection: connection_name,
         APP_ATTRIBUTE_NAMES.oauth_operation: operation,
         APP_ATTRIBUTE_NAMES.oauth_result: result,
     }
+    if connection_name is not None:
+        attributes[APP_ATTRIBUTE_NAMES.oauth_connection] = connection_name
     get_oauth_operations_counter().add(1, attributes)
     get_oauth_operation_duration_histogram().record(duration_ms, attributes)
 

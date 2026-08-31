@@ -149,6 +149,7 @@ class App(ActivityHandlerMixin):
             fetch_user_token=self.options.fetch_user_token,
             agent365_baggage_options=self.options.telemetry.get("agent365") if self.options.telemetry else None,
             state_loader=self._state_loader,
+            oauth_registry=self._oauth_registry,
         )
         self.event_manager = EventManager(self._events)
         self.activity_processor.event_manager = self.event_manager
@@ -459,16 +460,57 @@ class App(ActivityHandlerMixin):
         Returns:
             The registered ``OAuthFlow``.
 
+        Notes:
+            Registering a flow turns on per-turn state automatically when the
+            ``state`` option was omitted, because connection-less callbacks need
+            somewhere to record which connection a sign-in started on. Pass
+            ``state=True`` or a ``StateOptions`` to choose the storage yourself,
+            or ``state=False`` to opt out — an explicit choice is never
+            overridden. With state off, pending hints fall back to a bounded
+            process-local cache, so a callback handled by another instance
+            cannot be attributed.
+
+            Connection-less verify-state callbacks probe hinted flows first,
+            then the remaining registered flows and legacy default connection.
+            Sign-in failures use pending silent-SSO hints for attribution and
+            notify registered flows as a fallback. Token-exchange callbacks
+            carry their connection name and route correctly without state.
+
         Raises:
             ValueError: if a flow for this connection is already registered
                 (connection names are case-insensitive).
         """
-        return self._oauth_registry.add(
+        flow = self._oauth_registry.add(
             OAuthFlow(
                 connection_name,
                 oauth_card_text=oauth_card_text,
                 sign_in_button_text=sign_in_button_text,
             )
+        )
+        # Only after the registry accepts it: a rejected duplicate must not be
+        # able to switch state on as a side effect.
+        self._enable_state_for_oauth_if_unset()
+        return flow
+
+    def _enable_state_for_oauth_if_unset(self) -> None:
+        """Turn on per-turn state for OAuth when the app did not say either way.
+
+        A registered flow needs durable pending attribution to route
+        connection-less ``signin/verifyState`` and ``signin/failure`` callbacks,
+        so state defaults on once a flow exists — matching the C# and TypeScript
+        SDKs. ``options.state`` still records what the caller passed: ``None``
+        means "unset", and anything else, including ``False``, is an explicit
+        decision this leaves alone. An already-resolved loader is also left
+        alone, so registering a second flow does not rebuild it.
+        """
+        if self.options.state is not None or self._state_loader is not None:
+            return
+
+        self._state_loader = create_state_loader(True, self.storage)
+        self.activity_processor.state_loader = self._state_loader
+        logger.debug(
+            "Enabled per-turn state because an OAuth flow was registered and no state option was set. "
+            "Pass state=False to opt out, or state=True/StateOptions to choose the storage."
         )
 
     def get_oauth_flow(self, connection_name: str) -> OAuthFlow:

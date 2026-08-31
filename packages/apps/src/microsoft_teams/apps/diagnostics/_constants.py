@@ -81,6 +81,7 @@ class _AppOAuthOperations:
 
 @dataclass(frozen=True)
 class _AppOAuthResults:
+    duplicate: str = "duplicate"
     failure: str = "failure"
     no_token: str = "no_token"
     notified: str = "notified"

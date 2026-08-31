@@ -63,6 +63,7 @@ class TurnStateLoader:
             conversation_id=conversation_id,
             user_id=user_id,
             _deleter=_delete,
+            _saver=self.save,
         )
 
     async def save(self, container: TurnStateContainer) -> None:

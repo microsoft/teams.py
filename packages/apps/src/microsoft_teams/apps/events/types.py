@@ -123,9 +123,11 @@ class SignInEvent:
 
 @dataclass
 class SignInFailureEvent:
-    """Event emitted when a sign-in (silent SSO) attempt fails."""
-
-    activity_ctx: ActivityContext[SignInFailureInvokeActivity]
+    activity_ctx: Union[
+        ActivityContext[SignInFailureInvokeActivity],
+        ActivityContext[SignInVerifyStateInvokeActivity],
+        ActivityContext[SignInTokenExchangeInvokeActivity],
+    ]
     connection_name: Optional[str] = None
     code: Optional[str] = None
     message: Optional[str] = None

@@ -116,9 +116,8 @@ class FilesAccessor:
             # `file_type` is the platform-supplied extension (e.g. `pdf`); left `None` when the wire omits it,
             # matching how peer SDKs surface it.
             extension=content.file_type if content else None,
-            # Maps the wire's `content_url` (a browsable link to the file in OneDrive/SharePoint) to `web_url`; not
-            # fetchable like `download_url`.
-            web_url=attachment.content_url,
+            # Browsable link to the file in OneDrive/SharePoint; not fetchable like `download_url`.
+            content_url=attachment.content_url,
             raw=attachment,
             download_url=download_url,
             client=self._client,
