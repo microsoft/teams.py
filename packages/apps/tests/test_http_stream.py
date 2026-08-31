@@ -14,6 +14,7 @@ from microsoft_teams.api import (
     ApiClient,
     CardAction,
     CardActionType,
+    ChannelData,
     ConversationAccount,
     ConversationReference,
     MessageActivityInput,
@@ -637,6 +638,77 @@ class TestHttpStream:
             assert result.activity_params.type == "message"
             assert result.activity_params.text_format == "extendedmarkdown"
             assert result.activity_params.text == "hello world"
+
+    @pytest.mark.asyncio
+    async def test_informative_update_sources_its_own_text_format(
+        self, mock_api_client, conversation_reference, patch_loop_call_later
+    ):
+        """An informative update keeps its own text_format and is NOT overwritten by the
+        last emitted message's format (the previous behavior incorrectly applied
+        _final_activity.text_format to informative updates)."""
+        loop = asyncio.get_running_loop()
+        patcher, scheduled = patch_loop_call_later(loop)
+        with patcher:
+            stream = HttpStream(mock_api_client, conversation_reference)
+
+            # Informative update with its own text_format, plus a message carrying a DIFFERENT
+            # format in the same flush cycle. The informative chunk must keep its own value.
+            stream.emit(
+                TypingActivityInput()
+                .with_text("Checking the release status...")
+                .with_channel_data(ChannelData(stream_type="informative"))
+                .with_text_format("extendedmarkdown")
+            )
+            stream.emit(MessageActivityInput(text="body").with_text_format("markdown"))
+            await asyncio.sleep(0)
+            await self._run_scheduled_flushes(scheduled)
+
+            sent = mock_api_client.sent_activities
+            informative = [a for a in sent if getattr(a.channel_data, "stream_type", None) == "informative"]
+            assert len(informative) == 1
+            assert informative[0].type == "typing"
+            assert informative[0].text == "Checking the release status..."
+            assert informative[0].text_format == "extendedmarkdown"
+
+    @pytest.mark.asyncio
+    async def test_update_with_text_format_sends_informative_chunk_with_that_format(
+        self, mock_api_client, conversation_reference, patch_loop_call_later
+    ):
+        """update(text, text_format) sends an informative typing chunk carrying that format."""
+        loop = asyncio.get_running_loop()
+        patcher, scheduled = patch_loop_call_later(loop)
+        with patcher:
+            stream = HttpStream(mock_api_client, conversation_reference)
+            stream.update("Thinking...", "extendedmarkdown")
+            await asyncio.sleep(0)
+            await self._run_scheduled_flushes(scheduled)
+
+            sent = mock_api_client.sent_activities
+            assert sent[0].type == "typing"
+            assert sent[0].channel_data is not None
+            assert sent[0].channel_data.stream_type == "informative"
+            assert sent[0].text_format == "extendedmarkdown"
+
+    @pytest.mark.asyncio
+    async def test_update_without_text_format_omits_it(
+        self, mock_api_client, conversation_reference, patch_loop_call_later
+    ):
+        """update(text) and update(text, None) omit text_format (Teams default: markdown)."""
+        loop = asyncio.get_running_loop()
+        patcher, scheduled = patch_loop_call_later(loop)
+        with patcher:
+            stream = HttpStream(mock_api_client, conversation_reference)
+            stream.update("no format")
+            await asyncio.sleep(0)
+            await self._run_scheduled_flushes(scheduled)
+            stream.update("explicit none", None)
+            await asyncio.sleep(0)
+            await self._run_scheduled_flushes(scheduled)
+
+            sent = mock_api_client.sent_activities
+            assert sent[0].type == "typing"
+            assert sent[0].text_format is None
+            assert sent[1].text_format is None
 
     @pytest.mark.asyncio
     async def test_final_send_timeout_retains_text_format(

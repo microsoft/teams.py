@@ -15,6 +15,7 @@ from microsoft_teams.api import (
     ConversationReference,
     MessageActivityInput,
     SentActivity,
+    TextFormat,
     TypingActivityInput,
 )
 from microsoft_teams.common import EventEmitter
@@ -147,14 +148,19 @@ class HttpStream(StreamerProtocol):
             # Schedule a flush immediately when no timeout is set (first emit)
             self._pending = asyncio.create_task(self._flush())
 
-    def update(self, text: str) -> None:
+    def update(self, text: str, text_format: Optional[TextFormat] = None) -> None:
         """
         Send status updates before emitting (ex. "Thinking...").
 
         Args:
             text: The status text to send.
+            text_format: Format of ``text`` (ex. ``'extendedmarkdown'``). Omit or pass
+                ``None`` to use the Teams default (``'markdown'``).
         """
-        self.emit(TypingActivityInput().with_text(text).with_channel_data(ChannelData(stream_type="informative")))
+        typing_update = TypingActivityInput().with_text(text).with_channel_data(ChannelData(stream_type="informative"))
+        if text_format:
+            typing_update.with_text_format(text_format)
+        self.emit(typing_update)
 
     def clear_text(self) -> None:
         """
@@ -323,15 +329,13 @@ class HttpStream(StreamerProtocol):
             if self._timed_out:
                 return
 
-            # Last emitted message wins for text_format (same as attachments/entities/etc.),
-            # applied to every cumulative typing chunk below so intermediate updates render
-            # with the same format as the eventual final message.
+            # Streamed text chunks use last-emitted-message-wins for text_format (same as
+            # attachments/entities/etc.), so they render like the final message.
             text_format = self._final_activity.text_format if self._final_activity else None
 
-            # Send informative updates immediately
+            # Send informative updates immediately. Each carries its own text_format
+            # (_final_activity isn't set yet at this point), so keep the update's own value.
             for typing_update in informative_updates:
-                if text_format:
-                    typing_update.with_text_format(text_format)
                 await self._send_activity(typing_update)
 
             # Send the combined text chunk

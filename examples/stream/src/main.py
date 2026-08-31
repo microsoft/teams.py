@@ -44,13 +44,12 @@ SECOND_STREAM_MESSAGES = [
     "[stream 2] The app processor will close this stream when the handler returns.",
 ]
 
-EXTENDED_MARKDOWN_DELTAS = [
-    "**On it — here's where your `v2.3.0` release stands:**\n\n",
-    "- [x] Run unit + integration tests\n",
-    "- [x] Build and publish packages\n",
-    "- [ ] ~~Manual smoke test~~ (skipped — covered by the integration suite)\n",
-    "- [x] Tag the release and push\n",
-    "- [ ] Publish release notes\n",
+EXTENDED_MARKDOWN_MESSAGES = [
+    "**Extended markdown stream** — rendering features plain markdown can't:\n\n",
+    '- [x] Sent with `text_format="extendedmarkdown"`\n',
+    "- [x] Task list items render as real checkboxes\n",
+    "- [ ] ~~Under plain markdown these would be literal `[ ]` text~~\n",
+    "- [x] Strikethrough renders too\n",
 ]
 
 
@@ -116,12 +115,12 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
         return
 
     if should_run_extended_markdown(ctx.activity.text):
-        ctx.stream.update("Checking the release status...")
+        ctx.stream.update("Starting the *extended* markdown stream...", "markdown")
         await asyncio.sleep(1)
 
-        for delta in EXTENDED_MARKDOWN_DELTAS:
+        for message in EXTENDED_MARKDOWN_MESSAGES:
             await asyncio.sleep(0.5)
-            ctx.stream.emit(MessageActivityInput(text=delta).with_text_format("extendedmarkdown"))
+            ctx.stream.emit(MessageActivityInput(text=message).with_text_format("extendedmarkdown"))
         return
 
     ctx.stream.update("Stream starting...")
