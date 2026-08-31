@@ -1632,6 +1632,199 @@ class TestOauthHandlers:
         assert called is False
         assert mock_context.api.users.get_token.await_count == 1
 
+    @staticmethod
+    def _recording_flow(oauth_handlers, connection_name):
+        flow = oauth_handlers.oauth_registry.add(OAuthFlow(connection_name))
+        received: list[SignInFailureEvent] = []
+
+        @flow.on_signin_failure
+        async def _record(event: SignInFailureEvent) -> None:
+            received.append(event)
+
+        return flow, received
+
+    @pytest.mark.asyncio
+    async def test_token_exchange_terminal_error_notifies_flow(
+        self, oauth_handlers, mock_context, token_exchange_activity
+    ):
+        _, received = self._recording_flow(oauth_handlers, "test-connection")
+        mock_context.activity = token_exchange_activity
+        error = oauth_http_error(503, "service unavailable")
+        mock_context.api.users.exchange_token.side_effect = error
+
+        result = await oauth_handlers.sign_in_token_exchange(mock_context)
+
+        assert len(received) == 1
+        assert received[0].connection_name == "test-connection"
+        assert received[0].code == "tokenservice.http_503"
+        assert received[0].message == str(error)
+        assert received[0].activity_ctx is mock_context
+        assert isinstance(result, InvokeResponse) and result.status == 503
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("status", [400, 404, 412])
+    async def test_token_exchange_expected_miss_never_notifies(
+        self, oauth_handlers, mock_context, token_exchange_activity, status
+    ):
+        """412 fires on essentially every first sign-in, so this must never notify."""
+        _, received = self._recording_flow(oauth_handlers, "test-connection")
+        mock_context.activity = token_exchange_activity
+        mock_context.api.users.exchange_token.side_effect = oauth_http_error(status, "miss")
+
+        result = await oauth_handlers.sign_in_token_exchange(mock_context)
+
+        assert received == []
+        assert isinstance(result, InvokeResponse) and result.status == 412
+
+    @pytest.mark.asyncio
+    async def test_token_exchange_terminal_error_still_emits_global_error(
+        self, oauth_handlers, mock_context, token_exchange_activity
+    ):
+        _, received = self._recording_flow(oauth_handlers, "test-connection")
+        mock_context.activity = token_exchange_activity
+        error = oauth_http_error(500, "boom")
+        mock_context.api.users.exchange_token.side_effect = error
+
+        await oauth_handlers.sign_in_token_exchange(mock_context)
+
+        oauth_handlers.event_emitter.emit_async.assert_awaited_once_with(
+            "error", ErrorEvent(error=error, context={"activity": token_exchange_activity})
+        )
+        assert len(received) == 1
+
+    @pytest.mark.asyncio
+    async def test_terminal_error_on_unregistered_connection_notifies_nobody(
+        self, oauth_handlers, mock_context, token_exchange_activity
+    ):
+        _, received = self._recording_flow(oauth_handlers, "github")
+        mock_context.activity = token_exchange_activity
+        mock_context.api.users.exchange_token.side_effect = oauth_http_error(500, "boom")
+
+        result = await oauth_handlers.sign_in_token_exchange(mock_context)
+
+        assert received == []
+        assert isinstance(result, InvokeResponse) and result.status == 500
+
+    @pytest.mark.asyncio
+    async def test_terminal_error_notifies_after_pending_is_cleared(
+        self, oauth_handlers, mock_context, token_exchange_activity
+    ):
+        flow = oauth_handlers.oauth_registry.add(OAuthFlow("test-connection"))
+        observed: list[set[str]] = []
+
+        @flow.on_signin_failure
+        async def _observe(event: SignInFailureEvent) -> None:
+            observed.append(pending_marker_keys(mock_context.state))
+
+        mock_context.activity = token_exchange_activity
+        mock_context.state = create_pending_state(("test-connection", time.time(), True))
+        mock_context.api.users.exchange_token.side_effect = oauth_http_error(500, "boom")
+
+        await oauth_handlers.sign_in_token_exchange(mock_context)
+
+        assert observed == [set()]
+
+    @pytest.mark.asyncio
+    async def test_verify_state_terminal_error_notifies_probed_flow(
+        self, oauth_handlers, mock_context, verify_state_activity
+    ):
+        _, received = self._recording_flow(oauth_handlers, "test-connection")
+        mock_context.activity = verify_state_activity
+        error = oauth_http_error(503, "service unavailable")
+        mock_context.api.users.get_token.side_effect = error
+
+        result = await oauth_handlers.sign_in_verify_state(mock_context)
+
+        assert len(received) == 1
+        assert received[0].connection_name == "test-connection"
+        assert received[0].code == "tokenservice.http_503"
+        assert received[0].message == str(error)
+        assert isinstance(result, InvokeResponse) and result.status == 503
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("status", [400, 404, 412])
+    async def test_verify_state_expected_miss_never_notifies_and_keeps_probing(
+        self, oauth_handlers, mock_context, verify_state_activity, status
+    ):
+        _, github_received = self._recording_flow(oauth_handlers, "github")
+        _, default_received = self._recording_flow(oauth_handlers, "test-connection")
+        mock_context.activity = verify_state_activity
+        mock_context.api.users.get_token.side_effect = oauth_http_error(status, "miss")
+
+        result = await oauth_handlers.sign_in_verify_state(mock_context)
+
+        assert github_received == []
+        assert default_received == []
+        attempted = [c.args[0].connection_name for c in mock_context.api.users.get_token.await_args_list]
+        assert attempted == ["github", "test-connection"]
+        assert isinstance(result, InvokeResponse) and result.status == 404
+
+    @pytest.mark.asyncio
+    async def test_verify_state_miss_then_success_notifies_no_failure(
+        self, oauth_handlers, mock_context, verify_state_activity, mock_token_response
+    ):
+        _, github_received = self._recording_flow(oauth_handlers, "github")
+        default_flow, default_received = self._recording_flow(oauth_handlers, "test-connection")
+        signed_in: list[str] = []
+
+        @default_flow.on_signin
+        async def _ok(event: SignInEvent) -> None:
+            signed_in.append(event.connection_name)
+
+        mock_context.activity = verify_state_activity
+        mock_context.api.users.get_token.side_effect = [
+            oauth_http_error(412, "not this one"),
+            mock_token_response,
+        ]
+
+        result = await oauth_handlers.sign_in_verify_state(mock_context)
+
+        assert github_received == []
+        assert default_received == []
+        assert signed_in == ["test-connection"]
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_verify_state_terminal_error_only_notifies_the_probed_candidate(
+        self, oauth_handlers, mock_context, verify_state_activity
+    ):
+        _, github_received = self._recording_flow(oauth_handlers, "github")
+        _, default_received = self._recording_flow(oauth_handlers, "test-connection")
+        mock_context.activity = verify_state_activity
+        mock_context.api.users.get_token.side_effect = oauth_http_error(500, "boom")
+
+        await oauth_handlers.sign_in_verify_state(mock_context)
+
+        assert len(github_received) == 1
+        assert default_received == []
+        assert mock_context.api.users.get_token.await_count == 1
+
+    @pytest.mark.asyncio
+    async def test_raising_failure_handler_does_not_change_status_or_suppress_error(
+        self, oauth_handlers, mock_context, verify_state_activity, caplog
+    ):
+        flow = oauth_handlers.oauth_registry.add(OAuthFlow("test-connection"))
+        later: list[str] = []
+
+        @flow.on_signin_failure
+        async def _boom(event: SignInFailureEvent) -> None:
+            raise RuntimeError("handler exploded")
+
+        @flow.on_signin_failure
+        async def _later(event: SignInFailureEvent) -> None:
+            later.append("ran")
+
+        mock_context.activity = verify_state_activity
+        mock_context.api.users.get_token.side_effect = oauth_http_error(503, "service unavailable")
+
+        with caplog.at_level(logging.ERROR):
+            result = await oauth_handlers.sign_in_verify_state(mock_context)
+
+        assert isinstance(result, InvokeResponse) and result.status == 503
+        assert any("Error verifying sign-in state" in r.message for r in caplog.records)
+        assert later == ["ran"]
+        assert mock_context.next.await_count == 1
+
     def test_oauth_handlers_initialization(self, mock_event_emitter):
         """Test OauthHandlers initialization."""
         registry = OAuthFlowRegistry()
