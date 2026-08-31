@@ -158,7 +158,7 @@ class HttpStream(StreamerProtocol):
                 ``None`` to use the Teams default (``'markdown'``).
         """
         typing_update = TypingActivityInput().with_text(text).with_channel_data(ChannelData(stream_type="informative"))
-        if text_format:
+        if text_format is not None:
             typing_update.with_text_format(text_format)
         self.emit(typing_update)
 
@@ -333,8 +333,7 @@ class HttpStream(StreamerProtocol):
             # attachments/entities/etc.), so they render like the final message.
             text_format = self._final_activity.text_format if self._final_activity else None
 
-            # Send informative updates immediately. Each carries its own text_format
-            # (_final_activity isn't set yet at this point), so keep the update's own value.
+            # Send informative updates immediately. Each carries its own text_format, so keep the update's own value.
             for typing_update in informative_updates:
                 await self._send_activity(typing_update)
 

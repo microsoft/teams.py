@@ -20,7 +20,7 @@ class _TypingBase(CustomBaseModel):
 
     text_format: Optional[TextFormat] = None
     """
-    Format of the `text` field (ex. `'extendedmarkdown'`). Default: `'markdown'`.
+    Format of the `text` field (ex. `'extendedmarkdown'`). Omit or leave as ``None`` to use the Teams default (``'markdown'``).
     """
 
 
