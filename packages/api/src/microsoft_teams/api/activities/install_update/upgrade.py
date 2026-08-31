@@ -8,7 +8,7 @@ from typing import Literal
 from ...models import ActivityBase, CustomBaseModel
 
 
-class UpgradedActivity(ActivityBase, CustomBaseModel):
+class InstalledUpgradeActivity(ActivityBase, CustomBaseModel):
     type: Literal["installationUpdate"] = "installationUpdate"  #
 
     action: Literal["upgrade"] = "upgrade"

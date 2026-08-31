@@ -5,7 +5,7 @@ Licensed under the MIT License.
 # pyright: basic
 
 from microsoft_teams.api.activities import ActivityTypeAdapter
-from microsoft_teams.api.activities.install_update import UpgradedActivity
+from microsoft_teams.api.activities.install_update import InstalledUpgradeActivity
 
 
 def test_installation_update_upgrade_parses() -> None:
@@ -40,5 +40,5 @@ def test_installation_update_upgrade_parses() -> None:
 
     activity = ActivityTypeAdapter.validate_python(payload)
 
-    assert isinstance(activity, UpgradedActivity)
+    assert isinstance(activity, InstalledUpgradeActivity)
     assert activity.action == "upgrade"
