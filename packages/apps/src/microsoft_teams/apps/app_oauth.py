@@ -209,8 +209,7 @@ class OauthHandlers:
                         result = APP_OAUTH_RESULTS.failure
                         span.set_attribute(APP_ATTRIBUTE_NAMES.invoke_response_status, status)
                         span.set_attribute(APP_ATTRIBUTE_NAMES.oauth_result, result)
-                        # After ``_clear_pending``, so a handler that restarts sign-in
-                        # is not attributed to this dead attempt.
+
                         await self._notify_terminal_signin_failure(ctx, flow, e, status)
                         return InvokeResponse(status=status)
 
@@ -487,13 +486,6 @@ class OauthHandlers:
         error: HTTPStatusError,
         status: int,
     ) -> None:
-        """Notify ``flow``'s ``on_signin_failure`` handlers that this sign-in is dead.
-
-        Terminal Token Service errors only: 400/404/412 are expected misses and must
-        never reach here. Additive — the global ``"error"`` event and the response
-        Teams sees are unchanged. Dispatch is isolated, so a raising handler cannot
-        mask the original error.
-        """
         if flow is None:
             return
         await flow._invoke_signin_failure_handlers(  # pyright: ignore[reportPrivateUsage]

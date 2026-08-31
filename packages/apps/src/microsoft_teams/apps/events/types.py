@@ -123,14 +123,6 @@ class SignInEvent:
 
 @dataclass
 class SignInFailureEvent:
-    """Event emitted when a sign-in (silent SSO) attempt fails.
-
-    ``code``/``message`` are Teams' own values for a ``signin/failure`` invoke. When
-    the Token Service call itself fails terminally, ``code`` is
-    ``tokenservice.http_<status>`` and ``message`` is the underlying error. Expected
-    misses (400/404/412) are not failures and never raise this event.
-    """
-
     activity_ctx: Union[
         ActivityContext[SignInFailureInvokeActivity],
         ActivityContext[SignInVerifyStateInvokeActivity],
