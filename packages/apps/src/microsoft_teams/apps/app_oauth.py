@@ -209,6 +209,8 @@ class OauthHandlers:
                         result = APP_OAUTH_RESULTS.failure
                         span.set_attribute(APP_ATTRIBUTE_NAMES.invoke_response_status, status)
                         span.set_attribute(APP_ATTRIBUTE_NAMES.oauth_result, result)
+
+                        await self._notify_terminal_signin_failure(ctx, flow, e, status)
                         return InvokeResponse(status=status)
 
                     # An expected miss: the Token Service has nothing to exchange.
@@ -474,6 +476,27 @@ class OauthHandlers:
                 (perf_counter() - started_at) * 1000,
             )
 
+    async def _notify_terminal_signin_failure(
+        self,
+        ctx: Union[
+            ActivityContext[SignInVerifyStateInvokeActivity],
+            ActivityContext[SignInTokenExchangeInvokeActivity],
+        ],
+        flow: Optional[OAuthFlow],
+        error: HTTPStatusError,
+        status: int,
+    ) -> None:
+        if flow is None:
+            return
+        await flow._invoke_signin_failure_handlers(  # pyright: ignore[reportPrivateUsage]
+            SignInFailureEvent(
+                activity_ctx=ctx,
+                connection_name=flow.connection_name,
+                code=f"tokenservice.http_{status}",
+                message=str(error),
+            )
+        )
+
     async def sign_in_failure(
         self, ctx: ActivityContext[SignInFailureInvokeActivity]
     ) -> Optional[InvokeResponse[None]]:
@@ -718,6 +741,9 @@ class OauthHandlers:
                         status = status or 500
                         span.set_attribute(APP_ATTRIBUTE_NAMES.invoke_response_status, status)
                         span.set_attribute(APP_ATTRIBUTE_NAMES.oauth_result, result)
+                        # Only this candidate's flow: the loop stops here, so the
+                        # remaining candidates were never probed.
+                        await self._notify_terminal_signin_failure(ctx, flow, e, status)
                         return InvokeResponse(status=status)
                     except Exception as e:
                         # A transport fault or a bug, not a Token Service verdict.
