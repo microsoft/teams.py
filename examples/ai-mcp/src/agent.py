@@ -10,7 +10,8 @@ from os import getenv
 from typing import Any, cast
 
 from agent_framework import Agent, FunctionInvocationContext, FunctionMiddleware
-from agent_framework.openai import OpenAIChatClient
+from agent_framework.anthropic import AnthropicChatOptions, AnthropicClient
+from agent_framework.openai import OpenAIChatClient, OpenAIChatOptions
 from dotenv import find_dotenv, load_dotenv
 from local_tools import tools as local_tools
 from mcp_tools import mcp_tools
@@ -72,12 +73,6 @@ def _require_env(name: str) -> str:
     return value
 
 
-client = OpenAIChatClient(
-    model=_require_env("AZURE_OPENAI_MODEL"),
-    azure_endpoint=_require_env("AZURE_OPENAI_ENDPOINT"),
-    api_key=_require_env("AZURE_OPENAI_API_KEY"),
-)
-
 INSTRUCTIONS = """\
 You are a helpful Teams assistant that can search Microsoft Learn (Teams, Python, Microsoft Graph, Azure) \
 and explain bot concepts (streaming, Adaptive Cards, citations, feedback).
@@ -91,9 +86,34 @@ with a short question and 2-4 candidate interpretations rather than guessing.
 """
 
 tool_logger = AgentMiddleware()
-agent = Agent(
-    client=client,
-    instructions=INSTRUCTIONS,
-    tools=[*local_tools, *mcp_tools],
-    middleware=[tool_logger],
-)
+provider = getenv("AI_PROVIDER", "azure-openai").strip().lower()
+client: AnthropicClient | OpenAIChatClient
+agent: Agent[AnthropicChatOptions] | Agent[OpenAIChatOptions]
+
+if provider == "anthropic":
+    client = AnthropicClient(
+        api_key=_require_env("ANTHROPIC_API_KEY"),
+        model=_require_env("ANTHROPIC_MODEL"),
+    )
+    anthropic_options: AnthropicChatOptions = {"max_tokens": int(getenv("ANTHROPIC_MAX_TOKENS", "4096"))}
+    agent = Agent(
+        client=client,
+        instructions=INSTRUCTIONS,
+        tools=[*local_tools, *mcp_tools],
+        middleware=[tool_logger],
+        default_options=anthropic_options,
+    )
+elif provider == "azure-openai":
+    client = OpenAIChatClient(
+        model=_require_env("AZURE_OPENAI_MODEL"),
+        azure_endpoint=_require_env("AZURE_OPENAI_ENDPOINT"),
+        api_key=_require_env("AZURE_OPENAI_API_KEY"),
+    )
+    agent = Agent(
+        client=client,
+        instructions=INSTRUCTIONS,
+        tools=[*local_tools, *mcp_tools],
+        middleware=[tool_logger],
+    )
+else:
+    raise ValueError(f"Unsupported AI_PROVIDER {provider!r}. Use 'azure-openai' or 'anthropic'.")
