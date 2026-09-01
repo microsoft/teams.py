@@ -237,8 +237,8 @@ class ActivityContext(Generic[T]):
     ) -> SentActivity:
         """Send a message in the current conversation without quoting.
 
-        In channels, sends to the current thread. In scopes that do not
-        support threading (group chat, meetings), sends as a normal message.
+        In group chats and channels, sends to the current thread when the
+        inbound activity identifies one. In personal chats, sends normally.
         To send with a visual quote of the inbound message, use :meth:`reply`.
 
         Args:
@@ -258,14 +258,12 @@ class ActivityContext(Generic[T]):
         self._add_targeted_message_info_entity(activity)
 
         ref = conversation_ref or self.conversation_ref
-        thread_root_id = None if conversation_ref is not None else self._current_thread_root_id()
         base_conversation_id, legacy_thread_root_id = parse_threaded_conversation_id(ref.conversation.id)
         if legacy_thread_root_id is not None:
             ref = ref.model_copy(
                 update={"conversation": ref.conversation.model_copy(update={"id": base_conversation_id})}
             )
-            if conversation_ref is not None or self.activity.conversation.conversation_type != "personal":
-                thread_root_id = thread_root_id or legacy_thread_root_id
+        thread_root_id = legacy_thread_root_id if conversation_ref is not None else self._current_thread_root_id()
         return await send_or_update_activity(
             self.api,
             activity,
