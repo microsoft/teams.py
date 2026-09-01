@@ -84,7 +84,7 @@ requires-dist = [
     { name = "agent-framework-core" },
     { name = "agent-framework-openai" },
     { name = "dotenv", specifier = ">=0.9.9" },
-    { name = "httpx", specifier = ">=0.27" },
+    { name = "httpx", specifier = ">=0.27,<1.0" },
     { name = "microsoft-teams-apps", editable = "packages/apps" },
     { name = "microsoft-teams-cards", editable = "packages/cards" },
     { name = "microsoft-teams-common", editable = "packages/common" },
@@ -2016,7 +2016,7 @@ provides-extras = ["graph"]
 
 [package.metadata.requires-dev]
 test = [
-    { name = "httpx", specifier = ">=0.27.0" },
+    { name = "httpx", specifier = ">=0.27.0,<1.0" },
     { name = "pytest", specifier = ">=8.0.0" },
     { name = "pytest-asyncio", specifier = ">=0.24.0" },
 ]
@@ -2077,7 +2077,7 @@ dev = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "httpx", specifier = ">=0.28.1" }]
+requires-dist = [{ name = "httpx", specifier = ">=0.28.1,<1.0" }]
 
 [package.metadata.requires-dev]
 dev = [
