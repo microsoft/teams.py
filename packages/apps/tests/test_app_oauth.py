@@ -1103,6 +1103,54 @@ class TestOauthHandlers:
         assert pending_marker_keys(state) == {"__oauth:pending:graph", "__oauth:pending:sso:graph"}
 
     @pytest.mark.asyncio
+    async def test_verify_state_records_each_connection_attempt(
+        self,
+        oauth_handlers,
+        mock_context,
+        verify_state_activity,
+        mock_token_response,
+        monkeypatch: pytest.MonkeyPatch,
+    ):
+        oauth_handlers.oauth_registry.add(OAuthFlow("Graph"))
+        oauth_handlers.oauth_registry.add(OAuthFlow("GitHub"))
+        mock_context.activity = verify_state_activity
+        mock_context.state = create_pending_state(("Graph", time.time(), False))
+        mock_context.api.users.get_token.side_effect = [
+            oauth_http_error(404, "Not found for Graph"),
+            mock_token_response,
+        ]
+        tracer = RecordingTracer()
+        operation_calls = []
+
+        monkeypatch.setattr("microsoft_teams.apps.app_oauth.get_tracer", lambda: tracer)
+        monkeypatch.setattr(
+            "microsoft_teams.apps.app_oauth.record_oauth_operation",
+            lambda *args: operation_calls.append(args),
+        )
+
+        assert await oauth_handlers.sign_in_verify_state(mock_context) is None
+
+        assert [span.attributes for span in tracer.spans] == [
+            {
+                "oauth.connection": "Graph",
+                "oauth.operation": "verify_state",
+                "invoke.response.status": 404,
+                "oauth.result": "no_token",
+            },
+            {
+                "oauth.connection": "GitHub",
+                "oauth.operation": "verify_state",
+                "oauth.callback.invoked": True,
+                "oauth.result": "success",
+                "invoke.response.status": 200,
+            },
+        ]
+        assert [call[:3] for call in operation_calls] == [
+            ("Graph", "verify_state", "no_token"),
+            ("GitHub", "verify_state", "success"),
+        ]
+
+    @pytest.mark.asyncio
     async def test_sso_failure_clears_hint_and_verify_state_still_resolves_by_probing(
         self, oauth_handlers, mock_context, failure_activity, verify_state_activity, mock_token_response
     ):

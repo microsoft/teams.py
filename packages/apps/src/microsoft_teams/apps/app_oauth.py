@@ -637,7 +637,6 @@ class OauthHandlers:
         Decorator to register a function that handles the sign-in token exchange.
         """
         activity = ctx.activity
-        api = ctx.api
         next_handler = ctx.next
         pending_flows = self.oauth_registry._pending_flows(ctx)  # pyright: ignore[reportPrivateUsage]
         candidates: list[tuple[str, Optional[OAuthFlow]]] = []
@@ -669,6 +668,41 @@ class OauthHandlers:
                 len(candidates),
                 ", ".join(name for name, _ in candidates),
             )
+        try:
+            if not activity.value.state:
+                _, response = await self._verify_state_candidate(ctx, connection_name, candidates[0][1], None)
+                return response
+
+            logger.debug(
+                f"Verifying sign-in state for user {activity.from_.id} in conversation"
+                f"{activity.conversation.id} with state {activity.value.state}"
+            )
+
+            for candidate_connection_name, flow in candidates:
+                terminal, response = await self._verify_state_candidate(
+                    ctx,
+                    candidate_connection_name,
+                    flow,
+                    activity.value.state,
+                )
+                if terminal:
+                    return response
+
+            # Every candidate missed, so the user holds no token on any of them.
+            # That is "nothing to verify" (404), not a precondition failure.
+            return InvokeResponse(status=404)
+        finally:
+            await next_handler()
+
+    async def _verify_state_candidate(
+        self,
+        ctx: ActivityContext[SignInVerifyStateInvokeActivity],
+        connection_name: str,
+        flow: Optional[OAuthFlow],
+        state: Optional[str],
+    ) -> tuple[bool, Optional[InvokeResponse[None]]]:
+        """Probe one connection and emit one OAuth operation"""
+        activity = ctx.activity
         result = APP_OAUTH_RESULTS.failure
         started_at = perf_counter()
         try:
@@ -680,7 +714,7 @@ class OauthHandlers:
                 span.set_attribute(APP_ATTRIBUTE_NAMES.oauth_connection, connection_name)
                 span.set_attribute(APP_ATTRIBUTE_NAMES.oauth_operation, APP_OAUTH_OPERATIONS.verify_state)
 
-                if not activity.value.state:
+                if not state:
                     logger.warning(
                         f"Auth state not present for conversation id '{activity.conversation.id}' "
                         f"and user id '{activity.from_.id}'. "
@@ -688,110 +722,88 @@ class OauthHandlers:
                     result = APP_OAUTH_RESULTS.no_token
                     span.set_attribute(APP_ATTRIBUTE_NAMES.invoke_response_status, 404)
                     span.set_attribute(APP_ATTRIBUTE_NAMES.oauth_result, result)
-                    return InvokeResponse(status=404)
+                    return True, InvokeResponse(status=404)
 
-                logger.debug(
-                    f"Verifying sign-in state for user {activity.from_.id} in conversation"
-                    f"{activity.conversation.id} with state {activity.value.state}"
-                )
-
-                for candidate_connection_name, flow in candidates:
-                    # Deliberately rebind the outer name: the ``finally`` block below records
-                    # telemetry against the connection that was probed last, which is the one
-                    # the outcome (success, 412, or exhausted candidates) actually belongs to.
-                    connection_name = candidate_connection_name
-                    span.set_attribute(APP_ATTRIBUTE_NAMES.oauth_connection, connection_name)
-                    try:
-                        token = await api.users.get_token(
-                            GetUserTokenParams(
-                                connection_name=connection_name,
-                                user_id=activity.from_.id,
-                                channel_id=activity.channel_id,
-                                code=activity.value.state,
-                            )
+                try:
+                    token = await ctx.api.users.get_token(
+                        GetUserTokenParams(
+                            connection_name=connection_name,
+                            user_id=activity.from_.id,
+                            channel_id=activity.channel_id,
+                            code=state,
                         )
-                    except HTTPStatusError as e:
-                        status = e.response.status_code
-                        if status in (400, 404, 412):
-                            # An expected miss. ``signin/verifyState`` carries no
-                            # connection name, so the Token Service rejecting this
-                            # code only rules out this candidate - it is not a failed
-                            # sign-in until every candidate has been ruled out.
-                            logger.debug(
-                                f"OAuth connection '{connection_name}' did not accept the verify-state code "
-                                f"for user {activity.from_.id} in conversation "
-                                f"{activity.conversation.id} (HTTP {status})."
-                            )
-                            continue
-                        self.oauth_registry._clear_pending(  # pyright: ignore[reportPrivateUsage]
-                            ctx, connection_name
+                    )
+                except HTTPStatusError as e:
+                    status = e.response.status_code
+                    if status in (400, 404, 412):
+                        # A rejection only rules out this candidate; the callback
+                        # carries no connection name, so the remaining flows still
+                        # need to be probed.
+                        logger.debug(
+                            f"OAuth connection '{connection_name}' did not accept the verify-state code "
+                            f"for user {activity.from_.id} in conversation "
+                            f"{activity.conversation.id} (HTTP {status})."
                         )
-                        logger.error(
-                            f"Error verifying sign-in state for user {activity.from_.id} in conversation"
-                            f"{activity.conversation.id}: {e}"
-                        )
-                        await self.event_emitter.emit_async(
-                            "error",
-                            ErrorEvent(error=e, context={"activity": activity}),
-                        )
-                        error_type = APP_OAUTH_ERROR_TYPES.http_error
-                        span.set_attribute(APP_ATTRIBUTE_NAMES.oauth_error_type, error_type)
-                        record_exception(span, e)
-                        record_oauth_error(connection_name, APP_OAUTH_OPERATIONS.verify_state, error_type)
-                        status = status or 500
+                        result = APP_OAUTH_RESULTS.no_token
                         span.set_attribute(APP_ATTRIBUTE_NAMES.invoke_response_status, status)
                         span.set_attribute(APP_ATTRIBUTE_NAMES.oauth_result, result)
-                        # Only this candidate's flow: the loop stops here, so the
-                        # remaining candidates were never probed.
-                        await self._notify_terminal_signin_failure(ctx, flow, e, status)
-                        return InvokeResponse(status=status)
-                    except Exception as e:
-                        # A transport fault or a bug, not a Token Service verdict.
-                        # It propagates so the app's error handling reports it once
-                        # rather than being flattened into a 412 that reads as an
-                        # ordinary failed sign-in.
-                        logger.error(
-                            f"Error verifying sign-in state for user {activity.from_.id} in conversation"
-                            f"{activity.conversation.id}: {e}"
-                        )
-                        error_type = APP_OAUTH_ERROR_TYPES.exception
-                        span.set_attribute(APP_ATTRIBUTE_NAMES.oauth_error_type, error_type)
-                        record_exception(span, e)
-                        record_oauth_error(connection_name, APP_OAUTH_OPERATIONS.verify_state, error_type)
-                        result = APP_OAUTH_RESULTS.failure
-                        span.set_attribute(APP_ATTRIBUTE_NAMES.oauth_result, result)
-                        raise
-
-                    ctx.is_signed_in = True
-                    ctx.user_token = token.token
+                        return False, None
                     self.oauth_registry._clear_pending(  # pyright: ignore[reportPrivateUsage]
                         ctx, connection_name
                     )
-                    event = SignInEvent(
-                        activity_ctx=ctx,
-                        token_response=token,
-                        connection_name=connection_name,
+                    logger.error(
+                        f"Error verifying sign-in state for user {activity.from_.id} in conversation"
+                        f"{activity.conversation.id}: {e}"
                     )
-                    result = APP_OAUTH_RESULTS.success
-                    span.set_attribute(APP_ATTRIBUTE_NAMES.oauth_callback_invoked, True)
+                    await self.event_emitter.emit_async(
+                        "error",
+                        ErrorEvent(error=e, context={"activity": activity}),
+                    )
+                    error_type = APP_OAUTH_ERROR_TYPES.http_error
+                    span.set_attribute(APP_ATTRIBUTE_NAMES.oauth_error_type, error_type)
+                    record_exception(span, e)
+                    record_oauth_error(connection_name, APP_OAUTH_OPERATIONS.verify_state, error_type)
+                    status = status or 500
+                    span.set_attribute(APP_ATTRIBUTE_NAMES.invoke_response_status, status)
                     span.set_attribute(APP_ATTRIBUTE_NAMES.oauth_result, result)
-                    await self.event_emitter.emit_async("sign_in", event)
-                    if flow is not None:
-                        await flow._invoke_signin_handlers(  # pyright: ignore[reportPrivateUsage]
-                            event
-                        )
-                    logger.debug(
-                        f"Sign-in state verified for user {activity.from_.id} in conversation "
-                        f"{activity.conversation.id}"
+                    await self._notify_terminal_signin_failure(ctx, flow, e, status)
+                    return True, InvokeResponse(status=status)
+                except Exception as e:
+                    # A transport fault or bug is not an ordinary candidate miss.
+                    logger.error(
+                        f"Error verifying sign-in state for user {activity.from_.id} in conversation"
+                        f"{activity.conversation.id}: {e}"
                     )
-                    return None
+                    error_type = APP_OAUTH_ERROR_TYPES.exception
+                    span.set_attribute(APP_ATTRIBUTE_NAMES.oauth_error_type, error_type)
+                    record_exception(span, e)
+                    record_oauth_error(connection_name, APP_OAUTH_OPERATIONS.verify_state, error_type)
+                    span.set_attribute(APP_ATTRIBUTE_NAMES.oauth_result, result)
+                    raise
 
-                # Every candidate missed, so the user holds no token on any of them.
-                # That is "nothing to verify" (404), not a precondition failure.
-                result = APP_OAUTH_RESULTS.no_token
-                span.set_attribute(APP_ATTRIBUTE_NAMES.invoke_response_status, 404)
+                ctx.is_signed_in = True
+                ctx.user_token = token.token
+                self.oauth_registry._clear_pending(  # pyright: ignore[reportPrivateUsage]
+                    ctx, connection_name
+                )
+                event = SignInEvent(
+                    activity_ctx=ctx,
+                    token_response=token,
+                    connection_name=connection_name,
+                )
+                result = APP_OAUTH_RESULTS.success
+                span.set_attribute(APP_ATTRIBUTE_NAMES.oauth_callback_invoked, True)
                 span.set_attribute(APP_ATTRIBUTE_NAMES.oauth_result, result)
-                return InvokeResponse(status=404)
+                span.set_attribute(APP_ATTRIBUTE_NAMES.invoke_response_status, 200)
+                await self.event_emitter.emit_async("sign_in", event)
+                if flow is not None:
+                    await flow._invoke_signin_handlers(  # pyright: ignore[reportPrivateUsage]
+                        event
+                    )
+                logger.debug(
+                    f"Sign-in state verified for user {activity.from_.id} in conversation {activity.conversation.id}"
+                )
+                return True, None
         finally:
             record_oauth_operation(
                 connection_name,
@@ -799,4 +811,3 @@ class OauthHandlers:
                 result,
                 (perf_counter() - started_at) * 1000,
             )
-            await next_handler()

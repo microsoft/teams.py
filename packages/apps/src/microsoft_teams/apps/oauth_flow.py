@@ -7,11 +7,20 @@ import inspect
 import logging
 from collections import OrderedDict
 from dataclasses import replace
+from time import perf_counter
 from typing import Any, Awaitable, Callable, Iterator, List, Mapping, Optional, Sequence, Tuple, TypeVar, Union
 
 from httpx import HTTPStatusError
 from microsoft_teams.api import GetUserTokenParams, SignOutUserParams
 
+from .diagnostics._constants import (
+    APP_ATTRIBUTE_NAMES,
+    APP_OAUTH_ERROR_TYPES,
+    APP_OAUTH_OPERATIONS,
+    APP_OAUTH_RESULTS,
+    APP_SPAN_NAMES,
+)
+from .diagnostics._helpers import get_tracer, record_exception, record_oauth_error, record_oauth_operation
 from .events import SignInEvent, SignInFailureEvent
 from .oauth_connection import connection_lookup_key, normalize_connection_name
 from .oauth_state import (
@@ -148,7 +157,40 @@ class OAuthFlow:
         fallback.
         """
         base = self._defaults if options is None else options
-        return await ctx.sign_in(replace(base, connection_name=self.connection_name))
+        result = APP_OAUTH_RESULTS.failure
+        started_at = perf_counter()
+        try:
+            with get_tracer().start_as_current_span(
+                APP_SPAN_NAMES.oauth_signin,
+                record_exception=False,
+                set_status_on_exception=False,
+            ) as span:
+                span.set_attribute(APP_ATTRIBUTE_NAMES.oauth_connection, self.connection_name)
+                span.set_attribute(APP_ATTRIBUTE_NAMES.oauth_operation, APP_OAUTH_OPERATIONS.signin)
+                try:
+                    token = await ctx.sign_in(replace(base, connection_name=self.connection_name))
+                except Exception as exception:
+                    error_type = (
+                        APP_OAUTH_ERROR_TYPES.http_error
+                        if isinstance(exception, HTTPStatusError)
+                        else APP_OAUTH_ERROR_TYPES.exception
+                    )
+                    span.set_attribute(APP_ATTRIBUTE_NAMES.oauth_error_type, error_type)
+                    span.set_attribute(APP_ATTRIBUTE_NAMES.oauth_result, result)
+                    record_exception(span, exception)
+                    record_oauth_error(self.connection_name, APP_OAUTH_OPERATIONS.signin, error_type)
+                    raise
+
+                result = APP_OAUTH_RESULTS.cached if token is not None else APP_OAUTH_RESULTS.card_sent
+                span.set_attribute(APP_ATTRIBUTE_NAMES.oauth_result, result)
+                return token
+        finally:
+            record_oauth_operation(
+                self.connection_name,
+                APP_OAUTH_OPERATIONS.signin,
+                result,
+                (perf_counter() - started_at) * 1000,
+            )
 
     async def sign_out(self, ctx: ActivityContext[Any]) -> None:
         """Sign the user out of this connection."""

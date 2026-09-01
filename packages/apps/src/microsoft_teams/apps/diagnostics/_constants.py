@@ -74,6 +74,7 @@ class _AppOAuthErrorTypes:
 
 @dataclass(frozen=True)
 class _AppOAuthOperations:
+    signin: str = "signin"
     signin_failure: str = "signin_failure"
     token_exchange: str = "token_exchange"
     verify_state: str = "verify_state"
@@ -81,6 +82,8 @@ class _AppOAuthOperations:
 
 @dataclass(frozen=True)
 class _AppOAuthResults:
+    cached: str = "token_cached"
+    card_sent: str = "signin_card_sent"
     duplicate: str = "duplicate"
     failure: str = "failure"
     no_token: str = "no_token"
@@ -91,9 +94,13 @@ class _AppOAuthResults:
 @dataclass(frozen=True)
 class _AppSpanNames:
     handler: str = "microsoft.teams.handler"
+    oauth_signin: str = "microsoft.teams.oauth.signin"
     oauth_signin_failure: str = "microsoft.teams.oauth.signin_failure"
     oauth_token_exchange: str = "microsoft.teams.oauth.token_exchange"
     oauth_verify_state: str = "microsoft.teams.oauth.verify_state"
+    state_delete: str = "microsoft.teams.state.delete"
+    state_load: str = "microsoft.teams.state.load"
+    state_save: str = "microsoft.teams.state.save"
     turn: str = "microsoft.teams.activity.process"
 
 
