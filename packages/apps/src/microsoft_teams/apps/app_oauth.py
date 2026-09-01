@@ -674,7 +674,7 @@ class OauthHandlers:
                 return response
 
             logger.debug(
-                f"Verifying sign-in state for user {activity.from_.id} in conversation"
+                f"Verifying sign-in state for user {activity.from_.id} in conversation "
                 f"{activity.conversation.id} with state {activity.value.state}"
             )
 
