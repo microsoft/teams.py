@@ -7,6 +7,7 @@ import asyncio
 import importlib.metadata
 import logging
 import os
+import warnings
 from typing import TYPE_CHECKING, Any, Awaitable, Callable, List, Optional, TypeVar, Union, Unpack, cast, overload
 
 from dependency_injector import providers
@@ -32,6 +33,7 @@ from microsoft_teams.api.auth.cloud_environment import PUBLIC
 from microsoft_teams.api.auth.cloud_environment import from_name as cloud_from_name
 from microsoft_teams.cards import AdaptiveCard
 from microsoft_teams.common import Client, ClientOptions, EventEmitter, LocalStorage
+from typing_extensions import deprecated
 
 if TYPE_CHECKING:
     from msgraph.graph_service_client import GraphServiceClient
@@ -389,6 +391,10 @@ class App(ActivityHandlerMixin):
     ) -> SentActivity: ...
 
     @overload
+    @deprecated(
+        "The two-argument App.reply(conversation_id, activity) form is deprecated. "
+        "Use App.send(conversation_id, activity) instead."
+    )
     async def reply(
         self,
         conversation_id: str,
@@ -415,7 +421,7 @@ class App(ActivityHandlerMixin):
 
         **2-arg form** ``reply(conversation_id, activity)``:
         Sends to the conversation ID provided. A valid legacy ``;messageid=`` suffix
-        is translated to the reply endpoint.
+        is translated to the reply endpoint. Deprecated; use :meth:`send` instead.
 
         Args:
             conversation_id: The conversation ID
@@ -435,6 +441,12 @@ class App(ActivityHandlerMixin):
                 agentic_identity=agentic_identity,
             )
 
+        warnings.warn(
+            "The two-argument App.reply(conversation_id, activity) form is deprecated. "
+            "Use App.send(conversation_id, activity) instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         return await self.send(
             conversation_id,
             message_id,

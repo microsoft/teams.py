@@ -1157,7 +1157,8 @@ class TestAppReply:
 
     @pytest.mark.asyncio
     async def test_reply_with_two_args_passes_conversation_id_as_is(self, started_app):
-        await started_app.reply("19:abc@thread.skype", "Hello flat")
+        with pytest.warns(DeprecationWarning, match="two-argument App.reply"):
+            await started_app.reply("19:abc@thread.skype", "Hello flat")
 
         started_app.api.conversations.activities.assert_called_once_with("19:abc@thread.skype")
 
@@ -1171,12 +1172,13 @@ class TestAppReply:
         )
         service_url = "https://override.service.url"
 
-        await started_app.reply(
-            "19:abc@thread.skype",
-            "Hello flat",
-            service_url=service_url,
-            agentic_identity=agentic_identity,
-        )
+        with pytest.warns(DeprecationWarning, match="two-argument App.reply"):
+            await started_app.reply(
+                "19:abc@thread.skype",
+                "Hello flat",
+                service_url=service_url,
+                agentic_identity=agentic_identity,
+            )
 
         started_app.api.conversations.activities.assert_called_once_with("19:abc@thread.skype")
         started_app.api.clone.assert_called_once_with(
@@ -1191,7 +1193,8 @@ class TestAppReply:
 
     @pytest.mark.asyncio
     async def test_reply_with_pre_constructed_threaded_id(self, started_app):
-        await started_app.reply("19:abc@thread.skype;messageid=123", "Hello")
+        with pytest.warns(DeprecationWarning, match="two-argument App.reply"):
+            await started_app.reply("19:abc@thread.skype;messageid=123", "Hello")
 
         started_app.api.conversations.activities.assert_called_once_with("19:abc@thread.skype")
         started_app.api.conversations.activities.return_value.reply.assert_awaited_once()
@@ -1217,8 +1220,9 @@ class TestAppReply:
         options = AppOptions(client_id="test-client-id", client_secret="test-secret")
         app = App(**options)
 
-        with pytest.raises(ValueError, match="app not initialized"):
-            await app.reply("conv-id", "Hello")
+        with pytest.warns(DeprecationWarning, match="two-argument App.reply"):
+            with pytest.raises(ValueError, match="app not initialized"):
+                await app.reply("conv-id", "Hello")
 
 
 class TestMergeAppOptions:
