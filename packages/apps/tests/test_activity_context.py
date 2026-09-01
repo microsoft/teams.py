@@ -14,12 +14,14 @@ import pytest
 from httpx import ConnectError, HTTPStatusError, Request, Response
 from microsoft_teams.api import (
     Account,
+    ChannelData,
     ConversationAccount,
     ConversationReference,
     MessageActivity,
     MessageActivityInput,
     SentActivity,
     TargetedMessageInfoEntity,
+    ThreadInfo,
     TokenExchangeResource,
     TokenStatus,
 )
@@ -57,6 +59,12 @@ def _create_activity_context(
             activity_params=MessageActivityInput(text="updated"),
         )
     )
+    activities.reply = AsyncMock(
+        return_value=SentActivity(
+            id="reply-activity-id",
+            activity_params=MessageActivityInput(text="reply"),
+        )
+    )
     activities.create_targeted = AsyncMock(
         return_value=SentActivity(
             id="targeted-activity-id",
@@ -81,6 +89,10 @@ def _create_activity_context(
         api.conversations.activities(conversation_id)
         return await activities.update(activity_id, activity)
 
+    async def reply_to_activity(conversation_id: str, activity_id: str, activity: Any) -> SentActivity:
+        api.conversations.activities(conversation_id)
+        return await activities.reply(activity_id, activity)
+
     async def create_targeted_activity(conversation_id: str, activity: Any) -> SentActivity:
         api.conversations.activities(conversation_id)
         return await activities.create_targeted(activity)
@@ -91,6 +103,7 @@ def _create_activity_context(
 
     api.conversations.create_activity = AsyncMock(side_effect=create_activity)
     api.conversations.update_activity = AsyncMock(side_effect=update_activity)
+    api.conversations.reply_to_activity = AsyncMock(side_effect=reply_to_activity)
     api.conversations.create_targeted_activity = AsyncMock(side_effect=create_targeted_activity)
     api.conversations.update_targeted_activity = AsyncMock(side_effect=update_targeted_activity)
 
@@ -394,6 +407,84 @@ class TestActivityContextSendTargeted:
 
         # Verify recipient was NOT set for non-targeted messages
         assert sent_activity.recipient is None
+
+
+class TestActivityContextThreadPlacement:
+    def _context(
+        self,
+        conversation_type: str,
+        *,
+        conversation_id: str = "conversation-id",
+        thread_id: str | None = None,
+        activity_id: str = "inbound-id",
+    ) -> ActivityContext[Any]:
+        activity = MessageActivity(
+            id=activity_id,
+            text="Incoming",
+            from_=Account(id="user-id"),
+            recipient=Account(id="bot-id"),
+            conversation=ConversationAccount(id=conversation_id, conversation_type=conversation_type),
+            channel_data=ChannelData(thread=ThreadInfo(id=thread_id)) if thread_id else None,
+        )
+        ctx, _ = _create_activity_context(activity=activity)
+        ctx.conversation_ref.conversation = activity.conversation.model_copy()
+        return ctx
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("conversation_type", ["personal", "groupChat"])
+    async def test_l1_inbound_send_stays_l1(self, conversation_type: str) -> None:
+        ctx = self._context(conversation_type)
+
+        await ctx.send("Response")
+
+        ctx.api.conversations.create_activity.assert_awaited_once()
+        ctx.api.conversations.reply_to_activity.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_personal_legacy_suffix_stays_l1(self) -> None:
+        ctx = self._context("personal", conversation_id="conversation-id;messageid=789")
+
+        await ctx.send("Response")
+
+        ctx.api.conversations.create_activity.assert_awaited_once()
+        assert ctx.api.conversations.create_activity.call_args.args[0] == "conversation-id"
+        ctx.api.conversations.reply_to_activity.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_group_chat_l2_send_stays_in_same_thread(self) -> None:
+        ctx = self._context("groupChat", thread_id="group-root")
+
+        await ctx.send("Response")
+
+        ctx.api.conversations.reply_to_activity.assert_awaited_once()
+        assert ctx.api.conversations.reply_to_activity.call_args.args[:2] == ("conversation-id", "group-root")
+
+    @pytest.mark.asyncio
+    async def test_channel_send_uses_inbound_thread_metadata(self) -> None:
+        ctx = self._context("channel", thread_id="channel-root")
+
+        await ctx.send("Response")
+
+        ctx.api.conversations.reply_to_activity.assert_awaited_once()
+        assert ctx.api.conversations.reply_to_activity.call_args.args[:2] == ("conversation-id", "channel-root")
+
+    @pytest.mark.asyncio
+    async def test_channel_root_send_replies_to_inbound_root(self) -> None:
+        ctx = self._context("channel", activity_id="channel-root")
+
+        await ctx.send("Response")
+
+        ctx.api.conversations.reply_to_activity.assert_awaited_once()
+        assert ctx.api.conversations.reply_to_activity.call_args.args[:2] == ("conversation-id", "channel-root")
+
+    @pytest.mark.asyncio
+    async def test_legacy_thread_suffix_is_fallback_and_not_sent_to_service(self) -> None:
+        ctx = self._context("groupChat", conversation_id="conversation-id;messageid=789")
+
+        await ctx.send("Response")
+
+        ctx.api.conversations.reply_to_activity.assert_awaited_once()
+        assert ctx.api.conversations.reply_to_activity.call_args.args[:2] == ("conversation-id", "789")
 
 
 class TestActivityContextSend:

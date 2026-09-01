@@ -14,7 +14,7 @@ in a separate source module.
 
 | Command | Behavior |
 |---------|----------|
-| `quote reply` | `ctx.reply()` auto-quotes the inbound message |
+| `quote reply` | Deprecated `ctx.reply()` compatibility behavior auto-quotes the inbound message |
 | `quote message` | `ctx.quote()` quotes a previously sent message by ID |
 | `quote add` | `add_quote()` composes a quote with a response |
 | `quote batch` | Combines multiple quotes with mixed responses |
@@ -25,10 +25,10 @@ in a separate source module.
 
 | Command | Behavior |
 |---------|----------|
-| `thread reply` | `ctx.reply()` sends a reactive threaded reply |
+| `thread reply` | Deprecated `ctx.reply()` compatibility behavior sends a reactive threaded reply |
 | `thread send` | `ctx.send()` sends to the same thread without quoting |
 | `thread proactive` | `app.reply()` sends a proactive threaded reply |
-| `thread manual` | `to_threaded_conversation_id()` and `app.send()` provide manual control |
+| `thread manual` | `app.reply()` selects an explicit thread root |
 
 ### Reactions
 

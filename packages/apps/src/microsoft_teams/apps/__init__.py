@@ -32,7 +32,7 @@ from .utils.html_widget import (
     try_get_widget_model_context,
     validate_security_policy,
 )
-from .utils.thread import to_threaded_conversation_id
+from .utils.thread import to_threaded_conversation_id  # pyright: ignore[reportDeprecated]
 
 logging.getLogger(__name__).addHandler(logging.NullHandler())
 

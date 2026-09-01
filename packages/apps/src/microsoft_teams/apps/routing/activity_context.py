@@ -66,6 +66,7 @@ from ..oauth_state import (
 from ..plugins.streamer import StreamerProtocol
 from ..state import TurnStateContainer
 from ..utils import create_graph_client
+from ..utils.thread import parse_threaded_conversation_id
 
 if TYPE_CHECKING:
     from msgraph.graph_service_client import GraphServiceClient
@@ -257,11 +258,20 @@ class ActivityContext(Generic[T]):
         self._add_targeted_message_info_entity(activity)
 
         ref = conversation_ref or self.conversation_ref
+        thread_root_id = None if conversation_ref is not None else self._current_thread_root_id()
+        base_conversation_id, legacy_thread_root_id = parse_threaded_conversation_id(ref.conversation.id)
+        if legacy_thread_root_id is not None:
+            ref = ref.model_copy(
+                update={"conversation": ref.conversation.model_copy(update={"id": base_conversation_id})}
+            )
+            if conversation_ref is not None or self.activity.conversation.conversation_type != "personal":
+                thread_root_id = thread_root_id or legacy_thread_root_id
         return await send_or_update_activity(
             self.api,
             activity,
             ref,
             agentic_identity=self.activity.recipient.agentic_identity,
+            thread_root_id=thread_root_id,
         )
 
     async def reply(self, input: str | ActivityParams) -> SentActivity:
@@ -271,8 +281,14 @@ class ActivityContext(Generic[T]):
         In other scopes, sends with a quoted reply.
         To send without quoting, use :meth:`send`.
         """
+        warnings.warn(
+            "ActivityContext.reply() is deprecated because it combines thread placement and quoting. "
+            "Use send() for placement and MessageActivityInput.add_quote() for explicit quote metadata.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         if self.activity.id:
-            return await self.quote(self.activity.id, input)
+            return await self._send_quote(self.activity.id, input)
         activity = MessageActivityInput(text=input) if isinstance(input, str) else input
         return await self.send(activity)
 
@@ -288,10 +304,38 @@ class ActivityContext(Generic[T]):
         Returns:
             The sent activity
         """
+        warnings.warn(
+            "ActivityContext.quote() is deprecated. Use MessageActivityInput.add_quote() and send() instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return await self._send_quote(message_id, input)
+
+    async def _send_quote(self, message_id: str, input: str | ActivityParams) -> SentActivity:
         activity = MessageActivityInput(text=input) if isinstance(input, str) else input
         if isinstance(activity, MessageActivityInput):
             activity.prepend_quote(message_id)
         return await self.send(activity)
+
+    def _current_thread_root_id(self) -> str | None:
+        if not isinstance(self.activity, MessageActivity):
+            return None
+
+        conversation_type = self.activity.conversation.conversation_type
+        if conversation_type == "personal":
+            return None
+
+        channel_data = self.activity.channel_data
+        if channel_data is not None and channel_data.thread is not None and channel_data.thread.id:
+            return channel_data.thread.id
+
+        _, legacy_thread_root_id = parse_threaded_conversation_id(self.activity.conversation.id)
+        if legacy_thread_root_id is not None:
+            return legacy_thread_root_id
+
+        if conversation_type == "channel":
+            return self.activity.id
+        return None
 
     async def next(self) -> None:
         """Call the next middleware in the chain."""

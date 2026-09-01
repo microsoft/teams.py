@@ -4,7 +4,7 @@ Licensed under the MIT License.
 """
 
 from microsoft_teams.api import MessageActivity
-from microsoft_teams.apps import ActivityContext, App, to_threaded_conversation_id
+from microsoft_teams.apps import ActivityContext, App
 
 
 async def handle_thread_reply(ctx: ActivityContext[MessageActivity], text: str) -> bool:
@@ -33,16 +33,15 @@ async def handle_proactive_thread(app: App, ctx: ActivityContext[MessageActivity
 
 
 async def handle_manual_thread(app: App, ctx: ActivityContext[MessageActivity], text: str) -> bool:
-    """Construct a threaded conversation ID manually when the command matches."""
+    """Send to an explicitly selected thread root when the command matches."""
     if text != "thread manual":
         return False
     conversation_id, thread_root_id = _thread_reference(ctx)
-    thread_id = to_threaded_conversation_id(conversation_id, thread_root_id)
-    await app.send(thread_id, "This was sent using to_threaded_conversation_id() + app.send() for manual control.")
+    await app.reply(conversation_id, thread_root_id, "This was sent using app.reply() with an explicit thread root.")
     return True
 
 
 def _thread_reference(ctx: ActivityContext[MessageActivity]) -> tuple[str, str]:
     conversation_id = ctx.conversation_ref.conversation.id
-    parts = conversation_id.split(";messageid=")
-    return conversation_id, parts[1] if len(parts) > 1 else ctx.activity.id
+    thread = ctx.activity.channel_data.thread if ctx.activity.channel_data else None
+    return conversation_id, thread.id if thread and thread.id else ctx.activity.id

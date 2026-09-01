@@ -19,6 +19,7 @@ async def send_or_update_activity(
     ref: ConversationReference,
     *,
     agentic_identity: AgenticIdentity | None = None,
+    thread_root_id: str | None = None,
 ) -> SentActivity:
     """Send or update an activity using the same routing rules as the removed ActivitySender."""
     is_targeted = (
@@ -52,6 +53,8 @@ async def send_or_update_activity(
 
     if is_targeted:
         res = await scoped_api.conversations.create_targeted_activity(ref.conversation.id, activity)
+    elif thread_root_id is not None:
+        res = await scoped_api.conversations.reply_to_activity(ref.conversation.id, thread_root_id, activity)
     else:
         res = await scoped_api.conversations.create_activity(ref.conversation.id, activity)
     return SentActivity.merge(activity, res)

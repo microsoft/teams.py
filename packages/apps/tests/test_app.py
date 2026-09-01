@@ -89,6 +89,10 @@ def _wire_flat_activity_methods(api: Any, activities: MagicMock) -> None:
         api.conversations.activities(conversation_id)
         return await activities.update(activity_id, activity)
 
+    async def reply_to_activity(conversation_id: str, activity_id: str, activity: Any) -> SentActivity:
+        api.conversations.activities(conversation_id)
+        return await activities.reply(activity_id, activity)
+
     async def create_targeted_activity(conversation_id: str, activity: Any) -> SentActivity:
         api.conversations.activities(conversation_id)
         return await activities.create_targeted(activity)
@@ -99,6 +103,7 @@ def _wire_flat_activity_methods(api: Any, activities: MagicMock) -> None:
 
     api.conversations.create_activity = AsyncMock(side_effect=create_activity)
     api.conversations.update_activity = AsyncMock(side_effect=update_activity)
+    api.conversations.reply_to_activity = AsyncMock(side_effect=reply_to_activity)
     api.conversations.create_targeted_activity = AsyncMock(side_effect=create_targeted_activity)
     api.conversations.update_targeted_activity = AsyncMock(side_effect=update_targeted_activity)
 
@@ -894,6 +899,9 @@ class TestApp:
         )
         activities = MagicMock()
         activities.create = create
+        activities.reply = AsyncMock(
+            return_value=SentActivity(id="sent-activity-id", activity_params=MessageActivityInput(text="sent"))
+        )
         activities.create_targeted = AsyncMock(
             return_value=SentActivity(id="sent-activity-id", activity_params=MessageActivityInput(text="sent"))
         )
@@ -1033,6 +1041,9 @@ class TestAppInitialize:
         create = AsyncMock(return_value=SentActivity(id="msg-1", activity_params=MessageActivityInput(text="hi")))
         activities = MagicMock()
         activities.create = create
+        activities.reply = AsyncMock(
+            return_value=SentActivity(id="sent-activity-id", activity_params=MessageActivityInput(text="sent"))
+        )
         activities.update = AsyncMock(
             return_value=SentActivity(id="existing-msg-id", activity_params=MessageActivityInput(text="updated"))
         )
@@ -1094,6 +1105,9 @@ class TestAppReply:
         )
         activities = MagicMock()
         activities.create = create
+        activities.reply = AsyncMock(
+            return_value=SentActivity(id="sent-activity-id", activity_params=MessageActivityInput(text="sent"))
+        )
         activities.update = AsyncMock(
             return_value=SentActivity(id="updated-activity-id", activity_params=MessageActivityInput(text="updated"))
         )
@@ -1103,10 +1117,14 @@ class TestAppReply:
         return app
 
     @pytest.mark.asyncio
-    async def test_reply_with_three_args_constructs_threaded_id(self, started_app):
+    async def test_reply_with_three_args_uses_reply_endpoint(self, started_app):
         await started_app.reply("19:abc@thread.skype", "1680000000000", "Hello thread")
 
-        started_app.api.conversations.activities.assert_called_once_with("19:abc@thread.skype;messageid=1680000000000")
+        started_app.api.conversations.activities.assert_called_once_with("19:abc@thread.skype")
+        started_app.api.conversations.activities.return_value.reply.assert_awaited_once()
+        root_id, activity = started_app.api.conversations.activities.return_value.reply.call_args.args
+        assert root_id == "1680000000000"
+        assert activity.text == "Hello thread"
 
     @pytest.mark.asyncio
     async def test_reply_with_three_args_passes_service_url_and_agentic_identity_to_scoped_api(self, started_app):
@@ -1126,16 +1144,16 @@ class TestAppReply:
             agentic_identity=agentic_identity,
         )
 
-        started_app.api.conversations.activities.assert_called_once_with("19:abc@thread.skype;messageid=1680000000000")
+        started_app.api.conversations.activities.assert_called_once_with("19:abc@thread.skype")
         started_app.api.clone.assert_called_once_with(
             service_url=service_url,
             agentic_identity=agentic_identity,
         )
-        create = started_app.api.conversations.activities.return_value.create
-        activity = create.call_args.args[0]
+        reply = started_app.api.conversations.activities.return_value.reply
+        activity = reply.call_args.args[1]
         assert isinstance(activity, MessageActivityInput)
         assert activity.text == "Hello thread"
-        assert create.call_args.kwargs == {}
+        assert reply.call_args.kwargs == {}
 
     @pytest.mark.asyncio
     async def test_reply_with_two_args_passes_conversation_id_as_is(self, started_app):
@@ -1175,7 +1193,19 @@ class TestAppReply:
     async def test_reply_with_pre_constructed_threaded_id(self, started_app):
         await started_app.reply("19:abc@thread.skype;messageid=123", "Hello")
 
-        started_app.api.conversations.activities.assert_called_once_with("19:abc@thread.skype;messageid=123")
+        started_app.api.conversations.activities.assert_called_once_with("19:abc@thread.skype")
+        started_app.api.conversations.activities.return_value.reply.assert_awaited_once()
+        assert started_app.api.conversations.activities.return_value.reply.call_args.args[0] == "123"
+
+    @pytest.mark.asyncio
+    async def test_send_translates_legacy_threaded_conversation_id(self, started_app):
+        await started_app.send("19:abc@thread.skype;messageid=00456", "Hello")
+
+        started_app.api.conversations.activities.assert_called_once_with("19:abc@thread.skype")
+        started_app.api.conversations.activities.return_value.reply.assert_awaited_once()
+        root_id, activity = started_app.api.conversations.activities.return_value.reply.call_args.args
+        assert root_id == "00456"
+        assert activity.conversation.id == "19:abc@thread.skype"
 
     @pytest.mark.asyncio
     async def test_reply_with_invalid_message_id_raises(self, started_app):

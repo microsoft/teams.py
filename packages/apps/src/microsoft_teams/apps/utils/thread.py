@@ -3,7 +3,17 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
+import re
 
+from typing_extensions import deprecated
+
+_LEGACY_THREADED_CONVERSATION_ID = re.compile(r"^(?P<conversation_id>.+);messageid=(?P<message_id>\d+)$")
+
+
+@deprecated(
+    "to_threaded_conversation_id is deprecated. Use App.reply(conversation_id, message_id, activity) "
+    "to place a message in a thread."
+)
 def to_threaded_conversation_id(conversation_id: str, message_id: str) -> str:
     """Construct a threaded conversation ID by appending `;messageid={message_id}`
     to the conversation ID. This is the format the service uses to route messages
@@ -25,3 +35,11 @@ def to_threaded_conversation_id(conversation_id: str, message_id: str) -> str:
     # Strip any existing ;messageid= suffix (mirrors the service's conversation-ID normalization)
     base_id = conversation_id.split(";")[0]
     return f"{base_id};messageid={message_id}"
+
+
+def parse_threaded_conversation_id(conversation_id: str) -> tuple[str, str | None]:
+    """Split a valid legacy threaded conversation ID into its base ID and thread root."""
+    match = _LEGACY_THREADED_CONVERSATION_ID.fullmatch(conversation_id)
+    if match is None or match.group("message_id") == "0":
+        return conversation_id, None
+    return match.group("conversation_id"), match.group("message_id")
