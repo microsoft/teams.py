@@ -32,7 +32,7 @@ async def handle_quote_reply(ctx: ActivityContext[MessageActivity], text: str) -
     """Reply with an automatic quote when the command matches."""
     if text != "quote reply":
         return False
-    await ctx.reply("Thanks for your message! This reply auto-quotes it using reply().")
+    await ctx.send(MessageActivityInput().add_quote(ctx.activity.id, "Thanks for your message!"))
     return True
 
 
@@ -41,7 +41,7 @@ async def handle_quote_message(ctx: ActivityContext[MessageActivity], text: str)
     if text != "quote message":
         return False
     sent = await ctx.send("The meeting has been moved to 3 PM tomorrow.")
-    await ctx.quote(sent.id, "Just to confirm - does the new time work for everyone?")
+    await ctx.send(MessageActivityInput().add_quote(sent.id, "Just to confirm - does the new time work for everyone?"))
     return True
 
 

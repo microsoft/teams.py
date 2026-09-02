@@ -3,7 +3,7 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from microsoft_teams.api import MessageActivity
+from microsoft_teams.api import MessageActivity, MessageActivityInput
 from microsoft_teams.apps import ActivityContext, App
 
 
@@ -11,7 +11,7 @@ async def handle_thread_reply(ctx: ActivityContext[MessageActivity], text: str) 
     """Send a reactive threaded reply when the command matches."""
     if text != "thread reply":
         return False
-    await ctx.reply("This is a threaded reply to your message.")
+    await ctx.send(MessageActivityInput().add_quote(ctx.activity.id, "This is a threaded reply to your message."))
     return True
 
 

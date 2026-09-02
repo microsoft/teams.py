@@ -232,7 +232,8 @@ class TestActivityContextSendTargeted:
             service_url="https://service.example",
         )
 
-        await ctx.send("Cross-post", other_ref)
+        with pytest.warns(DeprecationWarning, match="conversation_ref"):
+            await ctx.send("Cross-post", other_ref)
 
         mock_sender.send.assert_called_once()
         sent_activity = mock_sender.send.call_args[0][0]

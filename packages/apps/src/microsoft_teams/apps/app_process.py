@@ -175,7 +175,10 @@ class ActivityProcessor:
             message: str | ActivityParams | AdaptiveCard,
             conversation_ref: Optional[ConversationReference] = None,
         ) -> SentActivity:
-            res = await send(message, conversation_ref)
+            if conversation_ref is None:
+                res = await send(message)
+            else:
+                res = await send(message, conversation_ref)  # pyright: ignore[reportDeprecated]
 
             if not self.event_manager:
                 raise ValueError("EventManager was not initialized properly")

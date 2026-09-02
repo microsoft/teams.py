@@ -7,7 +7,7 @@ import asyncio
 import logging
 import re
 
-from microsoft_teams.api import MessageActivity
+from microsoft_teams.api import MessageActivity, MessageActivityInput
 from microsoft_teams.api.activities.typing import TypingActivityInput
 from microsoft_teams.apps import ActivityContext, App
 
@@ -22,7 +22,7 @@ app = App()
 @app.on_message_pattern(re.compile(r"hello|hi|greetings"))
 async def handle_greeting(ctx: ActivityContext[MessageActivity]) -> None:
     """Handle greeting messages."""
-    await ctx.reply("Hello! How can I assist you today?")
+    await ctx.send(MessageActivityInput().add_quote(ctx.activity.id, "Hello! How can I assist you today?"))
 
 
 @app.on_message
@@ -30,10 +30,10 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
     """Handle message activities using the new generated handler system."""
     logger.info(f"[GENERATED onMessage] Message received: {ctx.activity.text}")
     logger.info(f"[GENERATED onMessage] From: {ctx.activity.from_}")
-    await ctx.reply(TypingActivityInput())
+    await ctx.send(TypingActivityInput())
 
     if "reply" in ctx.activity.text.lower():
-        await ctx.reply("Hello! How can I assist you today?")
+        await ctx.send(MessageActivityInput().add_quote(ctx.activity.id, "Hello! How can I assist you today?"))
     else:
         await ctx.send(f"You said '{ctx.activity.text}'")
 

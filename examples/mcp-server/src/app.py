@@ -11,6 +11,7 @@ from microsoft_teams.api import (
     AdaptiveCardInvokeActivity,
     AdaptiveCardInvokeResponse,
     MessageActivity,
+    MessageActivityInput,
 )
 from microsoft_teams.apps import ActivityContext, App
 from microsoft_teams.cards import AdaptiveCard, TextBlock
@@ -33,7 +34,7 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
         f"Received message from user {user_id} in conversation {conversation_id}. "
         "Replies to asks now arrive via adaptive card actions."
     )
-    await ctx.reply("Hi! I'll let you know if I need anything.")
+    await ctx.send(MessageActivityInput().add_quote(ctx.activity.id, "Hi! I'll let you know if I need anything."))
 
 
 @app.on_card_action_execute("ask_reply")

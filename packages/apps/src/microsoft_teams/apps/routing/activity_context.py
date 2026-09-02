@@ -19,6 +19,7 @@ from typing import (
     Sequence,
     TypeGuard,
     TypeVar,
+    overload,
 )
 
 from httpx import HTTPStatusError
@@ -53,6 +54,7 @@ from microsoft_teams.cards import AdaptiveCard
 from microsoft_teams.common import Storage
 from microsoft_teams.common.experimental import ExperimentalWarning
 from microsoft_teams.common.http.client_token import Token
+from typing_extensions import deprecated
 
 from ..activity_send import send_or_update_activity
 from ..files import FilesAccessor
@@ -230,6 +232,23 @@ class ActivityContext(Generic[T]):
 
         return self._app_graph
 
+    @overload
+    async def send(
+        self,
+        message: str | ActivityParams | AdaptiveCard,
+    ) -> SentActivity: ...
+
+    @overload
+    @deprecated(
+        "Passing conversation_ref to ActivityContext.send() is deprecated. "
+        "Use App.send() to send to another conversation."
+    )
+    async def send(
+        self,
+        message: str | ActivityParams | AdaptiveCard,
+        conversation_ref: ConversationReference,
+    ) -> SentActivity: ...
+
     async def send(
         self,
         message: str | ActivityParams | AdaptiveCard,
@@ -243,8 +262,17 @@ class ActivityContext(Generic[T]):
 
         Args:
             message: The message to send, can be a string, ActivityParams, or AdaptiveCard
-            conversation_ref: Optional conversation reference to send to a different conversation or thread
+            conversation_ref: Deprecated conversation reference for a different destination.
+                Use ``App.send()`` for proactive sends.
         """
+        if conversation_ref is not None:
+            warnings.warn(
+                "Passing conversation_ref to ActivityContext.send() is deprecated. "
+                "Use App.send() to send to another conversation.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+
         if isinstance(message, str):
             activity = MessageActivityInput(text=message)
         elif isinstance(message, AdaptiveCard):
@@ -272,6 +300,10 @@ class ActivityContext(Generic[T]):
             thread_root_id=thread_root_id,
         )
 
+    @deprecated(
+        "ActivityContext.reply() is deprecated because it combines thread placement and quoting. "
+        "Use send() for placement and MessageActivityInput.add_quote() for explicit quote metadata."
+    )
     async def reply(self, input: str | ActivityParams) -> SentActivity:
         """Send a message in the current conversation with a visual quote of the inbound message.
 
@@ -279,17 +311,12 @@ class ActivityContext(Generic[T]):
         In other scopes, sends with a quoted reply.
         To send without quoting, use :meth:`send`.
         """
-        warnings.warn(
-            "ActivityContext.reply() is deprecated because it combines thread placement and quoting. "
-            "Use send() for placement and MessageActivityInput.add_quote() for explicit quote metadata.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
         if self.activity.id:
             return await self._send_quote(self.activity.id, input)
         activity = MessageActivityInput(text=input) if isinstance(input, str) else input
         return await self.send(activity)
 
+    @deprecated("ActivityContext.quote() is deprecated. Use MessageActivityInput.add_quote() and send() instead.")
     async def quote(self, message_id: str, input: str | ActivityParams) -> SentActivity:
         """
         Send a message to the conversation with a quoted message reference prepended to the text.
@@ -302,11 +329,6 @@ class ActivityContext(Generic[T]):
         Returns:
             The sent activity
         """
-        warnings.warn(
-            "ActivityContext.quote() is deprecated. Use MessageActivityInput.add_quote() and send() instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
         return await self._send_quote(message_id, input)
 
     async def _send_quote(self, message_id: str, input: str | ActivityParams) -> SentActivity:
@@ -515,7 +537,7 @@ class ActivityContext(Generic[T]):
             )
             if self.state is not None:
                 await self.state._save()  # pyright: ignore[reportPrivateUsage]
-            await self.send(payload, self.conversation_ref)
+            await self.send(payload)
         except Exception:
             # Best-effort rollback: the card never went out, so the pending hint must not
             # linger and mis-route a later callback. A failure here must not replace the

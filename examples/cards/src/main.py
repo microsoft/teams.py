@@ -449,7 +449,7 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
     logger.info(f"[GENERAL] From: {ctx.activity.from_}")
 
     if "reply" in ctx.activity.text.lower():
-        await ctx.reply("Hello! How can I assist you today?")
+        await ctx.send(MessageActivityInput().add_quote(ctx.activity.id, "Hello! How can I assist you today?"))
     else:
         await ctx.send(f"You said '{ctx.activity.text}'")
 
