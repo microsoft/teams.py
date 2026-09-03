@@ -8,7 +8,7 @@ import logging
 import time
 from contextlib import contextmanager
 from datetime import datetime, timezone
-from typing import Any, Iterator
+from typing import Any, Generator
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import pytest
@@ -60,7 +60,7 @@ class RecordingTracer:
         self.spans: list[RecordingSpan] = []
 
     @contextmanager
-    def start_as_current_span(self, name: str, **kwargs: Any) -> Iterator[RecordingSpan]:
+    def start_as_current_span(self, name: str, **kwargs: Any) -> Generator[RecordingSpan, None, None]:
         span = RecordingSpan(name, kwargs)
         self.spans.append(span)
         yield span
@@ -214,33 +214,45 @@ class TestOauthHandlers:
         mock_context.next.assert_called_once()
 
     @pytest.mark.asyncio
+    @pytest.mark.parametrize("with_callback", [False, True])
     async def test_sign_in_token_exchange_records_success_telemetry(
-        self, oauth_handlers, mock_context, token_exchange_activity, mock_token_response
+        self,
+        oauth_handlers,
+        mock_context,
+        token_exchange_activity,
+        mock_token_response,
+        monkeypatch: pytest.MonkeyPatch,
+        with_callback: bool,
     ):
         mock_context.activity = token_exchange_activity
         mock_context.api.users.exchange_token.return_value = mock_token_response
+        if with_callback:
+            flow = oauth_handlers.oauth_registry.add(OAuthFlow("test-connection"))
+
+            @flow.on_signin
+            async def on_signin(_):
+                pass
+
         tracer = RecordingTracer()
+        operation_calls = []
+        monkeypatch.setattr("microsoft_teams.apps.app_oauth.get_tracer", lambda: tracer)
+        monkeypatch.setattr(
+            "microsoft_teams.apps.app_oauth.record_oauth_operation",
+            lambda *args: operation_calls.append(args),
+        )
 
-        with (
-            pytest.MonkeyPatch.context() as monkeypatch,
-        ):
-            operation_calls = []
-            monkeypatch.setattr("microsoft_teams.apps.app_oauth.get_tracer", lambda: tracer)
-            monkeypatch.setattr(
-                "microsoft_teams.apps.app_oauth.record_oauth_operation",
-                lambda *args: operation_calls.append(args),
-            )
+        await oauth_handlers.sign_in_token_exchange(mock_context)
 
-            await oauth_handlers.sign_in_token_exchange(mock_context)
-
-        assert tracer.spans[0].name == "microsoft.teams.oauth.token_exchange"
+        assert tracer.spans[0].name == "microsoft.teams.oauth"
         assert tracer.spans[0].options == {"record_exception": False, "set_status_on_exception": False}
-        assert tracer.spans[0].attributes == {
+        expected_attributes = {
             "oauth.connection": "test-connection",
             "oauth.operation": "token_exchange",
-            "oauth.callback.invoked": True,
             "oauth.result": "success",
         }
+        if with_callback:
+            expected_attributes["oauth.callback.invoked"] = True
+        assert tracer.spans[0].attributes == expected_attributes
         assert operation_calls[0][:3] == ("test-connection", "token_exchange", "success")
         assert operation_calls[0][3] >= 0
         assert "test-token" not in tracer.spans[0].attributes.values()
@@ -860,29 +872,43 @@ class TestOauthHandlers:
         assert result is None
 
     @pytest.mark.asyncio
+    @pytest.mark.parametrize("with_callback", [False, True])
     async def test_sign_in_failure_records_notified_telemetry_without_message(
-        self, oauth_handlers, mock_context, failure_activity
+        self,
+        oauth_handlers,
+        mock_context,
+        failure_activity,
+        monkeypatch: pytest.MonkeyPatch,
+        with_callback: bool,
     ):
         mock_context.activity = failure_activity
+        if with_callback:
+            flow = oauth_handlers.oauth_registry.add(OAuthFlow("test-connection"))
+
+            @flow.on_signin_failure
+            async def on_signin_failure(_):
+                pass
+
+            mock_context.state = create_pending_state(("test-connection", time.time(), True))
         tracer = RecordingTracer()
+        operation_calls = []
+        monkeypatch.setattr("microsoft_teams.apps.app_oauth.get_tracer", lambda: tracer)
+        monkeypatch.setattr(
+            "microsoft_teams.apps.app_oauth.record_oauth_operation",
+            lambda *args: operation_calls.append(args),
+        )
 
-        with pytest.MonkeyPatch.context() as monkeypatch:
-            operation_calls = []
-            monkeypatch.setattr("microsoft_teams.apps.app_oauth.get_tracer", lambda: tracer)
-            monkeypatch.setattr(
-                "microsoft_teams.apps.app_oauth.record_oauth_operation",
-                lambda *args: operation_calls.append(args),
-            )
+        await oauth_handlers.sign_in_failure(mock_context)
 
-            await oauth_handlers.sign_in_failure(mock_context)
-
-        assert tracer.spans[0].attributes == {
+        expected_attributes = {
             "oauth.connection": "test-connection",
             "oauth.operation": "signin_failure",
             "oauth.failure.code": "resourcematchfailed",
-            "oauth.callback.invoked": True,
             "oauth.result": "notified",
         }
+        if with_callback:
+            expected_attributes["oauth.callback.invoked"] = True
+        assert tracer.spans[0].attributes == expected_attributes
         assert operation_calls[0][:3] == ("test-connection", "signin_failure", "notified")
         assert "Resource match failed" not in tracer.spans[0].attributes.values()
 
@@ -1112,7 +1138,12 @@ class TestOauthHandlers:
         monkeypatch: pytest.MonkeyPatch,
     ):
         oauth_handlers.oauth_registry.add(OAuthFlow("Graph"))
-        oauth_handlers.oauth_registry.add(OAuthFlow("GitHub"))
+        github = oauth_handlers.oauth_registry.add(OAuthFlow("GitHub"))
+
+        @github.on_signin
+        async def on_signin(_):
+            pass
+
         mock_context.activity = verify_state_activity
         mock_context.state = create_pending_state(("Graph", time.time(), False))
         mock_context.api.users.get_token.side_effect = [
@@ -1130,6 +1161,7 @@ class TestOauthHandlers:
 
         assert await oauth_handlers.sign_in_verify_state(mock_context) is None
 
+        assert [span.name for span in tracer.spans] == ["microsoft.teams.oauth", "microsoft.teams.oauth"]
         assert [span.attributes for span in tracer.spans] == [
             {
                 "oauth.connection": "Graph",

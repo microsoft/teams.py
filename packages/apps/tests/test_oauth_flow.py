@@ -58,6 +58,27 @@ def _http_status_error(status_code: int) -> HTTPStatusError:
     return HTTPStatusError(f"HTTP {status_code}", request=request, response=response)
 
 
+def _capture_oauth_telemetry(monkeypatch: pytest.MonkeyPatch):
+    tracer = RecordingTracer()
+    operation_calls = []
+    error_calls = []
+    exception_calls = []
+    monkeypatch.setattr("microsoft_teams.apps.diagnostics._helpers.get_tracer", lambda: tracer)
+    monkeypatch.setattr(
+        "microsoft_teams.apps.diagnostics._helpers.record_oauth_operation",
+        lambda *args: operation_calls.append(args),
+    )
+    monkeypatch.setattr(
+        "microsoft_teams.apps.diagnostics._helpers.record_oauth_error",
+        lambda *args: error_calls.append(args),
+    )
+    monkeypatch.setattr(
+        "microsoft_teams.apps.diagnostics._helpers.record_exception",
+        lambda *args: exception_calls.append(args),
+    )
+    return tracer, operation_calls, error_calls, exception_calls
+
+
 class TestOAuthFlowOperations:
     """sign_in / sign_out / get_token / is_signed_in, always on this flow's connection."""
 
@@ -124,18 +145,11 @@ class TestOAuthFlowOperations:
         flow = OAuthFlow("graph")
         ctx = MagicMock()
         ctx.sign_in = AsyncMock(return_value=token)
-        tracer = RecordingTracer()
-        operation_calls = []
-
-        monkeypatch.setattr("microsoft_teams.apps.oauth_flow.get_tracer", lambda: tracer)
-        monkeypatch.setattr(
-            "microsoft_teams.apps.oauth_flow.record_oauth_operation",
-            lambda *args: operation_calls.append(args),
-        )
+        tracer, operation_calls, _, _ = _capture_oauth_telemetry(monkeypatch)
 
         assert await flow.sign_in(ctx) == token
 
-        assert tracer.spans[0].name == "microsoft.teams.oauth.signin"
+        assert tracer.spans[0].name == "microsoft.teams.oauth"
         assert tracer.spans[0].options == {"record_exception": False, "set_status_on_exception": False}
         assert tracer.spans[0].attributes == {
             "oauth.connection": "graph",
@@ -162,24 +176,7 @@ class TestOAuthFlowOperations:
         flow = OAuthFlow("graph")
         ctx = MagicMock()
         ctx.sign_in = AsyncMock(side_effect=error)
-        tracer = RecordingTracer()
-        operation_calls = []
-        error_calls = []
-        exception_calls = []
-
-        monkeypatch.setattr("microsoft_teams.apps.oauth_flow.get_tracer", lambda: tracer)
-        monkeypatch.setattr(
-            "microsoft_teams.apps.oauth_flow.record_oauth_operation",
-            lambda *args: operation_calls.append(args),
-        )
-        monkeypatch.setattr(
-            "microsoft_teams.apps.oauth_flow.record_oauth_error",
-            lambda *args: error_calls.append(args),
-        )
-        monkeypatch.setattr(
-            "microsoft_teams.apps.oauth_flow.record_exception",
-            lambda *args: exception_calls.append(args),
-        )
+        tracer, operation_calls, error_calls, exception_calls = _capture_oauth_telemetry(monkeypatch)
 
         with pytest.raises(type(error)):
             await flow.sign_in(ctx)
@@ -195,10 +192,11 @@ class TestOAuthFlowOperations:
         assert exception_calls == [(tracer.spans[0], error)]
 
     @pytest.mark.asyncio
-    async def test_sign_out_targets_flow_connection(self) -> None:
+    async def test_sign_out_targets_flow_connection(self, monkeypatch: pytest.MonkeyPatch) -> None:
         flow = OAuthFlow("graph")
         ctx = _api_ctx()
         ctx.api.users.sign_out = AsyncMock(return_value=None)
+        tracer, operation_calls, _, _ = _capture_oauth_telemetry(monkeypatch)
 
         await flow.sign_out(ctx)
 
@@ -207,12 +205,20 @@ class TestOAuthFlowOperations:
         assert params.connection_name == "graph"
         assert params.channel_id == "msteams"
         assert params.user_id == "user-1"
+        assert tracer.spans[0].name == "microsoft.teams.oauth"
+        assert tracer.spans[0].attributes == {
+            "oauth.connection": "graph",
+            "oauth.operation": "signout",
+            "oauth.result": "success",
+        }
+        assert operation_calls[0][:3] == ("graph", "signout", "success")
 
     @pytest.mark.asyncio
-    async def test_get_token_targets_flow_connection(self) -> None:
+    async def test_get_token_targets_flow_connection(self, monkeypatch: pytest.MonkeyPatch) -> None:
         flow = OAuthFlow("graph")
         ctx = _api_ctx()
         ctx.api.users.get_token = AsyncMock(return_value=MagicMock(token="tok"))
+        tracer, operation_calls, _, _ = _capture_oauth_telemetry(monkeypatch)
 
         result = await flow.get_token(ctx)
 
@@ -221,25 +227,46 @@ class TestOAuthFlowOperations:
         assert params.connection_name == "graph"
         assert params.channel_id == "msteams"
         assert params.user_id == "user-1"
+        assert tracer.spans[0].attributes == {
+            "oauth.connection": "graph",
+            "oauth.operation": "get_token",
+            "oauth.result": "token_found",
+        }
+        assert operation_calls[0][:3] == ("graph", "get_token", "token_found")
 
     @pytest.mark.asyncio
-    async def test_get_token_returns_none_when_no_token_cached(self) -> None:
+    async def test_get_token_returns_none_when_no_token_cached(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """404 is the Token Service saying "not signed in", not a failure."""
         flow = OAuthFlow("graph")
         ctx = _api_ctx()
         ctx.api.users.get_token = AsyncMock(side_effect=_http_status_error(404))
+        tracer, operation_calls, error_calls, _ = _capture_oauth_telemetry(monkeypatch)
 
         assert await flow.get_token(ctx) is None
+        assert tracer.spans[0].attributes["oauth.result"] == "token_not_found"
+        assert operation_calls[0][:3] == ("graph", "get_token", "token_not_found")
+        assert error_calls == []
 
     @pytest.mark.asyncio
-    async def test_get_token_reraises_non_404(self) -> None:
+    async def test_get_token_reraises_non_404(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """An outage must not be reported as a logged-out user."""
         flow = OAuthFlow("graph")
         ctx = _api_ctx()
-        ctx.api.users.get_token = AsyncMock(side_effect=_http_status_error(503))
+        error = _http_status_error(503)
+        ctx.api.users.get_token = AsyncMock(side_effect=error)
+        tracer, operation_calls, error_calls, exception_calls = _capture_oauth_telemetry(monkeypatch)
 
         with pytest.raises(HTTPStatusError):
             await flow.get_token(ctx)
+        assert tracer.spans[0].attributes == {
+            "oauth.connection": "graph",
+            "oauth.operation": "get_token",
+            "oauth.error.type": "http_error",
+            "oauth.result": "failure",
+        }
+        assert operation_calls[0][:3] == ("graph", "get_token", "failure")
+        assert error_calls == [("graph", "get_token", "http_error")]
+        assert exception_calls == [(tracer.spans[0], error)]
 
     @pytest.mark.asyncio
     async def test_is_signed_in_true_when_token_present(self) -> None:

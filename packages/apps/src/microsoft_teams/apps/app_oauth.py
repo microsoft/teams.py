@@ -158,7 +158,7 @@ class OauthHandlers:
         started_at = perf_counter()
         try:
             with get_tracer().start_as_current_span(
-                APP_SPAN_NAMES.oauth_token_exchange,
+                APP_SPAN_NAMES.oauth,
                 record_exception=False,
                 set_status_on_exception=False,
             ) as span:
@@ -210,7 +210,8 @@ class OauthHandlers:
                         span.set_attribute(APP_ATTRIBUTE_NAMES.invoke_response_status, status)
                         span.set_attribute(APP_ATTRIBUTE_NAMES.oauth_result, result)
 
-                        await self._notify_terminal_signin_failure(ctx, flow, e, status)
+                        if await self._notify_terminal_signin_failure(ctx, flow, e, status):
+                            span.set_attribute(APP_ATTRIBUTE_NAMES.oauth_callback_invoked, True)
                         return InvokeResponse(status=status)
 
                     # An expected miss: the Token Service has nothing to exchange.
@@ -263,11 +264,12 @@ class OauthHandlers:
                     connection_name=event_connection_name,
                 )
                 result = APP_OAUTH_RESULTS.success
-                span.set_attribute(APP_ATTRIBUTE_NAMES.oauth_callback_invoked, True)
                 span.set_attribute(APP_ATTRIBUTE_NAMES.oauth_result, result)
                 await self.event_emitter.emit_async("sign_in", event)
                 if flow is not None:
                     await flow._invoke_signin_handlers(event)  # pyright: ignore[reportPrivateUsage]
+                    if flow._has_signin_handlers():  # pyright: ignore[reportPrivateUsage]
+                        span.set_attribute(APP_ATTRIBUTE_NAMES.oauth_callback_invoked, True)
                 return None
         finally:
             record_oauth_operation(
@@ -392,7 +394,7 @@ class OauthHandlers:
         started_at = perf_counter()
         try:
             with get_tracer().start_as_current_span(
-                APP_SPAN_NAMES.oauth_token_exchange,
+                APP_SPAN_NAMES.oauth,
                 record_exception=False,
                 set_status_on_exception=False,
             ) as span:
@@ -427,7 +429,7 @@ class OauthHandlers:
         started_at = perf_counter()
         try:
             with get_tracer().start_as_current_span(
-                APP_SPAN_NAMES.oauth_token_exchange,
+                APP_SPAN_NAMES.oauth,
                 record_exception=False,
                 set_status_on_exception=False,
             ) as span:
@@ -485,9 +487,9 @@ class OauthHandlers:
         flow: Optional[OAuthFlow],
         error: HTTPStatusError,
         status: int,
-    ) -> None:
+    ) -> bool:
         if flow is None:
-            return
+            return False
         await flow._invoke_signin_failure_handlers(  # pyright: ignore[reportPrivateUsage]
             SignInFailureEvent(
                 activity_ctx=ctx,
@@ -496,6 +498,7 @@ class OauthHandlers:
                 message=str(error),
             )
         )
+        return flow._has_signin_failure_handlers()  # pyright: ignore[reportPrivateUsage]
 
     async def sign_in_failure(
         self, ctx: ActivityContext[SignInFailureInvokeActivity]
@@ -566,7 +569,7 @@ class OauthHandlers:
         started_at = perf_counter()
         try:
             with get_tracer().start_as_current_span(
-                APP_SPAN_NAMES.oauth_signin_failure,
+                APP_SPAN_NAMES.oauth,
                 record_exception=False,
                 set_status_on_exception=False,
             ) as span:
@@ -604,7 +607,6 @@ class OauthHandlers:
                     message=failure.message,
                 )
                 await self.event_emitter.emit_async("sign_in_failure", event)
-                span.set_attribute(APP_ATTRIBUTE_NAMES.oauth_callback_invoked, True)
                 span.set_attribute(APP_ATTRIBUTE_NAMES.oauth_result, result)
                 for flow in callback_flows:
                     flow_event = (
@@ -620,6 +622,11 @@ class OauthHandlers:
                     await flow._invoke_signin_failure_handlers(  # pyright: ignore[reportPrivateUsage]
                         flow_event
                     )
+                if any(
+                    flow._has_signin_failure_handlers()  # pyright: ignore[reportPrivateUsage]
+                    for flow in callback_flows
+                ):
+                    span.set_attribute(APP_ATTRIBUTE_NAMES.oauth_callback_invoked, True)
                 return None
         finally:
             record_oauth_operation(
@@ -707,7 +714,7 @@ class OauthHandlers:
         started_at = perf_counter()
         try:
             with get_tracer().start_as_current_span(
-                APP_SPAN_NAMES.oauth_verify_state,
+                APP_SPAN_NAMES.oauth,
                 record_exception=False,
                 set_status_on_exception=False,
             ) as span:
@@ -766,7 +773,8 @@ class OauthHandlers:
                     status = status or 500
                     span.set_attribute(APP_ATTRIBUTE_NAMES.invoke_response_status, status)
                     span.set_attribute(APP_ATTRIBUTE_NAMES.oauth_result, result)
-                    await self._notify_terminal_signin_failure(ctx, flow, e, status)
+                    if await self._notify_terminal_signin_failure(ctx, flow, e, status):
+                        span.set_attribute(APP_ATTRIBUTE_NAMES.oauth_callback_invoked, True)
                     return True, InvokeResponse(status=status)
                 except Exception as e:
                     # A transport fault or bug is not an ordinary candidate miss.
@@ -792,7 +800,6 @@ class OauthHandlers:
                     connection_name=connection_name,
                 )
                 result = APP_OAUTH_RESULTS.success
-                span.set_attribute(APP_ATTRIBUTE_NAMES.oauth_callback_invoked, True)
                 span.set_attribute(APP_ATTRIBUTE_NAMES.oauth_result, result)
                 span.set_attribute(APP_ATTRIBUTE_NAMES.invoke_response_status, 200)
                 await self.event_emitter.emit_async("sign_in", event)
@@ -800,6 +807,8 @@ class OauthHandlers:
                     await flow._invoke_signin_handlers(  # pyright: ignore[reportPrivateUsage]
                         event
                     )
+                    if flow._has_signin_handlers():  # pyright: ignore[reportPrivateUsage]
+                        span.set_attribute(APP_ATTRIBUTE_NAMES.oauth_callback_invoked, True)
                 logger.debug(
                     f"Sign-in state verified for user {activity.from_.id} in conversation {activity.conversation.id}"
                 )
