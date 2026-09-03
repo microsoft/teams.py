@@ -185,9 +185,9 @@ class TestOAuthFlowOperations:
             "oauth.connection": "graph",
             "oauth.operation": "signin",
             "oauth.error.type": expected_error_type,
-            "oauth.result": "failure",
+            "oauth.result": "operation_failed",
         }
-        assert operation_calls[0][:3] == ("graph", "signin", "failure")
+        assert operation_calls[0][:3] == ("graph", "signin", "operation_failed")
         assert error_calls == [("graph", "signin", expected_error_type)]
         assert exception_calls == [(tracer.spans[0], error)]
 
@@ -209,9 +209,9 @@ class TestOAuthFlowOperations:
         assert tracer.spans[0].attributes == {
             "oauth.connection": "graph",
             "oauth.operation": "signout",
-            "oauth.result": "success",
+            "oauth.result": "operation_succeeded",
         }
-        assert operation_calls[0][:3] == ("graph", "signout", "success")
+        assert operation_calls[0][:3] == ("graph", "signout", "operation_succeeded")
 
     @pytest.mark.asyncio
     async def test_get_token_targets_flow_connection(self, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -262,9 +262,9 @@ class TestOAuthFlowOperations:
             "oauth.connection": "graph",
             "oauth.operation": "get_token",
             "oauth.error.type": "http_error",
-            "oauth.result": "failure",
+            "oauth.result": "operation_failed",
         }
-        assert operation_calls[0][:3] == ("graph", "get_token", "failure")
+        assert operation_calls[0][:3] == ("graph", "get_token", "operation_failed")
         assert error_calls == [("graph", "get_token", "http_error")]
         assert exception_calls == [(tracer.spans[0], error)]
 

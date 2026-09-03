@@ -88,12 +88,12 @@ class _AppOAuthResults:
     cached: str = "token_cached"
     card_sent: str = "signin_card_sent"
     duplicate: str = "duplicate"
-    failure: str = "failure"
+    failure: str = "operation_failed"
     hit: str = "token_found"
     miss: str = "token_not_found"
     no_token: str = "no_token"
     notified: str = "notified"
-    success: str = "success"
+    success: str = "operation_succeeded"
 
 
 @dataclass(frozen=True)

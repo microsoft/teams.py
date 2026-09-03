@@ -248,12 +248,12 @@ class TestOauthHandlers:
         expected_attributes = {
             "oauth.connection": "test-connection",
             "oauth.operation": "token_exchange",
-            "oauth.result": "success",
+            "oauth.result": "operation_succeeded",
         }
         if with_callback:
             expected_attributes["oauth.callback.invoked"] = True
         assert tracer.spans[0].attributes == expected_attributes
-        assert operation_calls[0][:3] == ("test-connection", "token_exchange", "success")
+        assert operation_calls[0][:3] == ("test-connection", "token_exchange", "operation_succeeded")
         assert operation_calls[0][3] >= 0
         assert "test-token" not in tracer.spans[0].attributes.values()
         assert "access-token" not in tracer.spans[0].attributes.values()
@@ -345,9 +345,9 @@ class TestOauthHandlers:
             "oauth.connection": "test-connection",
             "oauth.operation": "token_exchange",
             "invoke.response.status": 412,
-            "oauth.result": "failure",
+            "oauth.result": "operation_failed",
         }
-        assert operation_calls[0][:3] == ("test-connection", "token_exchange", "failure")
+        assert operation_calls[0][:3] == ("test-connection", "token_exchange", "operation_failed")
         assert error_calls == []
 
     @pytest.mark.asyncio
@@ -413,9 +413,9 @@ class TestOauthHandlers:
             "oauth.operation": "token_exchange",
             "oauth.error.type": "http_error",
             "invoke.response.status": 500,
-            "oauth.result": "failure",
+            "oauth.result": "operation_failed",
         }
-        assert operation_calls[0][:3] == ("test-connection", "token_exchange", "failure")
+        assert operation_calls[0][:3] == ("test-connection", "token_exchange", "operation_failed")
         assert error_calls == [("test-connection", "token_exchange", "http_error")]
         assert record_exception_calls == [(tracer.spans[0], http_error)]
 
@@ -477,9 +477,9 @@ class TestOauthHandlers:
             "oauth.connection": "test-connection",
             "oauth.operation": "token_exchange",
             "oauth.error.type": "exception",
-            "oauth.result": "failure",
+            "oauth.result": "operation_failed",
         }
-        assert operation_calls[0][:3] == ("test-connection", "token_exchange", "failure")
+        assert operation_calls[0][:3] == ("test-connection", "token_exchange", "operation_failed")
         assert error_calls == [("test-connection", "token_exchange", "exception")]
         assert record_exception_calls == [(tracer.spans[0], generic_error)]
 
@@ -632,9 +632,9 @@ class TestOauthHandlers:
             "oauth.connection": "test-connection",
             "oauth.operation": "verify_state",
             "oauth.error.type": "exception",
-            "oauth.result": "failure",
+            "oauth.result": "operation_failed",
         }
-        assert operation_calls[0][:3] == ("test-connection", "verify_state", "failure")
+        assert operation_calls[0][:3] == ("test-connection", "verify_state", "operation_failed")
         assert error_calls == [("test-connection", "verify_state", "exception")]
         assert record_exception_calls == [(tracer.spans[0], generic_error)]
 
@@ -1173,13 +1173,13 @@ class TestOauthHandlers:
                 "oauth.connection": "GitHub",
                 "oauth.operation": "verify_state",
                 "oauth.callback.invoked": True,
-                "oauth.result": "success",
+                "oauth.result": "operation_succeeded",
                 "invoke.response.status": 200,
             },
         ]
         assert [call[:3] for call in operation_calls] == [
             ("Graph", "verify_state", "no_token"),
-            ("GitHub", "verify_state", "success"),
+            ("GitHub", "verify_state", "operation_succeeded"),
         ]
 
     @pytest.mark.asyncio

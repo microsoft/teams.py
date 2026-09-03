@@ -38,7 +38,7 @@ def _capture_oauth_operation(
     monkeypatch: pytest.MonkeyPatch,
 ) -> tuple[list[tuple[str, str]], MagicMock]:
     calls: list[tuple[str, str]] = []
-    telemetry = MagicMock(result="failure")
+    telemetry = MagicMock(result="operation_failed")
 
     @contextmanager
     def trace(connection_name: str, operation: str) -> Generator[tuple[MagicMock, MagicMock], None, None]:
@@ -1229,7 +1229,7 @@ class TestActivityContextTokenHelpers:
         assert params.user_id == "user-1"
         assert params.channel_id == "msteams"
         assert telemetry_calls == [("all", "connection_status")]
-        assert telemetry.result == "success"
+        assert telemetry.result == "operation_succeeded"
 
     @pytest.mark.asyncio
     async def test_get_connection_status_propagates_errors(self, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -1245,7 +1245,7 @@ class TestActivityContextTokenHelpers:
         with pytest.raises(RuntimeError):
             await ctx.get_connection_status()
         assert telemetry_calls == [("all", "connection_status")]
-        assert telemetry.result == "failure"
+        assert telemetry.result == "operation_failed"
 
 
 class TestActivityContextPromptPreview:
