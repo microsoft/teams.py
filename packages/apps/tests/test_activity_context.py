@@ -357,14 +357,17 @@ class TestActivityContextSendTargeted:
         mock_sender.send.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_targeted_send_in_personal_chat_raises(self) -> None:
+    async def test_targeted_send_in_personal_chat_uses_targeted_endpoint(self) -> None:
         incoming_sender = Account(id="user-123", name="Test User")
-        ctx, _ = self._create_activity_context(from_account=incoming_sender)
+        ctx, mock_sender = self._create_activity_context(from_account=incoming_sender)
         ctx.conversation_ref.conversation.conversation_type = "personal"
-        activity = MessageActivityInput(text="Nope").with_recipient(incoming_sender, is_targeted=True)
+        activity = MessageActivityInput(text="Private reply").with_recipient(incoming_sender, is_targeted=True)
 
-        with pytest.raises(ValueError, match="Targeted messages are not supported in 1:1"):
-            await ctx.send(activity)
+        await ctx.send(activity)
+
+        ctx.api.conversations.activities.return_value.create_targeted.assert_called_once_with(activity)
+        ctx.api.conversations.activities.return_value.create.assert_not_called()
+        mock_sender.send.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_targeted_with_different_recipient(self) -> None:
