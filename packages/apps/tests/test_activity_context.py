@@ -442,16 +442,6 @@ class TestActivityContextThreadPlacement:
         ctx.api.conversations.reply_to_activity.assert_not_awaited()
 
     @pytest.mark.asyncio
-    async def test_personal_legacy_suffix_stays_l1(self) -> None:
-        ctx = self._context("personal", conversation_id="conversation-id;messageid=789")
-
-        await ctx.send("Response")
-
-        ctx.api.conversations.create_activity.assert_awaited_once()
-        assert ctx.api.conversations.create_activity.call_args.args[0] == "conversation-id"
-        ctx.api.conversations.reply_to_activity.assert_not_awaited()
-
-    @pytest.mark.asyncio
     async def test_group_chat_l2_send_stays_in_same_thread(self) -> None:
         ctx = self._context("groupChat", thread_id="group-root")
 

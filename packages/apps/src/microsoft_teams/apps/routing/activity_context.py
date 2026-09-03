@@ -341,10 +341,6 @@ class ActivityContext(Generic[T]):
         if not isinstance(self.activity, MessageActivity):
             return None
 
-        conversation_type = self.activity.conversation.conversation_type
-        if conversation_type == "personal":
-            return None
-
         channel_data = self.activity.channel_data
         if channel_data is not None and channel_data.thread is not None and channel_data.thread.id:
             return channel_data.thread.id
@@ -353,7 +349,7 @@ class ActivityContext(Generic[T]):
         if legacy_thread_root_id is not None:
             return legacy_thread_root_id
 
-        if conversation_type == "channel":
+        if self.activity.conversation.conversation_type == "channel":
             return self.activity.id
         return None
 
