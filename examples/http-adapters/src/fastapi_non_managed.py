@@ -8,8 +8,8 @@ Licensed under the MIT License.
 # Teams echo bot where YOU manage the server lifecycle.
 #
 # This demonstrates the "non-managed" pattern — you create your own FastAPI app
-# with your own routes, wrap it in a FastAPIAdapter, call app.initialize() to
-# register the Teams routes, then start uvicorn yourself.
+# with your own routes, wrap it in a FastAPIAdapter, call app.register_routes()
+# synchronously, then initialize async resources and start uvicorn yourself.
 #
 # This is ideal when:
 # - You have an existing FastAPI app and want to add Teams bot support
@@ -61,6 +61,7 @@ adapter = FastAPIAdapter(app=my_fastapi)
 
 # 3. Create the Teams app with the adapter
 app = App(http_server_adapter=adapter)
+app.register_routes()
 
 
 # 4. Handle incoming messages — streaming demo
@@ -84,8 +85,8 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
 async def main():
     port = int(os.getenv("PORT", "3978"))
 
-    # 5. Initialize only — registers /api/messages on our FastAPI app
-    #    Does NOT start a server
+    # 5. Initialize async resources. The Teams route is already registered.
+    #    This does not start a server.
     await app.initialize()
 
     print(f"Starting server on http://localhost:{port}")

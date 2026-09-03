@@ -11,7 +11,13 @@ from .plugin_start_event import PluginStartEvent
 
 
 class PluginBase:
-    """The base plugin for Teams app plugins."""
+    """The base plugin for Teams app plugins.
+
+    Deprecated:
+        Use ``App.use()`` for activity middleware, ``App.event()`` for application
+        events, host lifecycle hooks for setup and cleanup, and normal Python
+        composition for dependencies.
+    """
 
     async def on_init(self) -> None:
         """Lifecycle method called by the App when the plugin is initialized."""

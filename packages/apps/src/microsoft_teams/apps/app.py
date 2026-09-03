@@ -7,6 +7,7 @@ import asyncio
 import importlib.metadata
 import logging
 import os
+import warnings
 from typing import TYPE_CHECKING, Any, Awaitable, Callable, List, Optional, TypeVar, Union, Unpack, cast, overload
 
 from dependency_injector import providers
@@ -126,6 +127,15 @@ class App(ActivityHandlerMixin):
         )
 
         plugins: List[PluginBase] = list(self.options.plugins)
+        if plugins:
+            warnings.warn(
+                "The plugin API is deprecated and will be removed in the next major release. "
+                "Use app.use() for activity middleware, app.event() for application events, "
+                "host lifecycle hooks for setup and cleanup, and app.register_routes() "
+                "for caller-owned HTTP servers.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
 
         # Create HttpServer (not a plugin — owned directly by App)
         adapter = self.options.http_server_adapter or FastAPIAdapter()
@@ -204,6 +214,20 @@ class App(ActivityHandlerMixin):
         """Token source for resources the SDK does not call automatically."""
         return self._token_provider
 
+    def register_routes(self) -> None:
+        """Synchronously register the Teams messaging route on the configured HTTP adapter.
+
+        This method wires activity dispatch and authentication without initializing
+        plugins or taking ownership of the HTTP server lifecycle. Repeated calls are
+        safe and do not register duplicate routes.
+        """
+        self.server.on_request = self._process_activity_event
+        self.server.initialize(
+            credentials=self.credentials,
+            cloud=self.cloud,
+            dangerously_allow_unauthenticated_requests=self.options.dangerously_allow_unauthenticated_requests,
+        )
+
     async def initialize(self) -> None:
         """
         Initialize the Teams application without starting the HTTP server.
@@ -216,19 +240,13 @@ class App(ActivityHandlerMixin):
             return
 
         try:
-            # Initialize plugins first (they may register routes, e.g. BotBuilder's /api/messages)
+            # Keep legacy plugin initialization before route registration for compatibility.
             for plugin in self.plugins:
                 self._plugin_processor.inject(plugin)
                 if hasattr(plugin, "on_init") and callable(plugin.on_init):
                     await plugin.on_init()
 
-            # Initialize HttpServer (JWT validation + messaging endpoint route)
-            self.server.on_request = self._process_activity_event
-            self.server.initialize(
-                credentials=self.credentials,
-                cloud=self.cloud,
-                dangerously_allow_unauthenticated_requests=self.options.dangerously_allow_unauthenticated_requests,
-            )
+            self.register_routes()
 
             self._initialized = True
             logger.info("Teams app initialized successfully")
