@@ -27,9 +27,6 @@ async def send_or_update_activity(
         and activity.recipient.is_targeted is True
     )
 
-    if is_targeted and ref.conversation.conversation_type == "personal":
-        raise ValueError("Targeted messages are not supported in 1:1 (personal) chats.")
-
     activity.from_ = ref.bot
     activity.conversation = ref.conversation
     scoped_api = (
