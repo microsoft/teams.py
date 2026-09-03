@@ -6,8 +6,9 @@ Licensed under the MIT License.
 # pyright: basic
 
 import time
+from contextlib import contextmanager
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, Generator
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -31,6 +32,24 @@ from microsoft_teams.apps.oauth_state import get_pending_oauth_sign_ins
 from microsoft_teams.apps.routing.activity_context import ActivityContext, SignInOptions
 from microsoft_teams.apps.state import TurnStateLoader
 from microsoft_teams.common import LocalStorage
+
+
+def _capture_oauth_operation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> tuple[list[tuple[str, str]], MagicMock]:
+    calls: list[tuple[str, str]] = []
+    telemetry = MagicMock(result="operation_failed")
+
+    @contextmanager
+    def trace(connection_name: str, operation: str) -> Generator[tuple[MagicMock, MagicMock], None, None]:
+        calls.append((connection_name, operation))
+        yield MagicMock(), telemetry
+
+    monkeypatch.setattr(
+        "microsoft_teams.apps.routing.activity_context.trace_oauth_operation",
+        trace,
+    )
+    return calls, telemetry
 
 
 def _create_activity_context(
@@ -1193,7 +1212,7 @@ class TestActivityContextTokenHelpers:
             await ctx.get_user_token()
 
     @pytest.mark.asyncio
-    async def test_get_connection_status_returns_all_connections(self) -> None:
+    async def test_get_connection_status_returns_all_connections(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """get_connection_status makes a single call and returns the status list unfiltered."""
         mock_activity = MagicMock()
         mock_activity.channel_id = "msteams"
@@ -1202,6 +1221,7 @@ class TestActivityContextTokenHelpers:
         ctx, _ = _create_activity_context(activity=mock_activity)
         statuses = [MagicMock(), MagicMock()]
         ctx.api.users.get_token_status = AsyncMock(return_value=statuses)
+        telemetry_calls, telemetry = _capture_oauth_operation(monkeypatch)
 
         result = await ctx.get_connection_status()
 
@@ -1211,9 +1231,11 @@ class TestActivityContextTokenHelpers:
         assert params.include_filter is None
         assert params.user_id == "user-1"
         assert params.channel_id == "msteams"
+        assert telemetry_calls == [("all", "connection_status")]
+        assert telemetry.result == "operation_succeeded"
 
     @pytest.mark.asyncio
-    async def test_get_connection_status_propagates_errors(self) -> None:
+    async def test_get_connection_status_propagates_errors(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Unlike get_user_token, get_connection_status lets service failures surface."""
         mock_activity = MagicMock()
         mock_activity.channel_id = "msteams"
@@ -1221,9 +1243,12 @@ class TestActivityContextTokenHelpers:
 
         ctx, _ = _create_activity_context(activity=mock_activity)
         ctx.api.users.get_token_status = AsyncMock(side_effect=RuntimeError("service down"))
+        telemetry_calls, telemetry = _capture_oauth_operation(monkeypatch)
 
         with pytest.raises(RuntimeError):
             await ctx.get_connection_status()
+        assert telemetry_calls == [("all", "connection_status")]
+        assert telemetry.result == "operation_failed"
 
 
 class TestActivityContextPromptPreview:
