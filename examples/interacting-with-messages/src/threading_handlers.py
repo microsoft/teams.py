@@ -5,6 +5,7 @@ Licensed under the MIT License.
 
 from microsoft_teams.api import MessageActivity, MessageActivityInput
 from microsoft_teams.apps import ActivityContext, App
+from microsoft_teams.apps.utils.thread import parse_threaded_conversation_id
 
 
 async def handle_thread_reply(ctx: ActivityContext[MessageActivity], text: str) -> bool:
@@ -44,4 +45,6 @@ async def handle_manual_thread(app: App, ctx: ActivityContext[MessageActivity], 
 def _thread_reference(ctx: ActivityContext[MessageActivity]) -> tuple[str, str]:
     conversation_id = ctx.conversation_ref.conversation.id
     thread = ctx.activity.channel_data.thread if ctx.activity.channel_data else None
-    return conversation_id, thread.id if thread and thread.id else ctx.activity.id
+    base_conversation_id, legacy_thread_root_id = parse_threaded_conversation_id(conversation_id)
+    thread_root_id = thread.id if thread and thread.id else legacy_thread_root_id or ctx.activity.id
+    return base_conversation_id, thread_root_id
