@@ -85,8 +85,8 @@ class TestFunctionContextSend:
 
         assert isinstance(sent_activity, MessageActivityInput)
         assert sent_activity.text == "Hello world"
-        assert sent_activity.from_.id == "bot-123"
-        assert sent_activity.conversation.id == "conv-123"
+        assert sent_activity.from_ is None
+        assert sent_activity.conversation is None
         function_context.api.conversations.activities.assert_called_once_with("conv-123")
 
     async def test_send_adaptive_card(

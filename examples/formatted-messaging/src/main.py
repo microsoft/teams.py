@@ -20,7 +20,7 @@ app = App()
 @app.on_message
 async def handle_message(ctx: ActivityContext[MessageActivity]):
     """Demonstrate text format options: markdown, extendedmarkdown, xml, and plain."""
-    await ctx.reply(TypingActivityInput())
+    await ctx.send(TypingActivityInput())
     text = ctx.activity.text.lower()
 
     if "extended" in text:
@@ -39,8 +39,8 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
                 "$$E = mc^2$$",
             ]
         )
-        reply = MessageActivityInput(text=rich_content).with_text_format("extendedmarkdown")
-        await ctx.reply(reply)
+        reply = MessageActivityInput().add_quote(ctx.activity.id, rich_content).with_text_format("extendedmarkdown")
+        await ctx.send(reply)
     elif "markdown" in text:
         md_content = "\n".join(
             [
@@ -58,18 +58,22 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
                 "`inline code` and [a link](https://www.microsoft.com)",
             ]
         )
-        reply = MessageActivityInput(text=md_content).with_text_format("markdown")
-        await ctx.reply(reply)
+        reply = MessageActivityInput().add_quote(ctx.activity.id, md_content).with_text_format("markdown")
+        await ctx.send(reply)
     elif "xml" in text:
         xml_content = (
             "<b>Bold</b>, <i>italic</i>, and <strike>strikethrough</strike><br/>"
             "<ul><li>Item one</li><li>Item two</li><li>Item three</li></ul>"
         )
-        reply = MessageActivityInput(text=xml_content).with_text_format("xml")
-        await ctx.reply(reply)
+        reply = MessageActivityInput().add_quote(ctx.activity.id, xml_content).with_text_format("xml")
+        await ctx.send(reply)
     elif "plain" in text:
-        reply = MessageActivityInput(text="This is plain text with no formatting applied.").with_text_format("plain")
-        await ctx.reply(reply)
+        reply = (
+            MessageActivityInput()
+            .add_quote(ctx.activity.id, "This is plain text with no formatting applied.")
+            .with_text_format("plain")
+        )
+        await ctx.send(reply)
     else:
         await ctx.send("Send **markdown**, **extended**, **xml**, or **plain** to see different text formats.")
 

@@ -16,6 +16,7 @@ from .notification_info import NotificationInfo
 from .settings import ChannelDataSettings
 from .team_info import TeamInfo
 from .tenant_info import TenantInfo
+from .thread_info import ThreadInfo
 
 
 class ChannelData(CustomBaseModel):
@@ -46,6 +47,9 @@ class ChannelData(CustomBaseModel):
 
     settings: Optional[ChannelDataSettings] = None
     "Information about the settings in which the message was sent."
+
+    thread: Optional[ThreadInfo] = None
+    "Read-only thread metadata supplied by Teams on inbound activities."
 
     feedback_loop_enabled: Optional[bool] = None
     """

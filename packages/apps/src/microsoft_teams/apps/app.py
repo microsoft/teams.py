@@ -7,6 +7,7 @@ import asyncio
 import importlib.metadata
 import logging
 import os
+import warnings
 from typing import TYPE_CHECKING, Any, Awaitable, Callable, List, Optional, TypeVar, Union, Unpack, cast, overload
 
 from dependency_injector import providers
@@ -32,6 +33,7 @@ from microsoft_teams.api.auth.cloud_environment import PUBLIC
 from microsoft_teams.api.auth.cloud_environment import from_name as cloud_from_name
 from microsoft_teams.cards import AdaptiveCard
 from microsoft_teams.common import Client, ClientOptions, EventEmitter, LocalStorage
+from typing_extensions import deprecated
 
 if TYPE_CHECKING:
     from msgraph.graph_service_client import GraphServiceClient
@@ -65,7 +67,7 @@ from .state import create_state_loader
 from .token_manager import DEFAULT_TENANT_FOR_GRAPH_TOKEN, TokenManager
 from .token_provider import AppTokenProvider
 from .utils import create_graph_client
-from .utils.thread import to_threaded_conversation_id
+from .utils.thread import parse_threaded_conversation_id
 
 version = importlib.metadata.version("microsoft-teams-apps")
 
@@ -317,9 +319,8 @@ class App(ActivityHandlerMixin):
     ) -> SentActivity:
         """Send an activity proactively to a conversation.
 
-        Sends to the exact conversation ID provided. For channel threads,
-        the conversation ID must include ``;messageid=`` - use :func:`to_threaded_conversation_id`
-        to construct it, or use :meth:`reply` which handles this automatically.
+        Legacy conversation IDs ending in ``;messageid={root_id}`` are accepted for
+        compatibility and translated to the Bot Framework reply endpoint.
         """
 
         if not self._initialized:
@@ -328,11 +329,12 @@ class App(ActivityHandlerMixin):
         if self.id is None:
             raise ValueError("app credentials not configured")
 
+        base_conversation_id, thread_root_id = parse_threaded_conversation_id(conversation_id)
         conversation_ref = ConversationReference(
             channel_id="msteams",
             service_url=service_url or self.api.service_url,
             bot=Account(id=self.id),
-            conversation=ConversationAccount(id=conversation_id),
+            conversation=ConversationAccount(id=base_conversation_id),
         )
 
         if isinstance(activity, str):
@@ -347,6 +349,7 @@ class App(ActivityHandlerMixin):
             activity,
             conversation_ref,
             agentic_identity=agentic_identity,
+            thread_root_id=thread_root_id,
         )
 
     def get_agentic_identity(
@@ -388,6 +391,10 @@ class App(ActivityHandlerMixin):
     ) -> SentActivity: ...
 
     @overload
+    @deprecated(
+        "The two-argument App.reply(conversation_id, activity) form is deprecated. "
+        "Use App.send(conversation_id, activity) instead."
+    )
     async def reply(
         self,
         conversation_id: str,
@@ -409,13 +416,12 @@ class App(ActivityHandlerMixin):
         """Send an activity proactively to a conversation, optionally as a threaded reply.
 
         **3-arg form** ``reply(conversation_id, message_id, activity)``:
-        Constructs a threaded conversation ID via :func:`to_threaded_conversation_id`
-        and sends to that thread. The service determines whether threading is
-        supported for the given conversation type.
+        Sends through the Bot Framework reply endpoint using ``message_id`` as the
+        thread root.
 
         **2-arg form** ``reply(conversation_id, activity)``:
-        Sends to the exact conversation ID provided - threaded if it contains
-        ``;messageid=``, flat otherwise.
+        Sends to the conversation ID provided. A valid legacy ``;messageid=`` suffix
+        is translated to the reply endpoint. Deprecated; use :meth:`send` instead.
 
         Args:
             conversation_id: The conversation ID
@@ -425,18 +431,62 @@ class App(ActivityHandlerMixin):
         if activity is not None:
             if not isinstance(message_id, str):
                 raise TypeError("message_id must be a string when activity is provided")
-            return await self.send(
-                to_threaded_conversation_id(conversation_id, message_id),
+            if not message_id or not message_id.isdigit() or message_id == "0":
+                raise ValueError(f'Invalid message_id "{message_id}": must be a non-zero numeric value')
+            return await self._send_to_thread(
+                conversation_id,
+                message_id,
                 activity,
                 service_url=service_url,
                 agentic_identity=agentic_identity,
             )
 
+        warnings.warn(
+            "The two-argument App.reply(conversation_id, activity) form is deprecated. "
+            "Use App.send(conversation_id, activity) instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         return await self.send(
             conversation_id,
             message_id,
             service_url=service_url,
             agentic_identity=agentic_identity,
+        )
+
+    async def _send_to_thread(
+        self,
+        conversation_id: str,
+        thread_root_id: str,
+        activity: str | ActivityParams | AdaptiveCard,
+        *,
+        service_url: Optional[str] = None,
+        agentic_identity: Optional[AgenticIdentity] = None,
+    ) -> SentActivity:
+        if not self._initialized:
+            raise ValueError("app not initialized - call app.initialize() or app.start() first")
+        if self.id is None:
+            raise ValueError("app credentials not configured")
+
+        base_conversation_id, _ = parse_threaded_conversation_id(conversation_id)
+        conversation_ref = ConversationReference(
+            channel_id="msteams",
+            service_url=service_url or self.api.service_url,
+            bot=Account(id=self.id),
+            conversation=ConversationAccount(id=base_conversation_id),
+        )
+        if isinstance(activity, str):
+            outbound = MessageActivityInput(text=activity)
+        elif isinstance(activity, AdaptiveCard):
+            outbound = MessageActivityInput().add_card(activity)
+        else:
+            outbound = activity
+        return await send_or_update_activity(
+            self.api,
+            outbound,
+            conversation_ref,
+            agentic_identity=agentic_identity,
+            thread_root_id=thread_root_id,
         )
 
     def use(self, middleware: Callable[[ActivityContext[ActivityBase]], Awaitable[None]]) -> None:

@@ -18,6 +18,7 @@ from microsoft_teams.api import (
     AgenticUserWorkloadOnboardingUpdatedActivity,
     AgentLifecycleEventActivity,
     MessageActivity,
+    MessageActivityInput,
 )
 from microsoft_teams.api.activities.typing import TypingActivityInput
 from microsoft_teams.apps import ActivityContext, App
@@ -132,7 +133,7 @@ async def handle_agentic_user_workload_onboarding_updated(
 @app.on_message_pattern(re.compile(r"hello|hi|greetings"))
 async def handle_greeting(ctx: ActivityContext[MessageActivity]) -> None:
     """Handle greeting messages using the inbound AgenticIdentity when present."""
-    await ctx.reply("Hello! How can I assist you today?")
+    await ctx.send(MessageActivityInput().add_quote(ctx.activity.id, "Hello! How can I assist you today?"))
 
 
 @app.on_message
@@ -142,7 +143,7 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
     logger.info("[Agent365 reactive] From: %s", ctx.activity.from_)
     logger.info("[Agent365 reactive] AgenticIdentity: %s", ctx.activity.recipient.agentic_identity)
 
-    await ctx.reply(TypingActivityInput())
+    await ctx.send(TypingActivityInput())
 
     if "react" in ctx.activity.text.lower():
         await ctx.api.conversations.add_reaction(
@@ -150,11 +151,11 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
             activity_id=ctx.activity.id,
             reaction_type="like",
         )
-        await ctx.reply("Added a like reaction to your message.")
+        await ctx.send(MessageActivityInput().add_quote(ctx.activity.id, "Added a like reaction to your message."))
         return
 
     if "reply" in ctx.activity.text.lower():
-        await ctx.reply("Hello! How can I assist you today?")
+        await ctx.send(MessageActivityInput().add_quote(ctx.activity.id, "Hello! How can I assist you today?"))
     else:
         await ctx.send(f"You said '{ctx.activity.text}'")
 

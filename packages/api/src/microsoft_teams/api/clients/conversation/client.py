@@ -79,6 +79,23 @@ class ActivityOperations(ConversationOperations):
             agentic_identity=agentic_identity,
         )
 
+    async def reply_targeted(
+        self,
+        activity_id: str,
+        activity: ActivityParams,
+        *,
+        service_url: str | None = None,
+        agentic_identity: AgenticIdentity | None = None,
+    ) -> SentActivity:
+        """Reply with a targeted activity visible only to the specified recipient."""
+        return await self._client.reply_to_targeted_activity(
+            self._conversation_id,
+            activity_id,
+            activity,
+            service_url=service_url,
+            agentic_identity=agentic_identity,
+        )
+
     async def delete(
         self,
         activity_id: str,
@@ -331,6 +348,27 @@ class ConversationClient(BaseClient):
         if scoped_client is not self:
             return await scoped_client.reply_to_activity(conversation_id, activity_id, activity)
         return await self._activities_client.reply(
+            conversation_id,
+            activity_id,
+            activity,
+            service_url=service_url,
+            agentic_identity=agentic_identity,
+        )
+
+    async def reply_to_targeted_activity(
+        self,
+        conversation_id: str,
+        activity_id: str,
+        activity: ActivityParams,
+        *,
+        service_url: str | None = None,
+        agentic_identity: AgenticIdentity | None = None,
+    ) -> SentActivity:
+        """Reply with a targeted activity visible only to the specified recipient."""
+        scoped_client = self._scoped_client(service_url, agentic_identity)
+        if scoped_client is not self:
+            return await scoped_client.reply_to_targeted_activity(conversation_id, activity_id, activity)
+        return await self._activities_client.reply_targeted(
             conversation_id,
             activity_id,
             activity,

@@ -13,7 +13,7 @@ from a2a_server import build_agent_card, make_a2a_app
 from agent import BotAgent
 from dotenv import find_dotenv, load_dotenv
 from fastapi import FastAPI
-from microsoft_teams.api import MessageActivity
+from microsoft_teams.api import MessageActivity, MessageActivityInput
 from microsoft_teams.apps import ActivityContext, App, FastAPIAdapter
 from types_ import Config, TurnIdentity
 
@@ -60,8 +60,12 @@ async def handle_message(ctx: ActivityContext[MessageActivity]) -> None:
             bool(tenant_id),
             bool(service_url),
         )
-        await ctx.reply(
-            "I can't process this message — it's missing the identity context this sample needs for cross-bot handoff."
+        await ctx.send(
+            MessageActivityInput().add_quote(
+                ctx.activity.id,
+                "I can't process this message — it's missing the identity context "
+                "this sample needs for cross-bot handoff.",
+            )
         )
         return
 
@@ -77,7 +81,7 @@ async def handle_message(ctx: ActivityContext[MessageActivity]) -> None:
 
     reply = await bot_agent.run(conv_id, identity, text)
     if reply:
-        await ctx.reply(reply)
+        await ctx.send(MessageActivityInput().add_quote(ctx.activity.id, reply))
 
 
 async def main() -> None:

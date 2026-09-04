@@ -32,7 +32,7 @@ async def handle_quote_reply(ctx: ActivityContext[MessageActivity], text: str) -
     """Reply with an automatic quote when the command matches."""
     if text != "quote reply":
         return False
-    await ctx.reply("Thanks for your message! This reply auto-quotes it using reply().")
+    await ctx.send(MessageActivityInput().add_quote(ctx.activity.id, "Thanks for your message!"))
     return True
 
 
@@ -41,16 +41,7 @@ async def handle_quote_message(ctx: ActivityContext[MessageActivity], text: str)
     if text != "quote message":
         return False
     sent = await ctx.send("The meeting has been moved to 3 PM tomorrow.")
-    await ctx.quote(sent.id, "Just to confirm - does the new time work for everyone?")
-    return True
-
-
-async def handle_quote_add(ctx: ActivityContext[MessageActivity], text: str) -> bool:
-    """Compose a quote with a response when the command matches."""
-    if text != "quote add":
-        return False
-    sent = await ctx.send("Please review the latest PR before end of day.")
-    await ctx.send(MessageActivityInput().add_quote(sent.id, "Done! Left my comments on the PR."))
+    await ctx.send(MessageActivityInput().add_quote(sent.id, "Just to confirm - does the new time work for everyone?"))
     return True
 
 
@@ -68,13 +59,4 @@ async def handle_quote_batch(ctx: ActivityContext[MessageActivity], text: str) -
         .add_quote(sent_c.id)
     )
     await ctx.send(message)
-    return True
-
-
-async def handle_quote_manual(ctx: ActivityContext[MessageActivity], text: str) -> bool:
-    """Manually combine a quote and text when the command matches."""
-    if text != "quote manual":
-        return False
-    sent = await ctx.send("Deployment to staging is complete.")
-    await ctx.send(MessageActivityInput().add_quote(sent.id).add_text(" Verified - all smoke tests passing."))
     return True

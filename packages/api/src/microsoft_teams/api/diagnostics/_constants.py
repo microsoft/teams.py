@@ -36,6 +36,7 @@ class _ApiOutboundOperations:
     delete: str = "delete"
     delete_targeted: str = "delete_targeted"
     reply: str = "reply"
+    reply_targeted: str = "reply_targeted"
     update: str = "update"
     update_targeted: str = "update_targeted"
 

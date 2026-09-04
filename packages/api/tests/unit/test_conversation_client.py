@@ -16,7 +16,13 @@ from microsoft_teams.api.clients import ApiClient
 from microsoft_teams.api.clients.conversation import ConversationClient
 from microsoft_teams.api.clients.conversation.params import CreateConversationParams
 from microsoft_teams.api.diagnostics._outbound import ApiOutboundTelemetryMetadata
-from microsoft_teams.api.models import AgenticIdentity, ConversationResource, PagedMembersResult, TeamsChannelAccount
+from microsoft_teams.api.models import (
+    Account,
+    AgenticIdentity,
+    ConversationResource,
+    PagedMembersResult,
+    TeamsChannelAccount,
+)
 from microsoft_teams.common.http import Client, ClientOptions
 from opentelemetry.trace import Span, SpanKind
 
@@ -515,7 +521,7 @@ class TestConversationActivityOperations:
         )
         assert (
             str(request_capture._capture.last_request.url)
-            == "https://override.service.url/v3/conversations/test_conversation_id/activities"
+            == "https://override.service.url/v3/conversations/test_conversation_id/activities/activity-id"
         )
         assert "authorization" in request_capture._capture.last_request.headers
 
@@ -564,7 +570,14 @@ class TestConversationActivityOperations:
         await activities.reply("activity-id", mock_activity, service_url=service_url)
         assert (
             str(request_capture._capture.last_request.url)
-            == "https://override.service.url/v3/conversations/test_conversation_id/activities"
+            == "https://override.service.url/v3/conversations/test_conversation_id/activities/activity-id"
+        )
+
+        await activities.reply_targeted("activity-id", mock_activity, service_url=service_url)
+        assert (
+            str(request_capture._capture.last_request.url)
+            == "https://override.service.url/v3/conversations/test_conversation_id/activities/activity-id"
+            "?isTargetedActivity=true"
         )
 
         await activities.delete("activity-id", service_url=service_url)
@@ -877,11 +890,13 @@ class TestConversationActivityOperations:
 
         with patch("microsoft_teams.api.diagnostics._outbound.record_outbound_call") as record_outbound_call:
             await client.create_targeted_activity("conv-1", mock_activity)
+            await client.reply_to_targeted_activity("conv-1", "root-1", mock_activity)
             await client.update_targeted_activity("conv-1", "act-1", mock_activity)
             await client.delete_targeted_activity("conv-1", "act-1")
 
         assert record_outbound_call.call_args_list == [
             call("create_targeted"),
+            call("reply_targeted"),
             call("update_targeted"),
             call("delete_targeted"),
         ]
@@ -931,11 +946,14 @@ class TestConversationActivityOperations:
         # Validate request details
         last_request = request_capture._capture.last_request
         assert last_request.method == "POST"
-        assert str(last_request.url) == f"https://test.service.url/v3/conversations/{conversation_id}/activities"
+        assert (
+            str(last_request.url)
+            == f"https://test.service.url/v3/conversations/{conversation_id}/activities/{activity_id}"
+        )
 
-        # Validate request payload - check that replyToId was added
+        # Placement is represented by the endpoint, not quote metadata in the payload.
         payload = json.loads(last_request.content)
-        assert payload["replyToId"] == activity_id
+        assert "replyToId" not in payload
 
     async def test_activity_delete(self, request_capture):
         """Test deleting an activity."""
@@ -1263,7 +1281,7 @@ class TestConversationClientFlattened:
         assert str(last_request.url) == "https://test.service.url/v3/conversations/conv-1/activities/act-1"
 
     async def test_reply_to_activity(self, request_capture, mock_activity):
-        """reply_to_activity should POST a reply with replyToId set."""
+        """reply_to_activity should POST through the reply endpoint."""
         client = ConversationClient("https://test.service.url", request_capture)
 
         result = await client.reply_to_activity("conv-1", "act-1", mock_activity)
@@ -1271,9 +1289,45 @@ class TestConversationClientFlattened:
         assert result is not None
         last_request = request_capture._capture.last_request
         assert last_request.method == "POST"
-        assert str(last_request.url) == "https://test.service.url/v3/conversations/conv-1/activities"
+        assert str(last_request.url) == "https://test.service.url/v3/conversations/conv-1/activities/act-1"
         payload = json.loads(last_request.content)
-        assert payload["replyToId"] == "act-1"
+        assert "replyToId" not in payload
+
+    async def test_reply_to_targeted_activity(self, request_capture, mock_activity):
+        """reply_to_targeted_activity should POST through the targeted reply endpoint."""
+        client = ConversationClient("https://test.service.url", request_capture)
+        mock_activity.add_quote("quoted-1", "Private reply")
+        mock_activity.recipient = Account(id="user-1", is_targeted=True)
+
+        result = await client.reply_to_targeted_activity("conv-1", "act-1", mock_activity)
+
+        assert result is not None
+        last_request = request_capture._capture.last_request
+        assert last_request.method == "POST"
+        assert (
+            str(last_request.url)
+            == "https://test.service.url/v3/conversations/conv-1/activities/act-1?isTargetedActivity=true"
+        )
+        payload = json.loads(last_request.content)
+        assert "replyToId" not in payload
+        assert payload["recipient"]["isTargeted"] is True
+        assert payload["entities"][0]["type"] == "quotedReply"
+        assert '<quoted messageId="quoted-1"/>' in payload["text"]
+
+    @pytest.mark.parametrize("method_name", ["reply_to_activity", "reply_to_targeted_activity"])
+    async def test_reply_accepts_response_without_activity_id(self, method_name, mock_activity):
+        """APX may acknowledge a reply without returning its activity ID."""
+        http_client = Client(ClientOptions(base_url="https://test.service.url"))
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(200, json={}, headers={"content-type": "application/json"})
+
+        http_client.http._transport = httpx.MockTransport(handler)
+        client = ConversationClient("https://test.service.url", http_client)
+
+        result = await getattr(client, method_name)("conv-1", "act-1", mock_activity)
+
+        assert result.id == "DO_NOT_USE_PLACEHOLDER_ID"
 
     async def test_delete_activity(self, request_capture):
         """delete_activity should DELETE an activity."""

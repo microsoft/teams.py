@@ -162,18 +162,59 @@ class ConversationActivityClient(BaseClient):
         Returns:
             The created reply activity
         """
+        return await self._reply(
+            conversation_id,
+            activity_id,
+            activity,
+            service_url=service_url,
+            agentic_identity=agentic_identity,
+            is_targeted=False,
+        )
+
+    @experimental("ExperimentalTeamsTargeted")
+    async def reply_targeted(
+        self,
+        conversation_id: str,
+        activity_id: str,
+        activity: ActivityParams,
+        *,
+        service_url: str | None = None,
+        agentic_identity: AgenticIdentity | None = None,
+    ) -> SentActivity:
+        """Reply with a targeted activity visible only to the specified recipient."""
+        return await self._reply(
+            conversation_id,
+            activity_id,
+            activity,
+            service_url=service_url,
+            agentic_identity=agentic_identity,
+            is_targeted=True,
+        )
+
+    async def _reply(
+        self,
+        conversation_id: str,
+        activity_id: str,
+        activity: ActivityParams,
+        *,
+        service_url: str | None,
+        agentic_identity: AgenticIdentity | None,
+        is_targeted: bool,
+    ) -> SentActivity:
         # TODO: Will be deprecated alongside accessor in ConversationClient
         scoped_client = self._scoped_client(service_url, agentic_identity)
         if scoped_client is not self:
+            if is_targeted:
+                return await scoped_client.reply_targeted(conversation_id, activity_id, activity)
             return await scoped_client.reply(conversation_id, activity_id, activity)
 
-        activity_json = activity.model_dump(by_alias=True, exclude_none=True)
-        activity_json["replyToId"] = activity_id
+        targeted_query = "?isTargetedActivity=true" if is_targeted else ""
         response = await self.http.post(
-            f"{self._get_service_url(service_url)}/v3/conversations/{conversation_id}/activities",
-            json=activity_json,
+            f"{self._get_service_url(service_url)}/v3/conversations/{conversation_id}/activities/"
+            f"{activity_id}{targeted_query}",
+            json=activity.model_dump(by_alias=True, exclude_none=True),
             _metadata=self._create_activity_telemetry_metadata(
-                API_OUTBOUND_OPERATIONS.reply,
+                API_OUTBOUND_OPERATIONS.reply_targeted if is_targeted else API_OUTBOUND_OPERATIONS.reply,
                 conversation_id,
                 service_url=service_url,
                 activity=activity,
@@ -181,7 +222,8 @@ class ConversationActivityClient(BaseClient):
                 on_response=_set_response_activity_id,
             ),
         )
-        id = response.json()["id"]
+        response_body = response.json()
+        id = response_body.get("id", _PLACEHOLDER_ACTIVITY_ID)
         return SentActivity(id=id, activity_params=activity)
 
     async def delete(

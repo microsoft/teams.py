@@ -89,6 +89,14 @@ def _wire_flat_activity_methods(api: Any, activities: MagicMock) -> None:
         api.conversations.activities(conversation_id)
         return await activities.update(activity_id, activity)
 
+    async def reply_to_activity(conversation_id: str, activity_id: str, activity: Any) -> SentActivity:
+        api.conversations.activities(conversation_id)
+        return await activities.reply(activity_id, activity)
+
+    async def reply_to_targeted_activity(conversation_id: str, activity_id: str, activity: Any) -> SentActivity:
+        api.conversations.activities(conversation_id)
+        return await activities.reply_targeted(activity_id, activity)
+
     async def create_targeted_activity(conversation_id: str, activity: Any) -> SentActivity:
         api.conversations.activities(conversation_id)
         return await activities.create_targeted(activity)
@@ -99,6 +107,8 @@ def _wire_flat_activity_methods(api: Any, activities: MagicMock) -> None:
 
     api.conversations.create_activity = AsyncMock(side_effect=create_activity)
     api.conversations.update_activity = AsyncMock(side_effect=update_activity)
+    api.conversations.reply_to_activity = AsyncMock(side_effect=reply_to_activity)
+    api.conversations.reply_to_targeted_activity = AsyncMock(side_effect=reply_to_targeted_activity)
     api.conversations.create_targeted_activity = AsyncMock(side_effect=create_targeted_activity)
     api.conversations.update_targeted_activity = AsyncMock(side_effect=update_targeted_activity)
 
@@ -894,6 +904,12 @@ class TestApp:
         )
         activities = MagicMock()
         activities.create = create
+        activities.reply = AsyncMock(
+            return_value=SentActivity(id="sent-activity-id", activity_params=MessageActivityInput(text="sent"))
+        )
+        activities.reply_targeted = AsyncMock(
+            return_value=SentActivity(id="sent-activity-id", activity_params=MessageActivityInput(text="sent"))
+        )
         activities.create_targeted = AsyncMock(
             return_value=SentActivity(id="sent-activity-id", activity_params=MessageActivityInput(text="sent"))
         )
@@ -912,8 +928,8 @@ class TestApp:
         create.assert_not_called()
         assert result.id == "sent-activity-id"
         sent_activity = activities.create_targeted.call_args.args[0]
-        assert sent_activity.from_.id == "test-client-id"
-        assert sent_activity.conversation.id == "conv-123"
+        assert sent_activity.from_ is None
+        assert sent_activity.conversation is None
 
     @pytest.mark.asyncio
     async def test_send_passes_service_url_and_agentic_identity_to_scoped_api(self, mock_storage) -> None:
@@ -1033,6 +1049,12 @@ class TestAppInitialize:
         create = AsyncMock(return_value=SentActivity(id="msg-1", activity_params=MessageActivityInput(text="hi")))
         activities = MagicMock()
         activities.create = create
+        activities.reply = AsyncMock(
+            return_value=SentActivity(id="sent-activity-id", activity_params=MessageActivityInput(text="sent"))
+        )
+        activities.reply_targeted = AsyncMock(
+            return_value=SentActivity(id="sent-activity-id", activity_params=MessageActivityInput(text="sent"))
+        )
         activities.update = AsyncMock(
             return_value=SentActivity(id="existing-msg-id", activity_params=MessageActivityInput(text="updated"))
         )
@@ -1094,6 +1116,12 @@ class TestAppReply:
         )
         activities = MagicMock()
         activities.create = create
+        activities.reply = AsyncMock(
+            return_value=SentActivity(id="sent-activity-id", activity_params=MessageActivityInput(text="sent"))
+        )
+        activities.reply_targeted = AsyncMock(
+            return_value=SentActivity(id="sent-activity-id", activity_params=MessageActivityInput(text="sent"))
+        )
         activities.update = AsyncMock(
             return_value=SentActivity(id="updated-activity-id", activity_params=MessageActivityInput(text="updated"))
         )
@@ -1103,10 +1131,38 @@ class TestAppReply:
         return app
 
     @pytest.mark.asyncio
-    async def test_reply_with_three_args_constructs_threaded_id(self, started_app):
+    async def test_reply_with_three_args_uses_reply_endpoint(self, started_app):
         await started_app.reply("19:abc@thread.skype", "1680000000000", "Hello thread")
 
-        started_app.api.conversations.activities.assert_called_once_with("19:abc@thread.skype;messageid=1680000000000")
+        started_app.api.conversations.activities.assert_called_once_with("19:abc@thread.skype")
+        started_app.api.conversations.activities.return_value.reply.assert_awaited_once()
+        root_id, activity = started_app.api.conversations.activities.return_value.reply.call_args.args
+        assert root_id == "1680000000000"
+        assert activity.text == "Hello thread"
+
+    @pytest.mark.asyncio
+    async def test_reply_with_targeted_activity_uses_targeted_reply_endpoint(self, started_app):
+        recipient = Account(id="user-456", name="Test User")
+        outbound = (
+            MessageActivityInput()
+            .add_quote("quoted-message-id", "Private reply")
+            .with_recipient(recipient, is_targeted=True)
+        )
+
+        await started_app.reply("19:abc@thread.skype", "1680000000000", outbound)
+
+        targeted_reply = started_app.api.conversations.activities.return_value.reply_targeted
+        targeted_reply.assert_awaited_once()
+        root_id, activity = targeted_reply.call_args.args
+        assert root_id == "1680000000000"
+        assert activity.recipient is not None
+        assert activity.recipient.id == recipient.id
+        assert activity.recipient.is_targeted is True
+        assert activity.from_ is None
+        assert activity.conversation is None
+        assert any(getattr(entity, "type", None) == "quotedReply" for entity in activity.entities or [])
+        assert '<quoted messageId="quoted-message-id"/>' in (activity.text or "")
+        started_app.api.conversations.activities.return_value.reply.assert_not_awaited()
 
     @pytest.mark.asyncio
     async def test_reply_with_three_args_passes_service_url_and_agentic_identity_to_scoped_api(self, started_app):
@@ -1126,20 +1182,21 @@ class TestAppReply:
             agentic_identity=agentic_identity,
         )
 
-        started_app.api.conversations.activities.assert_called_once_with("19:abc@thread.skype;messageid=1680000000000")
+        started_app.api.conversations.activities.assert_called_once_with("19:abc@thread.skype")
         started_app.api.clone.assert_called_once_with(
             service_url=service_url,
             agentic_identity=agentic_identity,
         )
-        create = started_app.api.conversations.activities.return_value.create
-        activity = create.call_args.args[0]
+        reply = started_app.api.conversations.activities.return_value.reply
+        activity = reply.call_args.args[1]
         assert isinstance(activity, MessageActivityInput)
         assert activity.text == "Hello thread"
-        assert create.call_args.kwargs == {}
+        assert reply.call_args.kwargs == {}
 
     @pytest.mark.asyncio
     async def test_reply_with_two_args_passes_conversation_id_as_is(self, started_app):
-        await started_app.reply("19:abc@thread.skype", "Hello flat")
+        with pytest.warns(DeprecationWarning, match="two-argument App.reply"):
+            await started_app.reply("19:abc@thread.skype", "Hello flat")
 
         started_app.api.conversations.activities.assert_called_once_with("19:abc@thread.skype")
 
@@ -1153,12 +1210,13 @@ class TestAppReply:
         )
         service_url = "https://override.service.url"
 
-        await started_app.reply(
-            "19:abc@thread.skype",
-            "Hello flat",
-            service_url=service_url,
-            agentic_identity=agentic_identity,
-        )
+        with pytest.warns(DeprecationWarning, match="two-argument App.reply"):
+            await started_app.reply(
+                "19:abc@thread.skype",
+                "Hello flat",
+                service_url=service_url,
+                agentic_identity=agentic_identity,
+            )
 
         started_app.api.conversations.activities.assert_called_once_with("19:abc@thread.skype")
         started_app.api.clone.assert_called_once_with(
@@ -1173,9 +1231,22 @@ class TestAppReply:
 
     @pytest.mark.asyncio
     async def test_reply_with_pre_constructed_threaded_id(self, started_app):
-        await started_app.reply("19:abc@thread.skype;messageid=123", "Hello")
+        with pytest.warns(DeprecationWarning, match="two-argument App.reply"):
+            await started_app.reply("19:abc@thread.skype;messageid=123", "Hello")
 
-        started_app.api.conversations.activities.assert_called_once_with("19:abc@thread.skype;messageid=123")
+        started_app.api.conversations.activities.assert_called_once_with("19:abc@thread.skype")
+        started_app.api.conversations.activities.return_value.reply.assert_awaited_once()
+        assert started_app.api.conversations.activities.return_value.reply.call_args.args[0] == "123"
+
+    @pytest.mark.asyncio
+    async def test_send_translates_legacy_threaded_conversation_id(self, started_app):
+        await started_app.send("19:abc@thread.skype;messageid=00456", "Hello")
+
+        started_app.api.conversations.activities.assert_called_once_with("19:abc@thread.skype")
+        started_app.api.conversations.activities.return_value.reply.assert_awaited_once()
+        root_id, activity = started_app.api.conversations.activities.return_value.reply.call_args.args
+        assert root_id == "00456"
+        assert activity.conversation is None
 
     @pytest.mark.asyncio
     async def test_reply_with_invalid_message_id_raises(self, started_app):
@@ -1187,8 +1258,9 @@ class TestAppReply:
         options = AppOptions(client_id="test-client-id", client_secret="test-secret")
         app = App(**options)
 
-        with pytest.raises(ValueError, match="app not initialized"):
-            await app.reply("conv-id", "Hello")
+        with pytest.warns(DeprecationWarning, match="two-argument App.reply"):
+            with pytest.raises(ValueError, match="app not initialized"):
+                await app.reply("conv-id", "Hello")
 
 
 class TestMergeAppOptions:

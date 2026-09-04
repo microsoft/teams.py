@@ -117,7 +117,7 @@ async def _react(ctx: ActivityContext[MessageActivity]):
 
 @TEAMS_APP.on_message_pattern(_command("quote"))
 async def _quote(ctx: ActivityContext[MessageActivity]):
-    await ctx.reply("Quoting your message!")
+    await ctx.send(MessageActivityInput().add_quote(ctx.activity.id, "Quoting your message!"))
 
 
 @TEAMS_APP.on_message_pattern(_command("targeted"))

@@ -19,6 +19,7 @@ from typing import (
     Sequence,
     TypeGuard,
     TypeVar,
+    overload,
 )
 
 from httpx import HTTPStatusError
@@ -53,6 +54,7 @@ from microsoft_teams.cards import AdaptiveCard
 from microsoft_teams.common import Storage
 from microsoft_teams.common.experimental import ExperimentalWarning
 from microsoft_teams.common.http.client_token import Token
+from typing_extensions import deprecated
 
 from ..activity_send import send_or_update_activity
 from ..diagnostics._constants import (
@@ -72,6 +74,7 @@ from ..oauth_state import (
 from ..plugins.streamer import StreamerProtocol
 from ..state import TurnStateContainer
 from ..utils import create_graph_client
+from ..utils.thread import get_default_thread_id, parse_threaded_conversation_id
 
 if TYPE_CHECKING:
     from msgraph.graph_service_client import GraphServiceClient
@@ -235,6 +238,23 @@ class ActivityContext(Generic[T]):
 
         return self._app_graph
 
+    @overload
+    async def send(
+        self,
+        message: str | ActivityParams | AdaptiveCard,
+    ) -> SentActivity: ...
+
+    @overload
+    @deprecated(
+        "Passing conversation_ref to ActivityContext.send() is deprecated. "
+        "Use App.send() to send to another conversation."
+    )
+    async def send(
+        self,
+        message: str | ActivityParams | AdaptiveCard,
+        conversation_ref: ConversationReference,
+    ) -> SentActivity: ...
+
     async def send(
         self,
         message: str | ActivityParams | AdaptiveCard,
@@ -242,14 +262,23 @@ class ActivityContext(Generic[T]):
     ) -> SentActivity:
         """Send a message in the current conversation without quoting.
 
-        In channels, sends to the current thread. In scopes that do not
-        support threading (group chat, meetings), sends as a normal message.
+        In group chats and channels, sends to the current thread when the
+        inbound activity identifies one. In personal chats, sends normally.
         To send with a visual quote of the inbound message, use :meth:`reply`.
 
         Args:
             message: The message to send, can be a string, ActivityParams, or AdaptiveCard
-            conversation_ref: Optional conversation reference to send to a different conversation or thread
+            conversation_ref: Deprecated conversation reference for a different destination.
+                Use ``App.send()`` for proactive sends.
         """
+        if conversation_ref is not None:
+            warnings.warn(
+                "Passing conversation_ref to ActivityContext.send() is deprecated. "
+                "Use App.send() to send to another conversation.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+
         if isinstance(message, str):
             activity = MessageActivityInput(text=message)
         elif isinstance(message, AdaptiveCard):
@@ -263,13 +292,24 @@ class ActivityContext(Generic[T]):
         self._add_targeted_message_info_entity(activity)
 
         ref = conversation_ref or self.conversation_ref
+        base_conversation_id, legacy_thread_root_id = parse_threaded_conversation_id(ref.conversation.id)
+        if legacy_thread_root_id is not None:
+            ref = ref.model_copy(
+                update={"conversation": ref.conversation.model_copy(update={"id": base_conversation_id})}
+            )
+        thread_root_id = legacy_thread_root_id if conversation_ref is not None else self._current_thread_root_id()
         return await send_or_update_activity(
             self.api,
             activity,
             ref,
             agentic_identity=self.activity.recipient.agentic_identity,
+            thread_root_id=thread_root_id,
         )
 
+    @deprecated(
+        "ActivityContext.reply() is deprecated because it combines thread placement and quoting. "
+        "Use send() for placement and MessageActivityInput.add_quote() for explicit quote metadata."
+    )
     async def reply(self, input: str | ActivityParams) -> SentActivity:
         """Send a message in the current conversation with a visual quote of the inbound message.
 
@@ -278,10 +318,11 @@ class ActivityContext(Generic[T]):
         To send without quoting, use :meth:`send`.
         """
         if self.activity.id:
-            return await self.quote(self.activity.id, input)
+            return await self._send_quote(self.activity.id, input)
         activity = MessageActivityInput(text=input) if isinstance(input, str) else input
         return await self.send(activity)
 
+    @deprecated("ActivityContext.quote() is deprecated. Use MessageActivityInput.add_quote() and send() instead.")
     async def quote(self, message_id: str, input: str | ActivityParams) -> SentActivity:
         """
         Send a message to the conversation with a quoted message reference prepended to the text.
@@ -294,10 +335,18 @@ class ActivityContext(Generic[T]):
         Returns:
             The sent activity
         """
+        return await self._send_quote(message_id, input)
+
+    async def _send_quote(self, message_id: str, input: str | ActivityParams) -> SentActivity:
         activity = MessageActivityInput(text=input) if isinstance(input, str) else input
         if isinstance(activity, MessageActivityInput):
             activity.prepend_quote(message_id)
         return await self.send(activity)
+
+    def _current_thread_root_id(self) -> str | None:
+        if not isinstance(self.activity, MessageActivity):
+            return None
+        return get_default_thread_id(self.activity)
 
     async def next(self) -> None:
         """Call the next middleware in the chain."""
@@ -479,7 +528,7 @@ class ActivityContext(Generic[T]):
             )
             if self.state is not None:
                 await self.state._save()  # pyright: ignore[reportPrivateUsage]
-            await self.send(payload, self.conversation_ref)
+            await self.send(payload)
         except Exception:
             # Best-effort rollback: the card never went out, so the pending hint must not
             # linger and mis-route a later callback. A failure here must not replace the

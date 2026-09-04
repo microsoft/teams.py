@@ -100,7 +100,7 @@ async def handle_meeting_participant_leave(ctx: ActivityContext[MeetingParticipa
 
 @app.on_message
 async def handle_message(ctx: ActivityContext[MessageActivity]):
-    await ctx.reply(TypingActivityInput())
+    await ctx.send(TypingActivityInput())
     await ctx.send("Welcome to the meetings sample! This app will notify you for meeting events.")
 
 

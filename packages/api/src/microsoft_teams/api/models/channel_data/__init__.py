@@ -11,6 +11,7 @@ from .notification_info import NotificationInfo
 from .settings import ChannelDataSettings
 from .team_info import TeamInfo
 from .tenant_info import TenantInfo
+from .thread_info import ThreadInfo
 
 __all__ = [
     "ChannelInfo",
@@ -21,4 +22,5 @@ __all__ = [
     "TenantInfo",
     "ChannelData",
     "FeedbackLoop",
+    "ThreadInfo",
 ]

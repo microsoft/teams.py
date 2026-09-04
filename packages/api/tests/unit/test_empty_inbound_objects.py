@@ -8,6 +8,8 @@ from typing import Any, Dict
 
 import pytest
 from microsoft_teams.api.activities import ActivityTypeAdapter
+from microsoft_teams.api.models.channel_data import ThreadInfo
+from pydantic import ValidationError
 
 
 def _activity(**overrides: Any) -> Dict[str, Any]:
@@ -90,3 +92,13 @@ def test_populated_channel_data_is_preserved() -> None:
 def test_absent_channel_data_still_parses() -> None:
     """The pre-existing behaviour for a wholly absent channelData must be unchanged."""
     assert ActivityTypeAdapter.validate_python(_activity()).channel_data is None
+
+
+def test_inbound_thread_metadata_is_typed_and_read_only() -> None:
+    activity = ActivityTypeAdapter.validate_python(_activity(channelData={"thread": {"id": "root-id"}}))
+
+    assert activity.channel_data is not None
+    assert isinstance(activity.channel_data.thread, ThreadInfo)
+    assert activity.channel_data.thread.id == "root-id"
+    with pytest.raises(ValidationError):
+        activity.channel_data.thread.id = "different-root"
