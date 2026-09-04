@@ -12,6 +12,8 @@ from typing import Any, Awaitable, Callable, Iterator, List, Mapping, Optional, 
 from httpx import HTTPStatusError
 from microsoft_teams.api import GetUserTokenParams, SignOutUserParams
 
+from .diagnostics._constants import APP_OAUTH_OPERATIONS, APP_OAUTH_RESULTS
+from .diagnostics._helpers import trace_oauth_operation
 from .events import SignInEvent, SignInFailureEvent
 from .oauth_connection import connection_lookup_key, normalize_connection_name
 from .oauth_state import (
@@ -131,6 +133,12 @@ class OAuthFlow:
     async def _invoke_signin_failure_handlers(self, event: SignInFailureEvent) -> None:
         await _dispatch_handlers(self._on_signin_failure, event, self.connection_name, "on_signin_failure")
 
+    def _has_signin_handlers(self) -> bool:
+        return bool(self._on_signin)
+
+    def _has_signin_failure_handlers(self) -> bool:
+        return bool(self._on_signin_failure)
+
     # -- operations -----------------------------------------------------------
 
     async def sign_in(self, ctx: ActivityContext[Any], options: Optional[SignInOptions] = None) -> Optional[str]:
@@ -148,33 +156,50 @@ class OAuthFlow:
         fallback.
         """
         base = self._defaults if options is None else options
-        return await ctx.sign_in(replace(base, connection_name=self.connection_name))
+        with trace_oauth_operation(
+            self.connection_name,
+            APP_OAUTH_OPERATIONS.signin,
+        ) as (_, telemetry):
+            token = await ctx.sign_in(replace(base, connection_name=self.connection_name))
+            telemetry.result = APP_OAUTH_RESULTS.cached if token is not None else APP_OAUTH_RESULTS.card_sent
+            return token
 
     async def sign_out(self, ctx: ActivityContext[Any]) -> None:
         """Sign the user out of this connection."""
-        await ctx.api.users.sign_out(
-            SignOutUserParams(
-                channel_id=ctx.activity.channel_id,
-                user_id=ctx.activity.from_.id,
-                connection_name=self.connection_name,
-            )
-        )
-
-    async def get_token(self, ctx: ActivityContext[Any]) -> Optional[str]:
-        """The user's token for this connection, or ``None`` if not signed in."""
-        try:
-            res = await ctx.api.users.get_token(
-                GetUserTokenParams(
+        with trace_oauth_operation(
+            self.connection_name,
+            APP_OAUTH_OPERATIONS.signout,
+        ) as (_, telemetry):
+            await ctx.api.users.sign_out(
+                SignOutUserParams(
                     channel_id=ctx.activity.channel_id,
                     user_id=ctx.activity.from_.id,
                     connection_name=self.connection_name,
                 )
             )
-            return res.token
-        except HTTPStatusError as e:
-            if e.response.status_code == 404:
+            telemetry.result = APP_OAUTH_RESULTS.success
+
+    async def get_token(self, ctx: ActivityContext[Any]) -> Optional[str]:
+        """The user's token for this connection, or ``None`` if not signed in."""
+        with trace_oauth_operation(
+            self.connection_name,
+            APP_OAUTH_OPERATIONS.get_token,
+        ) as (_, telemetry):
+            try:
+                response = await ctx.api.users.get_token(
+                    GetUserTokenParams(
+                        channel_id=ctx.activity.channel_id,
+                        user_id=ctx.activity.from_.id,
+                        connection_name=self.connection_name,
+                    )
+                )
+            except HTTPStatusError as error:
+                if error.response.status_code != 404:
+                    raise
+                telemetry.result = APP_OAUTH_RESULTS.miss
                 return None
-            raise
+            telemetry.result = APP_OAUTH_RESULTS.hit
+            return response.token
 
     async def is_signed_in(self, ctx: ActivityContext[Any]) -> bool:
         """Whether the user currently has a token for this connection."""
