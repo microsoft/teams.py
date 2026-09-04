@@ -222,7 +222,8 @@ class ConversationActivityClient(BaseClient):
                 on_response=_set_response_activity_id,
             ),
         )
-        id = response.json()["id"]
+        response_body = response.json()
+        id = response_body.get("id", _PLACEHOLDER_ACTIVITY_ID)
         return SentActivity(id=id, activity_params=activity)
 
     async def delete(

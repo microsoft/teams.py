@@ -1314,6 +1314,21 @@ class TestConversationClientFlattened:
         assert payload["entities"][0]["type"] == "quotedReply"
         assert '<quoted messageId="quoted-1"/>' in payload["text"]
 
+    @pytest.mark.parametrize("method_name", ["reply_to_activity", "reply_to_targeted_activity"])
+    async def test_reply_accepts_response_without_activity_id(self, method_name, mock_activity):
+        """APX may acknowledge a reply without returning its activity ID."""
+        http_client = Client(ClientOptions(base_url="https://test.service.url"))
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(200, json={}, headers={"content-type": "application/json"})
+
+        http_client.http._transport = httpx.MockTransport(handler)
+        client = ConversationClient("https://test.service.url", http_client)
+
+        result = await getattr(client, method_name)("conv-1", "act-1", mock_activity)
+
+        assert result.id == "DO_NOT_USE_PLACEHOLDER_ID"
+
     async def test_delete_activity(self, request_capture):
         """delete_activity should DELETE an activity."""
         client = ConversationClient("https://test.service.url", request_capture)
