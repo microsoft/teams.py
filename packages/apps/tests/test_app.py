@@ -928,8 +928,8 @@ class TestApp:
         create.assert_not_called()
         assert result.id == "sent-activity-id"
         sent_activity = activities.create_targeted.call_args.args[0]
-        assert sent_activity.from_.id == "test-client-id"
-        assert sent_activity.conversation.id == "conv-123"
+        assert sent_activity.from_ is None
+        assert sent_activity.conversation is None
 
     @pytest.mark.asyncio
     async def test_send_passes_service_url_and_agentic_identity_to_scoped_api(self, mock_storage) -> None:
@@ -1158,6 +1158,8 @@ class TestAppReply:
         assert activity.recipient is not None
         assert activity.recipient.id == recipient.id
         assert activity.recipient.is_targeted is True
+        assert activity.from_ is None
+        assert activity.conversation is None
         assert any(getattr(entity, "type", None) == "quotedReply" for entity in activity.entities or [])
         assert '<quoted messageId="quoted-message-id"/>' in (activity.text or "")
         started_app.api.conversations.activities.return_value.reply.assert_not_awaited()
@@ -1244,7 +1246,7 @@ class TestAppReply:
         started_app.api.conversations.activities.return_value.reply.assert_awaited_once()
         root_id, activity = started_app.api.conversations.activities.return_value.reply.call_args.args
         assert root_id == "00456"
-        assert activity.conversation.id == "19:abc@thread.skype"
+        assert activity.conversation is None
 
     @pytest.mark.asyncio
     async def test_reply_with_invalid_message_id_raises(self, started_app):

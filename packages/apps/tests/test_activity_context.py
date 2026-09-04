@@ -183,8 +183,8 @@ class TestActivityContextSendTargeted:
         sent_activity = ctx.api.conversations.activities.return_value.create_targeted.call_args.args[0]
         assert isinstance(sent_activity, MessageActivityInput)
         assert sent_activity.text == "Secret message"
-        assert sent_activity.from_ == ctx.conversation_ref.bot
-        assert sent_activity.conversation == ctx.conversation_ref.conversation
+        assert sent_activity.from_ is None
+        assert sent_activity.conversation is None
         assert sent_activity.recipient is not None
         assert sent_activity.recipient.id == incoming_sender.id
         assert sent_activity.recipient.name == incoming_sender.name
