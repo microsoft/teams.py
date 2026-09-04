@@ -74,7 +74,7 @@ from ..oauth_state import (
 from ..plugins.streamer import StreamerProtocol
 from ..state import TurnStateContainer
 from ..utils import create_graph_client
-from ..utils.thread import parse_threaded_conversation_id
+from ..utils.thread import get_default_thread_id, parse_threaded_conversation_id
 
 if TYPE_CHECKING:
     from msgraph.graph_service_client import GraphServiceClient
@@ -346,18 +346,7 @@ class ActivityContext(Generic[T]):
     def _current_thread_root_id(self) -> str | None:
         if not isinstance(self.activity, MessageActivity):
             return None
-
-        channel_data = self.activity.channel_data
-        if channel_data is not None and channel_data.thread is not None and channel_data.thread.id:
-            return channel_data.thread.id
-
-        _, legacy_thread_root_id = parse_threaded_conversation_id(self.activity.conversation.id)
-        if legacy_thread_root_id is not None:
-            return legacy_thread_root_id
-
-        if self.activity.conversation.conversation_type == "channel":
-            return self.activity.id
-        return None
+        return get_default_thread_id(self.activity)
 
     async def next(self) -> None:
         """Call the next middleware in the chain."""

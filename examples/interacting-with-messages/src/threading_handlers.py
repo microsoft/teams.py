@@ -5,7 +5,7 @@ Licensed under the MIT License.
 
 from microsoft_teams.api import MessageActivity, MessageActivityInput
 from microsoft_teams.apps import ActivityContext, App
-from microsoft_teams.apps.utils.thread import parse_threaded_conversation_id
+from microsoft_teams.apps.utils import get_proactive_thread_reference
 
 
 async def handle_default_send(ctx: ActivityContext[MessageActivity], text: str) -> bool:
@@ -27,7 +27,7 @@ async def handle_proactive_thread(app: App, ctx: ActivityContext[MessageActivity
     if text not in variants:
         return False
 
-    conversation_id, thread_root_id = _thread_reference(ctx)
+    conversation_id, thread_root_id = get_proactive_thread_reference(ctx.activity)
     should_quote, is_targeted = variants[text]
     activity = MessageActivityInput(text="This is an explicit proactive threaded reply.")
     if should_quote:
@@ -37,11 +37,3 @@ async def handle_proactive_thread(app: App, ctx: ActivityContext[MessageActivity
 
     await app.reply(conversation_id, thread_root_id, activity)
     return True
-
-
-def _thread_reference(ctx: ActivityContext[MessageActivity]) -> tuple[str, str]:
-    conversation_id = ctx.conversation_ref.conversation.id
-    thread = ctx.activity.channel_data.thread if ctx.activity.channel_data else None
-    base_conversation_id, legacy_thread_root_id = parse_threaded_conversation_id(conversation_id)
-    thread_root_id = thread.id if thread and thread.id else legacy_thread_root_id or ctx.activity.id
-    return base_conversation_id, thread_root_id

@@ -4,6 +4,9 @@ Licensed under the MIT License.
 """
 
 import pytest
+from microsoft_teams.api import Account, ConversationAccount, MessageActivity
+from microsoft_teams.api.models.channel_data import ChannelData, ThreadInfo
+from microsoft_teams.apps.utils import get_default_thread_id, get_proactive_thread_reference
 from microsoft_teams.apps.utils.thread import to_threaded_conversation_id
 
 
@@ -43,3 +46,54 @@ class TestToThreadedConversationId:
     def test_strips_existing_messageid_and_replaces_with_thread_root(self):
         result = to_threaded_conversation_id("19:abc@thread.skype;messageid=111", "222")
         assert result == "19:abc@thread.skype;messageid=222"
+
+
+class TestGetThreadReference:
+    @staticmethod
+    def _activity(conversation_id: str, *, thread_id: str | None = None) -> MessageActivity:
+        return MessageActivity(
+            id="inbound-id",
+            from_=Account(id="user-id"),
+            recipient=Account(id="bot-id"),
+            conversation=ConversationAccount(id=conversation_id),
+            channel_data=ChannelData(thread=ThreadInfo(id=thread_id)) if thread_id else None,
+        )
+
+    def test_prefers_typed_thread_metadata(self):
+        activity = self._activity("19:abc@thread.skype;messageid=123", thread_id="typed-root")
+
+        assert get_proactive_thread_reference(activity) == ("19:abc@thread.skype", "typed-root")
+
+    def test_uses_legacy_thread_suffix(self):
+        activity = self._activity("19:abc@thread.skype;messageid=123")
+
+        assert get_proactive_thread_reference(activity) == ("19:abc@thread.skype", "123")
+
+    def test_uses_activity_id_for_root_message(self):
+        activity = self._activity("19:abc@thread.skype")
+
+        assert get_proactive_thread_reference(activity) == ("19:abc@thread.skype", "inbound-id")
+
+
+class TestGetCurrentThreadRootId(TestGetThreadReference):
+    def test_uses_typed_thread_metadata(self):
+        activity = self._activity("19:abc@thread.skype", thread_id="typed-root")
+
+        assert get_default_thread_id(activity) == "typed-root"
+
+    def test_uses_legacy_thread_suffix(self):
+        activity = self._activity("19:abc@thread.skype;messageid=123")
+
+        assert get_default_thread_id(activity) == "123"
+
+    def test_uses_activity_id_for_channel_root(self):
+        activity = self._activity("19:abc@thread.skype")
+        activity.conversation.conversation_type = "channel"
+
+        assert get_default_thread_id(activity) == "inbound-id"
+
+    def test_returns_none_for_group_chat_root(self):
+        activity = self._activity("19:abc@thread.skype")
+        activity.conversation.conversation_type = "groupChat"
+
+        assert get_default_thread_id(activity) is None

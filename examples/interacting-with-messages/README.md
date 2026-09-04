@@ -29,6 +29,9 @@ in a separate source module.
 | `thread proactive targeted` | `app.reply()` sends a targeted activity to an explicit thread root |
 | `thread proactive targeted quote` | Combines targeted thread placement with explicit quote metadata |
 
+The proactive commands use `get_proactive_thread_reference()` to resolve typed thread
+metadata, legacy conversation IDs, and root messages consistently.
+
 Targeted outbound activities use the targeted reply endpoint when a thread root is
 selected, so recipient visibility, thread placement, and quote metadata remain
 independent.
