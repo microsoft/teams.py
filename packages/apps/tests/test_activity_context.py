@@ -65,6 +65,12 @@ def _create_activity_context(
             activity_params=MessageActivityInput(text="reply"),
         )
     )
+    activities.reply_targeted = AsyncMock(
+        return_value=SentActivity(
+            id="targeted-reply-activity-id",
+            activity_params=MessageActivityInput(text="targeted reply"),
+        )
+    )
     activities.create_targeted = AsyncMock(
         return_value=SentActivity(
             id="targeted-activity-id",
@@ -93,6 +99,10 @@ def _create_activity_context(
         api.conversations.activities(conversation_id)
         return await activities.reply(activity_id, activity)
 
+    async def reply_to_targeted_activity(conversation_id: str, activity_id: str, activity: Any) -> SentActivity:
+        api.conversations.activities(conversation_id)
+        return await activities.reply_targeted(activity_id, activity)
+
     async def create_targeted_activity(conversation_id: str, activity: Any) -> SentActivity:
         api.conversations.activities(conversation_id)
         return await activities.create_targeted(activity)
@@ -104,6 +114,7 @@ def _create_activity_context(
     api.conversations.create_activity = AsyncMock(side_effect=create_activity)
     api.conversations.update_activity = AsyncMock(side_effect=update_activity)
     api.conversations.reply_to_activity = AsyncMock(side_effect=reply_to_activity)
+    api.conversations.reply_to_targeted_activity = AsyncMock(side_effect=reply_to_targeted_activity)
     api.conversations.create_targeted_activity = AsyncMock(side_effect=create_targeted_activity)
     api.conversations.update_targeted_activity = AsyncMock(side_effect=update_targeted_activity)
 
@@ -449,6 +460,28 @@ class TestActivityContextThreadPlacement:
 
         ctx.api.conversations.reply_to_activity.assert_awaited_once()
         assert ctx.api.conversations.reply_to_activity.call_args.args[:2] == ("conversation-id", "group-root")
+
+    @pytest.mark.asyncio
+    async def test_group_chat_targeted_send_uses_targeted_reply_endpoint(self) -> None:
+        ctx = self._context("groupChat", thread_id="group-root")
+        recipient = Account(id="user-id", name="Test User")
+        outbound = (
+            MessageActivityInput()
+            .add_quote("quoted-message-id", "Private response")
+            .with_recipient(recipient, is_targeted=True)
+        )
+
+        await ctx.send(outbound)
+
+        ctx.api.conversations.reply_to_targeted_activity.assert_awaited_once_with(
+            "conversation-id",
+            "group-root",
+            outbound,
+        )
+        assert any(getattr(entity, "type", None) == "quotedReply" for entity in outbound.entities or [])
+        assert '<quoted messageId="quoted-message-id"/>' in (outbound.text or "")
+        ctx.api.conversations.create_targeted_activity.assert_not_awaited()
+        ctx.api.conversations.reply_to_activity.assert_not_awaited()
 
     @pytest.mark.asyncio
     async def test_channel_send_uses_inbound_thread_metadata(self) -> None:

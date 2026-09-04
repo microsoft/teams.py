@@ -93,6 +93,10 @@ def _wire_flat_activity_methods(api: Any, activities: MagicMock) -> None:
         api.conversations.activities(conversation_id)
         return await activities.reply(activity_id, activity)
 
+    async def reply_to_targeted_activity(conversation_id: str, activity_id: str, activity: Any) -> SentActivity:
+        api.conversations.activities(conversation_id)
+        return await activities.reply_targeted(activity_id, activity)
+
     async def create_targeted_activity(conversation_id: str, activity: Any) -> SentActivity:
         api.conversations.activities(conversation_id)
         return await activities.create_targeted(activity)
@@ -104,6 +108,7 @@ def _wire_flat_activity_methods(api: Any, activities: MagicMock) -> None:
     api.conversations.create_activity = AsyncMock(side_effect=create_activity)
     api.conversations.update_activity = AsyncMock(side_effect=update_activity)
     api.conversations.reply_to_activity = AsyncMock(side_effect=reply_to_activity)
+    api.conversations.reply_to_targeted_activity = AsyncMock(side_effect=reply_to_targeted_activity)
     api.conversations.create_targeted_activity = AsyncMock(side_effect=create_targeted_activity)
     api.conversations.update_targeted_activity = AsyncMock(side_effect=update_targeted_activity)
 
@@ -902,6 +907,9 @@ class TestApp:
         activities.reply = AsyncMock(
             return_value=SentActivity(id="sent-activity-id", activity_params=MessageActivityInput(text="sent"))
         )
+        activities.reply_targeted = AsyncMock(
+            return_value=SentActivity(id="sent-activity-id", activity_params=MessageActivityInput(text="sent"))
+        )
         activities.create_targeted = AsyncMock(
             return_value=SentActivity(id="sent-activity-id", activity_params=MessageActivityInput(text="sent"))
         )
@@ -1044,6 +1052,9 @@ class TestAppInitialize:
         activities.reply = AsyncMock(
             return_value=SentActivity(id="sent-activity-id", activity_params=MessageActivityInput(text="sent"))
         )
+        activities.reply_targeted = AsyncMock(
+            return_value=SentActivity(id="sent-activity-id", activity_params=MessageActivityInput(text="sent"))
+        )
         activities.update = AsyncMock(
             return_value=SentActivity(id="existing-msg-id", activity_params=MessageActivityInput(text="updated"))
         )
@@ -1108,6 +1119,9 @@ class TestAppReply:
         activities.reply = AsyncMock(
             return_value=SentActivity(id="sent-activity-id", activity_params=MessageActivityInput(text="sent"))
         )
+        activities.reply_targeted = AsyncMock(
+            return_value=SentActivity(id="sent-activity-id", activity_params=MessageActivityInput(text="sent"))
+        )
         activities.update = AsyncMock(
             return_value=SentActivity(id="updated-activity-id", activity_params=MessageActivityInput(text="updated"))
         )
@@ -1125,6 +1139,28 @@ class TestAppReply:
         root_id, activity = started_app.api.conversations.activities.return_value.reply.call_args.args
         assert root_id == "1680000000000"
         assert activity.text == "Hello thread"
+
+    @pytest.mark.asyncio
+    async def test_reply_with_targeted_activity_uses_targeted_reply_endpoint(self, started_app):
+        recipient = Account(id="user-456", name="Test User")
+        outbound = (
+            MessageActivityInput()
+            .add_quote("quoted-message-id", "Private reply")
+            .with_recipient(recipient, is_targeted=True)
+        )
+
+        await started_app.reply("19:abc@thread.skype", "1680000000000", outbound)
+
+        targeted_reply = started_app.api.conversations.activities.return_value.reply_targeted
+        targeted_reply.assert_awaited_once()
+        root_id, activity = targeted_reply.call_args.args
+        assert root_id == "1680000000000"
+        assert activity.recipient is not None
+        assert activity.recipient.id == recipient.id
+        assert activity.recipient.is_targeted is True
+        assert any(getattr(entity, "type", None) == "quotedReply" for entity in activity.entities or [])
+        assert '<quoted messageId="quoted-message-id"/>' in (activity.text or "")
+        started_app.api.conversations.activities.return_value.reply.assert_not_awaited()
 
     @pytest.mark.asyncio
     async def test_reply_with_three_args_passes_service_url_and_agentic_identity_to_scoped_api(self, started_app):

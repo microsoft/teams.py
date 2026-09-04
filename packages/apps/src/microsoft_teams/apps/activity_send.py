@@ -51,7 +51,13 @@ async def send_or_update_activity(
         res = await scoped_api.conversations.update_activity(ref.conversation.id, activity_id, activity)
         return SentActivity.merge(activity, res)
 
-    if is_targeted:
+    if is_targeted and thread_root_id is not None:
+        res = await scoped_api.conversations.reply_to_targeted_activity(
+            ref.conversation.id,
+            thread_root_id,
+            activity,
+        )
+    elif is_targeted:
         res = await scoped_api.conversations.create_targeted_activity(ref.conversation.id, activity)
     elif thread_root_id is not None:
         res = await scoped_api.conversations.reply_to_activity(ref.conversation.id, thread_root_id, activity)

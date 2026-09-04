@@ -10,15 +10,13 @@ from microsoft_teams.api import MessageActivity
 from microsoft_teams.api.activities.typing import TypingActivityInput
 from microsoft_teams.apps import ActivityContext, App
 from quoting import (
-    handle_quote_add,
     handle_quote_batch,
-    handle_quote_manual,
     handle_quote_message,
     handle_quote_reply,
     handle_quoted_message,
 )
 from reactions import handle_add_reaction, handle_proactive_reaction, handle_reaction_event, handle_remove_reaction
-from threading_handlers import handle_manual_thread, handle_proactive_thread, handle_thread_reply, handle_thread_send
+from threading_handlers import handle_default_send, handle_proactive_thread
 
 logging.basicConfig(level=logging.INFO)
 
@@ -39,14 +37,14 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
             "**Quoting:**\n"
             "- `quote reply` - auto-quote your message\n"
             "- `quote message` - quote a previously sent message\n"
-            "- `quote add` - compose a quote with the message builder\n"
             "- `quote batch` - combine multiple quotes\n"
-            "- `quote manual` - combine a quote and text manually\n\n"
+            "\n"
             "**Threading:**\n"
-            "- `thread reply` - send a reactive threaded reply\n"
-            "- `thread send` - send to the same thread without quoting\n"
-            "- `thread proactive` - send a proactive threaded reply\n"
-            "- `thread manual` - construct a threaded conversation ID manually\n\n"
+            "- `default send` - use default reactive placement\n"
+            "- `thread proactive` - explicitly select a proactive thread root\n"
+            "- `thread proactive quote` - explicitly select a thread root and quote this message\n"
+            "- `thread proactive targeted` - send a targeted reply to an explicit thread root\n"
+            "- `thread proactive targeted quote` - combine targeted thread placement and quoting\n\n"
             "**Reactions:**\n"
             "- `reaction add <type>` - add a reaction to your message\n"
             "- `reaction remove <type>` - add, then remove, a reaction\n"
@@ -60,11 +58,8 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
     handlers = (
         handle_quote_reply,
         handle_quote_message,
-        handle_quote_add,
         handle_quote_batch,
-        handle_quote_manual,
-        handle_thread_reply,
-        handle_thread_send,
+        handle_default_send,
         handle_add_reaction,
         handle_remove_reaction,
     )
@@ -74,7 +69,6 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
 
     app_handlers = (
         handle_proactive_thread,
-        handle_manual_thread,
         handle_proactive_reaction,
     )
     for handler in app_handlers:

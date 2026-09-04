@@ -14,21 +14,24 @@ in a separate source module.
 
 | Command | Behavior |
 |---------|----------|
-| `quote reply` | Deprecated `ctx.reply()` compatibility behavior auto-quotes the inbound message |
-| `quote message` | `ctx.quote()` quotes a previously sent message by ID |
-| `quote add` | `add_quote()` composes a quote with a response |
+| `quote reply` | `add_quote()` explicitly quotes the inbound message |
+| `quote message` | `add_quote()` quotes a previously sent message by ID |
 | `quote batch` | Combines multiple quotes with mixed responses |
-| `quote manual` | Combines `add_quote()` and `add_text()` manually |
 | *(quote a message)* | Displays the quoted-message metadata |
 
 ### Threading
 
 | Command | Behavior |
 |---------|----------|
-| `thread reply` | Deprecated `ctx.reply()` compatibility behavior sends a reactive threaded reply |
-| `thread send` | `ctx.send()` sends to the same thread without quoting |
-| `thread proactive` | `app.reply()` sends a proactive threaded reply |
-| `thread manual` | `app.reply()` selects an explicit thread root |
+| `default send` | `ctx.send()` uses the default reactive placement |
+| `thread proactive` | `app.reply()` selects an explicit proactive thread root |
+| `thread proactive quote` | `app.reply()` selects a thread root; `add_quote()` adds quote metadata |
+| `thread proactive targeted` | `app.reply()` sends a targeted activity to an explicit thread root |
+| `thread proactive targeted quote` | Combines targeted thread placement with explicit quote metadata |
+
+Targeted outbound activities use the targeted reply endpoint when a thread root is
+selected, so recipient visibility, thread placement, and quote metadata remain
+independent.
 
 ### Reactions
 

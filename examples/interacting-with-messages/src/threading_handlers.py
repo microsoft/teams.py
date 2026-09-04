@@ -8,37 +8,34 @@ from microsoft_teams.apps import ActivityContext, App
 from microsoft_teams.apps.utils.thread import parse_threaded_conversation_id
 
 
-async def handle_thread_reply(ctx: ActivityContext[MessageActivity], text: str) -> bool:
-    """Send a reactive threaded reply when the command matches."""
-    if text != "thread reply":
+async def handle_default_send(ctx: ActivityContext[MessageActivity], text: str) -> bool:
+    """Use the default reactive placement for the inbound scope."""
+    if text != "default send":
         return False
-    await ctx.send(MessageActivityInput().add_quote(ctx.activity.id, "This is a threaded reply to your message."))
-    return True
-
-
-async def handle_thread_send(ctx: ActivityContext[MessageActivity], text: str) -> bool:
-    """Send to the current thread without quoting when the command matches."""
-    if text != "thread send":
-        return False
-    await ctx.send("This is sent to the same thread, without quoting.")
+    await ctx.send("This uses the default reactive placement for the current conversation.")
     return True
 
 
 async def handle_proactive_thread(app: App, ctx: ActivityContext[MessageActivity], text: str) -> bool:
-    """Send a proactive threaded reply when the command matches."""
-    if text != "thread proactive":
+    """Send one of the explicit proactive thread-placement variants."""
+    variants = {
+        "thread proactive": (False, False),
+        "thread proactive quote": (True, False),
+        "thread proactive targeted": (False, True),
+        "thread proactive targeted quote": (True, True),
+    }
+    if text not in variants:
         return False
-    conversation_id, thread_root_id = _thread_reference(ctx)
-    await app.reply(conversation_id, thread_root_id, "This is a proactive threaded reply using app.reply().")
-    return True
 
-
-async def handle_manual_thread(app: App, ctx: ActivityContext[MessageActivity], text: str) -> bool:
-    """Send to an explicitly selected thread root when the command matches."""
-    if text != "thread manual":
-        return False
     conversation_id, thread_root_id = _thread_reference(ctx)
-    await app.reply(conversation_id, thread_root_id, "This was sent using app.reply() with an explicit thread root.")
+    should_quote, is_targeted = variants[text]
+    activity = MessageActivityInput(text="This is an explicit proactive threaded reply.")
+    if should_quote:
+        activity = MessageActivityInput().add_quote(ctx.activity.id, "This threaded reply includes a quote.")
+    if is_targeted:
+        activity.with_recipient(ctx.activity.from_, is_targeted=True)
+
+    await app.reply(conversation_id, thread_root_id, activity)
     return True
 
 
