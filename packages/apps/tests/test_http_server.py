@@ -68,6 +68,7 @@ class TestHttpServer:
     def test_initialize_forwards_deps_to_adapter_initialize(self, server, mock_adapter):
         """Test that initialize() forwards credentials/cloud to the adapter's initialize hook."""
         creds = MagicMock()
+        creds.client_id = "test-app"
 
         server.initialize(credentials=creds)
 
