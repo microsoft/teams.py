@@ -15,7 +15,7 @@ from pydantic import BaseModel
 
 from ..auth import InboundActivityTokenValidator
 from ..events import ActivityEvent, CoreActivity
-from .adapter import HttpRequest, HttpResponse, HttpServerAdapter
+from .adapter import HttpRequest, HttpResponse, HttpServerAdapter, HttpServerInitializeDeps
 
 logger = logging.getLogger(__name__)
 
@@ -115,6 +115,14 @@ class HttpServer:
             )
 
         self._adapter.register_route("POST", self._messaging_endpoint, self.handle_request)
+
+        # Forward app-level deps to the adapter so connection-authenticated transports
+        # (e.g. Socket Mode) can initialize through the seam. Optional: most HTTP
+        # adapters (e.g. FastAPIAdapter) don't implement this hook.
+        adapter_initialize = getattr(self._adapter, "initialize", None)
+        if callable(adapter_initialize):
+            adapter_initialize(HttpServerInitializeDeps(credentials=credentials, cloud=self._cloud))
+
         self._initialized = True
 
     async def handle_request(self, request: HttpRequest) -> HttpResponse:
@@ -129,7 +137,13 @@ class HttpServer:
             # Validate JWT token
             authorization = headers.get("authorization") or headers.get("Authorization") or ""
 
-            if self._dangerously_allow_unauthenticated_requests:
+            pre_authenticated_token = request.get("token")
+            if pre_authenticated_token is not None:
+                # A transport that authenticates at the connection level (e.g. Socket
+                # Mode) already resolved the caller's identity; trust it and skip the
+                # per-request JWT validation below.
+                token: TokenProtocol = pre_authenticated_token
+            elif self._dangerously_allow_unauthenticated_requests:
                 # Unauthenticated requests explicitly allowed: use a default token.
                 service_url = cast(Optional[str], body.get("serviceUrl"))
                 token: TokenProtocol = cast(

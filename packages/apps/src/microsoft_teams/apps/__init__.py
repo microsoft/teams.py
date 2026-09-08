@@ -12,7 +12,7 @@ from .contexts import *  # noqa: F403
 from .diagnostics import *  # noqa: F403
 from .events import *  # noqa: F401, F403
 from .files import *  # noqa: F403
-from .http import FastAPIAdapter, HttpServer, HttpServerAdapter
+from .http import FastAPIAdapter, HttpServer, HttpServerAdapter, HttpServerInitializeDeps
 from .http_stream import HttpStream
 from .oauth_flow import OAuthFlow, OAuthFlowRegistry
 from .options import AppOptions, AppTelemetryOptions
@@ -43,6 +43,7 @@ __all__: list[str] = [
     "AppTelemetryOptions",
     "HttpServer",
     "HttpServerAdapter",
+    "HttpServerInitializeDeps",
     "FastAPIAdapter",
     "HttpStream",
     "ActivityContext",
