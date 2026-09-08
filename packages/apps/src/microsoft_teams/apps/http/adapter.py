@@ -46,8 +46,7 @@ class HttpServerAdapter(Protocol):
     ``HttpRequest``/``HttpResponse`` objects so the adapter can translate to/from the
     underlying transport.
 
-    Adapters may also define an optional ``initialize(deps: HttpServerInitializeDeps) -> None``
-    method (sync or async) to receive app-level ``credentials``/``cloud`` before ``start()``.
+    method (sync) to receive app-level ``credentials``/``cloud`` before ``start()``.
     It's not part of this Protocol (so existing adapters aren't forced to implement it) —
     ``HttpServer.initialize()`` calls it via ``getattr(...)`` when present. Most HTTP adapters
     (e.g. ``FastAPIAdapter``) don't need it; transports that authenticate the connection itself
