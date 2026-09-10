@@ -300,7 +300,14 @@ def _permissions_of(token: str) -> Optional[list[str]]:
     try:
         payload = token.split(".")[1]
         decoded = base64.urlsafe_b64decode(payload + "=" * (-len(payload) % 4))
-        claims = cast(dict[str, Any], json.loads(decoded))
+        parsed = json.loads(decoded)
+
+        # A JWT payload is an object by definition, but the wire is untrusted: a decodable token whose payload is a
+        # list, string or null must read as "cannot tell" rather than raising out of a function documented to fail open.
+        if not isinstance(parsed, dict):
+            return None
+
+        claims = cast(dict[str, Any], parsed)
         roles_claim = claims.get("roles")
         roles = [r for r in cast(list[Any], roles_claim) if isinstance(r, str)] if isinstance(roles_claim, list) else []
         scp = claims.get("scp")
