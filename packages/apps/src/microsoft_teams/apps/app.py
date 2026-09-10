@@ -64,7 +64,7 @@ from .routing.activity_context import ActivityContext
 from .state import create_state_loader
 from .token_manager import DEFAULT_TENANT_FOR_GRAPH_TOKEN, TokenManager
 from .token_provider import AppTokenProvider
-from .utils import create_graph_client
+from .utils import create_graph_client, derive_graph_base_url
 from .utils.thread import to_threaded_conversation_id
 
 version = importlib.metadata.version("microsoft-teams-apps")
@@ -144,8 +144,10 @@ class App(ActivityHandlerMixin):
             self.http_client,
             self._token_provider,
             self._get_graph_token,
+            self._get_agentic_graph_token,
             self.options.api_client_settings,
             self.cloud,
+            derive_graph_base_url(self.cloud),
             fetch_user_token=self.options.fetch_user_token,
             agent365_baggage_options=self.options.telemetry.get("agent365") if self.options.telemetry else None,
             state_loader=self._state_loader,
@@ -764,6 +766,24 @@ class App(ActivityHandlerMixin):
         return await self._token_provider.get_app_token(
             self.cloud.graph_scope,
             tenant_id or (self.credentials.tenant_id if self.credentials else None) or DEFAULT_TENANT_FOR_GRAPH_TOKEN,
+        )
+
+    async def _get_agentic_graph_token(self, identity: AgenticIdentity) -> Optional[TokenProtocol]:
+        """
+        Acquire a Graph token for an Agentic User, via the federated identity exchange the token manager already
+        performs.
+
+        Separate from `_get_graph_token` because the identity differs, not merely the scope: this reads as the agent,
+        so it sees the files shared with the agent rather than everything the app may read.
+        """
+        if not identity.agentic_app_id or not identity.agentic_user_id:
+            return None
+
+        return await self._token_provider.get_agentic_user_token(
+            self.cloud.graph_scope,
+            identity.agentic_app_id,
+            identity.agentic_user_id,
+            identity.tenant_id or (self.credentials.tenant_id if self.credentials else None),
         )
 
     def get_app_graph(self, tenant_id: Optional[str] = None) -> "GraphServiceClient":

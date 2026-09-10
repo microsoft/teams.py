@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 _GRAPH_BASE_URL_RE = re.compile(r"^(https?://[^/]+)", re.IGNORECASE)
 
 
-def _derive_graph_base_url(cloud: Optional[CloudEnvironment]) -> Optional[str]:
+def derive_graph_base_url(cloud: Optional[CloudEnvironment]) -> Optional[str]:
     """Derive the Graph API base URL from a cloud's graph_scope, or None if unavailable."""
     if cloud is None:
         return None
@@ -47,7 +47,7 @@ def create_graph_client(token: Token, cloud: Optional[CloudEnvironment] = None):
     try:
         from microsoft_teams.graph import get_graph_client
 
-        return get_graph_client(token, base_url=_derive_graph_base_url(cloud))
+        return get_graph_client(token, base_url=derive_graph_base_url(cloud))
     except ImportError as exc:
         raise ImportError(
             "Graph functionality not available. Install with 'pip install microsoft-teams-apps[graph]'"

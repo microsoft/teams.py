@@ -11,6 +11,7 @@ from microsoft_teams.api import (
     ActivityBase,
     ActivityParams,
     ActivityTypeAdapter,
+    AgenticIdentity,
     ApiClient,
     ApiClientSettings,
     ConversationReference,
@@ -43,6 +44,7 @@ from .diagnostics._helpers import (
     record_turn_duration,
 )
 from .events import ActivityEvent, ActivityResponseEvent, ActivitySentEvent, ErrorEvent
+from .files_credential import select_files_credential
 from .oauth_flow import OAuthFlowRegistry
 from .plugins import PluginActivityEvent, PluginBase, StreamCancelledError
 from .routing.activity_context import ActivityContext
@@ -72,8 +74,10 @@ class ActivityProcessor:
         http_client: Client,
         token_provider: AppTokenProvider,
         get_app_graph_token: Callable[[Optional[str]], Awaitable[Optional[TokenProtocol]]],
+        get_agentic_graph_token: Callable[[AgenticIdentity], Awaitable[Optional[TokenProtocol]]],
         api_client_settings: Optional[ApiClientSettings],
         cloud: CloudEnvironment = PUBLIC,
+        graph_base_url_root: Optional[str] = None,
         fetch_user_token: bool = True,
         agent365_baggage_options: Agent365BaggageOptions | bool | None = None,
         state_loader: Optional[TurnStateLoader] = None,
@@ -86,8 +90,10 @@ class ActivityProcessor:
         self.http_client = http_client
         self.token_provider = token_provider
         self.get_app_graph_token = get_app_graph_token
+        self.get_agentic_graph_token = get_agentic_graph_token
         self.api_client_settings = api_client_settings
         self.cloud = cloud
+        self.graph_base_url_root = graph_base_url_root
         self.fetch_user_token = fetch_user_token
         self.agent365_baggage_options = agent365_baggage_options
         self.state_loader = state_loader
@@ -155,6 +161,17 @@ class ActivityProcessor:
 
         tenant_id = extract_tenant_id(activity)
 
+        # Resolved at fetch time rather than eagerly, so a turn that never touches files pays nothing for it.
+        #
+        # An Agentic User reads as itself. An app-only token sees what the app may read tenant-wide, a different set
+        # from what was shared with the agent, so it would 403 on exactly the files the agent was given.
+        files_credential = select_files_credential(
+            agentic_identity=activity.recipient.agentic_identity,
+            graph_base_url_root=self.graph_base_url_root,
+            get_app_graph_token=lambda: self.get_app_graph_token(tenant_id),
+            get_agentic_graph_token=self.get_agentic_graph_token,
+        )
+
         activityCtx = ActivityContext(
             activity,
             self.id or "",
@@ -167,6 +184,7 @@ class ActivityProcessor:
             app_token=lambda: self.get_app_graph_token(tenant_id),
             cloud=self.cloud,
             oauth_connection_names=list(self.oauth_registry) if self.oauth_registry is not None else None,
+            files_credential=files_credential,
         )
 
         send = activityCtx.send
