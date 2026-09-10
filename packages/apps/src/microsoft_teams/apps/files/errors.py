@@ -152,8 +152,8 @@ def _no_credential_guidance(actor: FileActor) -> str:
             "See https://learn.microsoft.com/entra/agent-id/concept-inheritable-permissions"
         )
     if actor == "app":
-        # Not a route the SDK takes on its own: Graph file reads happen as the agentic user. An app reaching here
-        # means a file arrived in a shape that should not occur, so the remedy is not a permission grant.
+        # Graph file reads happen as the agentic user. Granting the app file permissions would make this succeed,
+        # which is why the message says it may be used rather than that it cannot.
         return (
             "the app has no usable Graph credential for this file. Graph file retrieval is supported for Agentic "
             "Users, which read as their own identity; an app identity and/or user-delegated permissions may be "
