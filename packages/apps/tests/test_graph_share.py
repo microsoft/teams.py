@@ -7,6 +7,7 @@ Licensed under the MIT License.
 
 import base64
 
+import pytest
 from microsoft_teams.apps.files.graph_share import build_drive_item_content_url, encode_sharing_url
 
 
@@ -64,3 +65,20 @@ class TestSharedItemContentUrl:
 
     def test_does_not_double_the_separator(self):
         assert "//v1.0" not in build_drive_item_content_url("https://a.example/b", "https://graph.microsoft.com/")
+
+
+class TestGraphHostRootSafety:
+    def test_refuses_an_http_root_because_the_request_carries_a_bearer(self):
+        # The download URL is already required to be https and carries no bearer. This one does, so it gets at least
+        # the same check: a mistyped scheme would otherwise put a Graph token on the wire in cleartext.
+        with pytest.raises(ValueError, match="must use https"):
+            build_drive_item_content_url("https://a.example/b", "http://graph.microsoft.com")
+
+    def test_allows_http_on_loopback_so_a_local_mock_graph_still_works(self):
+        built = build_drive_item_content_url("https://a.example/b", "http://localhost:3000")
+
+        assert built.startswith("http://localhost:3000/v1.0/shares/")
+
+    def test_refuses_a_root_that_is_not_a_url(self):
+        with pytest.raises(ValueError, match="must use https"):
+            build_drive_item_content_url("https://a.example/b", "not-a-url")
