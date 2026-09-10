@@ -172,8 +172,8 @@ class TestGraphSharePath:
 
     @pytest.mark.asyncio
     async def test_proceeds_when_a_delegated_token_carries_a_file_capable_scope(self):
-        # The shape the live blueprint actually issues, measured 2026-09-09: `.default` returned eleven scopes, of
-        # which only Files.ReadWrite.All and Sites.Read.All are file-capable.
+        # The shape the live blueprint issues: `.default` returns eleven scopes, of which only
+        # Files.ReadWrite.All and Sites.Read.All are file-capable.
         rec = _Recorder([200])
         capable = _jwt({"scp": "profile openid email Mail.Send Files.ReadWrite.All Sites.Read.All"})
 
@@ -237,8 +237,8 @@ class TestGraphSharePath:
     @pytest.mark.asyncio
     async def test_points_each_actor_at_the_remedy_that_actually_applies_to_it(self):
         # An agent identity gets Graph scopes from its blueprint, so that arm links the agent permission model. The
-        # app arm has no remedy to offer: app-delegated Graph access is not sanctioned for file handling, so pointing
-        # at a permissions doc would advise a grant that changes nothing.
+        # app arm deliberately has no doc link: no permission grant would change the outcome, so pointing at a
+        # permissions doc would advise a fix that does not work.
         rec = _Recorder([200, 200])
 
         with pytest.raises(FileRetrievalError) as agentic_err:
@@ -256,7 +256,7 @@ class TestGraphSharePath:
                 pass
 
         assert "learn.microsoft.com/entra/agent-id" in str(agentic_err.value)
-        assert "no sanctioned route to these bytes" in str(app_err.value)
+        assert "not supported via the SDK" in str(app_err.value)
 
     @pytest.mark.asyncio
     async def test_fails_open_on_a_token_that_is_not_a_decodable_jwt(self):
@@ -368,6 +368,29 @@ class TestRedirects:
         assert len(rec.calls) == 2
         assert rec.auth_of(0) == f"Bearer {AGENTIC_JWT}"
         assert rec.auth_of(1) is None
+
+    @pytest.mark.asyncio
+    async def test_the_preauth_path_follows_a_redirect(self):
+        # httpx defaults follow_redirects to False, so the pre-authorized path has to opt in explicitly. TypeScript
+        # (fetch, which defaults to "follow") and .NET (HttpClientHandler.AllowAutoRedirect, which defaults to true)
+        # both follow without being asked, and this path used to be the one place across the three SDKs that did not.
+        # Losing the flag does not hand the caller a redirect body: a 302 is not 2xx, so it would fall through to the
+        # `not response.is_success` arm and surface as "failed to download file: 302 Found", which reads like a
+        # server fault rather than a missing client option.
+        #
+        # Nothing is withheld across the hop on purpose here, unlike the cross-origin bearer case above: this request
+        # carries no Authorization header at all, because the pre-authorized URL embeds its own credential.
+        rec = _RedirectRecorder("https://contoso.sharepoint.com/blob/1")
+
+        async with open_file_stream(
+            _target(download_url=DOWNLOAD_URL), client=rec.client(), credential=_credential()
+        ) as opened:
+            body = b"".join([chunk async for chunk in opened.chunks])
+
+        assert body == b"bytes"
+
+        # Two hops, not one: the redirect was followed rather than surfacing as an error.
+        assert len(rec.calls) == 2
 
     @pytest.mark.asyncio
     async def test_still_sends_the_bearer_when_the_redirect_stays_on_the_same_origin(self):

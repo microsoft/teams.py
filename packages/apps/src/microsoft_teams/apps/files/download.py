@@ -149,7 +149,12 @@ async def _open_personal_file_stream(
         # would be sent to a third-party storage host.
         request = http.build_request("GET", url)
         request.headers.pop("Authorization", None)
-        response = await http.send(request, stream=True)
+
+        # `follow_redirects` is explicit because httpx defaults it to False. Without it a storage 302 never resolves:
+        # it is not 2xx, so it falls through to the `not response.is_success` arm below and surfaces as
+        # "failed to download file: 302 Found". Nothing leaks across the hop, because the request deliberately
+        # carries no Authorization header, so there is no bearer to withhold from a third-party host.
+        response = await http.send(request, stream=True, follow_redirects=True)
 
         try:
             if response.status_code in (401, 403):
