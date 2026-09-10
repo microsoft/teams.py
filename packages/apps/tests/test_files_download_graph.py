@@ -136,6 +136,27 @@ class TestGraphSharePath:
         assert len(rec.calls) == 0
 
     @pytest.mark.asyncio
+    async def test_carries_the_acquisition_failure_as_details_when_the_credential_raises(self):
+        # An acquisition that raised and an identity with no permissions both arrive here as "no token", but the
+        # fixes differ: one is a transient or configuration fault, the other is a consent problem. The canned
+        # guidance names consent, so without the cause a transient Entra failure reads as a permissions problem.
+        rec = _Recorder([200])
+
+        async def raises() -> Optional[str]:
+            raise RuntimeError("AADSTS7000215: Invalid client secret provided.")
+
+        throwing = GraphCredential(actor="agentic_user", token=raises)
+
+        with pytest.raises(FileRetrievalError) as err:
+            async with open_file_stream(_target(content_url=CONTENT_URL), client=rec.client, credential=throwing):
+                pass
+
+        assert err.value.reason == "no_graph_credential"
+        assert err.value.actor == "agentic_user"
+        assert err.value.details == "AADSTS7000215: Invalid client secret provided."
+        assert len(rec.calls) == 0
+
+    @pytest.mark.asyncio
     async def test_reports_no_graph_credential_for_a_token_with_no_roles_or_scopes(self):
         # Verified against real Graph: such a token returns 401 generalException, indistinguishable on the wire from
         # a genuine denial but with a completely different fix.
@@ -282,6 +303,26 @@ class TestGraphSharePath:
 
         assert err.value.reason == "access_denied"
         assert err.value.actor == "agentic_user"
+
+    @pytest.mark.asyncio
+    async def test_names_the_identity_and_carries_the_service_message_on_an_unmapped_status(self):
+        # A status outside 401/403 is not a typed reason, so the only diagnosis a caller gets is what the service
+        # said and who was refused. An identity with no provisioned drive is the case that makes this matter,
+        # because Graph answers the drive lookup rather than the sharing token and the message is the only tell.
+        rec = _Recorder(
+            [404],
+            error_body='{"error": {"code": "ResourceNotFound", "message": "Unable to retrieve user\'s mysite URL."}}',
+        )
+
+        with pytest.raises(RuntimeError) as err:
+            async with open_file_stream(
+                _target(content_url=CONTENT_URL), client=rec.client, credential=_credential("agentic_user", AGENTIC_JWT)
+            ):
+                pass
+
+        assert "agentic_user" in str(err.value)
+        assert "404" in str(err.value)
+        assert "mysite" in str(err.value)
 
 
 class TestExpiredUrl:

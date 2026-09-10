@@ -190,11 +190,11 @@ async def _open_graph_file_stream(
     an ordinary authenticated Graph call and fails without a bearer token.
     """
     actor = credential.actor if credential else None
-    token = await _try_resolve_token(credential)
+    token, token_failure = await _try_resolve_token(credential)
 
     # Detectable before any HTTP call, so a missing consent names itself instead of arriving as an opaque Graph 401.
     if not token or _carries_no_graph_permissions(token):
-        raise FileRetrievalError("no_graph_credential", actor)
+        raise FileRetrievalError("no_graph_credential", actor, token_failure)
 
     base_url_root = (credential.base_url_root if credential else None) or "https://graph.microsoft.com"
     url = build_drive_item_content_url(sharing_url, base_url_root)
@@ -217,7 +217,14 @@ async def _open_graph_file_stream(
                 raise FileRetrievalError("access_denied", actor, await _read_service_error(response))
 
             if not response.is_success:
-                raise RuntimeError(f"failed to download file: {response.status_code} {response.reason_phrase}".strip())
+                # Carry Graph's own text and name the identity, as the 401/403 arm does. An unexpected status here is
+                # often diagnosable only from the service message, so dropping it leaves a bare status code.
+                details = await _read_service_error(response)
+                message = (
+                    f"failed to download file through Graph as '{actor or 'app'}': "
+                    f"{response.status_code} {response.reason_phrase}"
+                ).strip()
+                raise RuntimeError(f"{message} ({details})" if details else message)
 
             content_type = response.headers.get("content-type") or target.content_type or "application/octet-stream"
             yield OpenedFileStream(chunks=response.aiter_bytes(), source_url=url, content_type=content_type)
@@ -262,21 +269,23 @@ def _truncate(text: str) -> Optional[str]:
     return collapsed[:_ERROR_BODY_LIMIT] + "..." if len(collapsed) > _ERROR_BODY_LIMIT else collapsed
 
 
-async def _try_resolve_token(credential: Optional[GraphCredential]) -> Optional[str]:
+async def _try_resolve_token(credential: Optional[GraphCredential]) -> tuple[Optional[str], Optional[str]]:
     """
-    Resolve a Graph token without raising.
+    Resolve a Graph token without raising, returning the token and, when acquisition threw, the reason it did.
 
     On the expiry path the caller already holds a more precise error, so an acquisition failure must leave it intact
-    rather than surfacing as an unrelated exception.
+    rather than surfacing as an unrelated exception. The reason is returned rather than only logged because an
+    acquisition that threw is not the same as an identity with no permissions, and the guidance differs.
     """
     if credential is None:
-        return None
+        return None, None
 
     try:
-        return await credential.token()
+        return await credential.token(), None
     except Exception as err:  # noqa: BLE001 - any acquisition failure degrades to "no token", by design
-        logger.debug(f"could not acquire a Graph token: {err}")
-        return None
+        failure = str(err)
+        logger.debug(f"could not acquire a Graph token: {failure}")
+        return None, failure
 
 
 def _permissions_of(token: str) -> Optional[list[str]]:

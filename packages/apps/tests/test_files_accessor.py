@@ -18,6 +18,7 @@ from microsoft_teams.api import (
 )
 from microsoft_teams.api.activities.typing import TypingActivity
 from microsoft_teams.apps.files import FilesAccessor, download
+from microsoft_teams.apps.files.errors import FileUrlExpiredError
 
 
 def _activity_with(attachments: List[Attachment], conversation_type: Optional[str] = "personal") -> MessageActivity:
@@ -222,6 +223,42 @@ async def test_falls_back_to_a_private_client_when_none_is_injected() -> None:
     assert len(files) == 1
     assert downloaded.text() == "private"
     # The download path owns the client it created, so it must also close it rather than leak the pool.
+    assert len(created) == 1
+    assert created[0].is_closed
+
+
+async def test_closes_a_private_client_even_when_the_download_fails() -> None:
+    """
+    The success path is pinned above. This pins the failure path, which is the one that actually matters here.
+
+    Expiry and denial are the headline error modes for this feature, so a failed download is a common path rather
+    than an edge. The close lives in a `finally`, and a regression that moved it inside the `try` would leak a client
+    per failed download while leaving the success test green.
+    """
+    created: List[httpx.AsyncClient] = []
+    real_client_cls = httpx.AsyncClient
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(401)
+
+    def fake_client_cls(*_args: object, **_kwargs: object) -> httpx.AsyncClient:
+        client = real_client_cls(transport=httpx.MockTransport(handler))
+        created.append(client)
+        return client
+
+    attachment = Attachment(
+        content_type=FILE_DOWNLOAD_INFO_CONTENT_TYPE,
+        name="notes.txt",
+        content={"downloadUrl": "https://download.example/notes.txt"},
+    )
+
+    with pytest.MonkeyPatch.context() as monkeypatch:
+        monkeypatch.setattr(download.httpx, "AsyncClient", fake_client_cls)
+        files = await FilesAccessor(_activity_with([attachment])).list()
+
+        with pytest.raises(FileUrlExpiredError):
+            await files[0].download()
+
     assert len(created) == 1
     assert created[0].is_closed
 
