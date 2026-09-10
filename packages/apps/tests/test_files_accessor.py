@@ -281,3 +281,44 @@ async def test_preserves_the_shared_clients_other_default_headers() -> None:
         await shared.aclose()
 
     assert seen == ["teams.py-test/1.0"]
+
+
+class TestAdditivity:
+    """
+    `credential` was added as a trailing parameter with a default, so a caller compiled against the published
+    signatures keeps working. Python has no compile step, so a removed or reordered parameter surfaces as a
+    `TypeError` at call time rather than a build failure, which makes exercising those call shapes worth more here
+    than in a statically checked language.
+    """
+
+    @pytest.mark.asyncio
+    async def test_files_accessor_still_accepts_its_pre_credential_positional_shape(self):
+        # A real client rather than `None`, because `None` is valid in either slot and so cannot detect a reorder.
+        # `FilesAccessor.__init__` is not keyword-only, so the second positional must stay `client`.
+        client = httpx.AsyncClient()
+
+        try:
+            accessor = FilesAccessor(_activity_with([]), client)
+
+            assert accessor._client is client  # pyright: ignore[reportPrivateUsage]
+            assert await accessor.list() == []
+        finally:
+            await client.aclose()
+
+    @pytest.mark.asyncio
+    async def test_files_accessor_still_accepts_activity_alone(self):
+        assert await FilesAccessor(_activity_with([])).list() == []
+
+    def test_incoming_file_still_constructs_without_a_credential(self):
+        from microsoft_teams.apps.files import IncomingFile
+
+        # Keyword-only (`*`), so ordering cannot break; what would break is dropping a name or making one required.
+        file = IncomingFile(
+            name="notes.txt",
+            scope="personal",
+            source="botActivity",
+            download_url="https://download.example/notes.txt?tempauth=abc",
+        )
+
+        assert file.name == "notes.txt"
+        assert file.content_url is None
