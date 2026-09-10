@@ -61,7 +61,8 @@ class IncomingFile:
     """
     Browsable URL to the file in OneDrive/SharePoint, as sent on the attachment's `content_url`.
 
-    Not fetchable for bytes despite the name; those come from `download()` or `stream()`.
+    Not fetchable for bytes despite the name, but it is the locator a Graph `/shares` resolution keys off; bytes
+    come from `download()` or `stream()`.
     """
 
     raw: Any

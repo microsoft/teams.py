@@ -95,7 +95,8 @@ class FileRetrievalError(FileError):
     Raised when a file's bytes could not be retrieved through Microsoft Graph.
 
     Distinct from `FileUrlExpiredError`, which means a pre-authorized URL lapsed and no usable Graph route existed.
-    This error means a Graph fetch was attempted and did not produce bytes.
+    This error means the Graph route was the one that failed, either refused by the service or ruled out before the
+    request when no usable credential was available.
     """
 
     reason: FileRetrievalFailureReason
