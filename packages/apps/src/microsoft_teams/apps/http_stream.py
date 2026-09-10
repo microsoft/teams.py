@@ -252,8 +252,8 @@ class HttpStream(StreamerProtocol):
         # responses, including the final streamed message, are empty and the API client
         # represents those with a placeholder id. The stream id captured from the first
         # chunk is the stable id for the finalized activity.
-        assert self._id is not None
-        res = res.model_copy(update={"id": self._id})
+        if self._id is not None:
+            res = res.model_copy(update={"id": self._id})
 
         # Emit close event
         self._events.emit("close", res)
