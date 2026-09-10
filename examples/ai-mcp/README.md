@@ -1,6 +1,6 @@
 # Teams AI Agent with MCP tools
 
-A Teams bot powered by [agent-framework](https://github.com/microsoft/agent-framework) and Azure OpenAI. It streams responses token-by-token, attaches inline citations from MCP search results, asks clarifying questions via Adaptive Cards, and suggests follow-up questions after each reply.
+A Teams bot powered by [agent-framework](https://github.com/microsoft/agent-framework) and either Azure OpenAI or Anthropic Claude. It streams responses token-by-token, attaches inline citations from MCP search results, asks clarifying questions via Adaptive Cards, and suggests follow-up questions after each reply.
 
 ## Features
 
@@ -9,14 +9,14 @@ A Teams bot powered by [agent-framework](https://github.com/microsoft/agent-fram
 - **Conversation memory** — each conversation maintains its own `AgentSession` so the agent remembers context across turns.
 - **AI-generated label + custom feedback** — replies include the Teams "AI-generated" label and thumbs up/down feedback buttons; clicking a reaction opens a custom Adaptive Card form for additional feedback.
 - **Clarification cards** — when the user's request is ambiguous, the agent calls `request_clarification` to present a choice card; the user's selection feeds back into the same session as the next turn.
-- **Dynamic follow-up suggestions** — after each reply a second lightweight OpenAI call generates two contextual follow-up questions shown as suggested-action buttons.
+- **Dynamic follow-up suggestions** — after each reply the selected provider generates two contextual follow-up questions shown as suggested-action buttons.
 - **MCP tools** — remote tool servers: Microsoft Learn docs search (`MCPStreamableHTTPTool`).
 
 ## Prerequisites
 
 - Python >= 3.11
 - UV >= 0.8.11
-- An Azure OpenAI resource with a deployed model
+- An Azure OpenAI deployment or an Anthropic API key
 - A Teams bot registration (App ID + password)
 
 ## Setup
@@ -24,7 +24,7 @@ A Teams bot powered by [agent-framework](https://github.com/microsoft/agent-fram
 Create a `.env` file in `examples/ai-mcp/`:
 
 ```env
-# Azure OpenAI
+AI_PROVIDER=azure-openai
 AZURE_OPENAI_ENDPOINT=https://<your-resource>.openai.azure.com
 AZURE_OPENAI_MODEL=<deployment-name>
 AZURE_OPENAI_API_KEY=<api-key>
@@ -36,6 +36,17 @@ CLIENT_SECRET=<client-secret>
 ```
 
 `AZURE_OPENAI_MODEL` is the **deployment name** of your model, not the base model name.
+
+To use Anthropic instead:
+
+```env
+AI_PROVIDER=anthropic
+ANTHROPIC_API_KEY=<api-key>
+ANTHROPIC_MODEL=<supported-claude-model>
+
+# Optional; defaults to 4096.
+ANTHROPIC_MAX_TOKENS=4096
+```
 
 ### Using a Service Principal for Azure OpenAI instead of an API key
 
