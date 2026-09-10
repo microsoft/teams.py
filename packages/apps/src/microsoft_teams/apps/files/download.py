@@ -240,11 +240,17 @@ async def _read_service_error(response: httpx.Response) -> Optional[str]:
     Pull the human-readable part out of a Graph error envelope, falling back to the raw text.
 
     Graph replies `{"error": {"code", "message"}}`, but a 401 can also come from the edge as HTML, so this must not
-    assume JSON. Bounded because it runs on a stream the SDK does not size, and lands in an exception message.
+    assume JSON. Reads at most `_ERROR_BODY_LIMIT` bytes rather than buffering the whole body: this runs on a stream
+    the SDK does not size, and the text only ever lands in an exception message. A body large enough to be cut off
+    will not parse as JSON, which is fine, because the raw fallback is what a body that shape deserves anyway.
     """
     try:
-        await response.aread()
-        raw = response.text
+        collected = bytearray()
+        async for chunk in response.aiter_bytes():
+            collected.extend(chunk)
+            if len(collected) >= _ERROR_BODY_LIMIT:
+                break
+        raw = bytes(collected[:_ERROR_BODY_LIMIT]).decode("utf-8", errors="replace")
     except Exception:  # noqa: BLE001 - diagnostics must never mask the error being raised
         return None
 

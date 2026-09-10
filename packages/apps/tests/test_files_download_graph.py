@@ -520,3 +520,33 @@ class TestAgenticTurnCarryingAPreauthUrl:
                 pass
 
         assert [r.getMessage() for r in caplog.records if r.levelno >= logging.WARNING] == []
+
+
+class TestErrorBodyBounding:
+    @pytest.mark.asyncio
+    async def test_reads_at_most_the_limit_rather_than_buffering_the_whole_error_body(self):
+        # The bound has to apply to what is READ, not only to the message that comes out. A service can answer a
+        # failed download with an arbitrarily large body, and this runs on a stream the SDK never sized.
+        served = 0
+
+        async def body():
+            nonlocal served
+            for _ in range(64):
+                served += 4096
+                yield b"x" * 4096
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(403, content=body())
+
+        client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+
+        with pytest.raises(FileRetrievalError) as err:
+            async with open_file_stream(
+                _target(content_url=CONTENT_URL), client=client, credential=_credential(token=AGENTIC_JWT)
+            ):
+                pass
+
+        assert err.value.reason == "access_denied"
+        assert served <= 4096 * 2, f"read {served} bytes for a bounded diagnostic"
+        assert err.value.details is not None
+        assert len(err.value.details) <= 2048 + 3
