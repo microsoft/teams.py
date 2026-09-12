@@ -5,10 +5,10 @@ Licensed under the MIT License.
 
 from .downloaded_file import DownloadedFile
 from .errors import (
+    FileAccessError,
     FileActor,
+    FileCredentialError,
     FileError,
-    FileRetrievalError,
-    FileRetrievalFailureReason,
     FileScopeNotSupportedError,
     FileUrlExpiredError,
 )
@@ -20,8 +20,8 @@ __all__ = [
     "FileSource",
     "FileActor",
     "FileError",
-    "FileRetrievalError",
-    "FileRetrievalFailureReason",
+    "FileAccessError",
+    "FileCredentialError",
     "FileScopeNotSupportedError",
     "FileUrlExpiredError",
     "DownloadedFile",

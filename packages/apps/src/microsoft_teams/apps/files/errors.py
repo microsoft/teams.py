@@ -9,19 +9,10 @@ from microsoft_teams.api import ConversationType
 
 FileUrlExpiredReason = Literal["first_fetch", "reread"]
 
-FileRetrievalFailureReason = Literal["no_graph_credential", "access_denied"]
-"""
-Why a file's bytes could not be retrieved. See `FileRetrievalError`.
-
-- `no_graph_credential`: no credential was available for the Graph call. Detectable before any HTTP request.
-- `access_denied`: the identity used was refused by the storage service. Covers an unconsented scope, a file the
-  identity was never granted, and a drive item that does not exist, which are indistinguishable on the wire: Graph
-  answers all three with `403`, because telling an unauthorized caller whether a resource exists would disclose it.
-"""
-
 FileActor = Literal["app", "agentic_user"]
 """
-The identity a file fetch was attempted as. Reported on `FileRetrievalError` so a failure names who was refused.
+The identity a file fetch was attempted as. Reported on `FileCredentialError` and `FileAccessError` so a failure
+names who was refused.
 """
 
 
@@ -90,17 +81,49 @@ class FileScopeNotSupportedError(FileError):
         self.scope = scope
 
 
-class FileRetrievalError(FileError):
+class FileCredentialError(FileError):
     """
-    Raised when a file's bytes could not be retrieved through Microsoft Graph.
+    Raised when no credential was available for the Graph call. Detectable before any HTTP request.
 
     Distinct from `FileUrlExpiredError`, which means a pre-authorized URL lapsed and no usable Graph route existed.
-    This error means the Graph route was the one that failed, either refused by the service or ruled out before the
-    request when no usable credential was available.
+    This error means the Graph route was ruled out before the request, because no usable credential was available:
+    either a token could not be acquired, or the one acquired carries no file-capable permission.
     """
 
-    reason: FileRetrievalFailureReason
-    """Lets callers branch without string-matching the message."""
+    actor: Optional[FileActor]
+    """The identity the fetch was attempted as, when one was selected. `None` when the failure preceded selection."""
+
+    cause: Optional[str]
+    """
+    What went wrong while acquiring the token, when the attempt failed rather than simply returning nothing.
+
+    An acquisition that raised and an identity with no permissions both arrive here as "no token", but the fixes
+    differ: one is a transient or configuration fault, the other is a consent problem. Local to this process;
+    contrast `FileAccessError.details`, which is the service's own words.
+    """
+
+    def __init__(self, actor: Optional[FileActor] = None, cause: Optional[str] = None) -> None:
+        message = f"cannot fetch file bytes through Graph: {_no_credential_guidance(actor)}"
+        if cause:
+            message = f"{message} ({cause})"
+        super().__init__(message)
+        self.actor = actor
+        self.cause = cause
+
+
+class FileAccessError(FileError):
+    """
+    Raised when the identity used was refused by the storage service.
+
+    Distinct from `FileUrlExpiredError`, which means a pre-authorized URL lapsed and no usable Graph route existed.
+    This error means the Graph route was the one that failed, refused by the service after the request was made.
+    """
+
+    status: int
+    """
+    Lets callers branch without string-matching the message. `401` means the token itself was rejected; `403` means
+    the identity lacks the grant, and the two have different remedies.
+    """
 
     actor: Optional[FileActor]
     """The identity the fetch was attempted as, when one was selected. `None` when the failure preceded selection."""
@@ -109,22 +132,23 @@ class FileRetrievalError(FileError):
     """
     What the storage service itself said, verbatim and truncated, when it said anything.
 
-    `reason` deliberately collapses causes that are indistinguishable to the SDK: an unconsented scope and a file that
-    was never shared both arrive as 403. That collapse is right for branching and wrong for diagnosis, so the original
-    text is kept here rather than discarded.
+    A `403` covers an unconsented scope, a file the identity was never granted, and a drive item that does not exist,
+    which are indistinguishable on the wire: Graph answers all three with `403`, because telling an unauthorized
+    caller whether a resource exists would disclose it. That collapse is right for branching and wrong for diagnosis,
+    so the original text is kept here rather than discarded.
     """
 
     def __init__(
         self,
-        reason: FileRetrievalFailureReason,
+        status: int,
         actor: Optional[FileActor] = None,
         details: Optional[str] = None,
     ) -> None:
-        message = _default_retrieval_message(reason, actor)
+        message = f"cannot fetch file bytes through Graph: {_access_guidance(status, actor)}"
         if details:
             message = f"{message} (service said: {details})"
         super().__init__(message)
-        self.reason = reason
+        self.status = status
         self.actor = actor
         self.details = details
 
@@ -141,7 +165,7 @@ def _describe_actor(actor: FileActor) -> str:
     assert_never(actor)
 
 
-def _no_credential_guidance(actor: FileActor) -> str:
+def _no_credential_guidance(actor: Optional[FileActor]) -> str:
     """Where to go to fix a missing credential, which differs per identity. Exhaustive for the same reason."""
     if actor == "agentic_user":
         # Linked rather than described because the agent permission model is still moving, and stale instructions in
@@ -159,17 +183,25 @@ def _no_credential_guidance(actor: FileActor) -> str:
             "Users, which read as their own identity; an app identity and/or user-delegated permissions may be "
             "used but are not supported via the SDK at this time"
         )
-    assert_never(actor)
+    # No identity was selected, so neither remedy above applies and naming one would send the reader somewhere wrong.
+    return "no Graph credential was available, and no identity had been selected when the attempt was made"
 
 
-def _default_retrieval_message(reason: FileRetrievalFailureReason, actor: Optional[FileActor]) -> str:
-    as_who = _describe_actor(actor or "app")
+def _access_guidance(status: int, actor: Optional[FileActor]) -> str:
+    """
+    Say what a refusal means, which depends on the status: a rejected token and an insufficient grant have different
+    remedies.
+    """
+    as_who = _describe_actor(actor) if actor else "the identity used"
 
-    if reason == "no_graph_credential":
-        return f"cannot fetch file bytes through Graph: {_no_credential_guidance(actor or 'app')}"
-    if reason == "access_denied":
+    if status == 401:
         return (
-            f"cannot fetch file bytes through Graph: access was denied for {as_who}. The required scope may not be "
-            "consented, the file may never have been shared with that identity, or the drive item may not exist"
+            f"the token presented for {as_who} was rejected. It may have expired, or been issued for the wrong "
+            "audience or tenant"
         )
-    assert_never(reason)
+    if status == 403:
+        return (
+            f"access was denied for {as_who}. The required scope may not be consented, the file may never have been "
+            "shared with that identity, or the drive item may not exist"
+        )
+    return f"the request for {as_who} was refused with status {status}"

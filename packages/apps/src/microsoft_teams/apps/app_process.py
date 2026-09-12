@@ -74,7 +74,7 @@ class ActivityProcessor:
         http_client: Client,
         token_provider: AppTokenProvider,
         get_app_graph_token: Callable[[Optional[str]], Awaitable[Optional[TokenProtocol]]],
-        get_agentic_graph_token: Callable[[AgenticIdentity], Awaitable[Optional[TokenProtocol]]],
+        get_agentic_graph_token: Callable[[AgenticIdentity, Optional[str]], Awaitable[Optional[TokenProtocol]]],
         api_client_settings: Optional[ApiClientSettings],
         cloud: CloudEnvironment = PUBLIC,
         graph_base_url_root: Optional[str] = None,
@@ -169,7 +169,7 @@ class ActivityProcessor:
             agentic_identity=activity.recipient.agentic_identity,
             graph_base_url_root=self.graph_base_url_root,
             get_app_graph_token=lambda: self.get_app_graph_token(tenant_id),
-            get_agentic_graph_token=self.get_agentic_graph_token,
+            get_agentic_graph_token=lambda identity: self.get_agentic_graph_token(identity, tenant_id),
         )
 
         activityCtx = ActivityContext(

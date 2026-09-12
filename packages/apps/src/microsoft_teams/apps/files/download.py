@@ -15,7 +15,7 @@ from typing import Any, Optional, cast
 import httpx
 from microsoft_teams.api import ConversationType
 
-from .errors import FileActor, FileRetrievalError, FileScopeNotSupportedError, FileUrlExpiredError
+from .errors import FileAccessError, FileActor, FileCredentialError, FileScopeNotSupportedError, FileUrlExpiredError
 from .graph_share import build_drive_item_content_url
 
 logger = logging.getLogger(__name__)
@@ -51,7 +51,7 @@ class GraphCredential:
 
     Resolved at fetch time rather than stored on the file handle, so a handle stays inert and a token is never
     acquired before it is needed. Returning `None` for the token means no credential is available, which surfaces as
-    a `no_graph_credential` failure before any request is made.
+    a `FileCredentialError` before any request is made.
 
     `base_url_root` is carried here so a new code path cannot wire the token through and forget its destination.
     """
@@ -104,6 +104,43 @@ async def open_file_stream(
         yield opened
 
 
+_MAX_REDIRECTS = 10
+"""Matches httpx's own default ceiling, so guarding the scheme does not also change how many hops are allowed."""
+
+
+async def _send_following_https_redirects(http: httpx.AsyncClient, request: httpx.Request) -> httpx.Response:
+    """
+    Send a streaming request, following redirects only while they stay on HTTPS.
+
+    Storage answers with a 302 to the host actually holding the bytes, so redirects have to be followed. They must
+    not be followed *down* to plaintext: an `https` to `http` hop would put the file on the wire in the clear.
+    `follow_redirects=True` would take that hop silently, so the walk is done here instead, one hop at a time.
+
+    Each next request is built by httpx rather than by hand, which keeps its own header rules, including dropping
+    `Authorization` when the redirect leaves the origin.
+    """
+    response = await http.send(request, stream=True, follow_redirects=False)
+
+    for _ in range(_MAX_REDIRECTS):
+        if not response.is_redirect or response.next_request is None:
+            return response
+
+        next_request = response.next_request
+        if next_request.url.scheme != "https":
+            await response.aclose()
+            raise RuntimeError(
+                "cannot download file: a redirect destination must use https, got "
+                f"'{next_request.url.scheme}://{next_request.url.host}'. "
+                "The file's bytes would cross that hop in the clear."
+            )
+
+        await response.aclose()
+        response = await http.send(next_request, stream=True, follow_redirects=False)
+
+    await response.aclose()
+    raise RuntimeError("cannot download file: too many redirects")
+
+
 @asynccontextmanager
 async def _open_personal_file_stream(
     target: FileFetchTarget,
@@ -150,11 +187,10 @@ async def _open_personal_file_stream(
         request = http.build_request("GET", url)
         request.headers.pop("Authorization", None)
 
-        # `follow_redirects` is explicit because httpx defaults it to False. Without it a storage 302 never resolves:
-        # it is not 2xx, so it falls through to the `not response.is_success` arm below and surfaces as
-        # "failed to download file: 302 Found". Nothing leaks across the hop, because the request deliberately
-        # carries no Authorization header, so there is no bearer to withhold from a third-party host.
-        response = await http.send(request, stream=True, follow_redirects=True)
+        # Redirects are followed, because without it a storage 302 never resolves: it is not 2xx, so it would fall
+        # through to the `not response.is_success` arm below and surface as "failed to download file: 302 Found".
+        # They are followed one hop at a time so a downgrade to plaintext can be refused.
+        response = await _send_following_https_redirects(http, request)
 
         try:
             if response.status_code in (401, 403):
@@ -194,7 +230,7 @@ async def _open_graph_file_stream(
 
     # Detectable before any HTTP call, so a missing consent names itself instead of arriving as an opaque Graph 401.
     if not token or _carries_no_graph_permissions(token):
-        raise FileRetrievalError("no_graph_credential", actor, token_failure)
+        raise FileCredentialError(actor, token_failure)
 
     base_url_root = (credential.base_url_root if credential else None) or "https://graph.microsoft.com"
     url = build_drive_item_content_url(sharing_url, base_url_root)
@@ -207,14 +243,14 @@ async def _open_graph_file_stream(
         # Authentication belongs to the branch, never the downloader: the pre-authorized path strips `Authorization`
         # because that URL carries its own credential, this one requires it.
         request = http.build_request("GET", url, headers={"Authorization": f"Bearer {token}"})
-        response = await http.send(request, stream=True, follow_redirects=True)
+        response = await _send_following_https_redirects(http, request)
 
         try:
             if response.status_code in (401, 403):
                 # An unconsented scope, a file never shared with this identity, and a drive item that does not exist
                 # are all 403, differing only in message text. The SDK cannot branch on that, but the developer can
                 # read it, so it is carried rather than dropped.
-                raise FileRetrievalError("access_denied", actor, await _read_service_error(response))
+                raise FileAccessError(response.status_code, actor, await _read_service_error(response))
 
             if not response.is_success:
                 # Carry Graph's own text and name the identity, as the 401/403 arm does. An unexpected status here is

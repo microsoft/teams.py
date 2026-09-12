@@ -768,7 +768,9 @@ class App(ActivityHandlerMixin):
             tenant_id or (self.credentials.tenant_id if self.credentials else None) or DEFAULT_TENANT_FOR_GRAPH_TOKEN,
         )
 
-    async def _get_agentic_graph_token(self, identity: AgenticIdentity) -> Optional[TokenProtocol]:
+    async def _get_agentic_graph_token(
+        self, identity: AgenticIdentity, tenant_id: Optional[str] = None
+    ) -> Optional[TokenProtocol]:
         """
         Acquire a Graph token for an Agentic User, via the federated identity exchange the token manager already
         performs.
@@ -783,7 +785,11 @@ class App(ActivityHandlerMixin):
             self.cloud.graph_scope,
             identity.agentic_app_id,
             identity.agentic_user_id,
-            identity.tenant_id or (self.credentials.tenant_id if self.credentials else None),
+            # The identity's own tenant wins when the platform sends one, then the tenant the activity arrived from.
+            # The fallback to the app's configured tenant is deliberately not repeated here: `TokenManager` applies it
+            # in `_resolve_tenant_id` and raises when neither is available, which is a better failure than silently
+            # acquiring in the wrong directory.
+            identity.tenant_id or tenant_id,
         )
 
     def get_app_graph(self, tenant_id: Optional[str] = None) -> "GraphServiceClient":

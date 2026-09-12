@@ -17,7 +17,7 @@ from microsoft_teams.apps.files.download import (
     GraphCredential,
     open_file_stream,
 )
-from microsoft_teams.apps.files.errors import FileActor, FileRetrievalError, FileUrlExpiredError
+from microsoft_teams.apps.files.errors import FileAccessError, FileActor, FileCredentialError, FileUrlExpiredError
 from microsoft_teams.apps.files.graph_share import encode_sharing_url
 
 CONTENT_URL = "https://contoso.sharepoint.com/personal/a/Documents/report.pdf"
@@ -128,11 +128,15 @@ class TestGraphSharePath:
     async def test_reports_no_graph_credential_before_any_request(self):
         rec = _Recorder([200])
 
-        with pytest.raises(FileRetrievalError) as err:
+        with pytest.raises(FileCredentialError) as err:
             async with open_file_stream(_target(content_url=CONTENT_URL), client=rec.client):
                 pass
 
-        assert err.value.reason == "no_graph_credential"
+        assert err.value.actor is None
+        # And the message must not name one either. Defaulting to "the app" here would hand the reader the app
+        # remedy, which is wrong guidance for a failure where no identity was ever selected.
+        assert "no identity had been selected" in str(err.value)
+        assert "the app has no usable Graph credential" not in str(err.value)
         assert len(rec.calls) == 0
 
     @pytest.mark.asyncio
@@ -147,13 +151,12 @@ class TestGraphSharePath:
 
         throwing = GraphCredential(actor="agentic_user", token=raises)
 
-        with pytest.raises(FileRetrievalError) as err:
+        with pytest.raises(FileCredentialError) as err:
             async with open_file_stream(_target(content_url=CONTENT_URL), client=rec.client, credential=throwing):
                 pass
 
-        assert err.value.reason == "no_graph_credential"
         assert err.value.actor == "agentic_user"
-        assert err.value.details == "AADSTS7000215: Invalid client secret provided."
+        assert err.value.cause == "AADSTS7000215: Invalid client secret provided."
         assert len(rec.calls) == 0
 
     @pytest.mark.asyncio
@@ -163,13 +166,13 @@ class TestGraphSharePath:
         rec = _Recorder([200])
         roleless = _jwt({"aud": "https://graph.microsoft.com", "roles": []})
 
-        with pytest.raises(FileRetrievalError) as err:
+        with pytest.raises(FileCredentialError) as err:
             async with open_file_stream(
                 _target(content_url=CONTENT_URL), client=rec.client, credential=_credential(token=roleless)
             ):
                 pass
 
-        assert err.value.reason == "no_graph_credential"
+        assert err.value.actor == "app"
         assert len(rec.calls) == 0
 
     @pytest.mark.asyncio
@@ -180,7 +183,7 @@ class TestGraphSharePath:
         rec = _Recorder([200])
         unrelated = _jwt({"scp": "profile openid email Mail.Send Chat.ReadWrite User.Read.All"})
 
-        with pytest.raises(FileRetrievalError) as err:
+        with pytest.raises(FileCredentialError) as err:
             async with open_file_stream(
                 _target(content_url=CONTENT_URL),
                 client=rec.client,
@@ -188,7 +191,7 @@ class TestGraphSharePath:
             ):
                 pass
 
-        assert err.value.reason == "no_graph_credential"
+        assert err.value.actor == "agentic_user"
         assert len(rec.calls) == 0
 
     @pytest.mark.asyncio
@@ -224,21 +227,21 @@ class TestGraphSharePath:
 
     @pytest.mark.asyncio
     async def test_keeps_what_the_service_actually_said_on_a_denial(self):
-        # `reason` collapses an unconsented scope, a never-shared file and a missing drive item into one
-        # `access_denied`, because the SDK cannot tell them apart. The service can, and says so in prose, so dropping
+        # A `403` covers an unconsented scope, a never-shared file and a missing drive item alike,
+        # because the SDK cannot tell them apart. The service can, and says so in prose, so dropping
         # that text would destroy the only signal that distinguishes them.
         rec = _Recorder(
             [403],
             error_body='{"error":{"code":"accessDenied","message":"The caller does not have permission"}}',
         )
 
-        with pytest.raises(FileRetrievalError) as err:
+        with pytest.raises(FileAccessError) as err:
             async with open_file_stream(
                 _target(content_url=CONTENT_URL), client=rec.client, credential=_credential("agentic_user", AGENTIC_JWT)
             ):
                 pass
 
-        assert err.value.reason == "access_denied"
+        assert err.value.status == 403
         assert err.value.details == "accessDenied: The caller does not have permission"
         assert "service said: accessDenied: The caller does not have permission" in str(err.value)
 
@@ -247,7 +250,7 @@ class TestGraphSharePath:
         # A 401 can come from the edge as HTML rather than Graph JSON, so the parser must not assume an envelope.
         rec = _Recorder([401], error_body="<html><body>Access Denied</body></html>")
 
-        with pytest.raises(FileRetrievalError) as err:
+        with pytest.raises(FileAccessError) as err:
             async with open_file_stream(
                 _target(content_url=CONTENT_URL), client=rec.client, credential=_credential("agentic_user", AGENTIC_JWT)
             ):
@@ -262,7 +265,7 @@ class TestGraphSharePath:
         # permissions doc would advise a fix that does not work.
         rec = _Recorder([200, 200])
 
-        with pytest.raises(FileRetrievalError) as agentic_err:
+        with pytest.raises(FileCredentialError) as agentic_err:
             async with open_file_stream(
                 _target(content_url=CONTENT_URL),
                 client=rec.client,
@@ -270,7 +273,7 @@ class TestGraphSharePath:
             ):
                 pass
 
-        with pytest.raises(FileRetrievalError) as app_err:
+        with pytest.raises(FileCredentialError) as app_err:
             async with open_file_stream(
                 _target(content_url=CONTENT_URL), client=rec.client, credential=_credential("app", None)
             ):
@@ -292,16 +295,16 @@ class TestGraphSharePath:
         assert len(rec.calls) == 1
 
     @pytest.mark.asyncio
-    async def test_maps_403_to_access_denied_naming_the_actor(self):
+    async def test_maps_403_to_an_access_failure_naming_the_actor(self):
         rec = _Recorder([403])
 
-        with pytest.raises(FileRetrievalError) as err:
+        with pytest.raises(FileAccessError) as err:
             async with open_file_stream(
                 _target(content_url=CONTENT_URL), client=rec.client, credential=_credential("agentic_user", AGENTIC_JWT)
             ):
                 pass
 
-        assert err.value.reason == "access_denied"
+        assert err.value.status == 403
         assert err.value.actor == "agentic_user"
 
     @pytest.mark.asyncio
@@ -540,13 +543,60 @@ class TestErrorBodyBounding:
 
         client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
 
-        with pytest.raises(FileRetrievalError) as err:
+        with pytest.raises(FileAccessError) as err:
             async with open_file_stream(
                 _target(content_url=CONTENT_URL), client=client, credential=_credential(token=AGENTIC_JWT)
             ):
                 pass
 
-        assert err.value.reason == "access_denied"
+        assert err.value.status == 403
         assert served <= 4096 * 2, f"read {served} bytes for a bounded diagnostic"
         assert err.value.details is not None
         assert len(err.value.details) <= 2048 + 3
+
+
+class TestStatusIsNotCollapsed:
+    """A 401 and a 403 have different remedies, so the status is carried rather than folded into one reason."""
+
+    @pytest.mark.asyncio
+    async def test_keeps_401_distinguishable_from_403(self):
+        rec = _Recorder([401])
+
+        with pytest.raises(FileAccessError) as err:
+            async with open_file_stream(
+                _target(content_url=CONTENT_URL), client=rec.client, credential=_credential("agentic_user", AGENTIC_JWT)
+            ):
+                pass
+
+        assert err.value.status == 401
+        assert "rejected" in str(err.value)
+        assert "never have been shared" not in str(err.value)
+
+
+class TestRedirectSafety:
+    """
+    Storage answers with a 302 to the host actually holding the bytes, so redirects must be followed. They must not
+    be followed down to plaintext, which would put the file on the wire in the clear.
+    """
+
+    @pytest.mark.asyncio
+    async def test_refuses_a_redirect_that_downgrades_to_plaintext_http(self):
+        rec = _RedirectRecorder("http://storage.example/bytes")
+
+        with pytest.raises(RuntimeError, match="must use https"):
+            async with open_file_stream(_target(download_url=DOWNLOAD_URL), client=rec.client()):
+                pass
+
+        # The downgraded hop must never be requested, not merely discarded after the fact.
+        assert len(rec.calls) == 1
+
+    @pytest.mark.asyncio
+    async def test_follows_a_redirect_that_stays_on_https(self):
+        # The ordinary storage 302. The guard cannot simply refuse every redirect.
+        rec = _RedirectRecorder("https://storage.example/bytes")
+
+        async with open_file_stream(_target(download_url=DOWNLOAD_URL), client=rec.client()) as opened:
+            chunks = [chunk async for chunk in opened.chunks]
+
+        assert b"".join(chunks) == b"bytes"
+        assert len(rec.calls) == 2
