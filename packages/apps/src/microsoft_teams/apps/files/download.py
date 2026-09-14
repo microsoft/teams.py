@@ -104,10 +104,6 @@ async def open_file_stream(
         yield opened
 
 
-_MAX_REDIRECTS = 10
-"""Matches httpx's own default ceiling, so guarding the scheme does not also change how many hops are allowed."""
-
-
 async def _send_following_https_redirects(http: httpx.AsyncClient, request: httpx.Request) -> httpx.Response:
     """
     Send a streaming request, following redirects only while they stay on HTTPS.
@@ -118,10 +114,13 @@ async def _send_following_https_redirects(http: httpx.AsyncClient, request: http
 
     Each next request is built by httpx rather than by hand, which keeps its own header rules, including dropping
     `Authorization` when the redirect leaves the origin.
+
+    httpx applies `max_redirects` only when it follows redirects itself, so the ceiling is read off the client
+    here. A caller who sets their own limit keeps it.
     """
     response = await http.send(request, stream=True, follow_redirects=False)
 
-    for _ in range(_MAX_REDIRECTS):
+    for _ in range(http.max_redirects):
         if not response.is_redirect or response.next_request is None:
             return response
 

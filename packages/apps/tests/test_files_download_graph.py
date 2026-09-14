@@ -394,6 +394,20 @@ class _RedirectRecorder:
         return self.calls[index].headers.get("Authorization")
 
 
+class _AlwaysRedirectRecorder:
+    """Serves a 302 to a fresh https location on every call, recording each hop."""
+
+    def __init__(self) -> None:
+        self.calls: List[httpx.Request] = []
+
+    def handler(self, request: httpx.Request) -> httpx.Response:
+        self.calls.append(request)
+        return httpx.Response(302, headers={"location": f"https://storage.example/hop/{len(self.calls)}"})
+
+    def client(self, **kwargs: object) -> httpx.AsyncClient:
+        return httpx.AsyncClient(transport=httpx.MockTransport(self.handler), **kwargs)  # type: ignore[arg-type]
+
+
 class TestRedirects:
     """
     Graph answers `/shares/.../content` with a 302 to ODSP storage and httpx follows it inside one call, so the
@@ -600,3 +614,28 @@ class TestRedirectSafety:
 
         assert b"".join(chunks) == b"bytes"
         assert len(rec.calls) == 2
+
+    @pytest.mark.asyncio
+    async def test_stops_at_the_clients_redirect_ceiling(self):
+        rec = _AlwaysRedirectRecorder()
+        client = rec.client()
+
+        with pytest.raises(RuntimeError, match="too many redirects"):
+            async with open_file_stream(_target(download_url=DOWNLOAD_URL), client=client):
+                pass
+
+        # httpx's default, which is the ceiling a caller gets when they configure nothing.
+        assert client.max_redirects == 20
+        assert len(rec.calls) == 1 + client.max_redirects
+
+    @pytest.mark.asyncio
+    async def test_honours_a_ceiling_the_caller_configured(self):
+        # Without this the assertion above would also pass against a hardcoded 20.
+        rec = _AlwaysRedirectRecorder()
+        client = rec.client(max_redirects=2)
+
+        with pytest.raises(RuntimeError, match="too many redirects"):
+            async with open_file_stream(_target(download_url=DOWNLOAD_URL), client=client):
+                pass
+
+        assert len(rec.calls) == 3
