@@ -248,6 +248,13 @@ class HttpStream(StreamerProtocol):
                 # streamInfo entity + stream channel data so this routes to update, not create.
                 res = await self._send_final()
 
+        # Teams only returns the stream id on the first streaming request. Subsequent
+        # responses, including the final streamed message, are empty and the API client
+        # represents those with a placeholder id. The stream id captured from the first
+        # chunk is the stable id for the finalized activity.
+        if self._id is not None and res.id == "DO_NOT_USE_PLACEHOLDER_ID":
+            res = res.model_copy(update={"id": self._id})
+
         # Emit close event
         self._events.emit("close", res)
 

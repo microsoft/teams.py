@@ -505,6 +505,45 @@ class TestHttpStream:
         assert result is None
 
     @pytest.mark.asyncio
+    async def test_close_returns_stream_id_when_final_response_has_placeholder(
+        self, mock_api_client, conversation_reference, patch_loop_call_later
+    ):
+        """The final streaming response is empty, so close() must retain the first chunk's id."""
+        loop = asyncio.get_running_loop()
+        patcher, scheduled = patch_loop_call_later(loop)
+        close_activities: list[SentActivity] = []
+        close_event = asyncio.Event()
+
+        async def handle_close(activity: SentActivity) -> None:
+            close_activities.append(activity)
+            close_event.set()
+
+        async def mock_create(conversation_id, activity):
+            if any(
+                entity.type == "streaminfo" and entity.stream_type == "final" for entity in (activity.entities or [])
+            ):
+                return SentActivity(id="DO_NOT_USE_PLACEHOLDER_ID", activity_params=activity)
+            return SentActivity(id="stream-1", activity_params=activity)
+
+        mock_api_client.conversations.create_activity = mock_create
+
+        with patcher:
+            stream = HttpStream(mock_api_client, conversation_reference)
+            stream.on_close(handle_close)
+
+            stream.emit("Streamed content")
+            await asyncio.sleep(0)
+            await self._run_scheduled_flushes(scheduled)
+
+            result = await stream.close()
+
+        assert result is not None
+        assert result.id == "stream-1"
+        await asyncio.wait_for(close_event.wait(), timeout=1)
+        assert close_activities == [result]
+        assert close_activities[0].id == "stream-1"
+
+    @pytest.mark.asyncio
     async def test_final_activity_last_wins(self, mock_api_client, conversation_reference, patch_loop_call_later):
         """When multiple MessageActivityInputs are emitted, the last one's non-text fields are used."""
         loop = asyncio.get_running_loop()
@@ -759,6 +798,13 @@ class TestHttpStream:
     @pytest.mark.asyncio
     async def test_close_waits_for_flush_to_complete(self, mock_api_client, conversation_reference):
         """close() must not send the final message while a flush is still mid-await."""
+
+        async def mock_send(conversation_id, activity):
+            mock_api_client.send_call_count += 1
+            mock_api_client.sent_activities.append(activity)
+            return SentActivity(id="DO_NOT_USE_PLACEHOLDER_ID", activity_params=activity)
+
+        mock_api_client.conversations.create_activity = mock_send
         stream = HttpStream(mock_api_client, conversation_reference)
 
         # Simulate a flush in progress: lock held, _id assigned, text accumulated.
@@ -780,6 +826,7 @@ class TestHttpStream:
 
         result = await close_task
         assert result is not None
+        assert result.id == "activity-1"
         assert mock_api_client.send_call_count == 1
         assert mock_api_client.sent_activities[0].text == "Response text"
 
