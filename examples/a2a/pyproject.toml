@@ -13,7 +13,7 @@ dependencies = [
     "agent-framework-core",
     "agent-framework-openai",
     "uvicorn>=0.30",
-    "httpx>=0.27",
+    "httpx>=0.27,<1.0",
 ]
 
 [tool.uv.sources]
