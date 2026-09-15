@@ -19,9 +19,9 @@ Handles activity routing, authentication, and provides Microsoft Graph integrati
 ## Features
 
 - **Activity Routing**: Decorator-based routing for different activity types
+- **Activity Middleware**: Composable middleware through `app.use()`
 - **OAuth Integration**: Built-in OAuth flow handling for user authentication
 - **Microsoft Graph Integration**: Type-safe Graph client access via `user_graph` and `app_graph` properties
-- **Plugin System**: Extensible plugin architecture for adding functionality
 
 ## Basic Usage
 
@@ -38,6 +38,34 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
 # Start the app
 await app.start()
 ```
+
+## Caller-owned ASGI applications
+
+Use `register_routes()` when an existing FastAPI or other ASGI application owns
+the server lifecycle and needs its route table built synchronously:
+
+```python
+from fastapi import FastAPI
+from microsoft_teams.apps import App, FastAPIAdapter
+
+asgi_app = FastAPI()
+app = App(http_server_adapter=FastAPIAdapter(app=asgi_app))
+app.register_routes()
+
+# Run remaining asynchronous initialization from the host's startup lifecycle.
+await app.initialize()
+```
+
+`register_routes()` configures Teams authentication and activity dispatch, but
+does not initialize plugins, bind a port, or start and stop the server. Calls are
+idempotent.
+
+## Legacy plugins
+
+The `plugins=` option, `PluginBase`, and `@Plugin` extension model are deprecated
+and will be removed in the next major release. Use `app.use()` for activity
+middleware, `app.event()` for application events, your ASGI host's lifespan hooks
+for setup and cleanup, and regular Python composition for dependencies.
 
 ## Unauthenticated Requests
 
