@@ -4,7 +4,7 @@ Licensed under the MIT License.
 """
 
 import logging
-from typing import Optional
+from typing import Any, Optional, cast
 
 import httpx
 from microsoft_teams.api import (
@@ -114,8 +114,16 @@ class FilesAccessor:
         # through Graph, restricted to `personal` because agentic delivery in other scopes is unvalidated: surfacing a
         # handle there will produce a `list()` entry that then fails at `download()`. The `download_url` branch keeps
         # its existing scope behavior.
+        # The Agentic User shape: `content` that parsed and declares no `download_url` at all. Content that failed to
+        # parse, or that declares a `download_url` too malformed to use, is a broken attachment rather than an agentic
+        # one. Both are excluded from the Graph route because both were skipped before it existed, and resolving one
+        # would spend a Graph credential on a payload the SDK has already judged untrustworthy.
+        raw_content: object = attachment.content
+        declares_download_url = isinstance(raw_content, dict) and "downloadUrl" in cast("dict[str, Any]", raw_content)
+        is_agentic_shape = content is not None and not declares_download_url
+
         has_locator = bool(download_url or content_url)
-        can_fetch = bool(download_url) or (scope == "personal" and bool(content_url))
+        can_fetch = bool(download_url) or (scope == "personal" and is_agentic_shape and bool(content_url))
 
         if not can_fetch or not name:
             # Split by cause: a malformed attachment is a real defect, while an out-of-scope file is expected noise.
@@ -151,8 +159,17 @@ class FilesAccessor:
         if isinstance(content, FileDownloadInfo):
             return content
         if isinstance(content, dict):
+            # Wrong-typed fields are dropped one at a time rather than rejecting the whole object. `unique_id` and
+            # `file_type` are metadata, so failing on one of them would drop a usable `download_url` and route a
+            # traditional bot's file through Graph, which then fails reporting a consent problem that was never the
+            # cause.
+            narrowed = {
+                key: value
+                for key, value in cast("dict[str, Any]", content).items()
+                if value is None or isinstance(value, str)
+            }
             try:
-                return FileDownloadInfo.model_validate(content)
+                return FileDownloadInfo.model_validate(narrowed)
             except ValidationError:
                 logger.debug(f"skipping file.download.info attachment at index {index}; content failed validation")
                 return None

@@ -103,3 +103,52 @@ class TestFilesAccessorWithNoDownloadUrl:
         ).list()
 
         assert len(files) == 1
+
+    @pytest.mark.asyncio
+    async def test_keeps_the_preauth_route_when_a_metadata_field_is_wrong_typed(self):
+        # `unique_id` and `file_type` are metadata. Rejecting the whole `content` over one of them drops the
+        # `download_url` beside it, and the file then routes through Graph and fails on a bot holding no Graph
+        # credential, reporting a consent problem for what is really bad data.
+        # Asserted outside personal scope because the Graph route is personal-only, so a file surfaced here can only
+        # have reached the list on its `download_url`.
+        attachment = _agentic_attachment(
+            content={"downloadUrl": "https://download.example/tempauth=abc", "uniqueId": 42, "fileType": 7}
+        )
+
+        files = await FilesAccessor(_activity([attachment], "groupChat")).list()
+
+        assert len(files) == 1
+        # Dropped one at a time rather than taken at face value, which would fail later in the sharing-url encoder.
+        assert files[0].unique_id is None
+        assert files[0].extension is None
+
+    @pytest.mark.asyncio
+    async def test_drops_only_the_wrong_typed_field(self):
+        attachment = _agentic_attachment(
+            content={
+                "downloadUrl": "https://download.example/tempauth=abc",
+                "uniqueId": "odsp-unique-id",
+                "fileType": 7,
+            }
+        )
+
+        files = await FilesAccessor(_activity([attachment], "groupChat")).list()
+
+        assert len(files) == 1
+        assert files[0].unique_id == "odsp-unique-id"
+        assert files[0].extension is None
+
+    @pytest.mark.asyncio
+    async def test_does_not_open_the_graph_route_when_the_download_url_is_wrong_typed(self):
+        # A declared `download_url` the SDK could not use is a broken attachment, not the agentic shape, so no route
+        # applies in any scope. Falling to Graph here would resolve a payload already judged malformed, and would do
+        # it on whichever identity the turn happens to carry.
+        attachment = _agentic_attachment(content={"downloadUrl": 42, "uniqueId": "odsp-unique-id", "fileType": "pdf"})
+
+        assert await FilesAccessor(_activity([attachment], "groupChat")).list() == []
+        assert await FilesAccessor(_activity([attachment])).list() == []
+
+    @pytest.mark.asyncio
+    async def test_opens_the_graph_route_for_content_that_declares_no_download_url(self):
+        # The agentic shape itself, which is the one case the route exists for.
+        assert len(await FilesAccessor(_activity([_agentic_attachment()])).list()) == 1
