@@ -282,10 +282,12 @@ async def _read_service_error(response: httpx.Response) -> Optional[str]:
     try:
         collected = bytearray()
         async for chunk in response.aiter_bytes():
-            collected.extend(chunk)
+            # Trimmed as it arrives rather than after the loop: extending by a whole chunk and checking afterwards
+            # lets one large chunk decide the buffer, and the host returning the error is not one the SDK controls.
+            collected.extend(chunk[: _ERROR_BODY_LIMIT - len(collected)])
             if len(collected) >= _ERROR_BODY_LIMIT:
                 break
-        raw = bytes(collected[:_ERROR_BODY_LIMIT]).decode("utf-8", errors="replace")
+        raw = bytes(collected).decode("utf-8", errors="replace")
     except Exception:  # noqa: BLE001 - diagnostics must never mask the error being raised
         return None
 
