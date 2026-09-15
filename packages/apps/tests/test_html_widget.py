@@ -260,6 +260,14 @@ class TestInjectWidgetProtocol:
         body_idx = result.index("</body>")
         assert script_idx < body_idx
 
+    def test_reports_robust_content_height(self):
+        # The size reporter must measure the taller of documentElement/body and
+        # round up, so trailing margins and sub-pixel content are never clipped.
+        result = inject_widget_protocol(self.BARE_HTML)
+        assert "height:Math.ceil(Math.max(document.documentElement.scrollHeight,document.body.scrollHeight))" in result
+        # Guard against regressing to the old body-only measurement.
+        assert "height:document.body.scrollHeight}" not in result
+
     def test_appends_script_if_no_body_tag(self):
         result = inject_widget_protocol(self.BARE_HTML_NO_BODY)
         assert "ui/initialize" in result

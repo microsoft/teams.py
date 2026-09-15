@@ -6,7 +6,7 @@ Licensed under the MIT License.
 import asyncio
 from typing import Awaitable, Callable, Literal, Optional, Protocol, Union
 
-from microsoft_teams.api import MessageActivityInput, SentActivity, TypingActivityInput
+from microsoft_teams.api import MessageActivityInput, SentActivity, TextFormat, TypingActivityInput
 
 StreamerEvent = Literal["chunk", "close"]
 
@@ -91,12 +91,14 @@ class StreamerProtocol(Protocol):
         """
         ...
 
-    def update(self, text: str) -> None:
+    def update(self, text: str, text_format: Optional[TextFormat] = None) -> None:
         """
         Send status updates before emitting (ex. "Thinking...").
 
         Args:
             text: The status text to send.
+            text_format: Format of ``text`` (ex. ``'extendedmarkdown'``). Omit or pass
+                ``None`` to use the Teams default (``'markdown'``).
         """
         ...
 

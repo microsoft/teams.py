@@ -12,7 +12,8 @@
       "packages/cards/src",
       "packages/apps/src",
       "packages/graph/src",
-      "packages/botbuilder/src"
+      "packages/botbuilder/src",
+      "packages/m365extensions/src"
    ],
    "typeCheckingMode": "strict",
    "executionEnvironments": [
@@ -28,6 +29,19 @@
       },
       {
          "root": "examples/botbuilder/src",
+         "reportMissingTypeStubs": "none",
+         "reportUnknownMemberType": "none"
+      },
+      {
+         "root": "examples/m365extensions/src",
+         "reportMissingTypeStubs": "none",
+         "reportUnknownMemberType": "none",
+         "reportUnknownArgumentType": "none",
+         "reportUnknownVariableType": "none",
+         "reportUnusedFunction": "none"
+      },
+      {
+         "root": "packages/m365extensions/src",
          "reportMissingTypeStubs": "none",
          "reportUnknownMemberType": "none"
       }

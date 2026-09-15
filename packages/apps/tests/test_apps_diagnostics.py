@@ -244,11 +244,23 @@ def test_sdk_source_does_not_import_microsoft_otel_or_agents_sdk():
         "microsoft_agents",
     )
 
+    # m365extensions is a deliberate Agents SDK bridge package; it is expected
+    # to depend on the Agents SDK and is therefore exempt from this guard.
+    exempt_packages = {"m365extensions"}
+
+    def _is_exempt(path: Path) -> bool:
+        rel = path.relative_to(packages_dir)
+        return rel.parts[0] in exempt_packages
+
     for source_file in packages_dir.glob("*/src/**/*.py"):
+        if _is_exempt(source_file):
+            continue
         source = source_file.read_text(encoding="utf-8")
         assert not any(forbidden in source for forbidden in forbidden_imports), source_file
 
     for pyproject_file in packages_dir.glob("*/pyproject.toml"):
+        if _is_exempt(pyproject_file):
+            continue
         manifest = pyproject_file.read_text(encoding="utf-8")
         assert "microsoft-opentelemetry" not in manifest
         assert "microsoft-agents" not in manifest
@@ -266,7 +278,7 @@ def test_app_metrics_are_recorded_with_allowed_attributes():
         record_handler_duration(2.5, "message", "type")
         record_handler_failure("message", "type")
         record_handler_unmatched("invoke", "composeExtension/query")
-        record_oauth_operation("test-connection", "token_exchange", "success", 3.5)
+        record_oauth_operation("test-connection", "token_exchange", "operation_succeeded", 3.5)
         record_oauth_error("test-connection", "token_exchange", "http_error")
 
     metrics = {}
@@ -306,7 +318,7 @@ def test_app_metrics_are_recorded_with_allowed_attributes():
     assert oauth_operations_point.attributes == {
         "oauth.connection": "test-connection",
         "oauth.operation": "token_exchange",
-        "oauth.result": "success",
+        "oauth.result": "operation_succeeded",
     }
 
     oauth_duration_point = metrics["microsoft.teams.oauth.operation.duration"].data.data_points[0]
@@ -314,7 +326,7 @@ def test_app_metrics_are_recorded_with_allowed_attributes():
     assert oauth_duration_point.attributes == {
         "oauth.connection": "test-connection",
         "oauth.operation": "token_exchange",
-        "oauth.result": "success",
+        "oauth.result": "operation_succeeded",
     }
 
     oauth_errors_point = metrics["microsoft.teams.oauth.errors"].data.data_points[0]
@@ -367,3 +379,33 @@ def _agent365_activity():
         },
     )
     return ActivityTypeAdapter.validate_python(core_activity.model_dump(by_alias=True, exclude_none=True))
+
+
+def test_oauth_operation_without_a_connection_omits_the_connection_attribute():
+    """An unattributed signin/failure must not be filed under a guessed connection.
+
+    Omitting the attribute keeps the operation countable while leaving the
+    connection genuinely absent, so no dashboard blames an uninvolved connection.
+    """
+    metric_reader = InMemoryMetricReader()
+    meter_provider = MeterProvider(metric_readers=[metric_reader])
+    meter = meter_provider.get_meter("Microsoft.Teams.Apps")
+
+    with patch("microsoft_teams.apps.diagnostics._helpers.get_meter", return_value=meter):
+        record_oauth_operation(None, "signin_failure", "notified", 1.5)
+
+    metrics = {}
+    metrics_data = metric_reader.get_metrics_data()
+    assert metrics_data is not None
+    for resource_metric in metrics_data.resource_metrics:
+        for scope_metric in resource_metric.scope_metrics:
+            for metric in scope_metric.metrics:
+                metrics[metric.name] = metric
+
+    point = metrics["microsoft.teams.oauth.operations"].data.data_points[0]
+    assert point.value == 1
+    assert point.attributes == {"oauth.operation": "signin_failure", "oauth.result": "notified"}
+    assert "oauth.connection" not in point.attributes
+
+    duration_point = metrics["microsoft.teams.oauth.operation.duration"].data.data_points[0]
+    assert "oauth.connection" not in duration_point.attributes

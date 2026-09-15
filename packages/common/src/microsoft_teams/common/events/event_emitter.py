@@ -88,16 +88,9 @@ class EventEmitter(EventEmitterProtocol[EventTypeT]):
             Subscription ID for removing the handler later
         """
 
-        if inspect.iscoroutinefunction(handler):
-
-            async def once_wrapper(value: Any) -> None:  # pyright: ignore[reportRedeclaration]
-                self.off(subscription_id)
-                await handler(value)
-        else:
-
-            def once_wrapper(value: Any) -> None:
-                self.off(subscription_id)
-                handler(value)
+        def once_wrapper(value: Any) -> Any:
+            self.off(subscription_id)
+            return handler(value)
 
         subscription_id = self._get_next_id()
 
@@ -141,16 +134,13 @@ class EventEmitter(EventEmitterProtocol[EventTypeT]):
         handler_count = len(self._subscriptions[event])
         logger.debug("Emitting event '%s' to %d handler(s)", event, handler_count)
 
-        awaitables: list[Awaitable[None]] = []
+        awaitables: list[Awaitable[Any]] = []
 
         for subscription in self._subscriptions[event][:]:  # Copy to avoid modification during iteration
             try:
-                handler = subscription["handler"]
-
-                if inspect.iscoroutinefunction(handler):
-                    awaitables.append(handler(value))
-                else:
-                    handler(value)
+                result = subscription["handler"](value)
+                if inspect.isawaitable(result):
+                    awaitables.append(result)
             except Exception as e:
                 # Continue executing other handlers even if one fails
                 logger.error("Handler failed for event '%s': %s", event, e)
@@ -162,7 +152,8 @@ class EventEmitter(EventEmitterProtocol[EventTypeT]):
             async def run_async_handlers() -> None:
                 results = await asyncio.gather(*awaitables, return_exceptions=True)
                 for i, result in enumerate(results):
-                    if isinstance(result, Exception):
+                    # BaseException, not Exception: otherwise a cancelled handler is dropped silently.
+                    if isinstance(result, BaseException):
                         logger.error("Async handler %d failed for event '%s': %s", i, event, result)
 
             try:
@@ -174,6 +165,32 @@ class EventEmitter(EventEmitterProtocol[EventTypeT]):
             except RuntimeError:
                 # No event loop running, create one
                 asyncio.run(run_async_handlers())
+
+    async def emit_async(self, event: EventTypeT, value: Any = None) -> None:
+        """Emit an event and wait for all synchronous and asynchronous handlers."""
+        if event not in self._subscriptions:
+            return
+
+        handler_count = len(self._subscriptions[event])
+        logger.debug("Emitting event '%s' to %d handler(s) and waiting for completion", event, handler_count)
+
+        awaitables: list[Awaitable[Any]] = []
+        for subscription in self._subscriptions[event][:]:
+            try:
+                result = subscription["handler"](value)
+                if inspect.isawaitable(result):
+                    awaitables.append(result)
+            except Exception as e:
+                logger.error("Handler failed for event '%s': %s", event, e)
+
+        if not awaitables:
+            return
+
+        results = await asyncio.gather(*awaitables, return_exceptions=True)
+        for i, result in enumerate(results):
+            # BaseException, not Exception: otherwise a cancelled handler is dropped silently.
+            if isinstance(result, BaseException):
+                logger.error("Async handler %d failed for event '%s': %s", i, event, result)
 
     def listener_count(self, event: str) -> int:
         """

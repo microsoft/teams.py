@@ -12,6 +12,7 @@ from .types import (
     CoreActivity,
     ErrorEvent,
     SignInEvent,
+    SignInFailureEvent,
     StartEvent,
     StopEvent,
 )
@@ -24,6 +25,7 @@ __all__ = [
     "StopEvent",
     "EventType",
     "SignInEvent",
+    "SignInFailureEvent",
     "get_event_type_from_signature",
     "is_registered_event",
     "ActivitySentEvent",

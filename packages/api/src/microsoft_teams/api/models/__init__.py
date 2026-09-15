@@ -38,6 +38,7 @@ from .channel_data import *  # noqa: F403
 from .channel_id import ChannelID
 from .config import *  # noqa: F403
 from .conversation import *  # noqa: F403
+from .conversation_type import ConversationType
 from .custom_base_model import CustomBaseModel
 from .delivery_mode import DeliveryMode
 from .entity import *  # noqa: F403
@@ -86,6 +87,7 @@ __all__: list[str] = [
     "CacheInfo",
     "ChannelID",
     "ConversationAccount",
+    "ConversationType",
     "CustomBaseModel",
     "DeliveryMode",
     "ErrorResponse",

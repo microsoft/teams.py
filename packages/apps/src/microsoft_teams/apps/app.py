@@ -56,13 +56,15 @@ from .events import (
 from .http import FastAPIAdapter
 from .http.adapter import HttpRequest, HttpResponse
 from .http.http_server import HttpServer
+from .oauth_flow import DEFAULT_OAUTH_CARD_TEXT, DEFAULT_SIGN_IN_BUTTON_TEXT, OAuthFlow, OAuthFlowRegistry
 from .options import AppOptions, InternalAppOptions
 from .plugins import PluginBase, PluginStartEvent
 from .routing import ActivityHandlerMixin, ActivityRouter
 from .routing.activity_context import ActivityContext
+from .state import create_state_loader
 from .token_manager import DEFAULT_TENANT_FOR_GRAPH_TOKEN, TokenManager
 from .token_provider import AppTokenProvider
-from .utils import create_graph_client
+from .utils import create_graph_client, derive_graph_base_url
 from .utils.thread import to_threaded_conversation_id
 
 version = importlib.metadata.version("microsoft-teams-apps")
@@ -92,10 +94,13 @@ class App(ActivityHandlerMixin):
 
         self.storage = self.options.storage or LocalStorage()
 
+        self._state_loader = create_state_loader(self.options.state, self.storage)
+
         self.http_client = self._init_http_client()
 
         self._events = EventEmitter[EventType]()
         self._router = ActivityRouter()
+        self._oauth_registry = OAuthFlowRegistry()
 
         self.credentials = self._init_credentials()
 
@@ -139,10 +144,14 @@ class App(ActivityHandlerMixin):
             self.http_client,
             self._token_provider,
             self._get_graph_token,
+            self._get_agentic_graph_token,
             self.options.api_client_settings,
             self.cloud,
+            derive_graph_base_url(self.cloud),
             fetch_user_token=self.options.fetch_user_token,
             agent365_baggage_options=self.options.telemetry.get("agent365") if self.options.telemetry else None,
+            state_loader=self._state_loader,
+            oauth_registry=self._oauth_registry,
         )
         self.event_manager = EventManager(self._events)
         self.activity_processor.event_manager = self.event_manager
@@ -155,6 +164,7 @@ class App(ActivityHandlerMixin):
         oauth_handlers = OauthHandlers(
             default_connection_name=self.options.default_connection_name,
             event_emitter=self._events,
+            oauth_registry=self._oauth_registry,
         )
         self.on_signin_token_exchange(oauth_handlers.sign_in_token_exchange)
         self.on_signin_verify_state(oauth_handlers.sign_in_verify_state)
@@ -435,6 +445,96 @@ class App(ActivityHandlerMixin):
         """Add middleware to run on all activities."""
         self.router.add_handler(lambda _: True, middleware)
 
+    def add_oauth_flow(
+        self,
+        connection_name: str,
+        *,
+        oauth_card_text: str = DEFAULT_OAUTH_CARD_TEXT,
+        sign_in_button_text: str = DEFAULT_SIGN_IN_BUTTON_TEXT,
+    ) -> OAuthFlow:
+        """Register an OAuth connection and return its object.
+
+        Args:
+            connection_name: The OAuth connection name configured on the bot.
+            oauth_card_text: Default text shown on the OAuth card for this flow.
+            sign_in_button_text: Default sign-in button label for this flow.
+
+        Returns:
+            The registered ``OAuthFlow``.
+
+        Notes:
+            Registering a flow turns on per-turn state automatically when the
+            ``state`` option was omitted, because connection-less callbacks need
+            somewhere to record which connection a sign-in started on. Pass
+            ``state=True`` or a ``StateOptions`` to choose the storage yourself,
+            or ``state=False`` to opt out — an explicit choice is never
+            overridden. With state off, pending hints fall back to a bounded
+            process-local cache, so a callback handled by another instance
+            cannot be attributed.
+
+            Connection-less verify-state callbacks probe hinted flows first,
+            then the remaining registered flows and legacy default connection.
+            Sign-in failures use pending silent-SSO hints for attribution and
+            notify registered flows as a fallback. Token-exchange callbacks
+            carry their connection name and route correctly without state.
+
+        Raises:
+            ValueError: if a flow for this connection is already registered
+                (connection names are case-insensitive).
+        """
+        flow = self._oauth_registry.add(
+            OAuthFlow(
+                connection_name,
+                oauth_card_text=oauth_card_text,
+                sign_in_button_text=sign_in_button_text,
+            )
+        )
+        # Only after the registry accepts it: a rejected duplicate must not be
+        # able to switch state on as a side effect.
+        self._enable_state_for_oauth_if_unset()
+        return flow
+
+    def _enable_state_for_oauth_if_unset(self) -> None:
+        """Turn on per-turn state for OAuth when the app did not say either way.
+
+        A registered flow needs durable pending attribution to route
+        connection-less ``signin/verifyState`` and ``signin/failure`` callbacks,
+        so state defaults on once a flow exists — matching the C# and TypeScript
+        SDKs. ``options.state`` still records what the caller passed: ``None``
+        means "unset", and anything else, including ``False``, is an explicit
+        decision this leaves alone. An already-resolved loader is also left
+        alone, so registering a second flow does not rebuild it.
+        """
+        if self.options.state is not None or self._state_loader is not None:
+            return
+
+        self._state_loader = create_state_loader(True, self.storage)
+        self.activity_processor.state_loader = self._state_loader
+        logger.debug(
+            "Enabled per-turn state because an OAuth flow was registered and no state option was set. "
+            "Pass state=False to opt out, or state=True/StateOptions to choose the storage."
+        )
+
+    def get_oauth_flow(self, connection_name: str) -> OAuthFlow:
+        """Retrieve a previously registered OAuth flow by connection name.
+
+        Args:
+            connection_name: The OAuth connection name (case-insensitive).
+
+        Returns:
+            The registered ``OAuthFlow``.
+
+        Raises:
+            ValueError: if no flow is registered for this connection.
+        """
+        flow = self._oauth_registry.get(connection_name)
+        if flow is None:
+            registered = ", ".join(f.connection_name for f in self._oauth_registry.values()) or "<none>"
+            raise ValueError(
+                f"No OAuth flow registered for connection '{connection_name}'. Registered connections: {registered}."
+            )
+        return flow
+
     def _init_http_client(self) -> Client:
         """Initialize the HTTP client from options or create a default one.
 
@@ -666,6 +766,30 @@ class App(ActivityHandlerMixin):
         return await self._token_provider.get_app_token(
             self.cloud.graph_scope,
             tenant_id or (self.credentials.tenant_id if self.credentials else None) or DEFAULT_TENANT_FOR_GRAPH_TOKEN,
+        )
+
+    async def _get_agentic_graph_token(
+        self, identity: AgenticIdentity, tenant_id: Optional[str] = None
+    ) -> Optional[TokenProtocol]:
+        """
+        Acquire a Graph token for an Agentic User, via the federated identity exchange the token manager already
+        performs.
+
+        Separate from `_get_graph_token` because the identity differs, not merely the scope: this reads as the agent,
+        so it sees the files shared with the agent rather than everything the app may read.
+        """
+        if not identity.agentic_app_id or not identity.agentic_user_id:
+            return None
+
+        return await self._token_provider.get_agentic_user_token(
+            self.cloud.graph_scope,
+            identity.agentic_app_id,
+            identity.agentic_user_id,
+            # The identity's own tenant wins when the platform sends one, then the tenant the activity arrived from.
+            # The fallback to the app's configured tenant is deliberately not repeated here: `TokenManager` applies it
+            # in `_resolve_tenant_id` and raises when neither is available, which is a better failure than silently
+            # acquiring in the wrong directory.
+            identity.tenant_id or tenant_id,
         )
 
     def get_app_graph(self, tenant_id: Optional[str] = None) -> "GraphServiceClient":
