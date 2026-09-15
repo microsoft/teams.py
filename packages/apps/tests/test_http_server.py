@@ -4,6 +4,7 @@ Licensed under the MIT License.
 """
 # pyright: basic
 
+from types import SimpleNamespace
 from typing import cast
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -63,6 +64,15 @@ class TestHttpServer:
 
         assert server._dangerously_allow_unauthenticated_requests is True
         mock_adapter.register_route.assert_called_once()
+
+    def test_initialize_forwards_deps_to_adapter_initialize(self, server, mock_adapter):
+        """Test that initialize() forwards credentials/cloud to the adapter's initialize hook."""
+        creds = MagicMock()
+        creds.client_id = "test-app"
+
+        server.initialize(credentials=creds)
+
+        mock_adapter.initialize.assert_called_once_with({"credentials": creds, "cloud": server._cloud})
 
     def test_invalid_messaging_endpoint_raises(self, mock_adapter):
         """Test that invalid messaging endpoint raises ValueError."""
@@ -273,6 +283,33 @@ class TestHttpServerNoCredentials:
         assert result["status"] == 401
         assert result["body"] == {"error": "Authentication not configured"}
         server.on_request.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_trusts_pre_authenticated_request_token(self, server):
+        """A transport-supplied token (e.g. Socket Mode) bypasses JWT validation, even with
+        no credentials configured and unauthenticated requests disallowed."""
+        server.on_request = AsyncMock(return_value=InvokeResponse(status=200))
+
+        pre_authenticated_token = SimpleNamespace(
+            app_id="socket-app",
+            from_="azure",
+            from_id="",
+            service_url="https://smba.trafficmanager.net/teams",
+            is_expired=lambda: False,
+        )
+
+        request = HttpRequest(
+            body={"type": "message", "serviceUrl": "https://smba.trafficmanager.net/teams"},
+            headers={},
+            token=pre_authenticated_token,
+        )
+
+        result = await server.handle_request(request)
+
+        assert result["status"] == 200
+        server.on_request.assert_called_once()
+        event = server.on_request.call_args[0][0]
+        assert event.token is pre_authenticated_token
 
 
 class TestFastAPIAdapter:

@@ -3,7 +3,14 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from .adapter import HttpMethod, HttpRequest, HttpResponse, HttpRouteHandler, HttpServerAdapter
+from .adapter import (
+    HttpMethod,
+    HttpRequest,
+    HttpResponse,
+    HttpRouteHandler,
+    HttpServerAdapter,
+    HttpServerInitializeDeps,
+)
 from .fastapi_adapter import FastAPIAdapter
 from .http_server import HttpServer
 
@@ -14,5 +21,6 @@ __all__ = [
     "HttpRouteHandler",
     "HttpServer",
     "HttpServerAdapter",
+    "HttpServerInitializeDeps",
     "FastAPIAdapter",
 ]
