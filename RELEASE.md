@@ -19,14 +19,17 @@ dotnet tool install -g nbgv
 
 | Branch | Versions | PyPI tag | Published |
 |--------|----------|----------|-----------|
-| `main` | `2.1.0.dev1`, `2.1.0.dev2`, ... | n/a | No |
-| `release/v2.0` | `2.0.x` (stable) | `latest` | Yes |
-| `release/v2.1` | `2.1.0-alpha.N` (preview) | `next` | Yes |
+| `main` | `2.1.1.dev1`, `2.1.1.dev2`, ... | n/a | No |
+| `release/v2.1` | `2.1.x` (stable) | `latest` | Yes |
+| `release/v2.0` | `2.0.x` (legacy fixes only) | n/a | Yes |
 
 Release branches are **long-lived per minor line** and use the `release/v<major>.<minor>` naming convention. Create a
 new release branch from `main` when that minor line enters its release phase; never reset an existing release branch.
 
-**Several release branches are live at once.** At the time of writing, `release/v2.0` carries the stable line and `release/v2.1` carries the preview line. A fix that affects both must be backported to each one separately, and each gets its own release. See [Backporting a fix to a release branch](#backporting-a-fix-to-a-release-branch).
+**Several release branches are live at once.** At the time of writing, `release/v2.1` is the latest stable line.
+`release/v2.0` accepts legacy fixes only; its deprecation timeline will be announced separately. A fix that affects
+both must be backported to each one separately, and each gets its own release. See
+[Backporting a fix to a release branch](#backporting-a-fix-to-a-release-branch).
 
 ## Workflow
 
@@ -36,6 +39,8 @@ Development happens on `main`. When ready to release:
    (e.g. `release/v2.1`)
 2. The PR should make the release branch equal `main` plus the version bump in `version.json`
 3. Merge the PR, then run the publish pipeline
+4. After a successful stable release, open a separate PR to `main` that advances `version.json` to the next patch
+   development version (for example, `2.1.0` is followed by `2.1.1-dev.{height}`) with `versionHeightOffset` set to `1`
 
 ### Preparing the release branch
 
@@ -106,23 +111,23 @@ Versions are managed by **Nerdbank.GitVersioning** via [version.json](version.js
 
 ```json
 {
-  "version": "2.1.0-dev.{height}",
+  "version": "2.1.1-dev.{height}",
   "versionHeightOffset": 1
 }
 ```
 
-Builds on `main` produce dev versions like `2.1.0.dev1`, `2.1.0.dev2`, etc. These are not published. Changing the
+Builds on `main` produce dev versions like `2.1.1.dev1`, `2.1.1.dev2`, etc. These are not published. Changing the
 version core resets Nerdbank.GitVersioning's height for the new development line, so the offset remains `1`.
 
 ### Example Package Names
 
 | Branch | Package Name |
 |--------|--------------|
-| `main` | `microsoft_teams_apps-2.1.0.dev2.tar.gz` |
+| `main` | `microsoft_teams_apps-2.1.1.dev2.tar.gz` |
 | `release/v2.0` | `microsoft_teams_apps-2.0.16.tar.gz` |
-| `release/v2.1` | `microsoft_teams_apps-2.1.0a2.tar.gz` |
+| `release/v2.1` | `microsoft_teams_apps-2.1.0.tar.gz` |
 
-> **Note:** Running the pipeline on a branch not in `publicReleaseRefSpec` (e.g., a feature branch) produces versions with the commit hash appended, like `2.1.0.dev5+g1a2b3c4`. This is expected and useful for testing.
+> **Note:** Running the pipeline on a branch not in `publicReleaseRefSpec` (e.g., a feature branch) produces versions with the commit hash appended, like `2.1.1.dev5+g1a2b3c4`. This is expected and useful for testing.
 
 ### Producing a Stable Release
 
@@ -140,11 +145,12 @@ After the PR merges, run the publish pipeline with **Public** to release to PyPI
 
 ### Preview releases
 
-A preview line keeps `{height}` in the version string and lets Nerdbank.GitVersioning number each release, for example `release/v2.1`:
+A preview line keeps `{height}` in the version string and lets Nerdbank.GitVersioning number each release, for
+example a future `release/v2.2` preview:
 
 ```json
 {
-  "version": "2.1.0-alpha.{height}",
+  "version": "2.2.0-alpha.{height}",
   "versionHeightOffset": -14
 }
 ```
@@ -161,7 +167,7 @@ That last point is the one that bites. A backport adds the cherry-pick, plus a c
 versionHeightOffset = target_alpha - height_of_the_final_merge_commit
 ```
 
-Worked example, backporting one fix onto `release/v2.1` to produce `2.1.0-alpha.2`:
+Worked example, backporting one fix onto a preview `release/v2.2` to produce `2.2.0-alpha.2`:
 
 | Step | Height |
 |------|--------|
@@ -194,9 +200,14 @@ If the number is wrong, correct `versionHeightOffset` and re-check. A corrective
 
 ### After a release
 
-Leave `version.json` alone once a release ships. A stable branch keeps its literal version, so the next release PR has to bump it; a preview branch increments `{height}` on its own and needs nothing.
+Leave `version.json` alone on the release branch once a release ships. A stable branch keeps its literal version, so
+the next release PR has to bump it; a preview branch increments `{height}` on its own and needs nothing.
 
 Sitting on an already-published stable version is deliberate: PyPI rejecting the re-upload is the only guard against an accidental publish, and a `-dev` version would publish cleanly instead.
+
+After a stable release, `main` must move immediately to the next patch development line in a separate PR. Change the
+version core from the released version to `X.Y.(Z+1)-dev.{height}` and keep `versionHeightOffset` at `1`; changing the
+core resets the height, and the offset makes the first development build `.dev1`.
 
 ## Publishing
 
