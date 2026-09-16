@@ -147,12 +147,12 @@ After the PR merges, run the publish pipeline with **Public** to release to PyPI
 ### Preview releases
 
 A preview line keeps `{height}` in the version string and lets Nerdbank.GitVersioning number each release, for
-example a future `release/v2.2` preview:
+example a future `release/v2.2` preview beginning at Python package version `2.2.0a1`:
 
 ```json
 {
   "version": "2.2.0-alpha.{height}",
-  "versionHeightOffset": -14
+  "versionHeightOffset": -15
 }
 ```
 
@@ -168,7 +168,8 @@ That last point is the one that bites. A backport adds the cherry-pick, plus a c
 versionHeightOffset = target_alpha - height_of_the_final_merge_commit
 ```
 
-Worked example, backporting one fix onto a preview `release/v2.2` to produce `2.2.0-alpha.2`:
+Worked example, backporting one fix onto a preview `release/v2.2` to produce `2.2.0-alpha.1` (`2.2.0a1` in Python
+package filenames):
 
 | Step | Height |
 |------|--------|
@@ -177,7 +178,7 @@ Worked example, backporting one fix onto a preview `release/v2.2` to produce `2.
 | + commit editing `versionHeightOffset` | 15 |
 | + merge commit | **16** |
 
-So the offset is `2 - 16 = -14`.
+So the offset is `1 - 16 = -15`.
 
 This is why preview backports must be merged with a **merge commit**. Squashing removes commits from the chain, the final height is lower than planned, and the pipeline republishes a version number that is already on PyPI.
 
