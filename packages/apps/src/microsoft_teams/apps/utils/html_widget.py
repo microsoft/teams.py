@@ -213,7 +213,7 @@ def inject_widget_protocol(html: str, options: Optional[InjectWidgetProtocolOpti
     notify_size = (  # noqa: E501
         "function notifySize(){window.parent.postMessage("
         "{jsonrpc:'2.0',method:'ui/notifications/size-changed',"
-        "params:{height:document.body.scrollHeight}},'*');}"
+        "params:{height:Math.ceil(Math.max(document.documentElement.scrollHeight,document.body.scrollHeight))}},'*');}"
     )
     on_init = (
         "if(d.id===id&&d.result){window.parent.postMessage("

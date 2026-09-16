@@ -9,7 +9,7 @@ import os
 
 from azure.core.exceptions import ClientAuthenticationError
 from microsoft_teams.api import MessageActivity
-from microsoft_teams.apps import ActivityContext, App, AppOptions, ErrorEvent, SignInEvent
+from microsoft_teams.apps import ActivityContext, App, ErrorEvent, SignInEvent
 from microsoft_teams.common import ConsoleFormatter
 from microsoft_teams.graph import get_graph_client
 from msgraph.generated.users.item.messages.messages_request_builder import (  # type: ignore
@@ -23,8 +23,8 @@ stream_handler.setFormatter(ConsoleFormatter())
 logging.getLogger().addHandler(stream_handler)
 logger = logging.getLogger(__name__)
 
-app_options = AppOptions(default_connection_name=os.getenv("CONNECTION_NAME", "graph"))
-app = App(**app_options)
+app = App()
+graph_flow = app.add_oauth_flow(os.getenv("CONNECTION_NAME", "graph"))
 
 
 async def get_authenticated_graph_client(ctx: ActivityContext[MessageActivity]):
@@ -34,40 +34,40 @@ async def get_authenticated_graph_client(ctx: ActivityContext[MessageActivity]):
     Returns:
         Graph client if successful, None if authentication failed.
     """
-    # Check if user is signed in
-    if not ctx.is_signed_in:
+    token = await graph_flow.get_token(ctx)
+    if token is None:
         await ctx.send("🔐 Please sign in first to access Microsoft Graph.")
-        await ctx.sign_in()
+        await graph_flow.sign_in(ctx)
         return None
 
     try:
         # Create Graph client using the user token
-        return get_graph_client(ctx.user_token)
+        return get_graph_client(token)
 
     except Exception as e:
         logger.error(f"Failed to create Graph client: {e}")
         await ctx.send("🔐 Failed to create authenticated client. Please try signing in again.")
-        await ctx.sign_in()
+        await graph_flow.sign_in(ctx)
         return None
 
 
 @app.on_message_pattern("signin")
 async def handle_signin_command(ctx: ActivityContext[MessageActivity]):
     """Handle sign-in command."""
-    if ctx.is_signed_in:
+    if await graph_flow.is_signed_in(ctx):
         await ctx.send("✅ You are already signed in!")
     else:
         await ctx.send("🔐 Please sign in to access Microsoft Graph...")
-        await ctx.sign_in()
+        await graph_flow.sign_in(ctx)
 
 
 @app.on_message_pattern("signout")
 async def handle_signout_command(ctx: ActivityContext[MessageActivity]):
     """Handle sign-out command."""
-    if not ctx.is_signed_in:
+    if not await graph_flow.is_signed_in(ctx):
         await ctx.send("ℹ️ You are not currently signed in.")
     else:
-        await ctx.sign_out()
+        await graph_flow.sign_out(ctx)
         await ctx.send("👋 You have been signed out successfully!")
 
 
@@ -98,7 +98,7 @@ async def handle_profile_command(ctx: ActivityContext[MessageActivity]):
     except ClientAuthenticationError as e:
         logger.error(f"Authentication error: {e}")
         await ctx.send("🔐 Authentication failed. Please try signing in again.")
-        await ctx.sign_in()
+        await graph_flow.sign_in(ctx)
 
     except Exception as e:
         logger.error(f"Error getting profile: {e}")

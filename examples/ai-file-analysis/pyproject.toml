@@ -1,0 +1,18 @@
+[project]
+name = "ai-file-analysis"
+version = "0.1.0"
+description = "Teams bot that analyzes uploaded files with Azure OpenAI"
+readme = "README.md"
+requires-python = ">=3.11,<4.0"
+dependencies = [
+    "dotenv>=0.9.9",
+    "microsoft-teams-apps",
+    "microsoft-teams-api",
+    "microsoft-teams-cards",
+    "openai>=1.60.0",
+]
+
+[tool.uv.sources]
+microsoft-teams-apps = { workspace = true }
+microsoft-teams-api = { workspace = true }
+microsoft-teams-cards = { workspace = true }

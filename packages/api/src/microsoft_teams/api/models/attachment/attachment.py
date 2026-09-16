@@ -24,4 +24,7 @@ class Attachment(CustomBaseModel):
     "The name of the attachment"
 
     thumbnail_url: Optional[str] = None
-    "Thumbnail associated with attachment"
+    """
+    Thumbnail associated with attachment.
+    Not set by Teams when a bot receives an upload.
+    """

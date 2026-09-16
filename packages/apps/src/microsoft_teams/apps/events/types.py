@@ -11,6 +11,7 @@ from microsoft_teams.api import (
     ConversationReference,
     InvokeResponse,
     SentActivity,
+    SignInFailureInvokeActivity,
     SignInTokenExchangeInvokeActivity,
     SignInVerifyStateInvokeActivity,
     TokenProtocol,
@@ -117,3 +118,16 @@ class SignInEvent:
         ActivityContext[SignInTokenExchangeInvokeActivity],
     ]
     token_response: TokenResponse
+    connection_name: Optional[str] = None
+
+
+@dataclass
+class SignInFailureEvent:
+    activity_ctx: Union[
+        ActivityContext[SignInFailureInvokeActivity],
+        ActivityContext[SignInVerifyStateInvokeActivity],
+        ActivityContext[SignInTokenExchangeInvokeActivity],
+    ]
+    connection_name: Optional[str] = None
+    code: Optional[str] = None
+    message: Optional[str] = None

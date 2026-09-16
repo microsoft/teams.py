@@ -43,3 +43,16 @@ class TestTyping:
         )
         assert activity.type == "typing"
         assert activity.text == "testing123"
+
+    def test_should_build_with_text_format(self, user: Account, bot: Account, chat: ConversationAccount) -> None:
+        """Test activity construction with text_format set via the builder."""
+        activity = TypingActivityInput(id="1", from_=user, conversation=chat, recipient=bot).with_text_format(
+            "extendedmarkdown"
+        )
+        assert activity.type == "typing"
+        assert activity.text_format == "extendedmarkdown"
+
+    def test_text_format_defaults_to_none(self, user: Account, bot: Account, chat: ConversationAccount) -> None:
+        """Test that text_format is unset unless explicitly provided."""
+        activity = TypingActivityInput(id="1", from_=user, conversation=chat, recipient=bot)
+        assert activity.text_format is None

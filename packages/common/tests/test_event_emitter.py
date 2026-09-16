@@ -241,6 +241,76 @@ class TestEventEmitter:
 
         handler.assert_called_once_with("test_data")
 
+    @pytest.mark.asyncio
+    async def test_emit_async_waits_for_async_handlers(self):
+        emitter = EventEmitter()
+        calls = []
+
+        async def async_handler(data):
+            await asyncio.sleep(0)
+            calls.append(data)
+
+        emitter.on("test_event", async_handler)
+
+        await emitter.emit_async("test_event", "test_data")
+        calls.append("after")
+
+        assert calls == ["test_data", "after"]
+
+    @pytest.mark.asyncio
+    async def test_emit_async_waits_for_awaitable_returned_by_sync_handler(self):
+        emitter = EventEmitter()
+        calls = []
+
+        def handler(data):
+            async def complete():
+                await asyncio.sleep(0)
+                calls.append(data)
+
+            return complete()
+
+        emitter.on("test_event", handler)
+
+        await emitter.emit_async("test_event", "test_data")
+        calls.append("after")
+
+        assert calls == ["test_data", "after"]
+
+    @pytest.mark.asyncio
+    async def test_emit_async_waits_for_async_callable_object(self):
+        emitter = EventEmitter()
+        calls = []
+
+        class Handler:
+            async def __call__(self, data):
+                await asyncio.sleep(0)
+                calls.append(data)
+
+        emitter.on("test_event", Handler())
+
+        await emitter.emit_async("test_event", "test_data")
+        calls.append("after")
+
+        assert calls == ["test_data", "after"]
+
+    @pytest.mark.asyncio
+    async def test_emit_async_waited_handler_exception_doesnt_break_others(self):
+        emitter = EventEmitter()
+        calls = []
+
+        async def failing_handler(data):
+            raise RuntimeError(data)
+
+        async def working_handler(data):
+            calls.append(data)
+
+        emitter.on("test_event", failing_handler)
+        emitter.on("test_event", working_handler)
+
+        await emitter.emit_async("test_event", "test_data")
+
+        assert calls == ["test_data"]
+
     def test_off_during_iteration_safe(self):
         emitter = EventEmitter()
         handler1 = Mock()

@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <title>M365 Extension — Web Chat</title>
+  <script crossorigin="anonymous" src="https://cdn.botframework.com/botframework-webchat/latest/webchat.js"></script>
+  <style>
+    html,
+    body {
+      height: 100%;
+      margin: 0;
+      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    }
+
+    body {
+      display: flex;
+      flex-direction: column;
+      background: #f5f5f5;
+    }
+
+    header {
+      padding: 12px 16px;
+      background: #5b5fc7;
+      color: #fff;
+    }
+
+    header h1 {
+      margin: 0;
+      font-size: 15px;
+      font-weight: 600;
+    }
+
+    header p {
+      margin: 4px 0 0;
+      font-size: 12px;
+      opacity: 0.85;
+    }
+
+    #webchat {
+      flex: 1;
+      min-height: 0;
+    }
+
+    #error {
+      display: none;
+      padding: 12px 16px;
+      color: #a80000;
+      background: #fde7e9;
+      font-size: 13px;
+      white-space: pre-wrap;
+    }
+  </style>
+</head>
+
+<body>
+  <header>
+    <h1>M365 Extension — Web Chat (Direct Line)</h1>
+    <p>
+      Non-Teams channel: every turn passes straight through to the Agents SDK.
+      Try <code>channel</code>, <code>help</code>, or any text.
+    </p>
+  </header>
+  <div id="error"></div>
+  <div id="webchat" role="main"></div>
+
+  <script>
+    (async function () {
+      const errorEl = document.getElementById('error');
+      try {
+        const res = await fetch('/api/token');
+        if (!res.ok) throw new Error(`token endpoint returned ${res.status}: ${await res.text()}`);
+        const { token } = await res.json();
+        if (!token) throw new Error('token endpoint returned no token');
+
+        window.WebChat.renderWebChat(
+          {
+            directLine: window.WebChat.createDirectLine({ token }),
+            styleOptions: {
+              backgroundColor: '#f5f5f5',
+              bubbleBackground: '#ffffff',
+              bubbleFromUserBackground: '#e8ebfa',
+            },
+          },
+          document.getElementById('webchat')
+        );
+      } catch (err) {
+        errorEl.style.display = 'block';
+        errorEl.textContent =
+          'Web Chat failed to start.\n' +
+          err.message +
+          '\n\nIs tools/webchat/serve.py running, and is DIRECTLINE_SECRET set?';
+      }
+    })();
+  </script>
+</body>
+
+</html>

@@ -102,6 +102,7 @@ cookiecutter templates/examples -o examples
 - [`@examples/stream`](./examples/stream/README.md)
 - [`@examples/oauth`](./examples/oauth/README.md)
 - [`@examples/meetings`](./examples/meetings/README.md)
+- [`@examples/ai-file-analysis`](./examples/ai-file-analysis/README.md)
 
 ## Links
 

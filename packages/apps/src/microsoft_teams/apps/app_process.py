@@ -11,6 +11,7 @@ from microsoft_teams.api import (
     ActivityBase,
     ActivityParams,
     ActivityTypeAdapter,
+    AgenticIdentity,
     ApiClient,
     ApiClientSettings,
     ConversationReference,
@@ -43,9 +44,12 @@ from .diagnostics._helpers import (
     record_turn_duration,
 )
 from .events import ActivityEvent, ActivityResponseEvent, ActivitySentEvent, ErrorEvent
+from .files_credential import select_files_credential
+from .oauth_flow import OAuthFlowRegistry
 from .plugins import PluginActivityEvent, PluginBase, StreamCancelledError
 from .routing.activity_context import ActivityContext
 from .routing.router import ActivityHandler, ActivityRouter
+from .state import TurnStateLoader
 from .token_provider import AppTokenProvider
 from .utils import extract_tenant_id
 
@@ -70,10 +74,14 @@ class ActivityProcessor:
         http_client: Client,
         token_provider: AppTokenProvider,
         get_app_graph_token: Callable[[Optional[str]], Awaitable[Optional[TokenProtocol]]],
+        get_agentic_graph_token: Callable[[AgenticIdentity, Optional[str]], Awaitable[Optional[TokenProtocol]]],
         api_client_settings: Optional[ApiClientSettings],
         cloud: CloudEnvironment = PUBLIC,
+        graph_base_url_root: Optional[str] = None,
         fetch_user_token: bool = True,
         agent365_baggage_options: Agent365BaggageOptions | bool | None = None,
+        state_loader: Optional[TurnStateLoader] = None,
+        oauth_registry: Optional[OAuthFlowRegistry] = None,
     ) -> None:
         self.router = router
         self.id = id
@@ -82,10 +90,14 @@ class ActivityProcessor:
         self.http_client = http_client
         self.token_provider = token_provider
         self.get_app_graph_token = get_app_graph_token
+        self.get_agentic_graph_token = get_agentic_graph_token
         self.api_client_settings = api_client_settings
         self.cloud = cloud
+        self.graph_base_url_root = graph_base_url_root
         self.fetch_user_token = fetch_user_token
         self.agent365_baggage_options = agent365_baggage_options
+        self.state_loader = state_loader
+        self.oauth_registry = oauth_registry
 
         # This will be set after the EventManager is initialized due to
         # a circular dependency
@@ -149,6 +161,17 @@ class ActivityProcessor:
 
         tenant_id = extract_tenant_id(activity)
 
+        # Resolved at fetch time rather than eagerly, so a turn that never touches files pays nothing for it.
+        #
+        # An Agentic User reads as itself. An app-only token sees what the app may read tenant-wide, a different set
+        # from what was shared with the agent, so it would 403 on exactly the files the agent was given.
+        files_credential = select_files_credential(
+            agentic_identity=activity.recipient.agentic_identity,
+            graph_base_url_root=self.graph_base_url_root,
+            get_app_graph_token=lambda: self.get_app_graph_token(tenant_id),
+            get_agentic_graph_token=lambda identity: self.get_agentic_graph_token(identity, tenant_id),
+        )
+
         activityCtx = ActivityContext(
             activity,
             self.id or "",
@@ -160,6 +183,8 @@ class ActivityProcessor:
             self.default_connection_name,
             app_token=lambda: self.get_app_graph_token(tenant_id),
             cloud=self.cloud,
+            oauth_connection_names=list(self.oauth_registry) if self.oauth_registry is not None else None,
+            files_credential=files_credential,
         )
 
         send = activityCtx.send
@@ -287,7 +312,10 @@ class ActivityProcessor:
         if not self.event_manager:
             raise ValueError("EventManager was not initialized properly")
 
+        processing_completed = False
         try:
+            await self._load_turn_state(activityCtx, activity)
+
             # If no registered handlers, middleware_result is set to None
             middleware_result = await self.execute_middleware_chain(activityCtx, handlers)
 
@@ -297,7 +325,27 @@ class ActivityProcessor:
                 response = cast(InvokeResponse[Any], middleware_result)
             else:
                 response = InvokeResponse[Any](status=200, body=middleware_result)
+            processing_completed = True
+        except StreamCancelledError:
+            logger.debug("Activity processing was cancelled (stream stopped)")
+            await activityCtx.stream.close()
+            response = InvokeResponse[Any](status=200)
+            processing_completed = True
+        except Exception as error:
+            await self.event_manager.on_error(ErrorEvent(error=error, activity=activity), plugins)
+            raise
+        finally:
+            try:
+                await self._persist_turn_state(activityCtx)
+            except Exception as error:
+                try:
+                    await self.event_manager.on_error(ErrorEvent(error=error, activity=activity), plugins)
+                except Exception:
+                    logger.exception("Error handler failed while reporting state persistence failure")
+                if processing_completed:
+                    raise
 
+        try:
             await self.event_manager.on_activity_response(
                 ActivityResponseEvent(
                     activity=activity,
@@ -312,11 +360,37 @@ class ActivityProcessor:
             response = InvokeResponse[Any](status=200)
         except Exception as error:
             await self.event_manager.on_error(ErrorEvent(error=error, activity=activity), plugins)
-            raise error
+            raise
 
         logger.debug("Completed processing activity")
 
         return response
+
+    async def _load_turn_state(self, ctx: ActivityContext[ActivityBase], activity: ValidatedActivity) -> None:
+        """Load per-turn state onto ``ctx.state`` when state is enabled.
+
+        Loads both the conversation scope and the user scope (keyed by the
+        activity's ``from`` identity). A no-op when state is disabled, leaving
+        ``ctx.state`` as ``None``.
+        """
+        if self.state_loader is None:
+            return
+        ctx.state = await self.state_loader.load(activity.conversation.id, activity.from_.id or None)
+
+    async def _persist_turn_state(self, ctx: ActivityContext[ActivityBase]) -> None:
+        """Save dirty scopes and seal state at the end of the turn.
+
+        Runs in a ``finally`` so dirty state is persisted even when the handler
+        raised. Sealing makes any post-turn access raise, guarding against use of
+        per-turn state in background work.
+        """
+        container = ctx.state
+        if self.state_loader is None or container is None:
+            return
+        try:
+            await self.state_loader.save(container)
+        finally:
+            container.seal()
 
     def _activity_attributes(self, activity: ActivityBase) -> dict[str, str]:
         attributes = {

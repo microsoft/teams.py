@@ -27,9 +27,6 @@ async def send_or_update_activity(
         and activity.recipient.is_targeted is True
     )
 
-    if is_targeted and ref.conversation.conversation_type == "personal":
-        raise ValueError("Targeted messages are not supported in 1:1 (personal) chats.")
-
     activity.from_ = ref.bot
     activity.conversation = ref.conversation
     scoped_api = (
@@ -40,9 +37,14 @@ async def send_or_update_activity(
     if activity.id:
         activity_id = activity.id
         if is_targeted:
-            res = await scoped_api.conversations.update_targeted_activity(ref.conversation.id, activity_id, activity)
-        else:
-            res = await scoped_api.conversations.update_activity(ref.conversation.id, activity_id, activity)
+            # The recipient of an existing targeted message cannot be edited, so it only selects the
+            # targeted endpoint and is dropped from the outbound payload. The caller still gets the
+            # recipient back on the returned activity.
+            payload = activity.model_copy(update={"recipient": None})
+            res = await scoped_api.conversations.update_targeted_activity(ref.conversation.id, activity_id, payload)
+            return SentActivity.merge(activity, res.model_copy(update={"activity_params": activity}))
+
+        res = await scoped_api.conversations.update_activity(ref.conversation.id, activity_id, activity)
         return SentActivity.merge(activity, res)
 
     if is_targeted:
