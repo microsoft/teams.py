@@ -296,7 +296,7 @@ extends:
           inputs:
             targetType: inline
             script: |
-              $feedUrl = "https://pkgs.dev.azure.com/DomoreexpGithub/Github_Pipelines/_packaging/$(internalFeedName)/pypi/upload/"
+              $feedUrl = "https://pkgs.dev.azure.com/DomoreexpGithub/Github_Pipelines/_packaging/TeamsSDKPreviews/pypi/upload/"
               Write-Host "Publishing packages to internal feed..."
               uv publish --publish-url $feedUrl --token $env:SYSTEM_ACCESSTOKEN $(Pipeline.Workspace)/pypi-packages/*
           env:
