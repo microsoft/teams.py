@@ -19,7 +19,7 @@ dotnet tool install -g nbgv
 
 | Branch | Versions | PyPI tag | Published |
 |--------|----------|----------|-----------|
-| `main` | `2.1.1.dev1`, `2.1.1.dev2`, ... | n/a | No |
+| `main` | `2.1.1.dev2`, `2.1.1.dev3`, ... | n/a | No |
 | `release/v2.1` | `2.1.x` (stable) | `latest` | Yes |
 | `release/v2.0` | `2.0.x` (legacy fixes only) | n/a | Yes |
 
@@ -116,8 +116,9 @@ Versions are managed by **Nerdbank.GitVersioning** via [version.json](version.js
 }
 ```
 
-Builds on `main` produce dev versions like `2.1.1.dev1`, `2.1.1.dev2`, etc. These are not published. Changing the
-version core resets Nerdbank.GitVersioning's height for the new development line, so the offset remains `1`.
+Builds on `main` produce dev versions like `2.1.1.dev2`, `2.1.1.dev3`, etc. These are not published. Changing the
+version core resets Nerdbank.GitVersioning's height for the new development line. The version-change commit has
+height `1`, and the established offset of `1` makes its development version `.dev2`.
 
 ### Example Package Names
 
@@ -207,7 +208,7 @@ Sitting on an already-published stable version is deliberate: PyPI rejecting the
 
 After a stable release, `main` must move immediately to the next patch development line in a separate PR. Change the
 version core from the released version to `X.Y.(Z+1)-dev.{height}` and keep `versionHeightOffset` at `1`; changing the
-core resets the height, and the offset makes the first development build `.dev1`.
+core resets the height, and the offset makes the version-change commit `.dev2`.
 
 ## Publishing
 
