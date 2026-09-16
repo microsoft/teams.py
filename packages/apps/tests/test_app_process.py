@@ -118,6 +118,8 @@ class TestActivityProcessor:
         mock_token_provider = MagicMock(spec=AppTokenProvider)
         mock_get_app_graph_token = create_autospec(App, instance=True, spec_set=True)._get_graph_token
         mock_get_app_graph_token.return_value = None
+        mock_get_agentic_graph_token = create_autospec(App, instance=True, spec_set=True)._get_agentic_graph_token
+        mock_get_agentic_graph_token.return_value = None
         return ActivityProcessor(
             mock_activity_router,
             "id",
@@ -126,6 +128,7 @@ class TestActivityProcessor:
             mock_http_client,
             mock_token_provider,
             mock_get_app_graph_token,
+            mock_get_agentic_graph_token,
             None,
             PUBLIC,
         )
@@ -727,6 +730,99 @@ class TestActivityProcessor:
             await activity_processor._build_context(_message_activity("activity-sovereign-cloud"), mock_token, [])
 
         assert mock_api_client_type.call_args.kwargs["cloud"] is US_GOV
+
+    @pytest.mark.asyncio
+    async def test_build_context_gives_ctx_files_an_agentic_credential(self, activity_processor):
+        """
+        An inbound Agentic User activity must reach `ctx.files` as an agentic credential.
+
+        This asserts the seam, not the parts. `select_files_credential` and `FilesAccessor` are both covered on their
+        own, and both stayed green through a revision where nothing connected them, so `ctx.files` held no credential
+        and every Graph path was unreachable in production.
+        """
+        activity_processor.fetch_user_token = False
+        activity_processor.http_client.http = MagicMock()
+        core_activity = CoreActivity(
+            type="message",
+            id="activity-files-credential",
+            service_url="https://service.url",
+            **{
+                "from": {"id": "user-1", "name": "Test User"},
+                "conversation": {"id": "conv-1"},
+                "recipient": {
+                    "id": "bot-1",
+                    "name": "Test Bot",
+                    "agenticAppId": "agentic-app-id",
+                    "agenticUserId": "agentic-user-id",
+                    "agenticAppBlueprintId": "blueprint-id",
+                    "tenantId": "tenant-id",
+                },
+                "channelId": "msteams",
+            },
+        )
+        activity = ActivityTypeAdapter.validate_python(core_activity.model_dump(by_alias=True, exclude_none=True))
+        mock_token = MagicMock(spec=TokenProtocol)
+        mock_token.service_url = "https://service.url"
+
+        context = await activity_processor._build_context(activity, mock_token, [])
+        credential = context.files._credential
+
+        assert credential is not None
+        assert credential.actor == "agentic_user"
+
+        await credential.token()
+        activity_processor.get_agentic_graph_token.assert_awaited_once()
+        assert activity_processor.get_agentic_graph_token.await_args.args[0].agentic_user_id == "agentic-user-id"
+
+    @pytest.mark.asyncio
+    async def test_build_context_gives_ctx_files_the_activitys_tenant(self, activity_processor):
+        """
+        The app credential behind `ctx.files` must ask for the activity's own tenant, not a default.
+
+        Uses an activity whose tenant arrives only on channel data, so this pins the whole chain: the extraction
+        fallback, the closure that carries the tenant into the credential, and the token call itself. A single-tenant
+        bot that asked for the wrong tenant here would read files as the wrong directory.
+        """
+        activity_processor.fetch_user_token = False
+        activity_processor.http_client.http = MagicMock()
+        core_activity = CoreActivity(
+            type="message",
+            id="activity-files-tenant",
+            service_url="https://service.url",
+            **{
+                "from": {"id": "user-1", "name": "Test User"},
+                "conversation": {"id": "conv-1"},
+                "recipient": {"id": "bot-1", "name": "Test Bot"},
+                "channelId": "msteams",
+                "channelData": {"tenant": {"id": "tenant-from-channel-data"}},
+            },
+        )
+        activity = ActivityTypeAdapter.validate_python(core_activity.model_dump(by_alias=True, exclude_none=True))
+        mock_token = MagicMock(spec=TokenProtocol)
+        mock_token.service_url = "https://service.url"
+
+        context = await activity_processor._build_context(activity, mock_token, [])
+        credential = context.files._credential
+
+        assert credential is not None
+        assert credential.actor == "app"
+
+        await credential.token()
+        activity_processor.get_app_graph_token.assert_any_await("tenant-from-channel-data")
+
+    @pytest.mark.asyncio
+    async def test_build_context_gives_ctx_files_an_app_credential_without_agentic_identity(self, activity_processor):
+        """A traditional bot still gets a credential, so the expiry fallback has a token to resolve."""
+        activity_processor.fetch_user_token = False
+        activity_processor.http_client.http = MagicMock()
+        mock_token = MagicMock(spec=TokenProtocol)
+        mock_token.service_url = "https://service.url"
+
+        context = await activity_processor._build_context(_message_activity("activity-app-credential"), mock_token, [])
+        credential = context.files._credential
+
+        assert credential is not None
+        assert credential.actor == "app"
 
     @pytest.mark.asyncio
     async def test_build_context_skips_token_fetch_when_disabled(self, activity_processor):

@@ -24,7 +24,9 @@ class FileDownloadInfo(CustomBaseModel):
     "Pre-authorized, short-lived URL the file can be fetched from with a plain GET (no bearer token)."
 
     unique_id: Optional[str] = None
-    "The OneDrive/ODSP drive-item id for the file. This is the storage-specific file identity a Graph fetch keys off."
+    "The ODSP/OneDrive identifier for the file. Useful for correlation, dedup and logging, but not for retrieval: a "
+    "Graph fetch resolves bytes from the attachment's `content_url` through `/shares`, and this value arrives as a "
+    "GUID, which is a SharePoint `listItemUniqueId` shape rather than a Graph `driveItem.id`."
 
     file_type: Optional[str] = None
     "Type of file (extension, e.g. `pdf`, `docx`)."

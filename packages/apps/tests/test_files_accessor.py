@@ -18,6 +18,7 @@ from microsoft_teams.api import (
 )
 from microsoft_teams.api.activities.typing import TypingActivity
 from microsoft_teams.apps.files import FilesAccessor, download
+from microsoft_teams.apps.files.errors import FileUrlExpiredError
 
 
 def _activity_with(attachments: List[Attachment], conversation_type: Optional[str] = "personal") -> MessageActivity:
@@ -226,6 +227,42 @@ async def test_falls_back_to_a_private_client_when_none_is_injected() -> None:
     assert created[0].is_closed
 
 
+async def test_closes_a_private_client_even_when_the_download_fails() -> None:
+    """
+    The success path is pinned above. This pins the failure path, which is the one that actually matters here.
+
+    Expiry and denial are the headline error modes for this feature, so a failed download is a common path rather
+    than an edge. The close lives in a `finally`, and a regression that moved it inside the `try` would leak a client
+    per failed download while leaving the success test green.
+    """
+    created: List[httpx.AsyncClient] = []
+    real_client_cls = httpx.AsyncClient
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(401)
+
+    def fake_client_cls(*_args: object, **_kwargs: object) -> httpx.AsyncClient:
+        client = real_client_cls(transport=httpx.MockTransport(handler))
+        created.append(client)
+        return client
+
+    attachment = Attachment(
+        content_type=FILE_DOWNLOAD_INFO_CONTENT_TYPE,
+        name="notes.txt",
+        content={"downloadUrl": "https://download.example/notes.txt"},
+    )
+
+    with pytest.MonkeyPatch.context() as monkeypatch:
+        monkeypatch.setattr(download.httpx, "AsyncClient", fake_client_cls)
+        files = await FilesAccessor(_activity_with([attachment])).list()
+
+        with pytest.raises(FileUrlExpiredError):
+            await files[0].download()
+
+    assert len(created) == 1
+    assert created[0].is_closed
+
+
 async def test_does_not_forward_the_shared_clients_authorization_header() -> None:
     """
     The shared client carries the bot's default headers. The download URL embeds its own `tempauth` credential and
@@ -281,3 +318,44 @@ async def test_preserves_the_shared_clients_other_default_headers() -> None:
         await shared.aclose()
 
     assert seen == ["teams.py-test/1.0"]
+
+
+class TestAdditivity:
+    """
+    `credential` was added as a trailing parameter with a default, so a caller compiled against the published
+    signatures keeps working. Python has no compile step, so a removed or reordered parameter surfaces as a
+    `TypeError` at call time rather than a build failure, which makes exercising those call shapes worth more here
+    than in a statically checked language.
+    """
+
+    @pytest.mark.asyncio
+    async def test_files_accessor_still_accepts_its_pre_credential_positional_shape(self):
+        # A real client rather than `None`, because `None` is valid in either slot and so cannot detect a reorder.
+        # `FilesAccessor.__init__` is not keyword-only, so the second positional must stay `client`.
+        client = httpx.AsyncClient()
+
+        try:
+            accessor = FilesAccessor(_activity_with([]), client)
+
+            assert accessor._client is client  # pyright: ignore[reportPrivateUsage]
+            assert await accessor.list() == []
+        finally:
+            await client.aclose()
+
+    @pytest.mark.asyncio
+    async def test_files_accessor_still_accepts_activity_alone(self):
+        assert await FilesAccessor(_activity_with([])).list() == []
+
+    def test_incoming_file_still_constructs_without_a_credential(self):
+        from microsoft_teams.apps.files import IncomingFile
+
+        # Keyword-only (`*`), so ordering cannot break; what would break is dropping a name or making one required.
+        file = IncomingFile(
+            name="notes.txt",
+            scope="personal",
+            source="botActivity",
+            download_url="https://download.example/notes.txt?tempauth=abc",
+        )
+
+        assert file.name == "notes.txt"
+        assert file.content_url is None

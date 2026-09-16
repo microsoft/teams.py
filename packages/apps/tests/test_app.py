@@ -534,6 +534,113 @@ class TestApp:
 
         get_app_token.assert_awaited_once_with(PUBLIC.graph_scope, "credentials-tenant")
 
+    # The guard on `_get_agentic_graph_token`. A blueprint-level identity names no agentic user, so there is nobody to
+    # acquire as, and the guard must refuse WITHOUT reaching the token provider. That shape is reachable rather than
+    # hypothetical: an AgenticIdentity materializes whenever the blueprint id is present, so an activity can carry one
+    # that names no instance and no user. TypeScript pins the same condition in app.spec.ts.
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "agentic_app_id,agentic_user_id",
+        [
+            (None, "31e29ddb-e4ce-427e-8bda-1a37eb12d43f"),
+            ("", "31e29ddb-e4ce-427e-8bda-1a37eb12d43f"),
+            ("d94529f7-d988-4caa-8635-a47201acec74", None),
+            ("d94529f7-d988-4caa-8635-a47201acec74", ""),
+        ],
+    )
+    async def test_get_agentic_graph_token_refuses_an_identity_naming_no_agentic_user(
+        self, agentic_app_id: Optional[str], agentic_user_id: Optional[str]
+    ):
+        app = App(client_id="test-client-id", client_secret="test-secret")
+        identity = AgenticIdentity(
+            agentic_app_blueprint_id="blueprint-id",
+            agentic_app_id=agentic_app_id,
+            agentic_user_id=agentic_user_id,
+            tenant_id="tenant-id",
+        )
+
+        with patch.object(
+            app.token_provider, "get_agentic_user_token", autospec=True, return_value=None
+        ) as get_agentic_user_token:
+            token = await app._get_agentic_graph_token(identity)
+
+        assert token is None
+
+        # Not merely "returned None": it must not have spent an acquisition finding that out.
+        get_agentic_user_token.assert_not_awaited()
+
+    # The complementary case, so the parametrized test above cannot pass by the guard rejecting everything.
+    @pytest.mark.asyncio
+    async def test_get_agentic_graph_token_acquires_for_a_complete_identity(self):
+        app = App(client_id="test-client-id", client_secret="test-secret")
+        identity = AgenticIdentity(
+            agentic_app_blueprint_id="blueprint-id",
+            agentic_app_id="d94529f7-d988-4caa-8635-a47201acec74",
+            agentic_user_id="31e29ddb-e4ce-427e-8bda-1a37eb12d43f",
+            tenant_id="tenant-id",
+        )
+
+        with patch.object(
+            app.token_provider, "get_agentic_user_token", autospec=True, return_value=None
+        ) as get_agentic_user_token:
+            await app._get_agentic_graph_token(identity)
+
+        get_agentic_user_token.assert_awaited_once_with(
+            PUBLIC.graph_scope,
+            "d94529f7-d988-4caa-8635-a47201acec74",
+            "31e29ddb-e4ce-427e-8bda-1a37eb12d43f",
+            "tenant-id",
+        )
+
+    @pytest.mark.asyncio
+    async def test_get_agentic_graph_token_prefers_the_activity_tenant_over_the_configured_one(self):
+        # `AgenticIdentity.tenant_id` is optional. Without the activity's tenant the acquisition falls back to the
+        # app's *configured* tenant, so a multi-tenant app would request a token in the wrong tenant and the download
+        # would fail as an access error rather than anything that names the real cause.
+        app = App(client_id="test-client-id", client_secret="test-secret", tenant_id="configured-tenant")
+        identity = AgenticIdentity(
+            agentic_app_blueprint_id="blueprint-id",
+            agentic_app_id="d94529f7-d988-4caa-8635-a47201acec74",
+            agentic_user_id="31e29ddb-e4ce-427e-8bda-1a37eb12d43f",
+            tenant_id=None,
+        )
+
+        with patch.object(
+            app.token_provider, "get_agentic_user_token", autospec=True, return_value=None
+        ) as get_agentic_user_token:
+            await app._get_agentic_graph_token(identity, "activity-tenant")
+
+        get_agentic_user_token.assert_awaited_once_with(
+            PUBLIC.graph_scope,
+            "d94529f7-d988-4caa-8635-a47201acec74",
+            "31e29ddb-e4ce-427e-8bda-1a37eb12d43f",
+            "activity-tenant",
+        )
+
+    @pytest.mark.asyncio
+    async def test_get_agentic_graph_token_keeps_the_identity_tenant_when_the_platform_sends_one(self):
+        # The identity's own tenant is more specific than the conversation's, so it still wins. Without this the test
+        # above would also pass if the activity tenant simply overwrote everything.
+        app = App(client_id="test-client-id", client_secret="test-secret", tenant_id="configured-tenant")
+        identity = AgenticIdentity(
+            agentic_app_blueprint_id="blueprint-id",
+            agentic_app_id="d94529f7-d988-4caa-8635-a47201acec74",
+            agentic_user_id="31e29ddb-e4ce-427e-8bda-1a37eb12d43f",
+            tenant_id="identity-tenant",
+        )
+
+        with patch.object(
+            app.token_provider, "get_agentic_user_token", autospec=True, return_value=None
+        ) as get_agentic_user_token:
+            await app._get_agentic_graph_token(identity, "activity-tenant")
+
+        get_agentic_user_token.assert_awaited_once_with(
+            PUBLIC.graph_scope,
+            "d94529f7-d988-4caa-8635-a47201acec74",
+            "31e29ddb-e4ce-427e-8bda-1a37eb12d43f",
+            "identity-tenant",
+        )
+
     def test_app_passes_agent365_telemetry_options(self):
         app = App(
             client_id="test-client-id",
