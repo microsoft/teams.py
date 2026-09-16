@@ -10,7 +10,7 @@ from dataclasses import dataclass, field, replace
 from typing import Any, Awaitable, Callable, Dict, List, Optional, Protocol
 
 import httpx
-from httpx._models import Request, Response
+from httpx import Request, Response
 from httpx._types import QueryParamTypes, RequestContent, RequestData, RequestFiles
 
 from .client_token import Token, resolve_token
