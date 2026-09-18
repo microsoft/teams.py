@@ -17,18 +17,25 @@ dotnet tool install -g nbgv
 
 ## Branch Strategy
 
-| Branch | Versions | PyPI tag | Published |
-|--------|----------|----------|-----------|
+| Branch | Versions | ESRP product state | Published |
+|--------|----------|--------------------|-----------|
 | `main` | `2.2.0.dev2`, `2.2.0.dev3`, ... | n/a | No |
 | `release/v2.1` | `2.1.x` (stable) | `latest` | Yes |
-| `release/v2.0` | `2.0.x` (legacy fixes only) | n/a | Yes |
+| `release/v2.0` | closed at `2.0.16` | n/a | No |
 
 Release branches are **long-lived per minor line** and use the `release/v<major>.<minor>` naming convention. Create a
 new release branch from `main` when that minor line enters its release phase; never reset an existing release branch.
 
-**Several release branches are live at once.** At the time of writing, `release/v2.1` is the latest stable line.
-`release/v2.0` accepts legacy fixes only; its deprecation timeline will be announced separately. A fix that affects
-both must be backported to each one separately, and each gets its own release. See
+**One stable line is maintained at a time.** `release/v2.1` carries the current stable line. `release/v2.0` closed at
+`2.0.16` when 2.1.0 went GA: no further 2.0.x releases will be published, and fixes ship forward in 2.1.x instead.
+The branch is kept for history only.
+
+The publish pipeline derives its product state from the version string alone, marking every stable build `latest`
+(`.azdo/publish.yml`). It has no notion of which line is current, so reviving a closed line would label an older
+release as the current one. Keeping a single stable line open is what makes that safe.
+
+A preview line may still run alongside stable, as `release/v2.1` did before it went GA. While both are open, a fix
+that affects each must be backported to them separately, and each gets its own release. See
 [Backporting a fix to a release branch](#backporting-a-fix-to-a-release-branch).
 
 ## Workflow
@@ -125,7 +132,7 @@ height `1`, and the established offset of `1` makes its development version `.de
 | Branch | Package Name |
 |--------|--------------|
 | `main` | `microsoft_teams_apps-2.2.0.dev2.tar.gz` |
-| `release/v2.0` | `microsoft_teams_apps-2.0.16.tar.gz` |
+| `release/v2.0` | `microsoft_teams_apps-2.0.16.tar.gz` (final) |
 | `release/v2.1` | `microsoft_teams_apps-2.1.0.tar.gz` |
 
 > **Note:** Running the pipeline on a branch not in `publicReleaseRefSpec` (e.g., a feature branch) produces versions with the commit hash appended, like `2.2.0.dev5+g1a2b3c4`. This is expected and useful for testing.
@@ -224,7 +231,7 @@ The [publish pipeline](https://dev.azure.com/DomoreexpGithub/Github_Pipelines/_b
    - **Public** — signs packages via ESRP and publishes to PyPI. Requires approval via the `teams-sdk-publish` ADO environment before the ESRP release proceeds.
 5. Pipeline runs: Build > Test > Publish
 
-> **Note:** The pipeline filters out packages matching the `ExcludePackageFolders` variable. Prerelease versions are tagged `next` on PyPI; stable versions are tagged `latest`.
+> **Note:** The pipeline filters out packages matching the `ExcludePackageFolders` variable. PyPI has no dist-tags: `pip` resolves to the highest non-prerelease version by PEP 440 ordering. The `next`/`latest` value the pipeline computes is ESRP release metadata (`productState`), not something PyPI consumes.
 
 Before triggering a **Public** run, confirm the version the branch will actually produce:
 
