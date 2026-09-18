@@ -406,6 +406,9 @@ class HttpStream(StreamerProtocol):
             else:
                 res = await self._client.conversations.create_activity(self._ref.conversation.id, to_send)
 
+            if to_send.id:
+                res = res.model_copy(update={"id": to_send.id})
+
             return SentActivity.merge(to_send, res)
         except HTTPStatusError as e:
             # Various error codes are used for streaming.
