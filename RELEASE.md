@@ -26,17 +26,11 @@ dotnet tool install -g nbgv
 Release branches are **long-lived per minor line** and use the `release/v<major>.<minor>` naming convention. Create a
 new release branch from `main` when that minor line enters its release phase; never reset an existing release branch.
 
-**One stable line is maintained at a time.** `release/v2.1` carries the current stable line. `release/v2.0` closed at
-`2.0.16` when 2.1.0 went GA: no further 2.0.x releases will be published, and fixes ship forward in 2.1.x instead.
-The branch is kept for history only.
+**One stable line is maintained at a time.** `release/v2.1` carries the current stable line. `release/v2.0` closed at `2.0.16` when 2.1.0 went GA: no further 2.0.x releases will be published, and fixes ship forward in 2.1.x instead. The branch is kept for history only.
 
-The publish pipeline derives its product state from the version string alone, marking every stable build `latest`
-(`.azdo/publish.yml`). It has no notion of which line is current, so reviving a closed line would label an older
-release as the current one. Keeping a single stable line open is what makes that safe.
+The publish pipeline derives its product state from the version string alone, marking every stable build `latest` (`.azdo/publish.yml`). It has no notion of which line is current, so reviving a closed line would label an older release as the current one. Keeping a single stable line open is what makes that safe.
 
-A preview line may still run alongside stable, as `release/v2.1` did before it went GA. While both are open, a fix
-that affects each must be backported to them separately, and each gets its own release. See
-[Backporting a fix to a release branch](#backporting-a-fix-to-a-release-branch).
+A preview line may still run alongside stable, as `release/v2.1` did before it went GA. While both are open, a fix that affects each must be backported to them separately, and each gets its own release. See [Backporting a fix to a release branch](#backporting-a-fix-to-a-release-branch).
 
 ## Workflow
 
@@ -46,8 +40,7 @@ Development happens on `main`. When ready to release:
    (e.g. `release/v2.1`)
 2. The PR should make the release branch equal `main` plus the version bump in `version.json`
 3. Merge the PR, then run the publish pipeline
-4. After a successful stable release, open a separate PR to `main` that advances `version.json` to the next planned
-   development line (for example, `2.1.0` is followed by `2.2.0-dev.{height}`) with `versionHeightOffset` set to `1`
+4. After a successful stable release, open a separate PR to `main` that advances `version.json` to the next planned development line (for example, `2.1.0` is followed by `2.2.0-dev.{height}`) with `versionHeightOffset` set to `1`
 
 ### Preparing the release branch
 
@@ -123,9 +116,7 @@ Versions are managed by **Nerdbank.GitVersioning** via [version.json](version.js
 }
 ```
 
-Builds on `main` produce dev versions like `2.2.0.dev2`, `2.2.0.dev3`, etc. These are not published. Changing the
-version core resets Nerdbank.GitVersioning's height for the new development line. The version-change commit has
-height `1`, and the established offset of `1` makes its development version `.dev2`.
+Builds on `main` produce dev versions like `2.2.0.dev2`, `2.2.0.dev3`, etc. These are not published. Changing the version core resets Nerdbank.GitVersioning's height for the new development line. The version-change commit has height `1`, and the established offset of `1` makes its development version `.dev2`.
 
 ### Example Package Names
 
@@ -153,8 +144,7 @@ After the PR merges, run the publish pipeline with **Public** to release to PyPI
 
 ### Preview releases
 
-A preview line keeps `{height}` in the version string and lets Nerdbank.GitVersioning number each release, for
-example a future `release/v2.2` preview beginning at Python package version `2.2.0a1`:
+A preview line keeps `{height}` in the version string and lets Nerdbank.GitVersioning number each release, for example a future `release/v2.2` preview beginning at Python package version `2.2.0a1`:
 
 ```json
 {
@@ -175,8 +165,7 @@ That last point is the one that bites. A backport adds the cherry-pick, plus a c
 versionHeightOffset = target_alpha - height_of_the_final_merge_commit
 ```
 
-Worked example, backporting one fix onto a preview `release/v2.2` to produce `2.2.0-alpha.1` (`2.2.0a1` in Python
-package filenames):
+Worked example, backporting one fix onto a preview `release/v2.2` to produce `2.2.0-alpha.1` (`2.2.0a1` in Python package filenames):
 
 | Step | Height |
 |------|--------|
@@ -209,15 +198,11 @@ If the number is wrong, correct `versionHeightOffset` and re-check. A corrective
 
 ### After a release
 
-Leave `version.json` alone on the release branch once a release ships. A stable branch keeps its literal version, so
-the next release PR has to bump it; a preview branch increments `{height}` on its own and needs nothing.
+Leave `version.json` alone on the release branch once a release ships. A stable branch keeps its literal version, so the next release PR has to bump it; a preview branch increments `{height}` on its own and needs nothing.
 
 Sitting on an already-published stable version is deliberate: PyPI rejecting the re-upload is the only guard against an accidental publish, and a `-dev` version would publish cleanly instead.
 
-After a stable release, `main` must move immediately to the next planned development line in a separate PR. Change
-the version core to that patch, minor, or major version with the `-dev.{height}` suffix and keep
-`versionHeightOffset` at `1`; changing the core resets the height, and the offset makes the version-change commit
-`.dev2`.
+After a stable release, `main` must move immediately to the next planned development line in a separate PR. Change the version core to that patch, minor, or major version with the `-dev.{height}` suffix and keep `versionHeightOffset` at `1`; changing the core resets the height, and the offset makes the version-change commit `.dev2`.
 
 ## Publishing
 
