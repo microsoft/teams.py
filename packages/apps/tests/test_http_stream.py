@@ -50,6 +50,14 @@ class TestHttpStream:
         async def mock_send(conversation_id, activity):
             client.send_call_count += 1
             client.sent_activities.append(activity)
+
+            stream_entities = [
+                entity for entity in activity.entities or [] if entity.type == "streaminfo" and entity.stream_id
+            ]
+            stream_id = next((entity.stream_id for entity in stream_entities), None)
+            if stream_id:
+                return SentActivity(id="DO_NOT_USE_PLACEHOLDER_ID", activity_params=activity)
+
             return SentActivity(id=f"activity-{client.send_call_count}", activity_params=activity)
 
         client.conversations.create_activity = mock_send
@@ -799,12 +807,6 @@ class TestHttpStream:
     async def test_close_waits_for_flush_to_complete(self, mock_api_client, conversation_reference):
         """close() must not send the final message while a flush is still mid-await."""
 
-        async def mock_send(conversation_id, activity):
-            mock_api_client.send_call_count += 1
-            mock_api_client.sent_activities.append(activity)
-            return SentActivity(id="DO_NOT_USE_PLACEHOLDER_ID", activity_params=activity)
-
-        mock_api_client.conversations.create_activity = mock_send
         stream = HttpStream(mock_api_client, conversation_reference)
 
         # Simulate a flush in progress: lock held, _id assigned, text accumulated.
