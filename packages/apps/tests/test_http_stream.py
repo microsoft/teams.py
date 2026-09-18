@@ -806,7 +806,6 @@ class TestHttpStream:
     @pytest.mark.asyncio
     async def test_close_waits_for_flush_to_complete(self, mock_api_client, conversation_reference):
         """close() must not send the final message while a flush is still mid-await."""
-
         stream = HttpStream(mock_api_client, conversation_reference)
 
         # Simulate a flush in progress: lock held, _id assigned, text accumulated.
