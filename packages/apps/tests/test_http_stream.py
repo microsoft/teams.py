@@ -51,10 +51,14 @@ class TestHttpStream:
             client.send_call_count += 1
             client.sent_activities.append(activity)
 
-            stream_entities = [
-                entity for entity in activity.entities or [] if entity.type == "streaminfo" and entity.stream_id
-            ]
-            stream_id = next((entity.stream_id for entity in stream_entities), None)
+            stream_id = next(
+                (
+                    entity.stream_id
+                    for entity in (activity.entities or [])
+                    if entity.type == "streaminfo" and entity.stream_id
+                ),
+                None,
+            )
             if stream_id:
                 return SentActivity(id="DO_NOT_USE_PLACEHOLDER_ID", activity_params=activity)
 
@@ -526,15 +530,6 @@ class TestHttpStream:
             close_activities.append(activity)
             close_event.set()
 
-        async def mock_create(conversation_id, activity):
-            if any(
-                entity.type == "streaminfo" and entity.stream_type == "final" for entity in (activity.entities or [])
-            ):
-                return SentActivity(id="DO_NOT_USE_PLACEHOLDER_ID", activity_params=activity)
-            return SentActivity(id="stream-1", activity_params=activity)
-
-        mock_api_client.conversations.create_activity = mock_create
-
         with patcher:
             stream = HttpStream(mock_api_client, conversation_reference)
             stream.on_close(handle_close)
@@ -546,10 +541,10 @@ class TestHttpStream:
             result = await stream.close()
 
         assert result is not None
-        assert result.id == "stream-1"
+        assert result.id == "activity-1"
         await asyncio.wait_for(close_event.wait(), timeout=1)
         assert close_activities == [result]
-        assert close_activities[0].id == "stream-1"
+        assert close_activities[0].id == "activity-1"
 
     @pytest.mark.asyncio
     async def test_final_activity_last_wins(self, mock_api_client, conversation_reference, patch_loop_call_later):
