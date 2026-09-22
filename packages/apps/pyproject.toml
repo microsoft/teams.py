@@ -21,6 +21,7 @@ dependencies = [
     "opentelemetry-api>=1.41.0",
     "python-dotenv>=1.0.0",
     "pydantic-settings>=2.11.0",
+    "websockets>=15.0",
 ]
 
 [project.optional-dependencies]
