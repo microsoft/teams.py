@@ -1,16 +1,16 @@
 """
 Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
-
-The two-step handshake that turns bot credentials into a WebSocket URL.
-
-First the Teams service is asked where to connect and for a connection token; then
-SignalR is negotiated at that address, following any redirects it returns.
-
-Every URL crossing this module is checked by :func:`assert_secure_url` before it is
-used or a token is attached to it, so a downgraded or redirected endpoint cannot be
-handed a bearer token over cleartext.
 """
+
+# The two-step handshake that turns bot credentials into a WebSocket URL.
+#
+# First the Teams service is asked where to connect and for a connection token; then
+# SignalR is negotiated at that address, following any redirects it returns.
+#
+# Every URL crossing this module is checked by :func:`assert_secure_url` before it is
+# used or a token is attached to it, so a downgraded or redirected endpoint cannot be
+# handed a bearer token over cleartext.
 
 import asyncio
 import ipaddress

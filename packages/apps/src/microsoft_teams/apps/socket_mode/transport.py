@@ -1,17 +1,17 @@
 """
 Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
-
-Fans Socket Mode out across geographies and owns the start/stop lifecycle.
-
-``start()`` is all-or-nothing: every configured geo must reach ``SocketReady`` or the
-whole transport is torn down and the error raised, so a partially connected transport
-is never reported as running. Once up, each geo is supervised independently and one
-geo dropping has no effect on the others.
-
-This module also owns the policy the supervisors consult -- backoff, throttling, and
-refresh timing -- keeping those decisions in one place.
 """
+
+# Fans Socket Mode out across geographies and owns the start/stop lifecycle.
+#
+# ``start()`` is all-or-nothing: every configured geo must reach ``SocketReady`` or the
+# whole transport is torn down and the error raised, so a partially connected transport
+# is never reported as running. Once up, each geo is supervised independently and one
+# geo dropping has no effect on the others.
+#
+# This module also owns the policy the supervisors consult -- backoff, throttling, and
+# refresh timing -- keeping those decisions in one place.
 
 import asyncio
 import logging

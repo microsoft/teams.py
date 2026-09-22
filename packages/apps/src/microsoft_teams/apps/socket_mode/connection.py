@@ -1,19 +1,19 @@
 """
 Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
-
-One Socket Mode connection: negotiate, open the socket, complete the SignalR
-handshake, wait for ``SocketReady``, then pump activities until it closes.
-
-A connection is deliberately single-use. It never reconnects itself -- on close it
-reports ``on_closed`` once and becomes terminal, leaving reconnection to the
-supervisor. That keeps retry policy in one place and makes each connection a clean
-generation boundary for fencing stale work.
-
-``start()`` is cancellation-safe throughout: every await can be interrupted by the
-caller's stop event, and any partially built socket, listener, or heartbeat is torn
-down before the error propagates.
 """
+
+# One Socket Mode connection: negotiate, open the socket, complete the SignalR
+# handshake, wait for ``SocketReady``, then pump activities until it closes.
+#
+# A connection is deliberately single-use. It never reconnects itself -- on close it
+# reports ``on_closed`` once and becomes terminal, leaving reconnection to the
+# supervisor. That keeps retry policy in one place and makes each connection a clean
+# generation boundary for fencing stale work.
+#
+# ``start()`` is cancellation-safe throughout: every await can be interrupted by the
+# caller's stop event, and any partially built socket, listener, or heartbeat is torn
+# down before the error propagates.
 
 import asyncio
 import logging

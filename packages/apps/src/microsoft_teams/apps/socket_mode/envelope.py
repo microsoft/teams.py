@@ -1,15 +1,15 @@
 """
 Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
-
-Mapping between Socket Mode wire frames and the Teams domain: inbound activity
-envelopes in, reply frames out.
-
-Casing and field validation are handled declaratively by the models in
-:mod:`types`, so this module is only the logic that cannot be expressed as a
-schema -- deciding which field actually holds the activity, and classifying an
-envelope as invoke versus one-way.
 """
+
+# Mapping between Socket Mode wire frames and the Teams domain: inbound activity
+# envelopes in, reply frames out.
+#
+# Casing and field validation are handled declaratively by the models in
+# :mod:`types`, so this module is only the logic that cannot be expressed as a
+# schema -- deciding which field actually holds the activity, and classifying an
+# envelope as invoke versus one-way.
 
 import time
 from typing import Any, Mapping, Optional, TypeGuard, cast

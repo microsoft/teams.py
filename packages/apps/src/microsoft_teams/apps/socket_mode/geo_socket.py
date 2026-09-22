@@ -1,16 +1,16 @@
 """
 Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
-
-Keeps one geography connected: initial connect within a startup budget, then
-supervision that reconnects with backoff for as long as the transport is accepting.
-
-Each connection attempt gets a monotonically increasing *generation*. Because a
-replaced connection's in-flight callbacks can still fire, generations are what make
-stale work identifiable: an activity is only dispatched when its generation is both
-the current one and the one that satisfied ``SocketReady``. A closed or superseded
-connection can therefore never deliver an activity or a reply.
 """
+
+# Keeps one geography connected: initial connect within a startup budget, then
+# supervision that reconnects with backoff for as long as the transport is accepting.
+#
+# Each connection attempt gets a monotonically increasing *generation*. Because a
+# replaced connection's in-flight callbacks can still fire, generations are what make
+# stale work identifiable: an activity is only dispatched when its generation is both
+# the current one and the one that satisfied ``SocketReady``. A closed or superseded
+# connection can therefore never deliver an activity or a reply.
 
 import asyncio
 import logging

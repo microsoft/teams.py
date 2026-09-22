@@ -1,18 +1,18 @@
 """
 Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
-
-The subset of the SignalR JSON hub protocol this transport needs, hand-rolled
-because Microsoft ships no SignalR client for Python.
-
-This module deliberately knows nothing about Teams and imports nothing from this
-SDK, so it can be replaced wholesale if an official client appears. A test
-enforces that boundary by rejecting any relative import here.
-
-Frames are JSON objects separated by :data:`RECORD_SEPARATOR`, discriminated by a
-numeric ``type``: ``1`` invocation, ``3`` completion, ``6`` ping, ``7`` close. The
-handshake is the one exception -- it carries no ``type`` and is handled by the caller.
 """
+
+# The subset of the SignalR JSON hub protocol this transport needs, hand-rolled
+# because Microsoft ships no SignalR client for Python.
+#
+# This module deliberately knows nothing about Teams and imports nothing from this
+# SDK, so it can be replaced wholesale if an official client appears. A test
+# enforces that boundary by rejecting any relative import here.
+#
+# Frames are JSON objects separated by :data:`RECORD_SEPARATOR`, discriminated by a
+# numeric ``type``: ``1`` invocation, ``3`` completion, ``6`` ping, ``7`` close. The
+# handshake is the one exception -- it carries no ``type`` and is handled by the caller.
 
 import json
 from dataclasses import dataclass
