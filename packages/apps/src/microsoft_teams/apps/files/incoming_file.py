@@ -4,13 +4,14 @@ Licensed under the MIT License.
 """
 
 import asyncio
+from collections.abc import AsyncGenerator, AsyncIterator
 from contextlib import asynccontextmanager
-from typing import Any, AsyncIterator, Optional
+from typing import Any, Optional
 
 import httpx
 from microsoft_teams.api import ConversationType
 
-from .download import FileFetchTarget, OpenedFileStream, collect_stream, open_file_stream
+from .download import FileFetchTarget, GraphCredential, OpenedFileStream, collect_stream, open_file_stream
 from .downloaded_file import DownloadedFile
 from .types import FileSource
 
@@ -27,8 +28,10 @@ class IncomingFile:
 
     unique_id: Optional[str]
     """
-    The OneDrive/ODSP drive-item id when the platform reports it (`content.uniqueId`); the storage-specific locator a
-    Graph fetch keys off. Present only when the wire provided it.
+    The ODSP/OneDrive identifier for the file when the platform reports it (`content.uniqueId`). Useful for
+    correlation, dedup and logging, but not for retrieval: the Graph fetch resolves bytes from `content_url` through
+    `/shares`, and this value arrives as a GUID, which is a SharePoint `listItemUniqueId` shape rather than a Graph
+    `driveItem.id`. Present only when the wire provided it.
     """
 
     name: str
@@ -58,7 +61,8 @@ class IncomingFile:
     """
     Browsable URL to the file in OneDrive/SharePoint, as sent on the attachment's `content_url`.
 
-    Not fetchable for bytes despite the name; those come from `download()` or `stream()`.
+    Not fetchable for bytes despite the name, but it is the locator a Graph `/shares` resolution keys off; bytes
+    come from `download()` or `stream()`.
     """
 
     raw: Any
@@ -77,6 +81,7 @@ class IncomingFile:
         raw: Any = None,
         download_url: Optional[str] = None,
         client: Optional[httpx.AsyncClient] = None,
+        credential: Optional[GraphCredential] = None,
     ) -> None:
         self.name = name
         self.scope = scope
@@ -88,6 +93,7 @@ class IncomingFile:
         self.raw = raw
         self._download_url = download_url
         self._client = client
+        self._credential = credential
         self._prior_fetch_succeeded = False
 
     async def stream(self) -> AsyncIterator[bytes]:
@@ -138,11 +144,12 @@ class IncomingFile:
                 await asyncio.to_thread(file.close)
 
     @asynccontextmanager
-    async def _open(self) -> AsyncIterator[OpenedFileStream]:
+    async def _open(self) -> AsyncGenerator[OpenedFileStream]:
         async with open_file_stream(
             self._target(),
             prior_fetch_succeeded=self._prior_fetch_succeeded,
             client=self._client,
+            credential=self._credential,
         ) as opened:
             self._prior_fetch_succeeded = True
             yield opened
@@ -151,5 +158,6 @@ class IncomingFile:
         return FileFetchTarget(
             scope=self.scope,
             download_url=self._download_url,
+            content_url=self.content_url,
             content_type=self.content_type,
         )

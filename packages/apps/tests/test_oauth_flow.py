@@ -6,6 +6,8 @@ Licensed under the MIT License.
 # pyright: basic
 
 import asyncio
+from contextlib import contextmanager
+from typing import Any, Generator
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -14,6 +16,27 @@ from microsoft_teams.apps import App, OAuthFlow, OAuthFlowRegistry
 from microsoft_teams.apps.routing import SignInOptions
 from microsoft_teams.apps.state import StateOptions, TurnStateLoader
 from microsoft_teams.common.storage import LocalStorage
+
+
+class RecordingSpan:
+    def __init__(self, name: str, options: dict[str, Any]):
+        self.name = name
+        self.options = options
+        self.attributes: dict[str, Any] = {}
+
+    def set_attribute(self, key: str, value: Any) -> None:
+        self.attributes[key] = value
+
+
+class RecordingTracer:
+    def __init__(self):
+        self.spans: list[RecordingSpan] = []
+
+    @contextmanager
+    def start_as_current_span(self, name: str, **kwargs: Any) -> Generator[RecordingSpan, None, None]:
+        span = RecordingSpan(name, kwargs)
+        self.spans.append(span)
+        yield span
 
 
 def _api_ctx() -> MagicMock:
@@ -33,6 +56,27 @@ def _http_status_error(status_code: int) -> HTTPStatusError:
     request = Request("GET", "https://token.example/api/usertoken/GetToken")
     response = Response(status_code, request=request)
     return HTTPStatusError(f"HTTP {status_code}", request=request, response=response)
+
+
+def _capture_oauth_telemetry(monkeypatch: pytest.MonkeyPatch):
+    tracer = RecordingTracer()
+    operation_calls = []
+    error_calls = []
+    exception_calls = []
+    monkeypatch.setattr("microsoft_teams.apps.diagnostics._helpers.get_tracer", lambda: tracer)
+    monkeypatch.setattr(
+        "microsoft_teams.apps.diagnostics._helpers.record_oauth_operation",
+        lambda *args: operation_calls.append(args),
+    )
+    monkeypatch.setattr(
+        "microsoft_teams.apps.diagnostics._helpers.record_oauth_error",
+        lambda *args: error_calls.append(args),
+    )
+    monkeypatch.setattr(
+        "microsoft_teams.apps.diagnostics._helpers.record_exception",
+        lambda *args: exception_calls.append(args),
+    )
+    return tracer, operation_calls, error_calls, exception_calls
 
 
 class TestOAuthFlowOperations:
@@ -88,10 +132,71 @@ class TestOAuthFlowOperations:
         assert await flow.sign_in(ctx) is None
 
     @pytest.mark.asyncio
-    async def test_sign_out_targets_flow_connection(self) -> None:
+    @pytest.mark.parametrize(
+        ("token", "expected_result"),
+        [("tok", "token_cached"), (None, "signin_card_sent")],
+    )
+    async def test_sign_in_records_flow_telemetry(
+        self,
+        token: str | None,
+        expected_result: str,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        flow = OAuthFlow("graph")
+        ctx = MagicMock()
+        ctx.sign_in = AsyncMock(return_value=token)
+        tracer, operation_calls, _, _ = _capture_oauth_telemetry(monkeypatch)
+
+        assert await flow.sign_in(ctx) == token
+
+        assert tracer.spans[0].name == "microsoft.teams.oauth"
+        assert tracer.spans[0].options == {"record_exception": False, "set_status_on_exception": False}
+        assert tracer.spans[0].attributes == {
+            "oauth.connection": "graph",
+            "oauth.operation": "signin",
+            "oauth.result": expected_result,
+        }
+        assert operation_calls[0][:3] == ("graph", "signin", expected_result)
+        assert operation_calls[0][3] >= 0
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("error", "expected_error_type"),
+        [
+            (_http_status_error(503), "http_error"),
+            (RuntimeError("sign-in failed"), "exception"),
+        ],
+    )
+    async def test_sign_in_records_and_reraises_failures(
+        self,
+        error: Exception,
+        expected_error_type: str,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        flow = OAuthFlow("graph")
+        ctx = MagicMock()
+        ctx.sign_in = AsyncMock(side_effect=error)
+        tracer, operation_calls, error_calls, exception_calls = _capture_oauth_telemetry(monkeypatch)
+
+        with pytest.raises(type(error)):
+            await flow.sign_in(ctx)
+
+        assert tracer.spans[0].attributes == {
+            "oauth.connection": "graph",
+            "oauth.operation": "signin",
+            "oauth.error.type": expected_error_type,
+            "oauth.result": "operation_failed",
+        }
+        assert operation_calls[0][:3] == ("graph", "signin", "operation_failed")
+        assert error_calls == [("graph", "signin", expected_error_type)]
+        assert exception_calls == [(tracer.spans[0], error)]
+
+    @pytest.mark.asyncio
+    async def test_sign_out_targets_flow_connection(self, monkeypatch: pytest.MonkeyPatch) -> None:
         flow = OAuthFlow("graph")
         ctx = _api_ctx()
         ctx.api.users.sign_out = AsyncMock(return_value=None)
+        tracer, operation_calls, _, _ = _capture_oauth_telemetry(monkeypatch)
 
         await flow.sign_out(ctx)
 
@@ -100,12 +205,20 @@ class TestOAuthFlowOperations:
         assert params.connection_name == "graph"
         assert params.channel_id == "msteams"
         assert params.user_id == "user-1"
+        assert tracer.spans[0].name == "microsoft.teams.oauth"
+        assert tracer.spans[0].attributes == {
+            "oauth.connection": "graph",
+            "oauth.operation": "signout",
+            "oauth.result": "operation_succeeded",
+        }
+        assert operation_calls[0][:3] == ("graph", "signout", "operation_succeeded")
 
     @pytest.mark.asyncio
-    async def test_get_token_targets_flow_connection(self) -> None:
+    async def test_get_token_targets_flow_connection(self, monkeypatch: pytest.MonkeyPatch) -> None:
         flow = OAuthFlow("graph")
         ctx = _api_ctx()
         ctx.api.users.get_token = AsyncMock(return_value=MagicMock(token="tok"))
+        tracer, operation_calls, _, _ = _capture_oauth_telemetry(monkeypatch)
 
         result = await flow.get_token(ctx)
 
@@ -114,25 +227,46 @@ class TestOAuthFlowOperations:
         assert params.connection_name == "graph"
         assert params.channel_id == "msteams"
         assert params.user_id == "user-1"
+        assert tracer.spans[0].attributes == {
+            "oauth.connection": "graph",
+            "oauth.operation": "get_token",
+            "oauth.result": "token_found",
+        }
+        assert operation_calls[0][:3] == ("graph", "get_token", "token_found")
 
     @pytest.mark.asyncio
-    async def test_get_token_returns_none_when_no_token_cached(self) -> None:
+    async def test_get_token_returns_none_when_no_token_cached(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """404 is the Token Service saying "not signed in", not a failure."""
         flow = OAuthFlow("graph")
         ctx = _api_ctx()
         ctx.api.users.get_token = AsyncMock(side_effect=_http_status_error(404))
+        tracer, operation_calls, error_calls, _ = _capture_oauth_telemetry(monkeypatch)
 
         assert await flow.get_token(ctx) is None
+        assert tracer.spans[0].attributes["oauth.result"] == "token_not_found"
+        assert operation_calls[0][:3] == ("graph", "get_token", "token_not_found")
+        assert error_calls == []
 
     @pytest.mark.asyncio
-    async def test_get_token_reraises_non_404(self) -> None:
+    async def test_get_token_reraises_non_404(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """An outage must not be reported as a logged-out user."""
         flow = OAuthFlow("graph")
         ctx = _api_ctx()
-        ctx.api.users.get_token = AsyncMock(side_effect=_http_status_error(503))
+        error = _http_status_error(503)
+        ctx.api.users.get_token = AsyncMock(side_effect=error)
+        tracer, operation_calls, error_calls, exception_calls = _capture_oauth_telemetry(monkeypatch)
 
         with pytest.raises(HTTPStatusError):
             await flow.get_token(ctx)
+        assert tracer.spans[0].attributes == {
+            "oauth.connection": "graph",
+            "oauth.operation": "get_token",
+            "oauth.error.type": "http_error",
+            "oauth.result": "operation_failed",
+        }
+        assert operation_calls[0][:3] == ("graph", "get_token", "operation_failed")
+        assert error_calls == [("graph", "get_token", "http_error")]
+        assert exception_calls == [(tracer.spans[0], error)]
 
     @pytest.mark.asyncio
     async def test_is_signed_in_true_when_token_present(self) -> None:

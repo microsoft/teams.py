@@ -29,6 +29,7 @@ app = App()
 async def handle_meeting_start(ctx: ActivityContext[MeetingStartEventActivity]):
     meeting_data = ctx.activity.value
     start_time = meeting_data.start_time.strftime("%c")
+    join_url = meeting_data.join_url
 
     card = AdaptiveCard(
         body=[
@@ -38,7 +39,8 @@ async def handle_meeting_start(ctx: ActivityContext[MeetingStartEventActivity]):
                 weight="Bolder",
             )
         ],
-        actions=[OpenUrlAction(url=meeting_data.join_url, title="Join the meeting")],
+        # Meetings held inside a channel have no join URL, so the action is omitted for them.
+        actions=[OpenUrlAction(url=join_url, title="Join the meeting")] if join_url else None,
     )
 
     await ctx.send(card)

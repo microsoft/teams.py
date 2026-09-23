@@ -4,7 +4,7 @@ Licensed under the MIT License.
 """
 
 import logging
-from typing import List, Optional
+from typing import Any, Optional, cast
 
 import httpx
 from microsoft_teams.api import (
@@ -17,6 +17,7 @@ from microsoft_teams.api import (
 )
 from pydantic import ValidationError
 
+from .download import GraphCredential
 from .incoming_file import IncomingFile
 
 logger = logging.getLogger(__name__)
@@ -27,8 +28,9 @@ class FilesAccessor:
     Accessor for the uploaded files on the current inbound activity, exposed as `ctx.files`.
 
     "Files" is the uploaded-file view over the raw `ctx.activity.attachments` array. Uploaded files arrive as
-    attachments where `content_type` is `file.download.info`, carrying file metadata (a `download_url` plus
-    identifiers) rather than the bytes themselves, which are fetched from that URL. This accessor maps each to an
+    attachments where `content_type` is `file.download.info`, carrying file metadata rather than the bytes themselves.
+    The metadata names where the bytes live: a pre-authorized `download_url` when the platform issues one, otherwise a
+    `content_url` that locates the item so Graph can resolve it. This accessor maps each to an
     `IncomingFile`, and skips everything else in `attachments` (adaptive cards, mentions, other non-file content) as
     well as malformed file entries, never throwing. For each file it returns, the original wire attachment (the
     metadata object, not the bytes) is retained on `IncomingFile.raw`. A malformed or non-file attachment is reachable
@@ -44,11 +46,17 @@ class FilesAccessor:
     pick up the bot's `Authorization` header. When omitted, each download creates and closes its own client.
     """
 
-    def __init__(self, activity: ActivityBase, client: Optional[httpx.AsyncClient] = None) -> None:
+    def __init__(
+        self,
+        activity: ActivityBase,
+        client: Optional[httpx.AsyncClient] = None,
+        credential: Optional[GraphCredential] = None,
+    ) -> None:
         self._activity = activity
         self._client = client
+        self._credential = credential
 
-    async def list(self) -> List[IncomingFile]:
+    async def list(self) -> list[IncomingFile]:
         """
         The files attached to the current inbound activity. Async because later scopes hydrate through Graph; the
         personal path resolves synchronously from the activity but keeps the async signature so the shape never
@@ -66,7 +74,7 @@ class FilesAccessor:
         attachments = self._activity.attachments or []
         scope = self._detect_scope()
 
-        files: List[IncomingFile] = []
+        files: list[IncomingFile] = []
         for index, attachment in enumerate(attachments):
             file = self._to_incoming_file(attachment, index, scope)
             if file is not None:
@@ -99,13 +107,34 @@ class FilesAccessor:
 
         content = self._coerce_content(attachment.content, index)
         download_url = content.download_url if content else None
+        content_url = attachment.content_url
         name = attachment.name
 
-        # A `file.download.info` without fetchable URL or name cannot be turned into a usable handle. Skip it and
-        # leave a breadcrumb rather than throwing.
-        if not download_url or not name:
-            missing = "name" if not name else "download_url"
-            logger.debug(f"files: skipping file.download.info attachment at index {index}; missing {missing}")
+        # `download_url` is fetched directly. A `content_url` without one is the Agentic User case and resolves
+        # through Graph, restricted to `personal` because agentic delivery in other scopes is unvalidated: surfacing a
+        # handle there will produce a `list()` entry that then fails at `download()`. The `download_url` branch keeps
+        # its existing scope behavior.
+        # The Agentic User shape: `content` that parsed and declares no `download_url` at all. Content that failed to
+        # parse, or that declares a `download_url` too malformed to use, is a broken attachment rather than an agentic
+        # one. Both are excluded from the Graph route because both were skipped before it existed, and resolving one
+        # would spend a Graph credential on a payload the SDK has already judged untrustworthy.
+        raw_content: object = attachment.content
+        declares_download_url = isinstance(raw_content, dict) and "downloadUrl" in cast("dict[str, Any]", raw_content)
+        is_agentic_shape = content is not None and not declares_download_url
+
+        has_locator = bool(download_url or content_url)
+        can_fetch = bool(download_url) or (scope == "personal" and is_agentic_shape and bool(content_url))
+
+        if not can_fetch or not name:
+            # Split by cause: a malformed attachment is a real defect, while an out-of-scope file is expected noise.
+            if not name or not has_locator:
+                missing = "name" if not name else "a download or content URL"
+                logger.warning(f"skipping file.download.info attachment at index {index}; missing {missing}")
+            else:
+                logger.debug(
+                    f"skipping file.download.info attachment at index {index}; "
+                    f"'{scope}' scope files are not fetchable yet"
+                )
             return None
 
         return IncomingFile(
@@ -116,11 +145,13 @@ class FilesAccessor:
             # `file_type` is the platform-supplied extension (e.g. `pdf`); left `None` when the wire omits it,
             # matching how peer SDKs surface it.
             extension=content.file_type if content else None,
-            # Browsable link to the file in OneDrive/SharePoint; not fetchable like `download_url`.
-            content_url=attachment.content_url,
+            # Browsable link to the file in OneDrive/SharePoint. Not directly fetchable like `download_url`, but it
+            # is the locator a Graph `/shares` resolution keys off.
+            content_url=content_url,
             raw=attachment,
             download_url=download_url,
             client=self._client,
+            credential=self._credential,
         )
 
     def _coerce_content(self, content: object, index: int) -> Optional[FileDownloadInfo]:
@@ -128,11 +159,18 @@ class FilesAccessor:
         if isinstance(content, FileDownloadInfo):
             return content
         if isinstance(content, dict):
+            # Wrong-typed fields are dropped one at a time rather than rejecting the whole object. `unique_id` and
+            # `file_type` are metadata, so failing on one of them would drop a usable `download_url` and route a
+            # traditional bot's file through Graph, which then fails reporting a consent problem that was never the
+            # cause.
+            narrowed = {
+                key: value
+                for key, value in cast("dict[str, Any]", content).items()
+                if value is None or isinstance(value, str)
+            }
             try:
-                return FileDownloadInfo.model_validate(content)
+                return FileDownloadInfo.model_validate(narrowed)
             except ValidationError:
-                logger.debug(
-                    f"files: skipping file.download.info attachment at index {index}; content failed validation"
-                )
+                logger.debug(f"skipping file.download.info attachment at index {index}; content failed validation")
                 return None
         return None

@@ -5,8 +5,9 @@ Licensed under the MIT License.
 
 import json
 import logging
-from typing import Any
-from unittest.mock import MagicMock
+from contextlib import contextmanager
+from typing import Any, Generator
+from unittest.mock import MagicMock, patch
 
 import pytest
 from microsoft_teams.apps.state import (
@@ -18,6 +19,24 @@ from microsoft_teams.apps.state import (
     create_state_loader,
 )
 from microsoft_teams.common import LocalStorage, Storage
+
+
+class RecordingSpan:
+    def __init__(self, name: str, options: dict[str, Any]):
+        self.name = name
+        self.options = options
+
+
+class RecordingTracer:
+    def __init__(self):
+        self.spans: list[RecordingSpan] = []
+
+    @contextmanager
+    def start_as_current_span(self, name: str, **kwargs: Any) -> Generator[RecordingSpan, None, None]:
+        span = RecordingSpan(name, kwargs)
+        self.spans.append(span)
+        yield span
+
 
 # ---------------------------------------------------------------------------
 # TurnState
@@ -432,6 +451,42 @@ class TestTurnStateLoader:
         await loader.delete("c1", "u1")
         assert storage.get("ts:conv:c1") is None
         assert storage.get("ts:user:c1:u1") is None
+
+    async def test_load_save_and_delete_create_state_spans(self):
+        storage = LocalStorage()
+        loader = TurnStateLoader(storage)
+        tracer = RecordingTracer()
+
+        with patch("microsoft_teams.apps.state.loader.get_tracer", return_value=tracer):
+            container = await loader.load("c1", "u1")
+            container.conversation["saved"] = True
+            await loader.save(container)
+            await loader.delete("c1", "u1")
+
+        assert [span.name for span in tracer.spans] == [
+            "microsoft.teams.state.load",
+            "microsoft.teams.state.save",
+            "microsoft.teams.state.delete",
+        ]
+        assert all(
+            span.options == {"record_exception": False, "set_status_on_exception": False} for span in tracer.spans
+        )
+
+    async def test_state_span_records_storage_exception(self):
+        error = RuntimeError("storage unavailable")
+        storage = MagicMock(spec=Storage)
+        storage.async_get.side_effect = error
+        loader = TurnStateLoader(storage)
+        tracer = RecordingTracer()
+
+        with (
+            patch("microsoft_teams.apps.state.loader.get_tracer", return_value=tracer),
+            patch("microsoft_teams.apps.state.loader.record_exception") as record,
+            pytest.raises(RuntimeError, match="storage unavailable"),
+        ):
+            await loader.load("c1")
+
+        record.assert_called_once_with(tracer.spans[0], error)
 
     async def test_corrupt_blob_loads_as_empty(self):
         storage = LocalStorage()

@@ -38,7 +38,7 @@ jobs:
 
     steps:
       - name: Harden Runner
-        uses: step-security/harden-runner@05e31511f85b41b11d1cf0ef85d0992719546e2c # v2.21.0
+        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
         with:
           egress-policy: audit
 
@@ -55,7 +55,7 @@ jobs:
         run: dotnet tool install -g nbgv
 
       - name: Install uv
-        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
         with:
           enable-cache: true
 
@@ -67,14 +67,10 @@ jobs:
           uv sync --python ${{ matrix.python-version }} --frozen --all-packages --group dev
 
       - name: Lint (Ruff)
-        uses: astral-sh/ruff-action@278981a28ce3188b1e39527901f38254bf3aac89 # v4.1.0
-        with:
-          args: check
+        run: uv run --frozen --python ${{ matrix.python-version }} ruff check --no-fix .
 
       - name: Format (Ruff)
-        uses: astral-sh/ruff-action@278981a28ce3188b1e39527901f38254bf3aac89 # v4.1.0
-        with:
-          args: "format"
+        run: uv run --frozen --python ${{ matrix.python-version }} ruff format --check .
 
       - name: Type Check (PyRight)
         run: |

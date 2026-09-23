@@ -278,7 +278,7 @@ def test_app_metrics_are_recorded_with_allowed_attributes():
         record_handler_duration(2.5, "message", "type")
         record_handler_failure("message", "type")
         record_handler_unmatched("invoke", "composeExtension/query")
-        record_oauth_operation("test-connection", "token_exchange", "success", 3.5)
+        record_oauth_operation("test-connection", "token_exchange", "operation_succeeded", 3.5)
         record_oauth_error("test-connection", "token_exchange", "http_error")
 
     metrics = {}
@@ -318,7 +318,7 @@ def test_app_metrics_are_recorded_with_allowed_attributes():
     assert oauth_operations_point.attributes == {
         "oauth.connection": "test-connection",
         "oauth.operation": "token_exchange",
-        "oauth.result": "success",
+        "oauth.result": "operation_succeeded",
     }
 
     oauth_duration_point = metrics["microsoft.teams.oauth.operation.duration"].data.data_points[0]
@@ -326,7 +326,7 @@ def test_app_metrics_are_recorded_with_allowed_attributes():
     assert oauth_duration_point.attributes == {
         "oauth.connection": "test-connection",
         "oauth.operation": "token_exchange",
-        "oauth.result": "success",
+        "oauth.result": "operation_succeeded",
     }
 
     oauth_errors_point = metrics["microsoft.teams.oauth.errors"].data.data_points[0]

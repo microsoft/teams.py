@@ -7,16 +7,19 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any, Dict, Optional, Union, cast
+from typing import Any, Awaitable, Callable, Dict, Optional, TypeVar, Union, cast
 from urllib.parse import quote
 
 from microsoft_teams.common import LocalStorage, Storage
 
+from ..diagnostics._constants import APP_SPAN_NAMES
+from ..diagnostics._helpers import get_tracer, record_exception
 from .container import TurnStateContainer
 from .options import StateOptions
 from .turn_state import TurnState
 
 logger = logging.getLogger(__name__)
+T = TypeVar("T")
 
 
 class TurnStateLoader:
@@ -48,23 +51,27 @@ class TurnStateLoader:
 
     async def load(self, conversation_id: str, user_id: Optional[str] = None) -> TurnStateContainer:
         """Load both scopes for the turn. ``user`` is ``None`` when ``user_id`` is."""
-        conversation = await self._load_scope(self.conversation_key(conversation_id))
 
-        user: Optional[TurnState] = None
-        if user_id is not None:
-            user = await self._load_scope(self.user_key(conversation_id, user_id))
+        async def load_scopes() -> TurnStateContainer:
+            conversation = await self._load_scope(self.conversation_key(conversation_id))
 
-        async def _delete() -> None:
-            await self.delete(conversation_id, user_id)
+            user: Optional[TurnState] = None
+            if user_id is not None:
+                user = await self._load_scope(self.user_key(conversation_id, user_id))
 
-        return TurnStateContainer(
-            conversation=conversation,
-            user=user,
-            conversation_id=conversation_id,
-            user_id=user_id,
-            _deleter=_delete,
-            _saver=self.save,
-        )
+            async def _delete() -> None:
+                await self.delete(conversation_id, user_id)
+
+            return TurnStateContainer(
+                conversation=conversation,
+                user=user,
+                conversation_id=conversation_id,
+                user_id=user_id,
+                _deleter=_delete,
+                _saver=self.save,
+            )
+
+        return await _trace_state_operation(APP_SPAN_NAMES.state_load, load_scopes)
 
     async def save(self, container: TurnStateContainer) -> None:
         """Persist dirty scopes under the identity the container was loaded for.
@@ -78,37 +85,44 @@ class TurnStateLoader:
         if container.user is not None and not container.user_id:
             raise ValueError("TurnStateContainer.user_id must be set to save user state.")
 
-        pending_deletes: list[str] = []
-        pending_sets: list[tuple[str, str]] = []
-        pending_clean: list[TurnState] = []
-        self._prepare_scope_save(
-            self.conversation_key(container.conversation_id),
-            container.conversation,
-            pending_deletes,
-            pending_sets,
-            pending_clean,
-        )
-        if container.user is not None and container.user_id is not None:
+        async def save_scopes() -> None:
+            pending_deletes: list[str] = []
+            pending_sets: list[tuple[str, str]] = []
+            pending_clean: list[TurnState] = []
             self._prepare_scope_save(
-                self.user_key(container.conversation_id, container.user_id),
-                container.user,
+                self.conversation_key(container.conversation_id),
+                container.conversation,
                 pending_deletes,
                 pending_sets,
                 pending_clean,
             )
+            if container.user is not None and container.user_id is not None:
+                self._prepare_scope_save(
+                    self.user_key(container.conversation_id, container.user_id),
+                    container.user,
+                    pending_deletes,
+                    pending_sets,
+                    pending_clean,
+                )
 
-        for key in pending_deletes:
-            await self._storage.async_delete(key)
-        for key, value in pending_sets:
-            await self._storage.async_set(key, value)
-        for scope in pending_clean:
-            scope.mark_clean()
+            for key in pending_deletes:
+                await self._storage.async_delete(key)
+            for key, value in pending_sets:
+                await self._storage.async_set(key, value)
+            for scope in pending_clean:
+                scope.mark_clean()
+
+        await _trace_state_operation(APP_SPAN_NAMES.state_save, save_scopes)
 
     async def delete(self, conversation_id: str, user_id: Optional[str] = None) -> None:
         """Delete both scope blobs for the turn's identity."""
-        await self._storage.async_delete(self.conversation_key(conversation_id))
-        if user_id is not None:
-            await self._storage.async_delete(self.user_key(conversation_id, user_id))
+
+        async def delete_scopes() -> None:
+            await self._storage.async_delete(self.conversation_key(conversation_id))
+            if user_id is not None:
+                await self._storage.async_delete(self.user_key(conversation_id, user_id))
+
+        await _trace_state_operation(APP_SPAN_NAMES.state_delete, delete_scopes)
 
     async def _load_scope(self, key: str) -> TurnState:
         raw = await self._storage.async_get(key)
@@ -186,3 +200,16 @@ def create_state_loader(
             + "restart and is not shared across instances."
         )
     return TurnStateLoader(storage=storage, options=options)
+
+
+async def _trace_state_operation(name: str, operation: Callable[[], Awaitable[T]]) -> T:
+    with get_tracer().start_as_current_span(
+        name,
+        record_exception=False,
+        set_status_on_exception=False,
+    ) as span:
+        try:
+            return await operation()
+        except Exception as exception:
+            record_exception(span, exception)
+            raise

@@ -4,7 +4,7 @@ Licensed under the MIT License.
 """
 
 from datetime import datetime
-from typing import Literal
+from typing import Literal, Optional
 
 from pydantic import Field
 
@@ -18,8 +18,8 @@ class MeetingEndEventValue(CustomBaseModel):
     meeting_type: str = Field(alias="MeetingType")
     """Type of the meeting"""
 
-    join_url: str = Field(alias="JoinUrl")
-    """URL to join the meeting"""
+    join_url: Optional[str] = Field(default=None, alias="JoinUrl")
+    """URL to join the meeting. Sent as null for meetings held inside a channel."""
 
     title: str = Field(alias="Title")
     """Title of the meeting."""
