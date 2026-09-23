@@ -28,10 +28,10 @@ from .negotiate import DEFAULT_NEGOTIATE_TIMEOUT, negotiate_service, negotiate_s
 from .signalr import (
     SignalRProtocolError,
     encode_hub_message,
+    parse_hub_messages,
     parse_invocation,
     serialize_completion,
     serialize_completion_error,
-    split_hub_messages,
 )
 from .types import (
     SocketActivityEnvelope,
@@ -45,6 +45,12 @@ T = TypeVar("T")
 
 DEFAULT_WEBSOCKET_OPEN_TIMEOUT = 15.0
 DEFAULT_WEBSOCKET_CLOSE_TIMEOUT = 5.0
+
+# Caps a single WebSocket message. 100 MiB matches the TypeScript SDK, which inherits the
+# `ws` default and never overrides it, so the same payload cannot succeed there and fail
+# here. Teams activities are orders of magnitude smaller, so this only trips on a
+# malfunctioning or hostile peer.
+MAX_FRAME_BYTES = 100 * 1024 * 1024
 
 
 class SocketConnectionAborted(RuntimeError):
@@ -75,7 +81,7 @@ async def _open_websocket(url: str) -> WebSocket:
         open_timeout=None,
         ping_interval=None,
         close_timeout=DEFAULT_WEBSOCKET_CLOSE_TIMEOUT,
-        max_size=None,
+        max_size=MAX_FRAME_BYTES,
     )
 
 
@@ -175,9 +181,9 @@ class SignalRSocketConnection:
             )
             logger.debug("Socket Mode connection ready")
         except asyncio.TimeoutError as error:
-            logger.warning("Socket Mode connection timed out before SocketReady")
+            logger.warning("Socket Mode connection timed out")
             await self.stop()
-            raise TimeoutError("Socket Mode connection timed out before SocketReady") from error
+            raise TimeoutError("Socket Mode connection timed out") from error
         except asyncio.CancelledError:
             await asyncio.shield(self.stop())
             raise
@@ -229,7 +235,6 @@ class SignalRSocketConnection:
         message. On an unexpected exit the pending gates are failed so ``start()`` cannot
         hang, and ``on_closed`` fires exactly once.
         """
-        buffer = ""
         handshake_complete = False
         terminal_error: Optional[Exception] = None
         try:
@@ -240,9 +245,7 @@ class SignalRSocketConnection:
                 raw = await asyncio.wait_for(websocket.recv(), timeout=self._context.server_timeout)
                 if isinstance(raw, bytes):
                     raw = raw.decode("utf-8")
-                buffer += raw
-                messages, buffer = split_hub_messages(buffer)
-                for message in messages:
+                for message in parse_hub_messages(raw):
                     if not handshake_complete:
                         self._complete_handshake(message)
                         handshake_complete = True
@@ -282,11 +285,11 @@ class SignalRSocketConnection:
             logger.debug("SignalR server closed the connection (error=%s)", error or "none")
             raise SignalRProtocolError(str(error or "SignalR server closed the connection"))
 
-        invocation = parse_invocation(cast(object, message))
-        if invocation is None:
+        signalr_invocation = parse_invocation(cast(object, message))
+        if signalr_invocation is None:
             return
-        target = invocation.target.lower()
-        argument: object = invocation.arguments[0] if invocation.arguments else {}
+        target = signalr_invocation.target.lower()
+        argument: object = signalr_invocation.arguments[0] if signalr_invocation.arguments else {}
         if target == "socketready":
             if self._ready is None or self._ready.done() or self._stopped:
                 return
@@ -299,27 +302,29 @@ class SignalRSocketConnection:
         if target == "activity":
             envelope = parse_envelope(argument)
             task = asyncio.create_task(
-                self._handle_activity(invocation.invocation_id, envelope),
+                self._handle_activity(signalr_invocation.invocation_id, envelope),
                 name="teams-socket-mode-activity",
             )
             task.add_done_callback(self._activity_finished)
 
     async def _handle_activity(
         self,
-        invocation_id: Optional[str],
+        signalr_invocation_id: Optional[str],
         envelope: SocketActivityEnvelope,
     ) -> None:
         try:
             result = await self._handlers.on_activity(envelope)
-            if invocation_id is not None and not self._stopped:
+            if signalr_invocation_id is not None and not self._stopped:
                 payload = result.model_dump(by_alias=True, exclude_none=True) if result is not None else None
-                await self._send(serialize_completion(invocation_id, payload))
+                await self._send(serialize_completion(signalr_invocation_id, payload))
         except asyncio.CancelledError:
             raise
         except Exception as error:
             logger.warning("Socket Mode activity handler raised", exc_info=error)
-            if invocation_id is not None and not self._stopped:
-                await self._send(serialize_completion_error(invocation_id, "Socket Mode activity handler failed"))
+            if signalr_invocation_id is not None and not self._stopped:
+                await self._send(
+                    serialize_completion_error(signalr_invocation_id, "Socket Mode activity handler failed")
+                )
 
     @staticmethod
     def _activity_finished(task: asyncio.Task[None]) -> None:

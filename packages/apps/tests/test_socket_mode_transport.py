@@ -7,7 +7,9 @@ import asyncio
 from typing import Callable, Optional
 
 import pytest
+from microsoft_teams.apps.socket_mode.connection import SocketConnectionAborted
 from microsoft_teams.apps.socket_mode.transport import (
+    RECONNECT_MAX_DELAY,
     SocketModeTransport,
     SocketModeTransportOptions,
 )
@@ -262,6 +264,20 @@ def test_reconnect_schedule_caps_at_last_configured_delay():
     assert transport.backoff_delay(10) == 0.5
 
 
+def test_exponential_backoff_survives_a_long_failure_streak():
+    """Without a clamp on the exponent, ``2**attempt`` overflows the float conversion."""
+    factory = MockConnectionFactory()
+    transport = SocketModeTransport(
+        SocketModeTransportOptions(geos=("",), reconnect_delays=()),
+        get_bot_token=lambda: _token("token"),
+        on_activity=lambda _: _reply(),
+        connection_factory=factory,
+    )
+
+    for attempt in (1023, 1024, 100_000):
+        assert 0.0 <= transport.backoff_delay(attempt) <= RECONNECT_MAX_DELAY
+
+
 async def _token(value: str) -> str:
     return value
 
@@ -279,3 +295,101 @@ async def _eventually(predicate: Callable[[], bool], timeout: float = 1.0) -> No
         raise TimeoutError("condition did not become true")
 
     await asyncio.wait_for(poll(), timeout)
+
+
+class _BlockingConnection(MockConnection):
+    """Blocks in start() the way a real connection blocks in negotiate or readiness."""
+
+    def __init__(
+        self,
+        handlers: SocketConnectionHandlers,
+        *,
+        entered: asyncio.Event,
+        honour_stop: bool,
+    ):
+        super().__init__(handlers)
+        self._entered = entered
+        self._honour_stop = honour_stop
+
+    async def start(self, stop_event: Optional[asyncio.Event] = None) -> None:
+        self.started += 1
+        self._entered.set()
+        if self._honour_stop and stop_event is not None:
+            await stop_event.wait()
+            raise SocketConnectionAborted("Socket Mode connect aborted")
+        await asyncio.sleep(30)
+
+
+class _BlockingFactory:
+    def __init__(self, *, honour_stop: bool):
+        self.connections: list[_BlockingConnection] = []
+        self.entered = asyncio.Event()
+        self._honour_stop = honour_stop
+
+    def __call__(self, url: str, handlers: SocketConnectionHandlers) -> _BlockingConnection:
+        connection = _BlockingConnection(handlers, entered=self.entered, honour_stop=self._honour_stop)
+        self.connections.append(connection)
+        return connection
+
+
+@pytest.mark.asyncio
+async def test_stop_interrupts_a_start_that_is_still_connecting():
+    """stop() must not queue behind the startup it is cancelling."""
+    factory = _BlockingFactory(honour_stop=True)
+    transport = await make_transport(factory, startup_timeout=30)  # type: ignore[arg-type]
+
+    start_task = asyncio.create_task(transport.start())
+    await asyncio.wait_for(factory.entered.wait(), timeout=1)
+
+    await asyncio.wait_for(transport.stop(), timeout=1)
+
+    assert transport.status == SocketModeStatus.STOPPED
+    with pytest.raises(SocketConnectionAborted):
+        await start_task
+
+
+@pytest.mark.asyncio
+async def test_startup_budget_bounds_an_attempt_that_outlives_it():
+    """A single attempt's per-step timeouts can exceed the budget, so the budget caps it."""
+    factory = _BlockingFactory(honour_stop=False)
+    transport = await make_transport(factory, startup_timeout=0.05)  # type: ignore[arg-type]
+
+    started = asyncio.get_running_loop().time()
+    with pytest.raises(TimeoutError):
+        await asyncio.wait_for(transport.start(), timeout=5)
+    elapsed = asyncio.get_running_loop().time() - started
+
+    assert elapsed < 2
+    assert transport.status == SocketModeStatus.STOPPED
+
+
+class _FailThenHangConnection(MockConnection):
+    """First attempt fails with a diagnosable error; the next one outlives the budget."""
+
+    def __init__(self, handlers: SocketConnectionHandlers, *, attempts: list[int]):
+        super().__init__(handlers)
+        self._attempts = attempts
+
+    async def start(self, stop_event: Optional[asyncio.Event] = None) -> None:
+        self.started += 1
+        self._attempts.append(1)
+        if len(self._attempts) == 1:
+            raise ConnectionError("negotiate returned HTTP 503")
+        await asyncio.sleep(30)
+
+
+@pytest.mark.asyncio
+async def test_startup_budget_cutoff_keeps_the_error_that_explains_the_failure():
+    """A budget cut-off is not a diagnosis, so it must not mask the real failure."""
+    attempts: list[int] = []
+
+    def factory(url: str, handlers: SocketConnectionHandlers) -> _FailThenHangConnection:
+        return _FailThenHangConnection(handlers, attempts=attempts)
+
+    transport = await make_transport(factory, startup_timeout=0.2)  # type: ignore[arg-type]
+
+    with pytest.raises(ConnectionError, match="negotiate returned HTTP 503"):
+        await asyncio.wait_for(transport.start(), timeout=5)
+
+    assert len(attempts) >= 2, "the budget should have allowed a retry after the first failure"
+    assert transport.status == SocketModeStatus.STOPPED

@@ -124,19 +124,30 @@ class GeoSocket:
         """
         self._status = SocketModeStatus.CONNECTING
         deadline = asyncio.get_running_loop().time() + self._owner.startup_timeout
+        bounded = self._owner.startup_timeout > 0
         attempt = 0
         last_error: Optional[Exception] = None
 
         while self._owner.accepting:
             generation = self._next_generation()
+            # The per-step timeouts can sum to more than the budget, so bound the attempt
+            # by whatever is left of it. `None` means unbounded, which is what the single
+            # attempt of a zero budget gets.
+            remaining = deadline - asyncio.get_running_loop().time() if bounded else None
+            if remaining is not None and remaining <= 0:
+                break
             try:
-                self._closed = await self._connect_cycle(generation)
+                async with asyncio.timeout(remaining):
+                    self._closed = await self._connect_cycle(generation)
                 self._status = SocketModeStatus.READY
                 return
             except asyncio.CancelledError:
                 raise
             except Exception as error:
-                last_error = error
+                # Running out of budget says nothing about why the connection failed, so
+                # a cut-off attempt must not replace an earlier error that does.
+                if last_error is None or asyncio.get_running_loop().time() < deadline:
+                    last_error = error
                 if not self._owner.accepting:
                     break
                 delay = self._owner.retry_after_of(error)

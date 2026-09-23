@@ -59,6 +59,12 @@ RECONNECT_INITIAL_DELAY = 1.0
 RECONNECT_MAX_DELAY = 15.0
 """Ceiling the exponential reconnect backoff is capped at, in seconds."""
 
+_MAX_BACKOFF_SHIFT = 32
+"""
+Caps the exponent so a long failure streak cannot grow ``2**attempt`` past the range
+of a float.
+"""
+
 
 @dataclass(frozen=True)
 class SocketModeTransportOptions:
@@ -230,6 +236,10 @@ class SocketModeTransport:
         Stop every geo. Idempotent, and serialized against ``start()`` so the two cannot
         interleave.
         """
+        # Signalled before queueing on the lock: start() holds it for the whole initial
+        # connect, so a stop that waited for the lock could not interrupt the startup it
+        # is trying to cancel.
+        self._stop_event.set()
         async with self._lifecycle_lock:
             if self._lifecycle == SocketModeStatus.STOPPED:
                 return
@@ -268,7 +278,7 @@ class SocketModeTransport:
         schedule = self._options.reconnect_delays
         if schedule:
             return max(0.0, schedule[min(attempt, len(schedule) - 1)])
-        cap = min(RECONNECT_INITIAL_DELAY * (2**attempt), RECONNECT_MAX_DELAY)
+        cap = min(RECONNECT_INITIAL_DELAY * (2 ** min(attempt, _MAX_BACKOFF_SHIFT)), RECONNECT_MAX_DELAY)
         return random.uniform(0.0, cap)
 
     def retry_after_of(self, error: Optional[Exception]) -> Optional[float]:

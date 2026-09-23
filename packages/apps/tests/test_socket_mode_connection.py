@@ -15,7 +15,7 @@ from microsoft_teams.apps.socket_mode.connection import (
     SocketConnectionAborted,
     SocketConnectionContext,
 )
-from microsoft_teams.apps.socket_mode.signalr import RECORD_SEPARATOR
+from microsoft_teams.apps.socket_mode.signalr import RECORD_SEPARATOR, SignalRProtocolError
 from microsoft_teams.apps.socket_mode.types import (
     ReplyFrame,
     SocketActivityEnvelope,
@@ -162,7 +162,7 @@ async def test_connection_closes_when_readiness_times_out():
         )
         websocket.incoming.put_nowait(f"{{}}{RECORD_SEPARATOR}")
 
-        with pytest.raises(TimeoutError, match="before SocketReady"):
+        with pytest.raises(TimeoutError, match="Socket Mode connection timed out"):
             await connection.start()
 
     assert websocket.closed >= 1
@@ -320,6 +320,21 @@ async def test_default_websocket_factory_defers_open_timeout_to_caller(monkeypat
 
 
 @pytest.mark.asyncio
+async def test_default_websocket_factory_caps_frame_size(monkeypatch: pytest.MonkeyPatch):
+    """The library-level cap is the first line of defence against an oversized single frame."""
+    captured: dict[str, object] = {}
+
+    async def fake_connect(url: str, **kwargs: object) -> object:
+        captured.update(kwargs)
+        return MockWebSocket()
+
+    monkeypatch.setattr(connection_module, "connect", fake_connect)
+    await connection_module._open_websocket("wss://socket.example/hub")
+
+    assert captured["max_size"] == connection_module.MAX_FRAME_BYTES
+
+
+@pytest.mark.asyncio
 async def test_connection_rejects_a_pre_aborted_start_without_minting_a_token():
     """Stop already requested: abort before the bot token is fetched or a socket is opened."""
     side_effects: list[str] = []
@@ -373,3 +388,66 @@ async def test_readiness_survives_a_throwing_on_ready_observer():
 
         await asyncio.wait_for(start, timeout=1.0)
         await connection.stop()
+
+
+@pytest.mark.asyncio
+async def test_chunk_without_record_separator_fails_closed():
+    """
+    Nothing is buffered across reads, so an endless separator-less stream cannot grow
+    memory: the first incomplete chunk ends the connection.
+    """
+    websocket = MockWebSocket()
+    closed: list[Optional[Exception]] = []
+
+    async with make_http_client() as client:
+        connection = SignalRSocketConnection(
+            make_context(),
+            make_handlers(on_closed=closed.append),
+            http_client=client,
+            websocket_factory=lambda _: _websocket(websocket),
+        )
+        start = asyncio.create_task(connection.start())
+        await _eventually(lambda: len(websocket.sent) == 1)
+
+        websocket.incoming.put_nowait("x" * 32)
+
+        with pytest.raises(SignalRProtocolError, match="incomplete"):
+            await asyncio.wait_for(start, timeout=1.0)
+
+        await _eventually(lambda: len(closed) == 1)
+        assert websocket.closed == 1
+
+
+@pytest.mark.asyncio
+async def test_hub_message_split_across_reads_is_rejected():
+    """
+    Matches the SignalR JS client: each chunk is parsed on its own, and a half-delivered
+    frame is a protocol error rather than something held back for the next read.
+    """
+    websocket = MockWebSocket()
+
+    async with make_http_client() as client:
+        connection = SignalRSocketConnection(
+            make_context(),
+            make_handlers(),
+            http_client=client,
+            websocket_factory=lambda _: _websocket(websocket),
+        )
+        start = asyncio.create_task(connection.start())
+        await _eventually(lambda: len(websocket.sent) == 1)
+        websocket.incoming.put_nowait(f"{{}}{RECORD_SEPARATOR}")
+
+        ready = (
+            json.dumps(
+                {
+                    "type": 1,
+                    "target": "SocketReady",
+                    "arguments": [{"botKey": "bot-1", "connectionId": "conn-1"}],
+                }
+            )
+            + RECORD_SEPARATOR
+        )
+        websocket.incoming.put_nowait(ready[: len(ready) // 2])
+
+        with pytest.raises(SignalRProtocolError, match="incomplete"):
+            await asyncio.wait_for(start, timeout=1.0)

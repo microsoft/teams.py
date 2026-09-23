@@ -12,22 +12,27 @@ from microsoft_teams.apps.socket_mode import signalr
 from microsoft_teams.apps.socket_mode.signalr import (
     RECORD_SEPARATOR,
     SignalRProtocolError,
+    parse_hub_messages,
     parse_invocation,
     serialize_completion,
-    split_hub_messages,
 )
 
 
-def test_split_hub_messages_preserves_partial_frame():
-    messages, remainder = split_hub_messages('{"type":6}\u001e{"type":')
+def test_incomplete_chunk_fails_closed():
+    """Matches the SignalR JS client: a chunk not ending on a separator is rejected."""
+    with pytest.raises(SignalRProtocolError, match="incomplete"):
+        parse_hub_messages('{"type":6}\u001e{"type":')
 
-    assert messages == [{"type": 6}]
-    assert remainder == '{"type":'
+
+def test_multiple_frames_in_one_chunk_are_all_parsed():
+    messages = parse_hub_messages(f'{{"type":6}}{RECORD_SEPARATOR}{{"type":3}}{RECORD_SEPARATOR}')
+
+    assert messages == [{"type": 6}, {"type": 3}]
 
 
 def test_invalid_hub_json_fails_closed():
     with pytest.raises(SignalRProtocolError, match="invalid JSON"):
-        split_hub_messages(f"not-json{RECORD_SEPARATOR}")
+        parse_hub_messages(f"not-json{RECORD_SEPARATOR}")
 
 
 def test_malformed_invocation_fails_closed():
@@ -41,6 +46,12 @@ def test_invocation_id_is_optional():
     assert invocation is not None
     assert invocation.invocation_id is None
     assert invocation.arguments == ({"envelopeId": "env-1"},)
+
+
+def test_non_string_invocation_id_fails_closed():
+    """Absent means fire-and-forget; a non-string is malformed and must not look the same."""
+    with pytest.raises(SignalRProtocolError, match="invalid invocationId"):
+        parse_invocation({"type": 1, "target": "Activity", "arguments": [], "invocationId": 42})
 
 
 def test_completion_wraps_result_and_terminates_the_frame():

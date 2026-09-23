@@ -41,24 +41,25 @@ def encode_hub_message(message: Mapping[str, object]) -> str:
     return json.dumps(message, separators=(",", ":")) + RECORD_SEPARATOR
 
 
-def split_hub_messages(buffer: str) -> tuple[list[object], str]:
+def parse_hub_messages(chunk: str) -> list[object]:
     """
-    Split complete frames off a receive buffer, returning them and the partial tail.
+    Parse every frame in one received chunk.
 
-    A WebSocket read can end mid-frame, so the trailing segment is handed back to be
-    prepended to the next read rather than parsed.
+    Each chunk must end on a record separator. This mirrors the SignalR JS client, which
+    rejects an incomplete chunk rather than holding the tail back for the next read, so
+    there is no receive buffer to grow without bound.
     """
-    segments = buffer.split(RECORD_SEPARATOR)
-    remainder = segments.pop()
+    if not chunk.endswith(RECORD_SEPARATOR):
+        raise SignalRProtocolError("SignalR message is incomplete")
     messages: list[object] = []
-    for segment in segments:
+    for segment in chunk.split(RECORD_SEPARATOR):
         if not segment:
             continue
         try:
             messages.append(json.loads(segment))
         except json.JSONDecodeError as error:
             raise SignalRProtocolError("SignalR frame contains invalid JSON") from error
-    return messages, remainder
+    return messages
 
 
 def parse_invocation(message: object) -> Optional[SignalRInvocation]:
@@ -78,12 +79,14 @@ def parse_invocation(message: object) -> Optional[SignalRInvocation]:
     if not isinstance(target, str) or not isinstance(arguments, list):
         raise SignalRProtocolError("SignalR invocation is missing target or arguments")
     invocation_id = fields.get("invocationId")
+    # Absent means a genuine fire-and-forget invocation; present-but-not-a-string is
+    # malformed, and treating it as absent would drop the completion the peer waits for.
     if invocation_id is not None and not isinstance(invocation_id, str):
         raise SignalRProtocolError("SignalR invocation has invalid invocationId")
     return SignalRInvocation(
         target=target,
         arguments=tuple(cast(list[object], arguments)),
-        invocation_id=invocation_id if isinstance(invocation_id, str) else None,
+        invocation_id=invocation_id,
     )
 
 

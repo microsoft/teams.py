@@ -8,6 +8,10 @@ Licensed under the MIT License.
 # First the Teams service is asked where to connect and for a connection token; then
 # SignalR is negotiated at that address, following any redirects it returns.
 #
+# The second step has no counterpart in the TypeScript and C# SDKs: their SignalR client
+# libraries perform it internally. Python has no maintained SignalR client, so this
+# module implements that part of the protocol directly.
+#
 # Every URL crossing this module is checked by :func:`assert_secure_url` before it is
 # used or a token is attached to it, so a downgraded or redirected endpoint cannot be
 # handed a bearer token over cleartext.
@@ -124,6 +128,12 @@ async def negotiate_service(
     http_client: Optional[httpx.AsyncClient] = None,
     timeout: float = DEFAULT_NEGOTIATE_TIMEOUT,
 ) -> NegotiateResult:
+    """
+    Ask the Teams service where this bot should connect.
+
+    Returns the regional SignalR URL, a connection token, and how long that token is good
+    for; the caller uses the lifetime to swap the connection before it expires.
+    """
     token = await get_bot_token()
     if not token:
         raise NegotiateError(
@@ -178,6 +188,13 @@ async def negotiate_signalr(
     http_client: Optional[httpx.AsyncClient] = None,
     timeout: float = DEFAULT_NEGOTIATE_TIMEOUT,
 ) -> SignalREndpoint:
+    """
+    Run SignalR's own negotiate against that URL and return the WebSocket to open.
+
+    This is the step a SignalR client library would normally own. It follows the service's
+    redirects up to :data:`MAX_SIGNALR_NEGOTIATE_REDIRECTS`, adopting the new token each
+    hop, and short-circuits when the URL is already a WebSocket address.
+    """
     assert_secure_url(hub_url, purpose="negotiated SignalR", websocket_allowed=True)
     if urlsplit(hub_url).scheme in {"ws", "wss"}:
         return SignalREndpoint(url=_with_query(hub_url, {"access_token": access_token}), access_token=access_token)
@@ -209,7 +226,7 @@ async def negotiate_signalr(
                     retry_after,
                 )
                 raise NegotiateError(
-                    f"SignalR negotiate failed: HTTP {response.status_code} {response.text[:500]}",
+                    f"SignalR negotiate failed: HTTP {response.status_code}",
                     retry_after,
                 )
             payload = _response_object(response, "SignalR negotiate")
