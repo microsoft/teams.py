@@ -141,7 +141,6 @@ async def negotiate_service(
                 headers={"Authorization": f"Bearer {token}"},
             )
         if not response.is_success:
-            body = response.text[:500]
             retry_after = _parse_retry_after(response.headers)
             logger.warning(
                 "Socket Mode service negotiate failed: HTTP %d (retry_after=%s)",
@@ -149,7 +148,7 @@ async def negotiate_service(
                 retry_after,
             )
             raise NegotiateError(
-                f"Socket Mode negotiate failed: HTTP {response.status_code} {body}",
+                f"Socket Mode negotiate failed: HTTP {response.status_code}",
                 retry_after,
             )
         payload = _response_object(response, "Socket Mode negotiate")
