@@ -78,6 +78,8 @@ def parse_invocation(message: object) -> Optional[SignalRInvocation]:
     if not isinstance(target, str) or not isinstance(arguments, list):
         raise SignalRProtocolError("SignalR invocation is missing target or arguments")
     invocation_id = fields.get("invocationId")
+    if invocation_id is not None and not isinstance(invocation_id, str):
+        raise SignalRProtocolError("SignalR invocation has invalid invocationId")
     return SignalRInvocation(
         target=target,
         arguments=tuple(cast(list[object], arguments)),
