@@ -5,10 +5,12 @@ Licensed under the MIT License.
 
 import asyncio
 import logging
+import os
 from inspect import isawaitable
 from typing import Any, Callable, Optional
 
 import requests
+from azure.identity import WorkloadIdentityCredential
 from microsoft_teams.api import (
     ClientCredentials,
     Credentials,
@@ -52,6 +54,7 @@ class TokenManager:
         self._federated_identity_clients_by_tenant: dict[str, ConfidentialClientApplication] = {}
         self._agentic_app_clients_by_tenant_and_app_id: dict[tuple[str, str], ConfidentialClientApplication] = {}
         self._managed_identity_client: Optional[ManagedIdentityClient] = None
+        self._workload_identity_credentials: dict[tuple[str, str], WorkloadIdentityCredential] = {}
 
     async def get_bot_token(self) -> Optional[TokenProtocol]:
         """Refresh the bot authentication token."""
@@ -276,6 +279,9 @@ class TokenManager:
 
     def _acquire_managed_identity_token_sync(self, credentials: FederatedIdentityCredentials) -> str:
         """Acquire managed identity token for federated identity credentials."""
+        if os.getenv("AZURE_FEDERATED_TOKEN_FILE"):
+            return self._get_workload_identity_credential(credentials).get_token(TOKEN_EXCHANGE_SCOPE).token
+
         # Use shared method to get or create the managed identity client
         mi_client = self._get_managed_identity_client(credentials)
 
@@ -289,6 +295,35 @@ class TokenManager:
             raise error
 
         return mi_token_res["access_token"]
+
+    def _get_workload_identity_credential(
+        self, credentials: FederatedIdentityCredentials
+    ) -> WorkloadIdentityCredential:
+        """Get the AKS Workload Identity credential for the configured app and tenant."""
+        token_file = os.getenv("AZURE_FEDERATED_TOKEN_FILE")
+        if not token_file:
+            raise RuntimeError("AZURE_FEDERATED_TOKEN_FILE is required for Workload Identity authentication")
+
+        client_id = credentials.managed_identity_client_id
+        if not client_id or client_id == "system":
+            raise ValueError("A user-assigned managed identity client ID is required for AKS Workload Identity")
+
+        tenant_id = credentials.tenant_id
+        if not tenant_id:
+            raise ValueError("TENANT_ID is required for AKS Workload Identity")
+
+        cache_key = (client_id, tenant_id)
+        credential = self._workload_identity_credentials.get(cache_key)
+        if credential is None:
+            credential = WorkloadIdentityCredential(
+                client_id=client_id,
+                tenant_id=tenant_id,
+                authority=self._cloud.login_endpoint.removeprefix("https://"),
+                token_file=token_file,
+            )
+            self._workload_identity_credentials[cache_key] = credential
+
+        return credential
 
     async def _get_token_with_token_provider(
         self,

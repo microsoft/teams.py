@@ -1972,6 +1972,7 @@ dev = [
 name = "microsoft-teams-apps"
 source = { editable = "packages/apps" }
 dependencies = [
+    { name = "azure-identity" },
     { name = "cryptography" },
     { name = "dependency-injector" },
     { name = "fastapi" },
@@ -1999,6 +2000,7 @@ test = [
 
 [package.metadata]
 requires-dist = [
+    { name = "azure-identity", specifier = ">=1.25.0" },
     { name = "cryptography", specifier = ">=50.0.0" },
     { name = "dependency-injector", specifier = ">=4.48.1" },
     { name = "fastapi", specifier = ">=0.115.13" },

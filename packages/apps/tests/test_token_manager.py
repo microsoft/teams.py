@@ -15,7 +15,7 @@ from microsoft_teams.api import (
     JsonWebToken,
     ManagedIdentityCredentials,
 )
-from microsoft_teams.api.auth.cloud_environment import PUBLIC
+from microsoft_teams.api.auth.cloud_environment import PUBLIC, US_GOV
 from microsoft_teams.api.auth.credentials import (
     AgenticAppTokenProviderProtocol,
     AgenticUserTokenProviderProtocol,
@@ -621,6 +621,79 @@ class TestTokenManager:
 
         assert result == "mi-token"
         mock_mi_client.acquire_token_for_client.assert_called_once_with(resource="api://AzureADTokenExchange")
+
+    @pytest.mark.asyncio
+    async def test_acquire_managed_identity_token_uses_workload_identity_in_aks(self):
+        """Test AKS workload identity acquires the exchange token with the UAMI client ID."""
+        credentials = FederatedIdentityCredentials(
+            client_id="test-app-client-id",
+            managed_identity_type="user",
+            managed_identity_client_id="test-mi-client-id",
+            tenant_id="test-tenant-id",
+        )
+        workload_credential = MagicMock()
+        workload_credential.get_token.return_value.token = "workload-token"
+
+        manager = TokenManager(credentials=credentials)
+
+        with (
+            patch.dict("os.environ", {"AZURE_FEDERATED_TOKEN_FILE": "/var/run/secrets/token"}),
+            patch(
+                "microsoft_teams.apps.token_manager.WorkloadIdentityCredential", return_value=workload_credential
+            ) as factory,
+            patch.object(manager, "_get_managed_identity_client") as managed_identity_factory,
+        ):
+            result = await manager._acquire_managed_identity_token(credentials)
+
+        assert result == "workload-token"
+        factory.assert_called_once_with(
+            client_id="test-mi-client-id",
+            tenant_id="test-tenant-id",
+            authority="login.microsoftonline.com",
+            token_file="/var/run/secrets/token",
+        )
+        workload_credential.get_token.assert_called_once_with(TOKEN_EXCHANGE_SCOPE)
+        managed_identity_factory.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_workload_identity_uses_configured_cloud_authority(self):
+        credentials = FederatedIdentityCredentials(
+            client_id="test-app-client-id",
+            managed_identity_type="user",
+            managed_identity_client_id="test-mi-client-id",
+            tenant_id="test-tenant-id",
+        )
+        workload_credential = MagicMock()
+        workload_credential.get_token.return_value.token = "workload-token"
+        manager = TokenManager(credentials=credentials, cloud=US_GOV)
+
+        with (
+            patch.dict("os.environ", {"AZURE_FEDERATED_TOKEN_FILE": "/var/run/secrets/token"}),
+            patch(
+                "microsoft_teams.apps.token_manager.WorkloadIdentityCredential", return_value=workload_credential
+            ) as factory,
+        ):
+            result = await manager._acquire_managed_identity_token(credentials)
+
+        assert result == "workload-token"
+        factory.assert_called_once_with(
+            client_id="test-mi-client-id",
+            tenant_id="test-tenant-id",
+            authority="login.microsoftonline.us",
+            token_file="/var/run/secrets/token",
+        )
+
+    def test_workload_identity_requires_user_assigned_identity(self):
+        credentials = FederatedIdentityCredentials(
+            client_id="test-app-client-id",
+            managed_identity_type="system",
+            tenant_id="test-tenant-id",
+        )
+        manager = TokenManager(credentials=credentials)
+
+        with patch.dict("os.environ", {"AZURE_FEDERATED_TOKEN_FILE": "/var/run/secrets/token"}):
+            with pytest.raises(ValueError, match="user-assigned managed identity client ID"):
+                manager._get_workload_identity_credential(credentials)
 
     @pytest.mark.asyncio
     async def test_acquire_managed_identity_token_failure(self):
