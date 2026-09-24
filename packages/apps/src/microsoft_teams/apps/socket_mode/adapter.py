@@ -320,7 +320,7 @@ class SocketModeAdapter:
             return
         try:
             result = self._on_error(error)
-            if asyncio.iscoroutine(result):
+            if isinstance(result, Awaitable):
                 await result
         except Exception:
             logger.warning("socket-mode: on_error hook raised; ignoring", exc_info=True)
