@@ -276,7 +276,8 @@ class SocketModeAdapter:
             # reply means, so running the handler and answering in v1 could be misread as
             # success. Older or absent versions are treated as current.
             logger.warning(
-                "socket-mode: rejecting envelope with unsupported protocol version %s (supported %s)",
+                "socket-mode: rejecting envelope %s with unsupported protocol version %s (supported %s)",
+                envelope.envelope_id,
                 declared,
                 SOCKET_MODE_PROTOCOL_VERSION,
             )
@@ -290,7 +291,7 @@ class SocketModeAdapter:
 
         activity = read_envelope_activity(envelope)
         if activity is None:
-            logger.warning("socket-mode: inbound envelope carried no activity; dropping")
+            logger.warning("socket-mode: inbound envelope %s carried no activity; dropping", envelope.envelope_id)
             return None
 
         invoke = is_invoke_envelope(envelope)
@@ -308,7 +309,11 @@ class SocketModeAdapter:
         except asyncio.CancelledError:
             raise
         except Exception as error:
-            logger.exception("socket-mode: failed to process an inbound activity")
+            logger.exception(
+                "socket-mode: failed to process inbound activity %s on envelope %s",
+                activity.get("type"),
+                envelope.envelope_id,
+            )
             await self._report_error(error)
             return build_reply_frame(
                 envelope,
