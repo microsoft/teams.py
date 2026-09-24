@@ -7,6 +7,7 @@ import asyncio
 from typing import Callable, Optional
 
 import pytest
+from microsoft_teams.apps.socket_mode import geo_socket
 from microsoft_teams.apps.socket_mode.connection import SocketConnectionAborted
 from microsoft_teams.apps.socket_mode.transport import (
     RECONNECT_MAX_DELAY,
@@ -393,3 +394,104 @@ async def test_startup_budget_cutoff_keeps_the_error_that_explains_the_failure()
 
     assert len(attempts) >= 2, "the budget should have allowed a retry after the first failure"
     assert transport.status == SocketModeStatus.STOPPED
+
+
+async def _dispatch(connection: MockConnection, envelope_id: str) -> Optional[ReplyFrame]:
+    return await connection.handlers.on_activity(
+        SocketActivityEnvelope(envelope_id=envelope_id, payload={"type": "message"})
+    )
+
+
+@pytest.mark.asyncio
+async def test_planned_rotation_keeps_the_previous_connection_serving(monkeypatch: pytest.MonkeyPatch):
+    # Long enough that the handoff is still open while the assertions run.
+    monkeypatch.setattr(geo_socket, "CONNECTION_HANDOFF_SECONDS", 30.0)
+    factory = MockConnectionFactory()
+    factory.expires_in_seconds = 0.01
+    dispatched: list[Optional[str]] = []
+    transport = await make_transport(factory, on_activity=lambda envelope: dispatched.append(envelope.envelope_id))
+    await transport.start()
+    previous = factory.connections[0]
+
+    await _eventually(lambda: len(factory.connections) == 2, timeout=1.5)
+
+    # The service can still be routing to the old connection id, so it must keep working.
+    assert previous.stopped == 0
+    assert await _dispatch(previous, "during-handoff") is not None
+    assert await _dispatch(factory.connections[1], "on-replacement") is not None
+    assert dispatched == ["during-handoff", "on-replacement"]
+    assert transport.status == SocketModeStatus.READY
+    await transport.stop()
+
+
+@pytest.mark.asyncio
+async def test_retired_connection_closes_and_stops_dispatching_after_the_handoff(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    monkeypatch.setattr(geo_socket, "CONNECTION_HANDOFF_SECONDS", 0.01)
+    factory = MockConnectionFactory()
+    factory.expires_in_seconds = 0.01
+    transport = await make_transport(factory)
+    await transport.start()
+    previous = factory.connections[0]
+
+    await _eventually(lambda: len(factory.connections) == 2, timeout=1.5)
+    await _eventually(lambda: previous.stopped >= 1, timeout=1.5)
+
+    assert await _dispatch(previous, "after-handoff") is None
+    assert await _dispatch(factory.connections[1], "current") is not None
+    await transport.stop()
+
+
+@pytest.mark.asyncio
+async def test_rotation_whose_predecessor_dies_early_reports_a_disconnect(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(geo_socket, "CONNECTION_HANDOFF_SECONDS", 30.0)
+    factory = MockConnectionFactory()
+    factory.expires_in_seconds = 0.01
+    disconnected: list[str] = []
+    reconnected: list[str] = []
+    transport = await make_transport(
+        factory,
+        callbacks=SocketModeCallbacks(
+            on_disconnected=lambda geo, _: disconnected.append(geo),
+            on_reconnected=reconnected.append,
+        ),
+        # Hold the replacement back so the predecessor is still the only live socket.
+        reconnect_delays=(0.2,),
+    )
+    await transport.start()
+    previous = factory.connections[0]
+    geo = transport._geos[0]
+
+    # Kill the predecessor strictly between the planned close and its replacement being
+    # created, which is the only window where the rotation has no other live socket.
+    def rotation_in_flight() -> bool:
+        closed = geo._closed
+        return closed is not None and closed.done() and len(factory.connections) == 1
+
+    await _eventually(rotation_in_flight, timeout=1.5)
+    previous.drop(ConnectionError("died mid-rotation"))
+
+    await _eventually(lambda: disconnected == [""], timeout=2.0)
+    await _eventually(lambda: reconnected == [""], timeout=2.0)
+    assert transport.status == SocketModeStatus.READY
+    await transport.stop()
+
+
+@pytest.mark.asyncio
+async def test_stop_closes_connections_still_inside_the_handoff_window(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(geo_socket, "CONNECTION_HANDOFF_SECONDS", 30.0)
+    factory = MockConnectionFactory()
+    factory.expires_in_seconds = 0.01
+    transport = await make_transport(factory)
+    await transport.start()
+    previous = factory.connections[0]
+
+    await _eventually(lambda: len(factory.connections) == 2, timeout=1.5)
+    assert previous.stopped == 0
+
+    await transport.stop()
+
+    # A retiring connection is still owned, so shutdown must not leak it.
+    assert previous.stopped >= 1
+    assert factory.connections[1].stopped >= 1

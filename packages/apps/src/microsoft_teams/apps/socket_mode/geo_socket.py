@@ -8,9 +8,13 @@ Licensed under the MIT License.
 #
 # Each connection attempt gets a monotonically increasing *generation*. Because a
 # replaced connection's in-flight callbacks can still fire, generations are what make
-# stale work identifiable: an activity is only dispatched when its generation is both
-# the current one and the one that satisfied ``SocketReady``. A closed or superseded
-# connection can therefore never deliver an activity or a reply.
+# stale work identifiable.
+#
+# A credential refresh is a *make-before-break* swap: the live connection keeps serving
+# while its replacement negotiates and reaches ``SocketReady``. Only then is the old one
+# retired, and even then it stays open briefly because the service can keep routing to a
+# cached connection id for a short window after the handoff. Dispatch is therefore allowed
+# from the active generation and from any still-retiring one; everything else is refused.
 
 import asyncio
 import logging
@@ -77,6 +81,16 @@ class _CloseReason:
     error: Optional[Exception] = None
 
 
+@dataclass(frozen=True)
+class _ActiveConnection:
+    generation: int
+    connection: SocketConnection
+
+
+CONNECTION_HANDOFF_SECONDS = 5.0
+"""How long a superseded connection stays open so cached routing to it can drain."""
+
+
 class GeoSocket:
     """One geography's connection and the supervision that keeps it alive."""
 
@@ -92,9 +106,9 @@ class GeoSocket:
         self._negotiate_url = negotiate_url
         self._logger = logger
         self._generation = 0
-        self._current_generation = 0
-        self._ready_generation = -1
-        self._connection: Optional[SocketConnection] = None
+        self._active: Optional[_ActiveConnection] = None
+        self._retiring: dict[int, SocketConnection] = {}
+        self._retire_tasks: set[asyncio.Task[None]] = set()
         self._closed: Optional[asyncio.Future[_CloseReason]] = None
         self._supervisor: Optional[asyncio.Task[None]] = None
         self._refresh: Optional[asyncio.Task[None]] = None
@@ -108,12 +122,14 @@ class GeoSocket:
         """
         Whether an activity from ``generation`` may still be handled.
 
-        All three conditions matter: the transport must be accepting, the generation must
-        be the newest, and it must be the one that reached ``SocketReady``. The last
-        condition is what rejects activities that arrive after a close, since
-        ``on_closed`` resets the ready generation.
+        Accepts the active connection and any predecessor still inside its handoff window,
+        so a rotation does not drop activities the service routed to the old connection id.
+        Anything older, or anything arriving once the transport stops accepting, is refused.
         """
-        return self._owner.accepting and generation == self._current_generation and generation == self._ready_generation
+        if not self._owner.accepting:
+            return False
+        active = self._active
+        return (active is not None and active.generation == generation) or generation in self._retiring
 
     async def start_initial(self) -> None:
         """
@@ -178,11 +194,19 @@ class GeoSocket:
             )
 
     async def stop(self) -> None:
-        """Tear down the refresh timer, connection, and supervisor, in that order."""
+        """Tear down the refresh timer, every owned connection, and the supervisor."""
         self._cancel_refresh()
-        connection = self._connection
-        self._connection = None
-        if connection is not None:
+        for task in tuple(self._retire_tasks):
+            task.cancel()
+        if self._retire_tasks:
+            await asyncio.gather(*self._retire_tasks, return_exceptions=True)
+            self._retire_tasks.clear()
+
+        active = self._active
+        connections = ([active.connection] if active is not None else []) + list(self._retiring.values())
+        self._active = None
+        self._retiring.clear()
+        for connection in connections:
             try:
                 await connection.stop()
             except Exception as error:
@@ -193,12 +217,10 @@ class GeoSocket:
         if supervisor is not None and supervisor is not asyncio.current_task() and not supervisor.done():
             supervisor.cancel()
             await asyncio.gather(supervisor, return_exceptions=True)
-        self._ready_generation = -1
         self._status = SocketModeStatus.STOPPED
 
     def _next_generation(self) -> int:
         self._generation += 1
-        self._current_generation = self._generation
         return self._generation
 
     async def _connect_cycle(self, generation: int) -> asyncio.Future[_CloseReason]:
@@ -216,15 +238,28 @@ class GeoSocket:
             return await self._owner.dispatch(self, generation, envelope)
 
         def on_ready(frame: SocketReadyFrame) -> None:
-            if generation != self._current_generation or not self._owner.accepting:
+            if generation != self._generation or not self._owner.accepting:
                 return
-            self._ready_generation = generation
+            # Promote this generation and demote its predecessor to the handoff window
+            # rather than dropping it, so in-flight routing to the old id still lands.
+            active = self._active
+            if active is not None and active.generation != generation:
+                self._retiring[active.generation] = active.connection
+            self._active = _ActiveConnection(generation=generation, connection=connection)
             self._status = SocketModeStatus.READY
             self._owner.geo_ready(self.geo, frame)
 
         def on_closed(error: Optional[Exception]) -> None:
-            if generation == self._current_generation:
-                self._ready_generation = -1
+            active = self._active
+            if active is not None and active.generation == generation:
+                self._cancel_refresh()
+                # A planned rotation already resolved `closed` and moved the supervisor on.
+                # If the still-serving predecessor dies before its replacement is ready,
+                # there is a real delivery gap and it has to be reported.
+                if closed.done() and self._owner.accepting:
+                    self._active = None
+                    self._report_disconnected(error)
+            self._retiring.pop(generation, None)
             if not closed.done():
                 closed.set_result(_CloseReason(planned=False, error=error))
 
@@ -234,19 +269,17 @@ class GeoSocket:
             on_closed=on_closed,
         )
         connection = self._owner.create_connection(self._negotiate_url, handlers)
-        self._connection = connection
         try:
             await connection.start(self._owner.stop_event)
         except BaseException:
-            if self._connection is connection:
-                self._connection = None
             try:
                 await connection.stop()
             except Exception as error:
                 self._logger.debug("socket-mode[%s]: failed connection cleanup", self.geo, exc_info=error)
             raise
 
-        if self._ready_generation != generation:
+        active = self._active
+        if active is None or active.generation != generation:
             await connection.stop()
             raise ConnectionError("Socket Mode connection started without satisfying SocketReady")
         self._schedule_refresh(generation, connection.expires_in_seconds, closed)
@@ -262,27 +295,65 @@ class GeoSocket:
                 return
 
             self._cancel_refresh()
-            self._ready_generation = -1
-            if reason.planned:
-                self._status = SocketModeStatus.CONNECTING
-            else:
-                self._status = SocketModeStatus.DISCONNECTED
-                self._owner.geo_disconnected(self.geo, reason.error)
+            previous = self._active if reason.planned else None
+            if not reason.planned:
+                self._report_disconnected(reason.error)
+                dropped = self._active
+                self._active = None
+                if dropped is not None:
+                    try:
+                        await dropped.connection.stop()
+                    except Exception as error:
+                        self._logger.debug(
+                            "socket-mode[%s]: dropped connection cleanup failed", self.geo, exc_info=error
+                        )
 
-            connection = self._connection
-            if connection is not None:
-                try:
-                    await connection.stop()
-                except Exception as error:
-                    self._logger.debug("socket-mode[%s]: dropped connection cleanup failed", self.geo, exc_info=error)
-
-            next_closed = await self._reconnect(reason.error)
+            next_closed = await self._reconnect(reason.error, keep_serving=reason.planned)
             if next_closed is None:
                 return
             closed = next_closed
             self._status = SocketModeStatus.READY
-            if not reason.planned:
+            if (
+                reason.planned
+                and previous is not None
+                and self._retiring.get(previous.generation) is previous.connection
+            ):
+                self._schedule_retire(previous)
+                self._logger.info("socket-mode[%s]: token rotated; inbound delivery continues for this geo", self.geo)
+            else:
+                # Either an unplanned drop, or a rotation whose predecessor died before the
+                # replacement was ready -- both are visible outages that have now recovered.
+                self._logger.info("socket-mode[%s]: reconnected; inbound delivery resumed for this geo", self.geo)
                 self._owner.geo_reconnected(self.geo)
+
+    def _report_disconnected(self, error: Optional[Exception]) -> None:
+        self._status = SocketModeStatus.DISCONNECTED
+        self._logger.warning(
+            "socket-mode[%s]: disconnected; inbound delivery paused for this geo",
+            self.geo,
+            exc_info=error,
+        )
+        self._owner.geo_disconnected(self.geo, error)
+
+    def _schedule_retire(self, previous: _ActiveConnection) -> None:
+        task = asyncio.create_task(
+            self._retire(previous),
+            name=f"teams-socket-mode-retire-{self.geo or 'default'}",
+        )
+        self._retire_tasks.add(task)
+        task.add_done_callback(self._retire_tasks.discard)
+
+    async def _retire(self, previous: _ActiveConnection) -> None:
+        """Close a superseded connection once its handoff window has elapsed."""
+        if not await self._owner.sleep(CONNECTION_HANDOFF_SECONDS):
+            return
+        if self._retiring.get(previous.generation) is not previous.connection:
+            return
+        del self._retiring[previous.generation]
+        try:
+            await previous.connection.stop()
+        except Exception as error:
+            self._logger.debug("socket-mode[%s]: retired connection cleanup failed", self.geo, exc_info=error)
 
     async def _wait_for_close(self, closed: asyncio.Future[_CloseReason]) -> Optional[_CloseReason]:
         stop_wait = asyncio.create_task(self._owner.stop_event.wait())
@@ -296,7 +367,9 @@ class GeoSocket:
                 stop_wait.cancel()
             await asyncio.gather(stop_wait, return_exceptions=True)
 
-    async def _reconnect(self, previous_error: Optional[Exception]) -> Optional[asyncio.Future[_CloseReason]]:
+    async def _reconnect(
+        self, previous_error: Optional[Exception], *, keep_serving: bool = False
+    ) -> Optional[asyncio.Future[_CloseReason]]:
         attempt = 0
         retry_after = self._owner.retry_after_of(previous_error)
         while self._owner.accepting:
@@ -305,7 +378,10 @@ class GeoSocket:
             if not await self._owner.sleep(delay) or not self._owner.accepting:
                 return None
 
-            self._status = SocketModeStatus.CONNECTING
+            # A rotation still has a live connection serving, so reporting `connecting`
+            # would understate the geo's availability.
+            if not keep_serving:
+                self._status = SocketModeStatus.CONNECTING
             generation = self._next_generation()
             try:
                 return await self._connect_cycle(generation)
@@ -341,7 +417,13 @@ class GeoSocket:
         async def refresh() -> None:
             try:
                 await asyncio.sleep(delay)
-                if self._owner.accepting and generation == self._current_generation and not closed.done():
+                active = self._active
+                if (
+                    self._owner.accepting
+                    and active is not None
+                    and active.generation == generation
+                    and not closed.done()
+                ):
                     closed.set_result(_CloseReason(planned=True))
             except asyncio.CancelledError:
                 raise

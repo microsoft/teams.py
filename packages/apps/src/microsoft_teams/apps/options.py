@@ -19,6 +19,7 @@ from typing_extensions import Unpack
 from .diagnostics import Agent365BaggageOptions
 from .http.adapter import HttpServerAdapter
 from .plugins import PluginBase
+from .socket_mode import SocketModeOptions
 from .state import StateOptions
 
 DANGEROUSLY_ALLOW_UNAUTHENTICATED_REQUESTS_ENV_VAR = "DANGEROUSLY_ALLOW_UNAUTHENTICATED_REQUESTS"
@@ -114,6 +115,15 @@ class AppOptions(TypedDict, total=False):
     # HTTP adapter
     http_server_adapter: Optional[HttpServerAdapter]
     """Custom HTTP server adapter. Defaults to FastAPIAdapter if not provided."""
+
+    socket_mode: Optional[Union[bool, SocketModeOptions]]
+    """Receive activities over an outbound WebSocket instead of an inbound HTTPS endpoint.
+
+    ``True`` enables it with defaults; pass a ``SocketModeOptions`` to tune geos and
+    timeouts. The bot dials the Teams service, so no public endpoint or dev tunnel is
+    needed — but HTTP-only features (``app.function()``, tabs, OAuth redirect routes)
+    have no listener to serve them. Mutually exclusive with ``http_server_adapter``,
+    and supported only in the public cloud."""
 
     messaging_endpoint: Optional[str]
     """URL path for the Teams messaging endpoint. Defaults to '/api/messages'."""
@@ -223,6 +233,8 @@ class InternalAppOptions:
     """
     http_server_adapter: Optional[HttpServerAdapter] = None
     """Custom HTTP server adapter. Defaults to FastAPIAdapter if not provided."""
+    socket_mode: Optional[Union[bool, SocketModeOptions]] = None
+    """Receive activities over an outbound WebSocket instead of an inbound HTTPS endpoint."""
     messaging_endpoint: str = "/api/messages"
     """URL path for the Teams messaging endpoint. Defaults to '/api/messages'."""
     cloud: Optional[CloudEnvironment] = None
