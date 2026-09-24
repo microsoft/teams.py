@@ -50,6 +50,18 @@ class TestHttpStream:
         async def mock_send(conversation_id, activity):
             client.send_call_count += 1
             client.sent_activities.append(activity)
+
+            stream_id = next(
+                (
+                    entity.stream_id
+                    for entity in (activity.entities or [])
+                    if entity.type == "streaminfo" and entity.stream_id
+                ),
+                None,
+            )
+            if stream_id:
+                return SentActivity(id="DO_NOT_USE_PLACEHOLDER_ID", activity_params=activity)
+
             return SentActivity(id=f"activity-{client.send_call_count}", activity_params=activity)
 
         client.conversations.create_activity = mock_send
@@ -505,6 +517,36 @@ class TestHttpStream:
         assert result is None
 
     @pytest.mark.asyncio
+    async def test_close_returns_stream_id_when_final_response_has_placeholder(
+        self, mock_api_client, conversation_reference, patch_loop_call_later
+    ):
+        """The final streaming response is empty, so close() must retain the first chunk's id."""
+        loop = asyncio.get_running_loop()
+        patcher, scheduled = patch_loop_call_later(loop)
+        close_activities: list[SentActivity] = []
+        close_event = asyncio.Event()
+
+        async def handle_close(activity: SentActivity) -> None:
+            close_activities.append(activity)
+            close_event.set()
+
+        with patcher:
+            stream = HttpStream(mock_api_client, conversation_reference)
+            stream.on_close(handle_close)
+
+            stream.emit("Streamed content")
+            await asyncio.sleep(0)
+            await self._run_scheduled_flushes(scheduled)
+
+            result = await stream.close()
+
+        assert result is not None
+        assert result.id == "activity-1"
+        await asyncio.wait_for(close_event.wait(), timeout=1)
+        assert close_activities == [result]
+        assert close_activities[0].id == "activity-1"
+
+    @pytest.mark.asyncio
     async def test_final_activity_last_wins(self, mock_api_client, conversation_reference, patch_loop_call_later):
         """When multiple MessageActivityInputs are emitted, the last one's non-text fields are used."""
         loop = asyncio.get_running_loop()
@@ -780,6 +822,7 @@ class TestHttpStream:
 
         result = await close_task
         assert result is not None
+        assert result.id == "activity-1"
         assert mock_api_client.send_call_count == 1
         assert mock_api_client.sent_activities[0].text == "Response text"
 
