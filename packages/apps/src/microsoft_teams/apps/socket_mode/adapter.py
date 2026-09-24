@@ -239,8 +239,12 @@ class SocketModeAdapter:
         work, so returning once the sockets were up would let ``App.start()`` fall
         through and tear down the event loop that the sockets are running on.
         """
-        await self._transport.start()
-        await self._transport.stop_event.wait()
+        try:
+            await self._transport.start()
+            await self._transport.stop_event.wait()
+        except asyncio.CancelledError:
+            await self.stop()
+            raise
 
     async def stop(self) -> None:
         await self._transport.stop()
