@@ -9,6 +9,7 @@ from typing import Callable, Optional
 import pytest
 from microsoft_teams.apps.socket_mode import geo_socket
 from microsoft_teams.apps.socket_mode.connection import SocketConnectionAborted
+from microsoft_teams.apps.socket_mode.negotiate import NegotiateError
 from microsoft_teams.apps.socket_mode.transport import (
     RECONNECT_MAX_DELAY,
     SocketModeTransport,
@@ -495,3 +496,51 @@ async def test_stop_closes_connections_still_inside_the_handoff_window(monkeypat
     # A retiring connection is still owned, so shutdown must not leak it.
     assert previous.stopped >= 1
     assert factory.connections[1].stopped >= 1
+
+
+@pytest.mark.asyncio
+async def test_startup_retry_waits_for_retry_after_instead_of_its_own_backoff():
+    """A throttled negotiate must be obeyed; retrying on the local backoff would amplify it."""
+    factory = MockConnectionFactory()
+    factory.start_errors.append(NegotiateError("throttled", retry_after=0.25))
+    # Backoff alone would retry immediately, so any real wait has to come from Retry-After.
+    transport = await make_transport(factory, startup_timeout=2, reconnect_delays=(0,))
+
+    started = asyncio.get_running_loop().time()
+    await transport.start()
+    elapsed = asyncio.get_running_loop().time() - started
+
+    assert transport.status == SocketModeStatus.READY
+    assert len(factory.connections) == 2
+    assert elapsed >= 0.25
+
+    await transport.stop()
+
+
+@pytest.mark.asyncio
+async def test_overlapping_predecessors_each_serve_their_own_handoff(monkeypatch: pytest.MonkeyPatch):
+    """Rotations can overlap, so retirement must be per-generation rather than one shared slot."""
+    monkeypatch.setattr(geo_socket, "CONNECTION_HANDOFF_SECONDS", 30.0)
+    factory = MockConnectionFactory()
+    factory.expires_in_seconds = 0.01
+    dispatched: list[Optional[str]] = []
+    transport = await make_transport(factory, on_activity=lambda envelope: dispatched.append(envelope.envelope_id))
+    await transport.start()
+
+    # Every connection expires, so a second rotation begins while the first is still retiring.
+    await _eventually(lambda: len(factory.connections) == 3, timeout=5.0)
+
+    first, second, current = factory.connections[0], factory.connections[1], factory.connections[2]
+    assert first.stopped == 0
+    assert second.stopped == 0
+
+    assert await _dispatch(first, "oldest") is not None
+    assert await _dispatch(second, "middle") is not None
+    assert await _dispatch(current, "current") is not None
+    assert dispatched == ["oldest", "middle", "current"]
+
+    await transport.stop()
+
+    assert first.stopped >= 1
+    assert second.stopped >= 1
+    assert current.stopped >= 1

@@ -295,6 +295,12 @@ class SocketModeAdapter:
             return None
 
         invoke = is_invoke_envelope(envelope)
+        logger.debug(
+            "socket-mode: recv kind=%s type=%s envelope=%s",
+            "invoke" if invoke else "activity",
+            activity.get("type"),
+            envelope.envelope_id,
+        )
         try:
             core_activity = CoreActivity.model_validate(dict(activity))
             response = await self._process_activity(
@@ -323,13 +329,20 @@ class SocketModeAdapter:
                 received_at=received_at,
             )
 
-        return build_reply_frame(
+        reply = build_reply_frame(
             envelope,
             bot_key=self._client_id,
             status=response.status,
             body=response.body if invoke else None,
             received_at=received_at,
         )
+        logger.debug(
+            "socket-mode: reply sent kind=%s status=%s envelope=%s",
+            "invoke" if invoke else "ack",
+            reply.status,
+            envelope.envelope_id,
+        )
+        return reply
 
     async def _report_error(self, error: Exception) -> None:
         """Surface a handler failure to the App, never letting the hook itself break the socket."""

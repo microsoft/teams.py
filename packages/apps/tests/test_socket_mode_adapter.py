@@ -433,3 +433,203 @@ def test_app_rejects_socket_mode_outside_the_public_cloud():
 def test_app_socket_mode_false_is_off():
     app = App(client_id="client", client_secret="secret", tenant_id="tenant", socket_mode=False)
     assert app.socket_mode is None
+
+
+class _KeyedPipeline(RecordingPipeline):
+    """Replies with the activity's own id so a crossed reply is detectable."""
+
+    def __init__(self, delays: Optional[dict[str, float]] = None):
+        super().__init__()
+        self.delays = delays or {}
+        self.replies: dict[str, InvokeResponse[Any]] = {}
+
+    async def __call__(self, event: ActivityEvent) -> InvokeResponse[Any]:
+        self.events.append(event)
+        activity_id = str(event.body.id)
+        await asyncio.sleep(self.delays.get(activity_id, 0))
+        response = InvokeResponse(status=200, body={"echo": activity_id})
+        self.replies[activity_id] = response
+        return response
+
+
+@pytest.mark.asyncio
+async def test_concurrent_invokes_are_each_correlated_to_their_own_envelope():
+    """Replies are matched by envelope, so overlapping invokes must not swap results."""
+    # Finishing in reverse arrival order is what a single shared reply slot would get wrong.
+    delays = {"act-0": 0.03, "act-1": 0.02, "act-2": 0.01}
+    factory = MockConnectionFactory()
+    adapter, pipeline = make_adapter(factory, pipeline=_KeyedPipeline(delays))
+    task = await _start(adapter)
+
+    replies = await asyncio.gather(
+        *(
+            dispatch(
+                factory.connections[0],
+                envelope({**INVOKE_ACTIVITY, "id": f"act-{i}"}, type="invoke", envelopeId=f"env-{i}"),
+            )
+            for i in range(3)
+        )
+    )
+
+    for index, reply in enumerate(replies):
+        assert reply is not None
+        assert reply.envelope_id == f"env-{index}"
+        assert reply.body is pipeline.replies[f"act-{index}"].body
+
+    await adapter.stop()
+    await task
+
+
+@pytest.mark.asyncio
+async def test_concurrent_invoke_and_one_way_activities_stay_isolated():
+    """An invoke owes a body and a one-way activity must not gain one, even interleaved."""
+    delays = {"act-invoke": 0.02, "act-message": 0.01}
+    factory = MockConnectionFactory()
+    adapter, pipeline = make_adapter(factory, pipeline=_KeyedPipeline(delays))
+    task = await _start(adapter)
+
+    invoke_reply, message_reply = await asyncio.gather(
+        dispatch(
+            factory.connections[0],
+            envelope({**INVOKE_ACTIVITY, "id": "act-invoke"}, type="invoke", envelopeId="env-invoke"),
+        ),
+        dispatch(
+            factory.connections[0],
+            envelope({**MESSAGE_ACTIVITY, "id": "act-message"}, envelopeId="env-message"),
+        ),
+    )
+
+    assert invoke_reply is not None and message_reply is not None
+    assert invoke_reply.envelope_id == "env-invoke"
+    assert invoke_reply.body is pipeline.replies["act-invoke"].body
+    assert message_reply.envelope_id == "env-message"
+    assert message_reply.body is None
+
+    await adapter.stop()
+    await task
+
+
+@pytest.mark.asyncio
+async def test_stop_does_not_abandon_a_handler_that_is_already_running():
+    """An accepted envelope still owes the service a reply, so shutdown must not drop it."""
+    started = asyncio.Event()
+    release = asyncio.Event()
+
+    class BlockingPipeline(RecordingPipeline):
+        async def __call__(self, event: ActivityEvent) -> InvokeResponse[Any]:
+            started.set()
+            await release.wait()
+            return await super().__call__(event)
+
+    factory = MockConnectionFactory()
+    adapter, pipeline = make_adapter(factory, pipeline=BlockingPipeline(InvokeResponse(status=201, body={"ok": True})))
+    task = await _start(adapter)
+
+    in_flight = asyncio.create_task(dispatch(factory.connections[0], envelope(INVOKE_ACTIVITY, type="invoke")))
+    await started.wait()
+
+    stopping = asyncio.create_task(adapter.stop())
+    await asyncio.sleep(0)
+    release.set()
+
+    reply = await in_flight
+    assert reply is not None
+    assert reply.status == 201
+    assert reply.body is pipeline.response.body
+
+    await stopping
+    await task
+
+
+@pytest.mark.asyncio
+async def test_one_way_handler_failure_replies_500_without_a_body():
+    """A one-way activity has nowhere to put an error payload, so the 500 must stay bodyless."""
+    factory = MockConnectionFactory()
+    adapter, _ = make_adapter(factory, pipeline=RecordingPipeline(error=RuntimeError("handler blew up")))
+    task = await _start(adapter)
+
+    reply = await dispatch(factory.connections[0], envelope(MESSAGE_ACTIVITY))
+
+    assert reply is not None
+    assert reply.status == 500
+    assert reply.body is None
+    assert reply.envelope_id == "env-1"
+
+    await adapter.stop()
+    await task
+
+
+@pytest.mark.asyncio
+async def test_a_failed_invoke_does_not_poison_the_next_one():
+    """One bad handler call must not wedge the socket for every envelope that follows."""
+
+    class FlakyPipeline(RecordingPipeline):
+        async def __call__(self, event: ActivityEvent) -> InvokeResponse[Any]:
+            self.events.append(event)
+            if len(self.events) == 1:
+                raise RuntimeError("handler blew up")
+            return self.response
+
+    factory = MockConnectionFactory()
+    adapter, pipeline = make_adapter(factory, pipeline=FlakyPipeline(InvokeResponse(status=200, body={"ok": True})))
+    task = await _start(adapter)
+
+    first = await dispatch(factory.connections[0], envelope(INVOKE_ACTIVITY, type="invoke", envelopeId="env-1"))
+    second = await dispatch(factory.connections[0], envelope(INVOKE_ACTIVITY, type="invoke", envelopeId="env-2"))
+
+    assert first is not None and first.status == 500
+    assert second is not None and second.status == 200
+    assert second.body is pipeline.response.body
+    assert second.envelope_id == "env-2"
+
+    await adapter.stop()
+    await task
+
+
+@pytest.mark.asyncio
+async def test_a_slow_invoke_result_is_withheld_until_the_handler_finishes():
+    """The service correlates on the reply, so an invoke result must not be sent early."""
+
+    class SlowInvokePipeline(RecordingPipeline):
+        async def __call__(self, event: ActivityEvent) -> InvokeResponse[Any]:
+            await asyncio.sleep(0.05)
+            return await super().__call__(event)
+
+    factory = MockConnectionFactory()
+    adapter, pipeline = make_adapter(
+        factory, pipeline=SlowInvokePipeline(InvokeResponse(status=201, body={"late": True}))
+    )
+    task = await _start(adapter)
+
+    reply = await dispatch(factory.connections[0], envelope(INVOKE_ACTIVITY, type="invoke"))
+
+    assert reply is not None
+    assert reply.status == 201
+    assert reply.body is pipeline.response.body
+    assert reply.recv_at is not None and reply.ts is not None
+    assert reply.ts - reply.recv_at >= 25
+
+    await adapter.stop()
+    await task
+
+
+@pytest.mark.asyncio
+async def test_a_throwing_lifecycle_listener_does_not_wedge_readiness():
+    """Readiness is the app's start gate; a third-party observer must not be able to hold it shut."""
+    seen: list[Any] = []
+
+    def explode(_: Any) -> None:
+        raise ValueError("listener is broken")
+
+    factory = MockConnectionFactory()
+    adapter, _ = make_adapter(factory, geos=("amer",))
+    adapter.events.on("ready", explode)
+    adapter.events.on("ready", seen.append)
+
+    task = await _start(adapter)
+
+    assert adapter.status == SocketModeStatus.READY
+    assert [event.geo for event in seen] == ["amer"]
+
+    await adapter.stop()
+    await task
