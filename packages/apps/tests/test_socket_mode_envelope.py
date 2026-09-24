@@ -63,6 +63,16 @@ def test_reply_frame_is_versioned_and_omits_unset_fields():
     assert "body" not in payload
 
 
+def test_reply_frame_defaults_to_a_bodyless_200():
+    """A caller that has no status to report still owes the service a positive acknowledgement."""
+    envelope = parse_envelope({"envelopeId": "env-1", "payload": {"type": "message"}})
+
+    payload = build_reply_frame(envelope, bot_key="bot-1").model_dump(by_alias=True, exclude_none=True)
+
+    assert payload["status"] == 200
+    assert "body" not in payload
+
+
 def test_invoke_classification_ignores_ack_required():
     """``ackRequired`` is a delivery concern: an invoke still owes a full result."""
     assert is_invoke_envelope(parse_envelope({"type": "invoke", "ackRequired": True}))

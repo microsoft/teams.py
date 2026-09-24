@@ -148,6 +148,72 @@ async def test_service_negotiate_ignores_unparsable_retry_after():
 
 
 @pytest.mark.asyncio
+async def test_service_negotiate_rejects_an_empty_bot_token_before_dialing():
+    """Missing credentials must fail closed, before a request is put on the wire."""
+    calls = 0
+
+    def handler(_: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        return httpx.Response(200, json={})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        with pytest.raises(NegotiateError, match="no bot token"):
+            await negotiate_service(
+                "https://botapi.example/v3/websockets/connect",
+                lambda: _token(""),
+                http_client=client,
+            )
+
+    assert calls == 0
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"accessToken": "signalr-token"},
+        {"url": "https://signalr.example/hub"},
+        {"url": "", "accessToken": "signalr-token"},
+        {"url": "https://signalr.example/hub", "accessToken": ""},
+        {"url": 42, "accessToken": "signalr-token"},
+    ],
+)
+async def test_service_negotiate_rejects_a_response_missing_url_or_token(payload: dict[str, object]):
+    def handler(_: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=payload)
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        with pytest.raises(NegotiateError, match="missing url/accessToken"):
+            await negotiate_service(
+                "https://botapi.example/v3/websockets/connect",
+                lambda: _token("bot-token"),
+                http_client=client,
+            )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("expires_in", [None, "soon", True])
+async def test_service_negotiate_defaults_expires_in_when_absent_or_unusable(expires_in: object):
+    """``expires_in`` schedules the credential refresh, so an unusable value must fall back to 0."""
+    payload: dict[str, object] = {"url": "https://signalr.example/hub", "accessToken": "signalr-token"}
+    if expires_in is not None:
+        payload["expiresIn"] = expires_in
+
+    def handler(_: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=payload)
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        result = await negotiate_service(
+            "https://botapi.example/v3/websockets/connect",
+            lambda: _token("bot-token"),
+            http_client=client,
+        )
+
+    assert result.expires_in == 0
+
+
+@pytest.mark.asyncio
 async def test_signalr_negotiate_builds_secure_websocket_url():
     requests: list[httpx.Request] = []
 
