@@ -129,6 +129,31 @@ async def test_one_way_activity_is_acknowledged_without_a_body():
 
 
 @pytest.mark.asyncio
+async def test_reply_timestamps_span_the_time_the_handler_held_the_envelope():
+    """``recv_at`` is stamped on arrival and ``ts`` on reply, so their gap is the bot's own latency."""
+
+    class SlowPipeline(RecordingPipeline):
+        async def __call__(self, event: ActivityEvent) -> InvokeResponse[Any]:
+            await asyncio.sleep(0.05)
+            return await super().__call__(event)
+
+    factory = MockConnectionFactory()
+    adapter, _ = make_adapter(factory, pipeline=SlowPipeline())
+    task = await _start(adapter)
+
+    reply = await dispatch(factory.connections[0], envelope(MESSAGE_ACTIVITY))
+
+    assert reply is not None
+    assert reply.recv_at is not None and reply.ts is not None
+    assert reply.recv_at <= reply.ts
+    # Stamping recv_at at reply time instead would collapse this to zero.
+    assert reply.ts - reply.recv_at >= 25
+
+    await adapter.stop()
+    await task
+
+
+@pytest.mark.asyncio
 async def test_newer_protocol_version_is_rejected_before_the_handler_runs():
     factory = MockConnectionFactory()
     adapter, pipeline = make_adapter(factory)

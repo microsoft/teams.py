@@ -11,6 +11,7 @@ Licensed under the MIT License.
 
 import asyncio
 import logging
+import time
 from dataclasses import dataclass
 from typing import Any, Awaitable, Callable, Literal, Optional, Sequence, Union
 
@@ -265,6 +266,10 @@ class SocketModeAdapter:
         An invoke returns the handler's status and body; a one-way activity is acknowledged
         once the pipeline has run.
         """
+        # Stamped before any work so that ``ts - recv_at`` on the reply measures how long the
+        # bot held the envelope; taking it at reply time would always report zero.
+        received_at = int(time.time() * 1000)
+
         declared = envelope.protocol_version
         if declared is not None and declared > SOCKET_MODE_PROTOCOL_VERSION:
             # Refused before dispatch, not after: a future major version may change what a
@@ -280,6 +285,7 @@ class SocketModeAdapter:
                 bot_key=self._client_id,
                 status=400,
                 body={"error": f"unsupported protocolVersion {declared}"},
+                received_at=received_at,
             )
 
         activity = read_envelope_activity(envelope)
@@ -309,6 +315,7 @@ class SocketModeAdapter:
                 bot_key=self._client_id,
                 status=500,
                 body={"error": "bot handler error"} if invoke else None,
+                received_at=received_at,
             )
 
         return build_reply_frame(
@@ -316,6 +323,7 @@ class SocketModeAdapter:
             bot_key=self._client_id,
             status=response.status,
             body=response.body if invoke else None,
+            received_at=received_at,
         )
 
     async def _report_error(self, error: Exception) -> None:
