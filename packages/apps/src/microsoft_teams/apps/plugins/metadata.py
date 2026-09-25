@@ -26,7 +26,11 @@ T = TypeVar("T")
 def Plugin(
     name: Optional[str] = None, version: Optional[str] = None, description: Optional[str] = None
 ) -> Callable[[Type[T]], Type[T]]:
-    """Turns any class into a plugin using the decorator pattern."""
+    """Turns any class into a plugin using the decorator pattern.
+
+    Deprecated:
+        The plugin API will be removed in the next major release.
+    """
 
     def decorator(cls: Type[T]) -> Type[T]:
         plugin_name = name or cls.__name__
