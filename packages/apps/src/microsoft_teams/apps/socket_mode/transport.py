@@ -196,7 +196,7 @@ class SocketModeTransport:
             self._stop_event = asyncio.Event()
             self._lifecycle = SocketModeStatus.CONNECTING
             self._geos = [
-                GeoSocket(self, geo, _build_negotiate_url(self._options.negotiate_base_url, geo), self._logger)
+                GeoSocket(self, geo, build_negotiate_url(self._options.negotiate_base_url, geo), self._logger)
                 for geo in geos
             ]
             tasks = [
@@ -285,6 +285,9 @@ class SocketModeTransport:
         """The service's requested delay, which takes precedence over local backoff."""
         return error.retry_after if isinstance(error, NegotiateError) else None
 
+    def is_terminal(self, error: Optional[Exception]) -> bool:
+        return isinstance(error, NegotiateError) and error.terminal
+
     async def sleep(self, delay: float) -> bool:
         """Wait, returning ``False`` if stop was requested first so the caller can bail out."""
         if delay <= 0:
@@ -329,7 +332,7 @@ class SocketModeTransport:
             self._logger.warning("Socket Mode lifecycle callback failed", exc_info=error)
 
 
-def _build_negotiate_url(base_url: str, geo: str) -> str:
+def build_negotiate_url(base_url: str, geo: str) -> str:
     base = base_url.rstrip("/")
     segment = geo.strip().strip("/")
     if segment:

@@ -73,6 +73,12 @@ class SocketActivityEnvelope(_InboundFrame):
     ack_required: Optional[bool] = None
     """Set for one-way activities. Invoke activities expect a full result instead."""
 
+    bot_key: Optional[str] = None
+
+    deadline_ms: Optional[int] = None
+    """Backend service-provided reply budget in milliseconds."""
+
+    headers: Optional[object] = None
     payload: Optional[object] = None
     activity: Optional[object] = None
     """

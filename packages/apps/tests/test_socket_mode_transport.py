@@ -7,7 +7,9 @@ import asyncio
 from typing import Callable, Optional
 
 import pytest
+from microsoft_teams.apps.socket_mode import geo_socket
 from microsoft_teams.apps.socket_mode.connection import SocketConnectionAborted
+from microsoft_teams.apps.socket_mode.negotiate import NegotiateError
 from microsoft_teams.apps.socket_mode.transport import (
     RECONNECT_MAX_DELAY,
     SocketModeTransport,
@@ -393,3 +395,216 @@ async def test_startup_budget_cutoff_keeps_the_error_that_explains_the_failure()
 
     assert len(attempts) >= 2, "the budget should have allowed a retry after the first failure"
     assert transport.status == SocketModeStatus.STOPPED
+
+
+async def _dispatch(connection: MockConnection, envelope_id: str) -> Optional[ReplyFrame]:
+    return await connection.handlers.on_activity(
+        SocketActivityEnvelope(envelope_id=envelope_id, payload={"type": "message"})
+    )
+
+
+@pytest.mark.asyncio
+async def test_planned_rotation_keeps_the_previous_connection_serving(monkeypatch: pytest.MonkeyPatch):
+    # Long enough that the handoff is still open while the assertions run.
+    monkeypatch.setattr(geo_socket, "CONNECTION_HANDOFF_SECONDS", 30.0)
+    factory = MockConnectionFactory()
+    factory.expires_in_seconds = 0.01
+    dispatched: list[Optional[str]] = []
+    transport = await make_transport(factory, on_activity=lambda envelope: dispatched.append(envelope.envelope_id))
+    await transport.start()
+    previous = factory.connections[0]
+
+    await _eventually(lambda: len(factory.connections) == 2, timeout=1.5)
+
+    # The service can still be routing to the old connection id, so it must keep working.
+    assert previous.stopped == 0
+    assert await _dispatch(previous, "during-handoff") is not None
+    assert await _dispatch(factory.connections[1], "on-replacement") is not None
+    assert dispatched == ["during-handoff", "on-replacement"]
+    assert transport.status == SocketModeStatus.READY
+    await transport.stop()
+
+
+@pytest.mark.asyncio
+async def test_retired_connection_closes_and_stops_dispatching_after_the_handoff(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    monkeypatch.setattr(geo_socket, "CONNECTION_HANDOFF_SECONDS", 0.01)
+    factory = MockConnectionFactory()
+    factory.expires_in_seconds = 0.01
+    transport = await make_transport(factory)
+    await transport.start()
+    previous = factory.connections[0]
+
+    await _eventually(lambda: len(factory.connections) == 2, timeout=1.5)
+    await _eventually(lambda: previous.stopped >= 1, timeout=1.5)
+
+    assert await _dispatch(previous, "after-handoff") is None
+    assert await _dispatch(factory.connections[1], "current") is not None
+    await transport.stop()
+
+
+@pytest.mark.asyncio
+async def test_rotation_whose_predecessor_dies_early_reports_a_disconnect(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(geo_socket, "CONNECTION_HANDOFF_SECONDS", 30.0)
+    factory = MockConnectionFactory()
+    factory.expires_in_seconds = 0.01
+    disconnected: list[str] = []
+    reconnected: list[str] = []
+    transport = await make_transport(
+        factory,
+        callbacks=SocketModeCallbacks(
+            on_disconnected=lambda geo, _: disconnected.append(geo),
+            on_reconnected=reconnected.append,
+        ),
+        # Hold the replacement back so the predecessor is still the only live socket.
+        reconnect_delays=(0.2,),
+    )
+    await transport.start()
+    previous = factory.connections[0]
+    geo = transport._geos[0]
+
+    # Kill the predecessor strictly between the planned close and its replacement being
+    # created, which is the only window where the rotation has no other live socket.
+    def rotation_in_flight() -> bool:
+        closed = geo._closed
+        return closed is not None and closed.done() and len(factory.connections) == 1
+
+    await _eventually(rotation_in_flight, timeout=1.5)
+    previous.drop(ConnectionError("died mid-rotation"))
+
+    await _eventually(lambda: disconnected == [""], timeout=2.0)
+    await _eventually(lambda: reconnected == [""], timeout=2.0)
+    assert transport.status == SocketModeStatus.READY
+    await transport.stop()
+
+
+@pytest.mark.asyncio
+async def test_stop_closes_connections_still_inside_the_handoff_window(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(geo_socket, "CONNECTION_HANDOFF_SECONDS", 30.0)
+    factory = MockConnectionFactory()
+    factory.expires_in_seconds = 0.01
+    transport = await make_transport(factory)
+    await transport.start()
+    previous = factory.connections[0]
+
+    await _eventually(lambda: len(factory.connections) == 2, timeout=1.5)
+    assert previous.stopped == 0
+
+    await transport.stop()
+
+    # A retiring connection is still owned, so shutdown must not leak it.
+    assert previous.stopped >= 1
+    assert factory.connections[1].stopped >= 1
+
+
+@pytest.mark.asyncio
+async def test_startup_retry_waits_for_retry_after_instead_of_its_own_backoff():
+    """A throttled negotiate must be obeyed; retrying on the local backoff would amplify it."""
+    factory = MockConnectionFactory()
+    factory.start_errors.append(NegotiateError("throttled", retry_after=0.25))
+    # Backoff alone would retry immediately, so any real wait has to come from Retry-After.
+    transport = await make_transport(factory, startup_timeout=2, reconnect_delays=(0,))
+
+    started = asyncio.get_running_loop().time()
+    await transport.start()
+    elapsed = asyncio.get_running_loop().time() - started
+
+    assert transport.status == SocketModeStatus.READY
+    assert len(factory.connections) == 2
+    assert elapsed >= 0.25
+
+    await transport.stop()
+
+
+@pytest.mark.asyncio
+async def test_overlapping_predecessors_each_serve_their_own_handoff(monkeypatch: pytest.MonkeyPatch):
+    """Rotations can overlap, so retirement must be per-generation rather than one shared slot."""
+    monkeypatch.setattr(geo_socket, "CONNECTION_HANDOFF_SECONDS", 30.0)
+    factory = MockConnectionFactory()
+    factory.expires_in_seconds = 0.01
+    dispatched: list[Optional[str]] = []
+    transport = await make_transport(factory, on_activity=lambda envelope: dispatched.append(envelope.envelope_id))
+    await transport.start()
+
+    # Every connection expires, so a second rotation begins while the first is still retiring.
+    await _eventually(lambda: len(factory.connections) == 3, timeout=5.0)
+
+    first, second, current = factory.connections[0], factory.connections[1], factory.connections[2]
+    assert first.stopped == 0
+    assert second.stopped == 0
+
+    assert await _dispatch(first, "oldest") is not None
+    assert await _dispatch(second, "middle") is not None
+    assert await _dispatch(current, "current") is not None
+    assert dispatched == ["oldest", "middle", "current"]
+
+    await transport.stop()
+
+    assert first.stopped >= 1
+    assert second.stopped >= 1
+    assert current.stopped >= 1
+
+
+@pytest.mark.asyncio
+async def test_terminal_negotiate_failure_is_not_retried_during_startup():
+    factory = MockConnectionFactory()
+    factory.start_errors.append(NegotiateError("Socket Mode negotiate failed: HTTP 403", terminal=True))
+    transport = await make_transport(factory, startup_timeout=5)
+
+    with pytest.raises(NegotiateError, match="HTTP 403"):
+        await transport.start()
+
+    assert len(factory.connections) == 1
+    assert factory.connections[0].stopped >= 1
+    assert transport.status == SocketModeStatus.STOPPED
+
+
+@pytest.mark.asyncio
+async def test_terminal_negotiate_failure_stops_the_reconnect_loop():
+    factory = MockConnectionFactory()
+    rejected = NegotiateError("Socket Mode negotiate failed: HTTP 401", terminal=True)
+    errors: list[Optional[Exception]] = []
+    transport = await make_transport(
+        factory, callbacks=SocketModeCallbacks(on_disconnected=lambda _, error: errors.append(error))
+    )
+    await transport.start()
+    factory.start_errors.append(rejected)
+
+    factory.connections[0].drop(ConnectionError("network drop"))
+    await _eventually(lambda: rejected in errors)
+
+    await asyncio.sleep(0.05)
+    assert len(factory.connections) == 2
+    assert transport.status == SocketModeStatus.DISCONNECTED
+    assert all(connection.stopped >= 1 for connection in factory.connections)
+    await transport.stop()
+
+
+@pytest.mark.asyncio
+async def test_terminal_refresh_failure_closes_only_the_affected_geo():
+    factory = MockConnectionFactory()
+    rejected = NegotiateError("Socket Mode negotiate failed: HTTP 403", terminal=True)
+    errors: list[tuple[str, Optional[Exception]]] = []
+    transport = await make_transport(
+        factory,
+        geos=("amer", "emea"),
+        callbacks=SocketModeCallbacks(on_disconnected=lambda geo, error: errors.append((geo, error))),
+    )
+    await transport.start()
+    affected, healthy = factory.connections
+    geo = transport._geos[0]
+    closed = geo._closed
+    assert closed is not None
+    factory.start_errors.append(rejected)
+    geo._schedule_refresh(1, 0.01, closed)
+
+    await _eventually(lambda: ("amer", rejected) in errors, timeout=1.5)
+
+    assert affected.stopped >= 1
+    assert healthy.stopped == 0
+    assert dict(transport.geo_statuses) == {"amer": SocketModeStatus.DISCONNECTED, "emea": SocketModeStatus.READY}
+    assert await _dispatch(affected, "after-rejection") is None
+    assert await _dispatch(healthy, "still-serving") is not None
+    assert len(factory.connections) == 3
+    await transport.stop()

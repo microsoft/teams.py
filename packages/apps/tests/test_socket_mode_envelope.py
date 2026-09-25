@@ -63,6 +63,16 @@ def test_reply_frame_is_versioned_and_omits_unset_fields():
     assert "body" not in payload
 
 
+def test_reply_frame_defaults_to_a_bodyless_200():
+    """A caller that has no status to report still owes the service a positive acknowledgement."""
+    envelope = parse_envelope({"envelopeId": "env-1", "payload": {"type": "message"}})
+
+    payload = build_reply_frame(envelope, bot_key="bot-1").model_dump(by_alias=True, exclude_none=True)
+
+    assert payload["status"] == 200
+    assert "body" not in payload
+
+
 def test_invoke_classification_ignores_ack_required():
     """``ackRequired`` is a delivery concern: an invoke still owes a full result."""
     assert is_invoke_envelope(parse_envelope({"type": "invoke", "ackRequired": True}))
@@ -71,3 +81,39 @@ def test_invoke_classification_ignores_ack_required():
 
 def test_activity_is_none_when_neither_field_is_activity_shaped():
     assert read_envelope_activity(parse_envelope({"payload": "junk", "activity": {"no": "type"}})) is None
+
+
+@pytest.mark.parametrize("pascal_case", [False, True])
+def test_delivery_metadata_is_parsed_from_the_wire(pascal_case: bool):
+    fields = {
+        "envelopeId": "env-1",
+        "botKey": "bot-key-1",
+        "deadlineMs": 25000,
+        "headers": {"User-Agent": "test"},
+        "payload": {"type": "message"},
+    }
+    if pascal_case:
+        fields = {key[0].upper() + key[1:]: value for key, value in fields.items()}
+    envelope = parse_envelope(fields)
+
+    assert envelope.bot_key == "bot-key-1"
+    assert envelope.deadline_ms == 25000
+    assert isinstance(envelope.deadline_ms, int)
+    assert envelope.headers == {"User-Agent": "test"}
+
+
+def test_fractional_deadline_is_rejected():
+    with pytest.raises(EnvelopeError):
+        parse_envelope({"envelopeId": "env-1", "deadlineMs": 25000.5, "payload": {"type": "message"}})
+
+
+def test_malformed_delivery_metadata_does_not_reject_the_envelope():
+    envelope = parse_envelope({"envelopeId": "env-1", "headers": "junk", "payload": {"type": "message"}})
+
+    assert read_envelope_activity(envelope) == {"type": "message"}
+
+
+def test_reply_identity_still_comes_from_the_configured_bot():
+    envelope = parse_envelope({"envelopeId": "env-1", "botKey": "addressed", "payload": {"type": "message"}})
+
+    assert build_reply_frame(envelope, bot_key="local").bot_key == "local"

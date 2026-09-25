@@ -18,6 +18,15 @@ from .oauth_flow import OAuthFlow, OAuthFlowRegistry
 from .options import AppOptions, AppTelemetryOptions
 from .plugins import *  # noqa: F401, F403
 from .routing import ActivityContext
+from .socket_mode import (
+    SocketModeAdapter,
+    SocketModeDisconnectedEvent,
+    SocketModeOptions,
+    SocketModeReadyEvent,
+    SocketModeReconnectedEvent,
+    SocketModeStatus,
+    SocketReadyFrame,
+)
 from .state import StateOptions, TurnState, TurnStateContainer, TurnStateSealedError, create_state_loader
 from .token_provider import AppTokenProvider
 from .utils.html_widget import (
@@ -49,6 +58,13 @@ __all__: list[str] = [
     "AppTokenProvider",
     "OAuthFlow",
     "OAuthFlowRegistry",
+    "SocketModeAdapter",
+    "SocketModeDisconnectedEvent",
+    "SocketModeOptions",
+    "SocketModeReadyEvent",
+    "SocketModeReconnectedEvent",
+    "SocketModeStatus",
+    "SocketReadyFrame",
     "StateOptions",
     "TurnState",
     "TurnStateContainer",
