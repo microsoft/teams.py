@@ -285,6 +285,9 @@ class SocketModeTransport:
         """The service's requested delay, which takes precedence over local backoff."""
         return error.retry_after if isinstance(error, NegotiateError) else None
 
+    def is_terminal(self, error: Optional[Exception]) -> bool:
+        return isinstance(error, NegotiateError) and error.terminal
+
     async def sleep(self, delay: float) -> bool:
         """Wait, returning ``False`` if stop was requested first so the caller can bail out."""
         if delay <= 0:

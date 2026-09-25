@@ -59,11 +59,13 @@ class NegotiateError(RuntimeError):
 
     ``retry_after`` carries the service's ``Retry-After`` when it sent one, so the
     supervisor can honour throttling instead of applying its own backoff.
+    ``terminal`` marks service-negotiate authentication failures that must not be retried.
     """
 
-    def __init__(self, message: str, retry_after: Optional[float] = None):
+    def __init__(self, message: str, retry_after: Optional[float] = None, *, terminal: bool = False):
         super().__init__(message)
         self.retry_after = retry_after
+        self.terminal = terminal
 
 
 def assert_secure_url(url: str, *, purpose: str, websocket_allowed: bool = False) -> None:
@@ -152,14 +154,17 @@ async def negotiate_service(
             )
         if not response.is_success:
             retry_after = _parse_retry_after(response.headers)
+            terminal = response.status_code in (401, 403)
             logger.warning(
-                "Socket Mode service negotiate failed: HTTP %d (retry_after=%s)",
+                "Socket Mode service negotiate failed: HTTP %d (retry_after=%s, terminal=%s)",
                 response.status_code,
                 retry_after,
+                terminal,
             )
             raise NegotiateError(
                 f"Socket Mode negotiate failed: HTTP {response.status_code}",
                 retry_after,
+                terminal=terminal,
             )
         payload = _response_object(response, "Socket Mode negotiate")
         url = payload.get("url")

@@ -57,6 +57,8 @@ class GeoSocketOwner(Protocol):
 
     def retry_after_of(self, error: Optional[Exception]) -> Optional[float]: ...
 
+    def is_terminal(self, error: Optional[Exception]) -> bool: ...
+
     async def sleep(self, delay: float) -> bool: ...
 
     async def dispatch(
@@ -166,6 +168,8 @@ class GeoSocket:
                     last_error = error
                 if not self._owner.accepting:
                     break
+                if self._owner.is_terminal(error):
+                    raise
                 delay = self._owner.retry_after_of(error)
                 if delay is None:
                     delay = self._owner.backoff_delay(attempt)
@@ -388,6 +392,15 @@ class GeoSocket:
             except asyncio.CancelledError:
                 raise
             except Exception as error:
+                if self._owner.is_terminal(error):
+                    self._logger.error(
+                        "socket-mode[%s]: reconnect rejected; giving up on this geo",
+                        self.geo,
+                        exc_info=error,
+                    )
+                    await self.stop()
+                    self._report_disconnected(error)
+                    return None
                 retry_after = self._owner.retry_after_of(error)
                 self._logger.warning(
                     "socket-mode[%s]: reconnect attempt %d failed",

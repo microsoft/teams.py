@@ -544,3 +544,67 @@ async def test_overlapping_predecessors_each_serve_their_own_handoff(monkeypatch
     assert first.stopped >= 1
     assert second.stopped >= 1
     assert current.stopped >= 1
+
+
+@pytest.mark.asyncio
+async def test_terminal_negotiate_failure_is_not_retried_during_startup():
+    factory = MockConnectionFactory()
+    factory.start_errors.append(NegotiateError("Socket Mode negotiate failed: HTTP 403", terminal=True))
+    transport = await make_transport(factory, startup_timeout=5)
+
+    with pytest.raises(NegotiateError, match="HTTP 403"):
+        await transport.start()
+
+    assert len(factory.connections) == 1
+    assert factory.connections[0].stopped >= 1
+    assert transport.status == SocketModeStatus.STOPPED
+
+
+@pytest.mark.asyncio
+async def test_terminal_negotiate_failure_stops_the_reconnect_loop():
+    factory = MockConnectionFactory()
+    rejected = NegotiateError("Socket Mode negotiate failed: HTTP 401", terminal=True)
+    errors: list[Optional[Exception]] = []
+    transport = await make_transport(
+        factory, callbacks=SocketModeCallbacks(on_disconnected=lambda _, error: errors.append(error))
+    )
+    await transport.start()
+    factory.start_errors.append(rejected)
+
+    factory.connections[0].drop(ConnectionError("network drop"))
+    await _eventually(lambda: rejected in errors)
+
+    await asyncio.sleep(0.05)
+    assert len(factory.connections) == 2
+    assert transport.status == SocketModeStatus.DISCONNECTED
+    assert all(connection.stopped >= 1 for connection in factory.connections)
+    await transport.stop()
+
+
+@pytest.mark.asyncio
+async def test_terminal_refresh_failure_closes_only_the_affected_geo():
+    factory = MockConnectionFactory()
+    rejected = NegotiateError("Socket Mode negotiate failed: HTTP 403", terminal=True)
+    errors: list[tuple[str, Optional[Exception]]] = []
+    transport = await make_transport(
+        factory,
+        geos=("amer", "emea"),
+        callbacks=SocketModeCallbacks(on_disconnected=lambda geo, error: errors.append((geo, error))),
+    )
+    await transport.start()
+    affected, healthy = factory.connections
+    geo = transport._geos[0]
+    closed = geo._closed
+    assert closed is not None
+    factory.start_errors.append(rejected)
+    geo._schedule_refresh(1, 0.01, closed)
+
+    await _eventually(lambda: ("amer", rejected) in errors, timeout=1.5)
+
+    assert affected.stopped >= 1
+    assert healthy.stopped == 0
+    assert dict(transport.geo_statuses) == {"amer": SocketModeStatus.DISCONNECTED, "emea": SocketModeStatus.READY}
+    assert await _dispatch(affected, "after-rejection") is None
+    assert await _dispatch(healthy, "still-serving") is not None
+    assert len(factory.connections) == 3
+    await transport.stop()

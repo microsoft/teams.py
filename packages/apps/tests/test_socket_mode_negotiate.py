@@ -325,3 +325,41 @@ async def test_negotiate_logs_never_contain_tokens(caplog: pytest.LogCaptureFixt
 
 async def _token(value: str) -> str:
     return value
+
+
+@pytest.mark.parametrize("status", [401, 403])
+@pytest.mark.asyncio
+async def test_only_service_negotiate_auth_rejections_are_terminal(status: int):
+    def handler(_: httpx.Request) -> httpx.Response:
+        return httpx.Response(status, text="nope")
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        with pytest.raises(NegotiateError) as service_error:
+            await negotiate_service(
+                "https://botapi.example/v3/websockets/connect",
+                lambda: _token("bot-token"),
+                http_client=client,
+            )
+        with pytest.raises(NegotiateError) as signalr_error:
+            await negotiate_signalr("https://signalr.example/hub", "signalr-token", http_client=client)
+
+    assert service_error.value.terminal
+    # SignalR uses a short-lived negotiated token; the next cycle can acquire a fresh one.
+    assert not signalr_error.value.terminal
+
+
+@pytest.mark.parametrize("status", [429, 499, 500, 502, 503, 504])
+@pytest.mark.asyncio
+async def test_transient_failures_stay_retryable(status: int):
+    def handler(_: httpx.Request) -> httpx.Response:
+        return httpx.Response(status, text="later")
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        with pytest.raises(NegotiateError) as error:
+            await negotiate_service(
+                "https://botapi.example/v3/websockets/connect",
+                lambda: _token("bot-token"),
+                http_client=client,
+            )
+
+    assert not error.value.terminal
