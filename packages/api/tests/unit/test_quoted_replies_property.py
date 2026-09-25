@@ -135,10 +135,11 @@ class TestStripQuotedReplyText:
         assert strip_quoted_reply_text(activity) == "  Ordinary message  "
         assert activity.strip_quoted_reply_text().text == "  Ordinary message  "
 
-    def test_returns_text_unchanged_when_quote_entity_has_no_placeholder(self):
-        activity = self._create_quoted_activity("  Reply without marker  ")
+    def test_leaves_placeholder_with_unmatched_id_unchanged(self):
+        activity = self._create_quoted_activity('<quoted messageId="quoted-2"/> Reply')
 
-        assert strip_quoted_reply_text(activity) == "  Reply without marker  "
+        assert strip_quoted_reply_text(activity) == '<quoted messageId="quoted-2"/> Reply'
+        assert activity.strip_quoted_reply_text().text == '<quoted messageId="quoted-2"/> Reply'
 
     def test_strips_quote_only_message(self):
         activity = self._create_quoted_activity('<quoted messageId="quoted-1"/>')
