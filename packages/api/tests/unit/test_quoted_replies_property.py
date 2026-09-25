@@ -4,7 +4,8 @@ Licensed under the MIT License.
 """
 # pyright: basic
 
-from microsoft_teams.api.activities.message import MessageActivity
+from microsoft_teams.api.activities.message import MessageActivity, MessageActivityInput
+from microsoft_teams.api.activities.utils import strip_quoted_reply_text
 from microsoft_teams.api.models import Account, ConversationAccount, MentionEntity
 from microsoft_teams.api.models.entity import QuotedReplyData, QuotedReplyEntity
 
@@ -93,7 +94,53 @@ class TestMessageActivityInputAddQuotedReply:
         assert msg.text == '<quoted messageId="msg-1"/><quoted messageId="msg-2"/> response to both'
 
     def test_add_quote_chainable_with_add_text(self):
-        from microsoft_teams.api.activities.message import MessageActivityInput
-
         msg = MessageActivityInput().add_quote("msg-1").add_text(" manual text")
         assert msg.text == '<quoted messageId="msg-1"/> manual text'
+
+
+class TestStripQuotedReplyText:
+    def _create_quoted_activity(self, text: str) -> MessageActivity:
+        activity = MessageActivity(
+            id="msg-123",
+            text=text,
+            from_=Account(id="user-1", name="User"),
+            conversation=ConversationAccount(id="conv-1", conversation_type="personal"),
+            recipient=Account(id="bot-1", name="Bot"),
+        )
+        activity.entities = [QuotedReplyEntity(quoted_reply=QuotedReplyData(message_id="quoted-1"))]
+        return activity
+
+    def test_strips_placeholder_and_preserves_quote_entity(self):
+        activity = self._create_quoted_activity('<quoted messageId="quoted-1"/> My reply')
+
+        assert strip_quoted_reply_text(activity) == "My reply"
+        assert activity.get_quoted_messages()[0].quoted_reply.message_id == "quoted-1"
+
+    def test_strips_placeholder_idempotently(self):
+        activity = self._create_quoted_activity('<quoted messageId="quoted-1"/> My reply')
+        activity.strip_quoted_reply_text()
+
+        assert activity.text == "My reply"
+        assert activity.strip_quoted_reply_text().text == "My reply"
+
+    def test_returns_unquoted_text_unchanged(self):
+        activity = MessageActivity(
+            id="msg-123",
+            text="  Ordinary message  ",
+            from_=Account(id="user-1", name="User"),
+            conversation=ConversationAccount(id="conv-1", conversation_type="personal"),
+            recipient=Account(id="bot-1", name="Bot"),
+        )
+
+        assert strip_quoted_reply_text(activity) == "  Ordinary message  "
+        assert activity.strip_quoted_reply_text().text == "  Ordinary message  "
+
+    def test_returns_text_unchanged_when_quote_entity_has_no_placeholder(self):
+        activity = self._create_quoted_activity("  Reply without marker  ")
+
+        assert strip_quoted_reply_text(activity) == "  Reply without marker  "
+
+    def test_strips_quote_only_message(self):
+        activity = self._create_quoted_activity('<quoted messageId="quoted-1"/>')
+
+        assert strip_quoted_reply_text(activity) == ""

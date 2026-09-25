@@ -38,6 +38,7 @@ from ...models.entity import (
     TargetedMessageInfoEntity,
 )
 from ..utils import StripMentionsTextOptions, strip_mentions_text
+from ..utils.quoted_reply_text import format_quoted_reply_placeholder, strip_quoted_reply_text
 
 
 class _MessageBase(CustomBaseModel):
@@ -133,6 +134,13 @@ class MessageActivity(_MessageBase, ActivityBase):
         """
 
         stripped_text = strip_mentions_text(self, options)
+        if stripped_text is not None:
+            self.text = stripped_text
+        return self
+
+    def strip_quoted_reply_text(self) -> Self:
+        """Remove quoted-message placeholders from the message text."""
+        stripped_text = strip_quoted_reply_text(self)
         if stripped_text is not None:
             self.text = stripped_text
         return self
@@ -421,7 +429,7 @@ class MessageActivityInput(_MessageBase, ActivityInputBase):
         if not self.entities:
             self.entities = []
         self.entities.append(QuotedReplyEntity(quoted_reply=QuotedReplyData(message_id=message_id)))
-        placeholder = f'<quoted messageId="{message_id}"/>'
+        placeholder = format_quoted_reply_placeholder(message_id)
         has_text = bool((self.text or "").strip())
         self.text = f"{placeholder} {self.text}" if has_text else placeholder
         return self
@@ -442,7 +450,7 @@ class MessageActivityInput(_MessageBase, ActivityInputBase):
         if not self.entities:
             self.entities = []
         self.entities.append(QuotedReplyEntity(quoted_reply=QuotedReplyData(message_id=message_id)))
-        self.add_text(f'<quoted messageId="{message_id}"/>')
+        self.add_text(format_quoted_reply_placeholder(message_id))
         if text:
             self.add_text(f" {text}")
         return self
@@ -471,7 +479,7 @@ class MessageActivityInput(_MessageBase, ActivityInputBase):
         if self.entities is not None:
             self.entities = [e for e in self.entities if getattr(e, "type", None) != "quotedReply"]
         if self.text is not None:
-            self.text = self.text.replace(f'<quoted messageId="{message_id}"/>', "").strip()
+            self.text = self.text.replace(format_quoted_reply_placeholder(message_id), "").strip()
 
         if not has_entity:
             self.add_entity(TargetedMessageInfoEntity(message_id=message_id))
