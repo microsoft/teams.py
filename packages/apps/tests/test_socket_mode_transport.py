@@ -4,12 +4,15 @@ Licensed under the MIT License.
 """
 
 import asyncio
-from typing import Callable, Optional
+import logging
+from typing import AsyncIterator, Callable, Optional
 
+import httpx
 import pytest
 from microsoft_teams.apps.socket_mode import geo_socket
-from microsoft_teams.apps.socket_mode.connection import SocketConnectionAborted
+from microsoft_teams.apps.socket_mode.connection import SignalRSocketConnection, SocketConnectionAborted
 from microsoft_teams.apps.socket_mode.negotiate import NegotiateError
+from microsoft_teams.apps.socket_mode.signalr import encode_hub_message
 from microsoft_teams.apps.socket_mode.transport import (
     RECONNECT_MAX_DELAY,
     SocketModeTransport,
@@ -23,6 +26,7 @@ from microsoft_teams.apps.socket_mode.types import (
     SocketModeStatus,
     SocketReadyFrame,
 )
+from test_socket_mode_connection import MockWebSocket
 
 
 class MockConnection:
@@ -31,10 +35,15 @@ class MockConnection:
         handlers: SocketConnectionHandlers,
         *,
         start_error: Optional[Exception] = None,
+        start_gate: Optional[asyncio.Event] = None,
         expires_in_seconds: Optional[float] = None,
     ):
         self.handlers = handlers
         self.start_error = start_error
+        self.start_gate = start_gate
+        self.stop_gate: Optional[asyncio.Event] = None
+        self.start_entered = asyncio.Event()
+        self.stop_entered = asyncio.Event()
         self._expires_in_seconds = expires_in_seconds
         self.started = 0
         self.stopped = 0
@@ -45,14 +54,20 @@ class MockConnection:
 
     async def start(self, stop_event: Optional[asyncio.Event] = None) -> None:
         self.started += 1
+        self.start_entered.set()
         if stop_event is not None and stop_event.is_set():
             raise asyncio.CancelledError
+        if self.start_gate is not None:
+            await self.start_gate.wait()
         if self.start_error is not None:
             raise self.start_error
         self.handlers.on_ready(SocketReadyFrame(connection_id=f"conn-{self.started}"))
 
     async def stop(self) -> None:
         self.stopped += 1
+        self.stop_entered.set()
+        if self.stop_gate is not None:
+            await self.stop_gate.wait()
 
     def drop(self, error: Optional[Exception] = None) -> None:
         self.handlers.on_closed(error)
@@ -63,6 +78,7 @@ class MockConnectionFactory:
         self.connections: list[MockConnection] = []
         self.urls: list[str] = []
         self.start_errors: list[Exception] = []
+        self.start_gate: Optional[asyncio.Event] = None
         self.expires_in_seconds: Optional[float] = None
 
     def __call__(self, url: str, handlers: SocketConnectionHandlers) -> MockConnection:
@@ -70,11 +86,66 @@ class MockConnectionFactory:
         connection = MockConnection(
             handlers,
             start_error=error,
+            start_gate=self.start_gate,
             expires_in_seconds=self.expires_in_seconds,
         )
         self.urls.append(url)
         self.connections.append(connection)
         return connection
+
+
+class GatedCloseWebSocket(MockWebSocket):
+    def __init__(self):
+        super().__init__()
+        self.close_started = asyncio.Event()
+        self.release_close = asyncio.Event()
+        self.close_finished = asyncio.Event()
+        self.close_cancelled = False
+
+    async def close(self) -> None:
+        self.close_started.set()
+        try:
+            await self.release_close.wait()
+            await super().close()
+            self.close_finished.set()
+        except asyncio.CancelledError:
+            self.close_cancelled = True
+            raise
+
+
+@pytest.fixture
+async def gated_socket_transport() -> AsyncIterator[
+    tuple[SocketModeTransport, GatedCloseWebSocket, asyncio.Queue[httpx.Response]]
+]:
+    websocket = GatedCloseWebSocket()
+    websocket.incoming.put_nowait(
+        encode_hub_message({}) + encode_hub_message({"type": 1, "target": "SocketReady", "arguments": [{}]})
+    )
+    responses: asyncio.Queue[httpx.Response] = asyncio.Queue()
+    responses.put_nowait(
+        httpx.Response(200, json={"url": "wss://signalr.example/client", "accessToken": "token", "expiresIn": 3600})
+    )
+
+    async def open_socket(_: str) -> GatedCloseWebSocket:
+        return websocket
+
+    async def on_activity(_: SocketActivityEnvelope) -> Optional[ReplyFrame]:
+        return None
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(lambda _: responses.get_nowait())) as client:
+        transport = SocketModeTransport(
+            SocketModeTransportOptions(geos=("amer",), reconnect_delays=(0,)),
+            get_bot_token=lambda: _token("token"),
+            on_activity=on_activity,
+            http_client=client,
+            websocket_factory=open_socket,
+        )
+        try:
+            await transport.start()
+            yield transport, websocket, responses
+        finally:
+            websocket.release_close.set()
+            await transport.stop()
 
 
 async def make_transport(
@@ -160,7 +231,7 @@ async def test_drop_reconnects_and_fences_superseded_generation():
         factory,
         on_activity=lambda envelope: dispatched.append(envelope.envelope_id),
         callbacks=SocketModeCallbacks(
-            on_disconnected=lambda geo, _: disconnected.append(geo),
+            on_disconnected=lambda geo, _, terminal: disconnected.append(geo),
             on_reconnected=reconnected.append,
         ),
     )
@@ -208,7 +279,7 @@ async def test_proactive_refresh_rotates_without_disconnect_callbacks():
     transport = await make_transport(
         factory,
         callbacks=SocketModeCallbacks(
-            on_disconnected=lambda geo, _: disconnected.append(geo),
+            on_disconnected=lambda geo, _, terminal: disconnected.append(geo),
             on_reconnected=reconnected.append,
         ),
     )
@@ -454,7 +525,7 @@ async def test_rotation_whose_predecessor_dies_early_reports_a_disconnect(monkey
     transport = await make_transport(
         factory,
         callbacks=SocketModeCallbacks(
-            on_disconnected=lambda geo, _: disconnected.append(geo),
+            on_disconnected=lambda geo, _, terminal: disconnected.append(geo),
             on_reconnected=reconnected.append,
         ),
         # Hold the replacement back so the predecessor is still the only live socket.
@@ -561,12 +632,12 @@ async def test_terminal_negotiate_failure_is_not_retried_during_startup():
 
 
 @pytest.mark.asyncio
-async def test_terminal_negotiate_failure_stops_the_reconnect_loop():
+async def test_terminal_negotiate_failure_stops_the_reconnect_loop(caplog: pytest.LogCaptureFixture):
     factory = MockConnectionFactory()
     rejected = NegotiateError("Socket Mode negotiate failed: HTTP 401", terminal=True)
     errors: list[Optional[Exception]] = []
     transport = await make_transport(
-        factory, callbacks=SocketModeCallbacks(on_disconnected=lambda _, error: errors.append(error))
+        factory, callbacks=SocketModeCallbacks(on_disconnected=lambda _, error, terminal: errors.append(error))
     )
     await transport.start()
     factory.start_errors.append(rejected)
@@ -579,17 +650,20 @@ async def test_terminal_negotiate_failure_stops_the_reconnect_loop():
     assert transport.status == SocketModeStatus.DISCONNECTED
     assert all(connection.stopped >= 1 for connection in factory.connections)
     await transport.stop()
+    assert sum("inbound delivery paused" in record.message for record in caplog.records) == 1
+    assert sum(record.levelno == logging.ERROR for record in caplog.records) == 1
+    assert "stopped until the app is restarted" in caplog.text
 
 
 @pytest.mark.asyncio
-async def test_terminal_refresh_failure_closes_only_the_affected_geo():
+async def test_terminal_refresh_failure_closes_only_the_affected_geo(caplog: pytest.LogCaptureFixture):
     factory = MockConnectionFactory()
     rejected = NegotiateError("Socket Mode negotiate failed: HTTP 403", terminal=True)
     errors: list[tuple[str, Optional[Exception]]] = []
     transport = await make_transport(
         factory,
         geos=("amer", "emea"),
-        callbacks=SocketModeCallbacks(on_disconnected=lambda geo, error: errors.append((geo, error))),
+        callbacks=SocketModeCallbacks(on_disconnected=lambda geo, error, terminal: errors.append((geo, error))),
     )
     await transport.start()
     affected, healthy = factory.connections
@@ -608,3 +682,167 @@ async def test_terminal_refresh_failure_closes_only_the_affected_geo():
     assert await _dispatch(healthy, "still-serving") is not None
     assert len(factory.connections) == 3
     await transport.stop()
+    assert "inbound delivery paused" not in caplog.text
+    assert sum(record.levelno == logging.ERROR for record in caplog.records) == 1
+
+
+@pytest.mark.parametrize("status", [401, 403])
+@pytest.mark.asyncio
+async def test_shutdown_suppresses_late_negotiate_rejection(status: int, caplog: pytest.LogCaptureFixture):
+    factory = MockConnectionFactory()
+    events: list[tuple[object, ...]] = []
+    transport = await make_transport(
+        factory, callbacks=SocketModeCallbacks(on_disconnected=lambda *args: events.append(args))
+    )
+    await transport.start()
+    first = factory.connections[0]
+    first.stop_gate = asyncio.Event()
+    factory.start_gate = asyncio.Event()
+    factory.start_errors.append(NegotiateError(f"HTTP {status}", terminal=True))
+    geo = transport._geos[0]
+    closed, supervisor = geo._closed, geo._supervisor
+    assert closed is not None and supervisor is not None
+    closed.set_result(geo_socket._CloseReason(planned=True))
+    await _eventually(lambda: len(factory.connections) == 2)
+    await asyncio.wait_for(factory.connections[1].start_entered.wait(), 1)
+
+    stopping = asyncio.create_task(transport.stop())
+    try:
+        await asyncio.wait_for(first.stop_entered.wait(), 1)
+        factory.start_gate.set()
+        await asyncio.wait_for(asyncio.shield(supervisor), 1)
+    finally:
+        first.stop_gate.set()
+        await asyncio.wait_for(stopping, 1)
+
+    assert events == []
+    assert caplog.records == []
+    assert transport.status == SocketModeStatus.STOPPED
+    assert len(factory.connections) == 2
+
+
+@pytest.mark.asyncio
+async def test_shutdown_during_terminal_cleanup_suppresses_outage(caplog: pytest.LogCaptureFixture):
+    factory = MockConnectionFactory()
+    events: list[tuple[object, ...]] = []
+    transport = await make_transport(
+        factory, callbacks=SocketModeCallbacks(on_disconnected=lambda *args: events.append(args))
+    )
+    await transport.start()
+    first = factory.connections[0]
+    first.stop_gate = asyncio.Event()
+    factory.start_errors.append(NegotiateError("HTTP 403", terminal=True))
+    closed = transport._geos[0]._closed
+    assert closed is not None
+    closed.set_result(geo_socket._CloseReason(planned=True))
+    await asyncio.wait_for(first.stop_entered.wait(), 1)
+    assert events == []
+
+    stopping = asyncio.create_task(transport.stop())
+    # Queue stop before releasing cleanup: its stop flag wins before the supervisor resumes.
+    first.stop_gate.set()
+    await asyncio.wait_for(stopping, 1)
+
+    assert events == []
+    assert transport.status == SocketModeStatus.STOPPED
+    assert sum(record.levelno == logging.ERROR for record in caplog.records) == 1
+    assert "inbound delivery paused" not in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_terminal_refresh_closes_active_and_retiring_connections(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(geo_socket, "CONNECTION_HANDOFF_SECONDS", 60)
+    factory = MockConnectionFactory()
+    events: list[tuple[object, ...]] = []
+    transport = await make_transport(
+        factory,
+        geos=("amer", "emea"),
+        callbacks=SocketModeCallbacks(on_disconnected=lambda *args: events.append(args)),
+    )
+    await transport.start()
+    first, healthy = factory.connections
+    factory.expires_in_seconds = 0.01
+    geo = transport._geos[0]
+    closed = geo._closed
+    assert closed is not None
+    closed.set_result(geo_socket._CloseReason(planned=True))
+    try:
+        await _eventually(lambda: len(factory.connections) == 3 and bool(geo._retire_tasks))
+        active = factory.connections[2]
+        rejected = NegotiateError("HTTP 403", terminal=True)
+        factory.start_errors.append(rejected)
+        await _eventually(lambda: bool(events), timeout=1.5)
+
+        assert events == [("amer", rejected, True)]
+        assert first.stopped >= 1
+        assert active.stopped >= 1
+        assert healthy.stopped == 0
+        assert geo._retiring == {}
+        assert not geo._retire_tasks
+        assert await _dispatch(first, "retired-after-rejection") is None
+        assert await _dispatch(active, "active-after-rejection") is None
+        assert await _dispatch(healthy, "still-serving") is not None
+    finally:
+        await transport.stop()
+
+
+@pytest.mark.parametrize("status", [401, 403])
+@pytest.mark.asyncio
+async def test_terminal_geo_cleanup_survives_concurrent_transport_stop(
+    gated_socket_transport: tuple[SocketModeTransport, GatedCloseWebSocket, asyncio.Queue[httpx.Response]],
+    status: int,
+):
+    transport, websocket, responses = gated_socket_transport
+    events: list[tuple[object, ...]] = []
+    transport._callbacks = SocketModeCallbacks(on_disconnected=lambda *args: events.append(args))
+    geo = transport._geos[0]
+    active, closed, supervisor = geo._active, geo._closed, geo._supervisor
+    assert active is not None and closed is not None and supervisor is not None
+    assert isinstance(active.connection, SignalRSocketConnection)
+    listener, heartbeat = active.connection._listener, active.connection._heartbeat
+    assert listener is not None and heartbeat is not None
+    responses.put_nowait(httpx.Response(status))
+    closed.set_result(geo_socket._CloseReason(planned=True))
+    await asyncio.wait_for(websocket.close_started.wait(), 1)
+
+    stopping = asyncio.create_task(transport.stop())
+    try:
+        done, _ = await asyncio.wait((stopping,), timeout=0.05)
+        assert not done, "Transport shutdown returned before websocket.close completed"
+        assert not websocket.close_cancelled
+    finally:
+        websocket.release_close.set()
+        await asyncio.wait_for(stopping, 1)
+
+    assert websocket.close_finished.is_set()
+    assert websocket.closed == 1
+    assert not websocket.close_cancelled
+    assert listener.done() and heartbeat.done() and supervisor.done()
+    assert events == []
+    assert transport.status == SocketModeStatus.STOPPED
+
+
+@pytest.mark.asyncio
+async def test_cancelled_stop_waiter_does_not_cancel_shared_socket_cleanup(
+    gated_socket_transport: tuple[SocketModeTransport, GatedCloseWebSocket, asyncio.Queue[httpx.Response]],
+):
+    transport, websocket, _ = gated_socket_transport
+    first_stop = asyncio.create_task(transport.stop())
+    await asyncio.wait_for(websocket.close_started.wait(), 1)
+    first_stop.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await first_stop
+
+    second_stop = asyncio.create_task(transport.stop())
+    try:
+        done, _ = await asyncio.wait((second_stop,), timeout=0.05)
+        assert not done, "A second stop skipped the cancelled caller's pending cleanup"
+        assert not websocket.close_cancelled
+    finally:
+        websocket.release_close.set()
+        await asyncio.wait_for(second_stop, 1)
+
+    assert websocket.close_finished.is_set()
+    assert websocket.closed == 1
+    assert not websocket.close_cancelled
+    assert transport.status == SocketModeStatus.STOPPED

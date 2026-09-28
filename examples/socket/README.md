@@ -19,10 +19,21 @@ Socket Mode bots should not be submitted to Marketplace for publishing.
   with `geos=[...]` or point at a custom ring with `negotiate_base_url`.
 - **Lifecycle events** — subscribing to `app.socket_mode.events` for `ready`,
   `disconnected`, and `reconnected`. Each event carries the `geo` it relates to,
-  since connections are per geo. Reconnects are automatic; the events are purely
-  observational.
+  since connections are per geo. Reconnects are automatic when `terminal=False`.
+  A `disconnected` event with `terminal=True` means recovery has stopped for that
+  geo: fix the bot credentials or Socket Mode access and restart the app.
 - **Status introspection** — `app.socket_mode.status` (aggregate) and
   `app.socket_mode.geo_statuses` / `geo_list` (per geo).
+
+Service-negotiate HTTP 401/403 responses fail startup immediately. After startup,
+they stop only the affected geo, leaving healthy geos running. A network drop
+followed by an authentication rejection emits two `disconnected` events:
+first `terminal=False`, then `terminal=True`. Both report a `disconnected` status;
+use the event flag to tell whether recovery is still active.
+
+For detailed error handling, import `NegotiateError` from `microsoft_teams.apps`.
+It exposes `status_code`, `retry_after` (seconds), and `terminal`. Downstream
+SignalR negotiation failures remain retryable, including HTTP 401/403.
 
 ## Run it
 

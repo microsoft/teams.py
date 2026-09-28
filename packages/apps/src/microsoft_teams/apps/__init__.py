@@ -19,6 +19,7 @@ from .options import AppOptions, AppTelemetryOptions
 from .plugins import *  # noqa: F401, F403
 from .routing import ActivityContext
 from .socket_mode import (
+    NegotiateError,
     SocketModeAdapter,
     SocketModeDisconnectedEvent,
     SocketModeOptions,
@@ -58,6 +59,7 @@ __all__: list[str] = [
     "AppTokenProvider",
     "OAuthFlow",
     "OAuthFlowRegistry",
+    "NegotiateError",
     "SocketModeAdapter",
     "SocketModeDisconnectedEvent",
     "SocketModeOptions",

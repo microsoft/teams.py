@@ -9,9 +9,10 @@ from typing import Any, Optional
 import pytest
 from microsoft_teams.api import InvokeResponse, TokenProtocol
 from microsoft_teams.api.auth.cloud_environment import US_GOV
-from microsoft_teams.apps import App, FastAPIAdapter
+from microsoft_teams.apps import App, FastAPIAdapter, SocketModeDisconnectedEvent
 from microsoft_teams.apps.events import ActivityEvent
 from microsoft_teams.apps.socket_mode.adapter import SocketModeAdapter, SocketModeOptions
+from microsoft_teams.apps.socket_mode.negotiate import NegotiateError
 from microsoft_teams.apps.socket_mode.types import (
     SOCKET_MODE_PROTOCOL_VERSION,
     SocketActivityEnvelope,
@@ -314,10 +315,44 @@ async def test_lifecycle_events_are_forwarded_per_geo():
 
     assert [event.geo for event in disconnected] == ["amer"]
     assert str(disconnected[0].error) == "socket dropped"
+    assert disconnected[0].terminal is False
     assert [event.geo for event in reconnected] == ["amer"]
 
     await adapter.stop()
     await task
+
+
+@pytest.mark.parametrize("status", [401, 403])
+@pytest.mark.asyncio
+async def test_terminal_event_follows_temporary_disconnect(status: int):
+    disconnected: list[SocketModeDisconnectedEvent] = []
+    factory = MockConnectionFactory()
+    adapter, _ = make_adapter(factory, geos=("amer",))
+    adapter.events.on("disconnected", disconnected.append)
+    task = await _start(adapter)
+    drop = ConnectionError("network drop")
+    rejected = NegotiateError(f"HTTP {status}", terminal=True)
+    factory.start_errors.append(rejected)
+    try:
+        factory.connections[0].drop(drop)
+        for _ in range(200):
+            if len(disconnected) == 2:
+                break
+            await asyncio.sleep(0)
+
+        assert [(event.geo, event.error, event.terminal) for event in disconnected] == [
+            ("amer", drop, False),
+            ("amer", rejected, True),
+        ]
+        assert adapter.status == SocketModeStatus.DISCONNECTED
+        assert adapter.geo_statuses == (("amer", SocketModeStatus.DISCONNECTED),)
+    finally:
+        await adapter.stop()
+        await task
+
+
+def test_disconnected_event_defaults_to_nonterminal():
+    assert SocketModeDisconnectedEvent(geo="amer").terminal is False
 
 
 @pytest.mark.asyncio

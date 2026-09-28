@@ -315,10 +315,10 @@ class SocketModeTransport:
         if callback is not None:
             self._call_lifecycle(callback, geo, frame)
 
-    def geo_disconnected(self, geo: str, error: Optional[Exception]) -> None:
+    def geo_disconnected(self, geo: str, error: Optional[Exception], terminal: bool = False) -> None:
         callback = self._callbacks.on_disconnected
         if callback is not None:
-            self._call_lifecycle(callback, geo, error)
+            self._call_lifecycle(callback, geo, error, terminal)
 
     def geo_reconnected(self, geo: str) -> None:
         callback = self._callbacks.on_reconnected

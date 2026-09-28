@@ -70,7 +70,7 @@ class GeoSocketOwner(Protocol):
 
     def geo_ready(self, geo: str, frame: SocketReadyFrame) -> None: ...
 
-    def geo_disconnected(self, geo: str, error: Optional[Exception]) -> None: ...
+    def geo_disconnected(self, geo: str, error: Optional[Exception], terminal: bool = False) -> None: ...
 
     def geo_reconnected(self, geo: str) -> None: ...
 
@@ -114,6 +114,7 @@ class GeoSocket:
         self._closed: Optional[asyncio.Future[_CloseReason]] = None
         self._supervisor: Optional[asyncio.Task[None]] = None
         self._refresh: Optional[asyncio.Task[None]] = None
+        self._stop_task: Optional[asyncio.Task[None]] = None
         self._status = SocketModeStatus.IDLE
 
     @property
@@ -199,6 +200,20 @@ class GeoSocket:
 
     async def stop(self) -> None:
         """Tear down the refresh timer, every owned connection, and the supervisor."""
+        caller = asyncio.current_task()
+        supervisor = self._supervisor
+        if self._stop_task is None:
+            # A supervisor initiating shutdown must be allowed to finish after teardown.
+            self._stop_task = asyncio.create_task(
+                self._teardown(None if supervisor is caller else supervisor),
+                name=f"teams-socket-mode-stop-{self.geo or 'default'}",
+            )
+        await asyncio.shield(self._stop_task)
+        if supervisor is not None and supervisor is not caller and not supervisor.done():
+            await asyncio.gather(supervisor, return_exceptions=True)
+        self._supervisor = None
+
+    async def _teardown(self, supervisor: Optional[asyncio.Task[None]]) -> None:
         self._cancel_refresh()
         for task in tuple(self._retire_tasks):
             task.cancel()
@@ -216,9 +231,7 @@ class GeoSocket:
             except Exception as error:
                 self._logger.debug("socket-mode[%s]: connection stop failed", self.geo, exc_info=error)
 
-        supervisor = self._supervisor
-        self._supervisor = None
-        if supervisor is not None and supervisor is not asyncio.current_task() and not supervisor.done():
+        if supervisor is not None and not supervisor.done():
             supervisor.cancel()
             await asyncio.gather(supervisor, return_exceptions=True)
         self._status = SocketModeStatus.STOPPED
@@ -330,14 +343,15 @@ class GeoSocket:
                 self._logger.info("socket-mode[%s]: reconnected; inbound delivery resumed for this geo", self.geo)
                 self._owner.geo_reconnected(self.geo)
 
-    def _report_disconnected(self, error: Optional[Exception]) -> None:
+    def _report_disconnected(self, error: Optional[Exception], *, terminal: bool = False) -> None:
         self._status = SocketModeStatus.DISCONNECTED
-        self._logger.warning(
-            "socket-mode[%s]: disconnected; inbound delivery paused for this geo",
-            self.geo,
-            exc_info=error,
-        )
-        self._owner.geo_disconnected(self.geo, error)
+        if not terminal:
+            self._logger.warning(
+                "socket-mode[%s]: disconnected; inbound delivery paused for this geo",
+                self.geo,
+                exc_info=error,
+            )
+        self._owner.geo_disconnected(self.geo, error, terminal)
 
     def _schedule_retire(self, previous: _ActiveConnection) -> None:
         task = asyncio.create_task(
@@ -392,14 +406,19 @@ class GeoSocket:
             except asyncio.CancelledError:
                 raise
             except Exception as error:
+                if not self._owner.accepting:
+                    return None
                 if self._owner.is_terminal(error):
                     self._logger.error(
-                        "socket-mode[%s]: reconnect rejected; giving up on this geo",
+                        "socket-mode[%s]: reconnect rejected; inbound delivery for this geo "
+                        "has stopped until the app is restarted",
                         self.geo,
                         exc_info=error,
                     )
                     await self.stop()
-                    self._report_disconnected(error)
+                    if not self._owner.accepting:
+                        return None
+                    self._report_disconnected(error, terminal=True)
                     return None
                 retry_after = self._owner.retry_after_of(error)
                 self._logger.warning(

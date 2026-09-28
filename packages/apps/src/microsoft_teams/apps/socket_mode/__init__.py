@@ -11,9 +11,11 @@ from .adapter import (
     SocketModeReadyEvent,
     SocketModeReconnectedEvent,
 )
+from .negotiate import NegotiateError
 from .types import SocketModeStatus, SocketReadyFrame
 
 __all__ = [
+    "NegotiateError",
     "SocketModeAdapter",
     "SocketModeDisconnectedEvent",
     "SocketModeEventType",
