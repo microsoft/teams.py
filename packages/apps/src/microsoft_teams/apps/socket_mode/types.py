@@ -173,5 +173,5 @@ class SocketModeCallbacks:
     """Optional lifecycle observers. Each receives the geo the event came from."""
 
     on_ready: Optional[Callable[[str, SocketReadyFrame], None]] = None
-    on_disconnected: Optional[Callable[[str, Optional[Exception]], None]] = None
+    on_disconnected: Optional[Callable[[str, Optional[Exception], bool], None]] = None
     on_reconnected: Optional[Callable[[str], None]] = None

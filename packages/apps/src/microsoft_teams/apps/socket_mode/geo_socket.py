@@ -70,7 +70,7 @@ class GeoSocketOwner(Protocol):
 
     def geo_ready(self, geo: str, frame: SocketReadyFrame) -> None: ...
 
-    def geo_disconnected(self, geo: str, error: Optional[Exception]) -> None: ...
+    def geo_disconnected(self, geo: str, error: Optional[Exception], terminal: bool = False) -> None: ...
 
     def geo_reconnected(self, geo: str) -> None: ...
 
@@ -330,14 +330,15 @@ class GeoSocket:
                 self._logger.info("socket-mode[%s]: reconnected; inbound delivery resumed for this geo", self.geo)
                 self._owner.geo_reconnected(self.geo)
 
-    def _report_disconnected(self, error: Optional[Exception]) -> None:
+    def _report_disconnected(self, error: Optional[Exception], *, terminal: bool = False) -> None:
         self._status = SocketModeStatus.DISCONNECTED
-        self._logger.warning(
-            "socket-mode[%s]: disconnected; inbound delivery paused for this geo",
-            self.geo,
-            exc_info=error,
-        )
-        self._owner.geo_disconnected(self.geo, error)
+        if not terminal:
+            self._logger.warning(
+                "socket-mode[%s]: disconnected; inbound delivery paused for this geo",
+                self.geo,
+                exc_info=error,
+            )
+        self._owner.geo_disconnected(self.geo, error, terminal)
 
     def _schedule_retire(self, previous: _ActiveConnection) -> None:
         task = asyncio.create_task(
@@ -392,14 +393,19 @@ class GeoSocket:
             except asyncio.CancelledError:
                 raise
             except Exception as error:
+                if not self._owner.accepting:
+                    return None
                 if self._owner.is_terminal(error):
                     self._logger.error(
-                        "socket-mode[%s]: reconnect rejected; giving up on this geo",
+                        "socket-mode[%s]: reconnect rejected; inbound delivery for this geo "
+                        "has stopped until the app is restarted",
                         self.geo,
                         exc_info=error,
                     )
                     await self.stop()
-                    self._report_disconnected(error)
+                    if not self._owner.accepting:
+                        return None
+                    self._report_disconnected(error, terminal=True)
                     return None
                 retry_after = self._owner.retry_after_of(error)
                 self._logger.warning(

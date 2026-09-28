@@ -56,13 +56,15 @@ class SocketModeReadyEvent:
 @dataclass(frozen=True)
 class SocketModeDisconnectedEvent:
     """
-    A geo's socket dropped unexpectedly and a reconnect may be in progress.
+    A geo's socket disconnected, either temporarily or after a terminal negotiate failure.
 
-    Not emitted for a planned credential rotation, which renegotiates without a visible drop.
+    Not emitted for a successful planned credential rotation.
     """
 
     geo: str
     error: Optional[Exception] = None
+    terminal: bool = False
+    """Whether automatic recovery has stopped for this geo."""
 
 
 @dataclass(frozen=True)
@@ -176,8 +178,8 @@ class SocketModeAdapter:
             on_activity=self._handle_envelope,
             callbacks=SocketModeCallbacks(
                 on_ready=lambda geo, frame: self.events.emit("ready", SocketModeReadyEvent(geo=geo, frame=frame)),
-                on_disconnected=lambda geo, error: self.events.emit(
-                    "disconnected", SocketModeDisconnectedEvent(geo=geo, error=error)
+                on_disconnected=lambda geo, error, terminal: self.events.emit(
+                    "disconnected", SocketModeDisconnectedEvent(geo=geo, error=error, terminal=terminal)
                 ),
                 on_reconnected=lambda geo: self.events.emit("reconnected", SocketModeReconnectedEvent(geo=geo)),
             ),

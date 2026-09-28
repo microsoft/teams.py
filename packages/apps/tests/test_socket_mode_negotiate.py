@@ -11,6 +11,8 @@ from urllib.parse import parse_qs, urlsplit
 
 import httpx
 import pytest
+from microsoft_teams import apps
+from microsoft_teams.apps import socket_mode
 from microsoft_teams.apps.socket_mode.negotiate import (
     NegotiateError,
     assert_secure_url,
@@ -344,8 +346,12 @@ async def test_only_service_negotiate_auth_rejections_are_terminal(status: int):
             await negotiate_signalr("https://signalr.example/hub", "signalr-token", http_client=client)
 
     assert service_error.value.terminal
+    assert service_error.value.status_code == status
+    hint = "Check the bot credentials" if status == 401 else "Check the bot registration and Socket Mode access"
+    assert str(service_error.value) == f"Socket Mode negotiate failed: HTTP {status}. {hint}"
     # SignalR uses a short-lived negotiated token; the next cycle can acquire a fresh one.
     assert not signalr_error.value.terminal
+    assert signalr_error.value.status_code == status
 
 
 @pytest.mark.parametrize("status", [429, 499, 500, 502, 503, 504])
@@ -363,3 +369,14 @@ async def test_transient_failures_stay_retryable(status: int):
             )
 
     assert not error.value.terminal
+    assert error.value.status_code == status
+    assert str(error.value) == f"Socket Mode negotiate failed: HTTP {status}."
+
+
+def test_negotiate_error_is_public_and_preserves_retry_after_argument():
+    assert apps.NegotiateError is NegotiateError
+    assert socket_mode.NegotiateError is NegotiateError
+    error = NegotiateError("throttled", 2.5)
+    assert error.retry_after == 2.5
+    assert error.status_code is None
+    assert not error.terminal

@@ -59,13 +59,22 @@ class NegotiateError(RuntimeError):
 
     ``retry_after`` carries the service's ``Retry-After`` when it sent one, so the
     supervisor can honour throttling instead of applying its own backoff.
+    ``status_code`` carries the HTTP status when a negotiate endpoint rejected the request.
     ``terminal`` marks service-negotiate authentication failures that must not be retried.
     """
 
-    def __init__(self, message: str, retry_after: Optional[float] = None, *, terminal: bool = False):
+    def __init__(
+        self,
+        message: str,
+        retry_after: Optional[float] = None,
+        *,
+        terminal: bool = False,
+        status_code: Optional[int] = None,
+    ):
         super().__init__(message)
         self.retry_after = retry_after
         self.terminal = terminal
+        self.status_code = status_code
 
 
 def assert_secure_url(url: str, *, purpose: str, websocket_allowed: bool = False) -> None:
@@ -161,11 +170,12 @@ async def negotiate_service(
                 retry_after,
                 terminal,
             )
-            raise NegotiateError(
-                f"Socket Mode negotiate failed: HTTP {response.status_code}",
-                retry_after,
-                terminal=terminal,
-            )
+            message = f"Socket Mode negotiate failed: HTTP {response.status_code}."
+            if response.status_code == 401:
+                message += " Check the bot credentials"
+            elif response.status_code == 403:
+                message += " Check the bot registration and Socket Mode access"
+            raise NegotiateError(message, retry_after, terminal=terminal, status_code=response.status_code)
         payload = _response_object(response, "Socket Mode negotiate")
         url = payload.get("url")
         access_token = payload.get("accessToken")
@@ -233,6 +243,7 @@ async def negotiate_signalr(
                 raise NegotiateError(
                     f"SignalR negotiate failed: HTTP {response.status_code}",
                     retry_after,
+                    status_code=response.status_code,
                 )
             payload = _response_object(response, "SignalR negotiate")
             if isinstance(payload.get("error"), str):

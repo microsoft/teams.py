@@ -56,8 +56,13 @@ def on_ready(event: SocketModeReadyEvent) -> None:
 
 
 def on_disconnected(event: SocketModeDisconnectedEvent) -> None:
-    # Inbound delivery for this geo is paused while it reconnects; the other geos keep
-    # serving. No action needed — the supervisor reconnects automatically.
+    if event.terminal:
+        logger.error(
+            "[socket] geo '%s' stopped: %s; check bot credentials or Socket Mode access, then restart the app",
+            event.geo,
+            event.error,
+        )
+        return
     logger.warning("[socket] geo '%s' disconnected: %s; reconnecting...", event.geo, event.error)
 
 
