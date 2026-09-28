@@ -114,6 +114,7 @@ class GeoSocket:
         self._closed: Optional[asyncio.Future[_CloseReason]] = None
         self._supervisor: Optional[asyncio.Task[None]] = None
         self._refresh: Optional[asyncio.Task[None]] = None
+        self._stop_task: Optional[asyncio.Task[None]] = None
         self._status = SocketModeStatus.IDLE
 
     @property
@@ -199,6 +200,20 @@ class GeoSocket:
 
     async def stop(self) -> None:
         """Tear down the refresh timer, every owned connection, and the supervisor."""
+        caller = asyncio.current_task()
+        supervisor = self._supervisor
+        if self._stop_task is None:
+            # A supervisor initiating shutdown must be allowed to finish after teardown.
+            self._stop_task = asyncio.create_task(
+                self._teardown(None if supervisor is caller else supervisor),
+                name=f"teams-socket-mode-stop-{self.geo or 'default'}",
+            )
+        await asyncio.shield(self._stop_task)
+        if supervisor is not None and supervisor is not caller and not supervisor.done():
+            await asyncio.gather(supervisor, return_exceptions=True)
+        self._supervisor = None
+
+    async def _teardown(self, supervisor: Optional[asyncio.Task[None]]) -> None:
         self._cancel_refresh()
         for task in tuple(self._retire_tasks):
             task.cancel()
@@ -216,9 +231,7 @@ class GeoSocket:
             except Exception as error:
                 self._logger.debug("socket-mode[%s]: connection stop failed", self.geo, exc_info=error)
 
-        supervisor = self._supervisor
-        self._supervisor = None
-        if supervisor is not None and supervisor is not asyncio.current_task() and not supervisor.done():
+        if supervisor is not None and not supervisor.done():
             supervisor.cancel()
             await asyncio.gather(supervisor, return_exceptions=True)
         self._status = SocketModeStatus.STOPPED

@@ -5,12 +5,14 @@ Licensed under the MIT License.
 
 import asyncio
 import logging
-from typing import Callable, Optional
+from typing import AsyncIterator, Callable, Optional
 
+import httpx
 import pytest
 from microsoft_teams.apps.socket_mode import geo_socket
-from microsoft_teams.apps.socket_mode.connection import SocketConnectionAborted
+from microsoft_teams.apps.socket_mode.connection import SignalRSocketConnection, SocketConnectionAborted
 from microsoft_teams.apps.socket_mode.negotiate import NegotiateError
+from microsoft_teams.apps.socket_mode.signalr import encode_hub_message
 from microsoft_teams.apps.socket_mode.transport import (
     RECONNECT_MAX_DELAY,
     SocketModeTransport,
@@ -24,6 +26,7 @@ from microsoft_teams.apps.socket_mode.types import (
     SocketModeStatus,
     SocketReadyFrame,
 )
+from test_socket_mode_connection import MockWebSocket
 
 
 class MockConnection:
@@ -89,6 +92,60 @@ class MockConnectionFactory:
         self.urls.append(url)
         self.connections.append(connection)
         return connection
+
+
+class GatedCloseWebSocket(MockWebSocket):
+    def __init__(self):
+        super().__init__()
+        self.close_started = asyncio.Event()
+        self.release_close = asyncio.Event()
+        self.close_finished = asyncio.Event()
+        self.close_cancelled = False
+
+    async def close(self) -> None:
+        self.close_started.set()
+        try:
+            await self.release_close.wait()
+            await super().close()
+            self.close_finished.set()
+        except asyncio.CancelledError:
+            self.close_cancelled = True
+            raise
+
+
+@pytest.fixture
+async def gated_socket_transport() -> AsyncIterator[
+    tuple[SocketModeTransport, GatedCloseWebSocket, asyncio.Queue[httpx.Response]]
+]:
+    websocket = GatedCloseWebSocket()
+    websocket.incoming.put_nowait(
+        encode_hub_message({}) + encode_hub_message({"type": 1, "target": "SocketReady", "arguments": [{}]})
+    )
+    responses: asyncio.Queue[httpx.Response] = asyncio.Queue()
+    responses.put_nowait(
+        httpx.Response(200, json={"url": "wss://signalr.example/client", "accessToken": "token", "expiresIn": 3600})
+    )
+
+    async def open_socket(_: str) -> GatedCloseWebSocket:
+        return websocket
+
+    async def on_activity(_: SocketActivityEnvelope) -> Optional[ReplyFrame]:
+        return None
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(lambda _: responses.get_nowait())) as client:
+        transport = SocketModeTransport(
+            SocketModeTransportOptions(geos=("amer",), reconnect_delays=(0,)),
+            get_bot_token=lambda: _token("token"),
+            on_activity=on_activity,
+            http_client=client,
+            websocket_factory=open_socket,
+        )
+        try:
+            await transport.start()
+            yield transport, websocket, responses
+        finally:
+            websocket.release_close.set()
+            await transport.stop()
 
 
 async def make_transport(
@@ -727,3 +784,65 @@ async def test_terminal_refresh_closes_active_and_retiring_connections(monkeypat
         assert await _dispatch(healthy, "still-serving") is not None
     finally:
         await transport.stop()
+
+
+@pytest.mark.parametrize("status", [401, 403])
+@pytest.mark.asyncio
+async def test_terminal_geo_cleanup_survives_concurrent_transport_stop(
+    gated_socket_transport: tuple[SocketModeTransport, GatedCloseWebSocket, asyncio.Queue[httpx.Response]],
+    status: int,
+):
+    transport, websocket, responses = gated_socket_transport
+    events: list[tuple[object, ...]] = []
+    transport._callbacks = SocketModeCallbacks(on_disconnected=lambda *args: events.append(args))
+    geo = transport._geos[0]
+    active, closed, supervisor = geo._active, geo._closed, geo._supervisor
+    assert active is not None and closed is not None and supervisor is not None
+    assert isinstance(active.connection, SignalRSocketConnection)
+    listener, heartbeat = active.connection._listener, active.connection._heartbeat
+    assert listener is not None and heartbeat is not None
+    responses.put_nowait(httpx.Response(status))
+    closed.set_result(geo_socket._CloseReason(planned=True))
+    await asyncio.wait_for(websocket.close_started.wait(), 1)
+
+    stopping = asyncio.create_task(transport.stop())
+    try:
+        done, _ = await asyncio.wait((stopping,), timeout=0.05)
+        assert not done, "Transport shutdown returned before websocket.close completed"
+        assert not websocket.close_cancelled
+    finally:
+        websocket.release_close.set()
+        await asyncio.wait_for(stopping, 1)
+
+    assert websocket.close_finished.is_set()
+    assert websocket.closed == 1
+    assert not websocket.close_cancelled
+    assert listener.done() and heartbeat.done() and supervisor.done()
+    assert events == []
+    assert transport.status == SocketModeStatus.STOPPED
+
+
+@pytest.mark.asyncio
+async def test_cancelled_stop_waiter_does_not_cancel_shared_socket_cleanup(
+    gated_socket_transport: tuple[SocketModeTransport, GatedCloseWebSocket, asyncio.Queue[httpx.Response]],
+):
+    transport, websocket, _ = gated_socket_transport
+    first_stop = asyncio.create_task(transport.stop())
+    await asyncio.wait_for(websocket.close_started.wait(), 1)
+    first_stop.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await first_stop
+
+    second_stop = asyncio.create_task(transport.stop())
+    try:
+        done, _ = await asyncio.wait((second_stop,), timeout=0.05)
+        assert not done, "A second stop skipped the cancelled caller's pending cleanup"
+        assert not websocket.close_cancelled
+    finally:
+        websocket.release_close.set()
+        await asyncio.wait_for(second_stop, 1)
+
+    assert websocket.close_finished.is_set()
+    assert websocket.closed == 1
+    assert not websocket.close_cancelled
+    assert transport.status == SocketModeStatus.STOPPED
