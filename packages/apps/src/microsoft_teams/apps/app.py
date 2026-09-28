@@ -61,6 +61,7 @@ from .options import AppOptions, InternalAppOptions
 from .plugins import PluginBase, PluginStartEvent
 from .routing import ActivityHandlerMixin, ActivityRouter
 from .routing.activity_context import ActivityContext
+from .socket_mode import SocketModeAdapter, SocketModeOptions
 from .state import create_state_loader
 from .token_manager import DEFAULT_TENANT_FOR_GRAPH_TOKEN, TokenManager
 from .token_provider import AppTokenProvider
@@ -128,7 +129,8 @@ class App(ActivityHandlerMixin):
         plugins: List[PluginBase] = list(self.options.plugins)
 
         # Create HttpServer (not a plugin — owned directly by App)
-        adapter = self.options.http_server_adapter or FastAPIAdapter()
+        self._socket_mode = self._build_socket_mode()
+        adapter = self._socket_mode or self.options.http_server_adapter or FastAPIAdapter()
         self.server = HttpServer(adapter, messaging_endpoint=self.options.messaging_endpoint)
         self.container.set_provider("HttpServer", providers.Object(self.server))
 
@@ -205,6 +207,43 @@ class App(ActivityHandlerMixin):
     def token_provider(self) -> AppTokenProvider:
         """Token source for resources the SDK does not call automatically."""
         return self._token_provider
+
+    @property
+    def socket_mode(self) -> Optional[SocketModeAdapter]:
+        """The Socket Mode adapter when ``socket_mode`` is enabled, else ``None``.
+
+        Exposes ``status``, ``geo_statuses``, and ``events`` for observing the connection.
+        """
+        return self._socket_mode
+
+    def _build_socket_mode(self) -> Optional[SocketModeAdapter]:
+        """Resolve the ``socket_mode`` option into an adapter, or ``None`` when it is off."""
+        option = self.options.socket_mode
+        if option is None or option is False:
+            return None
+
+        if self.options.http_server_adapter is not None:
+            raise ValueError(
+                "socket_mode and http_server_adapter are mutually exclusive: Socket Mode replaces the "
+                "inbound HTTP transport, so a custom server adapter would never receive activities."
+            )
+
+        if self.cloud != PUBLIC:
+            raise ValueError(
+                "Socket Mode is not supported in this cloud environment. Use the HTTP inbound transport instead."
+            )
+
+        return SocketModeAdapter(
+            option if isinstance(option, SocketModeOptions) else SocketModeOptions(),
+            process_activity=self._process_activity_event,
+            get_app_token=self._get_bot_token,
+            messaging_endpoint=self.options.messaging_endpoint,
+            client_id=self.credentials.client_id if self.credentials else None,
+            on_error=self._on_socket_mode_error,
+        )
+
+    def _on_socket_mode_error(self, error: Exception) -> None:
+        self._events.emit("error", ErrorEvent(error, context={"method": "socket_mode"}))
 
     async def initialize(self) -> None:
         """

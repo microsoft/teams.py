@@ -289,6 +289,90 @@ async def _token(value: str) -> str:
     return value
 
 
+@pytest.mark.asyncio
+async def test_connection_sends_keep_alive_pings_at_the_configured_interval():
+    """Without pings on the configured cadence the service times the socket out as idle."""
+    websocket = MockWebSocket()
+    async with make_http_client() as client:
+        connection = SignalRSocketConnection(
+            make_context(keep_alive_interval=0.01),
+            make_handlers(),
+            http_client=client,
+            websocket_factory=lambda _: _websocket(websocket),
+        )
+        websocket.incoming.put_nowait(
+            f"{{}}{RECORD_SEPARATOR}"
+            + json.dumps({"type": 1, "target": "SocketReady", "arguments": [{}]})
+            + RECORD_SEPARATOR
+        )
+        await connection.start()
+        await _eventually(lambda: any(_is_ping(message) for message in websocket.sent))
+        await connection.stop()
+
+
+@pytest.mark.asyncio
+async def test_connection_treats_a_silent_server_as_a_terminal_close():
+    """``server_timeout`` bounds the wait for inbound traffic, so a peer that goes quiet is noticed."""
+    websocket = MockWebSocket()
+    closed: list[Optional[Exception]] = []
+
+    async with make_http_client() as client:
+        connection = SignalRSocketConnection(
+            make_context(server_timeout=0.02, keep_alive_interval=60.0),
+            make_handlers(on_closed=closed.append),
+            http_client=client,
+            websocket_factory=lambda _: _websocket(websocket),
+        )
+        websocket.incoming.put_nowait(
+            f"{{}}{RECORD_SEPARATOR}"
+            + json.dumps({"type": 1, "target": "SocketReady", "arguments": [{}]})
+            + RECORD_SEPARATOR
+        )
+        await connection.start()
+        await _eventually(lambda: len(closed) == 1)
+
+    assert isinstance(closed[0], asyncio.TimeoutError)
+    await connection.stop()
+
+
+@pytest.mark.asyncio
+async def test_socket_ready_arriving_after_stop_is_ignored():
+    """
+    The frame is handed to the message handler directly: by the time ``stop`` returns the
+    listener is already cancelled, so driving this through the socket would pass whether or
+    not the guard exists.
+    """
+    websocket = MockWebSocket()
+    ready_count = 0
+
+    def on_ready(_: SocketReadyFrame) -> None:
+        nonlocal ready_count
+        ready_count += 1
+
+    async with make_http_client() as client:
+        connection = SignalRSocketConnection(
+            make_context(),
+            make_handlers(on_ready=on_ready),
+            http_client=client,
+            websocket_factory=lambda _: _websocket(websocket),
+        )
+        websocket.incoming.put_nowait(
+            f"{{}}{RECORD_SEPARATOR}"
+            + json.dumps({"type": 1, "target": "SocketReady", "arguments": [{}]})
+            + RECORD_SEPARATOR
+        )
+        await connection.start()
+        await connection.stop()
+
+        connection._handle_hub_message({"type": 1, "target": "SocketReady", "arguments": [{}]})  # pyright: ignore[reportPrivateUsage]
+
+    assert ready_count == 1
+
+
+def _is_ping(message: str) -> bool:
+    return json.loads(message.removesuffix(RECORD_SEPARATOR)) == {"type": 6}
+
+
 async def _websocket(value: MockWebSocket) -> MockWebSocket:
     return value
 
