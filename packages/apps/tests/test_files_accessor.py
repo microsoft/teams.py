@@ -18,7 +18,9 @@ from microsoft_teams.api import (
 )
 from microsoft_teams.api.activities.typing import TypingActivity
 from microsoft_teams.apps.files import FilesAccessor, download
+from microsoft_teams.apps.files.download import GraphCredential
 from microsoft_teams.apps.files.errors import FileUrlExpiredError
+from microsoft_teams.apps.files.graph_share import encode_sharing_url
 
 
 def _activity_with(attachments: List[Attachment], conversation_type: Optional[str] = "personal") -> MessageActivity:
@@ -318,6 +320,44 @@ async def test_preserves_the_shared_clients_other_default_headers() -> None:
         await shared.aclose()
 
     assert seen == ["teams.py-test/1.0"]
+
+
+async def test_downloads_a_group_chat_file_surfaced_for_an_agentic_user_through_graph_as_the_agent() -> None:
+    """
+    The accessor and the dispatcher share one scope check. This walks both, so a group chat file an agentic user's
+    `list()` surfaces is shown to also download, through Graph and as the agent.
+    """
+    requests: List[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(200, content=b"agentic bytes", headers={"content-type": "text/plain"})
+
+    async def resolve() -> Optional[str]:
+        return "agent-token"
+
+    shared = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    # Unencoded, spaces included, the way the platform delivers it.
+    content_url = "https://contoso.sharepoint.com/personal/a/Documents/Microsoft Teams Chat Files/report.txt"
+    attachment = Attachment(
+        content_type=FILE_DOWNLOAD_INFO_CONTENT_TYPE,
+        content_url=content_url,
+        name="report.txt",
+        content={"uniqueId": "odsp-unique-id", "fileType": "txt"},
+    )
+    credential = GraphCredential(actor="agentic_user", token=resolve)
+
+    try:
+        file = await FilesAccessor(_activity_with([attachment], "groupChat"), shared, credential).first()
+        assert file is not None
+        downloaded = await file.download()
+    finally:
+        await shared.aclose()
+
+    assert downloaded.text() == "agentic bytes"
+    assert len(requests) == 1
+    assert f"/shares/{encode_sharing_url(content_url)}/driveItem/content" in str(requests[0].url)
+    assert "agent-token" in str(requests[0].headers.get("authorization"))
 
 
 class TestAdditivity:

@@ -17,7 +17,7 @@ from microsoft_teams.api import (
 )
 from pydantic import ValidationError
 
-from .download import GraphCredential
+from .download import GraphCredential, is_graph_route_open
 from .incoming_file import IncomingFile
 
 logger = logging.getLogger(__name__)
@@ -110,10 +110,10 @@ class FilesAccessor:
         content_url = attachment.content_url
         name = attachment.name
 
-        # `download_url` is fetched directly. A `content_url` without one is the Agentic User case and resolves
-        # through Graph, restricted to `personal` because agentic delivery in other scopes is unvalidated: surfacing a
-        # handle there will produce a `list()` entry that then fails at `download()`. The `download_url` branch keeps
-        # its existing scope behavior.
+        # `download_url` is fetched directly. A `content_url` without one is the agentic user case and resolves
+        # through Graph, only where `is_graph_route_open` allows: the dispatcher applies the same check, so a handle
+        # surfaced here cannot then fail at `download()` on scope. The `download_url` branch keeps its existing scope
+        # behavior.
         # The Agentic User shape: `content` that parsed and declares no `download_url` at all. Content that failed to
         # parse, or that declares a `download_url` too malformed to use, is a broken attachment rather than an agentic
         # one. Both are excluded from the Graph route because both were skipped before it existed, and resolving one
@@ -122,8 +122,9 @@ class FilesAccessor:
         declares_download_url = isinstance(raw_content, dict) and "downloadUrl" in cast("dict[str, Any]", raw_content)
         is_agentic_shape = content is not None and not declares_download_url
 
+        actor = self._credential.actor if self._credential else None
         has_locator = bool(download_url or content_url)
-        can_fetch = bool(download_url) or (scope == "personal" and is_agentic_shape and bool(content_url))
+        can_fetch = bool(download_url) or (is_graph_route_open(scope, actor) and is_agentic_shape and bool(content_url))
 
         if not can_fetch or not name:
             # Split by cause: a malformed attachment is a real defect, while an out-of-scope file is expected noise.

@@ -15,7 +15,8 @@ from microsoft_teams.api import (
     ConversationAccount,
     MessageActivity,
 )
-from microsoft_teams.apps.files import FilesAccessor
+from microsoft_teams.apps.files import FileActor, FilesAccessor
+from microsoft_teams.apps.files.download import GraphCredential
 
 CONTENT_URL = "https://contoso.sharepoint.com/personal/a/Documents/report.pdf"
 
@@ -48,6 +49,13 @@ def _activity(attachments: list[Attachment], conversation_type: str = "personal"
     )
 
 
+def _credential(actor: FileActor) -> GraphCredential:
+    async def resolve() -> Optional[str]:
+        return "token"
+
+    return GraphCredential(actor=actor, token=resolve)
+
+
 class TestFilesAccessorWithNoDownloadUrl:
     @pytest.mark.asyncio
     async def test_surfaces_a_content_url_only_attachment_as_a_file(self):
@@ -63,17 +71,50 @@ class TestFilesAccessorWithNoDownloadUrl:
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize("scope", ["groupChat", "channel"])
-    async def test_skips_a_content_url_only_attachment_outside_personal_scope(self, scope: str):
-        # An agent in a group chat does receive these. Admitting them would put a handle in `list()` that then fails
-        # at `download()`, which is worse than not surfacing it.
+    async def test_skips_a_content_url_only_attachment_outside_personal_scope_on_a_turn_with_no_credential(
+        self, scope: str
+    ):
+        # An agent in a group chat does receive these. Without an agentic user credential the dispatcher refuses them
+        # outside `personal`, so surfacing one would put a handle in `list()` that then fails at `download()` with the
+        # scope error.
         files = await FilesAccessor(_activity([_agentic_attachment()], scope)).list()
 
         assert files == []
 
     @pytest.mark.asyncio
+    @pytest.mark.parametrize("scope", ["groupChat", "channel"])
+    async def test_surfaces_a_content_url_only_attachment_in_group_chat_and_channel_on_an_agentic_user_turn(
+        self, scope: str
+    ):
+        # An @mentioned agent receives these outside `personal`, and Graph reads them as the agent's own identity.
+        accessor = FilesAccessor(_activity([_agentic_attachment()], scope), credential=_credential("agentic_user"))
+        files = await accessor.list()
+
+        assert len(files) == 1
+        assert files[0].scope == scope
+        assert files[0].content_url == CONTENT_URL
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("scope", ["groupChat", "channel"])
+    async def test_skips_a_content_url_only_attachment_in_group_chat_and_channel_on_an_app_turn(self, scope: str):
+        # The platform delivers files outside `personal` only to an agentic user, so an app identity keeps the scope
+        # gate.
+        accessor = FilesAccessor(_activity([_agentic_attachment()], scope), credential=_credential("app"))
+
+        assert await accessor.list() == []
+
+    @pytest.mark.asyncio
+    async def test_skips_a_content_url_only_attachment_in_a_scope_it_does_not_recognize_even_for_an_agentic_user(self):
+        # A conversation type the SDK has not seen stays closed, whoever the actor is.
+        accessor = FilesAccessor(_activity([_agentic_attachment()], "meeting"), credential=_credential("agentic_user"))
+
+        assert await accessor.list() == []
+
+    @pytest.mark.asyncio
     async def test_still_surfaces_a_download_url_attachment_outside_personal_scope(self):
-        # The scope condition rides on the content_url branch only, so traditional-bot behavior is unchanged: these
-        # are surfaced by `list()` and raise the scope error at download time.
+        # The scope condition rides on the content_url branch only, so `list()` still surfaces a pre-authorized
+        # `download_url` outside `personal`, and `download()` raises the scope error. The platform delivers no
+        # `download_url` there today, so this pins a defensive path.
         attachment = _agentic_attachment(
             content={"downloadUrl": "https://download.example/r.pdf?tempauth=abc", "fileType": "pdf"}
         )
@@ -109,8 +150,8 @@ class TestFilesAccessorWithNoDownloadUrl:
         # `unique_id` and `file_type` are metadata. Rejecting the whole `content` over one of them drops the
         # `download_url` beside it, and the file then routes through Graph and fails on a bot holding no Graph
         # credential, reporting a consent problem for what is really bad data.
-        # Asserted outside personal scope because the Graph route is personal-only, so a file surfaced here can only
-        # have reached the list on its `download_url`.
+        # Asserted in a group chat on a turn with no credential, where the Graph route is closed: a file surfaced here
+        # can only have reached the list on its `download_url`.
         attachment = _agentic_attachment(
             content={"downloadUrl": "https://download.example/tempauth=abc", "uniqueId": 42, "fileType": 7}
         )
