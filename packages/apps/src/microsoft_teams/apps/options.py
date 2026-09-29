@@ -117,13 +117,17 @@ class AppOptions(TypedDict, total=False):
     """Custom HTTP server adapter. Defaults to FastAPIAdapter if not provided."""
 
     socket_mode: Optional[Union[bool, SocketModeOptions]]
-    """Receive activities over an outbound WebSocket instead of an inbound HTTPS endpoint.
+    """Experimental: receive activities over an outbound WebSocket instead of an inbound HTTPS endpoint.
 
     ``True`` enables it with defaults; pass a ``SocketModeOptions`` to tune geos and
     timeouts. The bot dials the Teams service, so no public endpoint or dev tunnel is
     needed — but HTTP-only features (``app.function()``, tabs, OAuth redirect routes)
     have no listener to serve them. Mutually exclusive with ``http_server_adapter``,
-    and supported only in the public cloud."""
+    and supported only in the public cloud.
+
+    This API is in preview and may change in the future; recommended only for development.
+    Diagnostic: ExperimentalTeamsSocketMode
+    """
 
     messaging_endpoint: Optional[str]
     """URL path for the Teams messaging endpoint. Defaults to '/api/messages'."""
@@ -234,7 +238,11 @@ class InternalAppOptions:
     http_server_adapter: Optional[HttpServerAdapter] = None
     """Custom HTTP server adapter. Defaults to FastAPIAdapter if not provided."""
     socket_mode: Optional[Union[bool, SocketModeOptions]] = None
-    """Receive activities over an outbound WebSocket instead of an inbound HTTPS endpoint."""
+    """Experimental: receive activities over an outbound WebSocket instead of an inbound HTTPS endpoint.
+
+    This API is in preview and may change in the future; recommended only for development.
+    Diagnostic: ExperimentalTeamsSocketMode
+    """
     messaging_endpoint: str = "/api/messages"
     """URL path for the Teams messaging endpoint. Defaults to '/api/messages'."""
     cloud: Optional[CloudEnvironment] = None

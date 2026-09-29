@@ -4,6 +4,8 @@ Licensed under the MIT License.
 """
 
 import asyncio
+import warnings
+from dataclasses import FrozenInstanceError
 from typing import Any, Optional
 
 import pytest
@@ -18,6 +20,7 @@ from microsoft_teams.apps.socket_mode.types import (
     SocketActivityEnvelope,
     SocketModeStatus,
 )
+from microsoft_teams.common.experimental import ExperimentalWarning
 from test_socket_mode_transport import MockConnection, MockConnectionFactory
 
 MESSAGE_ACTIVITY = {
@@ -418,6 +421,65 @@ def test_options_map_onto_transport_options():
     assert transport_options.reconnect_delays == (1, 2)
     assert transport_options.keep_alive_interval == 7
     assert transport_options.server_timeout == 8
+
+
+def test_socket_mode_options_warn_and_remain_frozen():
+    with pytest.warns(ExperimentalWarning, match="SocketModeOptions.*ExperimentalTeamsSocketMode"):
+        options = SocketModeOptions(geos=("amer",), startup_timeout=60)
+
+    assert isinstance(options, SocketModeOptions)
+    assert options.to_transport_options().startup_timeout == 60
+    with pytest.raises(FrozenInstanceError):
+        options.startup_timeout = 30  # pyright: ignore[reportAttributeAccessIssue]
+
+
+def test_socket_mode_adapter_warns_on_direct_construction():
+    options = SocketModeOptions()
+    with pytest.warns(ExperimentalWarning, match="SocketModeAdapter.*ExperimentalTeamsSocketMode"):
+        adapter = SocketModeAdapter(options, process_activity=RecordingPipeline(), get_app_token=_app_token)
+
+    assert isinstance(adapter, SocketModeAdapter)
+    assert adapter.options is options
+    assert adapter.status == SocketModeStatus.IDLE
+
+
+@pytest.mark.parametrize("custom_options", [False, True])
+def test_enabling_socket_mode_warns(custom_options: bool):
+    option = SocketModeOptions(geos=("amer",)) if custom_options else True
+    with pytest.warns(ExperimentalWarning, match="SocketModeAdapter.*ExperimentalTeamsSocketMode"):
+        app = App(client_id="client", client_secret="secret", tenant_id="tenant", socket_mode=option)
+
+    assert app.socket_mode is app.server.adapter
+    assert isinstance(app.socket_mode, SocketModeAdapter)
+
+
+@pytest.mark.parametrize("enabled", [None, False])
+def test_http_apps_do_not_emit_socket_mode_warnings(enabled: Optional[bool]):
+    with warnings.catch_warnings(record=True) as captured:
+        warnings.simplefilter("always", ExperimentalWarning)
+        app = App(client_id="client", client_secret="secret", tenant_id="tenant", socket_mode=enabled)
+        assert app.socket_mode is None
+
+    assert not any("ExperimentalTeamsSocketMode" in str(warning.message) for warning in captured)
+
+
+def test_socket_mode_warning_can_be_suppressed_by_diagnostic():
+    with warnings.catch_warnings(record=True) as captured:
+        warnings.simplefilter("always", ExperimentalWarning)
+        warnings.filterwarnings("ignore", message=".*ExperimentalTeamsSocketMode", category=ExperimentalWarning)
+        app = App(
+            client_id="client",
+            client_secret="secret",
+            tenant_id="tenant",
+            socket_mode=SocketModeOptions(geos=("amer",)),
+        )
+        warnings.warn("An unrelated preview", ExperimentalWarning, stacklevel=2)
+
+    assert isinstance(app.socket_mode, SocketModeAdapter)
+    preview_messages = [
+        str(warning.message) for warning in captured if issubclass(warning.category, ExperimentalWarning)
+    ]
+    assert preview_messages == ["An unrelated preview"]
 
 
 def test_app_without_socket_mode_keeps_the_http_server():
