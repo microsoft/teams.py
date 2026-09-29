@@ -17,7 +17,13 @@ from microsoft_teams.apps.files.download import (
     GraphCredential,
     open_file_stream,
 )
-from microsoft_teams.apps.files.errors import FileAccessError, FileActor, FileCredentialError, FileUrlExpiredError
+from microsoft_teams.apps.files.errors import (
+    FileAccessError,
+    FileActor,
+    FileCredentialError,
+    FileScopeNotSupportedError,
+    FileUrlExpiredError,
+)
 from microsoft_teams.apps.files.graph_share import encode_sharing_url
 
 CONTENT_URL = "https://contoso.sharepoint.com/personal/a/Documents/report.pdf"
@@ -326,6 +332,84 @@ class TestGraphSharePath:
         assert "agentic_user" in str(err.value)
         assert "404" in str(err.value)
         assert "mysite" in str(err.value)
+
+
+class TestGraphRouteOutsidePersonalScope:
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("scope", ["groupChat", "channel"])
+    async def test_opens_for_an_agentic_user_in_group_chat_and_channel_as_one_shares_read_carrying_the_agent_token(
+        self, scope: str
+    ):
+        rec = _Recorder([200])
+
+        async with open_file_stream(
+            _target(scope=scope, content_url=CONTENT_URL),
+            client=rec.client,
+            credential=_credential("agentic_user", AGENTIC_JWT),
+        ) as opened:
+            assert opened.content_type == "application/pdf"
+
+        assert len(rec.calls) == 1
+        assert f"/shares/{encode_sharing_url(CONTENT_URL)}/driveItem/content" in str(rec.calls[0].url)
+        assert AGENTIC_JWT in str(rec.auth_of(0))
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("scope", ["groupChat", "channel"])
+    async def test_stays_closed_to_an_app_credential_before_any_request(self, scope: str):
+        rec = _Recorder([200])
+
+        with pytest.raises(FileScopeNotSupportedError) as err:
+            async with open_file_stream(
+                _target(scope=scope, content_url=CONTENT_URL), client=rec.client, credential=_credential("app", APP_JWT)
+            ):
+                pass
+
+        assert err.value.scope == scope
+        assert len(rec.calls) == 0
+
+    @pytest.mark.asyncio
+    async def test_reports_the_scope_not_a_missing_credential_when_no_credential_exists(self):
+        # In `personal` the same file fails as a credential problem. Here no identity could open the route, so naming a
+        # credential would send the reader after the wrong fix.
+        rec = _Recorder([200])
+
+        with pytest.raises(FileScopeNotSupportedError):
+            async with open_file_stream(_target(scope="groupChat", content_url=CONTENT_URL), client=rec.client):
+                pass
+
+        assert len(rec.calls) == 0
+
+    @pytest.mark.asyncio
+    async def test_keeps_the_scope_error_for_a_file_carrying_a_download_url_even_for_an_agentic_user(self):
+        # Graph is never substituted for a URL the platform supplied, and the pre-authorized route is unvalidated
+        # outside `personal`.
+        rec = _Recorder([200])
+
+        with pytest.raises(FileScopeNotSupportedError) as err:
+            async with open_file_stream(
+                _target(scope="groupChat", download_url=DOWNLOAD_URL, content_url=CONTENT_URL),
+                client=rec.client,
+                credential=_credential("agentic_user", AGENTIC_JWT),
+            ):
+                pass
+
+        assert err.value.scope == "groupChat"
+        assert len(rec.calls) == 0
+
+    @pytest.mark.asyncio
+    async def test_stays_closed_in_a_scope_it_does_not_recognize_even_for_an_agentic_user(self):
+        rec = _Recorder([200])
+
+        with pytest.raises(FileScopeNotSupportedError) as err:
+            async with open_file_stream(
+                _target(scope="meeting", content_url=CONTENT_URL),
+                client=rec.client,
+                credential=_credential("agentic_user", AGENTIC_JWT),
+            ):
+                pass
+
+        assert err.value.scope == "meeting"
+        assert len(rec.calls) == 0
 
 
 class TestExpiredUrl:
