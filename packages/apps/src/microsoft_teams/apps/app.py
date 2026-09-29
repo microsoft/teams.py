@@ -210,9 +210,11 @@ class App(ActivityHandlerMixin):
 
     @property
     def socket_mode(self) -> Optional[SocketModeAdapter]:
-        """The Socket Mode adapter when ``socket_mode`` is enabled, else ``None``.
+        """The experimental Socket Mode adapter when enabled, else ``None``.
 
         Exposes ``status``, ``geo_statuses``, and ``events`` for observing the connection.
+        This API is in preview and may change in the future; recommended only for development.
+        Diagnostic: ExperimentalTeamsSocketMode
         """
         return self._socket_mode
 

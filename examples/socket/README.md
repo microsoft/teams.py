@@ -3,6 +3,11 @@
 A minimal echo bot that runs entirely over inbound **Socket Mode** and shows how
 to observe the socket lifecycle.
 
+**Preview:** Socket Mode APIs are experimental and may change in the future.
+Constructing `SocketModeOptions` or `SocketModeAdapter` (including through
+`App(socket_mode=True)`) emits an `ExperimentalWarning` with diagnostic
+`ExperimentalTeamsSocketMode`.
+
 Socket Mode lets a bot receive activities over a Teams backend service-negotiated
 WebSocket instead of an HTTP messaging endpoint — so there's no public URL or dev
 tunnel to expose for inbound delivery. Only inbound delivery changes; your

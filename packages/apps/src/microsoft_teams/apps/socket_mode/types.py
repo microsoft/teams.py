@@ -21,7 +21,7 @@ service can detect a mismatch. Bump only in lockstep with the service's
 
 class SocketModeStatus(StrEnum):
     """
-    Lifecycle status of a socket.
+    Experimental lifecycle status of a socket; may change in the future.
 
     ``READY`` requires more than an open socket: the service must also have pushed
     the ``SocketReady`` frame, which is what admits inbound activities.
@@ -54,7 +54,7 @@ class _InboundFrame(BaseModel):
 
 
 class SocketReadyFrame(_InboundFrame):
-    """Pushed once the connection is registered and inbound delivery can begin."""
+    """Experimental readiness frame, pushed once inbound delivery can begin; may change in the future."""
 
     bot_key: Optional[str] = None
     connection_id: Optional[str] = None

@@ -55,7 +55,7 @@ class SignalREndpoint:
 
 class NegotiateError(RuntimeError):
     """
-    A negotiate step failed.
+    Experimental error for a failed negotiate step; may change in the future.
 
     ``retry_after`` carries the service's ``Retry-After`` when it sent one, so the
     supervisor can honour throttling instead of applying its own backoff.

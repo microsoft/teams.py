@@ -18,6 +18,7 @@ from typing import Any, Awaitable, Callable, Literal, Optional, Sequence, Union
 from microsoft_teams.api import InvokeResponse, TokenProtocol
 from microsoft_teams.api.auth.caller import CallerType
 from microsoft_teams.common.events import EventEmitter
+from microsoft_teams.common.experimental import experimental
 
 from ..events import ActivityEvent, CoreActivity
 from ..http.adapter import HttpMethod, HttpRouteHandler
@@ -42,12 +43,12 @@ from .types import (
 logger = logging.getLogger(__name__)
 
 SocketModeEventType = Literal["ready", "disconnected", "reconnected"]
-"""Name of a lifecycle event emitted by :attr:`SocketModeAdapter.events`."""
+"""Experimental lifecycle event name emitted by :attr:`SocketModeAdapter.events`."""
 
 
 @dataclass(frozen=True)
 class SocketModeReadyEvent:
-    """A geo's socket connected and the service confirmed readiness."""
+    """Experimental event: a geo's socket connected and the service confirmed readiness."""
 
     geo: str
     frame: SocketReadyFrame
@@ -56,7 +57,7 @@ class SocketModeReadyEvent:
 @dataclass(frozen=True)
 class SocketModeDisconnectedEvent:
     """
-    A geo's socket disconnected, either temporarily or after a terminal negotiate failure.
+    Experimental event: a geo disconnected temporarily or after a terminal negotiate failure.
 
     Not emitted for a successful planned credential rotation.
     """
@@ -69,15 +70,19 @@ class SocketModeDisconnectedEvent:
 
 @dataclass(frozen=True)
 class SocketModeReconnectedEvent:
-    """A geo's socket recovered from an unexpected drop."""
+    """Experimental event: a geo's socket recovered from an unexpected drop."""
 
     geo: str
 
 
+@experimental("ExperimentalTeamsSocketMode")
 @dataclass(frozen=True)
 class SocketModeOptions:
     """
-    Public tuning for Socket Mode. Durations are in **seconds**.
+    Preview tuning for Socket Mode; may change in the future. Durations are in **seconds**.
+
+    WebSocket is only recommended for use when developing agents.
+    Diagnostic: ExperimentalTeamsSocketMode
     """
 
     negotiate_base_url: str = DEFAULT_SOCKET_MODE_NEGOTIATE_BASE_URL
@@ -143,6 +148,7 @@ class _SocketModeToken:
         return ""
 
 
+@experimental("ExperimentalTeamsSocketMode")
 class SocketModeAdapter:
     """
     Receives activities over an outbound WebSocket instead of an inbound HTTPS endpoint.
@@ -151,6 +157,10 @@ class SocketModeAdapter:
     treat it as any other server: ``start``/``stop`` drive the sockets, and the route
     registration the App performs at startup is accepted and ignored because a socket
     serves only the messaging endpoint.
+
+    This API is in preview and may change in the future.
+    WebSocket is only recommended for use when developing agents.
+    Diagnostic: ExperimentalTeamsSocketMode
     """
 
     def __init__(
