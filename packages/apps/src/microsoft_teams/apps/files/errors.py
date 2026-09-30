@@ -66,9 +66,9 @@ class FileScopeNotSupportedError(FileError):
     """
     Raised when file bytes are requested for a conversation scope whose download path is not implemented.
 
-    Only `personal` (1:1) uploaded files download directly.
-    `groupChat` files are surfaced by `list()`, but fetching their bytes needs Graph;
-    `download()`/`stream()` throws until that path lands.
+    `personal` (1:1) files download through either route. In `groupChat` and `channel` the platform delivers file
+    attachments only to an agentic user, and they download only through Graph at this time. `list()` would still surface
+    a pre-authorized `download_url`, but `download()`/`stream()` raises, as it does for any other scope.
     """
 
     scope: ConversationType

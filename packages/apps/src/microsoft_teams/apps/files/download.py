@@ -80,6 +80,21 @@ class OpenedFileStream:
     """MIME type resolved from the response, falling back to the incoming file's."""
 
 
+def is_graph_route_open(scope: ConversationType, actor: Optional[FileActor]) -> bool:
+    """
+    Whether a file that arrived with only a `content_url` may be read through Graph in this scope, as this actor.
+
+    Shared by the attachment mapper and the download dispatcher so the two cannot drift: a file `list()` surfaces on its
+    `content_url` is always one `download()` will open. `personal` is open to every actor. `groupChat` and `channel` are
+    open only to an agentic user, the only identity the platform delivers files to there at this time. Any other scope
+    stays closed.
+    """
+    if scope == "personal":
+        return True
+
+    return actor == "agentic_user" and scope in ("groupChat", "channel")
+
+
 @asynccontextmanager
 async def open_file_stream(
     target: FileFetchTarget,
@@ -92,16 +107,26 @@ async def open_file_stream(
     Open a byte stream for an inbound file, keyed on its conversation scope so every scope's receive path extends this
     one place rather than branching in callers.
 
-    Only `personal` is implemented; `groupChat`/`channel` (and any future scope) raise `FileScopeNotSupportedError`
-    until their Graph receive path lands.
+    `personal` takes either route. In `groupChat` and `channel` the platform delivers file attachments only to an
+    agentic user, each carrying just a `content_url`, so they open only through Graph, as `is_graph_route_open` decides.
+    Everything else raises `FileScopeNotSupportedError`.
     """
-    if target.scope != "personal":
-        raise FileScopeNotSupportedError(target.scope)
+    if target.scope == "personal":
+        async with _open_personal_file_stream(
+            target, prior_fetch_succeeded=prior_fetch_succeeded, client=client, credential=credential
+        ) as opened:
+            yield opened
+        return
 
-    async with _open_personal_file_stream(
-        target, prior_fetch_succeeded=prior_fetch_succeeded, client=client, credential=credential
-    ) as opened:
-        yield opened
+    # A `download_url` outside `personal` keeps the scope error: that route is unvalidated there, and Graph is never
+    # substituted for a URL the platform supplied.
+    actor = credential.actor if credential else None
+    if not target.download_url and target.content_url and is_graph_route_open(target.scope, actor):
+        async with _open_graph_file_stream(target, target.content_url, client=client, credential=credential) as opened:
+            yield opened
+        return
+
+    raise FileScopeNotSupportedError(target.scope)
 
 
 async def _send_following_https_redirects(http: httpx.AsyncClient, request: httpx.Request) -> httpx.Response:
