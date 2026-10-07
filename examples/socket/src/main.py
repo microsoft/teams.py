@@ -27,6 +27,8 @@ logger = logging.getLogger(__name__)
 
 app = App(
     socket_mode=SocketModeOptions(
+        # Socket Mode is only available on the Canary and Pilot1 rings for now.
+        # Pilot1 (https://pilot1.botapi.skype.com) is supported as well.
         negotiate_base_url="https://canary.botapi.skype.com",
     )
 )
