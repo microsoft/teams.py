@@ -8,9 +8,11 @@ import json
 import logging
 import re
 from os import getenv
+from typing import Any, cast
 
-from agent import agent, tool_logger
-from agent_framework import AgentSession
+from agent import agent, client, tool_logger
+from agent_framework import AgentSession, ChatResponse, Message
+from agent_framework.openai import OpenAIChatClient, OpenAIChatOptions
 from local_tools import CLARIFICATION_INPUT_ID, CLARIFICATION_VERB, pending_cards
 from microsoft_teams.api import (
     AdaptiveCardActionMessageResponse,
@@ -32,7 +34,7 @@ from microsoft_teams.api import (
 )
 from microsoft_teams.apps import ActivityContext, App
 from microsoft_teams.cards import AdaptiveCard, SubmitAction, TextBlock, TextInput
-from openai import AsyncAzureOpenAI
+from pydantic import BaseModel, Field
 
 logging.basicConfig(level=getenv("LOG_LEVEL", "INFO").upper())
 logger = logging.getLogger(__name__)
@@ -43,67 +45,57 @@ app = App()
 # Per-conversation sessions preserve message history across turns.
 _sessions: dict[str, AgentSession] = {}
 
-# Raw OpenAI client used only for follow-up generation (separate from agent_framework).
-_openai_client: AsyncAzureOpenAI | None = None
-
-
-def _get_openai_client() -> AsyncAzureOpenAI:
-    global _openai_client
-    if _openai_client is None:
-        _openai_client = AsyncAzureOpenAI(
-            azure_endpoint=getenv("AZURE_OPENAI_ENDPOINT", ""),
-            api_key=getenv("AZURE_OPENAI_API_KEY", ""),
-            api_version="2024-08-01-preview",
-        )
-    return _openai_client
-
-
 _FOLLOW_UPS_PROMPT = (
     "Based on the conversation so far, suggest exactly 2 short follow-up questions the user might want to ask next. "
     'Respond with JSON: {"followUps": ["question 1", "question 2"]}. '
     "Keep each question under 60 characters."
 )
 
-_FOLLOW_UPS_SCHEMA = {
-    "type": "json_schema",
-    "json_schema": {
-        "name": "follow_ups",
-        "schema": {
-            "type": "object",
-            "properties": {
-                "followUps": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "minItems": 2,
-                    "maxItems": 2,
-                },
-            },
-            "required": ["followUps"],
-            "additionalProperties": False,
-        },
-        "strict": True,
-    },
-}
+
+class FollowUps(BaseModel):
+    follow_ups: list[str] = Field(alias="followUps", min_length=2, max_length=2)
 
 
 async def _generate_follow_ups(last_user_text: str, last_ai_text: str) -> list[CardAction]:
-    """Generate 2 dynamic follow-up suggestions via a lightweight OpenAI call."""
+    """Generate 2 dynamic follow-up suggestions with the selected provider."""
     try:
-        client = _get_openai_client()
-        model = getenv("AZURE_OPENAI_MODEL", "")
-        completion = await client.chat.completions.create(
-            model=model,
-            messages=[
-                {"role": "system", "content": _FOLLOW_UPS_PROMPT},
-                {"role": "user", "content": last_user_text},
-                {"role": "assistant", "content": last_ai_text},
-            ],
-            response_format=_FOLLOW_UPS_SCHEMA,  # type: ignore[arg-type]
-            max_tokens=200,
+        messages = [
+            Message(
+                "user",
+                contents=[
+                    f"{_FOLLOW_UPS_PROMPT}\n\n"
+                    f"Last user message: {last_user_text}\n"
+                    f"Last assistant response: {last_ai_text}"
+                ],
+            )
+        ]
+
+        if isinstance(client, OpenAIChatClient):
+            options: OpenAIChatOptions[FollowUps] = {
+                "max_tokens": 200,
+                "response_format": FollowUps,
+            }
+            response = await client.get_response(messages, options=options)
+            questions = FollowUps.model_validate_json(response.text).follow_ups
+            return [
+                CardAction(type=CardActionType.IM_BACK, title=question, value=question) for question in questions[:2]
+            ]
+
+        response: ChatResponse[Any] = await client.get_response(
+            messages,
+            options={"max_tokens": 200},
         )
-        content = completion.choices[0].message.content or "{}"
-        data = json.loads(content)
-        return [CardAction(type=CardActionType.IM_BACK, title=q, value=q) for q in data.get("followUps", [])[:2]]
+        content = response.text or "{}"
+        match = re.search(r"\{[\s\S]*\}", content)
+        data = cast("dict[str, Any]", json.loads(match.group(0) if match else "{}"))
+        follow_ups = data.get("followUps", [])
+        if not isinstance(follow_ups, list):
+            return []
+        return [
+            CardAction(type=CardActionType.IM_BACK, title=question, value=question)
+            for question in cast("list[Any]", follow_ups)[:2]
+            if isinstance(question, str)
+        ]
     except Exception as exc:
         logger.warning("follow-up generation failed: %s", exc)
         return []
@@ -232,5 +224,10 @@ async def handle_feedback(ctx: ActivityContext[MessageSubmitActionInvokeActivity
     logger.info("feedback: %s | %s", reaction, feedback)
 
 
+async def main() -> None:
+    async with agent:
+        await app.start()
+
+
 if __name__ == "__main__":
-    asyncio.run(app.start())
+    asyncio.run(main())
