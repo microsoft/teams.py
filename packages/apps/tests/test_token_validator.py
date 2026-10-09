@@ -556,6 +556,12 @@ class TestInboundActivityTokenValidatorEntraCallerApp:
             )
 
     @pytest.mark.asyncio
+    @pytest.mark.parametrize("azp", ["", None, 123])
+    async def test_rejects_present_but_invalid_azp_without_falling_back_to_appid(self, azp: Any):
+        with pytest.raises(jwt.InvalidTokenError, match="caller app is not allowed"):
+            await self._validate_entra({"tid": "tenant-id", "azp": azp, "appid": AGENT_365_PLATFORM_APP_ID})
+
+    @pytest.mark.asyncio
     async def test_does_not_apply_caller_app_check_to_bot_framework_tokens(self):
         validator = InboundActivityTokenValidator("test-app-id")
         bot_payload = {"iss": "https://api.botframework.com", "appid": self.OTHER_APP_ID}

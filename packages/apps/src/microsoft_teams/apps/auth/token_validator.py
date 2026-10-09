@@ -275,9 +275,9 @@ class InboundActivityTokenValidator:
         """Require the client app that requested the token to be the Agent 365 platform.
 
         Entra v2 tokens carry the caller in ``azp`` and v1 tokens carry it in ``appid``.
+        ``appid`` is only consulted when ``azp`` is absent, so a present but invalid ``azp`` is rejected.
         """
-        azp = payload.get("azp")
-        caller_app_id = azp if isinstance(azp, str) and azp else payload.get("appid")
+        caller_app_id = payload["azp"] if "azp" in payload else payload.get("appid")
         if not isinstance(caller_app_id, str) or caller_app_id.lower() != AGENT_365_PLATFORM_APP_ID:
             logger.error("Entra inbound token caller app is not allowed: %s", caller_app_id)
             raise jwt.InvalidTokenError("Entra inbound token caller app is not allowed")
