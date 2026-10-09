@@ -120,7 +120,7 @@ class AppOptions(TypedDict, total=False):
     """Experimental: receive activities over an outbound WebSocket instead of an inbound HTTPS endpoint.
 
     ``True`` enables it with defaults; pass a ``SocketModeOptions`` to tune geos and
-    timeouts. The bot dials the Teams service, so no public endpoint or dev tunnel is
+    timeouts or opt into agentic identity auth. The bot dials the Teams service, so no public endpoint or dev tunnel is
     needed — but HTTP-only features (``app.function()``, tabs, OAuth redirect routes)
     have no listener to serve them. Mutually exclusive with ``http_server_adapter``,
     and supported only in the public cloud.
