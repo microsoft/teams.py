@@ -1,32 +1,86 @@
-# agent365
+# Agent365 OpenTelemetry
 
-Demonstrates scoping Teams API clients with `AgenticIdentity`.
+Demonstrates Agent365 observability for reactive Teams turns and proactive sends using `AgenticIdentity`. For
+background on the underlying telemetry model, see the [OpenTelemetry documentation](https://opentelemetry.io/docs/).
 
-`AgenticIdentity` is the SDK operation/request/proactive scope for the program: it has an `agentic_app_blueprint_id`, can include an `agentic_app_id`, and that app can optionally be associated with an `agentic_user_id`. Token helpers and lifecycle handlers stay specific where the service behavior is specific.
+`AgenticIdentity` is the SDK operation/request/proactive scope for the program: it has an
+`agentic_app_blueprint_id`, can include an `agentic_app_id`, and that app can optionally be associated with an
+`agentic_user_id`.
 
-## Reactive Echo
+The Teams SDK owns Teams spans, metrics, token acquisition, and Agent365-compatible baggage. The app host owns the
+Microsoft OpenTelemetry distro, exporter configuration, and Agent365 operation scopes.
 
-`src/main.py` mimics the echo example. Incoming messages are handled normally; the inbound service URL and agentic identity are carried by the context/API layer.
+## Configuration
 
 ```bash
+cd examples/agent365
+
 export CLIENT_ID=<agentic-app-blueprint-id>
 export CLIENT_SECRET=<client-secret>
 export TENANT_ID=<tenant-id>
-
-uv run --project examples/agent365 python src/main.py
 ```
 
-## Proactive API Send
+`microsoft-opentelemetry` is an example-only dependency. The Teams SDK packages depend only on the standard
+OpenTelemetry API and do not configure exporters.
 
-`src/proactive.py` shows both `app.send(..., agentic_identity=...)` and a scoped lower-level conversation activity API client. This user-backed sample uses `app.get_agentic_identity(...)` with `agentic_app_id` and `agentic_user_id` because that token flow needs both IDs; the blueprint ID comes from `CLIENT_ID` and the tenant ID comes from `TENANT_ID`.
+`src/observability.py` configures the Agent365 exporter. Python's exporter token resolver is synchronous, so the
+example refreshes an agentic app token asynchronously through `app.token_provider` before opening an Agent365 scope,
+then exposes that cached token to the exporter.
+
+Sensitive content recording remains disabled. The examples create `InvokeAgentScope` instances without recording
+message input or output.
+
+## Reactive flow
 
 ```bash
-export CLIENT_ID=<agentic-app-blueprint-id>
-export CLIENT_SECRET=<client-secret>
-export TENANT_ID=<tenant-id>
+uv run python src/main.py
+```
 
-uv run --project examples/agent365 python src/proactive.py \
+The app configures:
+
+```python
+app = App(
+    telemetry={
+        "agent365": {
+            "include": ["senderName", "senderEmail", "agentName", "agentEmail", "agentDescription"],
+            "operation_source": "Microsoft.Teams.Apps",
+        }
+    }
+)
+```
+
+Inbound Agent365 baggage is established before the SDK's root turn span, so the turn, handler, API, auth, and
+app-created Agent365 spans share the same identity. Identifier fields are included by default; names and email
+addresses require explicit `include` entries. Set `"agent365": False` to disable the bridge.
+
+## Proactive flow
+
+```bash
+uv run python src/proactive.py \
   <conversation-id> \
   <agentic-app-id> \
   <agentic-user-id>
 ```
+
+There is no inbound activity for proactive work. `src/proactive.py` therefore creates a reusable
+`create_agent365_scope(...)` opener and supplies the per-operation `AgenticIdentity` and conversation ID. Everything
+inside that baggage scope, including `InvokeAgentScope`, `app.send`, lower-level API calls, and auth spans, carries the
+same identity.
+
+The proactive process explicitly flushes the tracer provider in a `finally` block because the Agent365 exporter
+batches spans.
+
+## Public integration surfaces
+
+- `app.token_provider.get_app_token(...)`
+- `app.token_provider.get_agentic_user_token(...)`
+- `app.token_provider.get_agentic_app_token(...)`
+- `app.get_agentic_identity(...)`
+- `App(telemetry={"agent365": ...})`
+- `agent365_baggage(...)` for low-level/manual scopes
+- `create_agent365_scope(...)` for reusable proactive scopes
+
+The canonical Teams telemetry source names remain:
+
+- API/lower layer: `Microsoft.Teams.Api`
+- Apps/orchestration layer: `Microsoft.Teams.Apps`
