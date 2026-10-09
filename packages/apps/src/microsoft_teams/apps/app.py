@@ -63,7 +63,7 @@ from .routing import ActivityHandlerMixin, ActivityRouter
 from .routing.activity_context import ActivityContext
 from .socket_mode import SocketModeAdapter, SocketModeOptions
 from .state import create_state_loader
-from .token_manager import DEFAULT_TENANT_FOR_GRAPH_TOKEN, TokenManager
+from .token_manager import TokenManager
 from .token_provider import AppTokenProvider
 from .utils import create_graph_client, derive_graph_base_url
 from .utils.thread import to_threaded_conversation_id
@@ -804,10 +804,7 @@ class App(ActivityHandlerMixin):
         return await self._token_provider.get_app_token()
 
     async def _get_graph_token(self, tenant_id: Optional[str] = None) -> Optional[TokenProtocol]:
-        return await self._token_provider.get_app_token(
-            self.cloud.graph_scope,
-            tenant_id or (self.credentials.tenant_id if self.credentials else None) or DEFAULT_TENANT_FOR_GRAPH_TOKEN,
-        )
+        return await self._token_provider.get_app_token(self.cloud.graph_scope, tenant_id)
 
     async def _get_agentic_graph_token(
         self, identity: AgenticIdentity, tenant_id: Optional[str] = None

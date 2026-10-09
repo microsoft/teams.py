@@ -526,13 +526,34 @@ class TestApp:
         assert not hasattr(app, "_auth_provider")
 
     @pytest.mark.asyncio
-    async def test_get_graph_token_uses_credentials_tenant(self):
-        app = App(client_id="test-client-id", client_secret="test-secret", tenant_id="credentials-tenant")
+    @pytest.mark.parametrize(
+        "configured_tenant,expected_tenant",
+        [
+            ("credentials-tenant", "credentials-tenant"),
+            (None, "common"),
+        ],
+    )
+    async def test_graph_token_paths_resolve_the_same_tenant(
+        self, configured_tenant: Optional[str], expected_tenant: str
+    ):
+        with patch.dict("os.environ", {"TENANT_ID": ""}, clear=False):
+            app = App(client_id="test-client-id", client_secret="test-secret", tenant_id=configured_tenant)
+        msal_app = MagicMock()
+        # Minimal unsigned JWT: {"alg": "none"}.{}
+        msal_app.acquire_token_for_client.return_value = {"access_token": "eyJhbGciOiJub25lIn0.e30."}
 
-        with patch.object(app.token_provider, "get_app_token", autospec=True, return_value=None) as get_app_token:
+        with patch(
+            "microsoft_teams.apps.token_manager.ConfidentialClientApplication", return_value=msal_app
+        ) as msal_class:
             await app._get_graph_token()
+            await app.token_provider.get_app_token(app.cloud.graph_scope)
 
-        get_app_token.assert_awaited_once_with(PUBLIC.graph_scope, "credentials-tenant")
+        # Both paths share one cached MSAL client, built for the Graph tenant rather than the Bot Framework tenant.
+        msal_class.assert_called_once_with(
+            "test-client-id",
+            client_credential="test-secret",
+            authority=f"https://login.microsoftonline.com/{expected_tenant}",
+        )
 
     # The guard on `_get_agentic_graph_token`. A blueprint-level identity names no agentic user, so there is nobody to
     # acquire as, and the guard must refuse WITHOUT reaching the token provider. That shape is reachable rather than
