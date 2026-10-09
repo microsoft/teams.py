@@ -16,6 +16,8 @@ from microsoft_teams.api.auth.cloud_environment import PUBLIC, CloudEnvironment
 JWT_LEEWAY_SECONDS = 300  # Allowable clock skew when validating JWTs
 _MAX_ENTRA_VALIDATOR_CACHE_SIZE = 100
 ENTRA_V1_ISSUER_PREFIX = "https://sts.windows.net/"
+AGENT_365_PLATFORM_APP_ID = "5a807f24-c9de-44ee-a3a7-329e88a00ffc"
+"""App ID of the Agent 365 platform."""
 
 logger = logging.getLogger(__name__)
 
@@ -265,7 +267,20 @@ class InboundActivityTokenValidator:
         validator = self._get_entra_validator(tenant_id)
         # TODO: Agent ID inbound Entra tokens currently do not include serviceurl. Revisit service URL
         # validation for this path once the platform defines a signed service URL claim or equivalent.
-        return await validator.validate_token(raw_token)
+        payload = await validator.validate_token(raw_token)
+        self._validate_entra_caller_app(payload)
+        return payload
+
+    def _validate_entra_caller_app(self, payload: Dict[str, Any]) -> None:
+        """Require the client app that requested the token to be the Agent 365 platform.
+
+        Entra v2 tokens carry the caller in ``azp`` and v1 tokens carry it in ``appid``.
+        """
+        azp = payload.get("azp")
+        caller_app_id = azp if isinstance(azp, str) and azp else payload.get("appid")
+        if not isinstance(caller_app_id, str) or caller_app_id.lower() != AGENT_365_PLATFORM_APP_ID:
+            logger.error("Entra inbound token caller app is not allowed: %s", caller_app_id)
+            raise jwt.InvalidTokenError("Entra inbound token caller app is not allowed")
 
     def _get_entra_validator(self, tenant_id: str) -> TokenValidator:
         cached_validator = self._entra_validators_by_tenant.get(tenant_id)

@@ -3,12 +3,17 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
+from typing import Any, Dict
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import jwt
 import pytest
 from microsoft_teams.apps.auth import token_validator as token_validator_module
-from microsoft_teams.apps.auth.token_validator import InboundActivityTokenValidator, TokenValidator
+from microsoft_teams.apps.auth.token_validator import (
+    AGENT_365_PLATFORM_APP_ID,
+    InboundActivityTokenValidator,
+    TokenValidator,
+)
 
 # pyright: basic
 
@@ -428,7 +433,7 @@ class TestInboundActivityTokenValidator:
         validator = InboundActivityTokenValidator("test-app-id")
         validator._service_validator.validate_token = AsyncMock()
         entra_validator = MagicMock()
-        entra_validator.validate_token = AsyncMock(return_value={"tid": "tenant-id"})
+        entra_validator.validate_token = AsyncMock(return_value={"tid": "tenant-id", "azp": AGENT_365_PLATFORM_APP_ID})
 
         with patch.object(validator, "_get_entra_validator", return_value=entra_validator) as get_validator:
             with patch(
@@ -437,7 +442,7 @@ class TestInboundActivityTokenValidator:
             ):
                 result = await validator.validate_token("entra-token", "https://service.example")
 
-        assert result == {"tid": "tenant-id"}
+        assert result == {"tid": "tenant-id", "azp": AGENT_365_PLATFORM_APP_ID}
         get_validator.assert_called_once_with("tenant-id")
         entra_validator.validate_token.assert_called_once_with("entra-token")
         validator._service_validator.validate_token.assert_not_called()
@@ -446,13 +451,15 @@ class TestInboundActivityTokenValidator:
     async def test_validate_token_uses_entra_validator_for_v1_sts_issuer(self):
         validator = InboundActivityTokenValidator("test-app-id")
         entra_validator = MagicMock()
-        entra_validator.validate_token = AsyncMock(return_value={"tid": "tenant-id"})
+        entra_validator.validate_token = AsyncMock(
+            return_value={"tid": "tenant-id", "appid": AGENT_365_PLATFORM_APP_ID}
+        )
 
         with patch.object(validator, "_get_entra_validator", return_value=entra_validator) as get_validator:
             with patch("jwt.decode", return_value={"iss": "https://sts.windows.net/tenant-id/", "tid": "tenant-id"}):
                 result = await validator.validate_token("entra-v1-token")
 
-        assert result == {"tid": "tenant-id"}
+        assert result == {"tid": "tenant-id", "appid": AGENT_365_PLATFORM_APP_ID}
         get_validator.assert_called_once_with("tenant-id")
         entra_validator.validate_token.assert_called_once_with("entra-v1-token")
 
@@ -499,3 +506,62 @@ class TestInboundActivityTokenValidator:
         assert "tenant-0" not in validator._entra_validators_by_tenant
         last_tenant_id = f"tenant-{token_validator_module._MAX_ENTRA_VALIDATOR_CACHE_SIZE}"
         assert last_tenant_id in validator._entra_validators_by_tenant
+
+
+class TestInboundActivityTokenValidatorEntraCallerApp:
+    OTHER_APP_ID = "00000000-0000-0000-0000-000000000099"
+    ENTRA_CLAIMS = {"iss": "https://login.microsoftonline.com/tenant-id/v2.0", "tid": "tenant-id"}
+
+    async def _validate_entra(self, validated_payload: Dict[str, Any]) -> Dict[str, Any]:
+        validator = InboundActivityTokenValidator("test-app-id")
+        entra_validator = MagicMock()
+        entra_validator.validate_token = AsyncMock(return_value=validated_payload)
+
+        with patch.object(validator, "_get_entra_validator", return_value=entra_validator):
+            with patch("jwt.decode", return_value=self.ENTRA_CLAIMS):
+                return await validator.validate_token("entra-token")
+
+    @pytest.mark.asyncio
+    async def test_accepts_agent_365_platform_app_in_azp(self):
+        payload = {"tid": "tenant-id", "azp": AGENT_365_PLATFORM_APP_ID}
+
+        assert await self._validate_entra(payload) == payload
+
+    @pytest.mark.asyncio
+    async def test_accepts_agent_365_platform_app_in_appid_when_azp_absent(self):
+        payload = {"tid": "tenant-id", "appid": AGENT_365_PLATFORM_APP_ID.upper()}
+
+        assert await self._validate_entra(payload) == payload
+
+    @pytest.mark.asyncio
+    async def test_rejects_other_app_in_azp(self):
+        with pytest.raises(jwt.InvalidTokenError, match="caller app is not allowed"):
+            await self._validate_entra({"tid": "tenant-id", "azp": self.OTHER_APP_ID})
+
+    @pytest.mark.asyncio
+    async def test_rejects_other_app_in_appid(self):
+        with pytest.raises(jwt.InvalidTokenError, match="caller app is not allowed"):
+            await self._validate_entra({"tid": "tenant-id", "appid": self.OTHER_APP_ID})
+
+    @pytest.mark.asyncio
+    async def test_rejects_token_without_azp_or_appid(self):
+        with pytest.raises(jwt.InvalidTokenError, match="caller app is not allowed"):
+            await self._validate_entra({"tid": "tenant-id"})
+
+    @pytest.mark.asyncio
+    async def test_prefers_azp_over_appid(self):
+        with pytest.raises(jwt.InvalidTokenError, match="caller app is not allowed"):
+            await self._validate_entra(
+                {"tid": "tenant-id", "azp": self.OTHER_APP_ID, "appid": AGENT_365_PLATFORM_APP_ID}
+            )
+
+    @pytest.mark.asyncio
+    async def test_does_not_apply_caller_app_check_to_bot_framework_tokens(self):
+        validator = InboundActivityTokenValidator("test-app-id")
+        bot_payload = {"iss": "https://api.botframework.com", "appid": self.OTHER_APP_ID}
+        validator._service_validator.validate_token = AsyncMock(return_value=bot_payload)
+
+        with patch("jwt.decode", return_value={"iss": "https://api.botframework.com"}):
+            result = await validator.validate_token("bot-token", "https://service.example")
+
+        assert result == bot_payload
