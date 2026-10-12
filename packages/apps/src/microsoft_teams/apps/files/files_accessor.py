@@ -85,7 +85,7 @@ class FilesAccessor:
 
         attachments = self._activity.attachments or []
         scope = self._detect_scope()
-        hints = self._inline_image_hints(attachments)
+        hints = self._inline_image_hints(attachments) if attachment_style != "file" else {}
 
         files: list[IncomingFile] = []
         for index, attachment in enumerate(attachments):

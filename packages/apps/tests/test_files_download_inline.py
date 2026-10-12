@@ -206,6 +206,7 @@ async def test_refuses_a_content_url_that_is_not_https():
         (f"{SERVICE_URL}%2e/v3/x", SERVICE_URL),
         ("https://smba.trafficmanager.net/%2e/amer/v3/x", SERVICE_URL),
         (f"{SERVICE_URL}..%2f..%2f/v3/x", SERVICE_URL),
+        ("https://smba.trafficmanager.net/a%2fb/v3/x", "https://smba.trafficmanager.net/a%2Fb/"),
     ],
     ids=[
         "the service URL path",
@@ -215,6 +216,7 @@ async def test_refuses_a_content_url_that_is_not_https():
         "a percent-encoded single dot segment",
         "a percent-encoded single dot segment ahead of the service URL path",
         "an encoded slash, which is not a separator",
+        "a percent-escape whose hex digits differ only in case",
     ],
 )
 def test_is_under_service_url_accepts(url: str, service_url: str):
@@ -229,6 +231,7 @@ def test_is_under_service_url_accepts(url: str, service_url: str):
         (f"{SERVICE_URL}%2e%2e/v3/x", SERVICE_URL),
         (f"{SERVICE_URL}%2E%2e/v3/x", SERVICE_URL),
         (f"{SERVICE_URL}.%2e/v3/x", SERVICE_URL),
+        ("https://smba.trafficmanager.net/AMER/v3/x", SERVICE_URL),
         ("https://attacker.example/amer/v3/x", SERVICE_URL),
         ("https://smba.trafficmanager.net.attacker.example/amer/v3/x", "https://smba.trafficmanager.net"),
         ("https://smba.trafficmanager.net:8443/amer/v3/x", SERVICE_URL),
@@ -244,6 +247,7 @@ def test_is_under_service_url_accepts(url: str, service_url: str):
         "a percent-encoded dot segment that climbs out",
         "a percent-encoded dot segment in mixed case",
         "a half-encoded dot segment that climbs out",
+        "a path that differs only in case",
         "another host",
         "a lookalike host",
         "another port",

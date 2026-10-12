@@ -93,6 +93,20 @@ def test_hints_read_a_tag_holding_a_long_run_of_name_characters_in_linear_time()
     assert time.monotonic() - started < 0.25
 
 
+def test_hints_read_many_unclosed_or_unbalanced_tags_in_linear_time() -> None:
+    started = time.monotonic()
+
+    for shape in ("<img ", '<img "', "<img '", '<img a="x', '<img a="x" ', "<img a=\"' "):
+        assert parse_inline_image_hints(shape * 20_000) == {}
+    assert time.monotonic() - started < 0.25
+
+
+def test_hints_read_a_tag_whose_quoted_value_holds_a_closing_angle_bracket() -> None:
+    html = f'<img alt="1 > 0" src="a.png" itemtype="{AMS_IMAGE_ITEMTYPE}" itemscope="png" itemid="a">'
+
+    assert parse_inline_image_hints(html) == {"a": "png"}
+
+
 def test_hints_match_tag_and_attribute_names_in_any_case() -> None:
     assert parse_inline_image_hints(f'<IMG ITEMTYPE="{AMS_IMAGE_ITEMTYPE}" ItemScope="png" ITEMID="a">') == {"a": "png"}
 

@@ -36,7 +36,7 @@ The id becomes part of the file name, so it is limited to letters, digits, `_`, 
 separators out of it.
 """
 
-_IMG_TAG = re.compile(r"<img\b[^>]*>", re.IGNORECASE | re.ASCII)
+_IMG_TAG = re.compile(r"<img\b(?:[^<>\"']|\"[^\"]*\"|'[^']*')*>", re.IGNORECASE | re.ASCII)
 
 _ATTRIBUTE = re.compile(r"(?<![A-Za-z0-9_-])([A-Za-z0-9_-]+)\s*=\s*(?:\"([^\"]*)\"|'([^']*)')")
 

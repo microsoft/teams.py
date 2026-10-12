@@ -7,6 +7,7 @@ import base64
 import binascii
 import json
 import logging
+import re
 from collections.abc import AsyncGenerator, AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
@@ -112,6 +113,8 @@ class BotApiCredential:
 _SINGLE_DOT_SEGMENTS = frozenset({".", "%2e"})
 _DOUBLE_DOT_SEGMENTS = frozenset({"..", ".%2e", "%2e.", "%2e%2e"})
 
+_PERCENT_ESCAPE = re.compile(r"%[0-9A-Fa-f]{2}")
+
 
 def _resolve_dot_segments(path: str) -> str:
     """
@@ -143,6 +146,8 @@ def is_under_service_url(url: str, service_url: Optional[str]) -> bool:
     path.
 
     Both are parsed first, and their dot segments are resolved, so a path cannot climb out of the service URL's path.
+    The scheme and host compare case-insensitively.
+    The path compares case-sensitively, apart from the hex digits of percent-escapes, which mean the same in any case.
     """
     if not service_url:
         return False
@@ -162,8 +167,13 @@ def is_under_service_url(url: str, service_url: Optional[str]) -> bool:
         return False
 
     # Normalizes to exactly one trailing `/` so a path such as `/amer` cannot match `/americas`.
-    base_path = _resolve_dot_segments(base.path).rstrip("/") + "/"
-    return _resolve_dot_segments(target.path).lower().startswith(base_path.lower())
+    base_path = _normalize_percent_escapes(_resolve_dot_segments(base.path).rstrip("/") + "/")
+    return _normalize_percent_escapes(_resolve_dot_segments(target.path)).startswith(base_path)
+
+
+def _normalize_percent_escapes(path: str) -> str:
+    """Uppercase the hex digits of each percent-escape, leaving every other character as it is."""
+    return _PERCENT_ESCAPE.sub(lambda match: match.group(0).upper(), path)
 
 
 @dataclass
