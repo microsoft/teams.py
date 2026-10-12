@@ -4,7 +4,7 @@ Licensed under the MIT License.
 """
 
 import logging
-from typing import Any, Optional, cast
+from typing import Any, Optional, Sequence, cast
 
 import httpx
 from microsoft_teams.api import (
@@ -120,7 +120,7 @@ class FilesAccessor:
         conversation_type = getattr(conversation, "conversation_type", None)
         return conversation_type or "personal"
 
-    def _inline_image_hints(self, attachments: list[Attachment]) -> dict[str, str]:
+    def _inline_image_hints(self, attachments: Sequence[Attachment]) -> dict[str, str]:
         """Format hints for inline images, keyed by attachment id, read from the message's HTML attachments."""
         hints: dict[str, str] = {}
         for attachment in attachments:
