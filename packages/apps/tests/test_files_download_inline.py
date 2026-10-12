@@ -394,3 +394,51 @@ async def test_surfaces_another_failure_status_as_a_plain_error_carrying_the_ser
     assert not isinstance(error, FileError)
     assert "500" in str(error)
     assert "ServerError: boom" in str(error)
+
+
+class _InlineRedirectRecorder(_Recorder):
+    """Serves a 302 to `location` on the first call and image bytes on the second, recording both hops."""
+
+    def __init__(self, location: str) -> None:
+        super().__init__()
+        self._location = location
+
+    def handler(self, request: httpx.Request) -> httpx.Response:
+        self.calls.append(request)
+        if len(self.calls) == 1:
+            return httpx.Response(302, headers={"location": self._location})
+        return httpx.Response(200, content=PNG)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "label,location",
+    [
+        ("a subdomain of the original host", "https://files.smba.trafficmanager.net/blob/1"),
+        ("another port on the original host", "https://smba.trafficmanager.net:8443/blob/1"),
+        ("an unrelated host", "https://storage.example/blob/1"),
+    ],
+)
+async def test_drops_the_bot_api_token_on_a_redirect_to(label: str, location: str):
+    # The Bot API token is the app's own credential for that conversation, so it must not reach the host the bytes
+    # happen to live on, however close that host looks to the service URL.
+    recorder = _InlineRedirectRecorder(location)
+
+    downloaded = await _inline_file(recorder).download()
+
+    assert downloaded.bytes == PNG
+    assert len(recorder.calls) == 2
+    assert recorder.auth_of(0) is not None
+    assert recorder.auth_of(1) is None
+
+
+@pytest.mark.asyncio
+async def test_keeps_the_bot_api_token_on_a_redirect_that_stays_on_the_original_host():
+    # `test_drops_the_bot_api_token_on_a_redirect_to` would also pass if the header were dropped unconditionally.
+    # This pins that the drop is conditional on the origin changing.
+    recorder = _InlineRedirectRecorder(f"{SERVICE_URL}v3/attachments/a1/views/original/2")
+
+    await _inline_file(recorder).download()
+
+    assert len(recorder.calls) == 2
+    assert recorder.auth_of(1) == recorder.auth_of(0)

@@ -512,6 +512,43 @@ class TestRedirects:
         assert rec.auth_of(1) is None
 
     @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "label,location",
+        [
+            ("a subdomain of the original host", "https://files.graph.microsoft.com/blob/1"),
+            ("another port on the original host", "https://graph.microsoft.com:8443/blob/1"),
+        ],
+    )
+    async def test_drops_the_bearer_on_a_redirect_to(self, label: str, location: str):
+        # A subdomain and a port change are both a different origin, and neither is as obviously foreign as a
+        # SharePoint host. Node's redirect follower keeps `Authorization` on a subdomain hop, so TypeScript strips
+        # it by hand; httpx drops it on any host or port change, and this pins that rather than trusting it.
+        rec = _RedirectRecorder(location)
+
+        async with open_file_stream(
+            _target(content_url=CONTENT_URL), client=rec.client(), credential=_credential("agentic_user", AGENTIC_JWT)
+        ):
+            pass
+
+        assert len(rec.calls) == 2
+        assert rec.auth_of(1) is None
+
+    @pytest.mark.asyncio
+    async def test_drops_a_lowercase_authorization_default_on_a_cross_origin_redirect(self):
+        # A caller's own default header can arrive in any casing, so the drop cannot be keyed on the exact spelling
+        # the SDK happens to write.
+        rec = _RedirectRecorder("https://files.graph.microsoft.com/blob/1")
+        client = rec.client(headers={"authorization": "Bearer caller-default"})
+
+        async with open_file_stream(
+            _target(content_url=CONTENT_URL), client=client, credential=_credential("agentic_user", AGENTIC_JWT)
+        ):
+            pass
+
+        assert len(rec.calls) == 2
+        assert rec.auth_of(1) is None
+
+    @pytest.mark.asyncio
     async def test_the_preauth_path_follows_a_redirect(self):
         # httpx defaults follow_redirects to False, so the pre-authorized path has to opt in explicitly. TypeScript
         # (fetch, which defaults to "follow") and .NET (HttpClientHandler.AllowAutoRedirect, which defaults to true)
