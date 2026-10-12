@@ -571,3 +571,6 @@ class TestInboundActivityTokenValidatorEntraCallerApp:
             result = await validator.validate_token("bot-token", "https://service.example")
 
         assert result == bot_payload
+
+    def test_agent_365_platform_app_id_has_expected_value(self):
+        assert AGENT_365_PLATFORM_APP_ID == "5a807f24-c9de-44ee-a3a7-329e88a00ffc"
