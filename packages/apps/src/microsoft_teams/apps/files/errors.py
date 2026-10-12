@@ -18,8 +18,8 @@ names who was refused.
 
 class FileError(Exception):
     """
-    Base class for the diagnosable failures on the inbound-file path: an expired URL, an unsupported scope, and a
-    refused Graph read.
+    Base class for the diagnosable failures on the inbound-file path: an expired URL, an unsupported scope, a
+    missing Graph credential, a refused Graph read, and an inline image that was refused or could not be converted.
 
     Lets a caller catch those with one `except` clause, so a new one can be added without callers changing. A
     transport or service failure the SDK cannot attribute, such as a Graph 5xx, is not one of these and surfaces as
@@ -145,6 +145,82 @@ class FileAccessError(FileError):
         details: Optional[str] = None,
     ) -> None:
         message = f"cannot fetch file bytes through Graph: {_access_guidance(status, actor)}"
+        if details:
+            message = f"{message} (service said: {details})"
+        super().__init__(message)
+        self.status = status
+        self.actor = actor
+        self.details = details
+
+
+class InlineImageTransformationError(FileError):
+    """
+    Raised when the platform could not convert an inline image for download, answering `415`.
+
+    The same image sent as a file attachment downloads normally.
+    """
+
+    status: int
+    """The HTTP status, `415`."""
+
+    code: Optional[str]
+    """The service's error code, such as `TransformationFailed`, when the response carried one."""
+
+    details: Optional[str]
+    """The service's message, verbatim and truncated, when present."""
+
+    actor: Optional[FileActor]
+    """The identity the fetch was attempted as."""
+
+    def __init__(
+        self,
+        status: int,
+        code: Optional[str] = None,
+        details: Optional[str] = None,
+        actor: Optional[FileActor] = None,
+    ) -> None:
+        reason = f"status {status}, code {code}" if code else f"status {status}"
+        message = (
+            f"cannot download inline image: the platform could not convert it for download ({reason}). Some image "
+            "formats, such as BMP and AVIF, cannot be converted by the platform, so Teams shows a placeholder, and "
+            "they cannot be downloaded. Ask the user to send the image as a file attachment instead"
+        )
+        if details:
+            message = f"{message} (service said: {details})"
+        super().__init__(message)
+        self.status = status
+        self.code = code
+        self.details = details
+        self.actor = actor
+
+
+class InlineImageAccessError(FileError):
+    """
+    Raised when the Bot API refused the token presented for an inline image, answering `401` or `403`.
+
+    Inline images are read with the same Bot API token the app uses to reply in that conversation (an agentic user
+    token for agentic identities), not Graph, so this is distinct from `FileAccessError`.
+    """
+
+    status: int
+    """`401` means the token itself was rejected; `403` means the identity is not allowed to read the image."""
+
+    actor: Optional[FileActor]
+    """The identity the fetch was attempted as."""
+
+    details: Optional[str]
+    """The service's message, verbatim and truncated, when present."""
+
+    def __init__(
+        self,
+        status: int,
+        actor: Optional[FileActor] = None,
+        details: Optional[str] = None,
+    ) -> None:
+        as_who = _describe_actor(actor) if actor else "the identity used"
+        message = (
+            f"cannot download inline image: the Bot API token presented for {as_who} was rejected with status {status}"
+        )
         if details:
             message = f"{message} (service said: {details})"
         super().__init__(message)
