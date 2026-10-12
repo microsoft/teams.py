@@ -44,7 +44,7 @@ from .diagnostics._helpers import (
     record_turn_duration,
 )
 from .events import ActivityEvent, ActivityResponseEvent, ActivitySentEvent, ErrorEvent
-from .files_credential import select_files_credential
+from .files_credential import select_files_credential, select_inline_image_credential
 from .oauth_flow import OAuthFlowRegistry
 from .plugins import PluginActivityEvent, PluginBase, StreamCancelledError
 from .routing.activity_context import ActivityContext
@@ -172,6 +172,13 @@ class ActivityProcessor:
             get_agentic_graph_token=lambda identity: self.get_agentic_graph_token(identity, tenant_id),
         )
 
+        # Inline images are read with the turn's Bot API token, not Graph.
+        files_bot_api_credential = select_inline_image_credential(
+            agentic_identity=activity.recipient.agentic_identity,
+            service_url=activity.service_url,
+            get_token=lambda: api_client.http.token,
+        )
+
         activityCtx = ActivityContext(
             activity,
             self.id or "",
@@ -185,6 +192,7 @@ class ActivityProcessor:
             cloud=self.cloud,
             oauth_connection_names=list(self.oauth_registry) if self.oauth_registry is not None else None,
             files_credential=files_credential,
+            files_bot_api_credential=files_bot_api_credential,
         )
 
         send = activityCtx.send

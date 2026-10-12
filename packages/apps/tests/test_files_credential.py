@@ -6,11 +6,11 @@ Licensed under the MIT License.
 # pyright: basic
 
 from typing import Optional
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 from microsoft_teams.api import AgenticIdentity
-from microsoft_teams.apps.files_credential import select_files_credential
+from microsoft_teams.apps.files_credential import select_files_credential, select_inline_image_credential
 
 
 class FakeToken:
@@ -120,3 +120,67 @@ class TestSelectFilesCredential:
         credential, _, _ = _selector()
 
         assert await credential.token() is None
+
+
+class TestSelectInlineImageCredential:
+    @pytest.mark.asyncio
+    async def test_reads_as_the_app_without_an_agentic_identity_and_as_the_agentic_user_with_one(self):
+        as_app = select_inline_image_credential(agentic_identity=None, service_url=None, get_token=lambda: "bot-token")
+        as_agentic = select_inline_image_credential(
+            agentic_identity=AGENTIC, service_url=None, get_token=lambda: "bot-token"
+        )
+
+        assert as_app.actor == "app"
+        assert as_agentic.actor == "agentic_user"
+
+    @pytest.mark.asyncio
+    async def test_resolves_a_string_a_string_like_value_and_a_token_factory(self):
+        async def factory() -> str:
+            return "factory"
+
+        from_string = select_inline_image_credential(agentic_identity=None, service_url=None, get_token=lambda: "plain")
+        from_string_like = select_inline_image_credential(
+            agentic_identity=None, service_url=None, get_token=lambda: FakeToken("string-like")
+        )
+        from_factory = select_inline_image_credential(
+            agentic_identity=None, service_url=None, get_token=lambda: factory
+        )
+
+        assert await from_string.token() == "plain"
+        assert await from_string_like.token() == "string-like"
+        assert await from_factory.token() == "factory"
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("source", [None, "  ", ""])
+    async def test_reports_no_token_for_an_absent_or_blank_source(self, source: Optional[str]):
+        credential = select_inline_image_credential(agentic_identity=None, service_url=None, get_token=lambda: source)
+
+        assert await credential.token() is None
+
+    @pytest.mark.asyncio
+    async def test_carries_the_service_url_it_was_given_as_the_allowed_destination(self):
+        credential = select_inline_image_credential(
+            agentic_identity=None,
+            service_url="https://smba.trafficmanager.net/amer/",
+            get_token=lambda: "bot-token",
+        )
+
+        assert credential.service_url == "https://smba.trafficmanager.net/amer/"
+
+    @pytest.mark.asyncio
+    async def test_reads_the_token_source_at_fetch_time_rather_than_when_built(self):
+        current = "first"
+        credential = select_inline_image_credential(agentic_identity=None, service_url=None, get_token=lambda: current)
+
+        current = "second"
+
+        assert await credential.token() == "second"
+
+    @pytest.mark.asyncio
+    async def test_acquires_no_token_until_one_is_asked_for(self):
+        # A turn that never downloads an inline image should never pay for a token.
+        get_token = Mock(return_value="bot-token")
+
+        select_inline_image_credential(agentic_identity=None, service_url=None, get_token=get_token)
+
+        get_token.assert_not_called()

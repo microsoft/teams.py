@@ -825,6 +825,84 @@ class TestActivityProcessor:
         assert credential.actor == "app"
 
     @pytest.mark.asyncio
+    async def test_build_context_reads_inline_images_with_the_token_of_the_turns_own_api_client(
+        self, activity_processor
+    ):
+        """An inbound Agentic User activity must reach `ctx.files` as an agentic Bot API credential."""
+        activity_processor.fetch_user_token = False
+        activity_processor.http_client.http = MagicMock()
+        core_activity = CoreActivity(
+            type="message",
+            id="activity-inline-credential",
+            service_url="https://service.url/",
+            **{
+                "from": {"id": "user-1", "name": "Test User"},
+                "conversation": {"id": "conv-1"},
+                "recipient": {
+                    "id": "bot-1",
+                    "name": "Test Bot",
+                    "agenticAppId": "agentic-app-id",
+                    "agenticUserId": "agentic-user-id",
+                    "agenticAppBlueprintId": "blueprint-id",
+                    "tenantId": "tenant-id",
+                },
+                "channelId": "msteams",
+            },
+        )
+        activity = ActivityTypeAdapter.validate_python(core_activity.model_dump(by_alias=True, exclude_none=True))
+        mock_token = MagicMock(spec=TokenProtocol)
+        mock_token.service_url = "https://service.url/"
+
+        context = await activity_processor._build_context(activity, mock_token, [])
+        credential = context.files._bot_api_credential
+
+        assert credential is not None
+        assert credential.actor == "agentic_user"
+
+        # The client's token is scoped to the inbound identity, so an agentic identity reads as itself.
+        context.api.http.token = "turn-client-token"
+        assert await credential.token() == "turn-client-token"
+
+    @pytest.mark.asyncio
+    async def test_build_context_resolves_the_turn_clients_token_factory_and_carries_the_service_url(
+        self, activity_processor
+    ):
+        """The credential reads the API client's token source at fetch time, factory shape included."""
+        activity_processor.fetch_user_token = False
+        activity_processor.http_client.http = MagicMock()
+        core_activity = CoreActivity(
+            type="message",
+            id="activity-inline-factory",
+            service_url="https://service.url/amer/",
+            **{
+                "from": {"id": "user-1", "name": "Test User"},
+                "conversation": {"id": "conv-1"},
+                "recipient": {"id": "bot-1", "name": "Test Bot"},
+                "channelId": "msteams",
+            },
+        )
+        activity = ActivityTypeAdapter.validate_python(core_activity.model_dump(by_alias=True, exclude_none=True))
+        mock_token = MagicMock(spec=TokenProtocol)
+        mock_token.service_url = "https://service.url/amer/"
+
+        context = await activity_processor._build_context(activity, mock_token, [])
+        credential = context.files._bot_api_credential
+
+        assert credential is not None
+        assert credential.actor == "app"
+        assert credential.service_url == "https://service.url/amer/"
+
+        calls: list[int] = []
+
+        async def factory() -> str:
+            calls.append(1)
+            return "factory-token"
+
+        context.api.http.token = factory
+        assert await credential.token() == "factory-token"
+        assert calls == [1]
+
+    @pytest.mark.asyncio
     async def test_build_context_skips_token_fetch_when_disabled(self, activity_processor):
         """When fetch_user_token is False, the user-token API is not called."""
         from unittest.mock import patch
