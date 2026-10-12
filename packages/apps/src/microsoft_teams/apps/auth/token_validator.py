@@ -279,7 +279,7 @@ class InboundActivityTokenValidator:
         """
         caller_app_id = payload["azp"] if "azp" in payload else payload.get("appid")
         if not isinstance(caller_app_id, str) or caller_app_id.lower() != AGENT_365_PLATFORM_APP_ID:
-            logger.error("Entra inbound token caller app is not allowed: %s", caller_app_id)
+            logger.warning("Entra inbound token caller app is not allowed: %s", caller_app_id)
             raise jwt.InvalidTokenError("Entra inbound token caller app is not allowed")
 
     def _get_entra_validator(self, tenant_id: str) -> TokenValidator:
