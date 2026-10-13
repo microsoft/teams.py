@@ -109,7 +109,7 @@ class IncomingFile:
         unique_id: Optional[str] = None,
         content_type: Optional[str] = None,
         extension: Optional[str] = None,
-        attachment_style: Optional[AttachmentStyle] = None,
+        attachment_style: AttachmentStyle = "file",
         content_url: Optional[str] = None,
         raw: Any = None,
         inline_image_base_name: Optional[str] = None,
@@ -124,7 +124,7 @@ class IncomingFile:
         self.unique_id = unique_id
         self.content_type = content_type
         self.extension = extension
-        self.attachment_style = attachment_style or "file"
+        self.attachment_style = attachment_style
         self.content_url = content_url
         self.raw = raw
         self._inline_image_base_name = inline_image_base_name

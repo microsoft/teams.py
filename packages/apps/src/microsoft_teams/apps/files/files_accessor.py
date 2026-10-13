@@ -89,16 +89,16 @@ class FilesAccessor:
 
         files: list[IncomingFile] = []
         for index, attachment in enumerate(attachments):
-            inline = self._is_inline_image(attachment)
+            image_id = self._inline_image_id(attachment)
 
             # Checked before mapping, so an attachment of the excluded style is never mapped and never logs a warning.
-            if attachment_style and attachment_style != ("inlineImage" if inline else "file"):
+            if attachment_style and attachment_style != ("file" if image_id is None else "inlineImage"):
                 continue
 
             file = (
-                self._to_inline_image(attachment, index, scope, hints)
-                if inline
-                else self._to_incoming_file(attachment, index, scope)
+                self._to_incoming_file(attachment, index, scope)
+                if image_id is None
+                else self._to_inline_image(attachment, image_id, index, scope, hints)
             )
             if file is not None:
                 files.append(file)
@@ -128,23 +128,23 @@ class FilesAccessor:
                 hints.update(parse_inline_image_hints(attachment.content))
         return hints
 
-    def _is_inline_image(self, attachment: Attachment) -> bool:
+    def _inline_image_id(self, attachment: Attachment) -> Optional[str]:
         """
-        Whether an attachment is an image pasted inline: an `image/*` attachment located at a Bot API inline image
-        path.
+        The inline image id when an attachment is an image pasted inline (an `image/*` attachment located at a Bot API
+        inline image path), otherwise `None`.
         """
         content_type = attachment.content_type
         content_url = attachment.content_url
-        return (
-            isinstance(content_type, str)
-            and content_type.lower().startswith("image/")
-            and isinstance(content_url, str)
-            and inline_image_id(content_url) is not None
-        )
+        if not isinstance(content_type, str) or not content_type.lower().startswith("image/"):
+            return None
+        if not isinstance(content_url, str):
+            return None
+        return inline_image_id(content_url)
 
     def _to_inline_image(
         self,
         attachment: Attachment,
+        id: str,
         index: int,
         scope: ConversationType,
         hints: dict[str, str],
@@ -154,7 +154,6 @@ class FilesAccessor:
         service URL.
         """
         content_url = cast(str, attachment.content_url)
-        id = cast(str, inline_image_id(content_url))
 
         if not self._is_on_service_url(content_url):
             logger.warning(

@@ -127,24 +127,21 @@ def sniff_image_format(data: bytes) -> Optional[InlineImageFormat]:
     The format the bytes actually are, read from their leading magic bytes, or `None` when they are none of
     `InlineImageFormat`.
 
-    The platform can return bytes in a different format from the hint (a GIF downloads as a static PNG), so the bytes
-    are the stronger signal.
+    The Teams service can return bytes in a different format from the hint (a GIF downloads as a static PNG), so the
+    bytes are the stronger signal.
     """
 
-    def starts_with(signature: bytes, offset: int = 0) -> bool:
-        return len(data) >= offset + len(signature) and data[offset : offset + len(signature)] == signature
-
-    if starts_with(b"\x89PNG\r\n\x1a\n"):
+    if data.startswith(b"\x89PNG\r\n\x1a\n"):
         return "png"
 
-    if starts_with(b"\xff\xd8\xff"):
+    if data.startswith(b"\xff\xd8\xff"):
         return "jpeg"
 
-    if starts_with(b"GIF87a") or starts_with(b"GIF89a"):
+    if data.startswith((b"GIF87a", b"GIF89a")):
         return "gif"
 
     # "RIFF" at byte 0 and "WEBP" at byte 8; bytes 4-7 are the file size.
-    if starts_with(b"RIFF") and starts_with(b"WEBP", 8):
+    if data.startswith(b"RIFF") and data.startswith(b"WEBP", 8):
         return "webp"
 
     return None

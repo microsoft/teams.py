@@ -55,7 +55,7 @@ class FileFetchTarget:
     content_type: Optional[str] = None
     """MIME type reported by the incoming file, used as a fallback when the response omits one."""
 
-    attachment_style: Optional[AttachmentStyle] = None
+    attachment_style: AttachmentStyle = "file"
     """
     How the file was attached; see `AttachmentStyle`.
     An `inlineImage` is read from `content_url` with the Bot API credential, in any scope.
