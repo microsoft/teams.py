@@ -155,7 +155,7 @@ class FileAccessError(FileError):
 
 class InlineImageTransformationError(FileError):
     """
-    Raised when the platform could not convert an inline image for download, answering `415`.
+    Raised when the Teams service could not convert an inline image for download, answering `415`.
 
     The same image sent as a file attachment downloads normally.
     """
@@ -181,9 +181,9 @@ class InlineImageTransformationError(FileError):
     ) -> None:
         reason = f"status {status}, code {code}" if code else f"status {status}"
         message = (
-            f"cannot download inline image: the platform could not convert it for download ({reason}). Some image "
-            "formats, such as BMP and AVIF, cannot be converted by the platform, so Teams shows a placeholder, and "
-            "they cannot be downloaded. Ask the user to send the image as a file attachment instead"
+            f"cannot download inline image: the Teams service could not convert it for download ({reason}). "
+            "Some image formats, such as BMP and AVIF, cannot be converted by the Teams service, so Teams shows a "
+            "placeholder, and they cannot be downloaded. Ask the user to send the image as a file attachment instead"
         )
         if details:
             message = f"{message} (service said: {details})"

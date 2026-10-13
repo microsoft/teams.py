@@ -322,10 +322,11 @@ async def test_maps_415_to_inline_image_transformation_error_with_the_status_cod
     assert error.details == "TransformationFailed: Failed to transform the image"
     assert error.actor == "app"
     assert str(error) == (
-        "cannot download inline image: the platform could not convert it for download "
+        "cannot download inline image: the Teams service could not convert it for download "
         "(status 415, code TransformationFailed). Some image formats, such as BMP and AVIF, cannot be converted by "
-        "the platform, so Teams shows a placeholder, and they cannot be downloaded. Ask the user to send the image "
-        "as a file attachment instead (service said: TransformationFailed: Failed to transform the image)"
+        "the Teams service, so Teams shows a placeholder, and they cannot be downloaded. "
+        "Ask the user to send the image as a file attachment instead "
+        "(service said: TransformationFailed: Failed to transform the image)"
     )
 
 
