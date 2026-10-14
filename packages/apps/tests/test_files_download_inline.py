@@ -178,6 +178,27 @@ async def test_throws_before_any_request_when_no_bot_api_token_is_available(valu
 
 
 @pytest.mark.asyncio
+async def test_reports_the_missing_token_not_the_service_url_when_there_is_no_bot_api_credential():
+    recorder = _Recorder(body=PNG)
+    file = IncomingFile(
+        name="image-a1.gif",
+        content_type="image/gif",
+        extension="gif",
+        scope="groupChat",
+        source="botActivity",
+        attachment_style="inlineImage",
+        content_url=CONTENT_URL,
+        inline_image_base_name="image-a1",
+        client=recorder.client,
+    )
+
+    with pytest.raises(RuntimeError, match="cannot download inline image: no Bot API token is available"):
+        await file.download()
+
+    assert recorder.calls == []
+
+
+@pytest.mark.asyncio
 async def test_refuses_a_content_url_that_is_not_https():
     recorder = _Recorder(body=PNG)
 
@@ -382,10 +403,17 @@ async def test_maps_a_refusal_to_inline_image_access_error_naming_the_identity(s
     assert error.status == status
     assert error.actor == "agentic_user"
     assert error.details == "Unauthorized: nope"
-    assert str(error) == (
-        "cannot download inline image: the Bot API token presented for the agentic user was rejected with status "
-        f"{status} (service said: Unauthorized: nope)"
-    )
+    expected = {
+        401: (
+            "cannot download inline image: the Bot API token presented for the agentic user was rejected (status 401). "
+            "It may have expired, or been issued for the wrong audience or tenant (service said: Unauthorized: nope)"
+        ),
+        403: (
+            "cannot download inline image: access was denied for the agentic user (status 403). "
+            "The identity is not allowed to read the image (service said: Unauthorized: nope)"
+        ),
+    }
+    assert str(error) == expected[status]
 
 
 @pytest.mark.asyncio

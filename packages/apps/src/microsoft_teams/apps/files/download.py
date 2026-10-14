@@ -432,11 +432,14 @@ async def _open_inline_image_stream(
     if not url.lower().startswith("https://"):
         raise RuntimeError("cannot download inline image: content URL must use https")
 
-    if not is_under_service_url(url, credential.service_url if credential else None):
+    if credential is None:
+        raise RuntimeError("cannot download inline image: no Bot API token is available")
+
+    if not is_under_service_url(url, credential.service_url):
         raise RuntimeError("cannot download inline image: content URL is not under the activity's service URL")
 
-    actor = credential.actor if credential else None
-    token = (await resolve_token(credential.token) if credential else None) or ""
+    actor = credential.actor
+    token = (await resolve_token(credential.token)) or ""
 
     # `resolve_token` passes a blank value through, and a blank bearer token is no token at all.
     if not token.strip():
@@ -456,9 +459,9 @@ async def _open_inline_image_stream(
                 body = await _read_error_body(response)
                 raise InlineImageTransformationError(
                     response.status_code,
-                    _extract_service_error_code(body),
-                    _extract_service_error(body),
                     actor,
+                    _extract_service_error(body),
+                    _extract_service_error_code(body),
                 )
 
             if response.status_code in (401, 403):
@@ -467,8 +470,7 @@ async def _open_inline_image_stream(
             if not response.is_success:
                 details = await _read_service_error(response)
                 message = (
-                    f"failed to download inline image as '{actor or 'app'}': "
-                    f"{response.status_code} {response.reason_phrase}"
+                    f"failed to download inline image as '{actor}': {response.status_code} {response.reason_phrase}"
                 ).strip()
                 raise RuntimeError(f"{message} ({details})" if details else message)
 

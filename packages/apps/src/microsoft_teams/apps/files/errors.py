@@ -175,9 +175,9 @@ class InlineImageTransformationError(FileError):
     def __init__(
         self,
         status: int,
-        code: Optional[str] = None,
-        details: Optional[str] = None,
         actor: Optional[FileActor] = None,
+        details: Optional[str] = None,
+        code: Optional[str] = None,
     ) -> None:
         reason = f"status {status}, code {code}" if code else f"status {status}"
         message = (
@@ -217,16 +217,30 @@ class InlineImageAccessError(FileError):
         actor: Optional[FileActor] = None,
         details: Optional[str] = None,
     ) -> None:
-        as_who = _describe_actor(actor) if actor else "the identity used"
-        message = (
-            f"cannot download inline image: the Bot API token presented for {as_who} was rejected with status {status}"
-        )
+        message = f"cannot download inline image: {_inline_access_guidance(status, actor)}"
         if details:
             message = f"{message} (service said: {details})"
         super().__init__(message)
         self.status = status
         self.actor = actor
         self.details = details
+
+
+def _inline_access_guidance(status: int, actor: Optional[FileActor]) -> str:
+    """
+    Say what an inline image refusal means, which depends on the status.
+
+    A rejected token and a denied identity have different remedies.
+    """
+    as_who = _describe_actor(actor) if actor else "the identity used"
+    if status == 401:
+        return (
+            f"the Bot API token presented for {as_who} was rejected (status 401). "
+            "It may have expired, or been issued for the wrong audience or tenant"
+        )
+    if status == 403:
+        return f"access was denied for {as_who} (status 403). The identity is not allowed to read the image"
+    return f"the Bot API token presented for {as_who} was rejected with status {status}"
 
 
 def _describe_actor(actor: FileActor) -> str:
