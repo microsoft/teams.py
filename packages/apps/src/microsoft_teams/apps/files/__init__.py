@@ -11,19 +11,24 @@ from .errors import (
     FileError,
     FileScopeNotSupportedError,
     FileUrlExpiredError,
+    InlineImageAccessError,
+    InlineImageTransformationError,
 )
 from .files_accessor import FilesAccessor
 from .incoming_file import IncomingFile
-from .types import FileSource
+from .types import AttachmentStyle, FileSource
 
 __all__ = [
     "FileSource",
+    "AttachmentStyle",
     "FileActor",
     "FileError",
     "FileAccessError",
     "FileCredentialError",
     "FileScopeNotSupportedError",
     "FileUrlExpiredError",
+    "InlineImageAccessError",
+    "InlineImageTransformationError",
     "DownloadedFile",
     "IncomingFile",
     "FilesAccessor",

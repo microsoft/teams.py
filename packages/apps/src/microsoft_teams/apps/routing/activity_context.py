@@ -62,7 +62,7 @@ from ..diagnostics._constants import (
 )
 from ..diagnostics._helpers import trace_oauth_operation
 from ..files import FilesAccessor
-from ..files.download import GraphCredential
+from ..files.download import BotApiCredential, GraphCredential
 from ..http_stream import HttpStream
 from ..oauth_connection import connection_lookup_key, normalize_connection_name
 from ..oauth_state import (
@@ -131,6 +131,7 @@ class ActivityContext(Generic[T]):
         cloud: CloudEnvironment = PUBLIC,
         oauth_connection_names: Optional[Sequence[str]] = None,
         files_credential: Optional[GraphCredential] = None,
+        files_bot_api_credential: Optional[BotApiCredential] = None,
     ):
         self.activity = activity
         self.app_id = app_id
@@ -151,6 +152,7 @@ class ActivityContext(Generic[T]):
         self._stream: Optional[StreamerProtocol] = None
         self._files: Optional[FilesAccessor] = None
         self._files_credential = files_credential
+        self._files_bot_api_credential = files_bot_api_credential
 
         self._next_handler: Optional[Callable[[], Awaitable[None]]] = None
 
@@ -168,13 +170,18 @@ class ActivityContext(Generic[T]):
     def files(self) -> FilesAccessor:
         """
         The uploaded files on the current inbound activity, i.e. the `content_type: file.download.info` subset of
-        `activity.attachments`, mapped to `IncomingFile`. See `FilesAccessor`.
+        `activity.attachments`, plus images pasted inline, mapped to `IncomingFile`. See `FilesAccessor`.
         """
         if self._files is None:
             # Reuse the API client's underlying connection pool rather than building a new one per download. The raw
             # `httpx.AsyncClient` is used deliberately: the SDK wrapper injects the bot's `Authorization` header per
             # request, and a download URL carries its own `tempauth` credential that a bearer token can displace.
-            self._files = FilesAccessor(self.activity, self.api.http.http, self._files_credential)
+            self._files = FilesAccessor(
+                self.activity,
+                self.api.http.http,
+                self._files_credential,
+                self._files_bot_api_credential,
+            )
         return self._files
 
     @property

@@ -18,8 +18,8 @@ names who was refused.
 
 class FileError(Exception):
     """
-    Base class for the diagnosable failures on the inbound-file path: an expired URL, an unsupported scope, and a
-    refused Graph read.
+    Base class for the diagnosable failures on the inbound-file path: an expired URL, an unsupported scope, a
+    missing Graph credential, a refused Graph read, and an inline image that was refused or could not be converted.
 
     Lets a caller catch those with one `except` clause, so a new one can be added without callers changing. A
     transport or service failure the SDK cannot attribute, such as a Graph 5xx, is not one of these and surfaces as
@@ -151,6 +151,96 @@ class FileAccessError(FileError):
         self.status = status
         self.actor = actor
         self.details = details
+
+
+class InlineImageTransformationError(FileError):
+    """
+    Raised when the Teams service could not convert an inline image for download, answering `415`.
+
+    The same image sent as a file attachment downloads normally.
+    """
+
+    status: int
+    """The HTTP status, `415`."""
+
+    code: Optional[str]
+    """The service's error code, such as `TransformationFailed`, when the response carried one."""
+
+    details: Optional[str]
+    """The service's message, verbatim and truncated, when present."""
+
+    actor: Optional[FileActor]
+    """The identity the fetch was attempted as."""
+
+    def __init__(
+        self,
+        status: int,
+        actor: Optional[FileActor] = None,
+        details: Optional[str] = None,
+        code: Optional[str] = None,
+    ) -> None:
+        reason = f"status {status}, code {code}" if code else f"status {status}"
+        message = (
+            f"cannot download inline image: the Teams service could not convert it for download ({reason}). "
+            "Some image formats, such as BMP and AVIF, cannot be converted by the Teams service, so Teams shows a "
+            "placeholder, and they cannot be downloaded. Ask the user to send the image as a file attachment instead"
+        )
+        if details:
+            message = f"{message} (service said: {details})"
+        super().__init__(message)
+        self.status = status
+        self.code = code
+        self.details = details
+        self.actor = actor
+
+
+class InlineImageAccessError(FileError):
+    """
+    Raised when the Bot API refused the token presented for an inline image, answering `401` or `403`.
+
+    Inline images are read with the same Bot API token the app uses to reply in that conversation (an agentic user
+    token for agentic identities), not Graph, so this is distinct from `FileAccessError`.
+    """
+
+    status: int
+    """`401` means the token itself was rejected; `403` means the identity is not allowed to read the image."""
+
+    actor: Optional[FileActor]
+    """The identity the fetch was attempted as."""
+
+    details: Optional[str]
+    """The service's message, verbatim and truncated, when present."""
+
+    def __init__(
+        self,
+        status: int,
+        actor: Optional[FileActor] = None,
+        details: Optional[str] = None,
+    ) -> None:
+        message = f"cannot download inline image: {_inline_access_guidance(status, actor)}"
+        if details:
+            message = f"{message} (service said: {details})"
+        super().__init__(message)
+        self.status = status
+        self.actor = actor
+        self.details = details
+
+
+def _inline_access_guidance(status: int, actor: Optional[FileActor]) -> str:
+    """
+    Say what an inline image refusal means, which depends on the status.
+
+    A rejected token and a denied identity have different remedies.
+    """
+    as_who = _describe_actor(actor) if actor else "the identity used"
+    if status == 401:
+        return (
+            f"the Bot API token presented for {as_who} was rejected (status 401). "
+            "It may have expired, or been issued for the wrong audience or tenant"
+        )
+    if status == 403:
+        return f"access was denied for {as_who} (status 403). The identity is not allowed to read the image"
+    return f"the Bot API token presented for {as_who} was rejected with status {status}"
 
 
 def _describe_actor(actor: FileActor) -> str:

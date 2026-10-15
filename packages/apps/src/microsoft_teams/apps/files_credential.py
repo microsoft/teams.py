@@ -7,8 +7,9 @@ from collections.abc import Awaitable, Callable
 from typing import Optional
 
 from microsoft_teams.api import AgenticIdentity, TokenProtocol
+from microsoft_teams.common.http.client_token import Token, resolve_token
 
-from .files.download import GraphCredential
+from .files.download import BotApiCredential, GraphCredential
 from .files.errors import FileActor
 
 
@@ -47,3 +48,31 @@ def select_files_credential(
         return str(token) if token else None
 
     return _as("app", app_token)
+
+
+def select_inline_image_credential(
+    *,
+    agentic_identity: Optional[AgenticIdentity],
+    service_url: Optional[str],
+    get_token: Callable[[], Token],
+) -> BotApiCredential:
+    """
+    Build the credential that reads inline images for the current activity, using the turn's Bot API token.
+
+    `service_url` is the activity's service URL; the token is only sent to URLs under it.
+    `get_token` returns the API client's token source: a string, a string-like value, or a factory.
+
+    The token is resolved lazily, so a turn that never downloads an inline image never acquires one.
+    """
+
+    async def token() -> Optional[str]:
+        resolved = await resolve_token(get_token())
+        # `resolve_token` passes a blank value through, and a blank bearer token is no token at all.
+        value = resolved.strip() if resolved else None
+        return value or None
+
+    return BotApiCredential(
+        actor="agentic_user" if agentic_identity is not None else "app",
+        service_url=service_url,
+        token=token,
+    )
