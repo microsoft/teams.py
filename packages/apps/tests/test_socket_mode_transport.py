@@ -7,7 +7,7 @@ import asyncio
 import logging
 from typing import AsyncIterator, Callable, Optional
 
-import httpx
+import httpx2
 import pytest
 from microsoft_teams.apps.socket_mode import geo_socket
 from microsoft_teams.apps.socket_mode.connection import SignalRSocketConnection, SocketConnectionAborted
@@ -115,15 +115,15 @@ class GatedCloseWebSocket(MockWebSocket):
 
 @pytest.fixture
 async def gated_socket_transport() -> AsyncIterator[
-    tuple[SocketModeTransport, GatedCloseWebSocket, asyncio.Queue[httpx.Response]]
+    tuple[SocketModeTransport, GatedCloseWebSocket, asyncio.Queue[httpx2.Response]]
 ]:
     websocket = GatedCloseWebSocket()
     websocket.incoming.put_nowait(
         encode_hub_message({}) + encode_hub_message({"type": 1, "target": "SocketReady", "arguments": [{}]})
     )
-    responses: asyncio.Queue[httpx.Response] = asyncio.Queue()
+    responses: asyncio.Queue[httpx2.Response] = asyncio.Queue()
     responses.put_nowait(
-        httpx.Response(200, json={"url": "wss://signalr.example/client", "accessToken": "token", "expiresIn": 3600})
+        httpx2.Response(200, json={"url": "wss://signalr.example/client", "accessToken": "token", "expiresIn": 3600})
     )
 
     async def open_socket(_: str) -> GatedCloseWebSocket:
@@ -132,7 +132,7 @@ async def gated_socket_transport() -> AsyncIterator[
     async def on_activity(_: SocketActivityEnvelope) -> Optional[ReplyFrame]:
         return None
 
-    async with httpx.AsyncClient(transport=httpx.MockTransport(lambda _: responses.get_nowait())) as client:
+    async with httpx2.AsyncClient(transport=httpx2.MockTransport(lambda _: responses.get_nowait())) as client:
         transport = SocketModeTransport(
             SocketModeTransportOptions(geos=("amer",), reconnect_delays=(0,)),
             get_bot_token=lambda: _token("token"),
@@ -789,7 +789,7 @@ async def test_terminal_refresh_closes_active_and_retiring_connections(monkeypat
 @pytest.mark.parametrize("status", [401, 403])
 @pytest.mark.asyncio
 async def test_terminal_geo_cleanup_survives_concurrent_transport_stop(
-    gated_socket_transport: tuple[SocketModeTransport, GatedCloseWebSocket, asyncio.Queue[httpx.Response]],
+    gated_socket_transport: tuple[SocketModeTransport, GatedCloseWebSocket, asyncio.Queue[httpx2.Response]],
     status: int,
 ):
     transport, websocket, responses = gated_socket_transport
@@ -801,7 +801,7 @@ async def test_terminal_geo_cleanup_survives_concurrent_transport_stop(
     assert isinstance(active.connection, SignalRSocketConnection)
     listener, heartbeat = active.connection._listener, active.connection._heartbeat
     assert listener is not None and heartbeat is not None
-    responses.put_nowait(httpx.Response(status))
+    responses.put_nowait(httpx2.Response(status))
     closed.set_result(geo_socket._CloseReason(planned=True))
     await asyncio.wait_for(websocket.close_started.wait(), 1)
 
@@ -824,7 +824,7 @@ async def test_terminal_geo_cleanup_survives_concurrent_transport_stop(
 
 @pytest.mark.asyncio
 async def test_cancelled_stop_waiter_does_not_cancel_shared_socket_cleanup(
-    gated_socket_transport: tuple[SocketModeTransport, GatedCloseWebSocket, asyncio.Queue[httpx.Response]],
+    gated_socket_transport: tuple[SocketModeTransport, GatedCloseWebSocket, asyncio.Queue[httpx2.Response]],
 ):
     transport, websocket, _ = gated_socket_transport
     first_stop = asyncio.create_task(transport.stop())

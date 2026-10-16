@@ -4,7 +4,7 @@ Licensed under the MIT License.
 """
 # pyright: basic
 
-import httpx
+import httpx2
 import pytest
 from microsoft_teams.common.http import (
     Client,
@@ -47,7 +47,7 @@ class RecordingMiddleware:
         self.name = name
         self.events = events
 
-    async def send(self, context: MiddlewareContext, next: MiddlewareNext) -> httpx.Response:
+    async def send(self, context: MiddlewareContext, next: MiddlewareNext) -> httpx2.Response:
         self.events.append(f"{self.name}:before:{context.method}")
         response = await next()
         self.events.append(f"{self.name}:after:{response.status_code}")
@@ -68,11 +68,33 @@ def sync_token_factory() -> str:
 
 
 @pytest.fixture
-def mock_transport():
-    def handler(request):
-        return httpx.Response(200, json={"ok": True, "url": str(request.url), "headers": dict(request.headers.items())})
+async def use_mock_transport(monkeypatch):
+    raw_clients: list[httpx2.AsyncClient] = []
+    async_client = httpx2.AsyncClient
 
-    return httpx.MockTransport(handler)
+    def install(transport: httpx2.MockTransport) -> None:
+        def create(**kwargs) -> httpx2.AsyncClient:
+            raw = async_client(transport=transport, **kwargs)
+            raw_clients.append(raw)
+            return raw
+
+        monkeypatch.setattr(httpx2, "AsyncClient", create)
+
+    yield install
+    for raw in raw_clients:
+        await raw.aclose()
+
+
+@pytest.fixture
+def mock_transport(use_mock_transport):
+    def handler(request):
+        return httpx2.Response(
+            200, json={"ok": True, "url": str(request.url), "headers": dict(request.headers.items())}
+        )
+
+    transport = httpx2.MockTransport(handler)
+    use_mock_transport(transport)
+    return transport
 
 
 @pytest.mark.asyncio
@@ -86,8 +108,6 @@ async def test_get_request_merges_headers_and_token(mock_transport):
             interceptors=[interceptor],
         )
     )
-    client.http._transport = mock_transport
-
     resp = await client.get("/test", headers={"X-Custom": "bar"}, token="override")
     data = resp.json()
     assert data["ok"] is True
@@ -110,8 +130,6 @@ async def test_post_request_and_response_interceptor(mock_transport, interceptor
             interceptors=[interceptor],
         )
     )
-    client.http._transport = mock_transport
-
     resp = await client.post("/post", data={"payload": "test_data"})
     assert resp.status_code == 200
     assert interceptor.request_called
@@ -128,11 +146,8 @@ async def test_clone_merges_options_and_interceptors(mock_transport):
             interceptors=[interceptor1],
         )
     )
-    client.http._transport = mock_transport
-
     interceptor2 = DummyAsyncInterceptor()
     clone = client.clone(ClientOptions(headers={"X-Clone": "bar"}, interceptors=[interceptor2]))
-    clone.http._transport = mock_transport
 
     resp = await clone.get("/clone")
     assert resp.status_code == 200
@@ -203,15 +218,15 @@ def test_clone_reuses_underlying_http_client_when_requested():
 
 
 @pytest.mark.asyncio
-async def test_middleware_runs_in_insertion_order_with_first_outermost():
+async def test_middleware_runs_in_insertion_order_with_first_outermost(use_mock_transport):
     events: list[str] = []
 
-    def handler(request: httpx.Request) -> httpx.Response:
+    def handler(request: httpx2.Request) -> httpx2.Response:
         events.append("terminal")
-        return httpx.Response(200, json={"ok": True}, headers={"content-type": "application/json"})
+        return httpx2.Response(200, json={"ok": True}, headers={"content-type": "application/json"})
 
+    use_mock_transport(httpx2.MockTransport(handler))
     client = Client(ClientOptions(base_url="https://example.com"))
-    client.http._transport = httpx.MockTransport(handler)
     client.use(RecordingMiddleware("one", events))
     client.use(RecordingMiddleware("two", events))
 
@@ -227,9 +242,9 @@ async def test_middleware_runs_in_insertion_order_with_first_outermost():
 
 
 @pytest.mark.asyncio
-async def test_middleware_can_mutate_headers_and_kwargs():
-    def handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(
+async def test_middleware_can_mutate_headers_and_kwargs(use_mock_transport):
+    def handler(request: httpx2.Request) -> httpx2.Response:
+        return httpx2.Response(
             200,
             json={
                 "header": request.headers["x-middleware"],
@@ -239,13 +254,13 @@ async def test_middleware_can_mutate_headers_and_kwargs():
         )
 
     class MutatingMiddleware:
-        async def send(self, context: MiddlewareContext, next: MiddlewareNext) -> httpx.Response:
+        async def send(self, context: MiddlewareContext, next: MiddlewareNext) -> httpx2.Response:
             context.headers["X-Middleware"] = "header-value"
             context.kwargs["extensions"] = {"middleware": "extension-value"}
             return await next()
 
+    use_mock_transport(httpx2.MockTransport(handler))
     client = Client(ClientOptions(base_url="https://example.com"))
-    client.http._transport = httpx.MockTransport(handler)
     client.use(MutatingMiddleware())
 
     response = await client.get("/mutated")
@@ -254,13 +269,13 @@ async def test_middleware_can_mutate_headers_and_kwargs():
 
 
 @pytest.mark.asyncio
-async def test_middleware_can_short_circuit_response():
+async def test_middleware_can_short_circuit_response(use_mock_transport):
     class ShortCircuitMiddleware:
-        def send(self, context: MiddlewareContext, next: MiddlewareNext) -> httpx.Response:
-            return httpx.Response(204)
+        def send(self, context: MiddlewareContext, next: MiddlewareNext) -> httpx2.Response:
+            return httpx2.Response(204)
 
+    use_mock_transport(httpx2.MockTransport(lambda request: httpx2.Response(500)))
     client = Client(ClientOptions(base_url="https://example.com"))
-    client.http._transport = httpx.MockTransport(lambda request: httpx.Response(500))
     client.use(ShortCircuitMiddleware())
 
     response = await client.get("/short-circuit")
@@ -269,23 +284,23 @@ async def test_middleware_can_short_circuit_response():
 
 
 @pytest.mark.asyncio
-async def test_middleware_observes_and_propagates_terminal_errors():
+async def test_middleware_observes_and_propagates_terminal_errors(use_mock_transport):
     events: list[str] = []
     error = RuntimeError("boom")
 
-    def handler(request: httpx.Request) -> httpx.Response:
+    def handler(request: httpx2.Request) -> httpx2.Response:
         raise error
 
     class ErrorRecordingMiddleware:
-        async def send(self, context: MiddlewareContext, next: MiddlewareNext) -> httpx.Response:
+        async def send(self, context: MiddlewareContext, next: MiddlewareNext) -> httpx2.Response:
             try:
                 return await next()
             except Exception as exception:
                 events.append(str(exception))
                 raise
 
+    use_mock_transport(httpx2.MockTransport(handler))
     client = Client(ClientOptions(base_url="https://example.com"))
-    client.http._transport = httpx.MockTransport(handler)
     client.use(ErrorRecordingMiddleware())
 
     with pytest.raises(RuntimeError, match="boom"):
@@ -306,14 +321,13 @@ async def test_middleware_runs_around_existing_interceptors(mock_transport):
             events.append("interceptor:response")
 
     class EventMiddleware:
-        async def send(self, context: MiddlewareContext, next: MiddlewareNext) -> httpx.Response:
+        async def send(self, context: MiddlewareContext, next: MiddlewareNext) -> httpx2.Response:
             events.append("middleware:before")
             response = await next()
             events.append("middleware:after")
             return response
 
     client = Client(ClientOptions(base_url="https://example.com", interceptors=[RecordingInterceptor()]))
-    client.http._transport = mock_transport
     client.use(EventMiddleware())
 
     await client.get("/with-interceptors")
@@ -322,25 +336,25 @@ async def test_middleware_runs_around_existing_interceptors(mock_transport):
 
 
 @pytest.mark.asyncio
-async def test_request_metadata_is_not_sent_over_wire():
-    captured: list[httpx.Request] = []
+async def test_request_metadata_is_not_sent_over_wire(use_mock_transport):
+    captured: list[httpx2.Request] = []
 
-    def handler(request: httpx.Request) -> httpx.Response:
+    def handler(request: httpx2.Request) -> httpx2.Response:
         captured.append(request)
-        return httpx.Response(200, json={"ok": True}, headers={"content-type": "application/json"})
+        return httpx2.Response(200, json={"ok": True}, headers={"content-type": "application/json"})
 
     class MetadataMiddleware:
         def __init__(self) -> None:
             self.metadata: object | None = None
 
-        async def send(self, context: MiddlewareContext, next: MiddlewareNext) -> httpx.Response:
+        async def send(self, context: MiddlewareContext, next: MiddlewareNext) -> httpx2.Response:
             self.metadata = context.metadata
             return await next()
 
     metadata = object()
     middleware = MetadataMiddleware()
+    use_mock_transport(httpx2.MockTransport(handler))
     client = Client(ClientOptions(base_url="https://example.com"))
-    client.http._transport = httpx.MockTransport(handler)
     client.use(middleware)
 
     await client.get("/metadata", _metadata=metadata)
@@ -392,8 +406,6 @@ async def test_token_types(mock_transport, token, expected):
             token=token,
         )
     )
-    client.http._transport = mock_transport
-
     resp = await client.get("/token-test")
     data = resp.json()
 
@@ -416,8 +428,6 @@ async def test_async_none_token(mock_transport):
             token=async_none_factory,
         )
     )
-    client.http._transport = mock_transport
-
     resp = await client.get("/token-test")
     data = resp.json()
     assert "authorization" not in data["headers"]
@@ -426,7 +436,6 @@ async def test_async_none_token(mock_transport):
 @pytest.mark.asyncio
 async def test_explicit_authorization_header_wins_over_default_token(mock_transport):
     client = Client(ClientOptions(base_url="https://example.com", token="default-token"))
-    client.http._transport = mock_transport
 
     resp = await client.get("/token-test", headers={"Authorization": "******"})
     data = resp.json()
@@ -443,8 +452,6 @@ async def test_default_authorization_header_bypasses_token_resolution(mock_trans
             token=failing_token_factory,
         )
     )
-    client.http._transport = mock_transport
-
     resp = await client.get("/token-test")
     data = resp.json()
 
@@ -464,8 +471,6 @@ async def test_failing_token_factory(mock_transport):
             token=failing_token_factory,
         )
     )
-    client.http._transport = mock_transport
-
     with pytest.raises(ValueError, match="Token factory failed"):
         await client.get("/token-test")
 

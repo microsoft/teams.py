@@ -6,7 +6,7 @@ Licensed under the MIT License.
 
 from unittest.mock import AsyncMock, patch
 
-import httpx
+import httpx2
 import pytest
 from microsoft_teams.api.auth.cloud_environment import PUBLIC
 from microsoft_teams.api.clients import ApiClient
@@ -82,7 +82,7 @@ class TestTeamClient:
             .teams
         )
 
-        team_response = httpx.Response(
+        team_response = httpx2.Response(
             200,
             json={"id": "team-id", "name": "Team"},
             headers={"content-type": "application/json"},
@@ -92,7 +92,7 @@ class TestTeamClient:
 
         mock_get.assert_called_once_with("https://override.service.url/v3/teams/team-id")
 
-        conversations_response = httpx.Response(
+        conversations_response = httpx2.Response(
             200,
             json={"conversations": []},
             headers={"content-type": "application/json"},

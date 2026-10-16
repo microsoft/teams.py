@@ -12,7 +12,7 @@ from typing import Any, Generator
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import pytest
-from httpx import HTTPStatusError, Request, Response
+from httpx2 import HTTPStatusError, Request, Response
 from microsoft_teams.api import (
     ExchangeUserTokenParams,
     GetUserTokenParams,

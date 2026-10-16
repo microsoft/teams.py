@@ -8,7 +8,7 @@ import logging
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass, field
 
-import httpx
+import httpx2
 from microsoft_teams.common import Client
 from microsoft_teams.common.http import MiddlewareContext, MiddlewareNext
 from opentelemetry.trace import Span, SpanKind
@@ -16,7 +16,7 @@ from opentelemetry.trace import Span, SpanKind
 from ._constants import API_SPAN_NAMES
 from ._helpers import get_tracer, record_exception, record_outbound_call, record_outbound_error
 
-ApiOutboundResponseHook = Callable[[Span, httpx.Response], None | Awaitable[None]]
+ApiOutboundResponseHook = Callable[[Span, httpx2.Response], None | Awaitable[None]]
 logger = logging.getLogger(__name__)
 
 
@@ -32,7 +32,7 @@ class ApiOutboundTelemetryMiddleware:
         self,
         context: MiddlewareContext,
         next: MiddlewareNext,
-    ) -> httpx.Response:
+    ) -> httpx2.Response:
         metadata = context.metadata
         if not isinstance(metadata, ApiOutboundTelemetryMetadata):
             return await next()

@@ -8,7 +8,7 @@ from contextlib import contextmanager
 from typing import Any, Iterator
 from unittest.mock import patch
 
-import httpx
+import httpx2
 import pytest
 from microsoft_teams.api.auth.cloud_environment import PUBLIC, US_GOV
 from microsoft_teams.api.clients import ApiClient
@@ -42,14 +42,14 @@ class RecordingTracer:
 
 class RequestRecorder:
     def __init__(self):
-        self.requests: list[httpx.Request] = []
+        self.requests: list[httpx2.Request] = []
 
-    def handler(self, request: httpx.Request) -> httpx.Response:
+    def handler(self, request: httpx2.Request) -> httpx2.Response:
         self.requests.append(request)
-        return httpx.Response(200, json={"ok": True}, headers={"content-type": "application/json"})
+        return httpx2.Response(200, json={"ok": True}, headers={"content-type": "application/json"})
 
     @property
-    def last_request(self) -> httpx.Request:
+    def last_request(self) -> httpx2.Request:
         return self.requests[-1]
 
 
@@ -93,7 +93,7 @@ class HarnessClient(BaseClient):
         *,
         token: Token | None = None,
         headers: dict[str, str] | None = None,
-    ) -> httpx.Response:
+    ) -> httpx2.Response:
         return await self.http.post(
             "/resource",
             json={"ok": True},
@@ -104,8 +104,12 @@ class HarnessClient(BaseClient):
 
 def create_client(*, default_token: Token | None = None) -> tuple[Client, RequestRecorder]:
     recorder = RequestRecorder()
-    client = Client(ClientOptions(base_url="https://mock.api.com", token=default_token))
-    client.http._transport = httpx.MockTransport(recorder.handler)
+    client = Client(
+        ClientOptions(base_url="https://mock.api.com", token=default_token),
+        _http=httpx2.AsyncClient(
+            base_url="https://mock.api.com", transport=httpx2.MockTransport(recorder.handler), timeout=None
+        ),
+    )
     return client, recorder
 
 

@@ -11,7 +11,7 @@ import re
 from typing import Any, Optional
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import httpx
+import httpx2
 import pytest
 from microsoft_teams.api import (
     Account,
@@ -829,12 +829,12 @@ class TestApp:
 
         captured = {}
 
-        async def capture_request(request: httpx.Request) -> httpx.Response:
+        async def capture_request(request: httpx2.Request) -> httpx2.Response:
             captured["url"] = str(request.url)
             captured["user_agent"] = request.headers["user-agent"]
-            return httpx.Response(200, json={})
+            return httpx2.Response(200, json={})
 
-        app.http_client.http = httpx.AsyncClient(transport=httpx.MockTransport(capture_request))
+        app.http_client.http = httpx2.AsyncClient(transport=httpx2.MockTransport(capture_request))
         await app.http_client.get("https://custom.api/test")
 
         assert captured["url"] == "https://custom.api/test"

@@ -20,7 +20,7 @@ import logging
 from dataclasses import dataclass
 from typing import Awaitable, Callable, Mapping, Optional, TypeVar, Union, cast
 
-import httpx
+import httpx2
 from websockets.asyncio.client import connect
 
 from .envelope import parse_envelope, parse_ready_frame
@@ -93,7 +93,7 @@ class SignalRSocketConnection:
         context: SocketConnectionContext,
         handlers: SocketConnectionHandlers,
         *,
-        http_client: Optional[httpx.AsyncClient] = None,
+        http_client: Optional[httpx2.AsyncClient] = None,
         websocket_factory: Optional[WebSocketFactory] = None,
     ):
         self._context = context

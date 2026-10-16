@@ -8,7 +8,7 @@ from collections.abc import AsyncGenerator, AsyncIterator
 from contextlib import asynccontextmanager
 from typing import Any, Optional
 
-import httpx
+import httpx2
 from microsoft_teams.api import ConversationType
 
 from .download import FileFetchTarget, GraphCredential, OpenedFileStream, collect_stream, open_file_stream
@@ -80,7 +80,7 @@ class IncomingFile:
         content_url: Optional[str] = None,
         raw: Any = None,
         download_url: Optional[str] = None,
-        client: Optional[httpx.AsyncClient] = None,
+        client: Optional[httpx2.AsyncClient] = None,
         credential: Optional[GraphCredential] = None,
     ) -> None:
         self.name = name

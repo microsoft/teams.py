@@ -5,7 +5,7 @@ Licensed under the MIT License.
 
 from typing import Any, Awaitable, Callable, TypeVar, Union
 
-from httpx import Request, Response
+from httpx2 import Request, Response
 
 T = TypeVar("T")
 D = TypeVar("D")

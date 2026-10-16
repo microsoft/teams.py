@@ -7,7 +7,9 @@ Licensed under the MIT License.
 import importlib.metadata
 from unittest.mock import MagicMock, patch
 
+import httpx2
 import microsoft_teams.api as api
+import pytest
 from microsoft_teams.api import TEAMS_API_METER_NAME, TEAMS_API_TRACER_NAME, TeamsApiTelemetry
 from microsoft_teams.api.diagnostics._helpers import (
     get_meter,
@@ -16,6 +18,8 @@ from microsoft_teams.api.diagnostics._helpers import (
     record_outbound_call,
     record_outbound_error,
 )
+from microsoft_teams.api.diagnostics._outbound import ApiOutboundTelemetryMetadata, ApiOutboundTelemetryMiddleware
+from microsoft_teams.common import Client
 from opentelemetry.sdk.metrics import MeterProvider
 from opentelemetry.sdk.metrics.export import InMemoryMetricReader
 from opentelemetry.trace import StatusCode
@@ -101,3 +105,22 @@ def test_record_exception_marks_span_error():
     status = span.set_status.call_args.args[0]
     assert status.status_code == StatusCode.ERROR
     assert status.description == "boom"
+
+
+async def test_httpx2_status_error_records_outbound_span_and_metric():
+    tracer = MagicMock()
+    span = tracer.start_as_current_span.return_value.__enter__.return_value
+    async with httpx2.AsyncClient(transport=httpx2.MockTransport(lambda _: httpx2.Response(503))) as raw:
+        client = Client(_http=raw)
+        client.use(ApiOutboundTelemetryMiddleware())
+        with (
+            patch("microsoft_teams.api.diagnostics._outbound.get_tracer", return_value=tracer),
+            patch("microsoft_teams.api.diagnostics._outbound.record_outbound_call") as calls,
+            patch("microsoft_teams.api.diagnostics._outbound.record_outbound_error") as errors,
+            pytest.raises(httpx2.HTTPStatusError) as raised,
+        ):
+            await client.get("https://example.test/send", _metadata=ApiOutboundTelemetryMetadata("create"))
+    calls.assert_called_once_with("create")
+    errors.assert_called_once_with("create")
+    span.record_exception.assert_called_once_with(raised.value)
+    assert span.set_status.call_args.args[0].status_code == StatusCode.ERROR

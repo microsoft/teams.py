@@ -9,7 +9,7 @@ from typing import Any, Iterator
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from httpx import HTTPStatusError, Request, Response
+from httpx2 import HTTPStatusError, Request, Response
 from microsoft_teams.api import (
     Account,
     ConversationAccount,

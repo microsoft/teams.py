@@ -12,7 +12,7 @@ from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from typing import Any, Optional, cast
 
-import httpx
+import httpx2
 from microsoft_teams.api import ConversationType
 
 from .errors import FileAccessError, FileActor, FileCredentialError, FileScopeNotSupportedError, FileUrlExpiredError
@@ -100,7 +100,7 @@ async def open_file_stream(
     target: FileFetchTarget,
     *,
     prior_fetch_succeeded: bool = False,
-    client: Optional[httpx.AsyncClient] = None,
+    client: Optional[httpx2.AsyncClient] = None,
     credential: Optional[GraphCredential] = None,
 ) -> AsyncGenerator[OpenedFileStream]:
     """
@@ -129,7 +129,7 @@ async def open_file_stream(
     raise FileScopeNotSupportedError(target.scope)
 
 
-async def _send_following_https_redirects(http: httpx.AsyncClient, request: httpx.Request) -> httpx.Response:
+async def _send_following_https_redirects(http: httpx2.AsyncClient, request: httpx2.Request) -> httpx2.Response:
     """
     Send a streaming request, following redirects only while they stay on HTTPS.
 
@@ -137,10 +137,10 @@ async def _send_following_https_redirects(http: httpx.AsyncClient, request: http
     not be followed *down* to plaintext: an `https` to `http` hop would put the file on the wire in the clear.
     `follow_redirects=True` would take that hop silently, so the walk is done here instead, one hop at a time.
 
-    Each next request is built by httpx rather than by hand, which keeps its own header rules, including dropping
+    Each next request is built by httpx2 rather than by hand, which keeps its own header rules, including dropping
     `Authorization` when the redirect leaves the origin.
 
-    httpx applies `max_redirects` only when it follows redirects itself, so the ceiling is read off the client
+    httpx2 applies `max_redirects` only when it follows redirects itself, so the ceiling is read off the client
     here. A caller who sets their own limit keeps it.
     """
     response = await http.send(request, stream=True, follow_redirects=False)
@@ -170,7 +170,7 @@ async def _open_personal_file_stream(
     target: FileFetchTarget,
     *,
     prior_fetch_succeeded: bool,
-    client: Optional[httpx.AsyncClient],
+    client: Optional[httpx2.AsyncClient],
     credential: Optional[GraphCredential],
 ) -> AsyncGenerator[OpenedFileStream]:
     url = target.download_url
@@ -201,7 +201,7 @@ async def _open_personal_file_stream(
         raise RuntimeError("cannot download file: download URL must use https")
 
     owns_client = client is None
-    http = client or httpx.AsyncClient()
+    http = client or httpx2.AsyncClient()
 
     try:
         # Plain GET with no bearer token: the download URL embeds its own `tempauth` credential, and attaching a
@@ -240,7 +240,7 @@ async def _open_graph_file_stream(
     target: FileFetchTarget,
     sharing_url: str,
     *,
-    client: Optional[httpx.AsyncClient],
+    client: Optional[httpx2.AsyncClient],
     credential: Optional[GraphCredential],
 ) -> AsyncGenerator[OpenedFileStream]:
     """
@@ -261,7 +261,7 @@ async def _open_graph_file_stream(
     logger.debug(f"resolving bytes through Graph /shares as '{actor}'")
 
     owns_client = client is None
-    http = client or httpx.AsyncClient()
+    http = client or httpx2.AsyncClient()
 
     try:
         # Authentication belongs to the branch, never the downloader: the pre-authorized path strips `Authorization`
@@ -295,7 +295,7 @@ async def _open_graph_file_stream(
             await http.aclose()
 
 
-async def _read_service_error(response: httpx.Response) -> Optional[str]:
+async def _read_service_error(response: httpx2.Response) -> Optional[str]:
     """
     Pull the human-readable part out of a Graph error envelope, falling back to the raw text.
 

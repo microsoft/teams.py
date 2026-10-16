@@ -10,7 +10,7 @@ import json
 import logging
 from typing import List, Optional
 
-import httpx
+import httpx2
 import pytest
 from microsoft_teams.apps.files.download import (
     FileFetchTarget,
@@ -51,25 +51,25 @@ class _Recorder:
         self._statuses = statuses
         self._error_body = error_body
         self._i = 0
-        self.calls: List[httpx.Request] = []
+        self.calls: List[httpx2.Request] = []
 
-    def handler(self, request: httpx.Request) -> httpx.Response:
+    def handler(self, request: httpx2.Request) -> httpx2.Response:
         self.calls.append(request)
         status = self._statuses[min(self._i, len(self._statuses) - 1)]
         self._i += 1
         if status == 200:
-            return httpx.Response(200, content=b"bytes", headers={"content-type": "application/pdf"})
+            return httpx2.Response(200, content=b"bytes", headers={"content-type": "application/pdf"})
         if self._error_body is not None:
-            return httpx.Response(status, content=self._error_body.encode())
-        return httpx.Response(status, json={"error": {"code": "err"}})
+            return httpx2.Response(status, content=self._error_body.encode())
+        return httpx2.Response(status, json={"error": {"code": "err"}})
 
     @property
-    def client(self) -> httpx.AsyncClient:
-        return httpx.AsyncClient(transport=httpx.MockTransport(self.handler))
+    def client(self) -> httpx2.AsyncClient:
+        return httpx2.AsyncClient(transport=httpx2.MockTransport(self.handler))
 
-    def client_with(self, **kwargs: object) -> httpx.AsyncClient:
+    def client_with(self, **kwargs: object) -> httpx2.AsyncClient:
         """A client carrying extra configuration, so a test can prove the SDK strips what the client would add."""
-        return httpx.AsyncClient(transport=httpx.MockTransport(self.handler), **kwargs)  # type: ignore[arg-type]
+        return httpx2.AsyncClient(transport=httpx2.MockTransport(self.handler), **kwargs)  # type: ignore[arg-type]
 
     def auth_of(self, index: int) -> Optional[str]:
         return self.calls[index].headers.get("Authorization")
@@ -463,16 +463,16 @@ class _RedirectRecorder:
 
     def __init__(self, location: str) -> None:
         self._location = location
-        self.calls: List[httpx.Request] = []
+        self.calls: List[httpx2.Request] = []
 
-    def handler(self, request: httpx.Request) -> httpx.Response:
+    def handler(self, request: httpx2.Request) -> httpx2.Response:
         self.calls.append(request)
         if len(self.calls) == 1:
-            return httpx.Response(302, headers={"location": self._location})
-        return httpx.Response(200, content=b"bytes", headers={"content-type": "application/pdf"})
+            return httpx2.Response(302, headers={"location": self._location})
+        return httpx2.Response(200, content=b"bytes", headers={"content-type": "application/pdf"})
 
-    def client(self, **kwargs: object) -> httpx.AsyncClient:
-        return httpx.AsyncClient(transport=httpx.MockTransport(self.handler), **kwargs)  # type: ignore[arg-type]
+    def client(self, **kwargs: object) -> httpx2.AsyncClient:
+        return httpx2.AsyncClient(transport=httpx2.MockTransport(self.handler), **kwargs)  # type: ignore[arg-type]
 
     def auth_of(self, index: int) -> Optional[str]:
         return self.calls[index].headers.get("Authorization")
@@ -482,20 +482,20 @@ class _AlwaysRedirectRecorder:
     """Serves a 302 to a fresh https location on every call, recording each hop."""
 
     def __init__(self) -> None:
-        self.calls: List[httpx.Request] = []
+        self.calls: List[httpx2.Request] = []
 
-    def handler(self, request: httpx.Request) -> httpx.Response:
+    def handler(self, request: httpx2.Request) -> httpx2.Response:
         self.calls.append(request)
-        return httpx.Response(302, headers={"location": f"https://storage.example/hop/{len(self.calls)}"})
+        return httpx2.Response(302, headers={"location": f"https://storage.example/hop/{len(self.calls)}"})
 
-    def client(self, **kwargs: object) -> httpx.AsyncClient:
-        return httpx.AsyncClient(transport=httpx.MockTransport(self.handler), **kwargs)  # type: ignore[arg-type]
+    def client(self, **kwargs: object) -> httpx2.AsyncClient:
+        return httpx2.AsyncClient(transport=httpx2.MockTransport(self.handler), **kwargs)  # type: ignore[arg-type]
 
 
 class TestRedirects:
     """
-    Graph answers `/shares/.../content` with a 302 to ODSP storage and httpx follows it inside one call, so the
-    bearer's survival across that hop is decided by httpx rather than by anything the SDK writes. These pin it.
+    Graph answers `/shares/.../content` with a 302 to ODSP storage and httpx2 follows it inside one call, so the
+    bearer's survival across that hop is decided by httpx2 rather than by anything the SDK writes. These pin it.
     """
 
     @pytest.mark.asyncio
@@ -513,7 +513,7 @@ class TestRedirects:
 
     @pytest.mark.asyncio
     async def test_the_preauth_path_follows_a_redirect(self):
-        # httpx defaults follow_redirects to False, so the pre-authorized path has to opt in explicitly. TypeScript
+        # httpx2 defaults follow_redirects to False, so the pre-authorized path has to opt in explicitly. TypeScript
         # (fetch, which defaults to "follow") and .NET (HttpClientHandler.AllowAutoRedirect, which defaults to true)
         # both follow without being asked, and this path used to be the one place across the three SDKs that did not.
         # Losing the flag does not hand the caller a redirect body: a 302 is not 2xx, so it would fall through to the
@@ -636,10 +636,10 @@ class TestErrorBodyBounding:
                 served += 4096
                 yield b"x" * 4096
 
-        def handler(request: httpx.Request) -> httpx.Response:
-            return httpx.Response(403, content=body())
+        def handler(request: httpx2.Request) -> httpx2.Response:
+            return httpx2.Response(403, content=body())
 
-        client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+        client = httpx2.AsyncClient(transport=httpx2.MockTransport(handler))
 
         with pytest.raises(FileAccessError) as err:
             async with open_file_stream(
@@ -708,7 +708,7 @@ class TestRedirectSafety:
             async with open_file_stream(_target(download_url=DOWNLOAD_URL), client=client):
                 pass
 
-        # httpx's default, which is the ceiling a caller gets when they configure nothing.
+        # httpx2's default, which is the ceiling a caller gets when they configure nothing.
         assert client.max_redirects == 20
         assert len(rec.calls) == 1 + client.max_redirects
 
