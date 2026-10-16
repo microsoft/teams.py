@@ -86,6 +86,20 @@ def is_invoke_envelope(envelope: SocketActivityEnvelope) -> bool:
     return activity is not None and str(activity.get("type", "")).lower() == "invoke"
 
 
+def validate_agentic_recipient(value: object, *, blueprint_id: Optional[str]) -> None:
+    if not isinstance(value, Mapping):
+        raise EnvelopeError("Agentic Socket Mode requires a recipient identity")
+    recipient = cast(Mapping[str, object], value)
+    required_fields = ["agenticAppBlueprintId", "agenticAppId", "tenantId"]
+    if recipient.get("role") == "agenticUser" or recipient.get("agenticUserId") is not None:
+        required_fields.append("agenticUserId")
+    values = (recipient.get(field) for field in required_fields)
+    if not all(isinstance(value, str) and value and value == value.strip() for value in values):
+        raise EnvelopeError(f"Agentic recipient requires non-empty, unpadded strings for {', '.join(required_fields)}")
+    if recipient["agenticAppBlueprintId"] != blueprint_id:
+        raise EnvelopeError("Agentic recipient blueprint does not match the configured client_id")
+
+
 def build_reply_frame(
     envelope: SocketActivityEnvelope,
     *,
