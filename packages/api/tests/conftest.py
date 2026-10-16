@@ -235,15 +235,24 @@ def mock_transport():
 @pytest.fixture
 def mock_http_client(mock_transport):
     """Create a mock HTTP client with transport."""
-    client = Client(ClientOptions(base_url="https://mock.api.com"))
-    client.http._transport = mock_transport
+    client = Client(
+        ClientOptions(base_url="https://mock.api.com"),
+        _http=httpx.AsyncClient(transport=mock_transport, base_url="https://mock.api.com"),
+    )
     return client
 
 
 def _preserve_test_transport_on_clone(client: Client, transport: httpx.MockTransport) -> Client:
     def clone(overrides: Optional[ClientOptions] = None, *, share_http: bool = False) -> Client:
         cloned = Client.clone(client, overrides, share_http=share_http)
-        cloned.http._transport = transport
+        if not share_http:
+            cloned.http = httpx.AsyncClient(
+                transport=transport,
+                base_url=cloned.http.base_url,
+                headers=cloned.http.headers,
+                timeout=cloned.http.timeout,
+                event_hooks=cloned.http.event_hooks,
+            )
         return _preserve_test_transport_on_clone(cloned, transport)
 
     client.clone = clone  # type: ignore[method-assign]
@@ -366,8 +375,10 @@ def request_capture():
 
     capture = RequestCapture()
     transport = httpx.MockTransport(capture.handler)
-    client = Client(ClientOptions(base_url="https://mock.api.com"))
-    client.http._transport = transport
+    client = Client(
+        ClientOptions(base_url="https://mock.api.com"),
+        _http=httpx.AsyncClient(transport=transport, base_url="https://mock.api.com"),
+    )
     _preserve_test_transport_on_clone(client, transport)
     client._capture = capture  # type: ignore[attr-defined]  # Attach for test access
     return client
