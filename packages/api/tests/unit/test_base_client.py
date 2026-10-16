@@ -104,8 +104,10 @@ class HarnessClient(BaseClient):
 
 def create_client(*, default_token: Token | None = None) -> tuple[Client, RequestRecorder]:
     recorder = RequestRecorder()
-    client = Client(ClientOptions(base_url="https://mock.api.com", token=default_token))
-    client.http._transport = httpx.MockTransport(recorder.handler)
+    client = Client(
+        ClientOptions(base_url="https://mock.api.com", token=default_token),
+        _http=httpx.AsyncClient(transport=httpx.MockTransport(recorder.handler), base_url="https://mock.api.com"),
+    )
     return client, recorder
 
 
