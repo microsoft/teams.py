@@ -55,20 +55,25 @@ class TokenManager:
 
     async def get_bot_token(self) -> Optional[TokenProtocol]:
         """Refresh the bot authentication token."""
-        return await self.get_app_token(self._cloud.bot_scope, default_tenant_id=self._cloud.login_tenant)
+        return await self.get_app_token(self._cloud.bot_scope)
 
     async def get_app_token(
         self,
         scope: str,
         tenant_id: Optional[str] = None,
         *,
-        default_tenant_id: str | None = None,
         caller_name: str | None = None,
     ) -> Optional[TokenProtocol]:
-        """Get an app token for the requested scope."""
-        resolved_tenant_id = self._resolve_tenant_id(tenant_id, default_tenant_id or self._cloud.login_tenant)
+        """
+        Get an app token for the requested scope.
+
+        The tenant resolves as `tenant_id` -> credentials tenant -> a default for the scope: the cloud's login
+        tenant for the Bot Framework scope and "common" for the Graph scope. Any other scope has no default and
+        requires an explicit or configured tenant.
+        """
+        resolved_tenant_id = self._resolve_tenant_id(tenant_id, self._default_tenant_id_for_scope(scope))
         if resolved_tenant_id is None:
-            raise ValueError("tenant_id is required to get an app token")
+            raise ValueError(f"tenant_id is required to get an app token for scope {scope}")
         return await self._get_token(
             scope,
             tenant_id=resolved_tenant_id,
@@ -86,11 +91,7 @@ class TokenManager:
         Returns:
             The graph token or None if not available
         """
-        return await self.get_app_token(
-            self._cloud.graph_scope,
-            tenant_id=tenant_id,
-            default_tenant_id=DEFAULT_TENANT_FOR_GRAPH_TOKEN,
-        )
+        return await self.get_app_token(self._cloud.graph_scope, tenant_id)
 
     async def get_agentic_user_token(
         self,
@@ -430,6 +431,13 @@ class TokenManager:
             http_client=requests.Session(),
         )
         return self._managed_identity_client
+
+    def _default_tenant_id_for_scope(self, scope: str) -> str | None:
+        if scope == self._cloud.bot_scope:
+            return self._cloud.login_tenant
+        if scope == self._cloud.graph_scope:
+            return DEFAULT_TENANT_FOR_GRAPH_TOKEN
+        return None
 
     def _resolve_tenant_id(self, tenant_id: str | None, default_tenant_id: str | None) -> str | None:
         return tenant_id or (self._credentials.tenant_id if self._credentials else None) or default_tenant_id
