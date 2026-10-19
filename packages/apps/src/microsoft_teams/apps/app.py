@@ -235,10 +235,28 @@ class App(ActivityHandlerMixin):
                 "Socket Mode is not supported in this cloud environment. Use the HTTP inbound transport instead."
             )
 
+        socket_options = option if isinstance(option, SocketModeOptions) else SocketModeOptions()
+        get_token = self._get_bot_token
+        agentic_app_id = socket_options.agentic_app_id
+        scope = socket_options.agentic_token_scope
+        if agentic_app_id is None:
+            if scope is not None or socket_options.agentic_tenant_id is not None:
+                raise ValueError("agentic_app_id is required with agentic socket authentication options")
+        else:
+            if not scope:
+                raise ValueError("agentic_token_scope is required with agentic_app_id")
+
+            async def get_agentic_token() -> Optional[TokenProtocol]:
+                return await self._token_provider.get_agentic_app_token(
+                    scope, agentic_app_id, socket_options.agentic_tenant_id
+                )
+
+            get_token = get_agentic_token
+
         return SocketModeAdapter(
-            option if isinstance(option, SocketModeOptions) else SocketModeOptions(),
+            socket_options,
             process_activity=self._process_activity_event,
-            get_app_token=self._get_bot_token,
+            get_app_token=get_token,
             messaging_endpoint=self.options.messaging_endpoint,
             client_id=self.credentials.client_id if self.credentials else None,
             on_error=self._on_socket_mode_error,

@@ -22,7 +22,13 @@ from microsoft_teams.common.experimental import experimental
 
 from ..events import ActivityEvent, CoreActivity
 from ..http.adapter import HttpMethod, HttpRouteHandler
-from .envelope import build_reply_frame, is_invoke_envelope, read_envelope_activity
+from .envelope import (
+    EnvelopeError,
+    build_reply_frame,
+    is_invoke_envelope,
+    read_envelope_activity,
+    validate_agentic_recipient,
+)
 from .transport import (
     DEFAULT_GEOS,
     DEFAULT_SOCKET_MODE_NEGOTIATE_BASE_URL,
@@ -109,6 +115,15 @@ class SocketModeOptions:
     server_timeout: float = 30.0
     """How long without an inbound message before the connection is considered lost."""
 
+    agentic_app_id: Optional[str] = None
+    """Agent instance used to authenticate the socket; App.client_id remains the blueprint ID."""
+
+    agentic_token_scope: Optional[str] = None
+    """Backend-agreed negotiate scope, required with agentic_app_id; no audience is assumed."""
+
+    agentic_tenant_id: Optional[str] = None
+    """Tenant for socket authentication. Defaults to the app's credential tenant."""
+
     def to_transport_options(self) -> SocketModeTransportOptions:
         return SocketModeTransportOptions(
             negotiate_base_url=self.negotiate_base_url,
@@ -176,7 +191,7 @@ class SocketModeAdapter:
     ):
         self.options = options or SocketModeOptions()
         self._process_activity = process_activity
-        self._get_app_token = get_app_token
+        self._get_token = get_app_token
         self._messaging_endpoint = messaging_endpoint
         self._client_id = client_id
         self._on_error = on_error
@@ -263,8 +278,10 @@ class SocketModeAdapter:
         await self._transport.stop()
 
     async def _acquire_bot_token(self) -> str:
-        token = await self._get_app_token()
-        if token is None:
+        token = await self._get_token()
+        if token is None or not str(token).strip():
+            if self.options.agentic_app_id is not None:
+                raise RuntimeError("Socket Mode could not acquire an agent-instance token")
             raise RuntimeError(
                 "Socket Mode could not acquire a Bot Framework app token. "
                 "Check that the app credentials (client_id / client_secret / tenant_id) are configured."
@@ -305,6 +322,22 @@ class SocketModeAdapter:
         if activity is None:
             logger.warning("socket-mode: inbound envelope %s carried no activity; dropping", envelope.envelope_id)
             return None
+
+        try:
+            if self.options.agentic_app_id is not None:
+                if envelope.bot_key is not None and envelope.bot_key != self._client_id:
+                    raise EnvelopeError("Socket Mode botKey does not match the configured blueprint ID")
+                validate_agentic_recipient(activity.get("recipient"), blueprint_id=self._client_id)
+        except EnvelopeError as error:
+            logger.warning("socket-mode: rejecting envelope %s: %s", envelope.envelope_id, error)
+            await self._report_error(error)
+            return build_reply_frame(
+                envelope,
+                bot_key=self._client_id,
+                status=400,
+                body={"error": str(error)} if is_invoke_envelope(envelope) else None,
+                received_at=received_at,
+            )
 
         invoke = is_invoke_envelope(envelope)
         logger.debug(
