@@ -9,6 +9,7 @@ from typing import AsyncIterator, Callable, Optional
 
 import httpx
 import pytest
+from microsoft_teams.apps.socket_mode import connection as connection_module
 from microsoft_teams.apps.socket_mode import geo_socket
 from microsoft_teams.apps.socket_mode.connection import SignalRSocketConnection, SocketConnectionAborted
 from microsoft_teams.apps.socket_mode.negotiate import NegotiateError
@@ -26,7 +27,7 @@ from microsoft_teams.apps.socket_mode.types import (
     SocketModeStatus,
     SocketReadyFrame,
 )
-from test_socket_mode_connection import MockWebSocket
+from test_socket_mode_connection import MockWebSocket, make_http_client
 
 
 class MockConnection:
@@ -44,9 +45,28 @@ class MockConnection:
         self.stop_gate: Optional[asyncio.Event] = None
         self.start_entered = asyncio.Event()
         self.stop_entered = asyncio.Event()
+        self._connection_id: Optional[str] = None
+        self._is_open = False
         self._expires_in_seconds = expires_in_seconds
+        self._token_expires_at: Optional[float] = None
         self.started = 0
         self.stopped = 0
+
+    @property
+    def is_open(self) -> bool:
+        return self._is_open
+
+    @property
+    def is_token_expired(self) -> bool:
+        return self._token_expires_at is not None and asyncio.get_running_loop().time() >= self._token_expires_at
+
+    @property
+    def token_expires_at(self) -> Optional[float]:
+        return None
+
+    @property
+    def connection_id(self) -> Optional[str]:
+        return self._connection_id
 
     @property
     def expires_in_seconds(self) -> Optional[float]:
@@ -61,15 +81,24 @@ class MockConnection:
             await self.start_gate.wait()
         if self.start_error is not None:
             raise self.start_error
-        self.handlers.on_ready(SocketReadyFrame(connection_id=f"conn-{self.started}"))
+        self._connection_id = f"conn-{self.started}"
+        self._is_open = True
+        if self._expires_in_seconds is not None and self._expires_in_seconds > 0:
+            self._token_expires_at = asyncio.get_running_loop().time() + self._expires_in_seconds
+        self.handlers.on_ready(SocketReadyFrame(connection_id=self._connection_id))
 
     async def stop(self) -> None:
+        self._is_open = False
         self.stopped += 1
         self.stop_entered.set()
         if self.stop_gate is not None:
             await self.stop_gate.wait()
 
+    async def wait_for_drain(self, not_before: float) -> None:
+        await asyncio.sleep(max(not_before - geo_socket.monotonic(), 0))
+
     def drop(self, error: Optional[Exception] = None) -> None:
+        self._is_open = False
         self.handlers.on_closed(error)
 
 
@@ -196,6 +225,294 @@ async def test_transport_starts_all_geos_and_stops_every_connection():
 
 
 @pytest.mark.asyncio
+async def test_socket_ids_remain_independent_across_geos_and_handoff(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(geo_socket, "CONNECTION_HANDOFF_SECONDS", 30.0)
+    sockets: dict[str, list[MockWebSocket]] = {"amer": [], "emea": []}
+    service_requests: list[httpx.Request] = []
+    signalr_requests: list[httpx.Request] = []
+    issued_tokens: list[str] = []
+    socket_tokens: list[str] = []
+    fail_next_open = False
+    replacement_header = "x-ms-socket-replaces-connection-id"
+    pending_activity = asyncio.Event()
+    disconnected: list[str] = []
+    reconnected: list[str] = []
+
+    async def on_activity(envelope: SocketActivityEnvelope) -> ReplyFrame:
+        if envelope.envelope_id == "pending-retired":
+            pending_activity.set()
+            await asyncio.Future()
+        return ReplyFrame(status=200)
+
+    def negotiate(request: httpx.Request) -> httpx.Response:
+        if request.url.host == "signalr.example":
+            signalr_requests.append(request)
+            return httpx.Response(
+                200,
+                json={
+                    "connectionToken": "connection-token",
+                    "availableTransports": [{"transport": "WebSockets", "transferFormats": ["Text"]}],
+                },
+            )
+        service_requests.append(request)
+        geo = request.url.path.split("/")[1]
+        issued_tokens.append(f"service-token-{len(service_requests)}")
+        return httpx.Response(
+            200,
+            json={"url": f"https://signalr.example/{geo}", "accessToken": issued_tokens[-1], "expiresIn": 3600},
+        )
+
+    async def open_socket(url: str) -> MockWebSocket:
+        nonlocal fail_next_open
+        endpoint = httpx.URL(url)
+        socket_tokens.append(endpoint.params["access_token"])
+        if fail_next_open:
+            fail_next_open = False
+            raise ConnectionError("replacement socket failed to open")
+        geo = endpoint.path.strip("/")
+        websocket = MockWebSocket()
+        sockets[geo].append(websocket)
+        websocket.incoming.put_nowait(
+            encode_hub_message({})
+            + encode_hub_message(
+                {
+                    "type": 1,
+                    "target": "SocketReady",
+                    "arguments": [{"connectionId": f"  server-{geo}-{len(sockets[geo])}  "}],
+                }
+            )
+        )
+        return websocket
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(negotiate)) as client:
+        transport = SocketModeTransport(
+            SocketModeTransportOptions(geos=("amer", "emea"), reconnect_delays=(0,)),
+            get_bot_token=lambda: _token("token"),
+            on_activity=on_activity,
+            http_client=client,
+            websocket_factory=open_socket,
+            callbacks=SocketModeCallbacks(
+                on_disconnected=lambda geo, _, terminal: disconnected.append(geo),
+                on_reconnected=reconnected.append,
+            ),
+        )
+        try:
+            await transport.start()
+            amer, emea = transport._geos
+            previous, other = amer._active, emea._active
+            assert previous is not None and other is not None
+            assert previous.connection.connection_id == "  server-amer-1  "
+            assert other.connection.connection_id == "  server-emea-1  "
+            assert len(service_requests) == 2
+            assert all(replacement_header not in request.headers for request in service_requests)
+
+            closed = amer._closed
+            assert closed is not None
+            fail_next_open = True
+            closed.set_result(geo_socket._CloseReason(planned=True))
+            await _eventually(lambda: amer._active is not previous and amer._refresh is not None)
+            current = amer._active
+            assert current is not None
+            assert current.connection.connection_id == "  server-amer-2  "
+            assert amer._retiring[previous.generation] is previous.connection
+            assert previous.connection.connection_id == "  server-amer-1  "
+            assert emea._active is other
+            assert other.connection.connection_id == "  server-emea-1  "
+            assert service_requests[-1].headers[replacement_header] == "  server-amer-1  "
+            assert sockets["amer"][0].closed == 0
+
+            assert isinstance(previous.connection, SignalRSocketConnection)
+            listener, heartbeat = previous.connection._listener, previous.connection._heartbeat
+            assert listener is not None and heartbeat is not None
+            refresh, other_refresh = amer._refresh, emea._refresh
+            sockets["amer"][0].incoming.put_nowait(
+                encode_hub_message(
+                    {
+                        "type": 1,
+                        "target": "Activity",
+                        "invocationId": "pending-retired",
+                        "arguments": [{"envelopeId": "pending-retired", "deadlineMs": 25000}],
+                    }
+                )
+            )
+            await asyncio.wait_for(pending_activity.wait(), 1)
+            activity_tasks = tuple(previous.connection._inflight)
+            sockets["amer"][0].incoming.put_nowait(
+                encode_hub_message({"type": 7, "error": "Replaced by a newer socket."})
+            )
+            await asyncio.wait_for(listener, 1)
+            await _eventually(lambda: not amer._retire_tasks)
+            assert heartbeat.done() and all(task.done() for task in activity_tasks)
+            assert not previous.connection._inflight
+            assert not amer._retiring
+            assert amer._active is current and emea._active is other
+            assert amer._refresh is refresh and refresh is not None and not refresh.done()
+            assert emea._refresh is other_refresh and other_refresh is not None and not other_refresh.done()
+            assert len(service_requests) == 4
+            assert disconnected == reconnected == []
+            assert transport.status == SocketModeStatus.READY
+
+            for count, close in enumerate(
+                (
+                    encode_hub_message({"type": 7, "error": "Token expired."}),
+                    encode_hub_message({"type": 7, "error": "Socket mode is no longer enabled for this bot."}),
+                    encode_hub_message({"type": 7, "error": "Replaced by a newer socket."}),
+                ),
+                start=3,
+            ):
+                sockets["amer"][-1].incoming.put_nowait(close)
+                await _eventually(
+                    lambda count=count: len(sockets["amer"]) == count
+                    and transport.status == SocketModeStatus.READY
+                    and len(reconnected) == count - 2
+                )
+                assert replacement_header not in service_requests[-1].headers
+                assert disconnected == reconnected == ["amer"] * (count - 2)
+                assert emea._active is other
+            assert all(replacement_header not in request.headers for request in signalr_requests)
+            assert all(
+                request.method == "POST" and request.url.path.endswith("/v3/websockets/connect")
+                for request in service_requests
+            )
+            assert len(socket_tokens) == len(set(socket_tokens)) == 7
+            assert sorted(socket_tokens) == sorted(issued_tokens)
+        finally:
+            await transport.stop()
+
+
+@pytest.mark.parametrize(
+    "predecessor_state", ["open", "missing-id", "token", "backoff", "expiry-backoff", "expiry-token"]
+)
+@pytest.mark.asyncio
+async def test_refresh_rechecks_predecessor_before_negotiate(predecessor_state: str, monkeypatch: pytest.MonkeyPatch):
+    now = 1000.0
+    monkeypatch.setattr(connection_module, "monotonic", lambda: now)
+    monkeypatch.setattr(geo_socket, "monotonic", lambda: now)
+    predecessor = GatedCloseWebSocket()
+    sockets: list[MockWebSocket] = []
+    socket_tokens: list[str] = []
+    dispatched: list[Optional[str]] = []
+    replacement_ids: list[Optional[str]] = []
+    token_started, token_release = asyncio.Event(), asyncio.Event()
+    backoff_started, backoff_release = asyncio.Event(), asyncio.Event()
+    token_calls = 0
+    old_id = None if predecessor_state == "missing-id" else "old-server-id"
+
+    async def token() -> str:
+        nonlocal token_calls
+        token_calls += 1
+        if (token_calls == 2 and predecessor_state == "token") or (
+            token_calls == 3 and predecessor_state == "expiry-token"
+        ):
+            token_started.set()
+            await token_release.wait()
+        return "token"
+
+    def negotiate(request: httpx.Request) -> httpx.Response:
+        replacement_ids.append(request.headers.get("x-ms-socket-replaces-connection-id"))
+        if len(replacement_ids) == 2:
+            return httpx.Response(429, headers={"Retry-After": "15"})
+        return httpx.Response(
+            200,
+            json={
+                "url": "wss://signalr.example/amer",
+                "accessToken": f"token-{len(replacement_ids)}",
+                "expiresIn": 300 if len(replacement_ids) == 1 else 86400,
+            },
+        )
+
+    async def open_socket(url: str) -> MockWebSocket:
+        socket_tokens.append(httpx.URL(url).params["access_token"])
+        websocket = predecessor if not sockets else MockWebSocket()
+        connection_id = old_id if not sockets else "new-server-id"
+        sockets.append(websocket)
+        websocket.incoming.put_nowait(
+            encode_hub_message({})
+            + encode_hub_message({"type": 1, "target": "SocketReady", "arguments": [{"connectionId": connection_id}]})
+        )
+        return websocket
+
+    async def on_activity(envelope: SocketActivityEnvelope) -> ReplyFrame:
+        dispatched.append(envelope.envelope_id)
+        return ReplyFrame(status=200, envelope_id=envelope.envelope_id)
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(negotiate)) as client:
+        transport = SocketModeTransport(
+            SocketModeTransportOptions(geos=("amer",), reconnect_delays=(0,)),
+            get_bot_token=token,
+            on_activity=on_activity,
+            http_client=client,
+            websocket_factory=open_socket,
+        )
+        original_sleep = transport.sleep
+
+        async def sleep(delay: float) -> bool:
+            if delay == 15:
+                backoff_started.set()
+                await backoff_release.wait()
+                return transport.accepting
+            return await original_sleep(delay)
+
+        monkeypatch.setattr(transport, "sleep", sleep)
+        try:
+            await transport.start()
+            geo = transport._geos[0]
+            previous, closed = geo._active, geo._closed
+            assert previous is not None and closed is not None
+            closed.set_result(geo_socket._CloseReason(planned=True))
+
+            if predecessor_state == "token":
+                await asyncio.wait_for(token_started.wait(), 1)
+                predecessor.incoming.put_nowait(ConnectionError("closed during token acquisition"))
+                await asyncio.wait_for(predecessor.close_started.wait(), 1)
+                assert geo._active is previous
+                token_release.set()
+
+            await asyncio.wait_for(backoff_started.wait(), 1)
+            if predecessor_state == "backoff":
+                predecessor.incoming.put_nowait(ConnectionError("closed during retry backoff"))
+                await asyncio.wait_for(predecessor.close_started.wait(), 1)
+                assert geo._active is previous
+            if predecessor_state == "expiry-backoff":
+                now = 1300.0
+            if predecessor_state in ("open", "missing-id", "expiry-backoff", "expiry-token"):
+                predecessor.incoming.put_nowait(
+                    encode_hub_message(
+                        {
+                            "type": 1,
+                            "target": "Activity",
+                            "arguments": [{"envelopeId": "during-throttle", "payload": {"type": "message"}}],
+                        }
+                    )
+                )
+                await _eventually(lambda: dispatched == ["during-throttle"])
+                assert predecessor.closed == 0
+                assert replacement_ids == [None, old_id]
+                assert transport.status == SocketModeStatus.READY
+            backoff_release.set()
+
+            if predecessor_state == "expiry-token":
+                await asyncio.wait_for(token_started.wait(), 1)
+                now = 1300.0
+                token_release.set()
+
+            await _eventually(lambda: geo._active is not previous and transport.status == SocketModeStatus.READY)
+            first_replacement = None if predecessor_state == "token" else old_id
+            retry_replacement = old_id if predecessor_state == "open" else None
+            assert replacement_ids == [None, first_replacement, retry_replacement]
+            assert socket_tokens == ["token-1", "token-3"]
+            if predecessor_state.startswith("expiry-"):
+                assert previous.connection.is_open
+                assert previous.connection.is_token_expired
+                assert geo._active is not None and not geo._active.connection.is_token_expired
+        finally:
+            predecessor.release_close.set()
+            token_release.set()
+            backoff_release.set()
+            await transport.stop()
+
+
+@pytest.mark.asyncio
 async def test_initial_connection_retries_within_startup_budget():
     factory = MockConnectionFactory()
     factory.start_errors.append(ConnectionError("negotiate unavailable"))
@@ -257,40 +574,93 @@ async def test_drop_reconnects_and_fences_superseded_generation():
 
 
 @pytest.mark.asyncio
-async def test_reconnect_keeps_retrying_until_fresh_generation_is_ready():
+async def test_reconnect_keeps_retrying_until_fresh_generation_is_ready(monkeypatch: pytest.MonkeyPatch):
     factory = MockConnectionFactory()
-    transport = await make_transport(factory)
+    transport = await make_transport(factory, reconnect_delays=(0.001, 0.002, 0.003))
     await transport.start()
-    factory.start_errors.append(ConnectionError("first reconnect failed"))
+    factory.start_errors.extend(
+        [
+            NegotiateError("HTTP 503", retry_after=0.025, status_code=503),
+            NegotiateError("HTTP 503", status_code=503),
+        ]
+    )
+    delays: list[float] = []
+    original_sleep = transport.sleep
 
+    async def sleep(delay: float) -> bool:
+        delays.append(delay)
+        return await original_sleep(delay)
+
+    monkeypatch.setattr(transport, "sleep", sleep)
+
+    started = asyncio.get_running_loop().time()
     factory.connections[0].drop()
-    await _eventually(lambda: len(factory.connections) == 3)
+    await _eventually(lambda: len(factory.connections) == 4)
 
+    assert delays == [0.001, 0.025, 0.003]
+    assert asyncio.get_running_loop().time() - started >= 0.029
     assert transport.status == SocketModeStatus.READY
     await transport.stop()
 
 
 @pytest.mark.asyncio
-async def test_proactive_refresh_rotates_without_disconnect_callbacks():
-    factory = MockConnectionFactory()
-    factory.expires_in_seconds = 0.01
+async def test_proactive_refresh_rotates_without_disconnect_callbacks(monkeypatch: pytest.MonkeyPatch):
+    now = 1000.0
+    monkeypatch.setattr(connection_module, "monotonic", lambda: now)
+    monkeypatch.setattr(geo_socket, "monotonic", lambda: now)
+    refresh_delays: asyncio.Queue[float] = asyncio.Queue()
+    release_refresh = asyncio.Event()
+    original_sleep = asyncio.sleep
+    sockets: list[MockWebSocket] = []
     disconnected: list[str] = []
     reconnected: list[str] = []
-    transport = await make_transport(
-        factory,
-        callbacks=SocketModeCallbacks(
-            on_disconnected=lambda geo, _, terminal: disconnected.append(geo),
-            on_reconnected=reconnected.append,
-        ),
-    )
-    await transport.start()
 
-    await _eventually(lambda: len(factory.connections) == 2, timeout=1.5)
+    async def sleep(delay: float) -> None:
+        task = asyncio.current_task()
+        if task is not None and task.get_name().startswith("teams-socket-mode-refresh-"):
+            refresh_delays.put_nowait(delay)
+            await release_refresh.wait()
+            release_refresh.clear()
+        else:
+            await original_sleep(delay)
 
-    assert transport.status == SocketModeStatus.READY
-    assert disconnected == []
-    assert reconnected == []
-    await transport.stop()
+    async def open_socket(_: str) -> MockWebSocket:
+        nonlocal now
+        now += 30 if not sockets else 125
+        websocket = MockWebSocket()
+        sockets.append(websocket)
+        websocket.incoming.put_nowait(
+            encode_hub_message({}) + encode_hub_message({"type": 1, "target": "SocketReady", "arguments": [{}]})
+        )
+        return websocket
+
+    monkeypatch.setattr(geo_socket.asyncio, "sleep", sleep)
+    async with make_http_client() as client:
+        transport = SocketModeTransport(
+            SocketModeTransportOptions(
+                geos=("amer",), reconnect_delays=(0,), negotiate_base_url="https://botapi.example"
+            ),
+            get_bot_token=lambda: _token("token"),
+            on_activity=lambda _: _reply(),
+            http_client=client,
+            websocket_factory=open_socket,
+            callbacks=SocketModeCallbacks(
+                on_disconnected=lambda geo, _, terminal: disconnected.append(geo),
+                on_reconnected=reconnected.append,
+            ),
+        )
+        try:
+            await transport.start()
+            assert await asyncio.wait_for(refresh_delays.get(), 1) == 30
+            now = 1060.0
+            release_refresh.set()
+            assert await asyncio.wait_for(refresh_delays.get(), 1) == 1
+            assert len(sockets) == 2
+            assert transport.status == SocketModeStatus.READY
+            assert disconnected == []
+            assert reconnected == []
+        finally:
+            await transport.stop()
 
 
 @pytest.mark.asyncio
@@ -497,22 +867,42 @@ async def test_planned_rotation_keeps_the_previous_connection_serving(monkeypatc
 
 
 @pytest.mark.asyncio
-async def test_retired_connection_closes_and_stops_dispatching_after_the_handoff(
-    monkeypatch: pytest.MonkeyPatch,
-):
-    monkeypatch.setattr(geo_socket, "CONNECTION_HANDOFF_SECONDS", 0.01)
-    factory = MockConnectionFactory()
-    factory.expires_in_seconds = 0.01
-    transport = await make_transport(factory)
-    await transport.start()
-    previous = factory.connections[0]
+async def test_retired_connection_closes_and_stops_dispatching_after_the_handoff():
+    release_start, replacement_ready = asyncio.Event(), asyncio.Event()
+    connections: list[MockConnection] = []
+    ready_at = 0.0
 
-    await _eventually(lambda: len(factory.connections) == 2, timeout=1.5)
-    await _eventually(lambda: previous.stopped >= 1, timeout=1.5)
+    class DelayedStartConnection(MockConnection):
+        async def start(self, stop_event: Optional[asyncio.Event] = None) -> None:
+            nonlocal ready_at
+            ready_at = asyncio.get_running_loop().time()
+            await super().start(stop_event)
+            replacement_ready.set()
+            await release_start.wait()
 
-    assert await _dispatch(previous, "after-handoff") is None
-    assert await _dispatch(factory.connections[1], "current") is not None
-    await transport.stop()
+    def factory(url: str, handlers: SocketConnectionHandlers) -> MockConnection:
+        connection = (
+            DelayedStartConnection(handlers) if connections else MockConnection(handlers, expires_in_seconds=0.01)
+        )
+        connections.append(connection)
+        return connection
+
+    transport = await make_transport(factory)  # type: ignore[arg-type]
+    try:
+        await transport.start()
+        previous = connections[0]
+        await asyncio.wait_for(replacement_ready.wait(), 2)
+        assert previous.stopped == 0
+        assert await _dispatch(previous, "during-grace") is not None
+        await asyncio.wait_for(previous.stop_entered.wait(), 6)
+        assert asyncio.get_running_loop().time() - ready_at >= 5
+        assert not release_start.is_set()
+        await _eventually(lambda: not transport._geos[0]._retiring)
+        assert await _dispatch(previous, "after-handoff") is None
+        assert await _dispatch(connections[1], "current") is not None
+    finally:
+        release_start.set()
+        await transport.stop()
 
 
 @pytest.mark.asyncio
@@ -786,11 +1176,12 @@ async def test_terminal_refresh_closes_active_and_retiring_connections(monkeypat
         await transport.stop()
 
 
-@pytest.mark.parametrize("status", [401, 403])
+@pytest.mark.parametrize("status", [401, 403, None], ids=["unauthorized", "forbidden", "retirement"])
 @pytest.mark.asyncio
-async def test_terminal_geo_cleanup_survives_concurrent_transport_stop(
+async def test_geo_cleanup_survives_concurrent_transport_stop(
     gated_socket_transport: tuple[SocketModeTransport, GatedCloseWebSocket, asyncio.Queue[httpx.Response]],
-    status: int,
+    status: Optional[int],
+    monkeypatch: pytest.MonkeyPatch,
 ):
     transport, websocket, responses = gated_socket_transport
     events: list[tuple[object, ...]] = []
@@ -801,7 +1192,22 @@ async def test_terminal_geo_cleanup_survives_concurrent_transport_stop(
     assert isinstance(active.connection, SignalRSocketConnection)
     listener, heartbeat = active.connection._listener, active.connection._heartbeat
     assert listener is not None and heartbeat is not None
-    responses.put_nowait(httpx.Response(status))
+    if status is None:
+        monkeypatch.setattr(geo_socket, "CONNECTION_HANDOFF_SECONDS", 0)
+        replacement = MockWebSocket()
+        replacement.incoming.put_nowait(
+            encode_hub_message({}) + encode_hub_message({"type": 1, "target": "SocketReady", "arguments": [{}]})
+        )
+
+        async def open_replacement(_: str) -> MockWebSocket:
+            return replacement
+
+        transport._websocket_factory = open_replacement
+        responses.put_nowait(
+            httpx.Response(200, json={"url": "wss://signalr.example/client", "accessToken": "fresh", "expiresIn": 3600})
+        )
+    else:
+        responses.put_nowait(httpx.Response(status))
     closed.set_result(geo_socket._CloseReason(planned=True))
     await asyncio.wait_for(websocket.close_started.wait(), 1)
 
@@ -822,11 +1228,18 @@ async def test_terminal_geo_cleanup_survives_concurrent_transport_stop(
     assert transport.status == SocketModeStatus.STOPPED
 
 
+@pytest.mark.parametrize("server_close", [False, True], ids=["local-stop", "server-close"])
 @pytest.mark.asyncio
 async def test_cancelled_stop_waiter_does_not_cancel_shared_socket_cleanup(
     gated_socket_transport: tuple[SocketModeTransport, GatedCloseWebSocket, asyncio.Queue[httpx.Response]],
+    server_close: bool,
 ):
     transport, websocket, _ = gated_socket_transport
+    if server_close:
+        websocket.incoming.put_nowait(
+            encode_hub_message({"type": 7, "error": "Socket mode is no longer enabled for this bot."})
+        )
+        await asyncio.wait_for(websocket.close_started.wait(), 1)
     first_stop = asyncio.create_task(transport.stop())
     await asyncio.wait_for(websocket.close_started.wait(), 1)
     first_stop.cancel()
