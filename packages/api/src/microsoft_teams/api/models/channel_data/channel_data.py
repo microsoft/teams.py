@@ -11,8 +11,10 @@ from ..custom_base_model import CustomBaseModel
 from ..meetings import MeetingInfo
 from .app_info import AppInfo
 from .channel_info import ChannelInfo
+from .chat_info import ChatInfo
 from .feedback_loop import FeedbackLoop
 from .notification_info import NotificationInfo
+from .reply_chain_info import ReplyChainInfo
 from .settings import ChannelDataSettings
 from .team_info import TeamInfo
 from .tenant_info import TenantInfo
@@ -28,6 +30,22 @@ class ChannelData(CustomBaseModel):
 
     app: Optional[AppInfo] = None
     "Information about the app that sent the message."
+
+    chat: Optional[ChatInfo] = None
+    """
+    Information about the chat scope that contains the activity.
+
+    This API is in preview and may change in the future.
+    Diagnostic: ExperimentalTeamsThreading
+    """
+
+    reply_chain: Optional[ReplyChainInfo] = None
+    """
+    The reply chain (thread) the activity belongs to, identified by its root message.
+
+    This API is in preview and may change in the future.
+    Diagnostic: ExperimentalTeamsThreading
+    """
 
     event_type: Optional[str] = None
     "Type of event."
