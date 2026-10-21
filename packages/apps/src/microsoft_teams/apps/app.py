@@ -7,6 +7,7 @@ import asyncio
 import importlib.metadata
 import logging
 import os
+import warnings
 from typing import TYPE_CHECKING, Any, Awaitable, Callable, List, Optional, TypeVar, Union, Unpack, cast, overload
 
 from dependency_injector import providers
@@ -32,6 +33,7 @@ from microsoft_teams.api.auth.cloud_environment import PUBLIC
 from microsoft_teams.api.auth.cloud_environment import from_name as cloud_from_name
 from microsoft_teams.cards import AdaptiveCard
 from microsoft_teams.common import Client, ClientOptions, EventEmitter, LocalStorage
+from typing_extensions import deprecated
 
 if TYPE_CHECKING:
     from msgraph.graph_service_client import GraphServiceClient
@@ -77,6 +79,13 @@ load_dotenv(find_dotenv(usecwd=True))
 USER_AGENT = f"teams.py[apps]/{version}"
 
 logger = logging.getLogger(__name__)
+
+_TWO_ARGUMENT_REPLY_DEPRECATION = (
+    "The two-argument form `reply(conversation_id, activity)` is deprecated "
+    "and will be removed in a future release. "
+    "Use `send(conversation_id, activity)` for a top-level message, "
+    "or `reply(conversation_id, message_id, activity)` to reply in a reply chain (thread)."
+)
 
 
 class App(ActivityHandlerMixin):
@@ -360,9 +369,8 @@ class App(ActivityHandlerMixin):
     ) -> SentActivity:
         """Send an activity proactively to a conversation.
 
-        Sends to the exact conversation ID provided. For channel threads,
-        the conversation ID must include ``;messageid=`` - use :func:`to_threaded_conversation_id`
-        to construct it, or use :meth:`reply` which handles this automatically.
+        Sends to the exact conversation ID provided.
+        To reply in a reply chain (thread), use :meth:`reply`.
         """
 
         if not self._initialized:
@@ -431,6 +439,7 @@ class App(ActivityHandlerMixin):
     ) -> SentActivity: ...
 
     @overload
+    @deprecated(_TWO_ARGUMENT_REPLY_DEPRECATION)
     async def reply(
         self,
         conversation_id: str,
@@ -457,8 +466,12 @@ class App(ActivityHandlerMixin):
         supported for the given conversation type.
 
         **2-arg form** ``reply(conversation_id, activity)``:
-        Sends to the exact conversation ID provided - threaded if it contains
-        ``;messageid=``, flat otherwise.
+        Sends to the exact conversation ID provided.
+
+        .. deprecated::
+            The 2-arg form is deprecated and will be removed in a future release.
+            Use ``send(conversation_id, activity)`` for a top-level message,
+            or ``reply(conversation_id, message_id, activity)`` to reply in a reply chain.
 
         Args:
             conversation_id: The conversation ID
@@ -475,6 +488,7 @@ class App(ActivityHandlerMixin):
                 agentic_identity=agentic_identity,
             )
 
+        warnings.warn(_TWO_ARGUMENT_REPLY_DEPRECATION, DeprecationWarning, stacklevel=2)
         return await self.send(
             conversation_id,
             message_id,

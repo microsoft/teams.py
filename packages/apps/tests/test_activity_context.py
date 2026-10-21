@@ -6,6 +6,7 @@ Licensed under the MIT License.
 # pyright: basic
 
 import time
+import warnings
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from typing import Any, Generator
@@ -238,7 +239,8 @@ class TestActivityContextSendTargeted:
             service_url="https://service.example",
         )
 
-        await ctx.send("Cross-post", other_ref)
+        with pytest.warns(DeprecationWarning):
+            await ctx.send("Cross-post", other_ref)
 
         mock_sender.send.assert_called_once()
         sent_activity = mock_sender.send.call_args[0][0]
@@ -478,6 +480,44 @@ class TestActivityContextSend:
             service_url=ctx.conversation_ref.service_url,
             agentic_identity=recipient.agentic_identity,
         )
+
+
+class TestActivityContextSendConversationRef:
+    """Passing a conversation reference to ActivityContext.send() is deprecated but still works."""
+
+    @pytest.mark.asyncio
+    async def test_send_with_conversation_ref_warns_and_sends_to_that_conversation(self) -> None:
+        ctx, _ = _create_activity_context()
+        other_ref = ConversationReference(
+            bot=Account(id="bot-id", name="Test Bot"),
+            conversation=ConversationAccount(id="other-conversation"),
+            channel_id="msteams",
+            service_url="https://service.example",
+        )
+
+        with pytest.warns(
+            DeprecationWarning,
+            match=(
+                r"Use `App.send\(\)` to send to a different conversation\. "
+                r"`App.send\(\)` uses the service URL the app is configured with unless `service_url` is passed, "
+                r"unlike the context methods, which use the service URL of the conversation reference "
+                r"\(by default, the inbound activity's\)\."
+            ),
+        ):
+            await ctx.send("Hello", other_ref)
+
+        ctx.api.conversations.activities.assert_called_once_with("other-conversation")
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("args", [(), (None,)], ids=["omitted", "explicit-none"])
+    async def test_send_without_conversation_ref_does_not_warn(self, args: tuple[None, ...]) -> None:
+        ctx, _ = _create_activity_context()
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", DeprecationWarning)
+            await ctx.send("Hello", *args)
+
+        ctx.api.conversations.activities.assert_called_once_with("test-conversation")
 
 
 class TestActivityContextReply:

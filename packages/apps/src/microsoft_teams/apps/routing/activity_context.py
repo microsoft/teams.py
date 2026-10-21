@@ -6,6 +6,7 @@ Licensed under the MIT License.
 import base64
 import json
 import logging
+import warnings
 from dataclasses import dataclass
 from typing import (
     TYPE_CHECKING,
@@ -18,6 +19,7 @@ from typing import (
     Sequence,
     TypeGuard,
     TypeVar,
+    overload,
 )
 
 from httpx import HTTPStatusError
@@ -52,6 +54,7 @@ from microsoft_teams.cards import AdaptiveCard
 from microsoft_teams.common import Storage
 from microsoft_teams.common.experimental import experimental
 from microsoft_teams.common.http.client_token import Token
+from typing_extensions import deprecated
 
 from ..activity_send import send_or_update_activity
 from ..diagnostics._constants import (
@@ -79,6 +82,14 @@ if TYPE_CHECKING:
 
 T = TypeVar("T", bound=ActivityBase, contravariant=True)
 logger = logging.getLogger(__name__)
+
+CONVERSATION_REF_SEND_DEPRECATION = (
+    "Passing a conversation reference is deprecated and will be removed in a future release. "
+    "Use `App.send()` to send to a different conversation. "
+    "`App.send()` uses the service URL the app is configured with unless `service_url` is passed, "
+    "unlike the context methods, which use the service URL of the conversation reference "
+    "(by default, the inbound activity's)."
+)
 
 
 @dataclass
@@ -257,6 +268,17 @@ class ActivityContext(Generic[T]):
 
         return self._app_graph
 
+    @overload
+    async def send(self, message: str | ActivityParams | AdaptiveCard) -> SentActivity: ...
+
+    @overload
+    @deprecated(CONVERSATION_REF_SEND_DEPRECATION)
+    async def send(
+        self,
+        message: str | ActivityParams | AdaptiveCard,
+        conversation_ref: Optional[ConversationReference] = None,
+    ) -> SentActivity: ...
+
     async def send(
         self,
         message: str | ActivityParams | AdaptiveCard,
@@ -270,8 +292,24 @@ class ActivityContext(Generic[T]):
 
         Args:
             message: The message to send, can be a string, ActivityParams, or AdaptiveCard
-            conversation_ref: Optional conversation reference to send to a different conversation or thread
+            conversation_ref: Conversation reference to send to a different conversation.
+
+                .. deprecated::
+                    Passing a conversation reference is deprecated and will be removed in a future release.
+                    Use ``App.send()`` to send to a different conversation.
+                    ``App.send()`` uses the service URL the app is configured with unless ``service_url`` is passed,
+                    unlike the context methods, which use the service URL of the conversation reference
+                    (by default, the inbound activity's).
         """
+        if conversation_ref is not None:
+            warnings.warn(CONVERSATION_REF_SEND_DEPRECATION, DeprecationWarning, stacklevel=2)
+        return await self._send(message, conversation_ref)
+
+    async def _send(
+        self,
+        message: str | ActivityParams | AdaptiveCard,
+        conversation_ref: Optional[ConversationReference] = None,
+    ) -> SentActivity:
         if isinstance(message, str):
             activity = MessageActivityInput(text=message)
         elif isinstance(message, AdaptiveCard):
@@ -499,7 +537,7 @@ class ActivityContext(Generic[T]):
             )
             if self.state is not None:
                 await self.state._save()  # pyright: ignore[reportPrivateUsage]
-            await self.send(payload, self.conversation_ref)
+            await self.send(payload)
         except Exception:
             # Best-effort rollback: the card never went out, so the pending hint must not
             # linger and mis-route a later callback. A failure here must not replace the
