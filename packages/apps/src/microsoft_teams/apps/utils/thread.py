@@ -6,8 +6,7 @@ Licensed under the MIT License.
 
 def to_threaded_conversation_id(conversation_id: str, message_id: str) -> str:
     """Construct a threaded conversation ID by appending `;messageid={message_id}`
-    to the conversation ID. This is the format the service uses to route messages
-    to a specific thread.
+    to the conversation ID.
 
     Args:
         conversation_id: The conversation to thread into (e.g. `19:abc@thread.skype`)
@@ -15,6 +14,9 @@ def to_threaded_conversation_id(conversation_id: str, message_id: str) -> str:
 
     Returns:
         The threaded conversation ID (e.g. `19:abc@thread.skype;messageid=123`)
+
+    Sending to the result of this function posts to the reply chain (thread) of `message_id`.
+    `App.reply()` posts to the `replyChains` route.
     """
     if not conversation_id:
         raise ValueError("conversation_id must be a non-empty string")
