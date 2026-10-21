@@ -247,6 +247,8 @@ class SignalRSocketConnection:
         and safe to call from inside one of those tasks -- the current task is never
         cancelled by its own cleanup.
         """
+        if self._close_task is not None and asyncio.current_task() in self._inflight:
+            return
         if self._close_task is None:
             if self._stop_event.is_set() and self._websocket is None:
                 return
