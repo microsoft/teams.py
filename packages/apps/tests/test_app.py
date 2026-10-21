@@ -8,6 +8,7 @@ import asyncio
 import importlib.metadata
 import os
 import re
+import warnings
 from typing import Any, Optional
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -1246,9 +1247,21 @@ class TestAppReply:
 
     @pytest.mark.asyncio
     async def test_reply_with_two_args_passes_conversation_id_as_is(self, started_app):
-        await started_app.reply("19:abc@thread.skype", "Hello flat")
+        with pytest.warns(DeprecationWarning):
+            await started_app.reply("19:abc@thread.skype", "Hello flat")
 
         started_app.api.conversations.activities.assert_called_once_with("19:abc@thread.skype")
+
+    @pytest.mark.asyncio
+    async def test_reply_with_two_args_is_deprecated(self, started_app):
+        with pytest.warns(DeprecationWarning, match=r"Use `send\(conversation_id, activity\)` for a top-level message"):
+            await started_app.reply("19:abc@thread.skype", "Hello flat")
+
+    @pytest.mark.asyncio
+    async def test_reply_with_three_args_does_not_warn(self, started_app):
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", DeprecationWarning)
+            await started_app.reply("19:abc@thread.skype", "123", "Hello")
 
     @pytest.mark.asyncio
     async def test_reply_with_two_args_passes_service_url_and_agentic_identity_to_scoped_api(self, started_app):
@@ -1260,12 +1273,13 @@ class TestAppReply:
         )
         service_url = "https://override.service.url"
 
-        await started_app.reply(
-            "19:abc@thread.skype",
-            "Hello flat",
-            service_url=service_url,
-            agentic_identity=agentic_identity,
-        )
+        with pytest.warns(DeprecationWarning):
+            await started_app.reply(
+                "19:abc@thread.skype",
+                "Hello flat",
+                service_url=service_url,
+                agentic_identity=agentic_identity,
+            )
 
         started_app.api.conversations.activities.assert_called_once_with("19:abc@thread.skype")
         started_app.api.clone.assert_called_once_with(
@@ -1279,8 +1293,9 @@ class TestAppReply:
         assert create.call_args.kwargs == {}
 
     @pytest.mark.asyncio
-    async def test_reply_with_pre_constructed_threaded_id(self, started_app):
-        await started_app.reply("19:abc@thread.skype;messageid=123", "Hello")
+    async def test_reply_with_two_args_sends_to_a_conversation_id_that_carries_a_suffix_unchanged(self, started_app):
+        with pytest.warns(DeprecationWarning):
+            await started_app.reply("19:abc@thread.skype;messageid=123", "Hello")
 
         started_app.api.conversations.activities.assert_called_once_with("19:abc@thread.skype;messageid=123")
 
@@ -1294,7 +1309,7 @@ class TestAppReply:
         options = AppOptions(client_id="test-client-id", client_secret="test-secret")
         app = App(**options)
 
-        with pytest.raises(ValueError, match="app not initialized"):
+        with pytest.warns(DeprecationWarning), pytest.raises(ValueError, match="app not initialized"):
             await app.reply("conv-id", "Hello")
 
 
