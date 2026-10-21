@@ -16,6 +16,7 @@ import pytest
 from httpx import ConnectError, HTTPStatusError, Request, Response
 from microsoft_teams.api import (
     Account,
+    ChannelData,
     ConversationAccount,
     ConversationReference,
     MessageActivity,
@@ -518,6 +519,272 @@ class TestActivityContextSendConversationRef:
             await ctx.send("Hello", *args)
 
         ctx.api.conversations.activities.assert_called_once_with("test-conversation")
+
+
+CHAT_ID = "19:user_bot@unq.gbl.spaces"
+CHANNEL_ID = "19:channel@thread.tacv2"
+
+
+def _inbound_message(
+    activity_id: str,
+    channel_data: dict[str, Any],
+    conversation_id: str = "test-conversation",
+    conversation_type: str | None = None,
+):
+    return MessageActivity(
+        id=activity_id,
+        text="Incoming message",
+        from_=Account(id="user-id", name="Test User"),
+        recipient=Account(id="bot-id", name="Test Bot"),
+        conversation=ConversationAccount(id=conversation_id, conversation_type=conversation_type),
+        channel_data=ChannelData.model_validate(channel_data),
+    )
+
+
+def _context_with_reply_chain_methods(activity: Any) -> ActivityContext[Any]:
+    ctx, _ = _create_activity_context(activity=activity)
+    ctx.api.conversations._create_reply_chain_activity = AsyncMock(
+        return_value=SentActivity(id="reply-id", activity_params=MessageActivityInput(text="sent"))
+    )
+    ctx.api.conversations._create_targeted_reply_chain_activity = AsyncMock(
+        return_value=SentActivity(id="targeted-reply-id", activity_params=MessageActivityInput(text="sent"))
+    )
+    return ctx
+
+
+class TestActivityContextReplyChainPlacement:
+    """The default placement of a send reads the reply chain from the inbound payload."""
+
+    @pytest.mark.asyncio
+    async def test_replies_in_the_reply_chain_when_the_inbound_is_inside_one(self) -> None:
+        ctx = _context_with_reply_chain_methods(
+            _inbound_message("reply-2", {"chat": {"id": CHAT_ID}, "replyChain": {"id": "root-1"}})
+        )
+
+        result = await ctx.send("hi")
+
+        assert result.id == "reply-id"
+        reply = ctx.api.conversations._create_reply_chain_activity
+        reply.assert_called_once()
+        assert reply.call_args.args[:2] == (CHAT_ID, "root-1")
+        sent = reply.call_args.args[2]
+        assert sent.text == "hi"
+        assert sent.conversation.id == CHAT_ID
+        ctx.api.conversations.create_activity.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_sends_to_the_inbound_conversation_in_a_group_chat_even_when_the_payload_has_both_ids(self) -> None:
+        ctx = _context_with_reply_chain_methods(
+            _inbound_message(
+                "reply-2",
+                {"chat": {"id": CHAT_ID}, "replyChain": {"id": "root-1"}},
+                conversation_type="groupChat",
+            )
+        )
+
+        await ctx.send("hi")
+
+        ctx.api.conversations.create_activity.assert_called_once()
+        assert ctx.api.conversations.create_activity.call_args.args[0] == "test-conversation"
+        ctx.api.conversations._create_reply_chain_activity.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_sends_to_the_inbound_conversation_in_a_meeting_chat_even_when_the_payload_has_both_ids(self) -> None:
+        ctx = _context_with_reply_chain_methods(
+            _inbound_message(
+                "reply-2",
+                {"chat": {"id": CHAT_ID}, "replyChain": {"id": "root-1"}, "meeting": {"id": "meeting-1"}},
+                conversation_type="groupChat",
+            )
+        )
+
+        await ctx.send("hi")
+
+        ctx.api.conversations.create_activity.assert_called_once()
+        assert ctx.api.conversations.create_activity.call_args.args[0] == "test-conversation"
+        ctx.api.conversations._create_reply_chain_activity.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_places_a_reply_in_a_personal_chat(self) -> None:
+        ctx = _context_with_reply_chain_methods(
+            _inbound_message(
+                "reply-2",
+                {"chat": {"id": CHAT_ID}, "replyChain": {"id": "root-1"}},
+                conversation_type="personal",
+            )
+        )
+
+        await ctx.send("hi")
+
+        assert ctx.api.conversations._create_reply_chain_activity.call_args.args[:2] == (CHAT_ID, "root-1")
+
+    @pytest.mark.asyncio
+    async def test_keeps_the_inbound_agentic_user_when_replying_in_the_reply_chain(self) -> None:
+        recipient = Account(
+            id="bot-id",
+            name="Test Bot",
+            agentic_app_blueprint_id="blueprint-id",
+            agentic_app_id="agentic-app-id",
+            agentic_user_id="agentic-user-id",
+            tenant_id="tenant-id",
+        )
+        inbound = _inbound_message("reply-2", {"chat": {"id": CHAT_ID}, "replyChain": {"id": "root-1"}}).model_copy(
+            update={"recipient": recipient}
+        )
+        ctx = _context_with_reply_chain_methods(inbound)
+
+        await ctx.send("hi")
+
+        assert recipient.agentic_identity is not None
+        ctx.api.clone.assert_called_once_with(
+            service_url=ctx.conversation_ref.service_url,
+            agentic_identity=recipient.agentic_identity,
+        )
+        ctx.api.conversations._create_reply_chain_activity.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_sends_to_the_inbound_conversation_for_a_top_level_message(self) -> None:
+        ctx = _context_with_reply_chain_methods(
+            _inbound_message("root-1", {"chat": {"id": CHAT_ID}, "replyChain": {"id": "root-1"}})
+        )
+
+        await ctx.send("hi")
+
+        ctx.api.conversations.create_activity.assert_called_once()
+        assert ctx.api.conversations.create_activity.call_args.args[0] == "test-conversation"
+        ctx.api.conversations._create_reply_chain_activity.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_sends_to_the_inbound_conversation_when_the_payload_has_no_reply_chain(self) -> None:
+        ctx = _context_with_reply_chain_methods(_inbound_message("m-1", {"chat": {"id": CHAT_ID}}))
+
+        await ctx.send("hi")
+
+        assert ctx.api.conversations.create_activity.call_args.args[0] == "test-conversation"
+        ctx.api.conversations._create_reply_chain_activity.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_sends_to_the_inbound_conversation_when_the_chat_id_is_missing(self) -> None:
+        ctx = _context_with_reply_chain_methods(_inbound_message("reply-2", {"replyChain": {"id": "root-1"}}))
+
+        await ctx.send("hi")
+
+        assert ctx.api.conversations.create_activity.call_args.args[0] == "test-conversation"
+        ctx.api.conversations._create_reply_chain_activity.assert_not_called()
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("activity_id", "channel_data"),
+        [
+            ("reply-2", {"channel": {"id": CHANNEL_ID}}),
+            ("root-1", {"channel": {"id": CHANNEL_ID}, "replyChain": {"id": "root-1"}}),
+            ("reply-2", {"channel": {"id": CHANNEL_ID}, "replyChain": {"id": "root-1"}}),
+            ("reply-2", {"replyChain": {"id": "root-1"}}),
+        ],
+    )
+    async def test_sends_to_the_inbound_conversation_in_a_channel(self, activity_id, channel_data) -> None:
+        suffixed = f"{CHANNEL_ID};messageid=root-1"
+        ctx = _context_with_reply_chain_methods(_inbound_message(activity_id, channel_data, suffixed))
+        ctx.conversation_ref.conversation.id = suffixed
+
+        await ctx.send("hi")
+
+        ctx.api.conversations.create_activity.assert_called_once()
+        assert ctx.api.conversations.create_activity.call_args.args[0] == suffixed
+        ctx.api.conversations._create_reply_chain_activity.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_does_not_place_an_update_of_an_existing_message(self) -> None:
+        ctx = _context_with_reply_chain_methods(
+            _inbound_message("reply-2", {"chat": {"id": CHAT_ID}, "replyChain": {"id": "root-1"}})
+        )
+        edited = MessageActivityInput(text="edited")
+        edited.id = "existing-1"
+
+        await ctx.send(edited)
+
+        ctx.api.conversations.update_activity.assert_called_once()
+        assert ctx.api.conversations.update_activity.call_args.args[:2] == ("test-conversation", "existing-1")
+        ctx.api.conversations._create_reply_chain_activity.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_does_not_place_a_typing_activity(self) -> None:
+        ctx = _context_with_reply_chain_methods(
+            _inbound_message("reply-2", {"chat": {"id": CHAT_ID}, "replyChain": {"id": "root-1"}})
+        )
+
+        await ctx.send(TypingActivityInput())
+
+        ctx.api.conversations.create_activity.assert_called_once()
+        ctx.api.conversations._create_reply_chain_activity.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_does_not_place_a_send_to_a_different_conversation(self) -> None:
+        ctx = _context_with_reply_chain_methods(
+            _inbound_message("reply-2", {"chat": {"id": CHAT_ID}, "replyChain": {"id": "root-1"}})
+        )
+        other_ref = ConversationReference(
+            bot=Account(id="bot-id", name="Test Bot"),
+            conversation=ConversationAccount(id="other-conversation"),
+            channel_id="msteams",
+            service_url="https://service.example",
+        )
+
+        with pytest.warns(DeprecationWarning):
+            await ctx.send("hi", other_ref)
+
+        assert ctx.api.conversations.create_activity.call_args.args[0] == "other-conversation"
+        ctx.api.conversations._create_reply_chain_activity.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_places_a_send_that_names_the_inbound_conversation(self) -> None:
+        ctx = _context_with_reply_chain_methods(
+            _inbound_message("reply-2", {"chat": {"id": CHAT_ID}, "replyChain": {"id": "root-1"}})
+        )
+
+        with pytest.warns(DeprecationWarning):
+            await ctx.send("hi", ctx.conversation_ref)
+
+        assert ctx.api.conversations._create_reply_chain_activity.call_args.args[:2] == (CHAT_ID, "root-1")
+
+    @pytest.mark.asyncio
+    async def test_replies_with_a_targeted_activity_in_the_reply_chain(self) -> None:
+        ctx = _context_with_reply_chain_methods(
+            _inbound_message("reply-2", {"chat": {"id": CHAT_ID}, "replyChain": {"id": "root-1"}})
+        )
+        activity = MessageActivityInput(text="hi").with_recipient(
+            Account(id="user-id", name="Test User", role="user"), is_targeted=True
+        )
+
+        result = await ctx.send(activity)
+
+        assert result.id == "targeted-reply-id"
+        assert ctx.api.conversations._create_targeted_reply_chain_activity.call_args.args[:2] == (CHAT_ID, "root-1")
+        ctx.api.conversations._create_reply_chain_activity.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_keeps_the_quote_when_replying_inside_a_reply_chain(self) -> None:
+        ctx = _context_with_reply_chain_methods(
+            _inbound_message("reply-2", {"chat": {"id": CHAT_ID}, "replyChain": {"id": "root-1"}})
+        )
+
+        await ctx.reply("hi")
+
+        reply = ctx.api.conversations._create_reply_chain_activity
+        assert reply.call_args.args[:2] == (CHAT_ID, "root-1")
+        sent = reply.call_args.args[2]
+        assert sent.entities is not None
+        assert any(isinstance(entity, QuotedReplyEntity) for entity in sent.entities)
+
+    @pytest.mark.asyncio
+    async def test_does_not_modify_the_conversation_reference_of_the_context(self) -> None:
+        ctx = _context_with_reply_chain_methods(
+            _inbound_message("reply-2", {"chat": {"id": CHAT_ID}, "replyChain": {"id": "root-1"}})
+        )
+
+        await ctx.send("hi")
+
+        assert ctx.conversation_ref.conversation.id == "test-conversation"
 
 
 class TestActivityContextReply:
