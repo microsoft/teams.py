@@ -241,6 +241,13 @@ class SignalRSocketConnection:
             await self.stop()
             raise
 
+    def detach_activity(self, task: asyncio.Task[None]) -> bool:
+        if task not in self._inflight:
+            return False
+        del self._inflight[task]
+        self._inflight_changed.set()
+        return True
+
     async def stop(self) -> None:
         """
         Close the socket and cancel listener, heartbeat, and activity tasks. Safe to call repeatedly,
@@ -258,10 +265,11 @@ class SignalRSocketConnection:
             current = asyncio.current_task()
             internal_tasks = [
                 task
-                for task in (self._heartbeat, self._listener, *self._inflight)
+                for task in (self._heartbeat, self._listener)
                 if task is not None and task is not current and not task.done()
             ]
-            for task in internal_tasks:
+            activity_tasks = [task for task in self._inflight if task is not current]
+            for task in (*internal_tasks, *activity_tasks):
                 task.cancel()
             self._heartbeat = None
             self._listener = None
@@ -277,16 +285,27 @@ class SignalRSocketConnection:
                         logger.debug("Failed to close Socket Mode WebSocket", exc_info=error)
                 if internal_tasks:
                     await asyncio.gather(*internal_tasks, return_exceptions=True)
+                # A cancelled activity can request app shutdown from its finally block.
+                while any(task in self._inflight for task in activity_tasks):
+                    self._inflight_changed.clear()
+                    await self._inflight_changed.wait()
                 for future in (self._handshake, self._ready):
                     if future is not None and not future.done():
                         future.cancel()
 
             self._close_task = asyncio.create_task(cleanup(), name="teams-socket-mode-close")
-        try:
-            await asyncio.shield(self._close_task)
-        except asyncio.CancelledError:
-            await self._close_task
-            raise
+        cancellation: Optional[asyncio.CancelledError] = None
+        while True:
+            try:
+                await asyncio.shield(self._close_task)
+                break
+            except asyncio.CancelledError as error:
+                if self._close_task.cancelled():
+                    raise
+                if cancellation is None:
+                    cancellation = error
+        if cancellation is not None:
+            raise cancellation
 
     async def _listen(self) -> None:
         """

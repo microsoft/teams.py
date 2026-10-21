@@ -22,6 +22,7 @@ from dataclasses import dataclass
 from time import monotonic
 from typing import Optional, Protocol
 
+from .connection import SignalRSocketConnection
 from .types import (
     ReplyFrame,
     SocketActivityEnvelope,
@@ -131,7 +132,7 @@ class GeoSocket:
         so a rotation does not drop activities the service routed to the old connection id.
         Anything older, or anything arriving once the transport stops accepting, is refused.
         """
-        if not self._owner.accepting:
+        if not self._owner.accepting or self._stop_task is not None:
             return False
         active = self._active
         return (active is not None and active.generation == generation) or generation in self._retiring
@@ -200,6 +201,14 @@ class GeoSocket:
                 name=f"teams-socket-mode-supervisor-{self.geo or 'default'}",
             )
 
+    def detach_activity(self, task: asyncio.Task[None]) -> bool:
+        active = self._active
+        connections = ([active.connection] if active is not None else []) + list(self._retiring.values())
+        return any(
+            isinstance(connection, SignalRSocketConnection) and connection.detach_activity(task)
+            for connection in connections
+        )
+
     async def stop(self) -> None:
         """Tear down the refresh timer, every owned connection, and the supervisor."""
         caller = asyncio.current_task()
@@ -225,13 +234,13 @@ class GeoSocket:
 
         active = self._active
         connections = ([active.connection] if active is not None else []) + list(self._retiring.values())
-        self._active = None
-        self._retiring.clear()
         for connection in connections:
             try:
                 await connection.stop()
             except Exception as error:
                 self._logger.debug("socket-mode[%s]: connection stop failed", self.geo, exc_info=error)
+        self._active = None
+        self._retiring.clear()
 
         if supervisor is not None and not supervisor.done():
             supervisor.cancel()
@@ -313,7 +322,7 @@ class GeoSocket:
             raise
 
         active = self._active
-        if active is None or active.generation != generation:
+        if self._stop_task is not None or active is None or active.generation != generation:
             await connection.stop()
             raise ConnectionError("Socket Mode connection started without satisfying SocketReady")
         self._schedule_refresh(

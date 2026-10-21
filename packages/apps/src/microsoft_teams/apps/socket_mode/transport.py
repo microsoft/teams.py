@@ -135,6 +135,7 @@ class SocketModeTransport:
         self._stop_event.set()
         self._geos: list[GeoSocket] = []
         self._lifecycle_lock = asyncio.Lock()
+        self._shutdown_activities: set[asyncio.Task[None]] = set()
 
     @property
     def status(self) -> SocketModeStatus:
@@ -236,6 +237,11 @@ class SocketModeTransport:
         Stop every geo. Idempotent, and serialized against ``start()`` so the two cannot
         interleave.
         """
+        caller = asyncio.current_task()
+        if caller is not None and any(geo.detach_activity(caller) for geo in self._geos):
+            # The caller must finish App.stop, not be cancelled or joined by socket cleanup.
+            self._shutdown_activities.add(caller)
+            caller.add_done_callback(self._shutdown_activities.discard)
         # Signalled before queueing on the lock: start() holds it for the whole initial
         # connect, so a stop that waited for the lock could not interrupt the startup it
         # is trying to cancel.
@@ -246,6 +252,11 @@ class SocketModeTransport:
             self._stop_event.set()
             await asyncio.gather(*(geo.stop() for geo in self._geos), return_exceptions=True)
             self._lifecycle = SocketModeStatus.STOPPED
+
+    async def wait_for_shutdown(self) -> None:
+        await self.stop()
+        while self._shutdown_activities:
+            await asyncio.wait(self._shutdown_activities)
 
     def create_connection(
         self,
