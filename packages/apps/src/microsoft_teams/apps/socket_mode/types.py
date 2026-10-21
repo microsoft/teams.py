@@ -120,7 +120,7 @@ class ReplyFrame(BaseModel):
 
 @dataclass(frozen=True)
 class SocketConnectionHandlers:
-    """Lets a connection drive its supervisor without knowing what the supervisor is."""
+    """Callbacks shared by a connection and its supervisor."""
 
     on_activity: Callable[[SocketActivityEnvelope], Awaitable[Optional[ReplyFrame]]]
     """Returns the frame to reply with, or ``None`` to send nothing."""
@@ -129,6 +129,9 @@ class SocketConnectionHandlers:
     on_closed: Callable[[Optional[Exception]], None]
     """Fired exactly once; the connection is terminal afterwards."""
 
+    get_connection_id_to_replace: Optional[Callable[[], Optional[str]]] = None
+    """Resolved just before service negotiate, after acquiring the bot token."""
+
 
 class SocketConnection(Protocol):
     """
@@ -136,6 +139,24 @@ class SocketConnection(Protocol):
     reconnects itself: on close it reports ``on_closed`` and becomes terminal, leaving the
     supervisor to decide whether to build a fresh one.
     """
+
+    @property
+    def is_open(self) -> bool: ...
+
+    @property
+    def is_token_expired(self) -> bool:
+        """Whether the negotiated lifetime has elapsed since receipt, regardless of socket state."""
+        ...
+
+    @property
+    def token_expires_at(self) -> Optional[float]:
+        """Monotonic expiry deadline, or ``None`` for connections exposing only a lifetime."""
+        ...
+
+    @property
+    def connection_id(self) -> Optional[str]:
+        """Server-provided SocketReady identity, or ``None`` if unknown; retained after close."""
+        ...
 
     @property
     def expires_in_seconds(self) -> Optional[float]:
@@ -151,6 +172,10 @@ class SocketConnection(Protocol):
 
     async def stop(self) -> None:
         """Close the connection. Safe to call more than once."""
+        ...
+
+    async def wait_for_drain(self, not_before: float) -> None:
+        """Wait through the monotonic cache grace and any remaining in-flight reply deadlines."""
         ...
 
 

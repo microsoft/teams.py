@@ -12,15 +12,17 @@ Licensed under the MIT License.
 #
 # A credential refresh is a *make-before-break* swap: the live connection keeps serving
 # while its replacement negotiates and reaches ``SocketReady``. Only then is the old one
-# retired, and even then it stays open briefly because the service can keep routing to a
-# cached connection id for a short window after the handoff. Dispatch is therefore allowed
-# from the active generation and from any still-retiring one; everything else is refused.
+# retired, and even then it stays open through the routing-cache grace and outstanding
+# reply deadlines. Dispatch is allowed from the active generation and from any
+# still-retiring one; everything else is refused.
 
 import asyncio
 import logging
 from dataclasses import dataclass
+from time import monotonic
 from typing import Optional, Protocol
 
+from .connection import SignalRSocketConnection
 from .types import (
     ReplyFrame,
     SocketActivityEnvelope,
@@ -83,14 +85,15 @@ class _CloseReason:
     error: Optional[Exception] = None
 
 
-@dataclass(frozen=True)
+@dataclass
 class _ActiveConnection:
     generation: int
     connection: SocketConnection
+    retired_at: Optional[float] = None
 
 
 CONNECTION_HANDOFF_SECONDS = 5.0
-"""How long a superseded connection stays open so cached routing to it can drain."""
+"""Minimum grace for cached routing before a superseded connection finishes draining."""
 
 
 class GeoSocket:
@@ -125,11 +128,11 @@ class GeoSocket:
         """
         Whether an activity from ``generation`` may still be handled.
 
-        Accepts the active connection and any predecessor still inside its handoff window,
+        Accepts the active connection and any predecessor still draining,
         so a rotation does not drop activities the service routed to the old connection id.
         Anything older, or anything arriving once the transport stops accepting, is refused.
         """
-        if not self._owner.accepting:
+        if not self._owner.accepting or self._stop_task is not None:
             return False
         active = self._active
         return (active is not None and active.generation == generation) or generation in self._retiring
@@ -198,6 +201,14 @@ class GeoSocket:
                 name=f"teams-socket-mode-supervisor-{self.geo or 'default'}",
             )
 
+    def detach_activity(self, task: asyncio.Task[None]) -> bool:
+        active = self._active
+        connections = ([active.connection] if active is not None else []) + list(self._retiring.values())
+        return any(
+            isinstance(connection, SignalRSocketConnection) and connection.detach_activity(task)
+            for connection in connections
+        )
+
     async def stop(self) -> None:
         """Tear down the refresh timer, every owned connection, and the supervisor."""
         caller = asyncio.current_task()
@@ -223,13 +234,13 @@ class GeoSocket:
 
         active = self._active
         connections = ([active.connection] if active is not None else []) + list(self._retiring.values())
-        self._active = None
-        self._retiring.clear()
         for connection in connections:
             try:
                 await connection.stop()
             except Exception as error:
                 self._logger.debug("socket-mode[%s]: connection stop failed", self.geo, exc_info=error)
+        self._active = None
+        self._retiring.clear()
 
         if supervisor is not None and not supervisor.done():
             supervisor.cancel()
@@ -240,7 +251,7 @@ class GeoSocket:
         self._generation += 1
         return self._generation
 
-    async def _connect_cycle(self, generation: int) -> asyncio.Future[_CloseReason]:
+    async def _connect_cycle(self, generation: int, *, keep_serving: bool = False) -> asyncio.Future[_CloseReason]:
         """
         Build and start one connection, returning the future that resolves when it closes.
 
@@ -250,6 +261,18 @@ class GeoSocket:
         """
         loop = asyncio.get_running_loop()
         closed: asyncio.Future[_CloseReason] = loop.create_future()
+        previous = self._active if keep_serving else None
+
+        def get_connection_id_to_replace() -> Optional[str]:
+            if (
+                previous is not None
+                and self._owner.accepting
+                and self._active is previous
+                and previous.connection.is_open
+                and not previous.connection.is_token_expired
+            ):
+                return previous.connection.connection_id
+            return None
 
         async def on_activity(envelope: SocketActivityEnvelope) -> Optional[ReplyFrame]:
             return await self._owner.dispatch(self, generation, envelope)
@@ -261,7 +284,9 @@ class GeoSocket:
             # rather than dropping it, so in-flight routing to the old id still lands.
             active = self._active
             if active is not None and active.generation != generation:
+                active.retired_at = monotonic()
                 self._retiring[active.generation] = active.connection
+                self._schedule_retire(active)
             self._active = _ActiveConnection(generation=generation, connection=connection)
             self._status = SocketModeStatus.READY
             self._owner.geo_ready(self.geo, frame)
@@ -284,6 +309,7 @@ class GeoSocket:
             on_activity=on_activity,
             on_ready=on_ready,
             on_closed=on_closed,
+            get_connection_id_to_replace=get_connection_id_to_replace if previous is not None else None,
         )
         connection = self._owner.create_connection(self._negotiate_url, handlers)
         try:
@@ -296,10 +322,15 @@ class GeoSocket:
             raise
 
         active = self._active
-        if active is None or active.generation != generation:
+        if self._stop_task is not None or active is None or active.generation != generation:
             await connection.stop()
             raise ConnectionError("Socket Mode connection started without satisfying SocketReady")
-        self._schedule_refresh(generation, connection.expires_in_seconds, closed)
+        self._schedule_refresh(
+            generation,
+            connection.expires_in_seconds,
+            closed,
+            token_expires_at=getattr(connection, "token_expires_at", None),
+        )
         return closed
 
     async def _supervise(self) -> None:
@@ -330,12 +361,7 @@ class GeoSocket:
                 return
             closed = next_closed
             self._status = SocketModeStatus.READY
-            if (
-                reason.planned
-                and previous is not None
-                and self._retiring.get(previous.generation) is previous.connection
-            ):
-                self._schedule_retire(previous)
+            if reason.planned and previous is not None and previous.retired_at is not None:
                 self._logger.info("socket-mode[%s]: token rotated; inbound delivery continues for this geo", self.geo)
             else:
                 # Either an unplanned drop, or a rotation whose predecessor died before the
@@ -362,16 +388,17 @@ class GeoSocket:
         task.add_done_callback(self._retire_tasks.discard)
 
     async def _retire(self, previous: _ActiveConnection) -> None:
-        """Close a superseded connection once its handoff window has elapsed."""
-        if not await self._owner.sleep(CONNECTION_HANDOFF_SECONDS):
+        """Close a superseded connection after the cache grace and bounded reply drain."""
+        assert previous.retired_at is not None
+        await previous.connection.wait_for_drain(previous.retired_at + CONNECTION_HANDOFF_SECONDS)
+        if self._retiring.get(previous.generation) is not previous.connection or not previous.connection.is_open:
             return
-        if self._retiring.get(previous.generation) is not previous.connection:
-            return
-        del self._retiring[previous.generation]
         try:
             await previous.connection.stop()
         except Exception as error:
             self._logger.debug("socket-mode[%s]: retired connection cleanup failed", self.geo, exc_info=error)
+        finally:
+            self._retiring.pop(previous.generation, None)
 
     async def _wait_for_close(self, closed: asyncio.Future[_CloseReason]) -> Optional[_CloseReason]:
         stop_wait = asyncio.create_task(self._owner.stop_event.wait())
@@ -402,7 +429,7 @@ class GeoSocket:
                 self._status = SocketModeStatus.CONNECTING
             generation = self._next_generation()
             try:
-                return await self._connect_cycle(generation)
+                return await self._connect_cycle(generation, keep_serving=keep_serving)
             except asyncio.CancelledError:
                 raise
             except Exception as error:
@@ -434,6 +461,8 @@ class GeoSocket:
         generation: int,
         expires_in_seconds: Optional[float],
         closed: asyncio.Future[_CloseReason],
+        *,
+        token_expires_at: Optional[float] = None,
     ) -> None:
         """
         Arrange to replace the connection shortly before its credential expires.
@@ -442,9 +471,13 @@ class GeoSocket:
         disconnect, turning a forced auth failure into a routine swap.
         """
         self._cancel_refresh()
-        if expires_in_seconds is None or expires_in_seconds <= 0:
+        if token_expires_at is not None:
+            remaining = token_expires_at - monotonic()
+        elif expires_in_seconds is not None and expires_in_seconds > 0:
+            remaining = expires_in_seconds
+        else:
             return
-        delay = max(expires_in_seconds - self._owner.token_refresh_margin, 1.0)
+        delay = max(remaining - self._owner.token_refresh_margin, 1.0)
 
         async def refresh() -> None:
             try:
