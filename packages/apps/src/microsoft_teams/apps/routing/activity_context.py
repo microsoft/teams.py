@@ -304,8 +304,9 @@ class ActivityContext(Generic[T]):
     ) -> SentActivity:
         """Send a message in the current conversation without quoting.
 
-        In channels, sends to the current thread. In scopes that do not
-        support threading (group chat, meetings), sends as a normal message.
+        In channels, sends to the current reply chain (thread). In scopes that do not
+        support threading (group chat, meetings), sends as a top-level message.
+        When the inbound message is inside a reply chain (thread) in a 1:1 chat, sends into that reply chain (thread).
         To send with a visual quote of the inbound message, use :meth:`reply`.
 
         Args:
@@ -341,6 +342,17 @@ class ActivityContext(Generic[T]):
         self._add_targeted_message_info_entity(activity)
 
         ref = conversation_ref or self.conversation_ref
+        placement = self._get_chat_reply_chain_placement(activity, conversation_ref)
+        if placement is not None:
+            chat_id, reply_chain_id = placement
+            return await send_or_update_activity(
+                self.api,
+                activity,
+                ref.model_copy(update={"conversation": ref.conversation.model_copy(update={"id": chat_id})}),
+                agentic_identity=self.activity.recipient.agentic_identity,
+                reply_chain_id=reply_chain_id,
+            )
+
         return await send_or_update_activity(
             self.api,
             activity,
@@ -353,6 +365,7 @@ class ActivityContext(Generic[T]):
 
         In channels, sends to the current thread.
         In other scopes, sends to the conversation.
+        When the inbound message is inside a reply chain in a 1:1 chat, sends into that reply chain.
         The response is automatically quoted only when the inbound activity id is a plain numeric message id.
         Otherwise, such as an invoke or a card action whose id is ``f:<guid>``, the activity is sent without a quote.
         It is then sent exactly like :meth:`send`.
@@ -420,6 +433,44 @@ class ActivityContext(Generic[T]):
             return False
 
         return not activity.id and activity.recipient is None
+
+    def _get_inbound_reply_chain_placement(self) -> Optional[tuple[str, str]]:
+        """Find where a response to the inbound message belongs when it was received as a reply in a thread.
+
+        An inbound message is a reply in a thread when `channel_data.reply_chain.id` differs from its own id.
+        The reply chain id is the id of the root message.
+        When the two are equal, the inbound message is a top-level message.
+        The response is then sent as a top-level message and does not start a thread.
+        The destination is the chat, `channel_data.chat.id`, taken from the payload.
+        Returns None when either id is missing, so the send goes to the inbound conversation.
+        """
+        if not isinstance(self.activity, MessageActivity):
+            return None
+
+        if self.activity.conversation.conversation_type == "groupChat":
+            return None
+
+        channel_data = self.activity.channel_data
+        reply_chain_id = channel_data.reply_chain.id if channel_data and channel_data.reply_chain else None
+        if not reply_chain_id or reply_chain_id == self.activity.id:
+            return None
+
+        chat_id = channel_data.chat.id if channel_data and channel_data.chat else None
+        return (chat_id, reply_chain_id) if chat_id else None
+
+    def _get_chat_reply_chain_placement(
+        self,
+        activity: ActivityParams,
+        conversation_ref: Optional[ConversationReference] = None,
+    ) -> Optional[tuple[str, str]]:
+        if (
+            not isinstance(activity, MessageActivityInput)
+            or activity.id
+            or not self._is_same_conversation(conversation_ref)
+        ):
+            return None
+
+        return self._get_inbound_reply_chain_placement()
 
     def _is_same_conversation(self, conversation_ref: Optional[ConversationReference] = None) -> bool:
         if conversation_ref is None:
