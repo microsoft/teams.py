@@ -4,7 +4,7 @@ Demonstrates quoting, threading, and reactions in one bot while keeping each con
 in a separate source module.
 
 - `src/quoting.py` - quoted-message metadata and quote composition
-- `src/threading_handlers.py` - reactive, proactive, and manually constructed threads
+- `src/threading_handlers.py` - reactive and proactive threaded replies, and top-level messages
 - `src/reactions.py` - reactions on inbound messages and a proactive reaction flow
 - `src/main.py` - app setup, explicit handler composition, and help
 
@@ -25,10 +25,10 @@ in a separate source module.
 
 | Command | Behavior |
 |---------|----------|
-| `thread reply` | `ctx.reply()` sends a reactive threaded reply |
-| `thread send` | `ctx.send()` sends to the same thread without quoting |
-| `thread proactive` | `app.reply()` sends a proactive threaded reply |
-| `thread manual` | `to_threaded_conversation_id()` and `app.send()` provide manual control |
+| `thread reply` | `ctx.reply()` sends a reactive, quoted reply, matching the threading level of your message |
+| `thread send` | `ctx.send()` sends reactively without quoting, matching the threading level of your message |
+| `thread proactive` | `app.reply()` replies in the reply chain of your message, using `channel_data.chat.id` (or `channel_data.channel.id`) and `channel_data.reply_chain.id`. Without `reply_chain.id` the sample answers that there is not enough thread metadata |
+| `thread top-level` | `app.send()` to `channel_data.chat.id` (or `channel_data.channel.id`) sends a new top-level message |
 
 ### Reactions
 
