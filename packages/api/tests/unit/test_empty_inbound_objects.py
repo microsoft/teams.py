@@ -31,6 +31,9 @@ def _activity(**overrides: Any) -> Dict[str, Any]:
     [
         pytest.param({"channelData": {"app": {}}}, id="channel_data_app"),
         pytest.param({"channelData": {"channel": {}}}, id="channel_data_channel"),
+        pytest.param({"channelData": {"chat": {}}}, id="channel_data_chat"),
+        pytest.param({"channelData": {"chat": {"encrypted": {}}}}, id="channel_data_chat_encrypted"),
+        pytest.param({"channelData": {"replyChain": {}}}, id="channel_data_reply_chain"),
         pytest.param({"channelData": {"team": {}}}, id="channel_data_team"),
         pytest.param({"channelData": {"tenant": {}}}, id="channel_data_tenant"),
         pytest.param({"channelData": {"settings": {}}}, id="channel_data_settings"),
