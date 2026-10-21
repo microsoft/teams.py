@@ -5,6 +5,7 @@ Licensed under the MIT License.
 
 from typing import Callable, Optional, Union
 
+from microsoft_teams.common.experimental import experimental
 from microsoft_teams.common.http import Client, ClientOptions
 from typing_extensions import deprecated
 
@@ -331,6 +332,86 @@ class ConversationClient(BaseClient):
         if scoped_client is not self:
             return await scoped_client.reply_to_activity(conversation_id, activity_id, activity)
         return await self._activities_client.reply(
+            conversation_id,
+            activity_id,
+            activity,
+            service_url=service_url,
+            agentic_identity=agentic_identity,
+        )
+
+    @experimental("ExperimentalTeamsThreading")
+    async def create_reply_chain_activity(
+        self,
+        conversation_id: str,
+        activity_id: str,
+        activity: ActivityParams,
+        *,
+        service_url: str | None = None,
+        agentic_identity: AgenticIdentity | None = None,
+    ) -> SentActivity:
+        """Create an activity inside a reply chain (thread).
+
+        This API is in preview and may change in the future.
+        Diagnostic: ExperimentalTeamsThreading
+        """
+        return await self._create_reply_chain_activity(
+            conversation_id, activity_id, activity, service_url=service_url, agentic_identity=agentic_identity
+        )
+
+    async def _create_reply_chain_activity(
+        self,
+        conversation_id: str,
+        activity_id: str,
+        activity: ActivityParams,
+        *,
+        service_url: str | None = None,
+        agentic_identity: AgenticIdentity | None = None,
+    ) -> SentActivity:
+        """Implements the method of the same name without the preview warning, used by the SDK."""
+        scoped_client = self._scoped_client(service_url, agentic_identity)
+        if scoped_client is not self:
+            return await scoped_client._create_reply_chain_activity(conversation_id, activity_id, activity)
+        return await self._activities_client.create_reply_chain(
+            conversation_id,
+            activity_id,
+            activity,
+            service_url=service_url,
+            agentic_identity=agentic_identity,
+        )
+
+    @experimental("ExperimentalTeamsThreading")
+    async def create_targeted_reply_chain_activity(
+        self,
+        conversation_id: str,
+        activity_id: str,
+        activity: ActivityParams,
+        *,
+        service_url: str | None = None,
+        agentic_identity: AgenticIdentity | None = None,
+    ) -> SentActivity:
+        """Create an activity inside a reply chain (thread) that is visible only to the specified recipient.
+
+        This API is in preview and may change in the future.
+        Diagnostic: ExperimentalTeamsThreading
+        """
+        return await self._create_targeted_reply_chain_activity(
+            conversation_id, activity_id, activity, service_url=service_url, agentic_identity=agentic_identity
+        )
+
+    async def _create_targeted_reply_chain_activity(
+        self,
+        conversation_id: str,
+        activity_id: str,
+        activity: ActivityParams,
+        *,
+        service_url: str | None = None,
+        agentic_identity: AgenticIdentity | None = None,
+    ) -> SentActivity:
+        """Implements the method of the same name without the preview warning, used by the SDK."""
+        scoped_client = self._scoped_client(service_url, agentic_identity)
+        if scoped_client is not self:
+            return await scoped_client._create_targeted_reply_chain_activity(conversation_id, activity_id, activity)
+        return await self._activities_client.create_targeted_reply_chain(
             conversation_id,
             activity_id,
             activity,
