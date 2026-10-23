@@ -25,9 +25,9 @@ in a separate source module.
 
 | Command | Behavior |
 |---------|----------|
-| `thread reply` | `ctx.reply()` sends a reactive, quoted reply, matching the threading level of your message |
-| `thread send` | `ctx.send()` sends reactively without quoting, matching the threading level of your message |
-| `thread proactive` | `app.reply()` replies in the reply chain of your message, using `channel_data.chat.id` (or `channel_data.channel.id`) and `channel_data.reply_chain.id`. Without `reply_chain.id` the sample answers that there is not enough thread metadata |
+| `thread reply` | `ctx.reply()` sends a reactive, quoted reply. In a channel it is sent in the same thread. In a 1:1 chat it matches the level of your message (in the thread if your message is in one, otherwise top-level) |
+| `thread send` | `ctx.send()` sends reactively without quoting. In a channel it is sent in the same thread. In a 1:1 chat it matches the level of your message (in the thread if your message is in one, otherwise top-level) |
+| `thread proactive` | `app.reply()` replies in the reply chain (thread) of your message, using `channel_data.chat.id` (or `channel_data.channel.id`) and `channel_data.reply_chain.id`. Without `reply_chain.id` the sample answers that there is not enough thread metadata |
 | `thread top-level` | `app.send()` to `channel_data.chat.id` (or `channel_data.channel.id`) sends a new top-level message |
 
 ### Reactions
