@@ -6,7 +6,6 @@ Licensed under the MIT License.
 from typing import Any, List, Literal, Optional, Self
 
 from microsoft_teams.cards import AdaptiveCard
-from microsoft_teams.common.experimental import experimental
 
 from ...models import (
     Account,
@@ -447,7 +446,6 @@ class MessageActivityInput(_MessageBase, ActivityInputBase):
             self.add_text(f" {text}")
         return self
 
-    @experimental("ExperimentalTeamsTargeted")
     def add_targeted_message_info(self, message_id: str) -> Self:
         """Add a targetedMessageInfo entity for prompt preview.
 

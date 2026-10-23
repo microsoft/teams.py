@@ -3,7 +3,6 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-import warnings
 from datetime import datetime
 from typing import Any, List, Optional, Self
 
@@ -15,7 +14,6 @@ from microsoft_teams.api.models.channel_data.team_info import TeamInfo
 from microsoft_teams.api.models.channel_id import ChannelID
 from microsoft_teams.api.models.entity.entity import Entity
 from microsoft_teams.api.models.meetings.meeting_info import MeetingInfo
-from microsoft_teams.common.experimental import ExperimentalWarning
 
 from .custom_base_model import CustomBaseModel
 
@@ -137,23 +135,12 @@ class ActivityInput(_ActivityBase):
             is_targeted: If True, marks this as a targeted message visible only to this
                 recipient. If False or None (the default), targeted routing is cleared.
 
-                .. warning:: Preview
-                    The ``is_targeted`` parameter is in preview and may change or be
-                    removed in future versions. Diagnostic: ExperimentalTeamsTargeted
-
         Returns:
             Self for method chaining
         """
         recipient = value.model_copy()
         recipient.is_targeted = True if is_targeted is True else None
         self.recipient = recipient
-        if is_targeted is True:
-            warnings.warn(
-                "The is_targeted parameter of with_recipient is in preview and may change "
-                "or be removed in future versions. Diagnostic: ExperimentalTeamsTargeted",
-                ExperimentalWarning,
-                stacklevel=2,
-            )
         return self
 
     def with_service_url(self, value: str) -> Self:

@@ -6,7 +6,6 @@ Licensed under the MIT License.
 import base64
 import json
 import logging
-import warnings
 from dataclasses import dataclass
 from typing import (
     TYPE_CHECKING,
@@ -51,7 +50,6 @@ from microsoft_teams.api.models.attachment.card_attachment import (
 from microsoft_teams.api.models.oauth import OAuthCard
 from microsoft_teams.cards import AdaptiveCard
 from microsoft_teams.common import Storage
-from microsoft_teams.common.experimental import ExperimentalWarning
 from microsoft_teams.common.http.client_token import Token
 
 from ..activity_send import send_or_update_activity
@@ -377,9 +375,7 @@ class ActivityContext(Generic[T]):
         if not self._is_targeted_outbound(activity_params):
             return
 
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", ExperimentalWarning)
-            activity_params.add_targeted_message_info(self.activity.id)
+        activity_params.add_targeted_message_info(self.activity.id)
 
     async def sign_in(self, options: Optional[SignInOptions] = None) -> Optional[str]:
         """
