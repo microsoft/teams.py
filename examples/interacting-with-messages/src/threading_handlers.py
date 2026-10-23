@@ -8,24 +8,34 @@ from microsoft_teams.apps import ActivityContext, App
 
 
 async def handle_thread_reply(ctx: ActivityContext[MessageActivity], text: str) -> bool:
-    """Send a reactive, quoted reply at the level of the inbound message when the command matches.
+    """Send a reactive, quoted reply when the command matches.
 
-    In a thread the reply stays in the thread, and on a top-level message the reply stays top-level.
+    In a 1:1 chat the reply matches the level of the inbound message.
+    A reply to a message in a thread stays in the thread, and a reply to a top-level message is posted at top level.
+    In a channel the reply stays in the reply chain (thread) of the inbound message, including a top-level post.
+    In a group chat the reply is sent to the inbound conversation and is not placed in a reply chain.
     """
     if text != "thread reply":
         return False
-    await ctx.reply("This is a quoted reply, matching the threading level of your message.")
+    await ctx.reply(
+        "This is a quoted reply. In a channel it goes in the same thread. "
+        "In a 1:1 chat it matches the level of your message."
+    )
     return True
 
 
 async def handle_thread_send(ctx: ActivityContext[MessageActivity], text: str) -> bool:
     """Send reactively without quoting when the command matches.
 
-    The message matches the threading level of the inbound message.
+    In a channel, the message is sent in the same thread.
+    In a 1:1 chat, it matches the level of the inbound message.
     """
     if text != "thread send":
         return False
-    await ctx.send("This is sent without quoting, matching the threading level of your message.")
+    await ctx.send(
+        "This is sent without quoting. In a channel it goes in the same thread. "
+        "In a 1:1 chat it matches the level of your message."
+    )
     return True
 
 
@@ -84,10 +94,13 @@ _INSUFFICIENT_METADATA = (
 
 
 def _thread_reference(ctx: ActivityContext[MessageActivity]) -> tuple[str | None, str | None]:
-    """Read the ids from the payload.
+    """The ids come from the payload.
 
     `chat.id` identifies the chat and `channel.id` the channel.
-    `reply_chain.id` is the root of the reply chain.
+    `reply_chain.id` is the root of the reply chain (thread).
+    A top-level post in a channel carries a `reply_chain.id` equal to its own id.
+    A payload without `reply_chain.id` does not establish a root,
+    so the sample does not infer one from the channel or the activity id.
     An id the payload does not carry is None.
     """
     channel_data = ctx.activity.channel_data
