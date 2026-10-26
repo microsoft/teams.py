@@ -12,6 +12,7 @@ from .citation_entity import CitationEntity
 from .client_info_entity import ClientInfoEntity
 from .mention_entity import MentionEntity
 from .message_entity import MessageEntity
+from .plan_info_entity import PlanInfoEntity
 from .product_info_entity import ProductInfoEntity
 from .quoted_reply_entity import QuotedReplyEntity
 from .sensitive_usage_entity import SensitiveUsageEntity
@@ -42,6 +43,9 @@ def _entity_discriminator(value: Any) -> str:
     if not isinstance(entity_type, str):
         return "_unknown"
 
+    if entity_type == "planInfo":
+        return "planInfo"
+
     if entity_type == "https://schema.org/Message":
         if data is not None:
             if "citation" in data:
@@ -65,6 +69,7 @@ Entity = Annotated[
         Annotated[MessageEntity, Tag("https://schema.org/Message")],
         Annotated[AIMessageEntity, Tag("aiMessage")],
         Annotated[StreamInfoEntity, Tag("streaminfo")],
+        Annotated[PlanInfoEntity, Tag("planInfo")],
         Annotated[CitationEntity, Tag("citation")],
         Annotated[SensitiveUsageEntity, Tag("sensitiveUsage")],
         Annotated[ProductInfoEntity, Tag("ProductInfo")],

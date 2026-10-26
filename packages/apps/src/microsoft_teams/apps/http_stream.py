@@ -14,6 +14,7 @@ from microsoft_teams.api import (
     ChannelData,
     ConversationReference,
     MessageActivityInput,
+    PlanInfoEntity,
     SentActivity,
     TextFormat,
     TypingActivityInput,
@@ -278,6 +279,12 @@ class HttpStream(StreamerProtocol):
         through the update path instead of creating a duplicate message.
         """
         activity = self._final_activity or MessageActivityInput()
+        if any(isinstance(entity, PlanInfoEntity) for entity in activity.entities or []):
+            raise StreamTimedOutError(
+                "The stream timed out before the Plan could be completed. "
+                "Plan completion requires a POST, so the existing streamed message "
+                "cannot be finalized using the PUT update fallback."
+            )
         activity.with_text(self._text)
         activity.id = self._id
         activity.entities = [e for e in (activity.entities or []) if e.type != "streaminfo"]

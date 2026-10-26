@@ -70,6 +70,7 @@ from ..oauth_state import (
     record_pending_oauth_sign_in,
     replace_pending_oauth_sign_ins,
 )
+from ..plan import Plan
 from ..plugins.streamer import StreamerProtocol
 from ..state import TurnStateContainer
 from ..utils import create_graph_client
@@ -149,6 +150,7 @@ class ActivityContext(Generic[T]):
         # module, so holding it here would be circular.
         self._oauth_connection_names: List[str] = list(oauth_connection_names or [])
         self._stream: Optional[StreamerProtocol] = None
+        self._plans: dict[str, Plan] = {}
         self._files: Optional[FilesAccessor] = None
         self._files_credential = files_credential
 
@@ -176,6 +178,12 @@ class ActivityContext(Generic[T]):
             # request, and a download URL carries its own `tempauth` credential that a bearer token can displace.
             self._files = FilesAccessor(self.activity, self.api.http.http, self._files_credential)
         return self._files
+
+    def plan(self, *, reply_to_id: str | None = None) -> Plan:
+        prompt = self.activity.id if reply_to_id is None else reply_to_id
+        if prompt not in self._plans:
+            self._plans[prompt] = Plan(self.api, self.conversation_ref, reply_to_id=prompt)
+        return self._plans[prompt]
 
     @property
     def user_graph(self) -> "GraphServiceClient":
