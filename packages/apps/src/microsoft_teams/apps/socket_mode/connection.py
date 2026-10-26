@@ -18,6 +18,7 @@ Licensed under the MIT License.
 import asyncio
 import logging
 from dataclasses import dataclass
+from time import monotonic
 from typing import Awaitable, Callable, Mapping, Optional, TypeVar, Union, cast
 
 import httpx
@@ -103,17 +104,59 @@ class SignalRSocketConnection:
         self._websocket: Optional[WebSocket] = None
         self._listener: Optional[asyncio.Task[None]] = None
         self._heartbeat: Optional[asyncio.Task[None]] = None
+        self._close_task: Optional[asyncio.Task[None]] = None
         self._send_lock = asyncio.Lock()
+        self._inflight: dict[asyncio.Task[None], float] = {}
+        self._inflight_changed = asyncio.Event()
         self._stop_event = asyncio.Event()
+        self._stop_event.set()
         self._handshake: Optional[asyncio.Future[None]] = None
         self._ready: Optional[asyncio.Future[None]] = None
-        self._stopped = True
+        self._closing = False
         self._closed_notified = False
+        self._id: Optional[str] = None
         self._expires_in_seconds: Optional[float] = None
+        self._token_expires_at: Optional[float] = None
+
+    @property
+    def is_open(self) -> bool:
+        return self._websocket is not None and not self._stop_event.is_set() and not self._closing
+
+    @property
+    def is_token_expired(self) -> bool:
+        return self._token_expires_at is not None and monotonic() >= self._token_expires_at
+
+    @property
+    def token_expires_at(self) -> Optional[float]:
+        return self._token_expires_at
+
+    @property
+    def connection_id(self) -> Optional[str]:
+        return self._id
 
     @property
     def expires_in_seconds(self) -> Optional[float]:
         return self._expires_in_seconds
+
+    async def wait_for_drain(self, not_before: float) -> None:
+        while self.is_open:
+            self._inflight_changed.clear()
+            now = monotonic()
+            if now < not_before:
+                deadline = not_before
+            elif not self._inflight:
+                return
+            else:
+                deadline = max(self._inflight.values())
+                if now >= deadline:
+                    logger.warning(
+                        "Socket Mode drain deadline reached with %d activities in flight", len(self._inflight)
+                    )
+                    return
+            try:
+                await asyncio.wait_for(self._inflight_changed.wait(), timeout=deadline - now)
+            except asyncio.TimeoutError:
+                pass
 
     async def start(self, stop_event: Optional[asyncio.Event] = None) -> None:
         """
@@ -123,13 +166,16 @@ class SignalRSocketConnection:
         interruptible by ``stop_event``. Any failure tears down whatever was built
         before re-raising, so a failed start never leaves a task or socket behind.
         """
-        if not self._stopped:
+        if not self._stop_event.is_set():
             raise RuntimeError("Socket Mode connection is already started")
         if stop_event is not None and stop_event.is_set():
             raise SocketConnectionAborted("Socket Mode connect aborted")
 
-        self._stopped = False
+        self._closing = False
         self._closed_notified = False
+        self._close_task = None
+        self._id = None
+        self._token_expires_at = None
         self._stop_event = asyncio.Event()
         loop = asyncio.get_running_loop()
         self._handshake = loop.create_future()
@@ -142,10 +188,14 @@ class SignalRSocketConnection:
                     self._context.get_bot_token,
                     http_client=self._http_client,
                     timeout=self._context.negotiate_timeout,
+                    get_connection_id_to_replace=self._handlers.get_connection_id_to_replace,
                 ),
                 stop_event,
             )
             self._expires_in_seconds = result.expires_in if result.expires_in > 0 else None
+            self._token_expires_at = (
+                monotonic() + self._expires_in_seconds if self._expires_in_seconds is not None else None
+            )
             endpoint = await self._wait_interruptibly(
                 negotiate_signalr(
                     result.url,
@@ -191,41 +241,71 @@ class SignalRSocketConnection:
             await self.stop()
             raise
 
+    def detach_activity(self, task: asyncio.Task[None]) -> bool:
+        if task not in self._inflight:
+            return False
+        del self._inflight[task]
+        self._inflight_changed.set()
+        return True
+
     async def stop(self) -> None:
         """
-        Close the socket and cancel the listener and heartbeat. Safe to call repeatedly,
+        Close the socket and cancel listener, heartbeat, and activity tasks. Safe to call repeatedly,
         and safe to call from inside one of those tasks -- the current task is never
         cancelled by its own cleanup.
         """
-        if self._stopped and self._websocket is None:
+        if self._close_task is not None and asyncio.current_task() in self._inflight:
             return
-        self._stopped = True
-        self._stop_event.set()
+        if self._close_task is None:
+            if self._stop_event.is_set() and self._websocket is None:
+                return
+            self._stop_event.set()
+            self._inflight_changed.set()
 
-        current = asyncio.current_task()
-        internal_tasks = [
-            task
-            for task in (self._heartbeat, self._listener)
-            if task is not None and task is not current and not task.done()
-        ]
-        for task in internal_tasks:
-            task.cancel()
-        self._heartbeat = None
-        self._listener = None
+            current = asyncio.current_task()
+            internal_tasks = [
+                task
+                for task in (self._heartbeat, self._listener)
+                if task is not None and task is not current and not task.done()
+            ]
+            activity_tasks = [task for task in self._inflight if task is not current]
+            for task in (*internal_tasks, *activity_tasks):
+                task.cancel()
+            self._heartbeat = None
+            self._listener = None
 
-        websocket = self._websocket
-        self._websocket = None
-        if websocket is not None:
+            websocket = self._websocket
+            self._websocket = None
+
+            async def cleanup() -> None:
+                if websocket is not None:
+                    try:
+                        await websocket.close()
+                    except Exception as error:
+                        logger.debug("Failed to close Socket Mode WebSocket", exc_info=error)
+                if internal_tasks:
+                    await asyncio.gather(*internal_tasks, return_exceptions=True)
+                # A cancelled activity can request app shutdown from its finally block.
+                while any(task in self._inflight for task in activity_tasks):
+                    self._inflight_changed.clear()
+                    await self._inflight_changed.wait()
+                for future in (self._handshake, self._ready):
+                    if future is not None and not future.done():
+                        future.cancel()
+
+            self._close_task = asyncio.create_task(cleanup(), name="teams-socket-mode-close")
+        cancellation: Optional[asyncio.CancelledError] = None
+        while True:
             try:
-                await websocket.close()
-            except Exception as error:
-                logger.debug("Failed to close Socket Mode WebSocket", exc_info=error)
-        if internal_tasks:
-            await asyncio.gather(*internal_tasks, return_exceptions=True)
-
-        for future in (self._handshake, self._ready):
-            if future is not None and not future.done():
-                future.cancel()
+                await asyncio.shield(self._close_task)
+                break
+            except asyncio.CancelledError as error:
+                if self._close_task.cancelled():
+                    raise
+                if cancellation is None:
+                    cancellation = error
+        if cancellation is not None:
+            raise cancellation
 
     async def _listen(self) -> None:
         """
@@ -238,11 +318,12 @@ class SignalRSocketConnection:
         handshake_complete = False
         terminal_error: Optional[Exception] = None
         try:
-            while not self._stopped:
+            while not self._stop_event.is_set():
                 websocket = self._websocket
                 if websocket is None:
                     return
                 raw = await asyncio.wait_for(websocket.recv(), timeout=self._context.server_timeout)
+                received_at = monotonic()
                 if isinstance(raw, bytes):
                     raw = raw.decode("utf-8")
                 for message in parse_hub_messages(raw):
@@ -250,7 +331,7 @@ class SignalRSocketConnection:
                         self._complete_handshake(message)
                         handshake_complete = True
                     else:
-                        self._handle_hub_message(message)
+                        self._handle_hub_message(message, received_at=received_at)
         except asyncio.CancelledError:
             raise
         except Exception as error:
@@ -258,14 +339,8 @@ class SignalRSocketConnection:
             logger.debug("Socket Mode listener stopped", exc_info=error)
             self._fail_pending_gates(error)
         finally:
-            if not self._stopped:
-                websocket = self._websocket
-                self._websocket = None
-                if websocket is not None:
-                    try:
-                        await websocket.close()
-                    except Exception as error:
-                        logger.debug("Failed to close terminated Socket Mode WebSocket", exc_info=error)
+            if not self._stop_event.is_set():
+                await self.stop()
                 self._notify_closed(terminal_error)
 
     def _complete_handshake(self, message: object) -> None:
@@ -278,7 +353,7 @@ class SignalRSocketConnection:
         if self._handshake is not None and not self._handshake.done():
             self._handshake.set_result(None)
 
-    def _handle_hub_message(self, message: object) -> None:
+    def _handle_hub_message(self, message: object, *, received_at: Optional[float] = None) -> None:
         fields: Mapping[str, object] = cast(Mapping[str, object], message) if isinstance(message, Mapping) else {}
         if fields.get("type") == 7:
             error = fields.get("error")
@@ -291,20 +366,28 @@ class SignalRSocketConnection:
         target = signalr_invocation.target.lower()
         argument: object = signalr_invocation.arguments[0] if signalr_invocation.arguments else {}
         if target == "socketready":
-            if self._ready is None or self._ready.done() or self._stopped:
+            if self._ready is None or self._ready.done() or self._stop_event.is_set():
                 return
+            frame = parse_ready_frame(argument)
+            self._id = frame.connection_id
             self._ready.set_result(None)
             try:
-                self._handlers.on_ready(parse_ready_frame(argument))
+                self._handlers.on_ready(frame)
             except Exception as error:
                 logger.warning("Socket Mode on_ready callback failed", exc_info=error)
             return
         if target == "activity":
+            if self._stop_event.is_set():
+                return
+            arrived_at = monotonic() if received_at is None else received_at
             envelope = parse_envelope(argument)
             task = asyncio.create_task(
                 self._handle_activity(signalr_invocation.invocation_id, envelope),
                 name="teams-socket-mode-activity",
             )
+            # An absent budget doesn't extend draining beyond the routing-cache grace.
+            self._inflight[task] = arrived_at + max(envelope.deadline_ms or 0, 0) / 1000
+            self._inflight_changed.set()
             task.add_done_callback(self._activity_finished)
 
     async def _handle_activity(
@@ -312,22 +395,25 @@ class SignalRSocketConnection:
         signalr_invocation_id: Optional[str],
         envelope: SocketActivityEnvelope,
     ) -> None:
+        # Register the task before dispatch, even with an eager task factory.
+        await asyncio.sleep(0)
         try:
             result = await self._handlers.on_activity(envelope)
-            if signalr_invocation_id is not None and not self._stopped:
+            if signalr_invocation_id is not None and not self._stop_event.is_set():
                 payload = result.model_dump(by_alias=True, exclude_none=True) if result is not None else None
                 await self._send(serialize_completion(signalr_invocation_id, payload))
         except asyncio.CancelledError:
             raise
         except Exception as error:
             logger.warning("Socket Mode activity handler raised", exc_info=error)
-            if signalr_invocation_id is not None and not self._stopped:
+            if signalr_invocation_id is not None and not self._stop_event.is_set():
                 await self._send(
                     serialize_completion_error(signalr_invocation_id, "Socket Mode activity handler failed")
                 )
 
-    @staticmethod
-    def _activity_finished(task: asyncio.Task[None]) -> None:
+    def _activity_finished(self, task: asyncio.Task[None]) -> None:
+        self._inflight.pop(task, None)
+        self._inflight_changed.set()
         if task.cancelled():
             return
         error = task.exception()
@@ -336,14 +422,16 @@ class SignalRSocketConnection:
 
     async def _send_heartbeats(self) -> None:
         try:
-            while not self._stopped:
+            while not self._stop_event.is_set():
                 await asyncio.sleep(self._context.keep_alive_interval)
-                if not self._stopped:
+                if not self._stop_event.is_set():
                     await self._send(encode_hub_message({"type": 6}))
         except asyncio.CancelledError:
             raise
         except Exception as error:
             websocket = self._websocket
+            self._closing = True
+            self._inflight_changed.set()
             if websocket is not None:
                 await websocket.close()
             logger.debug("Socket Mode heartbeat failed", exc_info=error)

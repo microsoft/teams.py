@@ -23,12 +23,22 @@ class DownloadedFile:
     """The file bytes, buffered from `stream()` read to completion."""
 
     content_type: str
-    """MIME type resolved from the download response header, or the incoming file's metadata type if the
-    response omits one. Falls back to `application/octet-stream` when neither provides a type, so this is
-    never empty."""
+    """
+    MIME type resolved from the download response header, or the incoming file's metadata type if the response omits
+    one.
+    Falls back to `application/octet-stream` when neither provides a type, so this is never empty.
+    For an inline image, the response header is ignored and the type is detected from the bytes.
+    If the bytes are not PNG, JPEG, GIF, or WebP, it falls back to `IncomingFile.content_type`.
+    """
 
     filename: str
-    """Resolved filename."""
+    """
+    Resolved filename.
+    For an inline image, the extension follows `content_type`, meaning the filename can differ from
+    `IncomingFile.name`.
+    For an uploaded file, the name comes from the sender and can contain path separators, so reduce it to its last
+    segment (for example with `ntpath.basename(name)`) before using it in a local path.
+    """
 
     source_url: str
     """The URL the bytes were actually fetched from."""

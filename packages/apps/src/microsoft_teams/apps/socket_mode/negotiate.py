@@ -138,6 +138,7 @@ async def negotiate_service(
     *,
     http_client: Optional[httpx.AsyncClient] = None,
     timeout: float = DEFAULT_NEGOTIATE_TIMEOUT,
+    get_connection_id_to_replace: Optional[Callable[[], Optional[str]]] = None,
 ) -> NegotiateResult:
     """
     Ask the Teams service where this bot should connect.
@@ -157,9 +158,15 @@ async def negotiate_service(
     try:
         logger.debug("Socket Mode service negotiate requesting %s", _safe_url(negotiate_url))
         async with asyncio.timeout(timeout):
+            headers = {"Authorization": f"Bearer {token}"}
+            connection_id_to_replace = (
+                get_connection_id_to_replace() if get_connection_id_to_replace is not None else None
+            )
+            if connection_id_to_replace:
+                headers["x-ms-socket-replaces-connection-id"] = connection_id_to_replace
             response = await client.post(
                 negotiate_url,
-                headers={"Authorization": f"Bearer {token}"},
+                headers=headers,
             )
         if not response.is_success:
             retry_after = _parse_retry_after(response.headers)

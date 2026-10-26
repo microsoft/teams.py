@@ -7,7 +7,6 @@ import logging
 from typing import Callable, List, Optional, cast
 
 import httpx
-from microsoft_teams.common.experimental import experimental
 from microsoft_teams.common.http import Client
 from opentelemetry.trace import Span
 
@@ -254,7 +253,6 @@ class ConversationActivityClient(BaseClient):
         )
         return [TeamsChannelAccount.model_validate(member) for member in response.json()]
 
-    @experimental("ExperimentalTeamsTargeted")
     async def create_targeted(
         self,
         conversation_id: str,
@@ -267,10 +265,6 @@ class ConversationActivityClient(BaseClient):
         Create a new targeted activity in a conversation.
 
         Targeted activities are only visible to the specified recipient.
-
-        .. warning:: Preview
-            This API is in preview and may change in the future.
-            Diagnostic: ExperimentalTeamsTargeted
 
         Args:
             conversation_id: The ID of the conversation
@@ -299,7 +293,6 @@ class ConversationActivityClient(BaseClient):
         id = response_body.get("id", _PLACEHOLDER_ACTIVITY_ID)
         return SentActivity(id=id, activity_params=activity)
 
-    @experimental("ExperimentalTeamsTargeted")
     async def update_targeted(
         self,
         conversation_id: str,
@@ -311,10 +304,6 @@ class ConversationActivityClient(BaseClient):
     ) -> SentActivity:
         """
         Update an existing targeted activity in a conversation.
-
-        .. warning:: Preview
-            This API is in preview and may change in the future.
-            Diagnostic: ExperimentalTeamsTargeted
 
         Args:
             conversation_id: The ID of the conversation
@@ -344,7 +333,6 @@ class ConversationActivityClient(BaseClient):
         id = response.json()["id"]
         return SentActivity(id=id, activity_params=activity)
 
-    @experimental("ExperimentalTeamsTargeted")
     async def delete_targeted(
         self,
         conversation_id: str,
@@ -355,10 +343,6 @@ class ConversationActivityClient(BaseClient):
     ) -> None:
         """
         Delete a targeted activity from a conversation.
-
-        .. warning:: Preview
-            This API is in preview and may change in the future.
-            Diagnostic: ExperimentalTeamsTargeted
 
         Args:
             conversation_id: The ID of the conversation

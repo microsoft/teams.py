@@ -39,6 +39,7 @@ def unsupported_file_card(file: IncomingFile, downloaded: DownloadedFile, note: 
                     Fact(title="Size", value=_human_size(len(downloaded.bytes))),
                     Fact(title="Scope", value=file.scope),
                     Fact(title="Listed from", value=file.source),
+                    Fact(title="Attachment style", value=file.attachment_style),
                 ]
             ),
             TextBlock(

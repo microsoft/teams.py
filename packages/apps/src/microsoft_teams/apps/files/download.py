@@ -7,16 +7,28 @@ import base64
 import binascii
 import json
 import logging
+import re
 from collections.abc import AsyncGenerator, AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from typing import Any, Optional, cast
+from urllib.parse import urlsplit
 
 import httpx
 from microsoft_teams.api import ConversationType
+from microsoft_teams.common.http.client_token import Token, resolve_token
 
-from .errors import FileAccessError, FileActor, FileCredentialError, FileScopeNotSupportedError, FileUrlExpiredError
+from .errors import (
+    FileAccessError,
+    FileActor,
+    FileCredentialError,
+    FileScopeNotSupportedError,
+    FileUrlExpiredError,
+    InlineImageAccessError,
+    InlineImageTransformationError,
+)
 from .graph_share import build_drive_item_content_url
+from .types import AttachmentStyle
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +55,13 @@ class FileFetchTarget:
     content_type: Optional[str] = None
     """MIME type reported by the incoming file, used as a fallback when the response omits one."""
 
+    attachment_style: AttachmentStyle = "file"
+    """
+    How the file was attached; see `AttachmentStyle`.
+    An `inlineImage` is read from `content_url` with the Bot API credential, in any scope.
+    Defaults to `file`.
+    """
+
 
 @dataclass
 class GraphCredential:
@@ -64,6 +83,97 @@ class GraphCredential:
 
     base_url_root: Optional[str] = None
     """Graph host root, e.g. `https://graph.microsoft.com`. The API version is appended at the point of use."""
+
+
+@dataclass
+class BotApiCredential:
+    """
+    The Bot API token for reading inline images, and the identity it belongs to.
+
+    It is the turn's API client token, so an agentic identity reads as itself.
+    Resolved at fetch time, so a turn that never downloads an inline image never acquires one.
+    """
+
+    actor: FileActor
+    """Which identity this credential belongs to."""
+
+    token: Token
+    """Resolves the bearer token, or `None` when no credential is available."""
+
+    service_url: Optional[str] = None
+    """
+    The activity's `service_url`, the base the turn's replies are sent to.
+
+    Carried with the token so the token is never sent without its allowed destination.
+    An inline image under a different URL is refused before the token is resolved.
+    When absent, every inline image is refused.
+    """
+
+
+_SINGLE_DOT_SEGMENTS = frozenset({".", "%2e"})
+_DOUBLE_DOT_SEGMENTS = frozenset({"..", ".%2e", "%2e.", "%2e%2e"})
+
+_PERCENT_ESCAPE = re.compile(r"%[0-9A-Fa-f]{2}")
+
+
+def _resolve_dot_segments(path: str) -> str:
+    """
+    Resolve `.` and `..` segments in a URL path.
+
+    `urlsplit` keeps them verbatim, so a path such as `/amer/../evil` would otherwise compare as being under `/amer`.
+
+    A percent-encoded dot counts as a dot, following the URL standard, so `%2e%2e` climbs out just as `..` does.
+    `%2f` is left alone, so a segment such as `..%2f..%2f` stays literal.
+    """
+    resolved: list[str] = []
+
+    for segment in path.lstrip("/").split("/"):
+        folded = segment.lower()
+        if folded in _SINGLE_DOT_SEGMENTS:
+            continue
+        if folded in _DOUBLE_DOT_SEGMENTS:
+            if resolved:
+                resolved.pop()
+            continue
+        resolved.append(segment)
+
+    return "/" + "/".join(resolved)
+
+
+def is_under_service_url(url: str, service_url: Optional[str]) -> bool:
+    """
+    Whether `url` is under `service_url`: both https, the same origin, and a path starting with the service URL's
+    path.
+
+    Both are parsed first, and their dot segments are resolved, so a path cannot climb out of the service URL's path.
+    The scheme and host compare case-insensitively.
+    The path compares case-sensitively, apart from the hex digits of percent-escapes, which mean the same in any case.
+    """
+    if not service_url:
+        return False
+
+    try:
+        target = urlsplit(url)
+        base = urlsplit(service_url)
+        origins_match = (target.scheme.lower(), target.hostname, target.port) == (
+            base.scheme.lower(),
+            base.hostname,
+            base.port,
+        )
+    except ValueError:
+        return False
+
+    if base.scheme.lower() != "https" or not origins_match:
+        return False
+
+    # Normalizes to exactly one trailing `/` so a path such as `/amer` cannot match `/americas`.
+    base_path = _normalize_percent_escapes(_resolve_dot_segments(base.path).rstrip("/") + "/")
+    return _normalize_percent_escapes(_resolve_dot_segments(target.path)).startswith(base_path)
+
+
+def _normalize_percent_escapes(path: str) -> str:
+    """Uppercase the hex digits of each percent-escape, leaving every other character as it is."""
+    return _PERCENT_ESCAPE.sub(lambda match: match.group(0).upper(), path)
 
 
 @dataclass
@@ -102,6 +212,7 @@ async def open_file_stream(
     prior_fetch_succeeded: bool = False,
     client: Optional[httpx.AsyncClient] = None,
     credential: Optional[GraphCredential] = None,
+    bot_api_credential: Optional[BotApiCredential] = None,
 ) -> AsyncGenerator[OpenedFileStream]:
     """
     Open a byte stream for an inbound file, keyed on its conversation scope so every scope's receive path extends this
@@ -111,6 +222,12 @@ async def open_file_stream(
     agentic user, each carrying just a `content_url`, so they open only through Graph, as `is_graph_route_open` decides.
     Everything else raises `FileScopeNotSupportedError`.
     """
+    # Inline images live on the Bot API, so neither file route nor its scope restriction applies.
+    if target.attachment_style == "inlineImage":
+        async with _open_inline_image_stream(target, client=client, credential=bot_api_credential) as opened:
+            yield opened
+        return
+
     if target.scope == "personal":
         async with _open_personal_file_stream(
             target, prior_fetch_succeeded=prior_fetch_succeeded, client=client, credential=credential
@@ -295,14 +412,90 @@ async def _open_graph_file_stream(
             await http.aclose()
 
 
-async def _read_service_error(response: httpx.Response) -> Optional[str]:
+@asynccontextmanager
+async def _open_inline_image_stream(
+    target: FileFetchTarget,
+    *,
+    client: Optional[httpx.AsyncClient],
+    credential: Optional[BotApiCredential],
+) -> AsyncGenerator[OpenedFileStream]:
     """
-    Pull the human-readable part out of a Graph error envelope, falling back to the raw text.
+    Fetch an inline image's bytes from the Bot API with the turn's Bot API token.
 
-    Graph replies `{"error": {"code", "message"}}`, but a 401 can also come from the edge as HTML, so this must not
-    assume JSON. Reads at most `_ERROR_BODY_LIMIT` bytes rather than buffering the whole body: this runs on a stream
-    the SDK does not size, and the text only ever lands in an exception message. A body large enough to be cut off
-    will not parse as JSON, which is fine, because the raw fallback is what a body that shape deserves anyway.
+    The token is sent only to a URL under `service_url`.
+    """
+    url = target.content_url
+
+    if not url:
+        raise RuntimeError("cannot download inline image: no content URL is available")
+
+    if not url.lower().startswith("https://"):
+        raise RuntimeError("cannot download inline image: content URL must use https")
+
+    if credential is None:
+        raise RuntimeError("cannot download inline image: no Bot API token is available")
+
+    if not is_under_service_url(url, credential.service_url):
+        raise RuntimeError("cannot download inline image: content URL is not under the activity's service URL")
+
+    actor = credential.actor
+    token = (await resolve_token(credential.token)) or ""
+
+    # `resolve_token` passes a blank value through, and a blank bearer token is no token at all.
+    if not token.strip():
+        raise RuntimeError("cannot download inline image: no Bot API token is available")
+
+    logger.debug(f"reading inline image bytes from the Bot API as '{actor}'")
+
+    owns_client = client is None
+    http = client or httpx.AsyncClient()
+
+    try:
+        request = http.build_request("GET", url, headers={"Authorization": f"Bearer {token}"})
+        response = await _send_following_https_redirects(http, request)
+
+        try:
+            if response.status_code == 415:
+                body = await _read_error_body(response)
+                raise InlineImageTransformationError(
+                    response.status_code,
+                    actor,
+                    _extract_service_error(body),
+                    _extract_service_error_code(body),
+                )
+
+            if response.status_code in (401, 403):
+                raise InlineImageAccessError(response.status_code, actor, await _read_service_error(response))
+
+            if not response.is_success:
+                details = await _read_service_error(response)
+                message = (
+                    f"failed to download inline image as '{actor}': {response.status_code} {response.reason_phrase}"
+                ).strip()
+                raise RuntimeError(f"{message} ({details})" if details else message)
+
+            content_type = response.headers.get("content-type") or target.content_type or "application/octet-stream"
+            yield OpenedFileStream(chunks=response.aiter_bytes(), source_url=url, content_type=content_type)
+        finally:
+            await response.aclose()
+    finally:
+        if owns_client:
+            await http.aclose()
+
+
+async def _read_service_error(response: httpx.Response) -> Optional[str]:
+    """Pull the human-readable part out of a service error body, falling back to the raw text."""
+    return _extract_service_error(await _read_error_body(response))
+
+
+async def _read_error_body(response: httpx.Response) -> Optional[str]:
+    """
+    Read an error response's text, once.
+
+    Reads at most `_ERROR_BODY_LIMIT` bytes rather than buffering the whole body: this runs on a stream the SDK does
+    not size, and the text only ever lands in an exception message. A body large enough to be cut off will not parse
+    as JSON, which is fine, because the raw fallback is what a body that shape deserves anyway. A stream can be
+    consumed only once, so a caller that wants both the message and the code parses this one string twice.
     """
     try:
         collected = bytearray()
@@ -312,8 +505,19 @@ async def _read_service_error(response: httpx.Response) -> Optional[str]:
             collected.extend(chunk[: _ERROR_BODY_LIMIT - len(collected)])
             if len(collected) >= _ERROR_BODY_LIMIT:
                 break
-        raw = bytes(collected).decode("utf-8", errors="replace")
+        return bytes(collected).decode("utf-8", errors="replace")
     except Exception:  # noqa: BLE001 - diagnostics must never mask the error being raised
+        return None
+
+
+def _extract_service_error(raw: Optional[str]) -> Optional[str]:
+    """
+    The human-readable part of a Graph error envelope, falling back to the raw text.
+
+    Graph replies `{"error": {"code", "message"}}`, but a 401 can also come from the edge as HTML, so this must not
+    assume JSON.
+    """
+    if not raw:
         return None
 
     try:
@@ -328,6 +532,21 @@ async def _read_service_error(response: httpx.Response) -> Optional[str]:
         pass  # Not JSON. The raw text is still better than nothing.
 
     return _truncate(raw)
+
+
+def _extract_service_error_code(raw: Optional[str]) -> Optional[str]:
+    """The `error.code` from a JSON error envelope, or `None` when the body is not one."""
+    if not raw:
+        return None
+
+    try:
+        envelope: Any = json.loads(raw)
+    except ValueError:
+        return None
+
+    error = cast(dict[str, Any], envelope).get("error") if isinstance(envelope, dict) else None
+    code = cast(dict[str, Any], error).get("code") if isinstance(error, dict) else None
+    return code.strip() if isinstance(code, str) and code.strip() else None
 
 
 def _truncate(text: str) -> Optional[str]:

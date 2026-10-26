@@ -255,6 +255,7 @@ class SocketModeAdapter:
         try:
             await self._transport.start()
             await self._transport.stop_event.wait()
+            await self._transport.wait_for_shutdown()
         except asyncio.CancelledError:
             await self.stop()
             raise

@@ -94,7 +94,9 @@ def make_context(**overrides: float) -> SocketConnectionContext:
 
 
 @pytest.mark.asyncio
-async def test_connection_waits_for_socket_ready_and_returns_client_result():
+async def test_connection_waits_for_socket_ready_and_returns_client_result(monkeypatch: pytest.MonkeyPatch):
+    now = 1000.0
+    monkeypatch.setattr(connection_module, "monotonic", lambda: now)
     websocket = MockWebSocket()
     ready_frames: list[SocketReadyFrame] = []
     activity_seen = asyncio.Event()
@@ -115,6 +117,8 @@ async def test_connection_waits_for_socket_ready_and_returns_client_result():
         websocket.incoming.put_nowait(f"{{}}{RECORD_SEPARATOR}")
         await asyncio.sleep(0)
         assert not start.done()
+        assert connection.connection_id is None
+        now = 1119.0
 
         websocket.incoming.put_nowait(
             json.dumps(
@@ -128,7 +132,12 @@ async def test_connection_waits_for_socket_ready_and_returns_client_result():
         )
         await start
         assert ready_frames == [SocketReadyFrame(bot_key="bot-1", connection_id="conn-1")]
+        assert connection.connection_id == "conn-1"
         assert connection.expires_in_seconds == 120
+        assert not connection.is_token_expired
+        now = 1120.0
+        assert connection.is_token_expired
+        assert connection.is_open
 
         websocket.incoming.put_nowait(
             json.dumps(
@@ -535,3 +544,173 @@ async def test_hub_message_split_across_reads_is_rejected():
 
         with pytest.raises(SignalRProtocolError, match="incomplete"):
             await asyncio.wait_for(start, timeout=1.0)
+
+
+@pytest.mark.asyncio
+async def test_drain_tracks_replies_and_acks_through_send_lock_and_socket_send(monkeypatch: pytest.MonkeyPatch):
+    now = 1000.0
+    monkeypatch.setattr(connection_module, "monotonic", lambda: now)
+    send_started, release_send = asyncio.Event(), asyncio.Event()
+    handled: list[Optional[str]] = []
+
+    class GatedSendWebSocket(MockWebSocket):
+        async def send(self, message: str) -> None:
+            if json.loads(message.removesuffix(RECORD_SEPARATOR)).get("type") == 3:
+                send_started.set()
+                await release_send.wait()
+            await super().send(message)
+
+    async def on_activity(envelope: SocketActivityEnvelope) -> ReplyFrame:
+        assert asyncio.current_task() in connection._inflight
+        handled.append(envelope.envelope_id)
+        if envelope.envelope_id == "error":
+            raise RuntimeError("handler failed")
+        return ReplyFrame(status=200, body={"ok": True} if envelope.envelope_id == "invoke" else None)
+
+    websocket = GatedSendWebSocket()
+    async with make_http_client() as client:
+        connection = await _start_connection(websocket, on_activity, client)
+        try:
+            await connection._send_lock.acquire()
+            for name in ("invoke", "ack", "error", "ack"):
+                connection._handle_hub_message(_activity_message(name, 25000))
+            assert len(connection._inflight) == 4
+            draining = asyncio.create_task(connection.wait_for_drain(1005.0))
+            await _eventually(lambda: len(handled) == 4)
+            assert not draining.done()
+
+            now = 1005.0
+            assert len(connection._inflight) == 4
+            assert not draining.done()
+            connection._send_lock.release()
+            await asyncio.wait_for(send_started.wait(), 1)
+            assert not draining.done()
+            assert len(websocket.sent) == 1
+
+            release_send.set()
+            await asyncio.wait_for(draining, 1)
+            completions = [json.loads(message.removesuffix(RECORD_SEPARATOR)) for message in websocket.sent[1:]]
+            assert [message["invocationId"] for message in completions] == ["invoke", "ack", "error", "ack"]
+            assert completions[0]["result"]["body"] == {"ok": True}
+            assert "body" not in completions[1]["result"]
+            assert completions[2]["error"] == "Socket Mode activity handler failed"
+            assert connection._inflight == {}
+        finally:
+            release_send.set()
+            await connection.stop()
+
+
+@pytest.mark.asyncio
+async def test_drain_recomputes_remaining_deadlines_from_arrival_per_socket(monkeypatch: pytest.MonkeyPatch):
+    now = 1000.0
+    monkeypatch.setattr(connection_module, "monotonic", lambda: now)
+    gates = {name: asyncio.Event() for name in ("short", "long", "other")}
+    entered: list[Optional[str]] = []
+    cancelled: list[Optional[str]] = []
+
+    async def on_activity(envelope: SocketActivityEnvelope) -> ReplyFrame:
+        entered.append(envelope.envelope_id)
+        assert envelope.envelope_id is not None
+        try:
+            await gates[envelope.envelope_id].wait()
+        except asyncio.CancelledError:
+            cancelled.append(envelope.envelope_id)
+            raise
+        return ReplyFrame(status=200)
+
+    websocket, other_websocket = MockWebSocket(), MockWebSocket()
+    async with make_http_client() as client:
+        connection = await _start_connection(websocket, on_activity, client)
+        other = await _start_connection(other_websocket, on_activity, client)
+        try:
+            connection._handle_hub_message(_activity_message("short", 6000))
+            connection._handle_hub_message(_activity_message("long", 30000))
+            other._handle_hub_message(_activity_message("other", 90000))
+            now = 1004.0
+            draining = asyncio.create_task(connection.wait_for_drain(1005.0))
+            await _eventually(lambda: len(entered) == 3)
+            assert sorted(connection._inflight.values()) == [1006.0, 1030.0]
+
+            now = 1007.0
+            gates["long"].set()
+            await asyncio.wait_for(draining, 1)
+            assert list(connection._inflight.values()) == [1006.0]
+            await connection.stop()
+            assert cancelled == ["short"]
+            assert connection._inflight == {}
+            assert other.is_open
+            assert other_websocket.closed == 0
+            gates["other"].set()
+            await asyncio.wait_for(other.wait_for_drain(1005.0), 1)
+        finally:
+            await connection.stop()
+            await other.stop()
+
+
+@pytest.mark.asyncio
+async def test_drain_keeps_full_cache_grace_and_includes_late_arrivals(monkeypatch: pytest.MonkeyPatch):
+    now = 1000.0
+    monkeypatch.setattr(connection_module, "monotonic", lambda: now)
+    early_done, late_done = asyncio.Event(), asyncio.Event()
+    entered: list[Optional[str]] = []
+
+    async def on_activity(envelope: SocketActivityEnvelope) -> ReplyFrame:
+        entered.append(envelope.envelope_id)
+        await (early_done if envelope.envelope_id == "early" else late_done).wait()
+        return ReplyFrame(status=200)
+
+    websocket = MockWebSocket()
+    async with make_http_client() as client:
+        connection = await _start_connection(websocket, on_activity, client)
+        try:
+            connection._handle_hub_message(_activity_message("early", 1000))
+            draining = asyncio.create_task(connection.wait_for_drain(1005.0))
+            await _eventually(lambda: entered == ["early"])
+            now = 1001.0
+            early_done.set()
+            await _eventually(lambda: not connection._inflight)
+            assert not draining.done()
+
+            now = 1004.999
+            connection._handle_hub_message(_activity_message("late", 101))
+            await _eventually(lambda: entered == ["early", "late"])
+            assert not draining.done()
+            now = 1005.0
+            await asyncio.sleep(0)
+            assert not draining.done()
+            now = 1005.1
+            await asyncio.wait_for(draining, 1)
+            assert len(connection._inflight) == 1
+            assert not late_done.is_set()
+            assert len(websocket.sent) == 2
+        finally:
+            await connection.stop()
+
+
+def _activity_message(name: str, deadline_ms: int) -> dict[str, object]:
+    return {
+        "type": 1,
+        "target": "Activity",
+        "invocationId": name,
+        "arguments": [{"envelopeId": name, "deadlineMs": deadline_ms, "payload": {"type": "message"}}],
+    }
+
+
+async def _start_connection(
+    websocket: MockWebSocket,
+    on_activity: Callable[[SocketActivityEnvelope], Awaitable[Optional[ReplyFrame]]],
+    client: httpx.AsyncClient,
+) -> SignalRSocketConnection:
+    connection = SignalRSocketConnection(
+        make_context(),
+        make_handlers(on_activity=on_activity),
+        http_client=client,
+        websocket_factory=lambda _: _websocket(websocket),
+    )
+    websocket.incoming.put_nowait(
+        f"{{}}{RECORD_SEPARATOR}"
+        + json.dumps({"type": 1, "target": "SocketReady", "arguments": [{}]})
+        + RECORD_SEPARATOR
+    )
+    await connection.start()
+    return connection

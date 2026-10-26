@@ -36,8 +36,8 @@ def experimental(diagnostic: str, *, message: Optional[str] = None) -> Callable[
         class ReactionClient:
             ...
 
-        @experimental("ExperimentalTeamsTargeted", message="Targeted messages are in preview.")
-        async def create_targeted(...):
+        @experimental("ExperimentalTeamsSocketMode", message="Socket mode is in preview.")
+        async def connect(...):
             ...
     """
 

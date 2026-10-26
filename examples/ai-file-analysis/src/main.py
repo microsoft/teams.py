@@ -18,7 +18,7 @@ from typing import List
 from ai import AnalyzableFile, classify_file, is_ai_configured, prepare_analysis, run_analysis
 from file_card import unsupported_file_card
 from microsoft_teams.api import MessageActivity, TypingActivityInput
-from microsoft_teams.apps import ActivityContext, App
+from microsoft_teams.apps import ActivityContext, App, InlineImageTransformationError
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("ai-file-analysis")
@@ -50,9 +50,10 @@ async def handle_message(ctx: ActivityContext[MessageActivity]) -> None:
     attached = await ctx.files.list()
     if not attached:
         await ctx.send(
-            "Attach one or more files. I analyze text files and images, and describe anything else I cannot read."
+            "Attach or paste one or more files. I analyze text files and images, and describe anything else I "
+            "cannot read."
             if _ai_configured
-            else "Attach one or more files. No model is configured, so I will report what I received "
+            else "Attach or paste one or more files. No model is configured, so I will report what I received "
             "without analyzing it."
         )
         return
@@ -66,7 +67,12 @@ async def handle_message(ctx: ActivityContext[MessageActivity]) -> None:
             downloaded = await file.download()
         except Exception as err:
             logger.warning("Could not download %s: %s", file.name, err)
-            await ctx.send(f"I could not download {file.name}.")
+            await ctx.send(
+                "I could not download that pasted image because its format cannot be converted. "
+                "Try sending it as a file attachment instead."
+                if isinstance(err, InlineImageTransformationError)
+                else f"I could not download {file.name}."
+            )
             continue
 
         if not _ai_configured:

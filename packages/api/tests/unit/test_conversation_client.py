@@ -682,12 +682,14 @@ class TestConversationActivityOperations:
     async def test_api_client_middleware_invokes_response_hook(self):
         tracer = RecordingTracer()
         hook_responses: list[httpx.Response] = []
-        http_client = Client(ClientOptions(base_url="https://test.service.url"))
 
         def handler(request: httpx.Request) -> httpx.Response:
             return httpx.Response(200, json={"id": "response-id"}, headers={"content-type": "application/json"})
 
-        http_client.http._transport = httpx.MockTransport(handler)
+        http_client = Client(
+            ClientOptions(base_url="https://test.service.url"),
+            _http=httpx.AsyncClient(transport=httpx.MockTransport(handler), base_url="https://test.service.url"),
+        )
         api_client = ApiClient("https://test.service.url", http_client)
 
         async def on_response(span: Span, response: httpx.Response) -> None:
@@ -714,13 +716,15 @@ class TestConversationActivityOperations:
 
     async def test_api_client_middleware_swallows_response_hook_failure(self):
         tracer = RecordingTracer()
-        http_client = Client(ClientOptions(base_url="https://test.service.url"))
         response = httpx.Response(200, json={"id": "response-id"}, headers={"content-type": "application/json"})
 
         def handler(request: httpx.Request) -> httpx.Response:
             return response
 
-        http_client.http._transport = httpx.MockTransport(handler)
+        http_client = Client(
+            ClientOptions(base_url="https://test.service.url"),
+            _http=httpx.AsyncClient(transport=httpx.MockTransport(handler), base_url="https://test.service.url"),
+        )
         api_client = ApiClient("https://test.service.url", http_client)
 
         async def on_response(span: Span, response: httpx.Response) -> None:
@@ -855,8 +859,10 @@ class TestConversationActivityOperations:
         def handler(request: httpx.Request) -> httpx.Response:
             raise error
 
-        http_client = Client(ClientOptions(base_url="https://mock.api.com"))
-        http_client.http._transport = httpx.MockTransport(handler)
+        http_client = Client(
+            ClientOptions(base_url="https://mock.api.com"),
+            _http=httpx.AsyncClient(transport=httpx.MockTransport(handler), base_url="https://mock.api.com"),
+        )
         client = ConversationClient("https://test.service.url", http_client)
 
         with (
