@@ -22,7 +22,7 @@ from microsoft_teams.api import (
     UnknownEntity,
 )
 from microsoft_teams.api.auth.cloud_environment import PUBLIC
-from microsoft_teams.apps import ActivityContext, Plan
+from microsoft_teams.apps import ActivityContext, ActivitySentEvent, Plan
 from microsoft_teams.apps.activity_send import send_or_update_activity
 from microsoft_teams.common.experimental import ExperimentalWarning
 from microsoft_teams.common.http import Client
@@ -86,6 +86,8 @@ def test_factory_emits_preview_warning_for_cached_helper(api, ref):
 )
 async def test_controls_send_prompt_bound_typing_activity(api, ref, method, operation):
     plan = Plan(api, ref, reply_to_id="original-prompt")
+    on_sent = MagicMock()
+    plan.events.on("sent", on_sent)
     steps = [Step(id="lookup", version=1, title="Lookup", status="active")]
     expected_entity = {"type": "planInfo", "planType": operation}
     if method in ("start", "update"):
@@ -105,10 +107,20 @@ async def test_controls_send_prompt_bound_typing_activity(api, ref, method, oper
         "conversation": {"id": "chat"},
         "entities": [expected_entity],
     }
+    on_sent.assert_called_once()
+    event = on_sent.call_args.args[0]
+    assert isinstance(event, ActivitySentEvent)
+    assert event.activity.id == "DO_NOT_USE_PLACEHOLDER_ID"
+    assert event.activity.activity_params == activity
+    assert event.conversation_ref == ref
+    assert event.conversation_ref is not ref
 
 
 async def test_complete_string_adds_completion_entity(api, ref):
-    result = await Plan(api, ref, reply_to_id="prompt").complete_plan("Done")
+    plan = Plan(api, ref, reply_to_id="prompt")
+    on_sent = MagicMock()
+    plan.events.on("sent", on_sent)
+    result = await plan.complete_plan("Done")
 
     api.conversations.create_activity.assert_awaited_once()
     conversation_id, activity = api.conversations.create_activity.call_args.args
@@ -121,6 +133,37 @@ async def test_complete_string_adds_completion_entity(api, ref):
     assert activity.entities == [PlanInfoEntity(plan_type="complete")]
     assert result.id == "answer"
     assert result.activity_params == activity
+    on_sent.assert_called_once_with(ActivitySentEvent(activity=result, conversation_ref=ref))
+    assert on_sent.call_args.args[0].activity is result
+
+
+@pytest.mark.parametrize("method", ["start", "complete_plan"])
+async def test_failed_send_does_not_emit_sent(api, ref, method):
+    plan = Plan(api, ref, reply_to_id="prompt")
+    on_sent = MagicMock()
+    plan.events.on("sent", on_sent)
+    api.conversations.create_activity.side_effect = RuntimeError("Plan send failed")
+
+    with pytest.raises(RuntimeError, match="Plan send failed"):
+        if method == "start":
+            await plan.start([Step(id="lookup", version=1, title="Lookup", status="active")])
+        else:
+            await plan.complete_plan("Done")
+
+    api.conversations.create_activity.assert_awaited_once()
+    on_sent.assert_not_called()
+
+
+async def test_rejected_completion_does_not_emit_sent(api, ref):
+    plan = Plan(api, ref, reply_to_id="prompt")
+    on_sent = MagicMock()
+    plan.events.on("sent", on_sent)
+
+    with pytest.raises(ValueError, match="non-complete"):
+        await plan.complete_plan(MessageActivityInput(text="Done", entities=[PlanInfoEntity(plan_type="stop")]))
+
+    api.conversations.create_activity.assert_not_awaited()
+    on_sent.assert_not_called()
 
 
 @pytest.mark.parametrize("has_completion_entity", [False, True])
@@ -176,15 +219,33 @@ async def test_factory_defaults_to_prompt_not_parent_and_caches_by_prompt(api, r
 
 async def test_helper_copies_conversation_reference(api, ref):
     plan = Plan(api, ref, reply_to_id="prompt")
+    expected_ref = ref.model_copy(deep=True)
+    on_sent = MagicMock()
+    plan.events.on("sent", on_sent)
     ref.conversation.id = "changed"
     ref.bot.id = "changed"
 
-    await plan.complete_plan("Done")
+    result = await plan.complete_plan("Done")
 
     conversation_id, activity = api.conversations.create_activity.call_args.args
     assert conversation_id == "chat"
     assert activity.conversation.id == "chat"
     assert activity.from_.id == "bot"
+    on_sent.assert_called_once_with(ActivitySentEvent(activity=result, conversation_ref=expected_ref))
+
+    event = on_sent.call_args.args[0]
+    event.conversation_ref.conversation.id = "changed-by-listener"
+    event.conversation_ref.bot.is_targeted = True
+    await plan.stop()
+
+    assert on_sent.call_count == 2
+    next_event = on_sent.call_args.args[0]
+    assert next_event.conversation_ref == expected_ref
+    assert next_event.conversation_ref.conversation is not event.conversation_ref.conversation
+    conversation_id, activity = api.conversations.create_activity.call_args.args
+    assert conversation_id == "chat"
+    assert activity.conversation.id == "chat"
+    assert activity.from_.is_targeted is None
 
 
 async def test_plan_preserves_scoped_caller_when_using_saved_service_url(ref):

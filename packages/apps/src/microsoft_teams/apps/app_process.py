@@ -6,6 +6,7 @@ Licensed under the MIT License.
 import logging
 from time import perf_counter
 from typing import TYPE_CHECKING, Any, Awaitable, Callable, Dict, List, Optional, TypeGuard, Union, cast
+from weakref import WeakSet
 
 from microsoft_teams.api import (
     ActivityBase,
@@ -46,6 +47,7 @@ from .diagnostics._helpers import (
 from .events import ActivityEvent, ActivityResponseEvent, ActivitySentEvent, ErrorEvent
 from .files_credential import select_files_credential, select_inline_image_credential
 from .oauth_flow import OAuthFlowRegistry
+from .plan import Plan
 from .plugins import PluginActivityEvent, PluginBase, StreamCancelledError
 from .routing.activity_context import ActivityContext
 from .routing.router import ActivityHandler, ActivityRouter
@@ -216,6 +218,23 @@ class ActivityProcessor:
             return res
 
         activityCtx.send = updated_send
+
+        observed_plans: WeakSet[Plan] = WeakSet()
+        get_plan = activityCtx.plan
+
+        async def handle_plan_sent(event: ActivitySentEvent) -> None:
+            if not self.event_manager:
+                raise ValueError("EventManager was not initialized properly")
+            await self.event_manager.on_activity_sent(event, plugins=plugins)
+
+        def updated_plan(*, reply_to_id: str | None = None) -> Plan:
+            plan = get_plan(reply_to_id=reply_to_id)
+            if plan not in observed_plans:
+                plan.events.on("sent", handle_plan_sent)
+                observed_plans.add(plan)
+            return plan
+
+        activityCtx.plan = updated_plan
 
         async def handle_chunk(chunk_activity: SentActivity):
             if self.event_manager:
