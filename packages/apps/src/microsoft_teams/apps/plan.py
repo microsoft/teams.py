@@ -15,10 +15,15 @@ from microsoft_teams.api import (
     Step,
     TypingActivityInput,
 )
+from microsoft_teams.common.experimental import experimental
 
 
+@experimental("ExperimentalTeamsPlan")
 class Plan:
-    """Send prompt-bound Plan activities; the application owns ordering and concurrency."""
+    """Send prompt-bound Plan activities; the application owns ordering and concurrency.
+
+    Preview API. Diagnostic: ExperimentalTeamsPlan
+    """
 
     def __init__(self, api: ApiClient, conversation_ref: ConversationReference, *, reply_to_id: str) -> None:
         self._ref = conversation_ref.model_copy(deep=True)

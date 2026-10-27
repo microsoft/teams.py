@@ -50,6 +50,7 @@ from microsoft_teams.api.models.attachment.card_attachment import (
 from microsoft_teams.api.models.oauth import OAuthCard
 from microsoft_teams.cards import AdaptiveCard
 from microsoft_teams.common import Storage
+from microsoft_teams.common.experimental import experimental
 from microsoft_teams.common.http.client_token import Token
 
 from ..activity_send import send_or_update_activity
@@ -184,7 +185,9 @@ class ActivityContext(Generic[T]):
             )
         return self._files
 
+    @experimental("ExperimentalTeamsPlan")
     def plan(self, *, reply_to_id: str | None = None) -> Plan:
+        """Create or reuse a Plan. Diagnostic: ExperimentalTeamsPlan"""
         prompt = self.activity.id if reply_to_id is None else reply_to_id
         if prompt not in self._plans:
             self._plans[prompt] = Plan(self.api, self.conversation_ref, reply_to_id=prompt)

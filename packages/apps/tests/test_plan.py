@@ -24,6 +24,7 @@ from microsoft_teams.api import (
 from microsoft_teams.api.auth.cloud_environment import PUBLIC
 from microsoft_teams.apps import ActivityContext, Plan
 from microsoft_teams.apps.activity_send import send_or_update_activity
+from microsoft_teams.common.experimental import ExperimentalWarning
 from microsoft_teams.common.http import Client
 
 
@@ -55,6 +56,29 @@ def api(ref):
     client.conversations.create_activity = AsyncMock(side_effect=create_activity)
     client.conversations.update_activity = AsyncMock(side_effect=update_activity)
     return client
+
+
+def test_plan_constructor_emits_preview_warning(api, ref):
+    with pytest.warns(ExperimentalWarning, match="Plan.*ExperimentalTeamsPlan"):
+        Plan(api, ref, reply_to_id="prompt")
+    api.conversations.create_activity.assert_not_called()
+
+
+def test_factory_emits_preview_warning_for_cached_helper(api, ref):
+    activity = MessageActivity(
+        id="prompt",
+        text="Question",
+        from_=Account(id="user"),
+        recipient=ref.bot,
+        conversation=ref.conversation,
+    )
+    ctx = ActivityContext(activity, "app", MagicMock(), api, None, ref, False, "oauth", None)
+    with pytest.warns(ExperimentalWarning, match="ExperimentalTeamsPlan") as caught:
+        plan = ctx.plan()
+    assert any("ActivityContext.plan" in str(warning.message) for warning in caught)
+    with pytest.warns(ExperimentalWarning, match=r"ActivityContext\.plan.*ExperimentalTeamsPlan") as caught:
+        assert ctx.plan() is plan
+    assert len(caught) == 1
 
 
 @pytest.mark.parametrize(

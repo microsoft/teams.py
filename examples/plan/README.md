@@ -1,5 +1,9 @@
 # Plan Test App
 
+> **Preview:** `Plan`, `ctx.plan()`, and the Plan models and type aliases may change.
+> Constructors and the context factory emit `ExperimentalWarning` with diagnostic
+> `ExperimentalTeamsPlan`.
+
 A test application that demonstrates Plan lifecycles with self-contained message handlers.
 Each step includes a description that changes as it progresses through the demo.
 

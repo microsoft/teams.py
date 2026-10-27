@@ -6,11 +6,24 @@ Licensed under the MIT License.
 
 import pytest
 from microsoft_teams.api import MessageActivityInput, PlanInfoEntity, Step, StepSource, StepStatus, TypingActivityInput
+from microsoft_teams.common.experimental import ExperimentalWarning
 from pydantic import ValidationError
 
 
 @pytest.mark.unit
 class TestPlanInfoEntity:
+    @pytest.mark.parametrize(
+        "model,kwargs",
+        [
+            (StepSource, {"title": "Report", "url": "https://example.com"}),
+            (Step, {"id": "lookup", "version": 1, "title": "Lookup", "status": "active"}),
+            (PlanInfoEntity, {"plan_type": "stop"}),
+        ],
+    )
+    def test_models_emit_preview_warning(self, model, kwargs):
+        with pytest.warns(ExperimentalWarning, match=rf"{model.__name__}.*ExperimentalTeamsPlan"):
+            model(**kwargs)
+
     def test_serialization(self):
         entity = PlanInfoEntity(
             plan_type="continue",
