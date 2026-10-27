@@ -6,6 +6,7 @@ Licensed under the MIT License.
 from collections.abc import Sequence
 
 from microsoft_teams.api import (
+    Account,
     ApiClient,
     ConversationReference,
     MessageActivityInput,
@@ -21,13 +22,22 @@ class Plan:
     """Send prompt-bound Plan activities; the application owns ordering and concurrency.
 
     Targeted prompts inherit their audience from the saved conversation reference.
-    Completion messages can supply an explicit recipient, as with ordinary sends.
+    An optional recipient, including its is_targeted flag, supplies the default for
+    every Plan activity. A completion message's own recipient takes precedence.
     """
 
-    def __init__(self, api: ApiClient, conversation_ref: ConversationReference, *, reply_to_id: str) -> None:
+    def __init__(
+        self,
+        api: ApiClient,
+        conversation_ref: ConversationReference,
+        *,
+        reply_to_id: str,
+        recipient: Account | None = None,
+    ) -> None:
         self._ref = conversation_ref.model_copy(deep=True)
         self._api = api.from_service_url(self._ref.service_url)
         self._reply_to_id = reply_to_id
+        self._recipient = recipient.model_copy(deep=True) if recipient is not None else None
 
     async def start(self, steps: Sequence[Step]) -> None:
         await self._send_plan_update("start", steps)
@@ -65,6 +75,8 @@ class Plan:
         activity.reply_to_id = self._reply_to_id
         activity.from_ = self._ref.bot.model_copy(deep=True)
         activity.conversation = self._ref.conversation.model_copy(deep=True)
+        if activity.recipient is None and self._recipient is not None:
+            activity.recipient = self._recipient.model_copy(deep=True)
 
         incoming_targeted = self._ref.bot.is_targeted is True
         if incoming_targeted and activity.recipient is None:
