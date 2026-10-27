@@ -22,6 +22,7 @@ from microsoft_teams.api import (
 from microsoft_teams.common import EventEmitter
 
 from .plugins.streamer import (
+    PlanConflictStreamError,
     StreamCancelledError,
     StreamerEvent,
     StreamerProtocol,
@@ -129,6 +130,9 @@ class HttpStream(StreamerProtocol):
     def emit(self, activity: Union[MessageActivityInput, TypingActivityInput, str]) -> None:
         """
         Emit a new activity to the stream.
+
+        An explicit reply_to_id on the final message is preserved. Otherwise,
+        the conversation reference's activity ID is used.
 
         Args:
             activity: The activity to emit.
@@ -264,11 +268,11 @@ class HttpStream(StreamerProtocol):
         activity: Union[TypingActivityInput, MessageActivityInput],
         options: Optional[RetryOptions] = None,
     ) -> SentActivity:
-        """Send an activity through retry, treating terminal stream errors as non-retryable."""
+        """Send through retry, excluding terminal stream errors and Plan conflicts."""
         return await retry(
             lambda: self._send(activity),
             options=options or RetryOptions(),
-            non_retryable=(TerminalStreamError,),
+            non_retryable=(TerminalStreamError, PlanConflictStreamError),
         )
 
     async def _send_final(self) -> SentActivity:
@@ -398,7 +402,8 @@ class HttpStream(StreamerProtocol):
 
         to_send.from_ = self._ref.bot
         to_send.conversation = self._ref.conversation
-        to_send.reply_to_id = self._ref.activity_id
+        if to_send.reply_to_id is None:
+            to_send.reply_to_id = self._ref.activity_id
 
         try:
             if to_send.id and not any(e.type == "streaminfo" for e in (to_send.entities or [])):
@@ -411,6 +416,14 @@ class HttpStream(StreamerProtocol):
 
             return SentActivity.merge(to_send, res)
         except HTTPStatusError as e:
+            if e.response.status_code == 409:
+                try:
+                    code = e.response.json().get("error", {}).get("code")
+                except (ValueError, AttributeError):
+                    code = None
+                if code == "PlanConflict":
+                    raise PlanConflictStreamError(str(e), request=e.request, response=e.response) from e
+
             # Various error codes are used for streaming.
             # https://learn.microsoft.com/en-us/microsoftteams/platform/bots/streaming-ux?tabs=csharp#error-codes
             if e.response.status_code == 403:

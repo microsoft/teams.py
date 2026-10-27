@@ -6,6 +6,7 @@ Licensed under the MIT License.
 import asyncio
 from typing import Awaitable, Callable, Literal, Optional, Protocol, Union
 
+from httpx import HTTPStatusError
 from microsoft_teams.api import MessageActivityInput, SentActivity, TextFormat, TypingActivityInput
 
 StreamerEvent = Literal["chunk", "close"]
@@ -34,6 +35,10 @@ class StreamNotAllowedError(TerminalStreamError):
     """
     Raised when streaming is not allowed for this user or bot.
     """
+
+
+class PlanConflictStreamError(HTTPStatusError):
+    """A Plan conflict that must reach the caller without retry."""
 
 
 class StreamerProtocol(Protocol):

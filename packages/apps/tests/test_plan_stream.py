@@ -4,7 +4,9 @@ Licensed under the MIT License.
 """
 # pyright: basic
 
+import asyncio
 import json
+from unittest.mock import AsyncMock, MagicMock
 
 import httpx
 import pytest
@@ -13,10 +15,12 @@ from microsoft_teams.api import (
     ApiClient,
     ConversationAccount,
     ConversationReference,
+    MessageActivity,
     MessageActivityInput,
     PlanInfoEntity,
+    Step,
 )
-from microsoft_teams.apps import HttpStream
+from microsoft_teams.apps import ActivityContext, HttpStream
 from microsoft_teams.apps.plugins import StreamTimedOutError
 from microsoft_teams.common.http import Client
 
@@ -63,6 +67,92 @@ async def test_completion_metadata_is_sent_only_on_final_message(streamed):
         {"type": "planInfo", "planType": "complete"}
     ]
     assert any(entity["type"] == "streaminfo" and entity["streamType"] == "final" for entity in final["entities"])
+
+
+async def test_completion_preserves_explicit_plan_prompt(streamed):
+    stream, requests, _ = streamed
+    ref = stream._ref
+    incoming = MessageActivity(
+        id="prompt",
+        text="Question",
+        from_=Account(id="user"),
+        recipient=ref.bot,
+        conversation=ref.conversation,
+    )
+    ctx = ActivityContext(incoming, "app", MagicMock(), stream._client, None, ref, False, "oauth", None)
+    ctx._stream = stream
+    await ctx.plan(reply_to_id="other-prompt").start([Step(id="lookup", version=1, title="Lookup", status="active")])
+    ctx.stream.emit("Answer")
+    await stream._pending
+    ctx.stream.emit(MessageActivityInput(reply_to_id="other-prompt", entities=[PlanInfoEntity(plan_type="complete")]))
+
+    result = await ctx.stream.close()
+
+    assert result is not None
+    assert result.activity_params.reply_to_id == "other-prompt"
+    assert all(method == "POST" for method, _ in requests)
+    plan_activities = [
+        payload
+        for _, payload in requests
+        if any(entity["type"] == "planInfo" for entity in payload.get("entities", []))
+    ]
+    assert [
+        entity["planType"]
+        for payload in plan_activities
+        for entity in payload["entities"]
+        if entity["type"] == "planInfo"
+    ] == ["start", "complete"]
+    assert all(payload["replyToId"] == "other-prompt" for payload in plan_activities)
+    assert ref.activity_id == "prompt"
+
+
+async def test_plan_conflict_is_not_retried(streamed, monkeypatch):
+    stream, requests, responses = streamed
+    stream.emit(MessageActivityInput(text="Answer", entities=[PlanInfoEntity(plan_type="complete")]))
+    await stream._pending
+    error_body = {
+        "error": {
+            "code": "PlanConflict",
+            "message": "The user stopped this plan. It can no longer be updated or completed.",
+        }
+    }
+    responses.append(httpx.Response(409, json=error_body))
+    sleep = AsyncMock()
+    monkeypatch.setattr(asyncio, "sleep", sleep)
+
+    with pytest.raises(httpx.HTTPStatusError) as error:
+        await stream.close()
+
+    assert error.value.response.status_code == 409
+    assert error.value.response.json() == error_body
+    assert len(requests) == 2
+    assert requests[-1][1]["type"] == "message"
+    sleep.assert_not_awaited()
+
+
+@pytest.mark.parametrize(
+    "response",
+    [
+        httpx.Response(409, json={"error": {"code": "OtherConflict"}}),
+        httpx.Response(503, json={"error": {"code": "PlanConflict"}}),
+        httpx.Response(409, json={"error": None}),
+        httpx.Response(409),
+    ],
+)
+async def test_other_errors_still_retry(streamed, monkeypatch, response):
+    stream, requests, responses = streamed
+    stream.emit(MessageActivityInput(text="Answer", entities=[PlanInfoEntity(plan_type="complete")]))
+    await stream._pending
+    responses.append(response)
+    sleep = AsyncMock()
+    monkeypatch.setattr(asyncio, "sleep", sleep)
+
+    result = await stream.close()
+
+    assert result is not None
+    assert result.id == "stream-id"
+    assert len(requests) == 3
+    sleep.assert_awaited_once()
 
 
 @pytest.mark.parametrize("timeout_during_chunk", [False, True])
