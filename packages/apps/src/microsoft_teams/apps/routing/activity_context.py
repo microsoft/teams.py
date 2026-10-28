@@ -66,7 +66,7 @@ from ..diagnostics._constants import (
 from ..diagnostics._helpers import trace_oauth_operation
 from ..files import FilesAccessor
 from ..files.download import BotApiCredential, GraphCredential
-from ..http_stream import HttpStream
+from ..http_stream import HttpStream, StreamOptions, StreamReplyChain
 from ..oauth_connection import connection_lookup_key, normalize_connection_name
 from ..oauth_state import (
     get_pending_oauth_sign_ins,
@@ -181,8 +181,19 @@ class ActivityContext(Generic[T]):
 
     @property
     def stream(self) -> StreamerProtocol:
+        """The stream for the current conversation.
+
+        The first message of the stream goes to the reply chain (thread) where ``send`` would place a response.
+        """
         if self._stream is None:
-            self._stream = HttpStream(self.api, self.conversation_ref)
+            placement = self._get_inbound_reply_chain_placement()
+            self._stream = HttpStream(
+                self.api,
+                self.conversation_ref,
+                StreamOptions(StreamReplyChain(placement.chat_or_channel_id, placement.reply_chain_id))
+                if placement is not None
+                else None,
+            )
         return self._stream
 
     @property

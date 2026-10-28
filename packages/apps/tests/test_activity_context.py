@@ -29,7 +29,7 @@ from microsoft_teams.api import (
 from microsoft_teams.api.activities.typing import TypingActivityInput
 from microsoft_teams.api.auth.cloud_environment import PUBLIC
 from microsoft_teams.api.models.entity import QuotedReplyData, QuotedReplyEntity
-from microsoft_teams.apps import TurnState, TurnStateContainer
+from microsoft_teams.apps import StreamOptions, StreamReplyChain, TurnState, TurnStateContainer
 from microsoft_teams.apps.oauth_state import get_pending_oauth_sign_ins
 from microsoft_teams.apps.routing.activity_context import ActivityContext, SignInOptions
 from microsoft_teams.apps.state import TurnStateLoader
@@ -635,6 +635,68 @@ class TestActivityContextReplyChainPlacement:
 
         ctx.api.conversations._create_reply_chain_activity.assert_called_once()
         ctx.api.conversations.create_activity.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_creates_the_stream_in_the_reply_chain_when_the_inbound_is_inside_one_in_a_personal_chat(
+        self,
+    ) -> None:
+        ctx = _context_with_reply_chain_methods(
+            _inbound_message(
+                "reply-2",
+                {"chat": {"id": CHAT_ID}, "replyChain": {"id": "root-1"}},
+                conversation_type="personal",
+            )
+        )
+
+        with patch("microsoft_teams.apps.routing.activity_context.HttpStream") as http_stream:
+            assert ctx.stream is http_stream.return_value
+
+        http_stream.assert_called_once_with(
+            ctx.api, ctx.conversation_ref, StreamOptions(StreamReplyChain(CHAT_ID, "root-1"))
+        )
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("activity_id", ["root-1", "reply-2"], ids=["root-post", "thread-reply"])
+    async def test_creates_the_stream_in_the_reply_chain_of_the_thread_in_a_channel(self, activity_id: str) -> None:
+        ctx = _context_with_reply_chain_methods(
+            _inbound_message(
+                activity_id,
+                {"channel": {"id": CHANNEL_ID}, "replyChain": {"id": "root-1"}},
+                conversation_type="channel",
+            )
+        )
+
+        with patch("microsoft_teams.apps.routing.activity_context.HttpStream") as http_stream:
+            assert ctx.stream is http_stream.return_value
+
+        http_stream.assert_called_once_with(
+            ctx.api, ctx.conversation_ref, StreamOptions(StreamReplyChain(CHANNEL_ID, "root-1"))
+        )
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("activity_id", "channel_data", "conversation_type"),
+        [
+            ("root-1", {"chat": {"id": CHAT_ID}, "replyChain": {"id": "root-1"}}, "personal"),
+            ("reply-2", {"chat": {"id": CHAT_ID}, "replyChain": {"id": "root-1"}}, "groupChat"),
+            (
+                "reply-2",
+                {"chat": {"id": CHAT_ID}, "replyChain": {"id": "root-1"}, "meeting": {"id": "meeting-1"}},
+                "groupChat",
+            ),
+            ("m-1", {"chat": {"id": CHAT_ID}}, "personal"),
+        ],
+        ids=["top-level", "group-chat", "meeting-chat", "no-reply-chain"],
+    )
+    async def test_creates_the_stream_without_a_reply_chain(self, activity_id, channel_data, conversation_type) -> None:
+        ctx = _context_with_reply_chain_methods(
+            _inbound_message(activity_id, channel_data, conversation_type=conversation_type)
+        )
+
+        with patch("microsoft_teams.apps.routing.activity_context.HttpStream") as http_stream:
+            assert ctx.stream is http_stream.return_value
+
+        http_stream.assert_called_once_with(ctx.api, ctx.conversation_ref, None)
 
     @pytest.mark.asyncio
     async def test_keeps_the_inbound_agentic_user_when_replying_in_the_reply_chain(self) -> None:

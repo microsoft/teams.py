@@ -6,7 +6,8 @@ Licensed under the MIT License.
 import asyncio
 import logging
 from collections import deque
-from typing import Awaitable, Callable, Optional, Union
+from dataclasses import dataclass
+from typing import Awaitable, Callable, NamedTuple, Optional, Union
 
 from httpx import HTTPStatusError
 from microsoft_teams.api import (
@@ -35,6 +36,32 @@ from .utils import RetryOptions, retry
 logger = logging.getLogger(__name__)
 
 
+class StreamReplyChain(NamedTuple):
+    """Where the first message of a stream is created, as a reply in a reply chain (thread).
+
+    This API is in preview and may change in the future.
+    Diagnostic: ExperimentalTeamsThreading
+    """
+
+    chat_or_channel_id: str
+    """The id of the chat or channel the reply chain is in, from `channel_data.chat.id` or `channel_data.channel.id`."""
+
+    reply_chain_id: str
+    """The id of the message at the root of the reply chain, from `channel_data.reply_chain.id`."""
+
+
+@dataclass(frozen=True)
+class StreamOptions:
+    """Options for creating a stream.
+
+    This API is in preview and may change in the future.
+    Diagnostic: ExperimentalTeamsThreading
+    """
+
+    reply_chain: Optional[StreamReplyChain] = None
+    """When set, the first message of the stream is created as a reply in this reply chain."""
+
+
 class HttpStream(StreamerProtocol):
     """
     HTTP-based streaming implementation for Microsoft Teams activities.
@@ -51,16 +78,21 @@ class HttpStream(StreamerProtocol):
     The delays between flushes is to ensure we dont hit API rate limits with Microsoft Teams.
     """
 
-    def __init__(self, client: ApiClient, ref: ConversationReference):
+    def __init__(self, client: ApiClient, ref: ConversationReference, options: Optional[StreamOptions] = None):
         """
         Initialize a new HttpStream instance.
 
         Args:
             client (ApiClient): The API client used to send activities to Microsoft Teams.
             ref (ConversationReference): Reference to the Teams conversation.
+            options (Optional[StreamOptions]): Options for the stream.
+                When `options.reply_chain` is set, the first message of the stream is created as a reply in that
+                reply chain (thread).
+                Later chunks, updates and the final message always use the conversation of `ref`.
         """
         super().__init__()
         self._ref = ref
+        self._reply_chain = options.reply_chain if options else None
         self._client = client.from_service_url(ref.service_url)
         self._events = EventEmitter[StreamerEvent]()
 
@@ -407,6 +439,31 @@ class HttpStream(StreamerProtocol):
             self._id = res.id
             self._state_changed.set()  # Notify that _id has been set
 
+    async def _create_in_reply_chain(
+        self, reply_chain: StreamReplyChain, to_send: Union[TypingActivityInput, MessageActivityInput]
+    ) -> SentActivity:
+        """
+        Create the first message of the stream as a reply in the reply chain (thread).
+
+        In a channel, when the service answers HTTP 404 and the reply chain id is a plain non-zero number,
+        the message is created in the conversation of the stream instead, once.
+        Any other error is raised.
+        """
+        try:
+            return await self._client.conversations._create_reply_chain_activity(  # pyright: ignore[reportPrivateUsage]
+                reply_chain.chat_or_channel_id, reply_chain.reply_chain_id, to_send
+            )
+        except HTTPStatusError as e:
+            reply_chain_id = reply_chain.reply_chain_id
+            if (
+                e.response.status_code != 404
+                or self._ref.conversation.conversation_type != "channel"
+                or not (reply_chain_id.isascii() and reply_chain_id.isdigit())
+                or reply_chain_id == "0"
+            ):
+                raise
+        return await self._client.conversations.create_activity(self._ref.conversation.id, to_send)
+
     async def _send(self, to_send: Union[TypingActivityInput, MessageActivityInput]) -> SentActivity:
         """
         Send or update an activity to the Teams conversation.
@@ -426,6 +483,8 @@ class HttpStream(StreamerProtocol):
         try:
             if to_send.id and not any(e.type == "streaminfo" for e in (to_send.entities or [])):
                 res = await self._client.conversations.update_activity(self._ref.conversation.id, to_send.id, to_send)
+            elif self._reply_chain and not to_send.id:
+                res = await self._create_in_reply_chain(self._reply_chain, to_send)
             else:
                 res = await self._client.conversations.create_activity(self._ref.conversation.id, to_send)
 
