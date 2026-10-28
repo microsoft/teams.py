@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, Any, Awaitable, Callable, List, Optional, Type
 
 from dependency_injector import providers
 from dotenv import find_dotenv, load_dotenv
+from httpx import HTTPStatusError
 from microsoft_teams.api import (
     Account,
     ActivityBase,
@@ -68,6 +69,7 @@ from .state import create_state_loader
 from .token_manager import DEFAULT_TENANT_FOR_GRAPH_TOKEN, TokenManager
 from .token_provider import AppTokenProvider
 from .utils import create_graph_client, derive_graph_base_url
+from .utils.thread import to_threaded_conversation_id
 
 version = importlib.metadata.version("microsoft-teams-apps")
 
@@ -477,6 +479,12 @@ class App(ActivityHandlerMixin):
 
         **3-arg form** ``reply(conversation_id, message_id, activity)``:
         Posts to the reply chain of the message ``message_id``, in the chat or channel ``conversation_id``.
+        When the service answers HTTP 404 or 400 and ``message_id`` is a plain non-zero number,
+        sends the activity again to the conversation id ``{conversation_id};messageid={message_id}``.
+        In that retry, a ``;messageid=`` suffix that ``conversation_id`` already carries is replaced, not repeated.
+        Only the status code is tested.
+        Any other error is raised.
+        The SDK does not state where a client shows the message in a group chat.
 
         **2-arg form** ``reply(conversation_id, activity)``:
         Sends to the exact conversation ID provided.
@@ -503,12 +511,27 @@ class App(ActivityHandlerMixin):
                 raise ValueError("conversation_id must be a non-empty string")
             if not message_id.strip():
                 raise ValueError("message_id must be a non-empty string")
-            return await self._send_activity(
-                conversation_id,
+            try:
+                return await self._send_activity(
+                    conversation_id,
+                    activity,
+                    service_url=service_url,
+                    agentic_identity=agentic_identity,
+                    reply_chain_id=message_id,
+                )
+            except HTTPStatusError as e:
+                if (
+                    e.response.status_code not in (400, 404)
+                    or not (message_id.isascii() and message_id.isdigit())
+                    or message_id == "0"
+                ):
+                    raise
+
+            return await self.send(
+                to_threaded_conversation_id(conversation_id, message_id),
                 activity,
                 service_url=service_url,
                 agentic_identity=agentic_identity,
-                reply_chain_id=message_id,
             )
 
         warnings.warn(_TWO_ARGUMENT_REPLY_DEPRECATION, DeprecationWarning, stacklevel=2)
