@@ -15,6 +15,7 @@ from typing import (
     Callable,
     Generic,
     List,
+    NamedTuple,
     Optional,
     Sequence,
     TypeGuard,
@@ -112,6 +113,12 @@ class SignInOptions:
 
 
 DEFAULT_SIGNIN_OPTIONS = SignInOptions()
+
+
+class _ReplyChainPlacement(NamedTuple):
+    chat_or_channel_id: str
+    reply_chain_id: str
+    in_channel: bool
 
 
 class ActivityContext(Generic[T]):
@@ -326,14 +333,21 @@ class ActivityContext(Generic[T]):
         ref = conversation_ref or self.conversation_ref
         placement = self._get_chat_reply_chain_placement(activity, conversation_ref)
         if placement is not None:
-            chat_id, reply_chain_id = placement
-            return await send_or_update_activity(
-                self.api,
-                activity,
-                ref.model_copy(update={"conversation": ref.conversation.model_copy(update={"id": chat_id})}),
-                agentic_identity=self.activity.recipient.agentic_identity,
-                reply_chain_id=reply_chain_id,
-            )
+            try:
+                return await send_or_update_activity(
+                    self.api,
+                    activity,
+                    ref.model_copy(
+                        update={
+                            "conversation": ref.conversation.model_copy(update={"id": placement.chat_or_channel_id})
+                        }
+                    ),
+                    agentic_identity=self.activity.recipient.agentic_identity,
+                    reply_chain_id=placement.reply_chain_id,
+                )
+            except HTTPStatusError as e:
+                if not placement.in_channel or e.response.status_code != 404:
+                    raise
 
         return await send_or_update_activity(
             self.api,
@@ -406,35 +420,47 @@ class ActivityContext(Generic[T]):
 
         return not activity.id and activity.recipient is None
 
-    def _get_inbound_reply_chain_placement(self) -> Optional[tuple[str, str]]:
-        """Find where a response to the inbound message belongs when it was received as a reply in a thread.
+    def _get_inbound_reply_chain_placement(self) -> Optional[_ReplyChainPlacement]:
+        """Find the chat or channel and reply chain a response to the inbound message is posted to.
 
-        An inbound message is a reply in a thread when `channel_data.reply_chain.id` differs from its own id.
-        The reply chain id is the id of the root message.
-        When the two are equal, the inbound message is a top-level message.
-        The response is then sent as a top-level message and does not start a thread.
-        The destination is the chat, `channel_data.chat.id`, taken from the payload.
-        Returns None when either id is missing, so the send goes to the inbound conversation.
+        In a channel the response always goes to the reply chain of the inbound message.
+        `channel_data.reply_chain.id` is the root of that reply chain.
+        It equals the inbound message's own id for a top-level post.
+        The destination is the channel, `channel_data.channel.id`.
+        In a chat an inbound message is a reply in a thread when `channel_data.reply_chain.id` differs from its own id.
+        When `channel_data.reply_chain.id` and `activity.id` are equal, the inbound message is a top-level message.
+        The response is then sent as a top-level message.
+        The destination is the chat, `channel_data.chat.id`.
+        Returns None when an id is missing,
+        so no reply chain (thread) is chosen and the response goes to the inbound conversation.
         """
         if not isinstance(self.activity, MessageActivity):
             return None
 
-        if self.activity.conversation.conversation_type == "groupChat":
+        conversation_type = self.activity.conversation.conversation_type
+        if conversation_type == "groupChat":
             return None
 
         channel_data = self.activity.channel_data
         reply_chain_id = channel_data.reply_chain.id if channel_data and channel_data.reply_chain else None
-        if not reply_chain_id or reply_chain_id == self.activity.id:
+        if not reply_chain_id:
+            return None
+
+        if conversation_type == "channel":
+            channel_id = channel_data.channel.id if channel_data and channel_data.channel else None
+            return _ReplyChainPlacement(channel_id, reply_chain_id, True) if channel_id else None
+
+        if reply_chain_id == self.activity.id:
             return None
 
         chat_id = channel_data.chat.id if channel_data and channel_data.chat else None
-        return (chat_id, reply_chain_id) if chat_id else None
+        return _ReplyChainPlacement(chat_id, reply_chain_id, False) if chat_id else None
 
     def _get_chat_reply_chain_placement(
         self,
         activity: ActivityParams,
         conversation_ref: Optional[ConversationReference] = None,
-    ) -> Optional[tuple[str, str]]:
+    ) -> Optional[_ReplyChainPlacement]:
         if (
             not isinstance(activity, MessageActivityInput)
             or activity.id

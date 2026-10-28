@@ -599,15 +599,34 @@ class TestActivityProcessor:
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize(
-        ("activity_id", "channel_data", "expect_reply_chain"),
+        ("activity_id", "channel_data", "conversation", "expect_reply_chain", "destination"),
         [
-            ("reply-2", {"chat": {"id": "19:user_bot@unq.gbl.spaces"}, "replyChain": {"id": "root-1"}}, True),
-            ("root-1", {"chat": {"id": "19:user_bot@unq.gbl.spaces"}, "replyChain": {"id": "root-1"}}, False),
-            ("reply-2", {"channel": {"id": "19:channel@thread.tacv2"}, "replyChain": {"id": "root-1"}}, False),
+            (
+                "reply-2",
+                {"chat": {"id": "19:user_bot@unq.gbl.spaces"}, "replyChain": {"id": "root-1"}},
+                {"id": "a:encrypted"},
+                True,
+                "19:user_bot@unq.gbl.spaces",
+            ),
+            (
+                "root-1",
+                {"chat": {"id": "19:user_bot@unq.gbl.spaces"}, "replyChain": {"id": "root-1"}},
+                {"id": "a:encrypted"},
+                False,
+                None,
+            ),
+            (
+                "reply-2",
+                {"channel": {"id": "19:channel@thread.tacv2"}, "replyChain": {"id": "root-1"}},
+                {"id": "19:channel@thread.tacv2;messageid=root-1", "conversationType": "channel"},
+                True,
+                "19:channel@thread.tacv2",
+            ),
         ],
+        ids=["chat-in-thread", "chat-top-level", "channel"],
     )
     async def test_send_from_a_handler_is_placed_from_the_payload(
-        self, activity_processor, activity_id, channel_data, expect_reply_chain
+        self, activity_processor, activity_id, channel_data, conversation, expect_reply_chain, destination
     ):
         """The full pipeline places a reactive send in the reply chain named by the inbound payload."""
         from microsoft_teams.api import MessageActivityInput, SentActivity
@@ -618,7 +637,7 @@ class TestActivityProcessor:
             service_url="https://service.url",
             **{
                 "from": {"id": "user-1", "name": "Test User"},
-                "conversation": {"id": "a:encrypted"},
+                "conversation": conversation,
                 "recipient": {"id": "bot-1", "name": "Test Bot"},
                 "channelId": "msteams",
                 "channelData": channel_data,
@@ -655,10 +674,7 @@ class TestActivityProcessor:
         conversations = mock_context_api.conversations
         if expect_reply_chain:
             conversations._create_reply_chain_activity.assert_called_once()
-            assert conversations._create_reply_chain_activity.call_args.args[:2] == (
-                "19:user_bot@unq.gbl.spaces",
-                "root-1",
-            )
+            assert conversations._create_reply_chain_activity.call_args.args[:2] == (destination, "root-1")
             conversations.create_activity.assert_not_called()
         else:
             conversations.create_activity.assert_called_once()
