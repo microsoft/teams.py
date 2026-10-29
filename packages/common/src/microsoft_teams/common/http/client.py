@@ -9,12 +9,12 @@ import logging
 from dataclasses import dataclass, field, replace
 from typing import Any, Awaitable, Callable, Dict, List, Optional, Protocol
 
-import httpx
-from httpx._models import Request, Response
-from httpx._types import QueryParamTypes, RequestContent, RequestData, RequestFiles
+import httpx2
+from httpx2 import Request, Response
 
 from .client_token import Token, resolve_token
 from .interceptor import Interceptor, InterceptorRequestContext, InterceptorResponseContext
+from .request_types import QueryParamTypes, RequestContent, RequestData, RequestFiles
 
 logger = logging.getLogger(__name__)
 
@@ -49,12 +49,12 @@ def _merge_headers(base: Dict[str, str], overrides: Dict[str, str]) -> Dict[str,
     return result
 
 
-def _wrap_response_json(response: httpx.Response) -> None:
+def _wrap_response_json(response: httpx2.Response) -> None:
     """
     Wrap the response.json method to handle JSONDecodeError gracefully.
 
     Args:
-        response: The httpx.Response object to wrap.
+        response: The httpx2.Response object to wrap.
         logger: Logger instance for warning messages.
     """
     original_json = response.json
@@ -110,8 +110,8 @@ class MiddlewareContext:
     metadata: object | None = None
 
 
-MiddlewareNext = Callable[[], Awaitable[httpx.Response]]
-MiddlewareResult = httpx.Response | Awaitable[httpx.Response]
+MiddlewareNext = Callable[[], Awaitable[httpx2.Response]]
+MiddlewareResult = httpx2.Response | Awaitable[httpx2.Response]
 
 
 class Middleware(Protocol):
@@ -137,7 +137,7 @@ class Client:
         options: ClientOptions dataclass with configuration for the client.
     """
 
-    def __init__(self, options: Optional[ClientOptions] = None, *, _http: Optional[httpx.AsyncClient] = None):
+    def __init__(self, options: Optional[ClientOptions] = None, *, _http: Optional[httpx2.AsyncClient] = None):
         """
         Initialize the HTTP Client.
 
@@ -149,15 +149,15 @@ class Client:
 
         self._options = options
         self._token = options.token
-        httpx_logger = logging.getLogger("httpx")
-        httpx_logger.setLevel(logger.level)
+        httpx2_logger = logging.getLogger("httpx2")
+        httpx2_logger.setLevel(logger.level)
 
         # Maintain interceptors as a separate instance attribute (do not mutate options)
         self._interceptors = list(options.interceptors or [])
         self._middlewares: list[Middleware] = []
 
-        self.http = _http or httpx.AsyncClient(
-            base_url=httpx.URL(options.base_url) if options.base_url else "",
+        self.http = _http or httpx2.AsyncClient(
+            base_url=httpx2.URL(options.base_url) if options.base_url else "",
             headers=options.headers,
             timeout=options.timeout,
         )
@@ -211,7 +211,7 @@ class Client:
         token: Optional[Token] = None,
         params: Optional[QueryParamTypes] = None,
         **kwargs: Any,
-    ) -> httpx.Response:
+    ) -> httpx2.Response:
         """
         Send a GET request.
 
@@ -220,10 +220,10 @@ class Client:
             headers: Optional per-request headers.
             params: Optional query parameters.
             token: Optional per-request token (overrides default).
-            **kwargs: Additional httpx.AsyncClient.get arguments.
+            **kwargs: Additional httpx2.AsyncClient.get arguments.
 
         Returns:
-            httpx.Response
+            httpx2.Response
         """
         return await self._send("GET", url, headers=headers, token=token, params=params, **kwargs)
 
@@ -239,7 +239,7 @@ class Client:
         headers: Optional[Dict[str, str]] = None,
         token: Optional[Token] = None,
         **kwargs: Any,
-    ) -> httpx.Response:
+    ) -> httpx2.Response:
         """
         Send a POST request.
 
@@ -252,10 +252,10 @@ class Client:
             files: The request files.
             json: The request JSON body.
             token: Optional per-request token (overrides default).
-            **kwargs: Additional httpx.AsyncClient.post arguments.
+            **kwargs: Additional httpx2.AsyncClient.post arguments.
 
         Returns:
-            httpx.Response
+            httpx2.Response
         """
         return await self._send(
             "POST",
@@ -282,7 +282,7 @@ class Client:
         headers: Optional[Dict[str, str]] = None,
         token: Optional[Token] = None,
         **kwargs: Any,
-    ) -> httpx.Response:
+    ) -> httpx2.Response:
         """
         Send a PUT request.
 
@@ -295,10 +295,10 @@ class Client:
             files: The request files.
             json: The request JSON body.
             token: Optional per-request token (overrides default).
-            **kwargs: Additional httpx.AsyncClient.put arguments.
+            **kwargs: Additional httpx2.AsyncClient.put arguments.
 
         Returns:
-            httpx.Response
+            httpx2.Response
         """
         return await self._send(
             "PUT",
@@ -325,7 +325,7 @@ class Client:
         headers: Optional[Dict[str, str]] = None,
         token: Optional[Token] = None,
         **kwargs: Any,
-    ) -> httpx.Response:
+    ) -> httpx2.Response:
         """
         Send a PATCH request.
 
@@ -338,10 +338,10 @@ class Client:
             files: The request files.
             json: The request JSON body.
             token: Optional per-request token (overrides default).
-            **kwargs: Additional httpx.AsyncClient.patch arguments.
+            **kwargs: Additional httpx2.AsyncClient.patch arguments.
 
         Returns:
-            httpx.Response
+            httpx2.Response
         """
         return await self._send(
             "PATCH",
@@ -364,7 +364,7 @@ class Client:
         token: Optional[Token] = None,
         params: Optional[QueryParamTypes] = None,
         **kwargs: Any,
-    ) -> httpx.Response:
+    ) -> httpx2.Response:
         """
         Send a DELETE request.
 
@@ -373,10 +373,10 @@ class Client:
             headers: Optional per-request headers.
             params: Optional query parameters.
             token: Optional per-request token (overrides default).
-            **kwargs: Additional httpx.AsyncClient.delete arguments.
+            **kwargs: Additional httpx2.AsyncClient.delete arguments.
 
         Returns:
-            httpx.Response
+            httpx2.Response
         """
         return await self._send("DELETE", url, headers=headers, token=token, params=params, **kwargs)
 
@@ -393,7 +393,7 @@ class Client:
         files: Optional[RequestFiles] = None,
         json: Optional[Any] = None,
         **kwargs: Any,
-    ) -> httpx.Response:
+    ) -> httpx2.Response:
         """
         Send a custom HTTP request.
 
@@ -407,10 +407,10 @@ class Client:
             files: The request files.
             json: The request JSON body.
             token: Optional per-request token (overrides default).
-            **kwargs: Additional httpx.AsyncClient.request arguments.
+            **kwargs: Additional httpx2.AsyncClient.request arguments.
 
         Returns:
-            httpx.Response
+            httpx2.Response
         """
         return await self._send(
             method,
@@ -438,7 +438,7 @@ class Client:
         files: Optional[RequestFiles] = None,
         json: Optional[Any] = None,
         **kwargs: Any,
-    ) -> httpx.Response:
+    ) -> httpx2.Response:
         metadata = kwargs.pop("_metadata", None)
         context = MiddlewareContext(
             method=method.upper(),
@@ -455,7 +455,7 @@ class Client:
             metadata=metadata,
         )
 
-        async def send() -> httpx.Response:
+        async def send() -> httpx2.Response:
             req_headers = await self._prepare_headers(context.headers, context.token)
             response = await self.http.request(
                 context.method,
@@ -484,7 +484,7 @@ class Client:
         context: MiddlewareContext,
         next_sender: MiddlewareNext,
     ) -> MiddlewareNext:
-        async def sender() -> httpx.Response:
+        async def sender() -> httpx2.Response:
             result = middleware.send(context, next_sender)
             if inspect.isawaitable(result):
                 return await result
@@ -528,7 +528,7 @@ class Client:
 
     def _update_event_hooks(self) -> None:
         """
-        Internal: Update the httpx.AsyncClient event_hooks to match current interceptors.
+        Internal: Update the httpx2.AsyncClient event_hooks to match current interceptors.
         """
         event_hooks_dict: Dict[str, List[Callable[[Any], Any]]] = {}
         for hook in self._interceptors:

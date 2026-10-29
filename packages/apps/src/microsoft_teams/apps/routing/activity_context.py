@@ -20,7 +20,7 @@ from typing import (
     TypeVar,
 )
 
-from httpx import HTTPStatusError
+from httpx2 import HTTPStatusError
 from microsoft_teams.api import (
     Account,
     ActivityBase,
@@ -172,7 +172,7 @@ class ActivityContext(Generic[T]):
         """
         if self._files is None:
             # Reuse the API client's underlying connection pool rather than building a new one per download. The raw
-            # `httpx.AsyncClient` is used deliberately: the SDK wrapper injects the bot's `Authorization` header per
+            # `httpx2.AsyncClient` is used deliberately: the SDK wrapper injects the bot's `Authorization` header per
             # request, and a download URL carries its own `tempauth` credential that a bearer token can displace.
             self._files = FilesAccessor(
                 self.activity,

@@ -9,7 +9,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any, AsyncIterator, Dict, List, Optional, Tuple
 
-import httpx
+import httpx2
 import pytest
 from microsoft_teams.apps.files import IncomingFile
 from microsoft_teams.apps.files.errors import FileScopeNotSupportedError, FileUrlExpiredError
@@ -17,26 +17,28 @@ from microsoft_teams.apps.files.errors import FileScopeNotSupportedError, FileUr
 DOWNLOAD_URL = "https://download.example/notes.txt?tempauth=abc"
 
 
-def _json_body(text: str, headers: Optional[Dict[str, str]] = None) -> httpx.Response:
-    return httpx.Response(200, content=text.encode(), headers=headers or {})
+def _json_body(text: str, headers: Optional[Dict[str, str]] = None) -> httpx2.Response:
+    return httpx2.Response(200, content=text.encode(), headers=headers or {})
 
 
-def _sequence_client(responses: List[httpx.Response]) -> Tuple[httpx.AsyncClient, List[str]]:
+def _sequence_client(responses: List[httpx2.Response]) -> Tuple[httpx2.AsyncClient, List[str]]:
     """A client whose transport hands back the given responses in call order, recording the urls it saw."""
     calls: List[str] = []
     state = {"i": 0}
 
-    def handler(request: httpx.Request) -> httpx.Response:
+    def handler(request: httpx2.Request) -> httpx2.Response:
         calls.append(str(request.url))
         index = min(state["i"], len(responses) - 1)
         state["i"] += 1
         return responses[index]
 
-    return httpx.AsyncClient(transport=httpx.MockTransport(handler)), calls
+    return httpx2.AsyncClient(transport=httpx2.MockTransport(handler)), calls
 
 
 @asynccontextmanager
-async def _personal_file(responses: List[httpx.Response], **init: Any) -> AsyncIterator[Tuple[IncomingFile, List[str]]]:
+async def _personal_file(
+    responses: List[httpx2.Response], **init: Any
+) -> AsyncIterator[Tuple[IncomingFile, List[str]]]:
     client, calls = _sequence_client(responses)
     params: Dict[str, Any] = {
         "name": "notes.txt",
@@ -81,18 +83,18 @@ class TestTextReader:
 
 class TestExpiredDownloadUrl:
     async def test_raises_first_fetch_when_the_first_fetch_is_unauthorized(self) -> None:
-        async with _personal_file([httpx.Response(401)]) as (file, _):
+        async with _personal_file([httpx2.Response(401)]) as (file, _):
             with pytest.raises(FileUrlExpiredError) as error:
                 await file.download()
             assert error.value.reason == "first_fetch"
 
     async def test_treats_403_the_same_as_401(self) -> None:
-        async with _personal_file([httpx.Response(403)]) as (file, _):
+        async with _personal_file([httpx2.Response(403)]) as (file, _):
             with pytest.raises(FileUrlExpiredError):
                 await file.download()
 
     async def test_raises_reread_when_a_later_fetch_lapses_after_success(self) -> None:
-        async with _personal_file([_json_body("first read ok"), httpx.Response(401)]) as (file, _):
+        async with _personal_file([_json_body("first read ok"), httpx2.Response(401)]) as (file, _):
             assert (await file.download()).text() == "first read ok"
             with pytest.raises(FileUrlExpiredError) as error:
                 await file.download()
@@ -128,7 +130,7 @@ class TestDownloadFailures:
             assert len(calls) == 0
 
     async def test_raises_on_a_non_auth_error_response(self) -> None:
-        async with _personal_file([httpx.Response(500)]) as (file, _):
+        async with _personal_file([httpx2.Response(500)]) as (file, _):
             with pytest.raises(RuntimeError, match="failed to download file: 500"):
                 await file.download()
 

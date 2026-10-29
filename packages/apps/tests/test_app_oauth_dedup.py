@@ -1,10 +1,6 @@
 """
 Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
-
-Teams fans ``signin/tokenExchange`` out to every signed-in client endpoint, so the
-same exchange reaches the bot several times. These tests pin down the resulting
-deduplication contract end to end through the public handler entry points.
 """
 
 import asyncio
@@ -14,7 +10,7 @@ from typing import Any, List, Optional
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from httpx import HTTPStatusError, Request, Response
+from httpx2 import HTTPStatusError, Request, Response
 from microsoft_teams.api import (
     InvokeResponse,
     SignInFailureInvokeActivity,

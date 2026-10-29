@@ -8,7 +8,7 @@ import asyncio
 from unittest.mock import MagicMock, patch
 
 import pytest
-from httpx import HTTPStatusError, Request, Response
+from httpx2 import HTTPStatusError, Request, Response
 from microsoft_teams.api import (
     Account,
     ApiClient,

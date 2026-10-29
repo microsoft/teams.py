@@ -6,7 +6,7 @@ Licensed under the MIT License.
 import logging
 from typing import Callable, List, Optional, cast
 
-import httpx
+import httpx2
 from microsoft_teams.common.http import Client
 from opentelemetry.trace import Span
 
@@ -377,7 +377,7 @@ class ConversationActivityClient(BaseClient):
         )
 
 
-def _set_response_activity_id(span: Span, response: httpx.Response) -> None:
+def _set_response_activity_id(span: Span, response: httpx2.Response) -> None:
     try:
         response_body = response.json()
     except ValueError as exception:

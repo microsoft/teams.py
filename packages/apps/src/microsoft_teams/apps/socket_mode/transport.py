@@ -20,7 +20,7 @@ from dataclasses import dataclass
 from typing import Awaitable, Callable, Optional, Sequence
 from urllib.parse import quote
 
-import httpx
+import httpx2
 
 from .connection import SignalRSocketConnection, SocketConnectionContext
 from .geo_socket import GeoSocket
@@ -118,7 +118,7 @@ class SocketModeTransport:
         on_activity: Callable[[SocketActivityEnvelope], Awaitable[Optional[ReplyFrame]]],
         callbacks: Optional[SocketModeCallbacks] = None,
         connection_factory: Optional[ConnectionFactory] = None,
-        http_client: Optional[httpx.AsyncClient] = None,
+        http_client: Optional[httpx2.AsyncClient] = None,
         websocket_factory: Optional[WebSocketFactory] = None,
         logger: Optional[logging.Logger] = None,
     ):

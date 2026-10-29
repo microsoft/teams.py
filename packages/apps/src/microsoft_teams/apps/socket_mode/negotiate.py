@@ -25,7 +25,7 @@ from email.utils import parsedate_to_datetime
 from typing import Awaitable, Callable, Mapping, Optional, cast
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
-import httpx
+import httpx2
 
 logger = logging.getLogger(__name__)
 
@@ -136,7 +136,7 @@ async def negotiate_service(
     negotiate_url: str,
     get_bot_token: Callable[[], Awaitable[str]],
     *,
-    http_client: Optional[httpx.AsyncClient] = None,
+    http_client: Optional[httpx2.AsyncClient] = None,
     timeout: float = DEFAULT_NEGOTIATE_TIMEOUT,
     get_connection_id_to_replace: Optional[Callable[[], Optional[str]]] = None,
 ) -> NegotiateResult:
@@ -154,7 +154,7 @@ async def negotiate_service(
     assert_secure_url(negotiate_url, purpose="negotiate")
 
     owns_client = http_client is None
-    client = http_client or httpx.AsyncClient()
+    client = http_client or httpx2.AsyncClient()
     try:
         logger.debug("Socket Mode service negotiate requesting %s", _safe_url(negotiate_url))
         async with asyncio.timeout(timeout):
@@ -207,7 +207,7 @@ async def negotiate_signalr(
     hub_url: str,
     access_token: str,
     *,
-    http_client: Optional[httpx.AsyncClient] = None,
+    http_client: Optional[httpx2.AsyncClient] = None,
     timeout: float = DEFAULT_NEGOTIATE_TIMEOUT,
 ) -> SignalREndpoint:
     """
@@ -222,7 +222,7 @@ async def negotiate_signalr(
         return SignalREndpoint(url=_with_query(hub_url, {"access_token": access_token}), access_token=access_token)
 
     owns_client = http_client is None
-    client = http_client or httpx.AsyncClient()
+    client = http_client or httpx2.AsyncClient()
     current_url = hub_url
     current_token = access_token
     try:
@@ -286,7 +286,7 @@ async def negotiate_signalr(
             await client.aclose()
 
 
-def _response_object(response: httpx.Response, operation: str) -> dict[str, object]:
+def _response_object(response: httpx2.Response, operation: str) -> dict[str, object]:
     """
     Decode a negotiate response body, rejecting anything that is not a JSON object.
 
@@ -339,7 +339,7 @@ def _require_text_websocket(value: object) -> None:
     raise NegotiateError("SignalR negotiate did not offer the WebSockets Text transport")
 
 
-def _parse_retry_after(headers: httpx.Headers) -> Optional[float]:
+def _parse_retry_after(headers: httpx2.Headers) -> Optional[float]:
     raw: Optional[str] = headers.get("retry-after")
     if not raw:
         return None
