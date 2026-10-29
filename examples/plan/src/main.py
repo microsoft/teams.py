@@ -10,8 +10,6 @@ import re
 from microsoft_teams.api import (
     CitationIconName,
     MessageActivity,
-    MessageActivityInput,
-    PlanInfoEntity,
     Step,
     StepSource,
 )
@@ -124,7 +122,7 @@ async def handle_complete_stream(ctx: ActivityContext[MessageActivity]) -> None:
     for chunk in ("Here is ", "the answer ", "based on the sources."):
         ctx.stream.emit(chunk)
         await asyncio.sleep(0.5)
-    ctx.stream.emit(MessageActivityInput(entities=[PlanInfoEntity(plan_type="complete")]))
+    ctx.stream.emit(plan.completion())
     await ctx.stream.close()
 
 

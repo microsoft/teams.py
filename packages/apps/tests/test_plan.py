@@ -143,6 +143,46 @@ async def test_complete_string_adds_completion_entity(api, ref, target):
     assert on_sent.call_args.args[0] is result
 
 
+def test_completion_builds_prompt_bound_message_without_sending(api, target):
+    plan = Plan(**target, api_client=api)
+    on_sent = MagicMock()
+    plan.events.on("sent", on_sent)
+    original = plan.model_dump()
+
+    activity = plan.completion()
+
+    assert isinstance(activity, MessageActivityInput)
+    assert activity.model_dump(by_alias=True, exclude_none=True) == {
+        "type": "message",
+        "replyToId": "prompt",
+        "entities": [{"type": "planInfo", "planType": "complete"}],
+    }
+    assert plan.model_dump() == original
+    api.conversations.create_activity.assert_not_called()
+    api.conversations.update_activity.assert_not_called()
+    api.from_service_url.assert_not_called()
+    on_sent.assert_not_called()
+
+
+def test_completion_returns_independent_messages_and_entities(api, target):
+    plan = Plan(**target, api_client=api)
+    first = plan.completion()
+    second = plan.completion()
+    original = second.model_dump()
+
+    assert first is not second
+    assert first.entities is not second.entities
+    assert first.entities[0] is not second.entities[0]
+    first.with_text("Only the first message").with_text_format("markdown")
+    first.add_entity(UnknownEntity.model_validate({"type": "appMetadata", "value": "kept"}))
+    first.reply_to_id = "other-prompt"
+    first.entities[0].plan_type = "stop"
+
+    assert second.model_dump() == original
+    assert plan.completion().model_dump() == original
+    assert plan.reply_to_id == "prompt"
+
+
 @pytest.mark.parametrize("method", ["start", "complete"])
 async def test_failed_send_does_not_emit_sent(api, target, method):
     plan = Plan(**target, api_client=api)

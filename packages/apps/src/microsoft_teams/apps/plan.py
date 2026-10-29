@@ -142,6 +142,13 @@ class Plan(CustomBaseModel):
         activity = TypingActivityInput(entities=[entity]).model_copy(deep=True)
         await self._send_activity(activity)
 
+    def completion(self) -> MessageActivityInput:
+        """Build a fresh completion message for this Plan's prompt without sending or emitting events.
+
+        Emit it last on a stream targeting the same conversation, then close the stream.
+        """
+        return MessageActivityInput(reply_to_id=self.reply_to_id, entities=[PlanInfoEntity(plan_type="complete")])
+
     async def complete(self, message: str | MessageActivityInput) -> SentActivity:
         """Complete the Plan and send the final response.
 
