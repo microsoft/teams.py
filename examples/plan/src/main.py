@@ -122,6 +122,7 @@ async def handle_complete_stream(ctx: ActivityContext[MessageActivity]) -> None:
     for chunk in ("Here is ", "the answer ", "based on the sources."):
         ctx.stream.emit(chunk)
         await asyncio.sleep(0.5)
+    # Emit last so the final streamed response also completes the plan.
     ctx.stream.emit(plan.completion())
     await ctx.stream.close()
 
