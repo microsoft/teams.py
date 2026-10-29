@@ -77,6 +77,7 @@ class HttpStream(StreamerProtocol):
 
     def _reset_current_stream(self) -> None:
         """Reset per-message state for the current stream cycle."""
+        self._retired = False
         self._index = 1
         self._id: Optional[str] = None
         self._text: str = ""
@@ -141,8 +142,8 @@ class HttpStream(StreamerProtocol):
         if self._canceled:
             raise StreamCancelledError("Stream has been cancelled.")
 
-        if self.closed:
-            logger.debug("starting a new streamed message after close")
+        if self.closed or self._retired:
+            logger.debug("starting a new streamed message")
             self._reset_stream_for_next_stream()
 
         if isinstance(activity, str):
@@ -206,6 +207,9 @@ class HttpStream(StreamerProtocol):
         Closing is idempotent until the next emit or update. Emitting or
         updating after close starts a new streamed message using the same
         stream instance.
+
+        A Plan timeout raises once and retires the failed cycle. Further closes
+        return None until the next emit or update.
         """
         if self.closed:
             logger.debug("stream already closed with result")
@@ -214,6 +218,10 @@ class HttpStream(StreamerProtocol):
 
         if self._canceled:
             logger.debug("stream was cancelled, nothing to close")
+            return None
+
+        if self._retired:
+            logger.debug("failed stream cycle already retired, nothing to close")
             return None
 
         if self._index == 1 and not self._queue and not self._lock.locked():
@@ -287,6 +295,8 @@ class HttpStream(StreamerProtocol):
         """
         activity = self._final_activity or MessageActivityInput()
         if any(isinstance(entity, PlanInfoEntity) for entity in activity.entities or []):
+            self._reset_current_stream()
+            self._retired = True
             raise StreamTimedOutError(
                 "The stream timed out before the Plan could be completed. "
                 "Plan completion requires a POST, so the existing streamed message "
