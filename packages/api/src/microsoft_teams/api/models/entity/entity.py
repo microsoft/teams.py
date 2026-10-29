@@ -23,6 +23,7 @@ from .unknown_entity import UnknownEntity
 _KNOWN_ENTITY_TYPE_TAGS = {
     "clientInfo": "clientInfo",
     "mention": "mention",
+    "planInfo": "planInfo",
     "ProductInfo": "ProductInfo",
     "quotedReply": "quotedReply",
     "streaminfo": "streaminfo",
@@ -42,9 +43,6 @@ def _entity_discriminator(value: Any) -> str:
     entity_type = data.get("type") if data is not None else getattr(cast(object, value), "type", None)
     if not isinstance(entity_type, str):
         return "_unknown"
-
-    if entity_type == "planInfo":
-        return "planInfo"
 
     if entity_type == "https://schema.org/Message":
         if data is not None:

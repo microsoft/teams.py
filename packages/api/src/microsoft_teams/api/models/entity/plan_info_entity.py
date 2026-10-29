@@ -5,6 +5,7 @@ Licensed under the MIT License.
 
 from typing import Literal, Optional
 
+from microsoft_teams.api.models.entity.citation_entity import CitationIconName
 from microsoft_teams.common.experimental import experimental
 
 from ..custom_base_model import CustomBaseModel
@@ -18,7 +19,7 @@ StepStatus = Literal["active", "proposed", "completed", "blocked", "error"]
 class StepSource(CustomBaseModel):
     title: str
     url: str
-    icon: Optional[str] = None
+    icon: Optional[CitationIconName] = None
 
 
 @experimental("ExperimentalTeamsPlan")

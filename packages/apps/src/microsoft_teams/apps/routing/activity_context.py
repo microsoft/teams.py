@@ -150,7 +150,7 @@ class ActivityContext(Generic[T]):
         # module, so holding it here would be circular.
         self._oauth_connection_names: List[str] = list(oauth_connection_names or [])
         self._stream: Optional[StreamerProtocol] = None
-        self._plans: dict[str, Plan] = {}
+        self._plan: Optional[Plan] = None
         self._files: Optional[FilesAccessor] = None
         self._files_credential = files_credential
         self._files_bot_api_credential = files_bot_api_credential
@@ -186,12 +186,15 @@ class ActivityContext(Generic[T]):
         return self._files
 
     @experimental("ExperimentalTeamsPlan")
-    def plan(self, *, reply_to_id: str | None = None) -> Plan:
-        """Create or reuse a Plan. Diagnostic: ExperimentalTeamsPlan"""
-        prompt = self.activity.id if reply_to_id is None else reply_to_id
-        if prompt not in self._plans:
-            self._plans[prompt] = Plan(self.api, self.conversation_ref, reply_to_id=prompt)
-        return self._plans[prompt]
+    def plan(self) -> Plan:
+        """Create or reference the existing Plan for the incoming activity. Diagnostic: ExperimentalTeamsPlan"""
+        if self._plan is None:
+            self._plan = Plan(
+                conversation_id=self.conversation_ref.conversation.id,
+                reply_to_id=self.activity.id,
+                api_client=self.api.from_service_url(self.conversation_ref.service_url),
+            )
+        return self._plan
 
     @property
     def user_graph(self) -> "GraphServiceClient":

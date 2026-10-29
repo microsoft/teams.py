@@ -5,7 +5,15 @@ Licensed under the MIT License.
 # pyright: basic
 
 import pytest
-from microsoft_teams.api import MessageActivityInput, PlanInfoEntity, Step, StepSource, StepStatus, TypingActivityInput
+from microsoft_teams.api import (
+    CitationIconName,
+    MessageActivityInput,
+    PlanInfoEntity,
+    Step,
+    StepSource,
+    StepStatus,
+    TypingActivityInput,
+)
 from microsoft_teams.common.experimental import ExperimentalWarning
 from pydantic import ValidationError
 
@@ -34,7 +42,13 @@ class TestPlanInfoEntity:
                     title="Sources checked",
                     status="completed",
                     description="Found the supporting report.",
-                    sources=[StepSource(title="Report", url="https://example.com/report", icon="document")],
+                    sources=[
+                        StepSource(
+                            title="Report",
+                            url="https://example.com/report",
+                            icon=CitationIconName.TEXT,
+                        )
+                    ],
                 )
             ],
         )
@@ -49,7 +63,7 @@ class TestPlanInfoEntity:
                     "title": "Sources checked",
                     "status": "completed",
                     "description": "Found the supporting report.",
-                    "sources": [{"title": "Report", "url": "https://example.com/report", "icon": "document"}],
+                    "sources": [{"title": "Report", "url": "https://example.com/report", "icon": "Text"}],
                 }
             ],
         }

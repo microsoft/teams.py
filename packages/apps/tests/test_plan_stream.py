@@ -20,7 +20,7 @@ from microsoft_teams.api import (
     PlanInfoEntity,
     Step,
 )
-from microsoft_teams.apps import ActivityContext, HttpStream
+from microsoft_teams.apps import ActivityContext, HttpStream, Plan
 from microsoft_teams.apps.plugins import StreamTimedOutError
 from microsoft_teams.common.http import Client
 
@@ -69,7 +69,8 @@ async def test_completion_metadata_is_sent_only_on_final_message(streamed):
     assert any(entity["type"] == "streaminfo" and entity["streamType"] == "final" for entity in final["entities"])
 
 
-async def test_completion_preserves_explicit_plan_prompt(streamed):
+@pytest.mark.parametrize("reply_to_id", [None, "other-prompt"])
+async def test_completion_preserves_plan_prompt(streamed, reply_to_id):
     stream, requests, _ = streamed
     ref = stream._ref
     incoming = MessageActivity(
@@ -81,15 +82,21 @@ async def test_completion_preserves_explicit_plan_prompt(streamed):
     )
     ctx = ActivityContext(incoming, "app", MagicMock(), stream._client, None, ref, False, "oauth", None)
     ctx._stream = stream
-    await ctx.plan(reply_to_id="other-prompt").start([Step(id="lookup", version=1, title="Lookup", status="active")])
+    plan = (
+        ctx.plan()
+        if reply_to_id is None
+        else Plan(conversation_id=ref.conversation.id, reply_to_id=reply_to_id, api_client=ctx.api)
+    )
+    await plan.start([Step(id="lookup", version=1, title="Lookup", status="active")])
     ctx.stream.emit("Answer")
     await stream._pending
-    ctx.stream.emit(MessageActivityInput(reply_to_id="other-prompt", entities=[PlanInfoEntity(plan_type="complete")]))
+    ctx.stream.emit(MessageActivityInput(reply_to_id=reply_to_id, entities=[PlanInfoEntity(plan_type="complete")]))
 
     result = await ctx.stream.close()
 
     assert result is not None
-    assert result.activity_params.reply_to_id == "other-prompt"
+    expected_prompt = incoming.id if reply_to_id is None else reply_to_id
+    assert result.activity_params.reply_to_id == expected_prompt
     assert all(method == "POST" for method, _ in requests)
     plan_activities = [
         payload
@@ -102,7 +109,7 @@ async def test_completion_preserves_explicit_plan_prompt(streamed):
         for entity in payload["entities"]
         if entity["type"] == "planInfo"
     ] == ["start", "complete"]
-    assert all(payload["replyToId"] == "other-prompt" for payload in plan_activities)
+    assert all(payload["replyToId"] == expected_prompt for payload in plan_activities)
     assert ref.activity_id == "prompt"
 
 

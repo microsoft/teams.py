@@ -663,14 +663,14 @@ class TestActivityProcessor:
             ("update", "continue"),
             ("stop", "stop"),
             ("error", "error"),
-            ("complete_plan", "complete"),
+            ("complete", "complete"),
         ],
     )
     async def test_context_plan_notifies_app_and_plugin_once(self, plan_context, method, operation):
         ctx, api, plugin, sent, _ = plan_context
-        plan = ctx.plan(reply_to_id="original-prompt")
-        if method == "complete_plan":
-            result = await plan.complete_plan("Done")
+        plan = ctx.plan()
+        if method == "complete":
+            result = await plan.complete("Done")
         elif method in ("start", "update"):
             result = await getattr(plan, method)([Step(id="lookup", version=1, title="Lookup", status="active")])
         else:
@@ -687,7 +687,7 @@ class TestActivityProcessor:
         assert event.conversation_ref == ctx.conversation_ref
         assert event.conversation_ref.activity_id == "inbound-id"
         activity = event.activity.activity_params
-        assert activity.reply_to_id == "original-prompt"
+        assert activity.reply_to_id == "inbound-id"
         assert activity.entities[0].plan_type == operation
         if operation == "complete":
             assert event.activity is result
@@ -698,43 +698,49 @@ class TestActivityProcessor:
             assert event.activity.id == "DO_NOT_USE_PLACEHOLDER_ID"
             assert activity.type == "typing"
 
+    async def test_context_plan_rejects_prompt_override(self, plan_context):
+        ctx, api, plugin, sent, _ = plan_context
+
+        with pytest.raises(TypeError, match="reply_to_id"):
+            ctx.plan(reply_to_id="other-prompt")  # pyright: ignore[reportCallIssue]
+
+        api.conversations.create_activity.assert_not_awaited()
+        plugin.on_activity_sent.assert_not_awaited()
+        assert sent.empty()
+
     async def test_context_plan_subscribes_once_without_replacing_listeners(self, plan_context):
         ctx, _, plugin, sent, _ = plan_context
         plan = ctx.plan()
         on_sent = MagicMock()
         plan.events.on("sent", on_sent)
-        assert ctx.plan(reply_to_id="inbound-id") is plan
-        other = ctx.plan(reply_to_id="other-prompt")
-        assert ctx.plan(reply_to_id="other-prompt") is other
+        assert ctx.plan() is plan
+        assert ctx.plan() is plan
         assert plan.events.listener_count("sent") == 2
-        assert other.events.listener_count("sent") == 1
         expected_ref = ctx.conversation_ref.model_copy(deep=True)
         ctx.conversation_ref = ctx.conversation_ref.model_copy(deep=True)
         ctx.conversation_ref.conversation.id = "changed-chat"
 
         await plan.start([Step(id="lookup", version=1, title="Lookup", status="active")])
-        await other.complete_plan("Other answer")
-        await ctx.plan().complete_plan("Done")
-        received = [await asyncio.wait_for(sent.get(), timeout=1) for _ in range(3)]
+        await ctx.plan().complete("Done")
+        received = [await asyncio.wait_for(sent.get(), timeout=1) for _ in range(2)]
 
         assert sent.empty()
-        assert plugin.on_activity_sent.await_count == 3
+        assert plugin.on_activity_sent.await_count == 2
         assert [event.activity.activity_params.reply_to_id for event in received] == [
             "inbound-id",
-            "other-prompt",
             "inbound-id",
         ]
         assert all(event.conversation_ref == expected_ref for event in received)
         assert on_sent.call_count == 2
-        assert on_sent.call_args_list[0].args[0] is received[0]
-        assert on_sent.call_args_list[1].args[0] is received[2]
+        assert on_sent.call_args_list[0].args[0] is received[0].activity
+        assert on_sent.call_args_list[1].args[0] is received[1].activity
 
     async def test_plan_notifications_do_not_use_context_send_or_targeting(self, plan_context):
         ctx, api, _, sent, _ = plan_context
         ctx.activity.recipient.is_targeted = True
         ctx.send = AsyncMock()
 
-        result = await ctx.plan().complete_plan("Done")
+        result = await ctx.plan().complete("Done")
         event = await asyncio.wait_for(sent.get(), timeout=1)
 
         ctx.send.assert_not_awaited()
@@ -744,7 +750,27 @@ class TestActivityProcessor:
         assert event.activity is result
         assert sent.empty()
 
-    @pytest.mark.parametrize("method", ["start", "complete_plan"])
+    async def test_plan_event_reference_is_independent_for_each_send(self, plan_context):
+        ctx, _, _, sent, _ = plan_context
+        plan = ctx.plan()
+        expected_ref = ctx.conversation_ref.model_copy(deep=True)
+
+        await plan.start([Step(id="lookup", version=1, title="Lookup", status="active")])
+        first = await asyncio.wait_for(sent.get(), timeout=1)
+        first.conversation_ref.bot.id = "changed-by-listener"
+        first.conversation_ref.conversation.id = "changed-chat"
+
+        await plan.complete("Done")
+        second = await asyncio.wait_for(sent.get(), timeout=1)
+
+        assert second.conversation_ref == expected_ref
+        assert second.conversation_ref is not first.conversation_ref
+        assert second.activity.activity_params.from_ is None
+        assert second.activity.activity_params.conversation.model_dump(exclude_none=True) == {
+            "id": expected_ref.conversation.id
+        }
+
+    @pytest.mark.parametrize("method", ["start", "complete"])
     async def test_failed_context_plan_does_not_notify_app_or_plugin(self, plan_context, method):
         ctx, api, plugin, sent, _ = plan_context
         plan = ctx.plan()
@@ -756,7 +782,7 @@ class TestActivityProcessor:
             if method == "start":
                 await plan.start([Step(id="lookup", version=1, title="Lookup", status="active")])
             else:
-                await plan.complete_plan("Done")
+                await plan.complete("Done")
 
         on_sent.assert_not_called()
         plugin.on_activity_sent.assert_not_awaited()
@@ -778,7 +804,7 @@ class TestActivityProcessor:
         api.conversations.create_activity.assert_not_awaited()
         assert sent.empty()
 
-        result = await saved[0].complete_plan("Background answer")
+        result = await saved[0].complete("Background answer")
         event = await asyncio.wait_for(sent.get(), timeout=1)
 
         assert event.activity is result

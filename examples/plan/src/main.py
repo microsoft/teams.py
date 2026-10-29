@@ -7,8 +7,15 @@ import asyncio
 import logging
 import re
 
-from microsoft_teams.api import MessageActivity, MessageActivityInput, PlanInfoEntity, Step, StepSource
-from microsoft_teams.apps import ActivityContext, App, Plan
+from microsoft_teams.api import (
+    CitationIconName,
+    MessageActivity,
+    MessageActivityInput,
+    PlanInfoEntity,
+    Step,
+    StepSource,
+)
+from microsoft_teams.apps import ActivityContext, App, Plan, PlanOptions
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -40,6 +47,7 @@ async def prepare_answer(plan: Plan, ready_description: str) -> None:
             create_lookup_step(),
             Step(
                 id="answer",
+                # NOTE: Any update to this step requires incrementing this version number.
                 version=1,
                 status="proposed",
                 title="Draft answer",
@@ -68,7 +76,13 @@ async def prepare_answer(plan: Plan, ready_description: str) -> None:
                 status="completed",
                 title="Sources checked",
                 description="Found the relevant Teams SDK documentation for the answer.",
-                sources=[StepSource(title="Teams SDK", url="https://microsoft.github.io/teams-sdk/")],
+                sources=[
+                    StepSource(
+                        title="Teams SDK docs",
+                        url="https://microsoft.github.io/teams-sdk/",
+                        icon=CitationIconName.TEXT,
+                    )
+                ],
             ),
             Step(
                 id="answer",
@@ -98,7 +112,7 @@ async def prepare_answer(plan: Plan, ready_description: str) -> None:
 async def handle_complete(ctx: ActivityContext[MessageActivity]) -> None:
     plan = ctx.plan()
     await prepare_answer(plan, "The response is ready to send.")
-    await plan.complete_plan("Here is the answer based on the sources.")
+    await plan.complete("Here is the answer based on the sources.")
 
 
 @app.on_message_pattern(_command("complete-stream"))
@@ -140,20 +154,9 @@ async def handle_error(ctx: ActivityContext[MessageActivity]) -> None:
     await plan.error()
 
 
-async def send_proactive_plan(plan: Plan) -> None:
-    await asyncio.sleep(5)
-    await plan.start(
-        [
-            Step(
-                id="report",
-                version=1,
-                status="active",
-                title="Preparing background report",
-                description="This work started after the original message handler returned.",
-            )
-        ]
-    )
-    await asyncio.sleep(2)
+async def send_proactive_plan(plan_options: PlanOptions) -> None:
+    await asyncio.sleep(10)
+    plan = Plan(**plan_options)
     await plan.update(
         [
             Step(
@@ -162,11 +165,30 @@ async def send_proactive_plan(plan: Plan) -> None:
                 status="completed",
                 title="Report ready",
                 description="The background work is complete and the report is ready to send.",
-            )
+            ),
+            Step(
+                id="deliver",
+                version=1,
+                status="active",
+                title="Delivering report",
+                description="Finalizing delivery of the completed report back to the user.",
+            ),
         ]
     )
     await asyncio.sleep(2)
-    await plan.complete_plan("Your background report is ready.")
+    await plan.update(
+        [
+            Step(
+                id="deliver",
+                version=2,
+                status="completed",
+                title="Delivered report",
+                description="Finalized delivery of the completed report back to the user.",
+            ),
+        ]
+    )
+    await asyncio.sleep(10)
+    await plan.complete("Your background report is ready.")
 
 
 def on_proactive_done(task: asyncio.Task[None]) -> None:
@@ -179,9 +201,22 @@ def on_proactive_done(task: asyncio.Task[None]) -> None:
 
 @app.on_message_pattern(_command("proactive"))
 async def handle_proactive(ctx: ActivityContext[MessageActivity]) -> None:
-    plan = Plan(ctx.api, ctx.conversation_ref, reply_to_id=ctx.activity.id)
-    await ctx.send("I'll start a Plan in five seconds and send the report when it is ready.")
-    task = asyncio.create_task(send_proactive_plan(plan))
+    plan = ctx.plan()
+    await plan.start(
+        [
+            Step(
+                id="report",
+                version=1,
+                status="active",
+                title="Preparing background report",
+                description="This report continues in the background after the handler returns.",
+            )
+        ]
+    )
+
+    # Saving the plan metadata for long-running tasks
+    plan_options = PlanOptions(**plan.model_dump(mode="json", by_alias=False), api_client=ctx.api)
+    task = asyncio.create_task(send_proactive_plan(plan_options))
     proactive_tasks.add(task)
     task.add_done_callback(on_proactive_done)
 

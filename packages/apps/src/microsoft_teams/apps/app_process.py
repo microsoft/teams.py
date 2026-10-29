@@ -6,7 +6,6 @@ Licensed under the MIT License.
 import logging
 from time import perf_counter
 from typing import TYPE_CHECKING, Any, Awaitable, Callable, Dict, List, Optional, TypeGuard, Union, cast
-from weakref import WeakSet
 
 from microsoft_teams.api import (
     ActivityBase,
@@ -219,19 +218,25 @@ class ActivityProcessor:
 
         activityCtx.send = updated_send
 
-        observed_plans: WeakSet[Plan] = WeakSet()
+        plan_attached = False
         get_plan = activityCtx.plan
 
-        async def handle_plan_sent(event: ActivitySentEvent) -> None:
-            if not self.event_manager:
-                raise ValueError("EventManager was not initialized properly")
-            await self.event_manager.on_activity_sent(event, plugins=plugins)
+        def updated_plan() -> Plan:
+            nonlocal plan_attached
+            plan = get_plan()
+            if not plan_attached:
+                ref = activityCtx.conversation_ref.model_copy(deep=True)
 
-        def updated_plan(*, reply_to_id: str | None = None) -> Plan:
-            plan = get_plan(reply_to_id=reply_to_id)
-            if plan not in observed_plans:
-                plan.events.on("sent", handle_plan_sent)
-                observed_plans.add(plan)
+                async def handle_plan(activity: SentActivity) -> None:
+                    if not self.event_manager:
+                        raise ValueError("EventManager was not initialized properly")
+                    await self.event_manager.on_activity_sent(
+                        ActivitySentEvent(activity=activity, conversation_ref=ref.model_copy(deep=True)),
+                        plugins=plugins,
+                    )
+
+                plan.events.on("sent", handle_plan)
+                plan_attached = True
             return plan
 
         activityCtx.plan = updated_plan

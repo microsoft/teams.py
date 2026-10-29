@@ -276,11 +276,14 @@ class HttpStream(StreamerProtocol):
         )
 
     async def _send_final(self) -> SentActivity:
-        """Send the buffered content as a plain final message.
+        """Finalize the buffered stream content as a plain message update.
 
-        Drops the ``streaminfo`` entity (added by ``add_stream_final()`` on the normal
-        close path) and the stream channel data so ``id`` is kept and the send routes
-        through the update path instead of creating a duplicate message.
+        This fallback is only valid for ordinary streamed content. If the buffered final
+        payload still contains a ``PlanInfoEntity``, we cannot reuse the original streamed
+        message as a PUT update because Plan completion is sent through the Plan lifecycle
+        flow as a POST. In that case, raise ``StreamTimedOutError`` so the caller can recover
+        by completing the Plan via ``Plan.complete()`` instead of retrying the same stream
+        close path.
         """
         activity = self._final_activity or MessageActivityInput()
         if any(isinstance(entity, PlanInfoEntity) for entity in activity.entities or []):
