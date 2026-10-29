@@ -32,6 +32,7 @@ def _command(name: str) -> re.Pattern[str]:
 
 
 def create_lookup_step() -> Step:
+    # Start at version 1; increment the version whenever this step changes.
     return Step(
         id="lookup",
         version=1,
@@ -47,7 +48,7 @@ async def prepare_answer(plan: Plan, ready_description: str) -> None:
             create_lookup_step(),
             Step(
                 id="answer",
-                # NOTE: Any update to this step requires incrementing this version number.
+                # Increment this version whenever the answer step changes.
                 version=1,
                 status="proposed",
                 title="Draft answer",
@@ -60,6 +61,7 @@ async def prepare_answer(plan: Plan, ready_description: str) -> None:
         [
             Step(
                 id="lookup",
+                # Same step ID, newer version for the status and content changes.
                 version=2,
                 status="blocked",
                 title="Waiting for source response",
