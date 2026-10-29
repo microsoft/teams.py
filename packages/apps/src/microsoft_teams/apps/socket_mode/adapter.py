@@ -79,7 +79,7 @@ class SocketModeReconnectedEvent:
 @dataclass(frozen=True)
 class SocketModeOptions:
     """
-    Preview tuning for Socket Mode; may change in the future. Durations are in **seconds**.
+    Preview configuration for the Socket Mode negotiate URL and geographies; may change in the future.
 
     WebSocket is only recommended for use when developing agents.
     Diagnostic: ExperimentalTeamsSocketMode
@@ -94,30 +94,10 @@ class SocketModeOptions:
     ``start()`` to succeed, after which each is supervised on its own.
     """
 
-    readiness_timeout: float = 30.0
-    """How long to wait for the service's readiness frame after the socket opens."""
-
-    startup_timeout: float = 30.0
-    """Total budget for the initial connect, retried with backoff until it is spent."""
-
-    reconnect_delays: Optional[Sequence[float]] = None
-    """Explicit backoff schedule; the last value repeats. Defaults to capped exponential with jitter."""
-
-    keep_alive_interval: float = 15.0
-    """Ping cadence. Keep comfortably below ``server_timeout``."""
-
-    server_timeout: float = 30.0
-    """How long without an inbound message before the connection is considered lost."""
-
     def to_transport_options(self) -> SocketModeTransportOptions:
         return SocketModeTransportOptions(
             negotiate_base_url=self.negotiate_base_url,
             geos=tuple(self.geos),
-            readiness_timeout=self.readiness_timeout,
-            startup_timeout=self.startup_timeout,
-            reconnect_delays=self.reconnect_delays,
-            keep_alive_interval=self.keep_alive_interval,
-            server_timeout=self.server_timeout,
         )
 
 
