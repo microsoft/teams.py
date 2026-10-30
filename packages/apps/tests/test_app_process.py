@@ -5,10 +5,12 @@ Licensed under the MIT License.
 # pyright: basic
 
 import asyncio
+import json
 from contextlib import contextmanager
 from typing import Any, Iterator
 from unittest.mock import AsyncMock, MagicMock, create_autospec, patch
 
+import httpx
 import pytest
 from microsoft_teams.api import (
     Activity,
@@ -17,16 +19,18 @@ from microsoft_teams.api import (
     ConversationReference,
     InvokeResponse,
     MessageActivityInput,
+    PlanInfoEntity,
     SentActivity,
     Step,
     TokenProtocol,
 )
 from microsoft_teams.api.auth.cloud_environment import PUBLIC, US_GOV
-from microsoft_teams.apps import ActivityContext, ActivityEvent, ActivitySentEvent, App, Plan
+from microsoft_teams.apps import ActivityContext, ActivityEvent, ActivitySentEvent, App, HttpStream, Plan
 from microsoft_teams.apps.app_events import EventManager
 from microsoft_teams.apps.app_process import ActivityProcessor
 from microsoft_teams.apps.events import CoreActivity
 from microsoft_teams.apps.plugins import PluginBase, StreamCancelledError
+from microsoft_teams.apps.plugins.streamer import PlanConflictStreamError
 from microsoft_teams.apps.routing.router import ActivityHandler, ActivityRouter
 from microsoft_teams.apps.state import TurnState, TurnStateContainer, TurnStateLoader, TurnStateSealedError
 from microsoft_teams.apps.token_provider import AppTokenProvider
@@ -811,6 +815,88 @@ class TestActivityProcessor:
         assert event.activity.activity_params.reply_to_id == "inbound-id"
         plugin.on_activity_sent.assert_awaited_once()
         assert sent.empty()
+
+    async def test_caught_final_plan_conflict_does_not_fail_processor_cleanup(self, activity_processor):
+        requests = []
+        rejections = []
+        caught = []
+        error_body = {"error": {"code": "PlanConflict", "message": "The user stopped this plan."}}
+
+        def handle(request):
+            payload = json.loads(request.content)
+            requests.append((request, payload))
+            assert request.method == "POST"
+            assert request.url.host == "service.url"
+            assert request.url.path == "/v3/conversations/conv-789/activities"
+            operations = [entity["planType"] for entity in payload.get("entities", []) if entity["type"] == "planInfo"]
+            if operations == ["complete"]:
+                response = httpx.Response(409, json=error_body)
+                rejections.append(response)
+                return response
+            if operations == ["stop"]:
+                return httpx.Response(202)
+            assert not operations
+            assert payload["type"] == "typing"
+            return httpx.Response(201, json={"id": "stream-id"})
+
+        events = EventEmitter[str]()
+        sent = asyncio.Queue[ActivitySentEvent]()
+        on_error = MagicMock()
+        on_response = MagicMock()
+        on_close = MagicMock()
+        events.on("activity_sent", sent.put_nowait)
+        events.on("error", on_error)
+        events.on("activity_response", on_response)
+        activity_processor.event_manager = EventManager(events)
+        activity_processor.fetch_user_token = False
+        activity_processor.token_provider.get_app_token.return_value = None
+
+        async def handler(ctx):
+            assert isinstance(ctx, ActivityContext)
+            assert isinstance(ctx.stream, HttpStream)
+            ctx.stream.on_close(on_close)
+            plan = ctx.plan()
+            ctx.stream.emit("Final answer")
+            ctx.stream.emit(plan.completion())
+            try:
+                await ctx.stream.close()
+            except PlanConflictStreamError as error:
+                caught.append(error)
+                await plan.stop()
+            else:
+                pytest.fail("The transport must reject every Plan completion")
+
+        activity_processor.router = ActivityRouter()
+        activity_processor.router.add_handler(lambda activity: activity.type == "message", handler)
+        token = MagicMock(spec=TokenProtocol)
+        token.service_url = "https://service.url"
+        event = ActivityEvent(body=CoreActivity.model_validate(_message_activity().model_dump()), token=token)
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handle)) as http:
+            activity_processor.http_client = Client(_http=http)
+            response = await activity_processor.process_activity([], event)
+            received = [await asyncio.wait_for(sent.get(), timeout=1) for _ in range(2)]
+
+        assert response.status == 200
+        on_error.assert_not_called()
+        on_close.assert_not_called()
+        on_response.assert_called_once()
+        assert sent.empty()
+        assert len(requests) == 3
+        assert [payload["type"] for _, payload in requests] == ["typing", "message", "typing"]
+        assert all(payload["replyToId"] == "activity-123" for _, payload in requests)
+        assert len(rejections) == len(caught) == 1
+        error = caught[0]
+        assert error.response is rejections[0]
+        assert error.response.status_code == 409
+        assert error.response.json() == error_body
+        assert error.request is requests[1][0]
+        assert isinstance(error.__cause__, httpx.HTTPStatusError)
+        assert error.__cause__.response is error.response
+        assert error.__cause__.request is error.request
+        assert str(error) == str(error.__cause__)
+        assert all(event.activity.activity_params.type == "typing" for event in received)
+        assert received[-1].activity.activity_params.entities == [PlanInfoEntity(plan_type="stop")]
+        assert received[-1].activity.id == "DO_NOT_USE_PLACEHOLDER_ID"
 
     @pytest.mark.asyncio
     async def test_build_context_marks_signed_in_when_token_available(self, activity_processor):

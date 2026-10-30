@@ -56,6 +56,8 @@ class Plan(CustomBaseModel):
     live session object. The runtime client is injected separately and is scoped to the
     conversation's service URL before use.
 
+    Targeted Plan scenarios are not supported. Plan activities use ordinary create routing.
+
     Preview API. Diagnostic: ExperimentalTeamsPlan
     """
 
