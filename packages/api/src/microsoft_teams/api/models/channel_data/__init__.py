@@ -11,6 +11,7 @@ from .feedback_loop import FeedbackLoop
 from .notification_info import NotificationInfo
 from .reply_chain_info import ReplyChainInfo
 from .settings import ChannelDataSettings
+from .source_info import SourceInfo
 from .team_info import TeamInfo
 from .tenant_info import TenantInfo
 
@@ -22,6 +23,7 @@ __all__ = [
     "AppInfo",
     "NotificationInfo",
     "ChannelDataSettings",
+    "SourceInfo",
     "TeamInfo",
     "TenantInfo",
     "ChannelData",
