@@ -5,6 +5,7 @@ Licensed under the MIT License.
 
 from typing import Literal, Optional
 
+from ..stream_type import StreamType
 from .entity_base import EntityBase
 
 
@@ -17,7 +18,7 @@ class StreamInfoEntity(EntityBase):
     stream_id: Optional[str] = None
     "ID of the stream. Assigned after the initial update is sent."
 
-    stream_type: Optional[Literal["informative", "streaming", "final"]] = None
+    stream_type: Optional[StreamType] = None
     """
         The type of message being sent.
         'informative' - An informative update.

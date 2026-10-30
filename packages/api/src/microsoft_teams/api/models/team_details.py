@@ -3,9 +3,10 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from typing import Literal, Optional
+from typing import Optional
 
 from .custom_base_model import CustomBaseModel
+from .team_type import TeamType
 
 
 class TeamDetails(CustomBaseModel):
@@ -19,7 +20,7 @@ class TeamDetails(CustomBaseModel):
     name: Optional[str] = None
     "Name of team."
 
-    type: Optional[Literal["standard", "sharedChannel", "privateChannel"]] = None
+    type: Optional[TeamType] = None
     "The type of the team. Valid values are standard, sharedChannel and privateChannel."
 
     aad_group_id: Optional[str] = None

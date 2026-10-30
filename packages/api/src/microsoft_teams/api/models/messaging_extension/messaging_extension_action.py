@@ -5,12 +5,15 @@ Licensed under the MIT License.
 
 from __future__ import annotations
 
-from typing import Any, List, Literal, Optional
+from typing import Any, List, Literal, Optional, Union
 
 from ...models.activity import Activity as ActivityBase
 from ..custom_base_model import CustomBaseModel
 from ..message import Message
 from ..tab import TabEntityContext
+
+MessagingExtensionCommandContext = Union[Literal["message", "compose", "commandbox"], str]
+BotMessagePreviewAction = Union[Literal["edit", "send"], str]
 
 
 class TaskModuleRequestContext(CustomBaseModel):
@@ -45,10 +48,10 @@ class MessagingExtensionAction(TaskModuleRequest):
     command_id: Optional[str] = None
     "Id of the command assigned by Bot"
 
-    command_context: Literal["message", "compose", "commandbox"]
+    command_context: MessagingExtensionCommandContext
     "The context from which the command originates."
 
-    bot_message_preview_action: Optional[Literal["edit", "send"]] = None
+    bot_message_preview_action: Optional[BotMessagePreviewAction] = None
     "Bot message preview action taken by user."
 
     bot_activity_preview: Optional[List[ActivityBase]] = None

@@ -5,14 +5,14 @@ Licensed under the MIT License.
 
 from typing import Literal
 
-from ....models import CustomBaseModel
+from ....models import CustomBaseModel, ReactionFeedback
 from ...invoke_activity import InvokeActivity
 
 
 class MessageFetchTaskActionValue(CustomBaseModel):
     """The nested action value containing the user's reaction."""
 
-    reaction: Literal["like", "dislike"]
+    reaction: ReactionFeedback
     """The feedback button the user clicked."""
 
 

@@ -3,9 +3,11 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from typing import Any, Dict, Literal, Optional
+from typing import Any, Dict, Literal, Optional, Union
 
 from ..custom_base_model import CustomBaseModel
+
+AdaptiveCardInvokeActionType = Union[Literal["Action.Execute", "Action.Submit"], str]
 
 
 class AdaptiveCardInvokeAction(CustomBaseModel):
@@ -14,7 +16,7 @@ class AdaptiveCardInvokeAction(CustomBaseModel):
     activity with Name of 'adaptiveCard/action'.
     """
 
-    type: Literal["Action.Execute", "Action.Submit"]
+    type: AdaptiveCardInvokeActionType
     "The Type of this Adaptive Card Invoke Action."
 
     id: Optional[str] = None

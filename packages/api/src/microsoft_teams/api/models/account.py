@@ -3,7 +3,7 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from typing import Any, Dict, Literal, Optional
+from typing import Any, Dict, Literal, Optional, Union
 
 from pydantic import AliasChoices, Field
 
@@ -11,8 +11,8 @@ from .agentic_identity import AgenticIdentity
 from .conversation_type import ConversationType
 from .custom_base_model import CustomBaseModel
 
-AccountType = Literal["person", "tag", "channel", "team", "bot"]
-AccountRole = Literal["agenticUser"]
+AccountType = Union[Literal["person", "tag", "channel", "team", "bot"], str]
+AccountRole = Union[Literal["agenticUser"], str]
 
 
 class Account(CustomBaseModel):
@@ -50,7 +50,7 @@ class Account(CustomBaseModel):
     """
     Role description for the account, when provided by the channel.
     """
-    role: Optional[AccountRole | str] = None
+    role: Optional[AccountRole] = None
     """The role of the account in the activity."""
     agentic_user_id: Optional[str] = Field(
         default=None,
