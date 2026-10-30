@@ -5,4 +5,6 @@ Licensed under the MIT License.
 
 from typing import Literal, Union
 
-ChannelID = Union[Literal["webchat", "msteams"], str]
+KnownChannelID = Literal["webchat", "msteams"]
+
+ChannelID = Union[KnownChannelID, str]
