@@ -9,7 +9,7 @@ from email.utils import format_datetime
 from typing import Optional
 from urllib.parse import parse_qs, urlsplit
 
-import httpx
+import httpx2
 import pytest
 from microsoft_teams import apps
 from microsoft_teams.apps import socket_mode
@@ -23,17 +23,17 @@ from microsoft_teams.apps.socket_mode.negotiate import (
 
 @pytest.mark.asyncio
 async def test_service_negotiate_authenticates_and_parses_result():
-    seen_request: Optional[httpx.Request] = None
+    seen_request: Optional[httpx2.Request] = None
 
-    def handler(request: httpx.Request) -> httpx.Response:
+    def handler(request: httpx2.Request) -> httpx2.Response:
         nonlocal seen_request
         seen_request = request
-        return httpx.Response(
+        return httpx2.Response(
             200,
             json={"url": "https://signalr.example/hub", "accessToken": "signalr-token", "expiresIn": 120},
         )
 
-    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+    async with httpx2.AsyncClient(transport=httpx2.MockTransport(handler)) as client:
         result = await negotiate_service(
             "https://botapi.example/v3/websockets/connect",
             lambda: _token("bot-token"),
@@ -51,12 +51,12 @@ async def test_service_negotiate_authenticates_and_parses_result():
 async def test_service_negotiate_rejects_plaintext_before_sending_token():
     calls = 0
 
-    def handler(_: httpx.Request) -> httpx.Response:
+    def handler(_: httpx2.Request) -> httpx2.Response:
         nonlocal calls
         calls += 1
-        return httpx.Response(200, json={})
+        return httpx2.Response(200, json={})
 
-    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+    async with httpx2.AsyncClient(transport=httpx2.MockTransport(handler)) as client:
         with pytest.raises(ValueError, match="must use https"):
             await negotiate_service(
                 "http://botapi.example/v3/websockets/connect",
@@ -96,10 +96,10 @@ def test_url_validation_rejects_insecure_or_invalid_destinations(url: str):
 
 @pytest.mark.asyncio
 async def test_service_negotiate_exposes_retry_after():
-    def handler(_: httpx.Request) -> httpx.Response:
-        return httpx.Response(429, text="slow down", headers={"Retry-After": "2.5"})
+    def handler(_: httpx2.Request) -> httpx2.Response:
+        return httpx2.Response(429, text="slow down", headers={"Retry-After": "2.5"})
 
-    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+    async with httpx2.AsyncClient(transport=httpx2.MockTransport(handler)) as client:
         with pytest.raises(NegotiateError) as raised:
             await negotiate_service(
                 "https://botapi.example/v3/websockets/connect",
@@ -114,14 +114,14 @@ async def test_service_negotiate_exposes_retry_after():
 async def test_service_negotiate_accepts_http_date_retry_after():
     retry_at = datetime.now(timezone.utc) + timedelta(seconds=30)
 
-    def handler(_: httpx.Request) -> httpx.Response:
-        return httpx.Response(
+    def handler(_: httpx2.Request) -> httpx2.Response:
+        return httpx2.Response(
             429,
             text="slow down",
             headers={"Retry-After": format_datetime(retry_at, usegmt=True)},
         )
 
-    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+    async with httpx2.AsyncClient(transport=httpx2.MockTransport(handler)) as client:
         with pytest.raises(NegotiateError) as raised:
             await negotiate_service(
                 "https://botapi.example/v3/websockets/connect",
@@ -135,10 +135,10 @@ async def test_service_negotiate_accepts_http_date_retry_after():
 
 @pytest.mark.asyncio
 async def test_service_negotiate_ignores_unparsable_retry_after():
-    def handler(_: httpx.Request) -> httpx.Response:
-        return httpx.Response(429, text="slow down", headers={"Retry-After": "whenever"})
+    def handler(_: httpx2.Request) -> httpx2.Response:
+        return httpx2.Response(429, text="slow down", headers={"Retry-After": "whenever"})
 
-    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+    async with httpx2.AsyncClient(transport=httpx2.MockTransport(handler)) as client:
         with pytest.raises(NegotiateError) as raised:
             await negotiate_service(
                 "https://botapi.example/v3/websockets/connect",
@@ -154,12 +154,12 @@ async def test_service_negotiate_rejects_an_empty_bot_token_before_dialing():
     """Missing credentials must fail closed, before a request is put on the wire."""
     calls = 0
 
-    def handler(_: httpx.Request) -> httpx.Response:
+    def handler(_: httpx2.Request) -> httpx2.Response:
         nonlocal calls
         calls += 1
-        return httpx.Response(200, json={})
+        return httpx2.Response(200, json={})
 
-    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+    async with httpx2.AsyncClient(transport=httpx2.MockTransport(handler)) as client:
         with pytest.raises(NegotiateError, match="no bot token"):
             await negotiate_service(
                 "https://botapi.example/v3/websockets/connect",
@@ -182,10 +182,10 @@ async def test_service_negotiate_rejects_an_empty_bot_token_before_dialing():
     ],
 )
 async def test_service_negotiate_rejects_a_response_missing_url_or_token(payload: dict[str, object]):
-    def handler(_: httpx.Request) -> httpx.Response:
-        return httpx.Response(200, json=payload)
+    def handler(_: httpx2.Request) -> httpx2.Response:
+        return httpx2.Response(200, json=payload)
 
-    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+    async with httpx2.AsyncClient(transport=httpx2.MockTransport(handler)) as client:
         with pytest.raises(NegotiateError, match="missing url/accessToken"):
             await negotiate_service(
                 "https://botapi.example/v3/websockets/connect",
@@ -202,10 +202,10 @@ async def test_service_negotiate_defaults_expires_in_when_absent_or_unusable(exp
     if expires_in is not None:
         payload["expiresIn"] = expires_in
 
-    def handler(_: httpx.Request) -> httpx.Response:
-        return httpx.Response(200, json=payload)
+    def handler(_: httpx2.Request) -> httpx2.Response:
+        return httpx2.Response(200, json=payload)
 
-    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+    async with httpx2.AsyncClient(transport=httpx2.MockTransport(handler)) as client:
         result = await negotiate_service(
             "https://botapi.example/v3/websockets/connect",
             lambda: _token("bot-token"),
@@ -217,11 +217,11 @@ async def test_service_negotiate_defaults_expires_in_when_absent_or_unusable(exp
 
 @pytest.mark.asyncio
 async def test_signalr_negotiate_builds_secure_websocket_url():
-    requests: list[httpx.Request] = []
+    requests: list[httpx2.Request] = []
 
-    def handler(request: httpx.Request) -> httpx.Response:
+    def handler(request: httpx2.Request) -> httpx2.Response:
         requests.append(request)
-        return httpx.Response(
+        return httpx2.Response(
             200,
             json={
                 "connectionToken": "connection-token",
@@ -231,7 +231,7 @@ async def test_signalr_negotiate_builds_secure_websocket_url():
             },
         )
 
-    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+    async with httpx2.AsyncClient(transport=httpx2.MockTransport(handler)) as client:
         endpoint = await negotiate_signalr(
             "https://signalr.example/client/?hub=teams",
             "signalr-token",
@@ -255,12 +255,12 @@ async def test_signalr_negotiate_builds_secure_websocket_url():
 async def test_signalr_negotiate_rejects_insecure_redirect_before_following_it():
     calls = 0
 
-    def handler(_: httpx.Request) -> httpx.Response:
+    def handler(_: httpx2.Request) -> httpx2.Response:
         nonlocal calls
         calls += 1
-        return httpx.Response(200, json={"url": "http://attacker.example/hub", "accessToken": "secret"})
+        return httpx2.Response(200, json={"url": "http://attacker.example/hub", "accessToken": "secret"})
 
-    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+    async with httpx2.AsyncClient(transport=httpx2.MockTransport(handler)) as client:
         with pytest.raises(ValueError, match="must use"):
             await negotiate_signalr("https://signalr.example/hub", "token", http_client=client)
 
@@ -274,8 +274,8 @@ async def test_negotiate_logs_never_contain_tokens(caplog: pytest.LogCaptureFixt
     service_secret = "service-secret-do-not-log"
     redirect_secret = "redirect-secret-do-not-log"
 
-    def service_handler(_: httpx.Request) -> httpx.Response:
-        return httpx.Response(
+    def service_handler(_: httpx2.Request) -> httpx2.Response:
+        return httpx2.Response(
             200,
             json={
                 "url": "https://signalr.example/hub?hub=teams",
@@ -286,15 +286,15 @@ async def test_negotiate_logs_never_contain_tokens(caplog: pytest.LogCaptureFixt
 
     hops = 0
 
-    def signalr_handler(_: httpx.Request) -> httpx.Response:
+    def signalr_handler(_: httpx2.Request) -> httpx2.Response:
         nonlocal hops
         hops += 1
         if hops == 1:
-            return httpx.Response(
+            return httpx2.Response(
                 200,
                 json={"url": "https://signalr-2.example/hub", "accessToken": redirect_secret},
             )
-        return httpx.Response(
+        return httpx2.Response(
             200,
             json={
                 "connectionToken": "connection-token-secret",
@@ -303,13 +303,13 @@ async def test_negotiate_logs_never_contain_tokens(caplog: pytest.LogCaptureFixt
         )
 
     with caplog.at_level(logging.DEBUG, logger="microsoft_teams.apps.socket_mode.negotiate"):
-        async with httpx.AsyncClient(transport=httpx.MockTransport(service_handler)) as client:
+        async with httpx2.AsyncClient(transport=httpx2.MockTransport(service_handler)) as client:
             result = await negotiate_service(
                 "https://botapi.example/v3/websockets/connect",
                 lambda: _token(bot_secret),
                 http_client=client,
             )
-        async with httpx.AsyncClient(transport=httpx.MockTransport(signalr_handler)) as client:
+        async with httpx2.AsyncClient(transport=httpx2.MockTransport(signalr_handler)) as client:
             endpoint = await negotiate_signalr(result.url, result.access_token, http_client=client)
 
     # The flow really did produce a credential-bearing URL, so the assertions below are meaningful.
@@ -332,10 +332,10 @@ async def _token(value: str) -> str:
 @pytest.mark.parametrize("status", [401, 403])
 @pytest.mark.asyncio
 async def test_only_service_negotiate_auth_rejections_are_terminal(status: int):
-    def handler(_: httpx.Request) -> httpx.Response:
-        return httpx.Response(status, text="nope")
+    def handler(_: httpx2.Request) -> httpx2.Response:
+        return httpx2.Response(status, text="nope")
 
-    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+    async with httpx2.AsyncClient(transport=httpx2.MockTransport(handler)) as client:
         with pytest.raises(NegotiateError) as service_error:
             await negotiate_service(
                 "https://botapi.example/v3/websockets/connect",
@@ -357,10 +357,10 @@ async def test_only_service_negotiate_auth_rejections_are_terminal(status: int):
 @pytest.mark.parametrize("status", [429, 499, 500, 502, 503, 504])
 @pytest.mark.asyncio
 async def test_transient_failures_stay_retryable(status: int):
-    def handler(_: httpx.Request) -> httpx.Response:
-        return httpx.Response(status, text="later")
+    def handler(_: httpx2.Request) -> httpx2.Response:
+        return httpx2.Response(status, text="later")
 
-    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+    async with httpx2.AsyncClient(transport=httpx2.MockTransport(handler)) as client:
         with pytest.raises(NegotiateError) as error:
             await negotiate_service(
                 "https://botapi.example/v3/websockets/connect",

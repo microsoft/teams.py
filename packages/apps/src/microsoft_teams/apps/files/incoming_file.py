@@ -8,7 +8,7 @@ from collections.abc import AsyncGenerator, AsyncIterator
 from contextlib import asynccontextmanager
 from typing import Any, Optional
 
-import httpx
+import httpx2
 from microsoft_teams.api import ConversationType
 
 from .download import (
@@ -114,7 +114,7 @@ class IncomingFile:
         raw: Any = None,
         inline_image_base_name: Optional[str] = None,
         download_url: Optional[str] = None,
-        client: Optional[httpx.AsyncClient] = None,
+        client: Optional[httpx2.AsyncClient] = None,
         credential: Optional[GraphCredential] = None,
         bot_api_credential: Optional[BotApiCredential] = None,
     ) -> None:

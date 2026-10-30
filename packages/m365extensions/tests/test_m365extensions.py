@@ -3,12 +3,16 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
+import json
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
+import httpx2
+import jwt
 import pytest
 from microsoft_agents.activity import Activity, ActivityTypes
 from microsoft_teams.api.auth.caller import CallerIds
+from microsoft_teams.apps import ActivityContext
 from microsoft_teams.m365extensions import is_teams_channel, use_teams_sdk
 from microsoft_teams.m365extensions.context import agent_sdk_context
 from microsoft_teams.m365extensions.credentials import make_agent_sdk_token_provider
@@ -95,6 +99,49 @@ class TestUseTeamsSdkGuards:
         # anything off app / connection_manager, so plain objects are enough.
         with pytest.raises(TypeError, match=reserved_kwarg):
             use_teams_sdk(object(), object(), **{reserved_kwarg: "override"})
+
+
+async def test_embedded_app_routes_and_sends_through_httpx2():
+    host = MagicMock()
+    connections = MagicMock()
+    connections.get_default_connection_configuration.return_value = SimpleNamespace(
+        CLIENT_ID="bot-app-id", TENANT_ID="tenant-1"
+    )
+    token = jwt.encode(
+        {"appid": "bot-app-id", "tid": "tenant-1"}, "test-only-bridge-key-at-least-32-bytes", algorithm="HS256"
+    )
+    connections.get_default_connection.return_value.get_access_token.return_value = token
+    app = use_teams_sdk(host, connections, fetch_user_token=False)
+    middleware = host.adapter.use.call_args.args[0]
+    requests: list[httpx2.Request] = []
+
+    def respond(request: httpx2.Request) -> httpx2.Response:
+        requests.append(request)
+        return httpx2.Response(200, json={"id": "sent-id"})
+
+    @app.on_message
+    async def echo(ctx: ActivityContext):
+        assert agent_sdk_context.get(None) is not None
+        await ctx.send(f"echo: {ctx.activity.text}")
+
+    original = app.http_client.http
+    async with httpx2.AsyncClient(transport=httpx2.MockTransport(respond)) as raw:
+        app.http_client.http = raw
+        try:
+            logic = AsyncMock()
+            await middleware.on_turn(_FakeContext(_teams_activity()), logic)
+            logic.assert_not_called()
+            assert len(requests) == 1
+            assert isinstance(requests[0], httpx2.Request)
+            assert requests[0].headers["authorization"] == f"Bearer {token}"
+            assert json.loads(requests[0].content)["text"] == "echo: help"
+            assert requests[0].url.path.endswith("/conversations/conv-1/activities")
+            assert agent_sdk_context.get(None) is None
+            assert not raw.is_closed
+        finally:
+            await app.stop()
+            await original.aclose()
+            await app.api.http.http.aclose()
 
 
 def _teams_activity(activity_type: ActivityTypes = ActivityTypes.message, *, channel_id: str = "msteams") -> Activity:

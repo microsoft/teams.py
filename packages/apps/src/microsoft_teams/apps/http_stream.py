@@ -8,7 +8,7 @@ import logging
 from collections import deque
 from typing import Awaitable, Callable, Optional, Union
 
-from httpx import HTTPStatusError
+from httpx2 import HTTPStatusError
 from microsoft_teams.api import (
     ApiClient,
     ChannelData,

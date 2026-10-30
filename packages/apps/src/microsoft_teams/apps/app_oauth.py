@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from time import perf_counter, time
 from typing import Dict, Optional, Union
 
-from httpx import HTTPStatusError
+from httpx2 import HTTPStatusError
 from microsoft_teams.api import (
     ExchangeUserTokenParams,
     GetUserTokenParams,

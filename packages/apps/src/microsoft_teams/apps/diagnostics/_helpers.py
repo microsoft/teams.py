@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from time import perf_counter
 from typing import Generator, Optional
 
-from httpx import HTTPStatusError
+from httpx2 import HTTPStatusError
 from opentelemetry import metrics, trace
 from opentelemetry.metrics import Counter, Histogram, Meter
 from opentelemetry.trace import Span, Status, StatusCode, Tracer
