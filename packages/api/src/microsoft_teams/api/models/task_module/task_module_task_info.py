@@ -8,6 +8,8 @@ from typing import Literal, Optional, Union
 from ..attachment import Attachment
 from ..custom_base_model import CustomBaseModel
 
+TaskModuleDimension = Union[Literal["small", "medium", "large"], str]
+
 
 class BaseTaskModuleTaskInfo(CustomBaseModel):
     """Base class for task module task info."""
@@ -15,10 +17,10 @@ class BaseTaskModuleTaskInfo(CustomBaseModel):
     title: Optional[str] = None
     """Appears below the app name and to the right of the app icon."""
 
-    height: Optional[Union[int, Literal["small", "medium", "large"]]] = None
+    height: Optional[Union[int, TaskModuleDimension]] = None
     """Can be a number (pixels) or string ('small', 'medium', 'large')."""
 
-    width: Optional[Union[int, Literal["small", "medium", "large"]]] = None
+    width: Optional[Union[int, TaskModuleDimension]] = None
     """Can be a number (pixels) or string ('small', 'medium', 'large')."""
 
     fallback_url: Optional[str] = None

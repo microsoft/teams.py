@@ -4,12 +4,12 @@ Licensed under the MIT License.
 """
 
 from datetime import datetime
-from typing import Any, List, Literal, Optional
+from typing import Any, List, Literal, Optional, Union
 
 from ...models import ActivityBase, Attachment, AttachmentLayout, ChannelData
 from ...models.custom_base_model import CustomBaseModel
 
-MessageEventType = Literal["undeleteMessage", "editMessage"]
+MessageEventType = Union[Literal["undeleteMessage", "editMessage"], str]
 
 
 class MessageUpdateChannelData(ChannelData):

@@ -3,11 +3,11 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from typing import Any, Literal, Optional
+from typing import Any, Literal, Optional, Union
 
 from ..custom_base_model import CustomBaseModel
 
-SearchInvokeType = Literal["search", "searchAnswer", "typeahead"]
+SearchInvokeType = Union[Literal["search", "searchAnswer", "typeahead"], str]
 """The kind of search invoke value. Must be either search, searchAnswer, or typeahead."""
 
 
