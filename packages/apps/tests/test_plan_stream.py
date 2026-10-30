@@ -15,6 +15,7 @@ import pytest
 from microsoft_teams.api import (
     Account,
     ApiClient,
+    ChannelData,
     ConversationAccount,
     ConversationReference,
     MessageActivity,
@@ -25,6 +26,8 @@ from microsoft_teams.api import (
 )
 from microsoft_teams.apps import ActivityContext, HttpStream, Plan
 from microsoft_teams.apps.plugins import StreamTimedOutError
+from microsoft_teams.apps.plugins.streamer import PlanConflictStreamError
+from microsoft_teams.cards import AdaptiveCard, TextBlock
 from microsoft_teams.common.http import Client
 
 
@@ -130,10 +133,17 @@ async def test_completion_preserves_plan_prompt(streamed, reply_to_id):
     assert ref.activity_id == "prompt"
 
 
-async def test_plan_conflict_is_not_retried(streamed, monkeypatch):
+@pytest.mark.parametrize("restart", ["emit", "update"])
+async def test_final_plan_conflict_retires_cycle_and_allows_reuse(streamed, monkeypatch, restart):
     stream, requests, responses = streamed
     plan = Plan(conversation_id="chat", reply_to_id="prompt", api_client=stream._client)
-    stream.emit(plan.completion().with_text("Answer"))
+    on_close = MagicMock()
+    stream.on_close(on_close)
+    completion = plan.completion().add_card(AdaptiveCard(body=[TextBlock(text="Rejected card")]))
+    completion.add_entity(UnknownEntity.model_validate({"type": "appMetadata", "value": "rejected"}))
+    completion.with_channel_data(ChannelData.model_validate({"tenant": {"id": "rejected-tenant"}}))
+    stream.emit("Rejected answer")
+    stream.emit(completion)
     await stream._pending
     error_body = {
         "error": {
@@ -141,18 +151,93 @@ async def test_plan_conflict_is_not_retried(streamed, monkeypatch):
             "message": "The user stopped this plan. It can no longer be updated or completed.",
         }
     }
-    responses.append(httpx.Response(409, json=error_body))
+    response = httpx.Response(409, json=error_body)
+    responses.append(response)
+    send = stream._send
+    raised = []
+
+    async def record_send(activity):
+        try:
+            return await send(activity)
+        except PlanConflictStreamError as error:
+            raised.append(error)
+            raise
+
+    monkeypatch.setattr(stream, "_send", record_send)
     sleep = AsyncMock()
     monkeypatch.setattr(asyncio, "sleep", sleep)
 
-    with pytest.raises(httpx.HTTPStatusError) as error:
+    with pytest.raises(PlanConflictStreamError) as error:
         await stream.close()
 
+    assert raised == [error.value]
+    assert raised[0] is error.value
+    assert error.value.response is response
     assert error.value.response.status_code == 409
     assert error.value.response.json() == error_body
+    cause = error.value.__cause__
+    assert isinstance(cause, httpx.HTTPStatusError)
+    assert cause.response is response
+    assert cause.request is error.value.request
+    assert str(error.value) == str(cause)
     assert len(requests) == 2
     assert requests[-1][1]["type"] == "message"
     sleep.assert_not_awaited()
+    assert not stream.closed
+    assert not stream.canceled
+    assert not stream.timed_out
+    assert stream._retired
+    assert stream.count == 0
+    assert stream.sequence == 1
+    assert stream._id is None
+    assert stream._text == ""
+    assert stream._final_activity is None
+    assert stream._channel_data == ChannelData()
+
+    assert await stream.close() is None
+    assert await stream.close() is None
+    assert len(requests) == 2
+    on_close.assert_not_called()
+
+    responses.append(httpx.Response(201, json={"id": "fresh-stream"}))
+    if restart == "update":
+        stream.update("Fresh status")
+        await stream._pending
+    stream.emit("Fresh answer")
+    result = await stream.close()
+
+    assert result is not None
+    assert result.id == "fresh-stream"
+    assert stream.closed
+    assert await stream.close() is result
+    on_close.assert_called_once_with(result)
+    fresh_requests = [payload for _, payload in requests[2:]]
+    first, final = fresh_requests[0], fresh_requests[-1]
+    assert "id" not in first
+    stream_type = "informative" if restart == "update" else "streaming"
+    assert first["entities"] == [{"type": "streaminfo", "streamType": stream_type, "streamSequence": 1}]
+    assert final["id"] == "fresh-stream"
+    assert final["text"] == "Fresh answer"
+    assert not final.get("attachments")
+    assert final["entities"] == [{"type": "streaminfo", "streamType": "final", "streamId": "fresh-stream"}]
+    assert final["channelData"] == {"streamId": "fresh-stream", "streamType": "final"}
+    assert all(method == "POST" for method, _ in requests)
+
+
+async def test_final_conflict_without_plan_keeps_buffer(streamed):
+    stream, requests, responses = streamed
+    stream.emit("Ordinary answer")
+    await stream._pending
+    responses.append(httpx.Response(409, json={"error": {"code": "PlanConflict"}}))
+
+    with pytest.raises(PlanConflictStreamError):
+        await stream.close()
+
+    assert not stream._retired
+    result = await stream.close()
+    assert result is not None
+    assert result.activity_params.text == "Ordinary answer"
+    assert len(requests) == 3
 
 
 @pytest.mark.parametrize(
@@ -164,20 +249,36 @@ async def test_plan_conflict_is_not_retried(streamed, monkeypatch):
         httpx.Response(409),
     ],
 )
-async def test_other_errors_still_retry(streamed, monkeypatch, response):
+@pytest.mark.parametrize("exhaust_retries", [False, True])
+async def test_other_errors_still_retry(streamed, monkeypatch, response, exhaust_retries):
     stream, requests, responses = streamed
     stream.emit(MessageActivityInput(text="Answer", entities=[PlanInfoEntity(plan_type="complete")]))
     await stream._pending
-    responses.append(response)
+    attempts = 5 if exhaust_retries else 1
+    responses.extend(httpx.Response(response.status_code, content=response.content) for _ in range(attempts))
     sleep = AsyncMock()
     monkeypatch.setattr(asyncio, "sleep", sleep)
+
+    if exhaust_retries:
+        with pytest.raises(httpx.HTTPStatusError) as error:
+            await stream.close()
+        assert error.value.response.status_code == response.status_code
+        assert not stream._retired
+        assert not stream.closed
+        assert len(requests) == 6
+        assert sleep.await_count == 4
+        sleep.reset_mock()
 
     result = await stream.close()
 
     assert result is not None
     assert result.id == "stream-id"
-    assert len(requests) == 3
-    sleep.assert_awaited_once()
+    assert result.activity_params.text == "Answer"
+    assert len(requests) == (7 if exhaust_retries else 3)
+    if exhaust_retries:
+        sleep.assert_not_awaited()
+    else:
+        sleep.assert_awaited_once()
 
 
 @pytest.mark.parametrize("timeout_during_chunk", [False, True])
@@ -200,6 +301,30 @@ async def test_plan_timeout_never_falls_back_to_update(streamed, timeout_during_
     assert len(requests) == 2
     assert all(method == "POST" for method, _ in requests)
     assert requests[-1][1]["type"] == ("typing" if timeout_during_chunk else "message")
+    assert stream.timed_out
+    assert not stream.canceled
+    assert not stream.closed
+    assert stream._retired
+    assert stream._final_activity is None
+    assert stream._text == ""
+    assert stream._id is None
+    assert stream._channel_data == ChannelData()
+    assert stream.count == 0
+    assert stream.sequence == 1
+    assert await stream.close() is None
+    assert await stream.close() is None
+    assert stream.timed_out
+    assert len(requests) == 2
+
+    stream.update("Fresh status")
+    assert not stream.timed_out
+    assert not stream._retired
+    await stream._pending
+    stream.emit("Fresh answer")
+    result = await stream.close()
+    assert result is not None
+    assert result.activity_params.text == "Fresh answer"
+    assert all(entity.type != "planInfo" for entity in result.activity_params.entities)
 
 
 async def test_complete_stream_sample_uses_completion_helper(streamed, monkeypatch):

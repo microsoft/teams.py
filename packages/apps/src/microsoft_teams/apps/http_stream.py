@@ -208,8 +208,8 @@ class HttpStream(StreamerProtocol):
         updating after close starts a new streamed message using the same
         stream instance.
 
-        A Plan timeout raises once and retires the failed cycle. Further closes
-        return None until the next emit or update.
+        A Plan timeout or final Plan conflict raises once and retires the failed
+        cycle. Further closes return None until the next emit or update.
         """
         if self.closed:
             logger.debug("stream already closed with result")
@@ -255,6 +255,11 @@ class HttpStream(StreamerProtocol):
             activity.add_stream_final()
             try:
                 res = await self._send_with_retry(activity)
+            except PlanConflictStreamError:
+                if any(isinstance(entity, PlanInfoEntity) for entity in activity.entities or []):
+                    self._reset_current_stream()
+                    self._retired = True
+                raise
             except StreamTimedOutError:
                 # The final streamed send tripped the 2-minute limit. Update the original
                 # message in place with the buffered content: reuse the id and drop the

@@ -13,6 +13,7 @@ from microsoft_teams.api import (
     Account,
     AgenticIdentity,
     ApiClient,
+    ChannelData,
     ConversationAccount,
     ConversationReference,
     MessageActivity,
@@ -25,6 +26,7 @@ from microsoft_teams.api import (
 from microsoft_teams.api.auth.cloud_environment import PUBLIC
 from microsoft_teams.apps import ActivityContext, Plan, PlanOptions
 from microsoft_teams.apps.activity_send import send_or_update_activity
+from microsoft_teams.cards import AdaptiveCard, TextBlock
 from microsoft_teams.common.experimental import ExperimentalWarning
 from microsoft_teams.common.http import Client
 
@@ -201,44 +203,66 @@ async def test_failed_send_does_not_emit_sent(api, target, method):
     assert plan.model_dump(mode="json", by_alias=False) == target
 
 
-async def test_rejected_completion_does_not_emit_sent(api, target):
+@pytest.mark.parametrize("operation", ["start", "continue", "stop", "error"])
+async def test_rejected_completion_does_not_emit_sent(api, target, operation):
     plan = Plan(**target, api_client=api)
     on_sent = MagicMock()
     plan.events.on("sent", on_sent)
+    message = plan.completion().with_text("Done").add_entity(PlanInfoEntity(plan_type=operation))
+    original = message.model_dump()
 
     with pytest.raises(ValueError, match="non-complete"):
-        await plan.complete(MessageActivityInput(text="Done", entities=[PlanInfoEntity(plan_type="stop")]))
+        await plan.complete(message)
 
     api.conversations.create_activity.assert_not_awaited()
     on_sent.assert_not_called()
+    assert message.model_dump() == original
 
 
 @pytest.mark.parametrize("has_completion_entity", [False, True])
 async def test_complete_message_preserves_metadata_without_mutating_input(api, target, has_completion_entity):
-    message = MessageActivityInput(
-        text="Done",
-        text_format="markdown",
-        reply_to_id="other",
-        conversation=ConversationAccount(id="other-chat"),
-        entities=[UnknownEntity.model_validate({"type": "appMetadata", "value": "kept"})],
+    plan = Plan(**target, api_client=api)
+    card = AdaptiveCard(body=[TextBlock(text="Card answer")])
+    channel_data = ChannelData.model_validate({"channel": {"id": "channel"}})
+    metadata = UnknownEntity.model_validate({"type": "appMetadata", "value": {"items": ["kept"]}})
+    message = plan.completion() if has_completion_entity else MessageActivityInput()
+    message.with_text("Done").with_text_format("markdown").add_card(card).with_channel_data(channel_data).add_entity(
+        metadata
     )
-    if has_completion_entity:
-        message.add_entity(PlanInfoEntity(plan_type="complete"))
+    message.reply_to_id = "other"
+    message.conversation = ConversationAccount(id="other-chat")
     original = message.model_dump()
 
-    await Plan(**target, api_client=api).complete(message)
+    await plan.complete(message)
 
     api.conversations.create_activity.assert_awaited_once()
     activity = api.conversations.create_activity.call_args.args[1]
+    assert activity is not message
     assert activity.text == "Done"
     assert activity.text_format == "markdown"
     assert activity.reply_to_id == "prompt"
     assert activity.conversation.id == "chat"
-    assert [entity.model_dump() for entity in activity.entities] == [
-        {"type": "appMetadata", "value": "kept"},
-        PlanInfoEntity(plan_type="complete").model_dump(),
+    assert activity.attachments[0].content == card
+    assert activity.attachments[0].content is not card
+    assert activity.channel_data == channel_data
+    assert activity.channel_data is not channel_data
+    assert activity.channel_data.channel is not channel_data.channel
+    assert metadata in activity.entities
+    assert all(entity is not metadata for entity in activity.entities)
+    assert [entity for entity in activity.entities if isinstance(entity, PlanInfoEntity)] == [
+        PlanInfoEntity(plan_type="complete")
     ]
     assert message.model_dump() == original
+
+    sent_payload = activity.model_dump()
+    assert card.body is not None
+    card.body.append(TextBlock(text="Caller added"))
+    assert channel_data.channel is not None
+    channel_data.channel.id = "changed-channel"
+    assert metadata.model_extra is not None
+    metadata.model_extra["value"]["items"].append("caller-added")
+    message.with_text("Caller changed")
+    assert activity.model_dump() == sent_payload
 
 
 async def test_factory_binds_to_incoming_activity_and_caches_one_helper(api, ref):
