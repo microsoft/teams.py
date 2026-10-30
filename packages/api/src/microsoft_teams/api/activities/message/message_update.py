@@ -4,7 +4,9 @@ Licensed under the MIT License.
 """
 
 from datetime import datetime
-from typing import Any, List, Literal, Optional, Union
+from typing import Annotated, Any, List, Literal, Optional, Union
+
+from pydantic import Field
 
 from ...models import ActivityBase, Attachment, AttachmentLayout, ChannelData
 from ...models.custom_base_model import CustomBaseModel
@@ -33,7 +35,7 @@ class _MessageUpdateBase(CustomBaseModel):
     summary: Optional[str] = None
     """The text to display if the channel cannot render cards."""
 
-    attachment_layout: Optional[AttachmentLayout] = None
+    attachment_layout: Optional[Annotated[Union[AttachmentLayout, str], Field(union_mode="left_to_right")]] = None
     """The layout hint for multiple attachments. Optional, omitted when not provided."""
 
     attachments: Optional[List[Attachment]] = None

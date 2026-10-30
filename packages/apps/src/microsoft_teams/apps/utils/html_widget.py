@@ -1,11 +1,10 @@
 """
 Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
-
-HTML widget utilities for building and validating widget messages.
-
-Diagnostic: ExperimentalTeamsHtmlWidget
 """
+
+# HTML widget utilities for building and validating widget messages.
+# Diagnostic: ExperimentalTeamsHtmlWidget
 
 import json
 import re
@@ -57,18 +56,21 @@ DEFAULT_SECURITY_POLICY = HtmlWidgetSecurityPolicy(
 # Known host notification names from the MCP Apps spec (ui/notifications/*).
 # Kept as an open union (`| str`) so unknown or future values are still
 # accepted; unrecognized names are simply ignored during protocol injection.
-WidgetNotification = Literal[
-    "tool-result",
-    "tool-input",
-    "tool-input-partial",
-    "tool-cancelled",
-    "host-context-changed",
-    "resource-teardown",
+WidgetNotification = Union[
+    Literal[
+        "tool-result",
+        "tool-input",
+        "tool-input-partial",
+        "tool-cancelled",
+        "host-context-changed",
+        "resource-teardown",
+    ],
+    str,
 ]
 
 # Display modes a widget can declare during ui/initialize.
 # Note: 'pip' is defined in the MCP Apps spec but not yet supported by Teams.
-DisplayMode = Literal["inline", "fullscreen", "pip"]
+DisplayMode = Union[Literal["inline", "fullscreen", "pip"], str]
 
 
 @dataclass
@@ -81,10 +83,10 @@ class InjectWidgetProtocolOptions:
     version: Optional[str] = None
     """The widget app version sent during ui/initialize. Defaults to '1.0.0'."""
 
-    available_display_modes: Optional[list[Union[DisplayMode, str]]] = None
+    available_display_modes: Optional[list[DisplayMode]] = None
     """Display modes this widget supports (e.g. ['inline', 'fullscreen'])."""
 
-    notifications: Optional[list[Union[WidgetNotification, str]]] = None
+    notifications: Optional[list[WidgetNotification]] = None
     """Host notifications to listen for (e.g. ['tool-result', 'tool-input'])."""
 
     debug_csp_violations: bool = False

@@ -3,7 +3,9 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from typing import Any, Optional
+from typing import Annotated, Any, Optional, Union
+
+from pydantic import Field
 
 from ..action import Action
 from ..custom_base_model import CustomBaseModel
@@ -41,7 +43,7 @@ class FileConsentCardResponse(CustomBaseModel):
     Represents the value of the invoke activity sent when the user acts on a file consent card
     """
 
-    action: Action
+    action: Annotated[Union[Action, str], Field(union_mode="left_to_right")]
     "The action the user took. Possible values include: 'accept', 'decline'"
 
     context: Optional[Any] = None

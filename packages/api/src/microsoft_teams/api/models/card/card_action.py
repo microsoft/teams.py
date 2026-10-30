@@ -3,7 +3,9 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from typing import Any, Optional
+from typing import Annotated, Any, Optional, Union
+
+from pydantic import Field
 
 from ..custom_base_model import CustomBaseModel
 from .card_action_type import CardActionType
@@ -14,7 +16,7 @@ class CardAction(CustomBaseModel):
     Represents a card action with button properties.
     """
 
-    type: CardActionType
+    type: Annotated[Union[CardActionType, str], Field(union_mode="left_to_right")]
     "The type of action implemented by this button"
 
     title: str

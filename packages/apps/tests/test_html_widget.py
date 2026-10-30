@@ -1,9 +1,9 @@
 """
 Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
-
-Tests for HTML widget utilities.
 """
+
+# Tests for HTML widget utilities.
 
 import json
 import warnings
@@ -17,8 +17,10 @@ from microsoft_teams.api.models.html_widget import (
     McpUiTextContent,
 )
 from microsoft_teams.apps.utils.html_widget import (
+    DisplayMode,
     HtmlWidgetMarkdownOptions,
     InjectWidgetProtocolOptions,
+    WidgetNotification,
     build_html_widget_markdown,
     build_html_widget_message,
     inject_widget_protocol,
@@ -26,9 +28,18 @@ from microsoft_teams.apps.utils.html_widget import (
     validate_security_policy,
 )
 from microsoft_teams.common.experimental import ExperimentalWarning
+from pydantic import TypeAdapter
 
 # Suppress ExperimentalWarning in all widget tests
 warnings.filterwarnings("ignore", category=ExperimentalWarning)
+
+
+@pytest.mark.parametrize("vocabulary", [DisplayMode, WidgetNotification])
+def test_widget_protocol_vocabulary_accepts_unknown_and_known_values(vocabulary: Any):
+    adapter = TypeAdapter(vocabulary)
+
+    assert adapter.validate_python("futureValue") == "futureValue"
+
 
 # ---------------------------------------------------------------------------
 # Fixtures

@@ -4,9 +4,9 @@ Licensed under the MIT License.
 """
 
 from enum import Enum
-from typing import Any, List, Literal, Optional
+from typing import Annotated, Any, List, Literal, Optional, Union
 
-from pydantic import field_validator
+from pydantic import Field, field_validator
 
 from ..custom_base_model import CustomBaseModel
 from .message_entity import MessageEntity
@@ -58,7 +58,7 @@ class Image(CustomBaseModel):
     at_type: Literal["ImageObject"] = "ImageObject"
     "Type for the image"
 
-    name: CitationIconName
+    name: Annotated[Union[CitationIconName, str], Field(union_mode="left_to_right")]
     "The image/icon name"
 
 
@@ -99,7 +99,7 @@ class CitationAppearance(CustomBaseModel):
     abstract: str
     "Extract of the referenced content (max length 160)"
 
-    icon: Optional[CitationIconName] = None
+    icon: Optional[Annotated[Union[CitationIconName, str], Field(union_mode="left_to_right")]] = None
     "Information about the citation's icon"
 
     keywords: Optional[List[str]] = None

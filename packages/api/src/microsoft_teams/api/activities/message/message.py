@@ -3,9 +3,10 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from typing import Any, List, Literal, Optional, Self
+from typing import Annotated, Any, List, Literal, Optional, Self, Union
 
 from microsoft_teams.cards import AdaptiveCard
+from pydantic import Field
 
 from ...models import (
     Account,
@@ -50,7 +51,7 @@ class _MessageBase(CustomBaseModel):
     text_format: Optional[TextFormat] = None
     """Format of text fields. Default: markdown. Possible values: 'markdown', 'plain', 'xml', 'extendedmarkdown'."""
 
-    attachment_layout: Optional[AttachmentLayout] = None
+    attachment_layout: Optional[Annotated[Union[AttachmentLayout, str], Field(union_mode="left_to_right")]] = None
     """The layout hint for multiple attachments. Default: list."""
 
     attachments: Optional[List[Attachment]] = None
@@ -166,7 +167,7 @@ class MessageActivityInput(_MessageBase, ActivityInputBase):
         self.text_format = text_format
         return self
 
-    def with_attachment_layout(self, attachment_layout: AttachmentLayout) -> Self:
+    def with_attachment_layout(self, attachment_layout: Union[AttachmentLayout, str]) -> Self:
         """
         Set the layout hint for multiple attachments.
 
