@@ -941,9 +941,9 @@ class TestConversationActivityOperations:
         assert last_request.method == "POST"
         assert str(last_request.url) == f"https://test.service.url/v3/conversations/{conversation_id}/activities"
 
-        # Validate request payload - check that replyToId was added
+        # Validate request payload - check that no replyToId was added
         payload = json.loads(last_request.content)
-        assert payload["replyToId"] == activity_id
+        assert "replyToId" not in payload
 
     async def test_activity_delete(self, request_capture):
         """Test deleting an activity."""
@@ -1271,7 +1271,7 @@ class TestConversationClientFlattened:
         assert str(last_request.url) == "https://test.service.url/v3/conversations/conv-1/activities/act-1"
 
     async def test_reply_to_activity(self, request_capture, mock_activity):
-        """reply_to_activity should POST a reply with replyToId set."""
+        """reply_to_activity should POST a reply without a replyToId."""
         client = ConversationClient("https://test.service.url", request_capture)
 
         result = await client.reply_to_activity("conv-1", "act-1", mock_activity)
@@ -1281,7 +1281,7 @@ class TestConversationClientFlattened:
         assert last_request.method == "POST"
         assert str(last_request.url) == "https://test.service.url/v3/conversations/conv-1/activities"
         payload = json.loads(last_request.content)
-        assert payload["replyToId"] == "act-1"
+        assert "replyToId" not in payload
 
     async def test_delete_activity(self, request_capture):
         """delete_activity should DELETE an activity."""
@@ -1667,7 +1667,7 @@ class TestReplyChainPreviewWarning:
 @pytest.mark.unit
 @pytest.mark.asyncio
 class TestReply:
-    """Unit tests for the reply that posts to the activities route with `replyToId`."""
+    """Unit tests for the reply that posts to the activities route without a `replyToId`."""
 
     async def test_activities_client_reply_posts_to_activities_route(self, request_capture, mock_activity):
         client = ConversationClient("https://test.service.url", request_capture)
@@ -1678,18 +1678,29 @@ class TestReply:
         assert request.method == "POST"
         assert str(request.url) == "https://test.service.url/v3/conversations/chat-1/activities"
 
-    async def test_reply_stamps_reply_to_id(self, request_capture, mock_activity):
-        """`reply` sets `replyToId` to the activity id in the request body."""
+    async def test_reply_does_not_set_reply_to_id(self, request_capture, mock_activity):
+        """`reply` posts the activity without `replyToId`."""
         client = ConversationClient("https://test.service.url", request_capture)
 
         await client.reply_to_activity("chat-1", "act-1", mock_activity)
-        assert json.loads(request_capture._capture.last_request.content)["replyToId"] == "act-1"
+        assert "replyToId" not in json.loads(request_capture._capture.last_request.content)
 
         await client.activities_client.reply("chat-1", "act-2", mock_activity)
-        assert json.loads(request_capture._capture.last_request.content)["replyToId"] == "act-2"
+        assert "replyToId" not in json.loads(request_capture._capture.last_request.content)
 
         await client.activities("chat-1").reply("act-3", mock_activity)
-        assert json.loads(request_capture._capture.last_request.content)["replyToId"] == "act-3"
+        assert "replyToId" not in json.loads(request_capture._capture.last_request.content)
+
+    async def test_reply_posts_a_reply_to_id_that_the_caller_set(self, request_capture, mock_activity):
+        """`reply` posts a `replyToId` that the caller set on the activity."""
+        client = ConversationClient("https://test.service.url", request_capture)
+        activity = mock_activity.model_copy(update={"reply_to_id": "caller-id"})
+
+        await client.reply_to_activity("chat-1", "act-1", activity)
+        assert json.loads(request_capture._capture.last_request.content)["replyToId"] == "caller-id"
+
+        await client.activities_client.reply("chat-1", "act-2", activity)
+        assert json.loads(request_capture._capture.last_request.content)["replyToId"] == "caller-id"
 
     async def test_reply_does_not_use_the_reply_chain_route(self, request_capture, mock_activity):
         client = ConversationClient("https://test.service.url", request_capture)
@@ -1713,7 +1724,7 @@ class TestReply:
 
         request = request_capture._capture.last_request
         assert str(request.url) == "https://override.service.url/v3/conversations/chat-1/activities"
-        assert json.loads(request.content)["replyToId"] == "act-1"
+        assert "replyToId" not in json.loads(request.content)
 
     async def test_reply_accepts_service_url_and_agentic_identity_kwargs(self, request_capture, mock_activity):
         calls = []
@@ -1743,7 +1754,7 @@ class TestReply:
             )
             request = request_capture._capture.last_request
             assert str(request.url) == "https://override.service.url/v3/conversations/chat-1/activities"
-            assert json.loads(request.content)["replyToId"] == "act-1"
+            assert "replyToId" not in json.loads(request.content)
             assert "authorization" in request.headers
 
         assert calls == [(PUBLIC.agent_bot_scope, identity)] * 2
