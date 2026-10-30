@@ -16,6 +16,7 @@ from .feedback_loop import FeedbackLoop
 from .notification_info import NotificationInfo
 from .reply_chain_info import ReplyChainInfo
 from .settings import ChannelDataSettings
+from .source_info import SourceInfo
 from .team_info import TeamInfo
 from .tenant_info import TenantInfo
 
@@ -64,6 +65,9 @@ class ChannelData(CustomBaseModel):
 
     settings: Optional[ChannelDataSettings] = None
     "Information about the settings in which the message was sent."
+
+    source: Optional[SourceInfo] = None
+    "Information about the source of the activity."
 
     feedback_loop_enabled: Optional[bool] = None
     """
