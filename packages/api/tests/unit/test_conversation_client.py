@@ -5,6 +5,7 @@ Licensed under the MIT License.
 # pyright: basic
 
 import json
+import warnings
 from contextlib import contextmanager
 from typing import Any, Iterator
 from unittest.mock import AsyncMock, call, patch
@@ -17,6 +18,7 @@ from microsoft_teams.api.clients.conversation import ConversationClient
 from microsoft_teams.api.clients.conversation.params import CreateConversationParams
 from microsoft_teams.api.diagnostics._outbound import ApiOutboundTelemetryMetadata
 from microsoft_teams.api.models import AgenticIdentity, ConversationResource, PagedMembersResult, TeamsChannelAccount
+from microsoft_teams.common.experimental import ExperimentalWarning
 from microsoft_teams.common.http import Client, ClientOptions
 from opentelemetry.trace import Span, SpanKind
 
@@ -1391,3 +1393,373 @@ class TestConversationClientDeprecatedAccessors:
         client = ConversationClient("https://test.service.url", mock_http_client)
         with pytest.warns(DeprecationWarning):
             client.members("conv-1")
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+class TestReplyChains:
+    """Unit tests for activities created in a reply chain."""
+
+    async def test_activities_client_create_reply_chain_posts_to_reply_chain(self, request_capture, mock_activity):
+        client = ConversationClient("https://test.service.url", request_capture)
+
+        await client.activities_client.create_reply_chain("chat-1", "root-1", mock_activity)
+
+        request = request_capture._capture.last_request
+        assert request.method == "POST"
+        assert str(request.url) == "https://test.service.url/v3/conversations/chat-1/replyChains/root-1"
+        assert "replyToId" not in json.loads(request.content)
+
+    async def test_activities_client_create_targeted_reply_chain_posts_to_reply_chain_with_targeted_query(
+        self, request_capture, mock_activity
+    ):
+        client = ConversationClient("https://test.service.url", request_capture)
+
+        await client.activities_client.create_targeted_reply_chain("chat-1", "root-1", mock_activity)
+
+        request = request_capture._capture.last_request
+        assert request.method == "POST"
+        assert (
+            str(request.url)
+            == "https://test.service.url/v3/conversations/chat-1/replyChains/root-1?isTargetedActivity=true"
+        )
+        assert "replyToId" not in json.loads(request.content)
+
+    async def test_create_targeted_reply_chain_activity_posts_to_reply_chain_with_targeted_query(
+        self, request_capture, mock_activity
+    ):
+        client = ConversationClient("https://test.service.url", request_capture)
+
+        result = await client.create_targeted_reply_chain_activity("chat-1", "root-1", mock_activity)
+
+        assert result is not None
+        request = request_capture._capture.last_request
+        assert (
+            str(request.url)
+            == "https://test.service.url/v3/conversations/chat-1/replyChains/root-1?isTargetedActivity=true"
+        )
+
+    async def test_create_targeted_reply_chain_activity_uses_scoped_service_url(self, request_capture, mock_activity):
+        client = ConversationClient("https://test.service.url", request_capture)
+
+        await client.create_targeted_reply_chain_activity(
+            "chat-1", "root-1", mock_activity, service_url="https://override.service.url/"
+        )
+
+        request = request_capture._capture.last_request
+        assert (
+            str(request.url)
+            == "https://override.service.url/v3/conversations/chat-1/replyChains/root-1?isTargetedActivity=true"
+        )
+
+    async def test_reply_chain_methods_accept_service_url_and_agentic_identity_kwargs(
+        self, request_capture, mock_activity
+    ):
+        calls = []
+
+        class TestTokenProvider(_TokenProviderAdapter):
+            def token(self, *, scope=None, agentic_identity=None):
+                calls.append((scope, agentic_identity))
+                return "override-token"
+
+        identity = AgenticIdentity(
+            agentic_app_blueprint_id="blueprint-id",
+            agentic_app_id="override-app-id",
+            agentic_user_id="override-user-id",
+            tenant_id="override-tenant-id",
+        )
+        conversations = ApiClient(
+            "https://default.service.url", request_capture, token_provider=TestTokenProvider()
+        ).conversations
+
+        targets = (
+            (conversations, "create_reply_chain_activity", ""),
+            (conversations, "create_targeted_reply_chain_activity", "?isTargetedActivity=true"),
+            (conversations.activities_client, "create_reply_chain", ""),
+            (conversations.activities_client, "create_targeted_reply_chain", "?isTargetedActivity=true"),
+        )
+        for target, method, query in targets:
+            await getattr(target, method)(
+                "chat-1",
+                "root-1",
+                mock_activity,
+                service_url="https://override.service.url/",
+                agentic_identity=identity,
+            )
+            request = request_capture._capture.last_request
+            assert str(request.url) == f"https://override.service.url/v3/conversations/chat-1/replyChains/root-1{query}"
+            assert "authorization" in request.headers
+
+        assert calls == [(PUBLIC.agent_bot_scope, identity)] * 4
+
+    @pytest.mark.parametrize("method", ["create_reply_chain_activity", "create_targeted_reply_chain_activity"])
+    @pytest.mark.parametrize(
+        ("conversation_id", "activity_id", "name"),
+        [
+            (".", "root-1", "conversation_id"),
+            ("..", "root-1", "conversation_id"),
+            ("chat-1", ".", "activity_id"),
+            ("chat-1", "..", "activity_id"),
+        ],
+    )
+    async def test_reply_chain_rejects_a_dot_segment_id_before_sending(
+        self, request_capture, mock_activity, method, conversation_id, activity_id, name
+    ):
+        client = ConversationClient("https://test.service.url", request_capture)
+
+        with pytest.raises(ValueError, match=f"^{name} must not be a dot segment$"):
+            await getattr(client, method)(conversation_id, activity_id, mock_activity)
+
+        assert request_capture._capture.requests == []
+
+    async def test_reply_chain_accepts_ids_that_only_contain_dots(self, request_capture, mock_activity):
+        client = ConversationClient("https://test.service.url", request_capture)
+
+        await client.create_reply_chain_activity("chat-1", "...", mock_activity)
+        await client.create_reply_chain_activity("a..b", "1.2", mock_activity)
+
+        assert str(request_capture._capture.requests[0].url).endswith("/chat-1/replyChains/...")
+        assert str(request_capture._capture.requests[1].url).endswith("/a..b/replyChains/1.2")
+
+    async def test_reply_chain_does_not_modify_the_activity(self, request_capture, mock_activity):
+        client = ConversationClient("https://test.service.url", request_capture)
+        before = mock_activity.model_dump()
+
+        await client.create_reply_chain_activity("chat-1", "root-1", mock_activity)
+
+        assert mock_activity.model_dump() == before
+
+    async def test_reply_chain_escapes_both_ids(self, request_capture, mock_activity):
+        client = ConversationClient("https://test.service.url", request_capture)
+
+        await client.create_reply_chain_activity("19:abc@thread.tacv2", "a:root/id", mock_activity)
+        assert (
+            request_capture._capture.last_request.url.raw_path.decode()
+            == "/v3/conversations/19%3Aabc%40thread.tacv2/replyChains/a%3Aroot%2Fid"
+        )
+
+        await client.create_targeted_reply_chain_activity("19:abc@thread.tacv2", "a:root/id", mock_activity)
+        assert (
+            request_capture._capture.last_request.url.raw_path.decode()
+            == "/v3/conversations/19%3Aabc%40thread.tacv2/replyChains/a%3Aroot%2Fid?isTargetedActivity=true"
+        )
+
+    @pytest.mark.parametrize("method", ["create_reply_chain_activity", "create_targeted_reply_chain_activity"])
+    async def test_reply_chain_escapes_a_slash_in_the_conversation_id(self, request_capture, mock_activity, method):
+        client = ConversationClient("https://test.service.url", request_capture)
+
+        await getattr(client, method)("a:chat/id", "root-1", mock_activity)
+
+        path = request_capture._capture.last_request.url.raw_path.decode()
+        assert path.startswith("/v3/conversations/a%3Achat%2Fid/replyChains/root-1")
+
+    @pytest.mark.parametrize("method", ["create_reply_chain_activity", "create_targeted_reply_chain_activity"])
+    @pytest.mark.parametrize(
+        ("conversation_id", "activity_id", "name"),
+        [
+            ("", "root-1", "conversation_id"),
+            ("   ", "root-1", "conversation_id"),
+            ("chat-1", "", "activity_id"),
+            ("chat-1", "   ", "activity_id"),
+        ],
+    )
+    async def test_reply_chain_raises_before_sending_when_an_id_is_blank(
+        self, request_capture, mock_activity, method, conversation_id, activity_id, name
+    ):
+        client = ConversationClient("https://test.service.url", request_capture)
+
+        with pytest.raises(ValueError, match=f"{name} must be a non-empty string"):
+            await getattr(client, method)(conversation_id, activity_id, mock_activity)
+
+        assert request_capture._capture.requests == []
+
+    @pytest.mark.parametrize("method", ["create_reply_chain", "create_targeted_reply_chain"])
+    async def test_activities_client_reply_chain_raises_before_sending_when_an_id_is_blank(
+        self, request_capture, mock_activity, method
+    ):
+        client = ConversationClient("https://test.service.url", request_capture)
+
+        with pytest.raises(ValueError, match="conversation_id must be a non-empty string"):
+            await getattr(client.activities_client, method)(" ", "root-1", mock_activity)
+        with pytest.raises(ValueError, match="activity_id must be a non-empty string"):
+            await getattr(client.activities_client, method)("chat-1", " ", mock_activity)
+
+        assert request_capture._capture.requests == []
+
+    async def test_reply_chain_operations_record_diagnostics_operations(self, mock_http_client, mock_activity):
+        client = ConversationClient("https://test.service.url", mock_http_client)
+
+        with patch("microsoft_teams.api.diagnostics._outbound.record_outbound_call") as record_outbound_call:
+            await client.create_reply_chain_activity("chat-1", "root-1", mock_activity)
+            await client.create_targeted_reply_chain_activity("chat-1", "root-1", mock_activity)
+
+        assert record_outbound_call.call_args_list == [call("create_reply_chain"), call("create_targeted_reply_chain")]
+
+    async def test_targeted_reply_chain_span_records_the_targeted_operation(self, request_capture, mock_activity):
+        tracer = RecordingTracer()
+        client = ConversationClient("https://test.service.url", request_capture)
+
+        with patch("microsoft_teams.api.diagnostics._outbound.get_tracer", return_value=tracer):
+            await client.create_targeted_reply_chain_activity("chat-1", "root-1", mock_activity)
+
+        attributes = tracer.spans[0].attributes
+        assert attributes["operation"] == "create_targeted_reply_chain"
+        assert attributes["conversation.id"] == "chat-1"
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+class TestReplyChainPreviewWarning:
+    """The public reply chain methods of `ConversationClient` emit the preview warning, the SDK helpers do not."""
+
+    @staticmethod
+    def _experimental(caught: list[warnings.WarningMessage]) -> list[warnings.WarningMessage]:
+        return [w for w in caught if issubclass(w.category, ExperimentalWarning)]
+
+    @pytest.mark.parametrize("method", ["create_reply_chain_activity", "create_targeted_reply_chain_activity"])
+    async def test_public_method_emits_the_warning_once_per_call(self, request_capture, mock_activity, method):
+        client = ConversationClient("https://test.service.url", request_capture)
+
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            await getattr(client, method)("chat-1", "root-1", mock_activity)
+            await getattr(client, method)("chat-1", "root-2", mock_activity)
+
+        experimental = self._experimental(caught)
+        assert len(experimental) == 2
+        assert all("ExperimentalTeamsThreading" in str(w.message) for w in experimental)
+        assert all(method in str(w.message) for w in experimental)
+
+    @pytest.mark.parametrize("method", ["create_reply_chain_activity", "create_targeted_reply_chain_activity"])
+    async def test_public_method_emits_the_warning_once_with_a_service_url(
+        self, request_capture, mock_activity, method
+    ):
+        client = ApiClient("https://default.service.url", request_capture).conversations
+
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            await getattr(client, method)(
+                "chat-1", "root-1", mock_activity, service_url="https://override.service.url/"
+            )
+
+        assert len(self._experimental(caught)) == 1
+
+    @pytest.mark.parametrize("method", ["_create_reply_chain_activity", "_create_targeted_reply_chain_activity"])
+    @pytest.mark.parametrize("service_url", [None, "https://override.service.url/"])
+    async def test_sdk_helper_does_not_emit_the_warning(self, request_capture, mock_activity, method, service_url):
+        client = ApiClient("https://default.service.url", request_capture).conversations
+
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            await getattr(client, method)("chat-1", "root-1", mock_activity, service_url=service_url)
+
+        assert self._experimental(caught) == []
+        assert "/replyChains/root-1" in str(request_capture._capture.last_request.url)
+
+    @pytest.mark.parametrize(
+        "method",
+        [ConversationClient.create_reply_chain_activity, ConversationClient.create_targeted_reply_chain_activity],
+    )
+    def test_public_methods_keep_the_diagnostic_in_their_docstring(self, method):
+        assert "Diagnostic: ExperimentalTeamsThreading" in (method.__doc__ or "")
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+class TestReply:
+    """Unit tests for the reply that posts to the activities route with `replyToId`."""
+
+    async def test_activities_client_reply_posts_to_activities_route(self, request_capture, mock_activity):
+        client = ConversationClient("https://test.service.url", request_capture)
+
+        await client.activities_client.reply("chat-1", "act-1", mock_activity)
+
+        request = request_capture._capture.last_request
+        assert request.method == "POST"
+        assert str(request.url) == "https://test.service.url/v3/conversations/chat-1/activities"
+
+    async def test_reply_stamps_reply_to_id(self, request_capture, mock_activity):
+        """`reply` sets `replyToId` to the activity id in the request body."""
+        client = ConversationClient("https://test.service.url", request_capture)
+
+        await client.reply_to_activity("chat-1", "act-1", mock_activity)
+        assert json.loads(request_capture._capture.last_request.content)["replyToId"] == "act-1"
+
+        await client.activities_client.reply("chat-1", "act-2", mock_activity)
+        assert json.loads(request_capture._capture.last_request.content)["replyToId"] == "act-2"
+
+        await client.activities("chat-1").reply("act-3", mock_activity)
+        assert json.loads(request_capture._capture.last_request.content)["replyToId"] == "act-3"
+
+    async def test_reply_does_not_use_the_reply_chain_route(self, request_capture, mock_activity):
+        client = ConversationClient("https://test.service.url", request_capture)
+
+        await client.reply_to_activity("chat-1", "act-1", mock_activity)
+
+        assert "replyChains" not in str(request_capture._capture.last_request.url)
+
+    async def test_reply_does_not_modify_the_activity(self, request_capture, mock_activity):
+        client = ConversationClient("https://test.service.url", request_capture)
+        before = mock_activity.model_dump()
+
+        await client.reply_to_activity("chat-1", "act-1", mock_activity)
+
+        assert mock_activity.model_dump() == before
+
+    async def test_reply_uses_scoped_service_url(self, request_capture, mock_activity):
+        client = ConversationClient("https://test.service.url", request_capture)
+
+        await client.reply_to_activity("chat-1", "act-1", mock_activity, service_url="https://override.service.url/")
+
+        request = request_capture._capture.last_request
+        assert str(request.url) == "https://override.service.url/v3/conversations/chat-1/activities"
+        assert json.loads(request.content)["replyToId"] == "act-1"
+
+    async def test_reply_accepts_service_url_and_agentic_identity_kwargs(self, request_capture, mock_activity):
+        calls = []
+
+        class TestTokenProvider(_TokenProviderAdapter):
+            def token(self, *, scope=None, agentic_identity=None):
+                calls.append((scope, agentic_identity))
+                return "override-token"
+
+        identity = AgenticIdentity(
+            agentic_app_blueprint_id="blueprint-id",
+            agentic_app_id="override-app-id",
+            agentic_user_id="override-user-id",
+            tenant_id="override-tenant-id",
+        )
+        conversations = ApiClient(
+            "https://default.service.url", request_capture, token_provider=TestTokenProvider()
+        ).conversations
+
+        for target, method in ((conversations, "reply_to_activity"), (conversations.activities_client, "reply")):
+            await getattr(target, method)(
+                "chat-1",
+                "act-1",
+                mock_activity,
+                service_url="https://override.service.url/",
+                agentic_identity=identity,
+            )
+            request = request_capture._capture.last_request
+            assert str(request.url) == "https://override.service.url/v3/conversations/chat-1/activities"
+            assert json.loads(request.content)["replyToId"] == "act-1"
+            assert "authorization" in request.headers
+
+        assert calls == [(PUBLIC.agent_bot_scope, identity)] * 2
+
+    async def test_reply_records_the_reply_operation(self, mock_http_client, mock_activity):
+        client = ConversationClient("https://test.service.url", mock_http_client)
+
+        with patch("microsoft_teams.api.diagnostics._outbound.record_outbound_call") as record_outbound_call:
+            await client.reply_to_activity("chat-1", "act-1", mock_activity)
+
+        assert record_outbound_call.call_args_list == [call("reply")]
+
+    @pytest.mark.parametrize("method", ["create_reply_chain_activity", "create_targeted_reply_chain_activity"])
+    async def test_reply_chain_methods_never_stamp_reply_to_id(self, request_capture, mock_activity, method):
+        client = ConversationClient("https://test.service.url", request_capture)
+
+        await getattr(client, method)("chat-1", "root-1", mock_activity)
+
+        assert "replyToId" not in json.loads(request_capture._capture.last_request.content)

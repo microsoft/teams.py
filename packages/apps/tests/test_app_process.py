@@ -6,6 +6,7 @@ Licensed under the MIT License.
 
 import asyncio
 import json
+import warnings
 from contextlib import contextmanager
 from typing import Any, Iterator
 from unittest.mock import AsyncMock, MagicMock, create_autospec, patch
@@ -13,9 +14,11 @@ from unittest.mock import AsyncMock, MagicMock, create_autospec, patch
 import httpx
 import pytest
 from microsoft_teams.api import (
+    Account,
     Activity,
     ActivityTypeAdapter,
     ApiClient,
+    ConversationAccount,
     ConversationReference,
     InvokeResponse,
     MessageActivityInput,
@@ -593,6 +596,144 @@ class TestActivityProcessor:
             await activity_processor.process_activity([], mock_activity_event)
 
         activity_processor.event_manager.on_activity_sent.assert_called_once()
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("activity_id", "channel_data", "conversation", "expect_reply_chain", "destination"),
+        [
+            (
+                "reply-2",
+                {"chat": {"id": "19:user_bot@unq.gbl.spaces"}, "replyChain": {"id": "root-1"}},
+                {"id": "a:encrypted"},
+                True,
+                "19:user_bot@unq.gbl.spaces",
+            ),
+            (
+                "root-1",
+                {"chat": {"id": "19:user_bot@unq.gbl.spaces"}, "replyChain": {"id": "root-1"}},
+                {"id": "a:encrypted"},
+                False,
+                None,
+            ),
+            (
+                "reply-2",
+                {"channel": {"id": "19:channel@thread.tacv2"}, "replyChain": {"id": "root-1"}},
+                {"id": "19:channel@thread.tacv2;messageid=root-1", "conversationType": "channel"},
+                True,
+                "19:channel@thread.tacv2",
+            ),
+        ],
+        ids=["chat-in-thread", "chat-top-level", "channel"],
+    )
+    async def test_send_from_a_handler_is_placed_from_the_payload(
+        self, activity_processor, activity_id, channel_data, conversation, expect_reply_chain, destination
+    ):
+        """The full pipeline places a reactive send in the reply chain named by the inbound payload."""
+        from microsoft_teams.api import MessageActivityInput, SentActivity
+
+        core_activity = CoreActivity(
+            type="message",
+            id=activity_id,
+            service_url="https://service.url",
+            **{
+                "from": {"id": "user-1", "name": "Test User"},
+                "conversation": conversation,
+                "recipient": {"id": "bot-1", "name": "Test Bot"},
+                "channelId": "msteams",
+                "channelData": channel_data,
+            },
+        )
+        mock_token = MagicMock(spec=TokenProtocol)
+        mock_token.service_url = "https://service.url"
+        mock_activity_event = ActivityEvent(body=core_activity, token=mock_token)
+
+        sent = SentActivity(id="sent-1", activity_params=MessageActivityInput(text="hi"))
+        activity_processor.http_client.clone.return_value = activity_processor.http_client
+        with patch("microsoft_teams.apps.app_process.ApiClient") as mock_api_client:
+            mock_context_api = MagicMock()
+            mock_context_api.users.token.get = AsyncMock(side_effect=Exception("no token"))
+            mock_context_api.conversations.create_activity = AsyncMock(return_value=sent)
+            mock_context_api.conversations._create_reply_chain_activity = AsyncMock(return_value=sent)
+            mock_context_api.clone.return_value = mock_context_api
+            mock_api_client.return_value = mock_context_api
+
+            async def calling_handler(ctx):
+                await ctx.send("hi")
+                return None
+
+            activity_processor.router.select_handlers = MagicMock(return_value=[calling_handler])
+            activity_processor.event_manager = MagicMock()
+            activity_processor.event_manager.on_activity_response = AsyncMock()
+            activity_processor.event_manager.on_activity_sent = AsyncMock()
+            activity_processor.event_manager.on_error = AsyncMock()
+
+            with warnings.catch_warnings():
+                warnings.simplefilter("error", DeprecationWarning)
+                await activity_processor.process_activity([], mock_activity_event)
+
+        conversations = mock_context_api.conversations
+        if expect_reply_chain:
+            conversations._create_reply_chain_activity.assert_called_once()
+            assert conversations._create_reply_chain_activity.call_args.args[:2] == (destination, "root-1")
+            conversations.create_activity.assert_not_called()
+        else:
+            conversations.create_activity.assert_called_once()
+            assert conversations.create_activity.call_args.args[0] == "a:encrypted"
+            conversations._create_reply_chain_activity.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_updated_send_warns_once_when_given_a_conversation_ref(self, activity_processor):
+        """ctx.send with a conversation reference is deprecated, and the warning is raised by the wrapper only once."""
+        from microsoft_teams.api import MessageActivityInput, SentActivity
+
+        core_activity = CoreActivity(
+            type="message",
+            id="activity-send",
+            service_url="https://service.url",
+            **{
+                "from": {"id": "user-1", "name": "Test User"},
+                "conversation": {"id": "conv-1"},
+                "recipient": {"id": "bot-1", "name": "Test Bot"},
+                "channelId": "msteams",
+            },
+        )
+        mock_token = MagicMock(spec=TokenProtocol)
+        mock_token.service_url = "https://service.url"
+        mock_activity_event = ActivityEvent(body=core_activity, token=mock_token)
+
+        sent = SentActivity(id="sent-1", activity_params=MessageActivityInput(text="hi"))
+        other_ref = ConversationReference(
+            bot=Account(id="bot-1"),
+            conversation=ConversationAccount(id="other-conv"),
+            channel_id="msteams",
+            service_url="https://service.url",
+        )
+        activity_processor.http_client.clone.return_value = activity_processor.http_client
+        with patch("microsoft_teams.apps.app_process.ApiClient") as mock_api_client:
+            mock_context_api = MagicMock()
+            mock_context_api.users.token.get = AsyncMock(side_effect=Exception("no token"))
+            mock_context_api.conversations.create_activity = AsyncMock(return_value=sent)
+            mock_context_api.clone.return_value = mock_context_api
+            mock_api_client.return_value = mock_context_api
+
+            async def calling_handler(ctx):
+                await ctx.send("hi", other_ref)
+                return None
+
+            activity_processor.router.select_handlers = MagicMock(return_value=[calling_handler])
+            activity_processor.event_manager = MagicMock()
+            activity_processor.event_manager.on_activity_response = AsyncMock()
+            activity_processor.event_manager.on_activity_sent = AsyncMock()
+            activity_processor.event_manager.on_error = AsyncMock()
+
+            with pytest.warns(DeprecationWarning, match="to send to a different conversation") as recorded:
+                await activity_processor.process_activity([], mock_activity_event)
+
+        deprecations = [w for w in recorded if issubclass(w.category, DeprecationWarning)]
+        assert len(deprecations) == 1
+        assert mock_context_api.conversations.create_activity.call_args.args[0] == "other-conv"
+        sent_event = activity_processor.event_manager.on_activity_sent.call_args.args[0]
+        assert sent_event.conversation_ref == other_ref
 
     @pytest.mark.asyncio
     async def test_stream_handlers_emit_activity_sent_events(self, activity_processor):

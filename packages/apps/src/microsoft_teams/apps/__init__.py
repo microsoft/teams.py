@@ -13,7 +13,7 @@ from .diagnostics import *  # noqa: F403
 from .events import *  # noqa: F401, F403
 from .files import *  # noqa: F403
 from .http import FastAPIAdapter, HttpServer, HttpServerAdapter
-from .http_stream import HttpStream
+from .http_stream import HttpStream, StreamOptions, StreamReplyChain
 from .oauth_flow import OAuthFlow, OAuthFlowRegistry
 from .options import AppOptions, AppTelemetryOptions
 from .plan import Plan, PlanOptions
@@ -58,6 +58,8 @@ __all__: list[str] = [
     "HttpStream",
     "Plan",
     "PlanOptions",
+    "StreamOptions",
+    "StreamReplyChain",
     "ActivityContext",
     "AppTokenProvider",
     "OAuthFlow",

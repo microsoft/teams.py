@@ -8,6 +8,7 @@ import asyncio
 import importlib.metadata
 import os
 import re
+import warnings
 from typing import Any, Optional
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -39,7 +40,7 @@ from microsoft_teams.apps import (
     PluginStartEvent,
 )
 from microsoft_teams.apps.events import CoreActivity
-from microsoft_teams.common import Client, ClientOptions
+from microsoft_teams.common import Client, ClientOptions, ExperimentalWarning
 
 
 class FakeToken(TokenProtocol):
@@ -78,6 +79,14 @@ class FakeToken(TokenProtocol):
 
     def __str__(self) -> str:
         return "FakeToken"
+
+
+def _http_status_error(status_code: int) -> httpx.HTTPStatusError:
+    return httpx.HTTPStatusError(
+        "error",
+        request=httpx.Request("POST", "https://example.com"),
+        response=httpx.Response(status_code),
+    )
 
 
 def _wire_flat_activity_methods(api: Any, activities: MagicMock) -> None:
@@ -1209,11 +1218,95 @@ class TestAppReply:
         app.api.clone = MagicMock(return_value=app.api)
         return app
 
-    @pytest.mark.asyncio
-    async def test_reply_with_three_args_constructs_threaded_id(self, started_app):
-        await started_app.reply("19:abc@thread.skype", "1680000000000", "Hello thread")
+    @pytest.fixture(autouse=True)
+    def reply_chain_methods(self, started_app):
+        started_app.api.conversations._create_reply_chain_activity = AsyncMock(
+            return_value=SentActivity(id="reply-id", activity_params=MessageActivityInput(text="sent"))
+        )
+        started_app.api.conversations._create_targeted_reply_chain_activity = AsyncMock(
+            return_value=SentActivity(id="targeted-reply-id", activity_params=MessageActivityInput(text="sent"))
+        )
 
-        started_app.api.conversations.activities.assert_called_once_with("19:abc@thread.skype;messageid=1680000000000")
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("targeted", [False, True], ids=["plain", "targeted"])
+    async def test_reply_with_three_args_does_not_emit_the_preview_warning(self, targeted):
+        app = App(**AppOptions(client_id="test-client-id", client_secret="test-secret"))
+        app._initialized = True
+        sent = SentActivity(id="sent-id", activity_params=MessageActivityInput(text="sent"))
+        activities = MagicMock()
+        activities.create_reply_chain = AsyncMock(return_value=sent)
+        activities.create_targeted_reply_chain = AsyncMock(return_value=sent)
+        app.api.conversations._activities_client = activities  # pyright: ignore[reportPrivateUsage]
+        activity = MessageActivityInput(text="Hello")
+        if targeted:
+            activity = activity.with_recipient(Account(id="user-456", name="Test User", role="user"), is_targeted=True)
+
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            await app.reply("19:abc@thread.skype", "123", activity)
+
+        called = activities.create_targeted_reply_chain if targeted else activities.create_reply_chain
+        called.assert_called_once()
+        assert [w for w in caught if issubclass(w.category, ExperimentalWarning)] == []
+
+    @pytest.mark.asyncio
+    async def test_reply_with_three_args_replies_in_the_reply_chain(self, started_app):
+        result = await started_app.reply("19:abc@thread.skype", "1680000000000", "Hello chain")
+
+        assert result.id == "reply-id"
+        reply = started_app.api.conversations._create_reply_chain_activity
+        reply.assert_called_once()
+        assert reply.call_args.args[:2] == ("19:abc@thread.skype", "1680000000000")
+        activity = reply.call_args.args[2]
+        assert isinstance(activity, MessageActivityInput)
+        assert activity.text == "Hello chain"
+        assert activity.conversation.id == "19:abc@thread.skype"
+        started_app.api.conversations.create_activity.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_reply_with_three_args_passes_ids_as_is(self, started_app):
+        await started_app.reply("19:abc@unq.gbl.spaces", "a:encrypted-root", "Hello")
+
+        reply = started_app.api.conversations._create_reply_chain_activity
+        assert reply.call_args.args[:2] == ("19:abc@unq.gbl.spaces", "a:encrypted-root")
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("message_id", ["1680000000000", "123", "a:encrypted-root", "0", "12a"])
+    @pytest.mark.parametrize("status_code", [404, 400, 401, 403, 409, 500])
+    async def test_reply_with_three_args_throws_and_sends_no_second_request(self, started_app, message_id, status_code):
+        started_app.api.conversations._create_reply_chain_activity.side_effect = _http_status_error(status_code)
+
+        with pytest.raises(httpx.HTTPStatusError) as error:
+            await started_app.reply("19:abc@thread.skype", message_id, "Hello")
+
+        assert error.value.response.status_code == status_code
+        started_app.api.conversations._create_reply_chain_activity.assert_called_once()
+        started_app.api.conversations.create_activity.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_reply_with_three_args_throws_for_a_targeted_activity_and_sends_no_second_request(self, started_app):
+        started_app.api.conversations._create_targeted_reply_chain_activity.side_effect = _http_status_error(404)
+        activity = MessageActivityInput(text="Hello").with_recipient(
+            Account(id="user-456", name="Test User", role="user"), is_targeted=True
+        )
+
+        with pytest.raises(httpx.HTTPStatusError):
+            await started_app.reply("19:abc@thread.skype", "123", activity)
+
+        started_app.api.conversations._create_targeted_reply_chain_activity.assert_called_once()
+        started_app.api.conversations.create_activity.assert_not_called()
+        started_app.api.conversations.create_targeted_activity.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_reply_with_three_args_replies_with_a_targeted_activity_in_the_reply_chain(self, started_app):
+        recipient = Account(id="user-456", name="Test User", role="user")
+        activity = MessageActivityInput(text="Hello").with_recipient(recipient, is_targeted=True)
+
+        result = await started_app.reply("19:abc@thread.skype", "123", activity)
+
+        assert result.id == "targeted-reply-id"
+        started_app.api.conversations._create_targeted_reply_chain_activity.assert_called_once()
+        started_app.api.conversations._create_reply_chain_activity.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_reply_with_three_args_passes_service_url_and_agentic_identity_to_scoped_api(self, started_app):
@@ -1228,27 +1321,63 @@ class TestAppReply:
         await started_app.reply(
             "19:abc@thread.skype",
             "1680000000000",
-            "Hello thread",
+            "Hello chain",
             service_url=service_url,
             agentic_identity=agentic_identity,
         )
 
-        started_app.api.conversations.activities.assert_called_once_with("19:abc@thread.skype;messageid=1680000000000")
         started_app.api.clone.assert_called_once_with(
             service_url=service_url,
             agentic_identity=agentic_identity,
         )
-        create = started_app.api.conversations.activities.return_value.create
-        activity = create.call_args.args[0]
-        assert isinstance(activity, MessageActivityInput)
-        assert activity.text == "Hello thread"
-        assert create.call_args.kwargs == {}
+        reply = started_app.api.conversations._create_reply_chain_activity
+        assert reply.call_args.args[:2] == ("19:abc@thread.skype", "1680000000000")
+        assert reply.call_args.args[2].text == "Hello chain"
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("conversation_id", "message_id", "name"),
+        [
+            ("", "123", "conversation_id"),
+            ("  ", "123", "conversation_id"),
+            ("19:abc@thread.skype", "", "message_id"),
+            ("19:abc@thread.skype", "  ", "message_id"),
+        ],
+    )
+    async def test_reply_with_three_args_raises_before_sending_when_an_id_is_blank(
+        self, started_app, conversation_id, message_id, name
+    ):
+        with pytest.raises(ValueError, match=f"{name} must be a non-empty string"):
+            await started_app.reply(conversation_id, message_id, "Hello")
+
+        started_app.api.conversations._create_reply_chain_activity.assert_not_called()
+        started_app.api.conversations.create_activity.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_send_sends_to_the_exact_conversation_id_without_a_reply_chain(self, started_app):
+        await started_app.send("19:abc@thread.skype;messageid=123", "Hello")
+
+        started_app.api.conversations.activities.assert_called_once_with("19:abc@thread.skype;messageid=123")
+        started_app.api.conversations._create_reply_chain_activity.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_reply_with_three_args_does_not_warn(self, started_app):
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", DeprecationWarning)
+            await started_app.reply("19:abc@thread.skype", "123", "Hello")
 
     @pytest.mark.asyncio
     async def test_reply_with_two_args_passes_conversation_id_as_is(self, started_app):
-        await started_app.reply("19:abc@thread.skype", "Hello flat")
+        with pytest.warns(DeprecationWarning):
+            await started_app.reply("19:abc@thread.skype", "Hello flat")
 
         started_app.api.conversations.activities.assert_called_once_with("19:abc@thread.skype")
+        started_app.api.conversations._create_reply_chain_activity.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_reply_with_two_args_is_deprecated(self, started_app):
+        with pytest.warns(DeprecationWarning, match=r"Use `send\(conversation_id, activity\)` for a top-level message"):
+            await started_app.reply("19:abc@thread.skype", "Hello flat")
 
     @pytest.mark.asyncio
     async def test_reply_with_two_args_passes_service_url_and_agentic_identity_to_scoped_api(self, started_app):
@@ -1260,12 +1389,13 @@ class TestAppReply:
         )
         service_url = "https://override.service.url"
 
-        await started_app.reply(
-            "19:abc@thread.skype",
-            "Hello flat",
-            service_url=service_url,
-            agentic_identity=agentic_identity,
-        )
+        with pytest.warns(DeprecationWarning):
+            await started_app.reply(
+                "19:abc@thread.skype",
+                "Hello flat",
+                service_url=service_url,
+                agentic_identity=agentic_identity,
+            )
 
         started_app.api.conversations.activities.assert_called_once_with("19:abc@thread.skype")
         started_app.api.clone.assert_called_once_with(
@@ -1279,22 +1409,19 @@ class TestAppReply:
         assert create.call_args.kwargs == {}
 
     @pytest.mark.asyncio
-    async def test_reply_with_pre_constructed_threaded_id(self, started_app):
-        await started_app.reply("19:abc@thread.skype;messageid=123", "Hello")
+    async def test_reply_with_two_args_sends_to_a_conversation_id_that_carries_a_suffix_unchanged(self, started_app):
+        with pytest.warns(DeprecationWarning):
+            await started_app.reply("19:abc@thread.skype;messageid=123", "Hello")
 
         started_app.api.conversations.activities.assert_called_once_with("19:abc@thread.skype;messageid=123")
-
-    @pytest.mark.asyncio
-    async def test_reply_with_invalid_message_id_raises(self, started_app):
-        with pytest.raises(ValueError, match="Invalid message_id"):
-            await started_app.reply("19:abc@thread.skype", "not-a-number", "Hello")
+        started_app.api.conversations._create_reply_chain_activity.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_reply_raises_when_not_initialized(self):
         options = AppOptions(client_id="test-client-id", client_secret="test-secret")
         app = App(**options)
 
-        with pytest.raises(ValueError, match="app not initialized"):
+        with pytest.warns(DeprecationWarning), pytest.raises(ValueError, match="app not initialized"):
             await app.reply("conv-id", "Hello")
 
 

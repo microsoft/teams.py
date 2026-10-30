@@ -32,7 +32,9 @@ class _ApiMetricNames:
 @dataclass(frozen=True)
 class _ApiOutboundOperations:
     create: str = "create"
+    create_reply_chain: str = "create_reply_chain"
     create_targeted: str = "create_targeted"
+    create_targeted_reply_chain: str = "create_targeted_reply_chain"
     delete: str = "delete"
     delete_targeted: str = "delete_targeted"
     reply: str = "reply"

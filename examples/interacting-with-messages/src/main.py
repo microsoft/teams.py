@@ -18,7 +18,7 @@ from quoting import (
     handle_quoted_message,
 )
 from reactions import handle_add_reaction, handle_proactive_reaction, handle_reaction_event, handle_remove_reaction
-from threading_handlers import handle_manual_thread, handle_proactive_thread, handle_thread_reply, handle_thread_send
+from threading_handlers import handle_proactive_thread, handle_thread_reply, handle_thread_send, handle_top_level_thread
 
 logging.basicConfig(level=logging.INFO)
 
@@ -43,10 +43,12 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
             "- `quote batch` - combine multiple quotes\n"
             "- `quote manual` - combine a quote and text manually\n\n"
             "**Threading:**\n"
-            "- `thread reply` - send a reactive threaded reply\n"
-            "- `thread send` - send to the same thread without quoting\n"
-            "- `thread proactive` - send a proactive threaded reply\n"
-            "- `thread manual` - construct a threaded conversation ID manually\n\n"
+            "- `thread reply` - send a reactive, quoted reply "
+            "(in a channel, in the same thread; in a 1:1 chat, matches the level of your message)\n"
+            "- `thread send` - send reactively without quoting "
+            "(in a channel, in the same thread; in a 1:1 chat, matches the level of your message)\n"
+            "- `thread proactive` - send a proactive reply in a thread on your message\n"
+            "- `thread top-level` - send a new top-level message, outside any reply chain (thread)\n\n"
             "**Reactions:**\n"
             "- `reaction add <type>` - add a reaction to your message\n"
             "- `reaction remove <type>` - add, then remove, a reaction\n"
@@ -74,7 +76,7 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
 
     app_handlers = (
         handle_proactive_thread,
-        handle_manual_thread,
+        handle_top_level_thread,
         handle_proactive_reaction,
     )
     for handler in app_handlers:
