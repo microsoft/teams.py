@@ -20,6 +20,7 @@ from typing import (
     Sequence,
     TypeGuard,
     TypeVar,
+    cast,
     overload,
 )
 
@@ -31,6 +32,7 @@ from microsoft_teams.api import (
     ApiClient,
     CardAction,
     CardActionType,
+    ChannelData,
     ConversationReference,
     GetBotSignInResourceParams,
     GetUserTokenParams,
@@ -83,6 +85,27 @@ if TYPE_CHECKING:
 
 T = TypeVar("T", bound=ActivityBase, contravariant=True)
 logger = logging.getLogger(__name__)
+
+
+def _has_source_name(channel_data: Optional[ChannelData]) -> bool:
+    """Whether `channel_data.source` is present, which it is when it carries a non-empty string `name`."""
+    source = channel_data.source if channel_data is not None else None
+    name = source.name if source is not None else None
+    return isinstance(name, str) and name != ""
+
+
+def _message_payload_id(value: Any) -> Optional[str]:
+    """The id of `value.messagePayload`, for a typed invoke value or one that was left as a dict.
+
+    Returns None when there is no string id.
+    """
+    if isinstance(value, dict):
+        payload = cast(dict[str, Any], value).get("messagePayload")
+        payload_id = cast(dict[str, Any], payload).get("id") if isinstance(payload, dict) else None
+    else:
+        payload_id = getattr(getattr(value, "message_payload", None), "id", None)
+    return payload_id if isinstance(payload_id, str) else None
+
 
 CONVERSATION_REF_SEND_DEPRECATION = (
     "Passing a conversation reference is deprecated and will be removed in a future release. "
@@ -184,6 +207,11 @@ class ActivityContext(Generic[T]):
         """The stream for the current conversation.
 
         The first message of the stream goes to the reply chain (thread) where ``send`` would place a response.
+        In a 1:1 chat the stream goes into the reply chain when the inbound activity is inside one,
+        and at top level otherwise.
+        In a channel the stream goes into the reply chain of the inbound message.
+        In a channel, when the service answers HTTP 404, the first message is created in the inbound conversation.
+        In a group chat the stream is not placed in a reply chain.
         """
         if self._stream is None:
             placement = self._get_inbound_reply_chain_placement()
@@ -304,9 +332,13 @@ class ActivityContext(Generic[T]):
     ) -> SentActivity:
         """Send a message in the current conversation without quoting.
 
-        In channels, sends to the current reply chain (thread). In scopes that do not
-        support threading (group chat, meetings), sends as a top-level message.
-        When the inbound message is inside a reply chain (thread) in a 1:1 chat, sends into that reply chain (thread).
+        In a 1:1 chat, sends into the reply chain (thread) of the inbound activity when it is inside one.
+        Otherwise it sends at top level.
+        The inbound activity can be a message, a card action, an invoke, a reaction, an edit or a delete.
+        In a channel, sends into the reply chain of the inbound message.
+        In a channel, when the service answers HTTP 404, sends to the inbound conversation instead.
+        Group chats, meetings and other inbound activities are not placed,
+        and the activity is sent to the inbound conversation.
         To send with a visual quote of the inbound message, use :meth:`reply`.
 
         Args:
@@ -370,9 +402,13 @@ class ActivityContext(Generic[T]):
     async def reply(self, input: str | ActivityParams) -> SentActivity:
         """Send a message in the current conversation with a visual quote of the inbound message.
 
-        In channels, sends to the current thread with a quoted reply.
-        In other scopes, sends with a quoted reply.
-        When the inbound message is inside a reply chain in a 1:1 chat, sends into that reply chain.
+        In a 1:1 chat, sends into the reply chain (thread) of the inbound activity when it is inside one.
+        Otherwise it sends at top level.
+        The inbound activity can be a message, a card action, an invoke, a reaction, an edit or a delete.
+        In a channel, sends into the reply chain of the inbound message.
+        In a channel, when the service answers HTTP 404, sends to the inbound conversation instead.
+        Group chats, meetings and other inbound activities are not placed,
+        and the activity is sent to the inbound conversation.
         To send without quoting, use :meth:`send`.
         """
         if self.activity.id:
@@ -432,40 +468,83 @@ class ActivityContext(Generic[T]):
         return not activity.id and activity.recipient is None
 
     def _get_inbound_reply_chain_placement(self) -> Optional[_ReplyChainPlacement]:
-        """Find the chat or channel and reply chain a response to the inbound message is posted to.
+        """Find the chat or channel and reply chain (thread) a response to the inbound activity is posted to.
 
-        In a channel the response always goes to the reply chain of the inbound message.
+        In a channel a response to a message always goes to the reply chain of the inbound message.
         `channel_data.reply_chain.id` is the root of that reply chain.
         It equals the inbound message's own id for a top-level post.
         The destination is the channel, `channel_data.channel.id`.
-        In a chat an inbound message is a reply in a thread when `channel_data.reply_chain.id` differs from its own id.
-        When `channel_data.reply_chain.id` and `activity.id` are equal, the inbound message is a top-level message.
-        The response is then sent as a top-level message.
+        Other inbound activities in a channel are not placed.
+        In a chat see `_is_inside_thread` for which activities are inside a thread.
         The destination is the chat, `channel_data.chat.id`.
-        Returns None when an id is missing,
-        so no reply chain (thread) is chosen and the response goes to the inbound conversation.
+        In a 1:1 chat, when the inbound activity is on a top-level message, the response is sent as a top-level message.
+        Group chats and meetings are not placed.
+        Returns None when an id is missing or blank, so the send goes to the inbound conversation.
         """
-        if not isinstance(self.activity, MessageActivity):
-            return None
-
         conversation_type = self.activity.conversation.conversation_type
         if conversation_type == "groupChat":
             return None
 
         channel_data = self.activity.channel_data
         reply_chain_id = channel_data.reply_chain.id if channel_data and channel_data.reply_chain else None
-        if not reply_chain_id:
+        if reply_chain_id is None or not reply_chain_id.strip():
             return None
 
         if conversation_type == "channel":
             channel_id = channel_data.channel.id if channel_data and channel_data.channel else None
-            return _ReplyChainPlacement(channel_id, reply_chain_id, True) if channel_id else None
-
-        if reply_chain_id == self.activity.id:
-            return None
+            if self.activity.type != "message" or channel_id is None or not channel_id.strip():
+                return None
+            return _ReplyChainPlacement(channel_id, reply_chain_id, True)
 
         chat_id = channel_data.chat.id if channel_data and channel_data.chat else None
-        return _ReplyChainPlacement(chat_id, reply_chain_id, False) if chat_id else None
+        if chat_id is None or not chat_id.strip() or not self._is_inside_thread(reply_chain_id):
+            return None
+        return _ReplyChainPlacement(chat_id, reply_chain_id, False)
+
+    def _is_inside_thread(self, reply_chain_id: str) -> bool:
+        """Whether the inbound activity in a chat is inside a thread.
+
+        That is when `channel_data.reply_chain.id` differs from the id of the message the activity acts on.
+        The message it acts on is:
+
+        - `activity.id` for a message, an edit, a delete and a reaction.
+        - `reply_to_id` (the card's message) for a message sent by a card button (a message with `channel_data.source`).
+        - `value.message_payload.id` for a message action, and `reply_to_id` (the message the user acted on, for
+          example a card or a message with feedback buttons) for any other invoke.
+
+        An invoke that is not tied to a message (for example a compose-box extension or a `task/fetch` from a bot
+        command) is inside a thread when `channel_data.reply_chain.id` is present.
+        A `reply_to_id` or `message_payload.id` that is not a plain number is never inside a thread, and neither are
+        other inbound activities.
+        A `source` without a non-empty string `name` and a `reply_to_id` that is null count as absent.
+        """
+        activity: Any = self.activity
+        activity_type = activity.type
+
+        def is_other_plain_id(message_id: Optional[str]) -> bool:
+            return bool(
+                message_id
+                and message_id.isascii()
+                and message_id.isdigit()
+                and message_id != "0"
+                and message_id != reply_chain_id
+            )
+
+        if activity_type == "message":
+            if _has_source_name(activity.channel_data):
+                return is_other_plain_id(activity.reply_to_id)
+            return activity.id != reply_chain_id
+
+        if activity_type in ("messageUpdate", "messageDelete", "messageReaction"):
+            return activity.id != reply_chain_id
+
+        if activity_type == "invoke":
+            message_id = _message_payload_id(getattr(activity, "value", None))
+            if message_id is None:
+                message_id = activity.reply_to_id
+            return True if message_id is None else is_other_plain_id(message_id)
+
+        return False
 
     def _get_chat_reply_chain_placement(
         self,

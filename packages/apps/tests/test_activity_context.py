@@ -9,31 +9,46 @@ import time
 import warnings
 from contextlib import contextmanager
 from datetime import datetime, timezone
-from typing import Any, Generator
+from types import SimpleNamespace
+from typing import Any, Generator, Optional
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from httpx import ConnectError, HTTPStatusError, Request, Response
 from microsoft_teams.api import (
     Account,
+    Activity,
+    AdaptiveCardInvokeActivity,
     ChannelData,
     ConversationAccount,
     ConversationReference,
     MessageActivity,
     MessageActivityInput,
+    MessageExtensionFetchTaskInvokeActivity,
+    MessageExtensionQueryInvokeActivity,
+    MessageExtensionSubmitActionInvokeActivity,
+    MessageSubmitActionInvokeActivity,
     SentActivity,
+    SourceInfo,
     TargetedMessageInfoEntity,
+    TaskFetchInvokeActivity,
+    TaskSubmitInvokeActivity,
     TokenExchangeResource,
+    TokenProtocol,
     TokenStatus,
 )
 from microsoft_teams.api.activities.typing import TypingActivityInput
 from microsoft_teams.api.auth.cloud_environment import PUBLIC
+from microsoft_teams.api.clients.conversation import ConversationClient
 from microsoft_teams.api.models.entity import QuotedReplyData, QuotedReplyEntity
-from microsoft_teams.apps import StreamOptions, StreamReplyChain, TurnState, TurnStateContainer
+from microsoft_teams.apps import ActivityEvent, App, StreamOptions, StreamReplyChain, TurnState, TurnStateContainer
+from microsoft_teams.apps.events import CoreActivity
 from microsoft_teams.apps.oauth_state import get_pending_oauth_sign_ins
 from microsoft_teams.apps.routing.activity_context import ActivityContext, SignInOptions
 from microsoft_teams.apps.state import TurnStateLoader
-from microsoft_teams.common import LocalStorage
+from microsoft_teams.common import ExperimentalWarning, LocalStorage
+from microsoft_teams.common.http import Client, ClientOptions
+from pydantic import TypeAdapter, ValidationError
 
 
 def _capture_oauth_operation(
@@ -934,6 +949,873 @@ class TestActivityContextReplyChainPlacement:
         assert ctx.conversation_ref.conversation.id == "test-conversation"
 
 
+def _shape(
+    type_: str,
+    activity_id: str = "f:client-id",
+    reply_to_id: str | None = None,
+    value: Any = None,
+    channel_data: dict[str, Any] | None = None,
+    conversation_type: str = "personal",
+) -> Any:
+    conversation_id = f"{CHANNEL_ID};messageid=100" if conversation_type == "channel" else "a:encrypted-conversation"
+    return SimpleNamespace(
+        type=type_,
+        id=activity_id,
+        reply_to_id=reply_to_id,
+        value=value,
+        text="Incoming",
+        from_=Account(id="user-id", name="Test User"),
+        recipient=Account(id="bot-id", name="Test Bot"),
+        conversation=ConversationAccount(id=conversation_id, conversation_type=conversation_type),
+        channel_data=ChannelData.model_validate(channel_data or {}),
+    )
+
+
+def _chat_data(reply_chain_id: str, **extra: Any) -> dict[str, Any]:
+    return {"chat": {"id": CHAT_ID}, "replyChain": {"id": reply_chain_id}, **extra}
+
+
+_FROM_CARD = {"source": {"name": "message"}}
+_THREAD_SHAPES = [
+    pytest.param(dict(type_="message", reply_to_id="{id}"), _FROM_CARD, id="message-from-card"),
+    pytest.param(dict(type_="invoke", reply_to_id="{id}"), {}, id="card-invoke"),
+    pytest.param(
+        dict(type_="invoke", value=SimpleNamespace(message_payload=SimpleNamespace(id="{id}"))), {}, id="message-action"
+    ),
+    pytest.param(dict(type_="messageReaction", activity_id="{id}"), {}, id="reaction"),
+    pytest.param(dict(type_="messageUpdate", activity_id="{id}"), {}, id="edit"),
+    pytest.param(dict(type_="messageDelete", activity_id="{id}"), {}, id="delete"),
+]
+
+
+def _fill(shape: dict[str, Any], message_id: str) -> dict[str, Any]:
+    filled: dict[str, Any] = {}
+    for key, value in shape.items():
+        if value == "{id}":
+            filled[key] = message_id
+        elif isinstance(value, SimpleNamespace):
+            filled[key] = SimpleNamespace(message_payload=SimpleNamespace(id=message_id))
+        else:
+            filled[key] = value
+    return filled
+
+
+class TestActivityContextReplyChainPlacementByShape:
+    """The placement of a send follows the id of the message the inbound activity acts on."""
+
+    @staticmethod
+    async def _send(activity: Any) -> ActivityContext[Any]:
+        ctx = _context_with_reply_chain_methods(activity)
+        ctx.conversation_ref.conversation.id = activity.conversation.id
+        await ctx.send("hi")
+        return ctx
+
+    @staticmethod
+    def _assert_in_thread(ctx: ActivityContext[Any]) -> None:
+        reply = ctx.api.conversations._create_reply_chain_activity
+        reply.assert_called_once()
+        assert reply.call_args.args[:2] == (CHAT_ID, "100")
+        ctx.api.conversations.create_activity.assert_not_called()
+
+    @staticmethod
+    def _assert_in_inbound_conversation(
+        ctx: ActivityContext[Any], conversation_id: str = "a:encrypted-conversation"
+    ) -> None:
+        ctx.api.conversations._create_reply_chain_activity.assert_not_called()
+        ctx.api.conversations.create_activity.assert_called_once()
+        assert ctx.api.conversations.create_activity.call_args.args[0] == conversation_id
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(("shape", "extra"), _THREAD_SHAPES)
+    async def test_replies_in_the_thread_for_a_message_inside_a_thread(self, shape, extra) -> None:
+        ctx = await self._send(_shape(**_fill(shape, "105"), channel_data=_chat_data("100", **extra)))
+
+        self._assert_in_thread(ctx)
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(("shape", "extra"), _THREAD_SHAPES)
+    async def test_sends_to_the_inbound_conversation_for_a_top_level_message(self, shape, extra) -> None:
+        ctx = await self._send(_shape(**_fill(shape, "100"), channel_data=_chat_data("100", **extra)))
+
+        self._assert_in_inbound_conversation(ctx)
+
+    @pytest.mark.asyncio
+    async def test_compares_a_message_action_with_the_message_payload_id_not_the_reply_id(self) -> None:
+        value = SimpleNamespace(message_payload=SimpleNamespace(id="105"))
+        ctx = await self._send(_shape("invoke", reply_to_id="100", value=value, channel_data=_chat_data("100")))
+
+        self._assert_in_thread(ctx)
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("type_", ["message", "invoke"])
+    @pytest.mark.parametrize(
+        "reply_to_id",
+        ["1:abc", "0", "12a", "", "١٢٣"],
+        ids=["encrypted", "zero", "other-characters", "empty", "non-ascii-digits"],
+    )
+    async def test_does_not_place_a_card_message_or_invoke_with_a_replyToId_that_is_not_a_plain_number(
+        self, type_, reply_to_id
+    ) -> None:
+        extra = _FROM_CARD if type_ == "message" else {}
+        ctx = await self._send(_shape(type_, reply_to_id=reply_to_id, channel_data=_chat_data("100", **extra)))
+
+        self._assert_in_inbound_conversation(ctx)
+
+    @pytest.mark.asyncio
+    async def test_does_not_place_a_card_message_without_a_replyToId(self) -> None:
+        ctx = await self._send(_shape("message", channel_data=_chat_data("100", **_FROM_CARD)))
+
+        self._assert_in_inbound_conversation(ctx)
+
+    @pytest.mark.asyncio
+    async def test_places_an_invoke_that_is_not_tied_to_a_message_when_the_payload_has_a_reply_chain_id(self) -> None:
+        ctx = await self._send(_shape("invoke", channel_data=_chat_data("100")))
+
+        self._assert_in_thread(ctx)
+
+    @pytest.mark.asyncio
+    async def test_does_not_place_an_invoke_that_is_not_tied_to_a_message_without_a_reply_chain_id(self) -> None:
+        ctx = await self._send(_shape("invoke", channel_data={"chat": {"id": CHAT_ID}}))
+
+        self._assert_in_inbound_conversation(ctx)
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("conversation_type", ["personal", "channel"])
+    async def test_does_not_place_a_message_when_the_reply_chain_id_is_empty(self, conversation_type) -> None:
+        scope = {"channel": {"id": CHANNEL_ID}} if conversation_type == "channel" else {"chat": {"id": CHAT_ID}}
+        ctx = await self._send(
+            _shape(
+                "message",
+                activity_id="105",
+                conversation_type=conversation_type,
+                channel_data={**scope, "replyChain": {"id": ""}},
+            )
+        )
+
+        self._assert_in_inbound_conversation(
+            ctx, f"{CHANNEL_ID};messageid=100" if conversation_type == "channel" else "a:encrypted-conversation"
+        )
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("type_", ["conversationUpdate", "installationUpdate", "event", "typing"])
+    async def test_never_places_other_activities(self, type_) -> None:
+        ctx = await self._send(_shape(type_, activity_id="105", channel_data=_chat_data("100")))
+
+        self._assert_in_inbound_conversation(ctx)
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("type_", ["message", "invoke", "messageReaction"])
+    async def test_does_not_place_anything_in_a_group_chat(self, type_) -> None:
+        ctx = await self._send(
+            _shape(
+                type_,
+                activity_id="105",
+                reply_to_id="105",
+                conversation_type="groupChat",
+                channel_data=_chat_data("100"),
+            )
+        )
+
+        self._assert_in_inbound_conversation(ctx)
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("type_", ["invoke", "messageReaction"])
+    async def test_does_not_place_an_invoke_or_reaction_in_a_channel(self, type_) -> None:
+        ctx = await self._send(
+            _shape(
+                type_,
+                activity_id="105",
+                reply_to_id="105",
+                conversation_type="channel",
+                channel_data={"channel": {"id": CHANNEL_ID}, "replyChain": {"id": "100"}},
+            )
+        )
+
+        self._assert_in_inbound_conversation(ctx, f"{CHANNEL_ID};messageid=100")
+
+    @pytest.mark.asyncio
+    async def test_places_a_card_message_in_a_channel_in_the_reply_chain_of_the_thread(self) -> None:
+        ctx = await self._send(
+            _shape(
+                "message",
+                reply_to_id="105",
+                conversation_type="channel",
+                channel_data={"channel": {"id": CHANNEL_ID}, "replyChain": {"id": "100"}, **_FROM_CARD},
+            )
+        )
+
+        reply = ctx.api.conversations._create_reply_chain_activity
+        reply.assert_called_once()
+        assert reply.call_args.args[:2] == (CHANNEL_ID, "100")
+
+
+def _payload(fields: dict[str, Any], reply_chain_id: str, source: str | None = None) -> dict[str, Any]:
+    channel_data: dict[str, Any] = {"chat": {"id": CHAT_ID}, "replyChain": {"id": reply_chain_id}}
+    if source:
+        channel_data["source"] = {"name": source}
+    return {
+        "channelId": "msteams",
+        "serviceUrl": "https://service.url",
+        "from": {"id": "user-1", "name": "Test User"},
+        "recipient": {"id": "bot-1", "name": "Test Bot"},
+        "conversation": {"id": "a:opaque-conversation", "conversationType": "personal"},
+        "channelData": channel_data,
+        **fields,
+    }
+
+
+class TestActivityContextReplyChainPlacementFromPayloads:
+    """The placement of a send reads the shapes of the payloads Teams sends, parsed by the SDK."""
+
+    @staticmethod
+    def _payloads(message_id: str, root_id: str) -> dict[str, dict[str, Any]]:
+        return {
+            "messageBack": _payload(
+                {
+                    "type": "message",
+                    "id": "f:75fdb71e-3aeb-8ff2-8bdf-e1709d492142",
+                    "replyToId": message_id,
+                    "value": {"type": "messageBack", "text": "capture mb", "value": {"probe": "mb"}},
+                },
+                root_id,
+                "message",
+            ),
+            "adaptiveCard/action": _payload(
+                {
+                    "type": "invoke",
+                    "name": "adaptiveCard/action",
+                    "id": "f:ec156ed9-f382-40ee-5384-8e38f066fee2",
+                    "replyToId": message_id,
+                    "value": {"action": {"type": "Action.Execute", "verb": "capture_execute", "data": {}}},
+                },
+                root_id,
+                "message",
+            ),
+            "message action": _payload(
+                {
+                    "type": "invoke",
+                    "name": "composeExtension/submitAction",
+                    "id": "f:fa6ab590-4432-37f6-4cf9-93a20a055fb4",
+                    "value": {
+                        "commandId": "getMessageDetails",
+                        "commandContext": "message",
+                        "messagePayload": {"id": message_id},
+                    },
+                },
+                root_id,
+                "compose",
+            ),
+            "reaction": _payload(
+                {
+                    "type": "messageReaction",
+                    "id": message_id,
+                    "replyToId": message_id,
+                    "reactionsAdded": [{"type": "like"}],
+                },
+                root_id,
+            ),
+        }
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("shape", ["messageBack", "adaptiveCard/action", "message action", "reaction"])
+    async def test_replies_in_the_thread_for_a_message_inside_a_thread(self, shape: str) -> None:
+        activity = TypeAdapter(Activity).validate_python(self._payloads("1793230385713", "1793230314269")[shape])
+        ctx = _context_with_reply_chain_methods(activity)
+
+        await ctx.send("hi")
+
+        reply = ctx.api.conversations._create_reply_chain_activity
+        reply.assert_called_once()
+        assert reply.call_args.args[:2] == (CHAT_ID, "1793230314269")
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("shape", ["messageBack", "adaptiveCard/action", "message action", "reaction"])
+    async def test_sends_to_the_inbound_conversation_for_a_top_level_message(self, shape: str) -> None:
+        activity = TypeAdapter(Activity).validate_python(self._payloads("1793230432295", "1793230432295")[shape])
+        ctx = _context_with_reply_chain_methods(activity)
+        ctx.conversation_ref.conversation.id = "a:opaque-conversation"
+
+        await ctx.send("hi")
+
+        ctx.api.conversations._create_reply_chain_activity.assert_not_called()
+        ctx.api.conversations.create_activity.assert_called_once()
+
+
+_ABSENT = object()
+_EXECUTE_VALUE = {"action": {"type": "Action.Execute", "verb": "capture_execute", "data": {}}}
+_FROM_CARD_SOURCE = {"name": "message"}
+_COMPOSE_SOURCE = {"name": "compose"}
+
+
+def _message_action(payload_id: Any, reply_to_id: Any = _ABSENT) -> dict[str, Any]:
+    fields: dict[str, Any] = {
+        "type": "invoke",
+        "name": "composeExtension/submitAction",
+        "value": {"commandId": "c", "commandContext": "message", "messagePayload": {"id": payload_id}},
+    }
+    if reply_to_id is not _ABSENT:
+        fields["replyToId"] = reply_to_id
+    return fields
+
+
+def _untyped_message_action(payload_id: Any, reply_to_id: Any) -> dict[str, Any]:
+    """A `selectItem` invoke keeps its value as a dict, so a null `messagePayload.id` reaches the handler.
+
+    The typed `messageAction` value requires a string id, so the SDK rejects a null id there.
+    """
+    return {
+        "type": "invoke",
+        "name": "composeExtension/selectItem",
+        "replyToId": reply_to_id,
+        "value": {"messagePayload": {"id": payload_id}},
+    }
+
+
+def _null_and_empty_payload(
+    fields: dict[str, Any], source: Any = _ABSENT, reply_chain: Optional[str] = "100"
+) -> dict[str, Any]:
+    payload = _payload({"id": "f:1", **fields}, reply_chain or "100")
+    if reply_chain is None:
+        del payload["channelData"]["replyChain"]
+    if source is not _ABSENT:
+        payload["channelData"]["source"] = source
+    return payload
+
+
+# (activity fields, source, replyChain.id, expected). The chat reply chain is 100 and the message is 105 unless stated.
+_NULL_AND_EMPTY_CASES: list[Any] = [
+    pytest.param({"type": "message", "id": "105"}, _ABSENT, "100", True, id="1-message-without-source"),
+    pytest.param({"type": "message", "id": "105"}, None, "100", True, id="2-message-source-null"),
+    pytest.param({"type": "message", "id": "100"}, None, "100", False, id="3-root-message-source-null"),
+    pytest.param({"type": "message", "id": "100"}, {}, "100", False, id="3b-root-message-source-empty-object"),
+    pytest.param(
+        {"type": "message", "id": "105", "replyToId": "100"}, {}, "100", True, id="4-message-source-empty-object"
+    ),
+    pytest.param(
+        {"type": "message", "id": "105", "replyToId": "100"},
+        {"name": ""},
+        "100",
+        True,
+        id="4b-message-source-name-empty-string",
+    ),
+    pytest.param(
+        {"type": "message", "id": "105", "replyToId": "100"},
+        {"foo": 1},
+        "100",
+        True,
+        id="4c-message-source-unknown-key-only",
+    ),
+    pytest.param(
+        {"type": "message", "id": "105", "replyToId": "100"},
+        {"name": 5},
+        "100",
+        True,
+        id="4d-message-source-name-not-a-string",
+    ),
+    pytest.param(
+        {"type": "message", "id": "100", "replyToId": "99"},
+        {"name": ""},
+        "100",
+        False,
+        id="4e-root-message-source-name-empty-string",
+    ),
+    pytest.param(
+        {"type": "message", "id": "105", "replyToId": "105"}, {}, "100", True, id="5-message-source-empty-object-other"
+    ),
+    pytest.param(
+        {"type": "message", "id": "f:1", "replyToId": "100"}, _FROM_CARD_SOURCE, "100", False, id="6-card-top-level"
+    ),
+    pytest.param(
+        {"type": "message", "id": "f:1", "replyToId": "105"}, _FROM_CARD_SOURCE, "100", True, id="7-card-in-thread"
+    ),
+    pytest.param(
+        {"type": "invoke", "name": "task/fetch", "value": {}}, _ABSENT, "100", True, id="8-invoke-without-reply-to-id"
+    ),
+    pytest.param(
+        {"type": "invoke", "name": "task/fetch", "value": {}}, _ABSENT, None, False, id="9-invoke-without-reply-chain"
+    ),
+    pytest.param(
+        {"type": "invoke", "name": "task/fetch", "replyToId": None, "value": {}},
+        _ABSENT,
+        "100",
+        True,
+        id="10-invoke-reply-to-id-null",
+    ),
+    pytest.param(
+        {"type": "invoke", "name": "task/fetch", "replyToId": "", "value": {}},
+        _ABSENT,
+        "100",
+        False,
+        id="11-invoke-reply-to-id-empty",
+    ),
+    pytest.param(
+        _untyped_message_action(None, "105"), _COMPOSE_SOURCE, "100", True, id="12-message-action-id-null-other"
+    ),
+    pytest.param(
+        _untyped_message_action(None, "100"), _COMPOSE_SOURCE, "100", False, id="13-message-action-id-null-root"
+    ),
+    pytest.param(_message_action("", "105"), _COMPOSE_SOURCE, "100", False, id="14-message-action-id-empty"),
+    pytest.param(_message_action("105"), _COMPOSE_SOURCE, "100", True, id="15-message-action-in-thread"),
+    pytest.param(_message_action("100"), _COMPOSE_SOURCE, "100", False, id="16-message-action-top-level"),
+    pytest.param(
+        {"type": "invoke", "name": "adaptiveCard/action", "replyToId": "105", "value": _EXECUTE_VALUE},
+        _FROM_CARD_SOURCE,
+        "100",
+        True,
+        id="card-invoke-in-thread",
+    ),
+    pytest.param(
+        {"type": "invoke", "name": "adaptiveCard/action", "replyToId": "100", "value": _EXECUTE_VALUE},
+        _FROM_CARD_SOURCE,
+        "100",
+        False,
+        id="card-invoke-top-level",
+    ),
+    pytest.param(
+        {"type": "invoke", "name": "composeExtension/selectItem", "value": {"messagePayload": {"id": "105"}}},
+        _COMPOSE_SOURCE,
+        "100",
+        True,
+        id="untyped-value-payload-id-in-thread",
+    ),
+    pytest.param(
+        {"type": "invoke", "name": "composeExtension/selectItem", "value": {"messagePayload": {"id": "100"}}},
+        _COMPOSE_SOURCE,
+        "100",
+        False,
+        id="untyped-value-payload-id-top-level",
+    ),
+    pytest.param(
+        {"type": "invoke", "name": "composeExtension/selectItem", "value": {"messagePayload": {"id": ""}}},
+        _COMPOSE_SOURCE,
+        "100",
+        False,
+        id="untyped-value-payload-id-empty",
+    ),
+    pytest.param(
+        {
+            "type": "invoke",
+            "name": "composeExtension/selectItem",
+            "replyToId": "100",
+            "value": {"messagePayload": {"id": 100}},
+        },
+        _COMPOSE_SOURCE,
+        "100",
+        False,
+        id="untyped-value-payload-id-number-with-reply-to-id",
+    ),
+    pytest.param(
+        {"type": "invoke", "name": "composeExtension/selectItem", "value": {"messagePayload": {"id": 99}}},
+        _COMPOSE_SOURCE,
+        "100",
+        True,
+        id="untyped-value-payload-id-not-a-string",
+    ),
+]
+
+
+class TestActivityContextReplyChainPlacementFromNullAndEmptyFields:
+    """Null and empty fields in a parsed payload classify the same way for sends and for streams."""
+
+    @staticmethod
+    def _activity(fields: dict[str, Any], source: Any, reply_chain: Optional[str]) -> Any:
+        # The model rejects a `source.name` that is not a string, so such a payload is built past the validation.
+        wrong_type = isinstance(source, dict) and not isinstance(source.get("name", ""), (str, type(None)))
+        payload = _null_and_empty_payload(fields, _ABSENT if wrong_type else source, reply_chain)
+        activity = TypeAdapter(Activity).validate_python(payload)
+        if wrong_type:
+            activity.channel_data.source = SourceInfo.model_construct(**source)
+        return activity
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(("fields", "source", "reply_chain", "in_thread"), _NULL_AND_EMPTY_CASES)
+    async def test_send_places_the_response_when_the_activity_is_inside_a_thread(
+        self, fields: dict[str, Any], source: Any, reply_chain: Optional[str], in_thread: bool
+    ) -> None:
+        ctx = _context_with_reply_chain_methods(self._activity(fields, source, reply_chain))
+        ctx.conversation_ref.conversation.id = "a:opaque-conversation"
+
+        await ctx.send("hi")
+
+        reply = ctx.api.conversations._create_reply_chain_activity
+        if in_thread:
+            reply.assert_called_once()
+            assert reply.call_args.args[:2] == (CHAT_ID, "100")
+            ctx.api.conversations.create_activity.assert_not_called()
+        else:
+            reply.assert_not_called()
+            ctx.api.conversations.create_activity.assert_called_once()
+
+    @pytest.mark.parametrize(("fields", "source", "reply_chain", "in_thread"), _NULL_AND_EMPTY_CASES)
+    def test_stream_starts_in_the_reply_chain_when_the_activity_is_inside_a_thread(
+        self, fields: dict[str, Any], source: Any, reply_chain: Optional[str], in_thread: bool
+    ) -> None:
+        ctx = _context_with_reply_chain_methods(self._activity(fields, source, reply_chain))
+
+        with patch("microsoft_teams.apps.routing.activity_context.HttpStream") as http_stream:
+            assert ctx.stream is http_stream.return_value
+
+        http_stream.assert_called_once_with(
+            ctx.api,
+            ctx.conversation_ref,
+            StreamOptions(StreamReplyChain(CHAT_ID, "100")) if in_thread else None,
+        )
+
+
+class TestActivityContextReplyChainPlacementWithBlankIds:
+    """A blank id counts as missing, so the send goes to the inbound conversation and nothing throws."""
+
+    @staticmethod
+    def _activity(conversation_type: str, scope_id: str, reply_chain_id: str) -> Any:
+        scope = "channel" if conversation_type == "channel" else "chat"
+        conversation_id = f"{CHANNEL_ID};messageid=100" if conversation_type == "channel" else "a:opaque-conversation"
+        return _inbound_message(
+            "105",
+            {scope: {"id": scope_id}, "replyChain": {"id": reply_chain_id}},
+            conversation_id=conversation_id,
+            conversation_type=conversation_type,
+        )
+
+    @pytest.mark.parametrize(
+        ("conversation_type", "scope_id", "reply_chain_id"),
+        [
+            ("personal", " ", "100"),
+            ("personal", "\t\n", "100"),
+            ("personal", CHAT_ID, " "),
+            ("personal", CHAT_ID, "\t"),
+            ("channel", " ", "100"),
+            ("channel", CHANNEL_ID, " "),
+            ("channel", CHANNEL_ID, "\n"),
+        ],
+        ids=[
+            "chat-id-space",
+            "chat-id-tab-newline",
+            "chain-space",
+            "chain-tab",
+            "channel-id",
+            "chain-in-channel",
+            "chain-newline",
+        ],
+    )
+    @pytest.mark.asyncio
+    async def test_send_goes_to_the_inbound_conversation(self, conversation_type, scope_id, reply_chain_id) -> None:
+        activity = self._activity(conversation_type, scope_id, reply_chain_id)
+        ctx = _context_with_reply_chain_methods(activity)
+        ctx.conversation_ref.conversation.id = activity.conversation.id
+
+        await ctx.send("hi")
+
+        ctx.api.conversations._create_reply_chain_activity.assert_not_called()
+        ctx.api.conversations.create_activity.assert_called_once()
+        assert ctx.api.conversations.create_activity.call_args.args[0] == activity.conversation.id
+
+    @pytest.mark.parametrize(
+        ("conversation_type", "scope_id", "reply_chain_id"),
+        [
+            ("personal", " ", "100"),
+            ("personal", CHAT_ID, " "),
+            ("channel", " ", "100"),
+            ("channel", CHANNEL_ID, " "),
+        ],
+        ids=["chat-id", "chain-in-chat", "channel-id", "chain-in-channel"],
+    )
+    def test_stream_starts_in_the_inbound_conversation(self, conversation_type, scope_id, reply_chain_id) -> None:
+        ctx = _context_with_reply_chain_methods(self._activity(conversation_type, scope_id, reply_chain_id))
+
+        with patch("microsoft_teams.apps.routing.activity_context.HttpStream") as http_stream:
+            assert ctx.stream is http_stream.return_value
+
+        http_stream.assert_called_once_with(ctx.api, ctx.conversation_ref, None)
+
+    @pytest.mark.asyncio
+    async def test_a_padded_id_that_is_not_blank_is_still_placed(self) -> None:
+        activity = self._activity("personal", CHAT_ID, "100")
+        ctx = _context_with_reply_chain_methods(activity)
+
+        await ctx.send("hi")
+
+        ctx.api.conversations._create_reply_chain_activity.assert_called_once()
+
+
+def _real_conversations() -> Any:
+    """A real `ConversationClient` whose HTTP layer is replaced, so that its public methods run for real."""
+    conversations = ConversationClient("https://service.example", Client(ClientOptions()))
+    sent = SentActivity(id="sent-id", activity_params=MessageActivityInput(text="sent"))
+    activities = MagicMock()
+    for name in ("create", "create_targeted", "create_reply_chain", "create_targeted_reply_chain"):
+        setattr(activities, name, AsyncMock(return_value=sent))
+    conversations._activities_client = activities  # pyright: ignore[reportPrivateUsage]
+    return conversations
+
+
+class TestActivityContextReplyChainPreviewWarning:
+    """The SDK places responses through the reply chain without emitting the preview warning."""
+
+    @staticmethod
+    def _context() -> ActivityContext[Any]:
+        ctx, _ = _create_activity_context(
+            activity=_inbound_message("reply-2", {"chat": {"id": CHAT_ID}, "replyChain": {"id": "root-1"}})
+        )
+        ctx.api.conversations = _real_conversations()
+        return ctx
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("method", ["send", "reply"])
+    async def test_a_placed_response_does_not_emit_the_warning(self, method: str) -> None:
+        ctx = self._context()
+
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            await getattr(ctx, method)("hi")
+
+        ctx.api.conversations._activities_client.create_reply_chain.assert_called_once()
+        assert [w for w in caught if issubclass(w.category, ExperimentalWarning)] == []
+
+    @pytest.mark.asyncio
+    async def test_a_placed_targeted_response_does_not_emit_the_warning(self) -> None:
+        ctx = self._context()
+        activity = MessageActivityInput(text="hi").with_recipient(Account(id="user-1", name="U"), is_targeted=True)
+
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            await ctx.send(activity)
+
+        ctx.api.conversations._activities_client.create_targeted_reply_chain.assert_called_once()
+        assert [w for w in caught if issubclass(w.category, ExperimentalWarning)] == []
+
+
+_DISPATCH_ROOT_L1 = "1793230315283"
+_DISPATCH_ROOT_L2 = "1793230314269"
+_DISPATCH_CARD_L2 = "1793230387232"
+_DISPATCH_CONVERSATION = "a:opaque-conversation"
+
+
+def _dispatch_payload(
+    name: str,
+    value: dict[str, Any],
+    source: str,
+    reply_to_id: Optional[str] = None,
+    reply_chain_id: Optional[str] = None,
+    conversation_type: str = "personal",
+    conversation_id: str = _DISPATCH_CONVERSATION,
+    scope: Optional[dict[str, Any]] = None,
+) -> dict[str, Any]:
+    """The structure of a captured invoke. Ids are shortened and tokens are not part of the shape."""
+    channel_data: dict[str, Any] = {"source": {"name": source}, **(scope or {"chat": {"id": CHAT_ID}})}
+    if reply_chain_id is not None:
+        channel_data["replyChain"] = {"id": reply_chain_id}
+    payload: dict[str, Any] = {
+        "type": "invoke",
+        "name": name,
+        "id": "f:2c1a7d0e-1a2b-4c3d-8e9f-0a1b2c3d4e5f",
+        "channelId": "msteams",
+        "serviceUrl": "https://service.url",
+        "from": {"id": "user-1", "name": "Test User"},
+        "recipient": {"id": "bot-1", "name": "Test Bot"},
+        "conversation": {"id": conversation_id, "conversationType": conversation_type},
+        "channelData": channel_data,
+        "value": value,
+    }
+    if reply_to_id is not None:
+        payload["replyToId"] = reply_to_id
+    return payload
+
+
+_FETCH_TASK_VALUE = {"commandId": "fetchDialog", "commandContext": "compose", "context": {"theme": "default"}}
+_QUERY_VALUE = {
+    "commandId": "searchQuery",
+    "parameters": [{"name": "searchQuery", "value": "q"}],
+    "queryOptions": {"count": 25, "skip": 0},
+}
+_TASK_FETCH_VALUE = {"data": {"dialog_id": "capture_dialog", "type": "task/fetch"}, "context": {"theme": "default"}}
+_TASK_SUBMIT_VALUE = {"data": {"action": "capture_dialog"}, "context": {"theme": "default"}}
+_FEEDBACK_VALUE = {"actionName": "feedback", "actionValue": {"reaction": "like", "feedback": '{"feedbackText":"fb"}'}}
+_EXECUTE_ACTION_VALUE = {"action": {"type": "Action.Execute", "verb": "capture_execute", "data": {}}}
+
+
+def _contextless(name: str, value: dict[str, Any], source: str, level: str) -> dict[str, Any]:
+    return _dispatch_payload(name, value, source, reply_chain_id=None if level == "L1" else _DISPATCH_ROOT_L2)
+
+
+def _from_card(name: str, value: dict[str, Any], source: str, level: str) -> dict[str, Any]:
+    if level == "L1":
+        return _dispatch_payload(name, value, source, _DISPATCH_ROOT_L1, _DISPATCH_ROOT_L1)
+    return _dispatch_payload(name, value, source, _DISPATCH_CARD_L2, _DISPATCH_ROOT_L2)
+
+
+# (handler registration, activity type, payload factory, name, value, source).
+# The shapes are the captured L1 and L2 invokes. The L2 root differs from the L1 root, as in the captures.
+_DISPATCH_SHAPES: list[Any] = [
+    pytest.param(
+        "on_message_ext_open",
+        MessageExtensionFetchTaskInvokeActivity,
+        _contextless,
+        "composeExtension/fetchTask",
+        _FETCH_TASK_VALUE,
+        "compose",
+        id="contextless-fetchTask",
+    ),
+    pytest.param(
+        "on_message_ext_query",
+        MessageExtensionQueryInvokeActivity,
+        _contextless,
+        "composeExtension/query",
+        _QUERY_VALUE,
+        "compose",
+        id="contextless-query",
+    ),
+    pytest.param(
+        "on_dialog_open",
+        TaskFetchInvokeActivity,
+        _from_card,
+        "task/fetch",
+        _TASK_FETCH_VALUE,
+        "compose",
+        id="task-fetch-from-card",
+    ),
+    pytest.param(
+        "on_dialog_submit",
+        TaskSubmitInvokeActivity,
+        _from_card,
+        "task/submit",
+        _TASK_SUBMIT_VALUE,
+        "compose",
+        id="task-submit-from-card",
+    ),
+    pytest.param(
+        "on_message_submit_feedback",
+        MessageSubmitActionInvokeActivity,
+        _from_card,
+        "message/submitAction",
+        _FEEDBACK_VALUE,
+        "message",
+        id="feedback",
+    ),
+]
+
+
+class TestActivityContextReplyChainPlacementThroughDispatch:
+    """An invoke goes through the real router and the real handler, and the handler sends or streams."""
+
+    @staticmethod
+    async def _dispatch(
+        payload: dict[str, Any], register: str, activity_type: Any, action: str = "send"
+    ) -> tuple[Any, list[Any]]:
+        app = App(storage=MagicMock(), client_id="test-client-id", client_secret="test-secret")
+        calls: list[Any] = []
+        sent = SentActivity(id="sent-1", activity_params=MessageActivityInput(text="hi"))
+
+        async def handler(ctx: ActivityContext[Any]) -> Any:
+            calls.append(ctx.activity.name)
+            if action == "send":
+                await ctx.send("hi")
+            else:
+                _ = ctx.stream
+            return None
+
+        handler.__annotations__ = {"ctx": ActivityContext[activity_type]}
+        getattr(app, register)(handler)
+        core = CoreActivity.model_validate(payload)
+        token = MagicMock(spec=TokenProtocol)
+        token.service_url = "https://service.url"
+        with patch("microsoft_teams.apps.app_process.ApiClient") as api_client:
+            api = MagicMock()
+            api.users.token.get = AsyncMock(side_effect=Exception("no token"))
+            api.conversations.create_activity = AsyncMock(return_value=sent)
+            api.conversations._create_reply_chain_activity = AsyncMock(return_value=sent)
+            api.clone.return_value = api
+            api_client.return_value = api
+            with patch("microsoft_teams.apps.routing.activity_context.HttpStream") as http_stream:
+                http_stream.return_value.close = AsyncMock(return_value=None)
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore")
+                    await app.activity_processor.process_activity([], ActivityEvent(body=core, token=token))
+        return (api, http_stream), calls
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("level", ["L1", "L2"])
+    @pytest.mark.parametrize(("register", "activity_type", "factory", "name", "value", "source"), _DISPATCH_SHAPES)
+    async def test_send_from_the_handler_is_placed_by_the_shape(
+        self, register: str, activity_type: Any, factory: Any, name: str, value: dict[str, Any], source: str, level: str
+    ) -> None:
+        payload = factory(name, value, source, level)
+
+        (api, _), calls = await self._dispatch(payload, register, activity_type)
+
+        assert calls == [name]
+        conversations = api.conversations
+        if level == "L2":
+            conversations._create_reply_chain_activity.assert_called_once()
+            assert conversations._create_reply_chain_activity.call_args.args[:2] == (
+                CHAT_ID,
+                _DISPATCH_ROOT_L2,
+            )
+            conversations.create_activity.assert_not_called()
+        else:
+            conversations._create_reply_chain_activity.assert_not_called()
+            conversations.create_activity.assert_called_once()
+            assert conversations.create_activity.call_args.args[0] == _DISPATCH_CONVERSATION
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("conversation_type", "conversation_id", "scope"),
+        [
+            ("groupChat", "19:grp@thread.v2", {"chat": {"id": "19:grp@thread.v2"}}),
+            ("channel", f"{CHANNEL_ID};messageid={_DISPATCH_ROOT_L2}", {"channel": {"id": CHANNEL_ID}}),
+        ],
+        ids=["group-chat", "channel"],
+    )
+    async def test_a_card_invoke_in_a_group_chat_or_a_channel_is_never_placed(
+        self, conversation_type: str, conversation_id: str, scope: dict[str, Any]
+    ) -> None:
+        payload = _dispatch_payload(
+            "adaptiveCard/action",
+            _EXECUTE_ACTION_VALUE,
+            "message",
+            _DISPATCH_CARD_L2,
+            _DISPATCH_ROOT_L2,
+            conversation_type,
+            conversation_id,
+            scope,
+        )
+
+        (api, _), calls = await self._dispatch(payload, "on_card_action", AdaptiveCardInvokeActivity)
+
+        assert calls == ["adaptiveCard/action"]
+        api.conversations._create_reply_chain_activity.assert_not_called()
+        api.conversations.create_activity.assert_called_once()
+        assert api.conversations.create_activity.call_args.args[0] == conversation_id
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("level", ["L1", "L2"])
+    async def test_a_stream_started_by_a_card_invoke_follows_the_same_rule(self, level: str) -> None:
+        payload = _from_card("adaptiveCard/action", _EXECUTE_ACTION_VALUE, "message", level)
+
+        (_, http_stream), calls = await self._dispatch(payload, "on_card_action", AdaptiveCardInvokeActivity, "stream")
+
+        assert calls == ["adaptiveCard/action"]
+        http_stream.assert_called_once()
+        options = http_stream.call_args.args[2]
+        assert options == (StreamOptions(StreamReplyChain(CHAT_ID, _DISPATCH_ROOT_L2)) if level == "L2" else None)
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("payload_id", [None, 100], ids=["missing", "number"])
+    async def test_a_message_action_without_a_string_payload_id_does_not_reach_the_handler(
+        self, payload_id: Any
+    ) -> None:
+        message_payload: dict[str, Any] = {} if payload_id is None else {"id": payload_id}
+        payload = _dispatch_payload(
+            "composeExtension/submitAction",
+            {"commandId": "c", "commandContext": "message", "messagePayload": message_payload},
+            "compose",
+            _DISPATCH_CARD_L2,
+            _DISPATCH_ROOT_L2,
+        )
+
+        with pytest.raises(ValidationError, match="message_payload|messagePayload"):
+            await self._dispatch(payload, "on_message_ext_submit", MessageExtensionSubmitActionInvokeActivity)
+
+
 class TestActivityContextReply:
     """Tests for ActivityContext.reply()."""
 
@@ -944,6 +1826,7 @@ class TestActivityContextReply:
         mock_activity.type = "message"
         mock_activity.id = "original-id"
         mock_activity.text = "Original message"
+        mock_activity.channel_data = None
 
         ctx, mock_sender = _create_activity_context(activity=mock_activity)
 
@@ -965,6 +1848,7 @@ class TestActivityContextReply:
         mock_activity = MagicMock()
         mock_activity.type = "message"
         mock_activity.id = "evt-id-999"
+        mock_activity.channel_data = None
 
         ctx, mock_sender = _create_activity_context(activity=mock_activity)
 

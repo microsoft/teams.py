@@ -26,6 +26,7 @@ class TestActivityContextReply:
         mock_activity.id = activity_id
         mock_activity.type = activity_type
         mock_activity.text = activity_text
+        mock_activity.channel_data = None
         mock_activity.from_ = Account(id="user-123", name="Test User")
 
         mock_activity_sender = MagicMock()
