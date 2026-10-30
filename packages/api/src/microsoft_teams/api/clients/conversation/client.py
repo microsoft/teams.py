@@ -353,6 +353,19 @@ class ConversationClient(BaseClient):
 
         This API is in preview and may change in the future.
         Diagnostic: ExperimentalTeamsThreading
+
+        Args:
+            conversation_id: The id of the chat or channel: `channel_data.chat.id` or `channel_data.channel.id`,
+                **not** `conversation.id`.
+            activity_id: The id of the message at the root of the reply chain.
+                Use `channel_data.reply_chain.id`.
+            activity: The activity to create
+
+        Returns:
+            The created activity
+
+        Raises:
+            ValueError: If `conversation_id` or `activity_id` is blank, or is a dot segment (`.` or `..`).
         """
         return await self._create_reply_chain_activity(
             conversation_id, activity_id, activity, service_url=service_url, agentic_identity=agentic_identity
@@ -393,6 +406,19 @@ class ConversationClient(BaseClient):
 
         This API is in preview and may change in the future.
         Diagnostic: ExperimentalTeamsThreading
+
+        Args:
+            conversation_id: The id of the chat or channel: `channel_data.chat.id` or `channel_data.channel.id`,
+                **not** `conversation.id`.
+            activity_id: The id of the message at the root of the reply chain.
+                Use `channel_data.reply_chain.id`.
+            activity: The activity to create
+
+        Returns:
+            The created activity
+
+        Raises:
+            ValueError: If `conversation_id` or `activity_id` is blank, or is a dot segment (`.` or `..`).
         """
         return await self._create_targeted_reply_chain_activity(
             conversation_id, activity_id, activity, service_url=service_url, agentic_identity=agentic_identity

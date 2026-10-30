@@ -216,7 +216,7 @@ class ConversationActivityClient(BaseClient):
             conversation_id: The id of the chat or channel: `channel_data.chat.id` or `channel_data.channel.id`,
                 **not** `conversation.id`.
             activity_id: The id of the message at the root of the reply chain.
-                Use `channel_data.reply_chain.id`, or `activity.id` when replying to a top-level message.
+                Use `channel_data.reply_chain.id`.
             activity: The activity to create
 
         Returns:
@@ -247,7 +247,7 @@ class ConversationActivityClient(BaseClient):
             conversation_id: The id of the chat or channel: `channel_data.chat.id` or `channel_data.channel.id`,
                 **not** `conversation.id`.
             activity_id: The id of the message at the root of the reply chain.
-                Use `channel_data.reply_chain.id`, or `activity.id` when replying to a top-level message.
+                Use `channel_data.reply_chain.id`.
             activity: The activity to create
 
         Returns:
@@ -296,7 +296,8 @@ class ConversationActivityClient(BaseClient):
                 on_response=_set_response_activity_id,
             ),
         )
-        id = response.json()["id"]
+        # Typing activities (non-streaming) answer with an empty body.
+        id = response.json().get("id", _PLACEHOLDER_ACTIVITY_ID)
         return SentActivity(id=id, activity_params=activity)
 
     async def delete(
