@@ -1134,10 +1134,16 @@ class TestHttpStreamReplyChain:
         api_client.conversations.create_activity.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_does_not_fall_back_in_a_chat_when_the_reply_chain_id_is_a_plain_number(self, api_client, ref):
+    @pytest.mark.parametrize("conversation_type", ["personal", "groupChat"])
+    async def test_does_not_fall_back_in_a_chat_when_the_reply_chain_id_is_a_plain_number(
+        self, api_client, ref, conversation_type
+    ):
         api_client.conversations._create_reply_chain_activity = AsyncMock(side_effect=_http_error(404))
         reply_chain = StreamReplyChain(chat_or_channel_id="chat-id", reply_chain_id="100")
-        stream = HttpStream(api_client, ref, StreamOptions(reply_chain))
+        chat_ref = ref.model_copy(
+            update={"conversation": ConversationAccount(id="conversation-id", conversation_type=conversation_type)}
+        )
+        stream = HttpStream(api_client, chat_ref, StreamOptions(reply_chain))
 
         with pytest.raises(HTTPStatusError):
             await stream._send(TypingActivityInput(text="one").add_stream_update(1))

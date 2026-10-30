@@ -10,10 +10,11 @@ from microsoft_teams.apps import ActivityContext, App
 async def handle_thread_reply(ctx: ActivityContext[MessageActivity], text: str) -> bool:
     """Send a reactive, quoted reply when the command matches.
 
-    In a 1:1 chat the reply matches the level of the inbound message.
+    In a chat the reply matches the level of the inbound message.
     A reply to a message in a thread stays in the thread, and a reply to a top-level message is posted at top level.
     In a channel the reply stays in the reply chain (thread) of the inbound message, including a top-level post.
-    In a group chat the reply is sent to the inbound conversation and is not placed in a reply chain.
+    An inbound message without `channel_data.reply_chain` is not placed, and the reply is sent to the inbound
+    conversation.
     """
     if text != "thread reply":
         return False

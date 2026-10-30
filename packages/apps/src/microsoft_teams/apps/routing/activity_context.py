@@ -207,11 +207,11 @@ class ActivityContext(Generic[T]):
         """The stream for the current conversation.
 
         The first message of the stream goes to the reply chain (thread) where ``send`` would place a response.
-        In a 1:1 chat the stream goes into the reply chain when the inbound activity is inside one,
+        In a chat the stream goes into the reply chain when the inbound activity is inside one,
         and at top level otherwise.
         In a channel the stream goes into the reply chain of the inbound message.
         In a channel, when the service answers HTTP 404, the first message is created in the inbound conversation.
-        In a group chat the stream is not placed in a reply chain.
+        An inbound activity without `channel_data.reply_chain` is not placed in a reply chain.
         """
         if self._stream is None:
             placement = self._get_inbound_reply_chain_placement()
@@ -332,12 +332,12 @@ class ActivityContext(Generic[T]):
     ) -> SentActivity:
         """Send a message in the current conversation without quoting.
 
-        In a 1:1 chat, sends into the reply chain (thread) of the inbound activity when it is inside one.
+        In a chat, sends into the reply chain (thread) of the inbound activity when it is inside one.
         Otherwise it sends at top level.
         The inbound activity can be a message, a card action, an invoke, a reaction, an edit or a delete.
         In a channel, sends into the reply chain of the inbound message.
         In a channel, when the service answers HTTP 404, sends to the inbound conversation instead.
-        Group chats, meetings and other inbound activities are not placed,
+        An inbound activity without `channel_data.reply_chain` is not placed,
         and the activity is sent to the inbound conversation.
         To send with a visual quote of the inbound message, use :meth:`reply`.
 
@@ -402,12 +402,12 @@ class ActivityContext(Generic[T]):
     async def reply(self, input: str | ActivityParams) -> SentActivity:
         """Send a message in the current conversation with a visual quote of the inbound message.
 
-        In a 1:1 chat, sends into the reply chain (thread) of the inbound activity when it is inside one.
+        In a chat, sends into the reply chain (thread) of the inbound activity when it is inside one.
         Otherwise it sends at top level.
         The inbound activity can be a message, a card action, an invoke, a reaction, an edit or a delete.
         In a channel, sends into the reply chain of the inbound message.
         In a channel, when the service answers HTTP 404, sends to the inbound conversation instead.
-        Group chats, meetings and other inbound activities are not placed,
+        An inbound activity without `channel_data.reply_chain` is not placed,
         and the activity is sent to the inbound conversation.
         To send without quoting, use :meth:`send`.
         """
@@ -477,14 +477,12 @@ class ActivityContext(Generic[T]):
         Other inbound activities in a channel are not placed.
         In a chat see `_is_inside_thread` for which activities are inside a thread.
         The destination is the chat, `channel_data.chat.id`.
-        In a 1:1 chat, when the inbound activity is on a top-level message, the response is sent as a top-level message.
-        Group chats and meetings are not placed.
+        When the inbound activity is on a top-level message, the response is sent as a top-level message.
+        The conversation type of a chat does not matter: the payload carrying `channel_data.reply_chain` is what
+        places a response.
         Returns None when an id is missing or blank, so the send goes to the inbound conversation.
         """
         conversation_type = self.activity.conversation.conversation_type
-        if conversation_type == "groupChat":
-            return None
-
         channel_data = self.activity.channel_data
         reply_chain_id = channel_data.reply_chain.id if channel_data and channel_data.reply_chain else None
         if reply_chain_id is None or not reply_chain_id.strip():
@@ -507,8 +505,9 @@ class ActivityContext(Generic[T]):
         That is when `channel_data.reply_chain.id` differs from the id of the message the activity acts on.
         The message it acts on is:
 
-        - `activity.id` for a message, an edit, a delete and a reaction.
-        - `reply_to_id` (the card's message) for a message sent by a card button (a message with `channel_data.source`).
+        - `activity.id` for a message, an edit and a delete.
+        - `reply_to_id` (the reacted message) for a reaction and for a message sent by a card button
+          (a message with `channel_data.source`).
         - `value.message_payload.id` for a message action, and `reply_to_id` (the message the user acted on, for
           example a card or a message with feedback buttons) for any other invoke.
 
@@ -535,8 +534,11 @@ class ActivityContext(Generic[T]):
                 return is_other_plain_id(activity.reply_to_id)
             return activity.id != reply_chain_id
 
-        if activity_type in ("messageUpdate", "messageDelete", "messageReaction"):
+        if activity_type in ("messageUpdate", "messageDelete"):
             return activity.id != reply_chain_id
+
+        if activity_type == "messageReaction":
+            return is_other_plain_id(activity.reply_to_id)
 
         if activity_type == "invoke":
             message_id = _message_payload_id(getattr(activity, "value", None))

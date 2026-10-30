@@ -588,7 +588,7 @@ class TestActivityContextReplyChainPlacement:
         ctx.api.conversations.create_activity.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_sends_to_the_inbound_conversation_in_a_group_chat_even_when_the_payload_has_both_ids(self) -> None:
+    async def test_places_a_reply_in_a_group_chat_by_the_shape_of_the_payload(self) -> None:
         ctx = _context_with_reply_chain_methods(
             _inbound_message(
                 "reply-2",
@@ -599,12 +599,23 @@ class TestActivityContextReplyChainPlacement:
 
         await ctx.send("hi")
 
+        assert ctx.api.conversations._create_reply_chain_activity.call_args.args[:2] == (CHAT_ID, "root-1")
+        ctx.api.conversations.create_activity.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_sends_to_the_inbound_conversation_in_a_group_chat_when_the_payload_has_no_reply_chain(self) -> None:
+        ctx = _context_with_reply_chain_methods(
+            _inbound_message("m-1", {"chat": {"id": CHAT_ID}}, conversation_type="groupChat")
+        )
+
+        await ctx.send("hi")
+
         ctx.api.conversations.create_activity.assert_called_once()
         assert ctx.api.conversations.create_activity.call_args.args[0] == "test-conversation"
         ctx.api.conversations._create_reply_chain_activity.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_sends_to_the_inbound_conversation_in_a_meeting_chat_even_when_the_payload_has_both_ids(self) -> None:
+    async def test_places_a_reply_in_a_meeting_chat_by_the_shape_of_the_payload(self) -> None:
         ctx = _context_with_reply_chain_methods(
             _inbound_message(
                 "reply-2",
@@ -615,9 +626,8 @@ class TestActivityContextReplyChainPlacement:
 
         await ctx.send("hi")
 
-        ctx.api.conversations.create_activity.assert_called_once()
-        assert ctx.api.conversations.create_activity.call_args.args[0] == "test-conversation"
-        ctx.api.conversations._create_reply_chain_activity.assert_not_called()
+        assert ctx.api.conversations._create_reply_chain_activity.call_args.args[:2] == (CHAT_ID, "root-1")
+        ctx.api.conversations.create_activity.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_places_a_reply_in_a_personal_chat(self) -> None:
@@ -690,18 +700,36 @@ class TestActivityContextReplyChainPlacement:
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize(
+        "channel_data",
+        [
+            {"chat": {"id": CHAT_ID}, "replyChain": {"id": "root-1"}},
+            {"chat": {"id": CHAT_ID}, "replyChain": {"id": "root-1"}, "meeting": {"id": "meeting-1"}},
+        ],
+        ids=["group-chat", "meeting-chat"],
+    )
+    async def test_creates_the_stream_in_the_reply_chain_in_a_group_chat_by_the_shape_of_the_payload(
+        self, channel_data
+    ) -> None:
+        ctx = _context_with_reply_chain_methods(
+            _inbound_message("reply-2", channel_data, conversation_type="groupChat")
+        )
+
+        with patch("microsoft_teams.apps.routing.activity_context.HttpStream") as http_stream:
+            assert ctx.stream is http_stream.return_value
+
+        http_stream.assert_called_once_with(
+            ctx.api, ctx.conversation_ref, StreamOptions(StreamReplyChain(CHAT_ID, "root-1"))
+        )
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
         ("activity_id", "channel_data", "conversation_type"),
         [
             ("root-1", {"chat": {"id": CHAT_ID}, "replyChain": {"id": "root-1"}}, "personal"),
-            ("reply-2", {"chat": {"id": CHAT_ID}, "replyChain": {"id": "root-1"}}, "groupChat"),
-            (
-                "reply-2",
-                {"chat": {"id": CHAT_ID}, "replyChain": {"id": "root-1"}, "meeting": {"id": "meeting-1"}},
-                "groupChat",
-            ),
             ("m-1", {"chat": {"id": CHAT_ID}}, "personal"),
+            ("m-1", {"chat": {"id": CHAT_ID}}, "groupChat"),
         ],
-        ids=["top-level", "group-chat", "meeting-chat", "no-reply-chain"],
+        ids=["top-level", "no-reply-chain", "group-chat-no-reply-chain"],
     )
     async def test_creates_the_stream_without_a_reply_chain(self, activity_id, channel_data, conversation_type) -> None:
         ctx = _context_with_reply_chain_methods(
@@ -982,7 +1010,7 @@ _THREAD_SHAPES = [
     pytest.param(
         dict(type_="invoke", value=SimpleNamespace(message_payload=SimpleNamespace(id="{id}"))), {}, id="message-action"
     ),
-    pytest.param(dict(type_="messageReaction", activity_id="{id}"), {}, id="reaction"),
+    pytest.param(dict(type_="messageReaction", activity_id="f:9f78d1f3", reply_to_id="{id}"), {}, id="reaction"),
     pytest.param(dict(type_="messageUpdate", activity_id="{id}"), {}, id="edit"),
     pytest.param(dict(type_="messageDelete", activity_id="{id}"), {}, id="delete"),
 ]
@@ -1036,6 +1064,12 @@ class TestActivityContextReplyChainPlacementByShape:
     @pytest.mark.parametrize(("shape", "extra"), _THREAD_SHAPES)
     async def test_sends_to_the_inbound_conversation_for_a_top_level_message(self, shape, extra) -> None:
         ctx = await self._send(_shape(**_fill(shape, "100"), channel_data=_chat_data("100", **extra)))
+
+        self._assert_in_inbound_conversation(ctx)
+
+    @pytest.mark.asyncio
+    async def test_does_not_place_a_reaction_without_a_reply_to_id_and_does_not_use_its_own_id(self) -> None:
+        ctx = await self._send(_shape("messageReaction", activity_id="105", channel_data=_chat_data("100")))
 
         self._assert_in_inbound_conversation(ctx)
 
@@ -1105,12 +1139,27 @@ class TestActivityContextReplyChainPlacementByShape:
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize("type_", ["message", "invoke", "messageReaction"])
-    async def test_does_not_place_anything_in_a_group_chat(self, type_) -> None:
+    async def test_places_an_activity_inside_a_thread_in_a_group_chat_by_the_shape_of_the_payload(self, type_) -> None:
         ctx = await self._send(
             _shape(
                 type_,
                 activity_id="105",
                 reply_to_id="105",
+                conversation_type="groupChat",
+                channel_data=_chat_data("100"),
+            )
+        )
+
+        self._assert_in_thread(ctx)
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("type_", ["message", "invoke", "messageReaction"])
+    async def test_does_not_place_a_top_level_activity_in_a_group_chat(self, type_) -> None:
+        ctx = await self._send(
+            _shape(
+                type_,
+                activity_id="100",
+                reply_to_id="100",
                 conversation_type="groupChat",
                 channel_data=_chat_data("100"),
             )
@@ -1529,12 +1578,13 @@ class TestActivityContextReplyChainPlacementWithBlankIds:
 
     @pytest.mark.asyncio
     async def test_a_padded_id_that_is_not_blank_is_still_placed(self) -> None:
-        activity = self._activity("personal", CHAT_ID, "100")
+        activity = self._activity("personal", f" {CHAT_ID} ", " 100 ")
         ctx = _context_with_reply_chain_methods(activity)
 
         await ctx.send("hi")
 
         ctx.api.conversations._create_reply_chain_activity.assert_called_once()
+        assert ctx.api.conversations._create_reply_chain_activity.call_args.args[:2] == (f" {CHAT_ID} ", " 100 ")
 
 
 def _real_conversations() -> Any:
@@ -1757,26 +1807,40 @@ class TestActivityContextReplyChainPlacementThroughDispatch:
             assert conversations.create_activity.call_args.args[0] == _DISPATCH_CONVERSATION
 
     @pytest.mark.asyncio
-    @pytest.mark.parametrize(
-        ("conversation_type", "conversation_id", "scope"),
-        [
-            ("groupChat", "19:grp@thread.v2", {"chat": {"id": "19:grp@thread.v2"}}),
-            ("channel", f"{CHANNEL_ID};messageid={_DISPATCH_ROOT_L2}", {"channel": {"id": CHANNEL_ID}}),
-        ],
-        ids=["group-chat", "channel"],
-    )
-    async def test_a_card_invoke_in_a_group_chat_or_a_channel_is_never_placed(
-        self, conversation_type: str, conversation_id: str, scope: dict[str, Any]
-    ) -> None:
+    async def test_a_card_invoke_in_a_group_chat_is_placed_by_the_shape_of_the_payload(self) -> None:
         payload = _dispatch_payload(
             "adaptiveCard/action",
             _EXECUTE_ACTION_VALUE,
             "message",
             _DISPATCH_CARD_L2,
             _DISPATCH_ROOT_L2,
-            conversation_type,
+            "groupChat",
+            "19:grp@thread.v2",
+            {"chat": {"id": "19:grp@thread.v2"}},
+        )
+
+        (api, _), calls = await self._dispatch(payload, "on_card_action", AdaptiveCardInvokeActivity)
+
+        assert calls == ["adaptiveCard/action"]
+        api.conversations._create_reply_chain_activity.assert_called_once()
+        assert api.conversations._create_reply_chain_activity.call_args.args[:2] == (
+            "19:grp@thread.v2",
+            _DISPATCH_ROOT_L2,
+        )
+        api.conversations.create_activity.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_a_card_invoke_in_a_channel_is_never_placed(self) -> None:
+        conversation_id = f"{CHANNEL_ID};messageid={_DISPATCH_ROOT_L2}"
+        payload = _dispatch_payload(
+            "adaptiveCard/action",
+            _EXECUTE_ACTION_VALUE,
+            "message",
+            _DISPATCH_CARD_L2,
+            _DISPATCH_ROOT_L2,
+            "channel",
             conversation_id,
-            scope,
+            {"channel": {"id": CHANNEL_ID}},
         )
 
         (api, _), calls = await self._dispatch(payload, "on_card_action", AdaptiveCardInvokeActivity)
