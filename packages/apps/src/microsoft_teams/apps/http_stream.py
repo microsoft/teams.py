@@ -14,6 +14,7 @@ from microsoft_teams.api import (
     ChannelData,
     ConversationReference,
     MessageActivityInput,
+    PlanInfoEntity,
     SentActivity,
     TextFormat,
     TypingActivityInput,
@@ -21,6 +22,7 @@ from microsoft_teams.api import (
 from microsoft_teams.common import EventEmitter
 
 from .plugins.streamer import (
+    PlanConflictStreamError,
     StreamCancelledError,
     StreamerEvent,
     StreamerProtocol,
@@ -75,6 +77,7 @@ class HttpStream(StreamerProtocol):
 
     def _reset_current_stream(self) -> None:
         """Reset per-message state for the current stream cycle."""
+        self._retired = False
         self._index = 1
         self._id: Optional[str] = None
         self._text: str = ""
@@ -129,6 +132,9 @@ class HttpStream(StreamerProtocol):
         """
         Emit a new activity to the stream.
 
+        An explicit reply_to_id on the final message is preserved. Otherwise,
+        the conversation reference's activity ID is used.
+
         Args:
             activity: The activity to emit.
         """
@@ -136,8 +142,8 @@ class HttpStream(StreamerProtocol):
         if self._canceled:
             raise StreamCancelledError("Stream has been cancelled.")
 
-        if self.closed:
-            logger.debug("starting a new streamed message after close")
+        if self.closed or self._retired:
+            logger.debug("starting a new streamed message")
             self._reset_stream_for_next_stream()
 
         if isinstance(activity, str):
@@ -201,6 +207,9 @@ class HttpStream(StreamerProtocol):
         Closing is idempotent until the next emit or update. Emitting or
         updating after close starts a new streamed message using the same
         stream instance.
+
+        A Plan timeout raises once and retires the failed cycle. Further closes
+        return None until the next emit or update.
         """
         if self.closed:
             logger.debug("stream already closed with result")
@@ -209,6 +218,10 @@ class HttpStream(StreamerProtocol):
 
         if self._canceled:
             logger.debug("stream was cancelled, nothing to close")
+            return None
+
+        if self._retired:
+            logger.debug("failed stream cycle already retired, nothing to close")
             return None
 
         if self._index == 1 and not self._queue and not self._lock.locked():
@@ -263,21 +276,32 @@ class HttpStream(StreamerProtocol):
         activity: Union[TypingActivityInput, MessageActivityInput],
         options: Optional[RetryOptions] = None,
     ) -> SentActivity:
-        """Send an activity through retry, treating terminal stream errors as non-retryable."""
+        """Send through retry, excluding terminal stream errors and Plan conflicts."""
         return await retry(
             lambda: self._send(activity),
             options=options or RetryOptions(),
-            non_retryable=(TerminalStreamError,),
+            non_retryable=(TerminalStreamError, PlanConflictStreamError),
         )
 
     async def _send_final(self) -> SentActivity:
-        """Send the buffered content as a plain final message.
+        """Finalize the buffered stream content as a plain message update.
 
-        Drops the ``streaminfo`` entity (added by ``add_stream_final()`` on the normal
-        close path) and the stream channel data so ``id`` is kept and the send routes
-        through the update path instead of creating a duplicate message.
+        This fallback is only valid for ordinary streamed content. If the buffered final
+        payload still contains a ``PlanInfoEntity``, we cannot reuse the original streamed
+        message as a PUT update because Plan completion is sent through the Plan lifecycle
+        flow as a POST. In that case, raise ``StreamTimedOutError`` so the caller can recover
+        by completing the Plan via ``Plan.complete()`` instead of retrying the same stream
+        close path.
         """
         activity = self._final_activity or MessageActivityInput()
+        if any(isinstance(entity, PlanInfoEntity) for entity in activity.entities or []):
+            self._reset_current_stream()
+            self._retired = True
+            raise StreamTimedOutError(
+                "The stream timed out before the Plan could be completed. "
+                "Plan completion requires a POST, so the existing streamed message "
+                "cannot be finalized using the PUT update fallback."
+            )
         activity.with_text(self._text)
         activity.id = self._id
         activity.entities = [e for e in (activity.entities or []) if e.type != "streaminfo"]
@@ -391,7 +415,8 @@ class HttpStream(StreamerProtocol):
 
         to_send.from_ = self._ref.bot
         to_send.conversation = self._ref.conversation
-        to_send.reply_to_id = self._ref.activity_id
+        if to_send.reply_to_id is None:
+            to_send.reply_to_id = self._ref.activity_id
 
         try:
             if to_send.id and not any(e.type == "streaminfo" for e in (to_send.entities or [])):
@@ -404,6 +429,14 @@ class HttpStream(StreamerProtocol):
 
             return SentActivity.merge(to_send, res)
         except HTTPStatusError as e:
+            if e.response.status_code == 409:
+                try:
+                    code = e.response.json().get("error", {}).get("code")
+                except (ValueError, AttributeError):
+                    code = None
+                if code == "PlanConflict":
+                    raise PlanConflictStreamError(str(e), request=e.request, response=e.response) from e
+
             # Various error codes are used for streaming.
             # https://learn.microsoft.com/en-us/microsoftteams/platform/bots/streaming-ux?tabs=csharp#error-codes
             if e.response.status_code == 403:

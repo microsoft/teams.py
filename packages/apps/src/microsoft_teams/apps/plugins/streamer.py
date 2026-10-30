@@ -6,6 +6,7 @@ Licensed under the MIT License.
 import asyncio
 from typing import Awaitable, Callable, Literal, Optional, Protocol, Union
 
+from httpx import HTTPStatusError
 from microsoft_teams.api import MessageActivityInput, SentActivity, TextFormat, TypingActivityInput
 
 StreamerEvent = Literal["chunk", "close"]
@@ -18,21 +19,28 @@ class StreamCancelledError(asyncio.CancelledError):
 
 
 class TerminalStreamError(Exception):
-    """
-    Base class for terminal streaming errors (HTTP 403)
-    that should not be retried.
-    """
+    """Base class for terminal stream errors that should not be retried."""
 
 
 class StreamTimedOutError(TerminalStreamError):
-    """
-    Raised when the bot failed to complete streaming within the two-minute limit.
+    """The stream hit its timeout.
+
+    This also covers the Plan-completion case: the buffered final payload still contains a
+    ``PlanInfoEntity``, so the normal streamed message PUT fallback is invalid. Callers
+    must switch to the Plan completion flow instead of retrying the same stream close.
     """
 
 
 class StreamNotAllowedError(TerminalStreamError):
-    """
-    Raised when streaming is not allowed for this user or bot.
+    """Raised when streaming is not allowed for this user or bot."""
+
+
+class PlanConflictStreamError(HTTPStatusError):
+    """Teams rejected the Plan lifecycle with a 409 ``PlanConflict``.
+
+    This is a service conflict, not a stream timeout. The caller should not retry the same
+    stream-close path; it should treat the Plan state as conflicted and resolve the Plan
+    lifecycle explicitly.
     """
 
 

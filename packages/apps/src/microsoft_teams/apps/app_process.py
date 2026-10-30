@@ -46,6 +46,7 @@ from .diagnostics._helpers import (
 from .events import ActivityEvent, ActivityResponseEvent, ActivitySentEvent, ErrorEvent
 from .files_credential import select_files_credential, select_inline_image_credential
 from .oauth_flow import OAuthFlowRegistry
+from .plan import Plan
 from .plugins import PluginActivityEvent, PluginBase, StreamCancelledError
 from .routing.activity_context import ActivityContext
 from .routing.router import ActivityHandler, ActivityRouter
@@ -216,6 +217,29 @@ class ActivityProcessor:
             return res
 
         activityCtx.send = updated_send
+
+        plan_attached = False
+        get_plan = activityCtx.plan
+
+        def updated_plan() -> Plan:
+            nonlocal plan_attached
+            plan = get_plan()
+            if not plan_attached:
+                ref = activityCtx.conversation_ref.model_copy(deep=True)
+
+                async def handle_plan(activity: SentActivity) -> None:
+                    if not self.event_manager:
+                        raise ValueError("EventManager was not initialized properly")
+                    await self.event_manager.on_activity_sent(
+                        ActivitySentEvent(activity=activity, conversation_ref=ref.model_copy(deep=True)),
+                        plugins=plugins,
+                    )
+
+                plan.events.on("sent", handle_plan)
+                plan_attached = True
+            return plan
+
+        activityCtx.plan = updated_plan
 
         async def handle_chunk(chunk_activity: SentActivity):
             if self.event_manager:

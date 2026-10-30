@@ -50,6 +50,7 @@ from microsoft_teams.api.models.attachment.card_attachment import (
 from microsoft_teams.api.models.oauth import OAuthCard
 from microsoft_teams.cards import AdaptiveCard
 from microsoft_teams.common import Storage
+from microsoft_teams.common.experimental import experimental
 from microsoft_teams.common.http.client_token import Token
 
 from ..activity_send import send_or_update_activity
@@ -68,6 +69,7 @@ from ..oauth_state import (
     record_pending_oauth_sign_in,
     replace_pending_oauth_sign_ins,
 )
+from ..plan import Plan
 from ..plugins.streamer import StreamerProtocol
 from ..state import TurnStateContainer
 from ..utils import create_graph_client
@@ -148,6 +150,7 @@ class ActivityContext(Generic[T]):
         # module, so holding it here would be circular.
         self._oauth_connection_names: List[str] = list(oauth_connection_names or [])
         self._stream: Optional[StreamerProtocol] = None
+        self._plan: Optional[Plan] = None
         self._files: Optional[FilesAccessor] = None
         self._files_credential = files_credential
         self._files_bot_api_credential = files_bot_api_credential
@@ -181,6 +184,17 @@ class ActivityContext(Generic[T]):
                 self._files_bot_api_credential,
             )
         return self._files
+
+    @experimental("ExperimentalTeamsPlan")
+    def plan(self) -> Plan:
+        """Create or reference the existing Plan for the incoming activity. Diagnostic: ExperimentalTeamsPlan"""
+        if self._plan is None:
+            self._plan = Plan(
+                conversation_id=self.conversation_ref.conversation.id,
+                reply_to_id=self.activity.id,
+                api_client=self.api.from_service_url(self.conversation_ref.service_url),
+            )
+        return self._plan
 
     @property
     def user_graph(self) -> "GraphServiceClient":

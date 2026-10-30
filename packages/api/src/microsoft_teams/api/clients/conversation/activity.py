@@ -16,7 +16,7 @@ from ...diagnostics._constants import (
     API_OUTBOUND_OPERATIONS,
 )
 from ...diagnostics._outbound import ApiOutboundResponseHook, ApiOutboundTelemetryMetadata
-from ...models import AgenticIdentity, TeamsChannelAccount
+from ...models import AgenticIdentity, PlanInfoEntity, TeamsChannelAccount
 from ..api_client_settings import ApiClientSettings
 from ..base_client import BaseClient
 
@@ -93,6 +93,12 @@ class ConversationActivityClient(BaseClient):
                 on_response=_set_response_activity_id,
             ),
         )
+
+        # Note: Non-complete plan activities return 202 with an empty body
+        if any(
+            isinstance(entity, PlanInfoEntity) and entity.plan_type != "complete" for entity in activity.entities or []
+        ):
+            return SentActivity(id=_PLACEHOLDER_ACTIVITY_ID, activity_params=activity)
 
         # Note: Typing activities (non-streaming) always produce empty responses.
         # Note: For streaming activities, the first response includes the stream id.
@@ -180,6 +186,13 @@ class ConversationActivityClient(BaseClient):
                 on_response=_set_response_activity_id,
             ),
         )
+
+        # Note: Non-complete plan activities return 202 with an empty body
+        if any(
+            isinstance(entity, PlanInfoEntity) and entity.plan_type != "complete" for entity in activity.entities or []
+        ):
+            return SentActivity(id=_PLACEHOLDER_ACTIVITY_ID, activity_params=activity)
+
         id = response.json()["id"]
         return SentActivity(id=id, activity_params=activity)
 

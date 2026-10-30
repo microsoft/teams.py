@@ -12,6 +12,7 @@ from .citation_entity import CitationEntity
 from .client_info_entity import ClientInfoEntity
 from .mention_entity import MentionEntity
 from .message_entity import MessageEntity
+from .plan_info_entity import PlanInfoEntity
 from .product_info_entity import ProductInfoEntity
 from .quoted_reply_entity import QuotedReplyEntity
 from .sensitive_usage_entity import SensitiveUsageEntity
@@ -22,6 +23,7 @@ from .unknown_entity import UnknownEntity
 _KNOWN_ENTITY_TYPE_TAGS = {
     "clientInfo": "clientInfo",
     "mention": "mention",
+    "planInfo": "planInfo",
     "ProductInfo": "ProductInfo",
     "quotedReply": "quotedReply",
     "streaminfo": "streaminfo",
@@ -65,6 +67,7 @@ Entity = Annotated[
         Annotated[MessageEntity, Tag("https://schema.org/Message")],
         Annotated[AIMessageEntity, Tag("aiMessage")],
         Annotated[StreamInfoEntity, Tag("streaminfo")],
+        Annotated[PlanInfoEntity, Tag("planInfo")],
         Annotated[CitationEntity, Tag("citation")],
         Annotated[SensitiveUsageEntity, Tag("sensitiveUsage")],
         Annotated[ProductInfoEntity, Tag("ProductInfo")],
