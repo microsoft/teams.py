@@ -5,4 +5,6 @@ Licensed under the MIT License.
 
 from typing import Literal, Union
 
-ConversationType = Union[Literal["personal", "groupChat", "channel"], str]
+KnownConversationType = Literal["personal", "groupChat", "channel"]
+
+ConversationType = Union[KnownConversationType, str]
