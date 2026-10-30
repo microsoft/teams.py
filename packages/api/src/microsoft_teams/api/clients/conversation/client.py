@@ -72,12 +72,6 @@ class ActivityOperations(ConversationOperations):
         service_url: str | None = None,
         agentic_identity: AgenticIdentity | None = None,
     ) -> SentActivity:
-        """Reply to an activity in a conversation.
-
-        Posts to `/v3/conversations/{conversation_id}/activities`.
-        To create an activity in a reply chain (thread), use `ConversationClient.create_reply_chain_activity`.
-        The activity id is not sent.
-        """
         return await self._client.reply_to_activity(
             self._conversation_id,
             activity_id,
@@ -333,12 +327,7 @@ class ConversationClient(BaseClient):
         service_url: str | None = None,
         agentic_identity: AgenticIdentity | None = None,
     ) -> SentActivity:
-        """Reply to an activity in a conversation.
-
-        Posts to `/v3/conversations/{conversation_id}/activities`.
-        To create an activity in a reply chain (thread), use :meth:`create_reply_chain_activity`.
-        The activity id is not sent.
-        """
+        """Reply to an activity in a conversation."""
         scoped_client = self._scoped_client(service_url, agentic_identity)
         if scoped_client is not self:
             return await scoped_client.reply_to_activity(conversation_id, activity_id, activity)

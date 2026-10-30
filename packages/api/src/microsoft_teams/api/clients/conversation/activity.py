@@ -160,10 +160,6 @@ class ConversationActivityClient(BaseClient):
         """
         Reply to an activity in a conversation.
 
-        Posts to `/v3/conversations/{conversation_id}/activities`.
-        To create an activity in a reply chain (thread), use :meth:`create_reply_chain`.
-        The activity id is not sent.
-
         Args:
             conversation_id: The ID of the conversation
             activity_id: The ID of the activity to reply to
@@ -177,9 +173,11 @@ class ConversationActivityClient(BaseClient):
         if scoped_client is not self:
             return await scoped_client.reply(conversation_id, activity_id, activity)
 
+        activity_json = activity.model_dump(by_alias=True, exclude_none=True)
+        activity_json["replyToId"] = activity_id
         response = await self.http.post(
             f"{self._get_service_url(service_url)}/v3/conversations/{conversation_id}/activities",
-            json=activity.model_dump(by_alias=True, exclude_none=True),
+            json=activity_json,
             _metadata=self._create_activity_telemetry_metadata(
                 API_OUTBOUND_OPERATIONS.reply,
                 conversation_id,

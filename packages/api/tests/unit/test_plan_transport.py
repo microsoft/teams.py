@@ -97,7 +97,7 @@ class TestPlanActivityTransport:
         assert len(requests) == 1
 
     @pytest.mark.parametrize("original_prompt", [None, "original"])
-    async def test_reply_leaves_reply_to_id_unchanged(self, transport, original_prompt):
+    async def test_reply_supplies_prompt_without_mutating_input(self, transport, original_prompt):
         api, requests, _ = transport
         activity = TypingActivityInput(reply_to_id=original_prompt, entities=[PlanInfoEntity(plan_type="stop")])
 
@@ -106,5 +106,5 @@ class TestPlanActivityTransport:
         assert result.id == "DO_NOT_USE_PLACEHOLDER_ID"
         assert result.activity_params == activity
         assert len(requests) == 1
-        assert json.loads(requests[0].content).get("replyToId") == original_prompt
+        assert json.loads(requests[0].content)["replyToId"] == "prompt"
         assert activity.reply_to_id == original_prompt
