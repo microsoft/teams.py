@@ -397,6 +397,80 @@ class TestTokenManager:
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize(
+        "scope,expected_tenant",
+        [
+            (None, "botframework.com"),
+            (PUBLIC.bot_scope, "botframework.com"),
+            (PUBLIC.graph_scope, "common"),
+        ],
+    )
+    async def test_app_token_provider_default_tenant_depends_on_scope(self, scope: str | None, expected_tenant: str):
+        """A multi-tenant app falls back to the default tenant for the requested resource."""
+        credentials = ClientCredentials(client_id="test-client-id", client_secret="test-client-secret")
+        mock_msal_app = MagicMock()
+        mock_msal_app.acquire_token_for_client.return_value = {"access_token": VALID_TEST_TOKEN}
+
+        with patch(
+            "microsoft_teams.apps.token_manager.ConfidentialClientApplication", return_value=mock_msal_app
+        ) as mock_msal_class:
+            provider = AppTokenProvider(TokenManager(credentials=credentials), PUBLIC)
+            token = await provider.get_app_token(scope)
+
+        assert str(token) == VALID_TEST_TOKEN
+        mock_msal_class.assert_called_once_with(
+            "test-client-id",
+            client_credential="test-client-secret",
+            authority=f"https://login.microsoftonline.com/{expected_tenant}",
+        )
+
+    @pytest.mark.asyncio
+    async def test_app_token_provider_requires_tenant_for_other_scopes(self):
+        """A scope with no known default tenant must not borrow the Bot Framework login tenant."""
+        credentials = ClientCredentials(client_id="test-client-id", client_secret="test-client-secret")
+
+        with patch("microsoft_teams.apps.token_manager.ConfidentialClientApplication") as mock_msal_class:
+            provider = AppTokenProvider(TokenManager(credentials=credentials), PUBLIC)
+            with pytest.raises(ValueError, match="tenant_id is required"):
+                await provider.get_app_token("api://custom-resource/.default")
+
+        mock_msal_class.assert_not_called()
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "credentials_tenant,tenant_id,expected_tenant",
+        [
+            ("credentials-tenant", None, "credentials-tenant"),
+            ("credentials-tenant", "explicit-tenant", "explicit-tenant"),
+            (None, "explicit-tenant", "explicit-tenant"),
+        ],
+    )
+    async def test_app_token_provider_other_scopes_use_explicit_or_configured_tenant(
+        self, credentials_tenant: str | None, tenant_id: str | None, expected_tenant: str
+    ):
+        credentials = ClientCredentials(
+            client_id="test-client-id",
+            client_secret="test-client-secret",
+            tenant_id=credentials_tenant,
+        )
+        mock_msal_app = MagicMock()
+        mock_msal_app.acquire_token_for_client.return_value = {"access_token": VALID_TEST_TOKEN}
+
+        with patch(
+            "microsoft_teams.apps.token_manager.ConfidentialClientApplication", return_value=mock_msal_app
+        ) as mock_msal_class:
+            provider = AppTokenProvider(TokenManager(credentials=credentials), PUBLIC)
+            token = await provider.get_app_token("api://custom-resource/.default", tenant_id)
+
+        assert str(token) == VALID_TEST_TOKEN
+        mock_msal_app.acquire_token_for_client.assert_called_once_with(["api://custom-resource/.default"])
+        mock_msal_class.assert_called_once_with(
+            "test-client-id",
+            client_credential="test-client-secret",
+            authority=f"https://login.microsoftonline.com/{expected_tenant}",
+        )
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
         "get_token_method,expected_resource",
         [
             ("get_bot_token", "https://api.botframework.com"),

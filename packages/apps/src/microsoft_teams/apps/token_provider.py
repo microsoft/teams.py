@@ -28,7 +28,12 @@ class AppTokenProvider(
         scope: str | None = None,
         tenant_id: str | None = None,
     ) -> TokenProtocol | None:
-        """Acquire an app-only token."""
+        """
+        Acquire an app-only token, defaulting to the Bot Framework scope.
+
+        Without a `tenant_id` or configured tenant, the Bot Framework scope falls back to the cloud's login tenant
+        and the Graph scope to "common"; any other scope raises `ValueError`.
+        """
         return await self._token_manager.get_app_token(scope or self._cloud.bot_scope, tenant_id)
 
     async def get_agentic_user_token(
