@@ -70,7 +70,7 @@ class TestActivityContextReply:
     @pytest.mark.asyncio
     async def test_reply_stamps_quoted_reply_entity(self) -> None:
         """Test that reply() adds a QuotedReplyEntity to the activity."""
-        ctx = self._create_activity_context(activity_id="msg-abc")
+        ctx = self._create_activity_context(activity_id="1793257586722")
         await ctx.reply("Thanks!")
 
         sent_activity = ctx.api.conversations.activities.return_value.create.call_args[0][0]
@@ -78,36 +78,36 @@ class TestActivityContextReply:
         assert len(sent_activity.entities) == 1
         entity = sent_activity.entities[0]
         assert isinstance(entity, QuotedReplyEntity)
-        assert entity.quoted_reply.message_id == "msg-abc"
+        assert entity.quoted_reply.message_id == "1793257586722"
 
     @pytest.mark.asyncio
     async def test_reply_prepends_placeholder(self) -> None:
         """Test that reply() prepends the quoted placeholder to text."""
-        ctx = self._create_activity_context(activity_id="msg-abc")
+        ctx = self._create_activity_context(activity_id="1793257586722")
         await ctx.reply("Thanks!")
 
         sent_activity = ctx.api.conversations.activities.return_value.create.call_args[0][0]
-        assert sent_activity.text == '<quoted messageId="msg-abc"/> Thanks!'
+        assert sent_activity.text == '<quoted messageId="1793257586722"/> Thanks!'
 
     @pytest.mark.asyncio
     async def test_reply_with_empty_text(self) -> None:
         """Test that reply() handles empty text correctly."""
-        ctx = self._create_activity_context(activity_id="msg-abc")
+        ctx = self._create_activity_context(activity_id="1793257586722")
         activity = MessageActivityInput(text="")
         await ctx.reply(activity)
 
         sent_activity = ctx.api.conversations.activities.return_value.create.call_args[0][0]
-        assert sent_activity.text == '<quoted messageId="msg-abc"/>'
+        assert sent_activity.text == '<quoted messageId="1793257586722"/>'
 
     @pytest.mark.asyncio
     async def test_reply_with_none_text(self) -> None:
         """Test that reply() handles None text correctly."""
-        ctx = self._create_activity_context(activity_id="msg-abc")
+        ctx = self._create_activity_context(activity_id="1793257586722")
         activity = MessageActivityInput()
         await ctx.reply(activity)
 
         sent_activity = ctx.api.conversations.activities.return_value.create.call_args[0][0]
-        assert sent_activity.text == '<quoted messageId="msg-abc"/>'
+        assert sent_activity.text == '<quoted messageId="1793257586722"/>'
 
     @pytest.mark.asyncio
     async def test_reply_with_no_activity_id(self) -> None:
@@ -122,7 +122,7 @@ class TestActivityContextReply:
     @pytest.mark.asyncio
     async def test_reply_preserves_existing_entities(self) -> None:
         """Test that reply() preserves any pre-existing entities on the activity."""
-        ctx = self._create_activity_context(activity_id="msg-abc")
+        ctx = self._create_activity_context(activity_id="1793257586722")
         activity = MessageActivityInput(text="Hello")
         existing_entity = MagicMock()
         activity.entities = [existing_entity]
@@ -138,12 +138,12 @@ class TestActivityContextReply:
     @pytest.mark.asyncio
     async def test_reply_with_activity_params(self) -> None:
         """Test that reply() works with an ActivityParams input."""
-        ctx = self._create_activity_context(activity_id="msg-abc")
+        ctx = self._create_activity_context(activity_id="1793257586722")
         activity = MessageActivityInput(text="Hello world")
         await ctx.reply(activity)
 
         sent_activity = ctx.api.conversations.activities.return_value.create.call_args[0][0]
-        assert sent_activity.text == '<quoted messageId="msg-abc"/> Hello world'
+        assert sent_activity.text == '<quoted messageId="1793257586722"/> Hello world'
 
 
 class TestActivityContextQuoteReply:

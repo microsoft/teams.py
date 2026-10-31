@@ -157,7 +157,7 @@ class TestActivityContextSendTargeted:
         """Create an ActivityContext for testing with a mock activity sender."""
         recipient = Account(id="bot-id", name="Test Bot", is_targeted=True if is_incoming_targeted else None)
         activity = MessageActivity(
-            id="incoming-activity-id",
+            id="1793257586003",
             text="Incoming message",
             from_=from_account,
             recipient=recipient,
@@ -207,9 +207,11 @@ class TestActivityContextSendTargeted:
         assert sent_activity.recipient.is_targeted is True
         assert sent_activity.entities is not None
         assert any(
-            isinstance(entity, TargetedMessageInfoEntity) and entity.message_id == "incoming-activity-id"
+            isinstance(entity, TargetedMessageInfoEntity) and entity.message_id == "1793257586003"
             for entity in sent_activity.entities
         )
+        assert all(not isinstance(entity, QuotedReplyEntity) for entity in sent_activity.entities)
+        assert "<quoted" not in (sent_activity.text or "")
 
     @pytest.mark.asyncio
     async def test_explicit_public_send_opts_out_from_targeted_inbound_message(self) -> None:
@@ -268,8 +270,8 @@ class TestActivityContextSendTargeted:
         incoming_sender = Account(id="user-123", name="Test User")
         ctx, mock_sender = self._create_activity_context(from_account=incoming_sender, is_incoming_targeted=True)
         activity = MessageActivityInput(
-            text='<quoted messageId="incoming-activity-id"/> Secret',
-            entities=[QuotedReplyEntity(quoted_reply=QuotedReplyData(message_id="incoming-activity-id"))],
+            text='<quoted messageId="1793257586003"/> Secret',
+            entities=[QuotedReplyEntity(quoted_reply=QuotedReplyData(message_id="1793257586003"))],
         )
 
         await ctx.send(activity)
@@ -488,7 +490,7 @@ class TestActivityContextReply:
         """reply() with a plain string stamps a quotedReply entity and placeholder."""
         mock_activity = MagicMock()
         mock_activity.type = "message"
-        mock_activity.id = "original-id"
+        mock_activity.id = "1793257586001"
         mock_activity.text = "Original message"
 
         ctx, mock_sender = _create_activity_context(activity=mock_activity)
@@ -501,8 +503,8 @@ class TestActivityContextReply:
         assert sent_activity.entities is not None
         assert len(sent_activity.entities) == 1
         assert isinstance(sent_activity.entities[0], QuotedReplyEntity)
-        assert sent_activity.entities[0].quoted_reply.message_id == "original-id"
-        assert '<quoted messageId="original-id"/>' in (sent_activity.text or "")
+        assert sent_activity.entities[0].quoted_reply.message_id == "1793257586001"
+        assert '<quoted messageId="1793257586001"/>' in (sent_activity.text or "")
         assert "My reply" in (sent_activity.text or "")
 
     @pytest.mark.asyncio
@@ -510,7 +512,7 @@ class TestActivityContextReply:
         """reply() with a MessageActivityInput stamps a quotedReply entity."""
         mock_activity = MagicMock()
         mock_activity.type = "message"
-        mock_activity.id = "evt-id-999"
+        mock_activity.id = "1793257586002"
 
         ctx, mock_sender = _create_activity_context(activity=mock_activity)
 
@@ -521,7 +523,115 @@ class TestActivityContextReply:
         sent_activity = mock_sender.send.call_args[0][0]
         assert sent_activity.entities is not None
         assert isinstance(sent_activity.entities[0], QuotedReplyEntity)
-        assert sent_activity.entities[0].quoted_reply.message_id == "evt-id-999"
+        assert sent_activity.entities[0].quoted_reply.message_id == "1793257586002"
+
+    @pytest.mark.asyncio
+    async def test_reply_without_quote_for_service_generated_id(self) -> None:
+        """reply() sends without a quote when the id is a service-generated f: id (card button message)."""
+        mock_activity = MagicMock()
+        mock_activity.type = "message"
+        mock_activity.id = "f:7be43fc9-1111-2222-3333-444455556666"
+
+        ctx, mock_sender = _create_activity_context(activity=mock_activity)
+
+        await ctx.reply("What is up?")
+
+        mock_sender.send.assert_called_once()
+        sent_activity = mock_sender.send.call_args[0][0]
+        assert sent_activity.entities is None
+        assert sent_activity.text == "What is up?"
+
+    @pytest.mark.asyncio
+    async def test_reply_quotes_invoke_with_numeric_id(self) -> None:
+        """reply() decides on the id alone, so an invoke with a numeric id is quoted."""
+        mock_activity = MagicMock()
+        mock_activity.type = "invoke"
+        mock_activity.id = "1793257586722"
+
+        ctx, mock_sender = _create_activity_context(activity=mock_activity)
+
+        await ctx.reply("What is up?")
+
+        sent_activity = mock_sender.send.call_args[0][0]
+        assert sent_activity.text == '<quoted messageId="1793257586722"/> What is up?'
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "activity_id", ["0", "00", "000", "msg-abc", "123abc", "-123", "1.5", " 123", "123\n", "١٢٣", ""]
+    )
+    async def test_reply_without_quote_for_non_numeric_id(self, activity_id: str) -> None:
+        """reply() sends without a quote unless the id is a plain numeric message id that is not all zeros."""
+        mock_activity = MagicMock()
+        mock_activity.type = "message"
+        mock_activity.id = activity_id
+
+        ctx, mock_sender = _create_activity_context(activity=mock_activity)
+
+        await ctx.reply("What is up?")
+
+        sent_activity = mock_sender.send.call_args[0][0]
+        assert sent_activity.entities is None
+        assert sent_activity.text == "What is up?"
+
+    @pytest.mark.asyncio
+    async def test_reply_sends_same_as_send_when_not_quotable(self) -> None:
+        """A guarded reply() produces the same activity and conversation reference as send()."""
+        mock_activity = MagicMock()
+        mock_activity.type = "message"
+        mock_activity.id = "f:7be43fc9-1111-2222-3333-444455556666"
+
+        ctx, mock_sender = _create_activity_context(activity=mock_activity)
+
+        await ctx.reply("What is up?")
+        await ctx.send("What is up?")
+
+        reply_call, send_call = mock_sender.send.call_args_list
+        assert reply_call.args[0] == send_call.args[0]
+        reply_conversation, send_conversation = ctx.api.conversations.activities.call_args_list
+        assert reply_conversation == send_conversation
+
+    @pytest.mark.asyncio
+    async def test_reply_still_quotes_decimal_message_id(self) -> None:
+        """reply() still quotes a message with a decimal id."""
+        mock_activity = MagicMock()
+        mock_activity.type = "message"
+        mock_activity.id = "1793257586722"
+
+        ctx, mock_sender = _create_activity_context(activity=mock_activity)
+
+        await ctx.reply("What is up?")
+
+        sent_activity = mock_sender.send.call_args[0][0]
+        assert sent_activity.text == '<quoted messageId="1793257586722"/> What is up?'
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("activity_type", ["messageUpdate", "messageDelete", "messageReaction"])
+    async def test_reply_still_quotes_message_event_with_decimal_id(self, activity_type: str) -> None:
+        """reply() still quotes edits, deletes and reactions, which carry a decimal message id."""
+        mock_activity = MagicMock()
+        mock_activity.type = activity_type
+        mock_activity.id = "1793257586722"
+
+        ctx, mock_sender = _create_activity_context(activity=mock_activity)
+
+        await ctx.reply("What is up?")
+
+        sent_activity = mock_sender.send.call_args[0][0]
+        assert sent_activity.text == '<quoted messageId="1793257586722"/> What is up?'
+
+    @pytest.mark.asyncio
+    async def test_quote_stamps_explicit_id_on_invoke(self) -> None:
+        """quote() with an explicit message id is unchanged for an invoke."""
+        mock_activity = MagicMock()
+        mock_activity.type = "invoke"
+        mock_activity.id = "f:7be43fc9-1111-2222-3333-444455556666"
+
+        ctx, mock_sender = _create_activity_context(activity=mock_activity)
+
+        await ctx.quote("1793257586722", "What is up?")
+
+        sent_activity = mock_sender.send.call_args[0][0]
+        assert sent_activity.text == '<quoted messageId="1793257586722"/> What is up?'
 
     @pytest.mark.asyncio
     async def test_reply_passes_inbound_agentic_user(self) -> None:
@@ -1334,6 +1444,7 @@ class TestActivityContextPromptPreview:
 
         # quotedReply entities should be stripped by add_targeted_message_info
         assert not any(getattr(e, "type", None) == "quotedReply" for e in sent_activity.entities)
+        assert "<quoted" not in (sent_activity.text or "")
 
     @pytest.mark.asyncio
     async def test_send_does_not_add_entity_for_non_message_activity(self) -> None:
