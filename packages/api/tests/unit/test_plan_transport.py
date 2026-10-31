@@ -6,7 +6,7 @@ Licensed under the MIT License.
 
 import json
 
-import httpx
+import httpx2
 import pytest
 from microsoft_teams.api import ApiClient, MessageActivityInput, PlanInfoEntity, PlanType, Step, TypingActivityInput
 from microsoft_teams.common.http import Client
@@ -19,9 +19,9 @@ async def transport():
 
     def handle(request):
         requests.append(request)
-        return responses.pop(0) if responses else httpx.Response(202)
+        return responses.pop(0) if responses else httpx2.Response(202)
 
-    async with httpx.AsyncClient(transport=httpx.MockTransport(handle)) as http:
+    async with httpx2.AsyncClient(transport=httpx2.MockTransport(handle)) as http:
         yield ApiClient("https://example.com", Client(_http=http)), requests, responses
 
 
@@ -55,7 +55,7 @@ class TestPlanActivityTransport:
     @pytest.mark.parametrize("method", ["create", "reply"])
     async def test_complete_returns_message_id(self, transport, method):
         api, requests, responses = transport
-        responses.append(httpx.Response(201, json={"id": "answer-id"}))
+        responses.append(httpx2.Response(201, json={"id": "answer-id"}))
         activity = MessageActivityInput(
             text="Answer", reply_to_id="prompt", entities=[PlanInfoEntity(plan_type="complete")]
         )
@@ -74,7 +74,7 @@ class TestPlanActivityTransport:
     @pytest.mark.parametrize("method", ["create", "reply"])
     async def test_control_does_not_expose_a_response_activity_id(self, transport, method):
         api, _, responses = transport
-        responses.append(httpx.Response(201, json={"id": "not-a-message"}))
+        responses.append(httpx2.Response(201, json={"id": "not-a-message"}))
         activity = TypingActivityInput(reply_to_id="prompt", entities=[PlanInfoEntity(plan_type="stop")])
         client = api.conversations.activities_client
         if method == "reply":
@@ -86,10 +86,10 @@ class TestPlanActivityTransport:
     async def test_service_error_is_propagated(self, transport):
         api, requests, responses = transport
         error_body = {"error": {"code": "PlanConflict", "message": "Stopped"}}
-        responses.append(httpx.Response(409, json=error_body))
+        responses.append(httpx2.Response(409, json=error_body))
         activity = TypingActivityInput(reply_to_id="prompt", entities=[PlanInfoEntity(plan_type="stop")])
 
-        with pytest.raises(httpx.HTTPStatusError) as error:
+        with pytest.raises(httpx2.HTTPStatusError) as error:
             await api.conversations.create_activity("conversation", activity)
 
         assert error.value.response.status_code == 409
