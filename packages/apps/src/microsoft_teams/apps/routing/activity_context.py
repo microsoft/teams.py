@@ -6,6 +6,7 @@ Licensed under the MIT License.
 import base64
 import json
 import logging
+import re
 from dataclasses import dataclass
 from typing import (
     TYPE_CHECKING,
@@ -79,6 +80,20 @@ if TYPE_CHECKING:
 
 T = TypeVar("T", bound=ActivityBase, contravariant=True)
 logger = logging.getLogger(__name__)
+
+_NUMERIC_MESSAGE_ID = re.compile(r"[0-9]*[1-9][0-9]*")
+
+
+def _is_quotable_activity(activity: ActivityBase) -> bool:
+    """Whether the inbound activity's id is a plain numeric message id.
+
+    Typed messages, edits, deletes and reactions carry a numeric message id.
+    Invokes, and the messages sent by card buttons, carry a service-generated id such as ``f:<guid>``.
+    All-zero ids are rejected.
+    A numeric id does not prove the message exists or can be quoted.
+    It only marks the id as a candidate for an automatic quote.
+    """
+    return _NUMERIC_MESSAGE_ID.fullmatch(activity.id or "") is not None
 
 
 @dataclass
@@ -297,9 +312,13 @@ class ActivityContext(Generic[T]):
 
         In channels, sends to the current thread with a quoted reply.
         In other scopes, sends with a quoted reply.
+        The response is automatically quoted only when the inbound activity id is a plain numeric message id.
+        Otherwise, such as an invoke or a card action whose id is ``f:<guid>``, the activity is sent without a quote.
+        It is then sent exactly like :meth:`send`.
+        Explicit quotes made with :meth:`quote` are unchanged.
         To send without quoting, use :meth:`send`.
         """
-        if self.activity.id:
+        if _is_quotable_activity(self.activity):
             return await self.quote(self.activity.id, input)
         activity = MessageActivityInput(text=input) if isinstance(input, str) else input
         return await self.send(activity)
