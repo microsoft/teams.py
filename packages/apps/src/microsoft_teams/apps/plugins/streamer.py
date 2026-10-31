@@ -6,7 +6,7 @@ Licensed under the MIT License.
 import asyncio
 from typing import Awaitable, Callable, Literal, Optional, Protocol, Union
 
-from httpx import HTTPStatusError
+from httpx2 import HTTPStatusError
 from microsoft_teams.api import MessageActivityInput, SentActivity, TextFormat, TypingActivityInput
 
 StreamerEvent = Literal["chunk", "close"]

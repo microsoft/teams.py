@@ -10,7 +10,7 @@ from contextlib import contextmanager
 from typing import Any, Iterator
 from unittest.mock import AsyncMock, MagicMock, create_autospec, patch
 
-import httpx
+import httpx2
 import pytest
 from microsoft_teams.api import (
     Activity,
@@ -830,14 +830,14 @@ class TestActivityProcessor:
             assert request.url.path == "/v3/conversations/conv-789/activities"
             operations = [entity["planType"] for entity in payload.get("entities", []) if entity["type"] == "planInfo"]
             if operations == ["complete"]:
-                response = httpx.Response(409, json=error_body)
+                response = httpx2.Response(409, json=error_body)
                 rejections.append(response)
                 return response
             if operations == ["stop"]:
-                return httpx.Response(202)
+                return httpx2.Response(202)
             assert not operations
             assert payload["type"] == "typing"
-            return httpx.Response(201, json={"id": "stream-id"})
+            return httpx2.Response(201, json={"id": "stream-id"})
 
         events = EventEmitter[str]()
         sent = asyncio.Queue[ActivitySentEvent]()
@@ -871,7 +871,7 @@ class TestActivityProcessor:
         token = MagicMock(spec=TokenProtocol)
         token.service_url = "https://service.url"
         event = ActivityEvent(body=CoreActivity.model_validate(_message_activity().model_dump()), token=token)
-        async with httpx.AsyncClient(transport=httpx.MockTransport(handle)) as http:
+        async with httpx2.AsyncClient(transport=httpx2.MockTransport(handle)) as http:
             activity_processor.http_client = Client(_http=http)
             response = await activity_processor.process_activity([], event)
             received = [await asyncio.wait_for(sent.get(), timeout=1) for _ in range(2)]
@@ -890,7 +890,7 @@ class TestActivityProcessor:
         assert error.response.status_code == 409
         assert error.response.json() == error_body
         assert error.request is requests[1][0]
-        assert isinstance(error.__cause__, httpx.HTTPStatusError)
+        assert isinstance(error.__cause__, httpx2.HTTPStatusError)
         assert error.__cause__.response is error.response
         assert error.__cause__.request is error.request
         assert str(error) == str(error.__cause__)
