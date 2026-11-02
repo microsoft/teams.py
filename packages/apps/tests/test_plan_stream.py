@@ -10,7 +10,7 @@ import runpy
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import httpx
+import httpx2
 import pytest
 from microsoft_teams.api import (
     Account,
@@ -38,7 +38,7 @@ async def streamed():
 
     def handle(request):
         requests.append((request.method, json.loads(request.content)))
-        return responses.pop(0) if responses else httpx.Response(201, json={"id": "stream-id"})
+        return responses.pop(0) if responses else httpx2.Response(201, json={"id": "stream-id"})
 
     ref = ConversationReference(
         bot=Account(id="bot"),
@@ -47,7 +47,7 @@ async def streamed():
         service_url="https://example.com",
         channel_id="msteams",
     )
-    async with httpx.AsyncClient(transport=httpx.MockTransport(handle)) as http:
+    async with httpx2.AsyncClient(transport=httpx2.MockTransport(handle)) as http:
         yield HttpStream(ApiClient(ref.service_url, Client(_http=http)), ref), requests, responses
 
 
@@ -151,7 +151,7 @@ async def test_final_plan_conflict_retires_cycle_and_allows_reuse(streamed, monk
             "message": "The user stopped this plan. It can no longer be updated or completed.",
         }
     }
-    response = httpx.Response(409, json=error_body)
+    response = httpx2.Response(409, json=error_body)
     responses.append(response)
     send = stream._send
     raised = []
@@ -167,16 +167,19 @@ async def test_final_plan_conflict_retires_cycle_and_allows_reuse(streamed, monk
     sleep = AsyncMock()
     monkeypatch.setattr(asyncio, "sleep", sleep)
 
-    with pytest.raises(PlanConflictStreamError) as error:
+    with pytest.raises(httpx2.HTTPStatusError) as error:
         await stream.close()
 
+    assert isinstance(error.value, PlanConflictStreamError)
     assert raised == [error.value]
     assert raised[0] is error.value
     assert error.value.response is response
+    assert isinstance(error.value.request, httpx2.Request)
+    assert error.value.request is response.request
     assert error.value.response.status_code == 409
     assert error.value.response.json() == error_body
     cause = error.value.__cause__
-    assert isinstance(cause, httpx.HTTPStatusError)
+    assert isinstance(cause, httpx2.HTTPStatusError)
     assert cause.response is response
     assert cause.request is error.value.request
     assert str(error.value) == str(cause)
@@ -199,7 +202,7 @@ async def test_final_plan_conflict_retires_cycle_and_allows_reuse(streamed, monk
     assert len(requests) == 2
     on_close.assert_not_called()
 
-    responses.append(httpx.Response(201, json={"id": "fresh-stream"}))
+    responses.append(httpx2.Response(201, json={"id": "fresh-stream"}))
     if restart == "update":
         stream.update("Fresh status")
         await stream._pending
@@ -228,7 +231,7 @@ async def test_final_conflict_without_plan_keeps_buffer(streamed):
     stream, requests, responses = streamed
     stream.emit("Ordinary answer")
     await stream._pending
-    responses.append(httpx.Response(409, json={"error": {"code": "PlanConflict"}}))
+    responses.append(httpx2.Response(409, json={"error": {"code": "PlanConflict"}}))
 
     with pytest.raises(PlanConflictStreamError):
         await stream.close()
@@ -243,10 +246,10 @@ async def test_final_conflict_without_plan_keeps_buffer(streamed):
 @pytest.mark.parametrize(
     "response",
     [
-        httpx.Response(409, json={"error": {"code": "OtherConflict"}}),
-        httpx.Response(503, json={"error": {"code": "PlanConflict"}}),
-        httpx.Response(409, json={"error": None}),
-        httpx.Response(409),
+        httpx2.Response(409, json={"error": {"code": "OtherConflict"}}),
+        httpx2.Response(503, json={"error": {"code": "PlanConflict"}}),
+        httpx2.Response(409, json={"error": None}),
+        httpx2.Response(409),
     ],
 )
 @pytest.mark.parametrize("exhaust_retries", [False, True])
@@ -255,12 +258,12 @@ async def test_other_errors_still_retry(streamed, monkeypatch, response, exhaust
     stream.emit(MessageActivityInput(text="Answer", entities=[PlanInfoEntity(plan_type="complete")]))
     await stream._pending
     attempts = 5 if exhaust_retries else 1
-    responses.extend(httpx.Response(response.status_code, content=response.content) for _ in range(attempts))
+    responses.extend(httpx2.Response(response.status_code, content=response.content) for _ in range(attempts))
     sleep = AsyncMock()
     monkeypatch.setattr(asyncio, "sleep", sleep)
 
     if exhaust_retries:
-        with pytest.raises(httpx.HTTPStatusError) as error:
+        with pytest.raises(httpx2.HTTPStatusError) as error:
             await stream.close()
         assert error.value.response.status_code == response.status_code
         assert not stream._retired
@@ -288,7 +291,7 @@ async def test_plan_timeout_never_falls_back_to_update(streamed, timeout_during_
     stream.emit(plan.completion().with_text("Answer"))
     await stream._pending
     responses.append(
-        httpx.Response(403, json={"error": {"code": "ServiceError", "message": "exceeded streaming time"}})
+        httpx2.Response(403, json={"error": {"code": "ServiceError", "message": "exceeded streaming time"}})
     )
     if timeout_during_chunk:
         stream.emit(plan.completion().with_text(" continued"))

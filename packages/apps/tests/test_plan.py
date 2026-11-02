@@ -7,7 +7,7 @@ Licensed under the MIT License.
 import json
 from unittest.mock import AsyncMock, MagicMock
 
-import httpx
+import httpx2
 import pytest
 from microsoft_teams.api import (
     Account,
@@ -320,7 +320,7 @@ async def test_plan_uses_runtime_endpoint_and_authenticated_caller(target, agent
 
     def handle(request):
         requests.append(request)
-        return httpx.Response(202)
+        return httpx2.Response(202)
 
     provider = MagicMock(
         spec=["get_app_token", "get_agentic_app_token"],
@@ -332,7 +332,7 @@ async def test_plan_uses_runtime_endpoint_and_authenticated_caller(target, agent
         agentic_app_id="agent",
         tenant_id="tenant",
     )
-    async with httpx.AsyncClient(transport=httpx.MockTransport(handle)) as http:
+    async with httpx2.AsyncClient(transport=httpx2.MockTransport(handle)) as http:
         client = ApiClient(
             "https://different.example.com",
             Client(_http=http),
