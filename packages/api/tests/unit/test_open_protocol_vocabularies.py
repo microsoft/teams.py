@@ -48,7 +48,7 @@ from microsoft_teams.api.models.reaction_feedback import ReactionFeedback
 from microsoft_teams.api.models.search.search_value import SearchInvokeType
 from microsoft_teams.api.models.stream_type import StreamType
 from microsoft_teams.api.models.tab.tab_response import TabResponseType
-from microsoft_teams.api.models.task_module.task_module_task_info import TaskModuleDimension
+from microsoft_teams.api.models.task_module.task_module_task_info import TaskModuleDimension, UrlTaskModuleTaskInfo
 from microsoft_teams.api.models.team_type import TeamType
 from microsoft_teams.api.models.text_format import TextFormat
 from pydantic import TypeAdapter, ValidationError
@@ -192,3 +192,34 @@ def test_attachment_layout_builder_accepts_future_string() -> None:
 
     assert activity.attachment_layout == "futureLayout"
     assert activity.model_dump(by_alias=True, exclude_none=True)["attachmentLayout"] == "futureLayout"
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("field", ["height", "width"])
+@pytest.mark.parametrize(
+    ("wire_value", "expected_value", "expected_type"),
+    [
+        ("600", 600, int),
+        (600, 600, int),
+        ("small", "small", str),
+        ("futureSize", "futureSize", str),
+    ],
+)
+def test_task_module_dimension_preserves_numeric_coercion_and_future_strings(
+    field: str, wire_value: Any, expected_value: Any, expected_type: type[Any]
+) -> None:
+    task_info = UrlTaskModuleTaskInfo.model_validate({"url": "https://example.com", field: wire_value})
+
+    value = getattr(task_info, field)
+    assert value == expected_value
+    assert type(value) is expected_type
+    assert task_info.model_dump(by_alias=True, exclude_none=True)[field] == expected_value
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("payload", [{}, {"height": None, "width": None}])
+def test_task_module_dimension_preserves_optional_behavior(payload: dict[str, Any]) -> None:
+    task_info = UrlTaskModuleTaskInfo.model_validate({"url": "https://example.com", **payload})
+
+    assert task_info.height is None
+    assert task_info.width is None

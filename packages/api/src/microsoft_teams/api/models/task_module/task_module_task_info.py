@@ -3,7 +3,9 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from typing import Literal, Optional, Union
+from typing import Annotated, Literal, Optional, Union
+
+from pydantic import Field
 
 from ..attachment import Attachment
 from ..custom_base_model import CustomBaseModel
@@ -17,10 +19,10 @@ class BaseTaskModuleTaskInfo(CustomBaseModel):
     title: Optional[str] = None
     """Appears below the app name and to the right of the app icon."""
 
-    height: Optional[Union[int, TaskModuleDimension]] = None
+    height: Optional[Annotated[Union[int, TaskModuleDimension], Field(union_mode="left_to_right")]] = None
     """Can be a number (pixels) or string ('small', 'medium', 'large')."""
 
-    width: Optional[Union[int, TaskModuleDimension]] = None
+    width: Optional[Annotated[Union[int, TaskModuleDimension], Field(union_mode="left_to_right")]] = None
     """Can be a number (pixels) or string ('small', 'medium', 'large')."""
 
     fallback_url: Optional[str] = None
