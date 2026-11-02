@@ -4,7 +4,7 @@ Licensed under the MIT License.
 """
 # pyright: basic
 
-import httpx
+import httpx2
 import pytest
 from microsoft_teams.api import ApiClient, TypingActivityInput
 from microsoft_teams.common.http import Client
@@ -17,15 +17,15 @@ async def transport():
 
     def handle(request):
         requests.append(request)
-        return responses.pop(0) if responses else httpx.Response(202)
+        return responses.pop(0) if responses else httpx2.Response(202)
 
-    async with httpx.AsyncClient(transport=httpx.MockTransport(handle)) as http:
+    async with httpx2.AsyncClient(transport=httpx2.MockTransport(handle)) as http:
         yield ApiClient("https://example.com", Client(_http=http)), requests, responses
 
 
 @pytest.mark.unit
 class TestReplyChainWithoutResponseId:
-    @pytest.mark.parametrize("response", [httpx.Response(202), httpx.Response(200, json={})])
+    @pytest.mark.parametrize("response", [httpx2.Response(202), httpx2.Response(200, json={})])
     @pytest.mark.parametrize("targeted", [False, True])
     async def test_typing_without_an_id_in_the_response_returns_the_placeholder(self, transport, response, targeted):
         api, requests, responses = transport
