@@ -81,11 +81,11 @@ class FakeToken(TokenProtocol):
         return "FakeToken"
 
 
-def _http_status_error(status_code: int) -> httpx.HTTPStatusError:
-    return httpx.HTTPStatusError(
+def _http_status_error(status_code: int) -> httpx2.HTTPStatusError:
+    return httpx2.HTTPStatusError(
         "error",
-        request=httpx.Request("POST", "https://example.com"),
-        response=httpx.Response(status_code),
+        request=httpx2.Request("POST", "https://example.com"),
+        response=httpx2.Response(status_code),
     )
 
 
@@ -1276,7 +1276,7 @@ class TestAppReply:
     async def test_reply_with_three_args_throws_and_sends_no_second_request(self, started_app, message_id, status_code):
         started_app.api.conversations._create_reply_chain_activity.side_effect = _http_status_error(status_code)
 
-        with pytest.raises(httpx.HTTPStatusError) as error:
+        with pytest.raises(httpx2.HTTPStatusError) as error:
             await started_app.reply("19:abc@thread.skype", message_id, "Hello")
 
         assert error.value.response.status_code == status_code
@@ -1290,7 +1290,7 @@ class TestAppReply:
             Account(id="user-456", name="Test User", role="user"), is_targeted=True
         )
 
-        with pytest.raises(httpx.HTTPStatusError):
+        with pytest.raises(httpx2.HTTPStatusError):
             await started_app.reply("19:abc@thread.skype", "123", activity)
 
         started_app.api.conversations._create_targeted_reply_chain_activity.assert_called_once()
