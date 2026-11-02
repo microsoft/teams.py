@@ -4,8 +4,9 @@ Licensed under the MIT License.
 """
 
 import asyncio
+import inspect
 import warnings
-from dataclasses import FrozenInstanceError
+from dataclasses import FrozenInstanceError, fields, replace
 from typing import Any, Optional
 
 import pytest
@@ -65,13 +66,14 @@ def make_adapter(
 ) -> tuple[SocketModeAdapter, RecordingPipeline]:
     pipeline = pipeline or RecordingPipeline()
     adapter = SocketModeAdapter(
-        SocketModeOptions(geos=geos, startup_timeout=1, reconnect_delays=(0,)),
+        SocketModeOptions(geos=geos),
         process_activity=pipeline,
         get_app_token=_app_token,
         client_id=client_id,
         on_error=on_error,
         connection_factory=factory,
     )
+    adapter._transport._options = replace(adapter._transport._options, startup_timeout=1, reconnect_delays=(0,))
     return adapter, pipeline
 
 
@@ -402,35 +404,62 @@ def test_serve_static_warns(caplog: pytest.LogCaptureFixture):
     assert "serve_static" in caplog.text
 
 
+def test_options_expose_only_negotiate_base_url_and_geos():
+    expected = {"negotiate_base_url", "geos"}
+
+    assert {field.name for field in fields(SocketModeOptions)} == expected
+    assert set(inspect.signature(SocketModeOptions).parameters) == expected
+
+
+@pytest.mark.parametrize(
+    "name",
+    ["readiness_timeout", "startup_timeout", "reconnect_delays", "keep_alive_interval", "server_timeout"],
+)
+def test_transport_timing_is_not_publicly_configurable(name: str):
+    options = SocketModeOptions()
+    assert not hasattr(options, name)
+    with pytest.raises(FrozenInstanceError):
+        setattr(options, name, 1)
+
+    unsupported: dict[str, Any] = {name: 1}
+    with pytest.raises(TypeError, match=name):
+        SocketModeOptions(**unsupported)
+
+
+def test_options_defaults_preserve_transport_policy():
+    options = SocketModeOptions()
+    transport_options = options.to_transport_options()
+
+    assert transport_options.negotiate_base_url == "https://botapi.skype.com"
+    assert transport_options.geos == ("amer", "emea", "apac")
+    assert transport_options.readiness_timeout == 30
+    assert transport_options.startup_timeout == 30
+    assert transport_options.reconnect_delays is None
+    assert transport_options.keep_alive_interval == 15
+    assert transport_options.server_timeout == 30
+
+
 def test_options_map_onto_transport_options():
+    geos = ["amer"]
     options = SocketModeOptions(
         negotiate_base_url="https://canary.botapi.skype.com",
-        geos=("amer",),
-        readiness_timeout=5,
-        startup_timeout=6,
-        reconnect_delays=(1, 2),
-        keep_alive_interval=7,
-        server_timeout=8,
+        geos=geos,
     )
     transport_options = options.to_transport_options()
+    geos.append("emea")
 
     assert transport_options.negotiate_base_url == "https://canary.botapi.skype.com"
     assert transport_options.geos == ("amer",)
-    assert transport_options.readiness_timeout == 5
-    assert transport_options.startup_timeout == 6
-    assert transport_options.reconnect_delays == (1, 2)
-    assert transport_options.keep_alive_interval == 7
-    assert transport_options.server_timeout == 8
 
 
 def test_socket_mode_options_warn_and_remain_frozen():
     with pytest.warns(ExperimentalWarning, match="SocketModeOptions.*ExperimentalTeamsSocketMode"):
-        options = SocketModeOptions(geos=("amer",), startup_timeout=60)
+        options = SocketModeOptions(geos=("amer",))
 
     assert isinstance(options, SocketModeOptions)
-    assert options.to_transport_options().startup_timeout == 60
+    assert options.geos == ("amer",)
     with pytest.raises(FrozenInstanceError):
-        options.startup_timeout = 30  # pyright: ignore[reportAttributeAccessIssue]
+        options.geos = ("emea",)  # pyright: ignore[reportAttributeAccessIssue]
 
 
 def test_socket_mode_adapter_warns_on_direct_construction():
