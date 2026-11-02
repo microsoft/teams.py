@@ -7,7 +7,7 @@ import asyncio
 import json
 from typing import Awaitable, Callable, Optional, Union
 
-import httpx
+import httpx2
 import pytest
 from microsoft_teams.apps.socket_mode import connection as connection_module
 from microsoft_teams.apps.socket_mode.connection import (
@@ -44,14 +44,14 @@ class MockWebSocket:
         self.incoming.put_nowait(ConnectionError("closed"))
 
 
-def make_http_client(*, hub_url: str = "https://signalr.example/client/?hub=teams") -> httpx.AsyncClient:
-    def handler(request: httpx.Request) -> httpx.Response:
+def make_http_client(*, hub_url: str = "https://signalr.example/client/?hub=teams") -> httpx2.AsyncClient:
+    def handler(request: httpx2.Request) -> httpx2.Response:
         if request.url.host == "botapi.example":
-            return httpx.Response(
+            return httpx2.Response(
                 200,
                 json={"url": hub_url, "accessToken": "signalr-token", "expiresIn": 120},
             )
-        return httpx.Response(
+        return httpx2.Response(
             200,
             json={
                 "connectionToken": "connection-token",
@@ -59,7 +59,7 @@ def make_http_client(*, hub_url: str = "https://signalr.example/client/?hub=team
             },
         )
 
-    return httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    return httpx2.AsyncClient(transport=httpx2.MockTransport(handler))
 
 
 def make_handlers(
@@ -699,7 +699,7 @@ def _activity_message(name: str, deadline_ms: int) -> dict[str, object]:
 async def _start_connection(
     websocket: MockWebSocket,
     on_activity: Callable[[SocketActivityEnvelope], Awaitable[Optional[ReplyFrame]]],
-    client: httpx.AsyncClient,
+    client: httpx2.AsyncClient,
 ) -> SignalRSocketConnection:
     connection = SignalRSocketConnection(
         make_context(),

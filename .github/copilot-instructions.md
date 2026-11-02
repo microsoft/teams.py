@@ -121,6 +121,12 @@ Available test apps for development and validation:
 2. **Run affected tests**: `pytest packages/[package-name]` for specific package (or `uv run pytest packages/[package-name]`)
 3. **Validate with test app**: Use `examples/echo` for basic functionality validation (starts a blocking server process)
 
+### Public API Documentation
+- Every new or changed public class, constructor, method, property, and exposed event must include a docstring.
+- Public docstrings must describe the API's behavior, parameters, side effects, and any relevant return values or exceptions.
+- Event emitters should document the event name, payload shape, and when the event fires.
+- When a public API is updated, keep its docstring aligned with the implementation and do not leave a public surface undocumented.
+
 ### Test Quality
 - Tests should be thoughtfully created to exercise the intended purpose, not just to turn green. When possible, do red-green tests: confirm the test fails when the behavior is wrong and passes when it is right, so it actually guards the behavior it claims to.
 - Consider mocking carefully. The goal is to guard against regressions for the intended behavior, so mocks should mirror the real contract (types, shapes, and edge values like `None`) rather than a simplified stand-in that a broken implementation could still satisfy.

@@ -9,7 +9,7 @@ from collections import OrderedDict
 from dataclasses import replace
 from typing import Any, Awaitable, Callable, Iterator, List, Mapping, Optional, Sequence, Tuple, TypeVar, Union
 
-from httpx import HTTPStatusError
+from httpx2 import HTTPStatusError
 from microsoft_teams.api import GetUserTokenParams, SignOutUserParams
 
 from .diagnostics._constants import APP_OAUTH_OPERATIONS, APP_OAUTH_RESULTS

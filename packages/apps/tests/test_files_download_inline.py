@@ -8,7 +8,7 @@ Licensed under the MIT License.
 import json
 from typing import List, Optional
 
-import httpx
+import httpx2
 import pytest
 from microsoft_teams.api import ConversationType
 from microsoft_teams.apps.files.download import (
@@ -41,16 +41,16 @@ class _Recorder:
         self._status = status
         self._body = body
         self._content_type = content_type
-        self.calls: List[httpx.Request] = []
+        self.calls: List[httpx2.Request] = []
 
-    def handler(self, request: httpx.Request) -> httpx.Response:
+    def handler(self, request: httpx2.Request) -> httpx2.Response:
         self.calls.append(request)
         headers = {"content-type": self._content_type} if self._content_type else {}
-        return httpx.Response(self._status, content=self._body or b"", headers=headers)
+        return httpx2.Response(self._status, content=self._body or b"", headers=headers)
 
     @property
-    def client(self) -> httpx.AsyncClient:
-        return httpx.AsyncClient(transport=httpx.MockTransport(self.handler))
+    def client(self) -> httpx2.AsyncClient:
+        return httpx2.AsyncClient(transport=httpx2.MockTransport(self.handler))
 
     def auth_of(self, index: int) -> Optional[str]:
         return self.calls[index].headers.get("Authorization")
@@ -436,11 +436,11 @@ class _InlineRedirectRecorder(_Recorder):
         super().__init__()
         self._location = location
 
-    def handler(self, request: httpx.Request) -> httpx.Response:
+    def handler(self, request: httpx2.Request) -> httpx2.Response:
         self.calls.append(request)
         if len(self.calls) == 1:
-            return httpx.Response(302, headers={"location": self._location})
-        return httpx.Response(200, content=PNG)
+            return httpx2.Response(302, headers={"location": self._location})
+        return httpx2.Response(200, content=PNG)
 
 
 @pytest.mark.asyncio

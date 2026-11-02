@@ -4,7 +4,7 @@ Licensed under the MIT License.
 """
 
 from dataclasses import dataclass
-from typing import Any, Dict, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, Optional, Union
 
 from microsoft_teams.api import (
     Activity,
@@ -19,7 +19,8 @@ from microsoft_teams.api import (
 )
 from pydantic import BaseModel, ConfigDict
 
-from ..routing import ActivityContext
+if TYPE_CHECKING:
+    from ..routing import ActivityContext
 
 
 class CoreActivity(BaseModel):
@@ -114,8 +115,8 @@ class StopEvent:
 @dataclass
 class SignInEvent:
     activity_ctx: Union[
-        ActivityContext[SignInVerifyStateInvokeActivity],
-        ActivityContext[SignInTokenExchangeInvokeActivity],
+        "ActivityContext[SignInVerifyStateInvokeActivity]",
+        "ActivityContext[SignInTokenExchangeInvokeActivity]",
     ]
     token_response: TokenResponse
     connection_name: Optional[str] = None
@@ -124,9 +125,9 @@ class SignInEvent:
 @dataclass
 class SignInFailureEvent:
     activity_ctx: Union[
-        ActivityContext[SignInFailureInvokeActivity],
-        ActivityContext[SignInVerifyStateInvokeActivity],
-        ActivityContext[SignInTokenExchangeInvokeActivity],
+        "ActivityContext[SignInFailureInvokeActivity]",
+        "ActivityContext[SignInVerifyStateInvokeActivity]",
+        "ActivityContext[SignInTokenExchangeInvokeActivity]",
     ]
     connection_name: Optional[str] = None
     code: Optional[str] = None

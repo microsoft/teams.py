@@ -7,7 +7,7 @@ Licensed under the MIT License.
 
 from typing import List, Optional
 
-import httpx
+import httpx2
 import pytest
 from microsoft_teams.api import (
     FILE_DOWNLOAD_INFO_CONTENT_TYPE,
@@ -176,11 +176,11 @@ async def test_threads_the_shared_client_into_every_mapped_file() -> None:
     """The injected client must reach the download path; otherwise each download builds its own connection pool."""
     calls: List[str] = []
 
-    def handler(request: httpx.Request) -> httpx.Response:
+    def handler(request: httpx2.Request) -> httpx2.Response:
         calls.append(str(request.url))
-        return httpx.Response(200, content=b"shared", headers={"content-type": "text/plain"})
+        return httpx2.Response(200, content=b"shared", headers={"content-type": "text/plain"})
 
-    shared = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    shared = httpx2.AsyncClient(transport=httpx2.MockTransport(handler))
     attachment = Attachment(
         content_type=FILE_DOWNLOAD_INFO_CONTENT_TYPE,
         name="notes.txt",
@@ -200,14 +200,14 @@ async def test_threads_the_shared_client_into_every_mapped_file() -> None:
 
 async def test_falls_back_to_a_private_client_when_none_is_injected() -> None:
     """Omitting the client must still download, through a private client the download path creates and then closes."""
-    created: List[httpx.AsyncClient] = []
-    real_client_cls = httpx.AsyncClient
+    created: List[httpx2.AsyncClient] = []
+    real_client_cls = httpx2.AsyncClient
 
-    def handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(200, content=b"private", headers={"content-type": "text/plain"})
+    def handler(request: httpx2.Request) -> httpx2.Response:
+        return httpx2.Response(200, content=b"private", headers={"content-type": "text/plain"})
 
-    def fake_client_cls(*_args: object, **_kwargs: object) -> httpx.AsyncClient:
-        client = real_client_cls(transport=httpx.MockTransport(handler))
+    def fake_client_cls(*_args: object, **_kwargs: object) -> httpx2.AsyncClient:
+        client = real_client_cls(transport=httpx2.MockTransport(handler))
         created.append(client)
         return client
 
@@ -218,7 +218,7 @@ async def test_falls_back_to_a_private_client_when_none_is_injected() -> None:
     )
 
     with pytest.MonkeyPatch.context() as monkeypatch:
-        monkeypatch.setattr(download.httpx, "AsyncClient", fake_client_cls)
+        monkeypatch.setattr(download.httpx2, "AsyncClient", fake_client_cls)
         files = await FilesAccessor(_activity_with([attachment])).list()
         downloaded = await files[0].download()
 
@@ -237,14 +237,14 @@ async def test_closes_a_private_client_even_when_the_download_fails() -> None:
     than an edge. The close lives in a `finally`, and a regression that moved it inside the `try` would leak a client
     per failed download while leaving the success test green.
     """
-    created: List[httpx.AsyncClient] = []
-    real_client_cls = httpx.AsyncClient
+    created: List[httpx2.AsyncClient] = []
+    real_client_cls = httpx2.AsyncClient
 
-    def handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(401)
+    def handler(request: httpx2.Request) -> httpx2.Response:
+        return httpx2.Response(401)
 
-    def fake_client_cls(*_args: object, **_kwargs: object) -> httpx.AsyncClient:
-        client = real_client_cls(transport=httpx.MockTransport(handler))
+    def fake_client_cls(*_args: object, **_kwargs: object) -> httpx2.AsyncClient:
+        client = real_client_cls(transport=httpx2.MockTransport(handler))
         created.append(client)
         return client
 
@@ -255,7 +255,7 @@ async def test_closes_a_private_client_even_when_the_download_fails() -> None:
     )
 
     with pytest.MonkeyPatch.context() as monkeypatch:
-        monkeypatch.setattr(download.httpx, "AsyncClient", fake_client_cls)
+        monkeypatch.setattr(download.httpx2, "AsyncClient", fake_client_cls)
         files = await FilesAccessor(_activity_with([attachment])).list()
 
         with pytest.raises(FileUrlExpiredError):
@@ -272,12 +272,12 @@ async def test_does_not_forward_the_shared_clients_authorization_header() -> Non
     """
     seen: List[Optional[str]] = []
 
-    def handler(request: httpx.Request) -> httpx.Response:
+    def handler(request: httpx2.Request) -> httpx2.Response:
         seen.append(request.headers.get("authorization"))
-        return httpx.Response(200, content=b"ok", headers={"content-type": "text/plain"})
+        return httpx2.Response(200, content=b"ok", headers={"content-type": "text/plain"})
 
-    shared = httpx.AsyncClient(
-        transport=httpx.MockTransport(handler),
+    shared = httpx2.AsyncClient(
+        transport=httpx2.MockTransport(handler),
         headers={"Authorization": "Bearer super-secret-app-token", "User-Agent": "teams.py-test/1.0"},
     )
     attachment = Attachment(
@@ -299,12 +299,12 @@ async def test_preserves_the_shared_clients_other_default_headers() -> None:
     """Stripping `Authorization` must not cost us the rest of the client's configuration."""
     seen: List[Optional[str]] = []
 
-    def handler(request: httpx.Request) -> httpx.Response:
+    def handler(request: httpx2.Request) -> httpx2.Response:
         seen.append(request.headers.get("user-agent"))
-        return httpx.Response(200, content=b"ok", headers={"content-type": "text/plain"})
+        return httpx2.Response(200, content=b"ok", headers={"content-type": "text/plain"})
 
-    shared = httpx.AsyncClient(
-        transport=httpx.MockTransport(handler),
+    shared = httpx2.AsyncClient(
+        transport=httpx2.MockTransport(handler),
         headers={"Authorization": "Bearer super-secret-app-token", "User-Agent": "teams.py-test/1.0"},
     )
     attachment = Attachment(
@@ -327,16 +327,16 @@ async def test_downloads_a_group_chat_file_surfaced_for_an_agentic_user_through_
     The accessor and the dispatcher share one scope check. This walks both, so a group chat file an agentic user's
     `list()` surfaces is shown to also download, through Graph and as the agent.
     """
-    requests: List[httpx.Request] = []
+    requests: List[httpx2.Request] = []
 
-    def handler(request: httpx.Request) -> httpx.Response:
+    def handler(request: httpx2.Request) -> httpx2.Response:
         requests.append(request)
-        return httpx.Response(200, content=b"agentic bytes", headers={"content-type": "text/plain"})
+        return httpx2.Response(200, content=b"agentic bytes", headers={"content-type": "text/plain"})
 
     async def resolve() -> Optional[str]:
         return "agent-token"
 
-    shared = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    shared = httpx2.AsyncClient(transport=httpx2.MockTransport(handler))
     # Unencoded, spaces included, the way the platform delivers it.
     content_url = "https://contoso.sharepoint.com/personal/a/Documents/Microsoft Teams Chat Files/report.txt"
     attachment = Attachment(
@@ -372,7 +372,7 @@ class TestAdditivity:
     async def test_files_accessor_still_accepts_its_pre_credential_positional_shape(self):
         # A real client rather than `None`, because `None` is valid in either slot and so cannot detect a reorder.
         # `FilesAccessor.__init__` is not keyword-only, so the second positional must stay `client`.
-        client = httpx.AsyncClient()
+        client = httpx2.AsyncClient()
 
         try:
             accessor = FilesAccessor(_activity_with([]), client)

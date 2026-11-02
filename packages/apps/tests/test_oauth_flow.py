@@ -11,7 +11,7 @@ from typing import Any, Generator
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from httpx import HTTPStatusError, Request, Response
+from httpx2 import HTTPStatusError, Request, Response
 from microsoft_teams.apps import App, OAuthFlow, OAuthFlowRegistry
 from microsoft_teams.apps.routing import SignInOptions
 from microsoft_teams.apps.state import StateOptions, TurnStateLoader
@@ -52,7 +52,7 @@ def _api_ctx() -> MagicMock:
 
 
 def _http_status_error(status_code: int) -> HTTPStatusError:
-    """Build an httpx.HTTPStatusError carrying the given status code."""
+    """Build an httpx2.HTTPStatusError carrying the given status code."""
     request = Request("GET", "https://token.example/api/usertoken/GetToken")
     response = Response(status_code, request=request)
     return HTTPStatusError(f"HTTP {status_code}", request=request, response=response)

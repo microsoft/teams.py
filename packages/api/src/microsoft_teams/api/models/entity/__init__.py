@@ -18,6 +18,7 @@ from .entity import Entity  # noqa: F401
 from .entity_base import EntityBase
 from .mention_entity import MentionEntity
 from .message_entity import MessageEntity
+from .plan_info_entity import PlanInfoEntity, PlanType, Step, StepSource, StepStatus
 from .product_info_entity import ProductInfoEntity
 from .quoted_reply_entity import QuotedReplyData, QuotedReplyEntity
 from .sensitive_usage_entity import SensitiveUsage, SensitiveUsageEntity, SensitiveUsagePattern
@@ -38,6 +39,11 @@ __all__ = [
     "EntityBase",
     "MentionEntity",
     "MessageEntity",
+    "PlanInfoEntity",
+    "PlanType",
+    "Step",
+    "StepSource",
+    "StepStatus",
     "ProductInfoEntity",
     "QuotedReplyData",
     "QuotedReplyEntity",

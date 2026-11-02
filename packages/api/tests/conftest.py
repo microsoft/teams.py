@@ -9,7 +9,7 @@ import os
 from pathlib import Path
 from typing import Any, Optional
 
-import httpx
+import httpx2
 import pytest
 from dotenv import load_dotenv
 from microsoft_teams.api import (
@@ -34,7 +34,7 @@ except ImportError:
 def mock_transport():
     """Create a mock HTTP transport for testing."""
 
-    def handler(request: httpx.Request) -> httpx.Response:
+    def handler(request: httpx2.Request) -> httpx2.Response:
         # Default response
         response_data: Any = {
             "ok": True,
@@ -223,13 +223,13 @@ def mock_transport():
             # These endpoints typically return 200 with empty response or minimal response
             response_data = {"ok": True}
 
-        return httpx.Response(
+        return httpx2.Response(
             status_code=200,
             json=response_data,
             headers={"content-type": "application/json"},
         )
 
-    return httpx.MockTransport(handler)
+    return httpx2.MockTransport(handler)
 
 
 @pytest.fixture
@@ -237,16 +237,16 @@ def mock_http_client(mock_transport):
     """Create a mock HTTP client with transport."""
     client = Client(
         ClientOptions(base_url="https://mock.api.com"),
-        _http=httpx.AsyncClient(transport=mock_transport, base_url="https://mock.api.com"),
+        _http=httpx2.AsyncClient(transport=mock_transport, base_url="https://mock.api.com", timeout=None),
     )
-    return client
+    return _preserve_test_transport_on_clone(client, mock_transport)
 
 
-def _preserve_test_transport_on_clone(client: Client, transport: httpx.MockTransport) -> Client:
+def _preserve_test_transport_on_clone(client: Client, transport: httpx2.MockTransport) -> Client:
     def clone(overrides: Optional[ClientOptions] = None, *, share_http: bool = False) -> Client:
         cloned = Client.clone(client, overrides, share_http=share_http)
         if not share_http:
-            cloned.http = httpx.AsyncClient(
+            cloned.http = httpx2.AsyncClient(
                 transport=transport,
                 base_url=cloned.http.base_url,
                 headers=cloned.http.headers,
@@ -272,9 +272,9 @@ def request_capture():
         """Helper class to capture request details."""
 
         def __init__(self):
-            self.requests: list[httpx.Request] = []
+            self.requests: list[httpx2.Request] = []
 
-        def handler(self, request: httpx.Request) -> httpx.Response:
+        def handler(self, request: httpx2.Request) -> httpx2.Response:
             """Handler that captures requests and returns mock responses."""
             self.requests.append(request)
 
@@ -358,14 +358,14 @@ def request_capture():
                         }
                     ]
 
-            return httpx.Response(
+            return httpx2.Response(
                 status_code=200,
                 json=response_data,
                 headers={"content-type": "application/json"},
             )
 
         @property
-        def last_request(self) -> httpx.Request | None:
+        def last_request(self) -> httpx2.Request | None:
             """Get the last captured request."""
             return self.requests[-1] if self.requests else None
 
@@ -374,10 +374,10 @@ def request_capture():
             self.requests.clear()
 
     capture = RequestCapture()
-    transport = httpx.MockTransport(capture.handler)
+    transport = httpx2.MockTransport(capture.handler)
     client = Client(
         ClientOptions(base_url="https://mock.api.com"),
-        _http=httpx.AsyncClient(transport=transport, base_url="https://mock.api.com"),
+        _http=httpx2.AsyncClient(base_url="https://mock.api.com", transport=transport, timeout=None),
     )
     _preserve_test_transport_on_clone(client, transport)
     client._capture = capture  # type: ignore[attr-defined]  # Attach for test access

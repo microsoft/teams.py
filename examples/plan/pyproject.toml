@@ -1,0 +1,15 @@
+[project]
+name = "plan"
+version = "0.1.0"
+description = "Plan test app that showcases plans and steps"
+readme = "README.md"
+requires-python = ">=3.11,<4.0"
+dependencies = [
+    "dotenv>=0.9.9",
+    "microsoft-teams-apps",
+    "microsoft-teams-api",
+]
+
+[tool.uv.sources]
+microsoft-teams-apps = { workspace = true }
+microsoft-teams-api = { workspace = true }

@@ -9,7 +9,7 @@ from contextlib import contextmanager
 from typing import Any, Iterator
 from unittest.mock import AsyncMock, call, patch
 
-import httpx
+import httpx2
 import pytest
 from microsoft_teams.api.auth.cloud_environment import PUBLIC, with_overrides
 from microsoft_teams.api.clients import ApiClient
@@ -681,18 +681,20 @@ class TestConversationActivityOperations:
 
     async def test_api_client_middleware_invokes_response_hook(self):
         tracer = RecordingTracer()
-        hook_responses: list[httpx.Response] = []
+        hook_responses: list[httpx2.Response] = []
 
-        def handler(request: httpx.Request) -> httpx.Response:
-            return httpx.Response(200, json={"id": "response-id"}, headers={"content-type": "application/json"})
+        def handler(request: httpx2.Request) -> httpx2.Response:
+            return httpx2.Response(200, json={"id": "response-id"}, headers={"content-type": "application/json"})
 
         http_client = Client(
             ClientOptions(base_url="https://test.service.url"),
-            _http=httpx.AsyncClient(transport=httpx.MockTransport(handler), base_url="https://test.service.url"),
+            _http=httpx2.AsyncClient(
+                base_url="https://test.service.url", transport=httpx2.MockTransport(handler), timeout=None
+            ),
         )
         api_client = ApiClient("https://test.service.url", http_client)
 
-        async def on_response(span: Span, response: httpx.Response) -> None:
+        async def on_response(span: Span, response: httpx2.Response) -> None:
             hook_responses.append(response)
             span.set_attribute("hook.attribute", str(response.json()["id"]))
 
@@ -716,18 +718,20 @@ class TestConversationActivityOperations:
 
     async def test_api_client_middleware_swallows_response_hook_failure(self):
         tracer = RecordingTracer()
-        response = httpx.Response(200, json={"id": "response-id"}, headers={"content-type": "application/json"})
+        response = httpx2.Response(200, json={"id": "response-id"}, headers={"content-type": "application/json"})
 
-        def handler(request: httpx.Request) -> httpx.Response:
+        def handler(request: httpx2.Request) -> httpx2.Response:
             return response
 
         http_client = Client(
             ClientOptions(base_url="https://test.service.url"),
-            _http=httpx.AsyncClient(transport=httpx.MockTransport(handler), base_url="https://test.service.url"),
+            _http=httpx2.AsyncClient(
+                base_url="https://test.service.url", transport=httpx2.MockTransport(handler), timeout=None
+            ),
         )
         api_client = ApiClient("https://test.service.url", http_client)
 
-        async def on_response(span: Span, response: httpx.Response) -> None:
+        async def on_response(span: Span, response: httpx2.Response) -> None:
             raise RuntimeError("hook failed")
 
         with (
@@ -856,12 +860,14 @@ class TestConversationActivityOperations:
         tracer = RecordingTracer()
         error = RuntimeError("send failed")
 
-        def handler(request: httpx.Request) -> httpx.Response:
+        def handler(request: httpx2.Request) -> httpx2.Response:
             raise error
 
         http_client = Client(
             ClientOptions(base_url="https://mock.api.com"),
-            _http=httpx.AsyncClient(transport=httpx.MockTransport(handler), base_url="https://mock.api.com"),
+            _http=httpx2.AsyncClient(
+                base_url="https://mock.api.com", transport=httpx2.MockTransport(handler), timeout=None
+            ),
         )
         client = ConversationClient("https://test.service.url", http_client)
 
@@ -1154,7 +1160,7 @@ class TestConversationMemberOperations:
         client = ConversationClient(service_url, mock_http_client)
         members = client.members("test_conversation_id")
 
-        mock_response = httpx.Response(
+        mock_response = httpx2.Response(
             200,
             json={"members": [], "continuationToken": None},
             headers={"content-type": "application/json"},

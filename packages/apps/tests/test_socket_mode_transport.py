@@ -7,7 +7,7 @@ import asyncio
 import logging
 from typing import AsyncIterator, Callable, Optional
 
-import httpx
+import httpx2
 import pytest
 from microsoft_teams.apps.socket_mode import connection as connection_module
 from microsoft_teams.apps.socket_mode import geo_socket
@@ -144,15 +144,15 @@ class GatedCloseWebSocket(MockWebSocket):
 
 @pytest.fixture
 async def gated_socket_transport() -> AsyncIterator[
-    tuple[SocketModeTransport, GatedCloseWebSocket, asyncio.Queue[httpx.Response]]
+    tuple[SocketModeTransport, GatedCloseWebSocket, asyncio.Queue[httpx2.Response]]
 ]:
     websocket = GatedCloseWebSocket()
     websocket.incoming.put_nowait(
         encode_hub_message({}) + encode_hub_message({"type": 1, "target": "SocketReady", "arguments": [{}]})
     )
-    responses: asyncio.Queue[httpx.Response] = asyncio.Queue()
+    responses: asyncio.Queue[httpx2.Response] = asyncio.Queue()
     responses.put_nowait(
-        httpx.Response(200, json={"url": "wss://signalr.example/client", "accessToken": "token", "expiresIn": 3600})
+        httpx2.Response(200, json={"url": "wss://signalr.example/client", "accessToken": "token", "expiresIn": 3600})
     )
 
     async def open_socket(_: str) -> GatedCloseWebSocket:
@@ -161,7 +161,7 @@ async def gated_socket_transport() -> AsyncIterator[
     async def on_activity(_: SocketActivityEnvelope) -> Optional[ReplyFrame]:
         return None
 
-    async with httpx.AsyncClient(transport=httpx.MockTransport(lambda _: responses.get_nowait())) as client:
+    async with httpx2.AsyncClient(transport=httpx2.MockTransport(lambda _: responses.get_nowait())) as client:
         transport = SocketModeTransport(
             SocketModeTransportOptions(geos=("amer",), reconnect_delays=(0,)),
             get_bot_token=lambda: _token("token"),
@@ -228,8 +228,8 @@ async def test_transport_starts_all_geos_and_stops_every_connection():
 async def test_socket_ids_remain_independent_across_geos_and_handoff(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(geo_socket, "CONNECTION_HANDOFF_SECONDS", 30.0)
     sockets: dict[str, list[MockWebSocket]] = {"amer": [], "emea": []}
-    service_requests: list[httpx.Request] = []
-    signalr_requests: list[httpx.Request] = []
+    service_requests: list[httpx2.Request] = []
+    signalr_requests: list[httpx2.Request] = []
     issued_tokens: list[str] = []
     socket_tokens: list[str] = []
     fail_next_open = False
@@ -244,10 +244,10 @@ async def test_socket_ids_remain_independent_across_geos_and_handoff(monkeypatch
             await asyncio.Future()
         return ReplyFrame(status=200)
 
-    def negotiate(request: httpx.Request) -> httpx.Response:
+    def negotiate(request: httpx2.Request) -> httpx2.Response:
         if request.url.host == "signalr.example":
             signalr_requests.append(request)
-            return httpx.Response(
+            return httpx2.Response(
                 200,
                 json={
                     "connectionToken": "connection-token",
@@ -257,14 +257,14 @@ async def test_socket_ids_remain_independent_across_geos_and_handoff(monkeypatch
         service_requests.append(request)
         geo = request.url.path.split("/")[1]
         issued_tokens.append(f"service-token-{len(service_requests)}")
-        return httpx.Response(
+        return httpx2.Response(
             200,
             json={"url": f"https://signalr.example/{geo}", "accessToken": issued_tokens[-1], "expiresIn": 3600},
         )
 
     async def open_socket(url: str) -> MockWebSocket:
         nonlocal fail_next_open
-        endpoint = httpx.URL(url)
+        endpoint = httpx2.URL(url)
         socket_tokens.append(endpoint.params["access_token"])
         if fail_next_open:
             fail_next_open = False
@@ -284,7 +284,7 @@ async def test_socket_ids_remain_independent_across_geos_and_handoff(monkeypatch
         )
         return websocket
 
-    async with httpx.AsyncClient(transport=httpx.MockTransport(negotiate)) as client:
+    async with httpx2.AsyncClient(transport=httpx2.MockTransport(negotiate)) as client:
         transport = SocketModeTransport(
             SocketModeTransportOptions(geos=("amer", "emea"), reconnect_delays=(0,)),
             get_bot_token=lambda: _token("token"),
@@ -408,11 +408,11 @@ async def test_refresh_rechecks_predecessor_before_negotiate(predecessor_state: 
             await token_release.wait()
         return "token"
 
-    def negotiate(request: httpx.Request) -> httpx.Response:
+    def negotiate(request: httpx2.Request) -> httpx2.Response:
         replacement_ids.append(request.headers.get("x-ms-socket-replaces-connection-id"))
         if len(replacement_ids) == 2:
-            return httpx.Response(429, headers={"Retry-After": "15"})
-        return httpx.Response(
+            return httpx2.Response(429, headers={"Retry-After": "15"})
+        return httpx2.Response(
             200,
             json={
                 "url": "wss://signalr.example/amer",
@@ -422,7 +422,7 @@ async def test_refresh_rechecks_predecessor_before_negotiate(predecessor_state: 
         )
 
     async def open_socket(url: str) -> MockWebSocket:
-        socket_tokens.append(httpx.URL(url).params["access_token"])
+        socket_tokens.append(httpx2.URL(url).params["access_token"])
         websocket = predecessor if not sockets else MockWebSocket()
         connection_id = old_id if not sockets else "new-server-id"
         sockets.append(websocket)
@@ -436,7 +436,7 @@ async def test_refresh_rechecks_predecessor_before_negotiate(predecessor_state: 
         dispatched.append(envelope.envelope_id)
         return ReplyFrame(status=200, envelope_id=envelope.envelope_id)
 
-    async with httpx.AsyncClient(transport=httpx.MockTransport(negotiate)) as client:
+    async with httpx2.AsyncClient(transport=httpx2.MockTransport(negotiate)) as client:
         transport = SocketModeTransport(
             SocketModeTransportOptions(geos=("amer",), reconnect_delays=(0,)),
             get_bot_token=token,
@@ -1179,7 +1179,7 @@ async def test_terminal_refresh_closes_active_and_retiring_connections(monkeypat
 @pytest.mark.parametrize("status", [401, 403, None], ids=["unauthorized", "forbidden", "retirement"])
 @pytest.mark.asyncio
 async def test_geo_cleanup_survives_concurrent_transport_stop(
-    gated_socket_transport: tuple[SocketModeTransport, GatedCloseWebSocket, asyncio.Queue[httpx.Response]],
+    gated_socket_transport: tuple[SocketModeTransport, GatedCloseWebSocket, asyncio.Queue[httpx2.Response]],
     status: Optional[int],
     monkeypatch: pytest.MonkeyPatch,
 ):
@@ -1204,10 +1204,13 @@ async def test_geo_cleanup_survives_concurrent_transport_stop(
 
         transport._websocket_factory = open_replacement
         responses.put_nowait(
-            httpx.Response(200, json={"url": "wss://signalr.example/client", "accessToken": "fresh", "expiresIn": 3600})
+            httpx2.Response(
+                200,
+                json={"url": "wss://signalr.example/client", "accessToken": "fresh", "expiresIn": 3600},
+            )
         )
     else:
-        responses.put_nowait(httpx.Response(status))
+        responses.put_nowait(httpx2.Response(status))
     closed.set_result(geo_socket._CloseReason(planned=True))
     await asyncio.wait_for(websocket.close_started.wait(), 1)
 
@@ -1231,7 +1234,7 @@ async def test_geo_cleanup_survives_concurrent_transport_stop(
 @pytest.mark.parametrize("server_close", [False, True], ids=["local-stop", "server-close"])
 @pytest.mark.asyncio
 async def test_cancelled_stop_waiter_does_not_cancel_shared_socket_cleanup(
-    gated_socket_transport: tuple[SocketModeTransport, GatedCloseWebSocket, asyncio.Queue[httpx.Response]],
+    gated_socket_transport: tuple[SocketModeTransport, GatedCloseWebSocket, asyncio.Queue[httpx2.Response]],
     server_close: bool,
 ):
     transport, websocket, _ = gated_socket_transport

@@ -6,7 +6,7 @@ Licensed under the MIT License.
 
 from unittest.mock import AsyncMock, patch
 
-import httpx
+import httpx2
 import pytest
 from microsoft_teams.api.auth.cloud_environment import PUBLIC
 from microsoft_teams.api.clients import ApiClient
@@ -91,7 +91,7 @@ class TestMeetingClient:
             .meetings
         )
 
-        meeting_response = httpx.Response(
+        meeting_response = httpx2.Response(
             200,
             json={
                 "id": "meeting-id",
@@ -110,7 +110,7 @@ class TestMeetingClient:
 
         mock_get.assert_called_once_with("https://override.service.url/v1/meetings/meeting-id")
 
-        participant_response = httpx.Response(
+        participant_response = httpx2.Response(
             200,
             json={"user": {"id": "participant-id"}},
             headers={"content-type": "application/json"},
@@ -130,7 +130,7 @@ class TestMeetingClient:
                 surfaces=[MeetingNotificationSurface(surface="meetingTabIcon", tab_entity_id="test")],
             )
         )
-        notification_response = httpx.Response(202, content=b"", headers={"content-type": "application/json"})
+        notification_response = httpx2.Response(202, content=b"", headers={"content-type": "application/json"})
         with patch.object(client.http, "post", new_callable=AsyncMock, return_value=notification_response) as mock_post:
             await client.send_notification("meeting-id", params)
 
@@ -209,7 +209,7 @@ class TestMeetingClient:
             )
         )
 
-        partial_failure_response = httpx.Response(
+        partial_failure_response = httpx2.Response(
             207,
             json={
                 "recipientsFailureInfo": [
@@ -233,8 +233,6 @@ class TestMeetingClient:
     @pytest.mark.asyncio
     async def test_send_notification_full_success(self, mock_http_client):
         """Test send_notification returns None on full success (HTTP 202, empty body)."""
-        import httpx
-
         service_url = "https://test.service.url"
         client = MeetingClient(service_url, mock_http_client)
 
@@ -245,7 +243,7 @@ class TestMeetingClient:
             )
         )
 
-        empty_response = httpx.Response(202, content=b"", headers={"content-type": "application/json"})
+        empty_response = httpx2.Response(202, content=b"", headers={"content-type": "application/json"})
         with patch.object(mock_http_client, "post", new_callable=AsyncMock, return_value=empty_response):
             result = await client.send_notification("mock_meeting_id", params)
 

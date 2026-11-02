@@ -9,6 +9,7 @@ from microsoft_teams.api import (
     ApiClient,
     ConversationReference,
     MessageActivityInput,
+    PlanInfoEntity,
     SentActivity,
 )
 
@@ -27,6 +28,8 @@ async def send_or_update_activity(
         and activity.recipient.is_targeted is True
     )
 
+    contains_plan = any(isinstance(entity, PlanInfoEntity) for entity in activity.entities or [])
+
     activity.from_ = ref.bot
     activity.conversation = ref.conversation
     scoped_api = (
@@ -34,7 +37,7 @@ async def send_or_update_activity(
         if agentic_identity is None and ref.service_url.rstrip("/") == api.service_url
         else api.clone(service_url=ref.service_url, agentic_identity=agentic_identity)
     )
-    if activity.id:
+    if activity.id and not contains_plan:
         activity_id = activity.id
         if is_targeted:
             # The recipient of an existing targeted message cannot be edited, so it only selects the
