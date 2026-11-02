@@ -22,6 +22,7 @@ class ReplyChainInfo(CustomBaseModel):
 
     id: Optional[str] = None
     """
-    The id of the message at the root of the reply chain (thread).
-    Use it as the reply chain id when replying in a reply chain (e.g. threading).
+    The id of the message at the root of the reply chain (thread), for example `1793384051102`.
+    For a top-level message it equals the message's own id.
+    Use it as the reply chain id when replying in a reply chain, together with `chat.id` or `channel.id`.
     """

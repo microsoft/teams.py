@@ -36,7 +36,8 @@ class ChatInfo(CustomBaseModel):
 
     id: Optional[str] = None
     """
-    The id of the chat scope, without any reply chain (thread).
+    The id of the chat scope, without any reply chain (thread), for example `19:<guid>_<guid>@unq.gbl.spaces` (1:1 chat)
+    or `19:<id>@thread.v2` (group chat).
     This is the unencrypted id, and it can differ from `conversation.id`.
     It is not sent for channels, where `channel_data.channel.id` plays this role.
     Use it as the conversation id to send a top-level message to the chat scope, or to reply in a reply chain.

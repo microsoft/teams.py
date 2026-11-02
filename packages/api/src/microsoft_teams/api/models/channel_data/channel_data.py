@@ -36,6 +36,13 @@ class ChannelData(CustomBaseModel):
     """
     Information about the chat scope that contains the activity.
 
+    Present for activities in a 1:1 chat, a group chat or a meeting chat.
+    Not sent for channels, where `channel` is used.
+    `chat.id` is the chat's id without any reply chain (thread).
+    Example: `19:<guid>_<guid>@unq.gbl.spaces` for a 1:1 chat, or `19:<id>@thread.v2` for a group chat.
+    It can differ from `conversation.id`, which is opaque.
+    Use it as the conversation id when sending a top-level message to the chat or replying in a reply chain.
+
     This API is in preview and may change in the future.
     Diagnostic: ExperimentalTeamsThreading
     """
@@ -43,6 +50,10 @@ class ChannelData(CustomBaseModel):
     reply_chain: Optional[ReplyChainInfo] = None
     """
     The reply chain (thread) the activity belongs to, identified by its root message.
+
+    `reply_chain.id` is the id of the message at the root of the chain, for example `1793384051102`.
+    For a top-level message it equals the message's own id. For a message in a thread it is the id of the thread's root.
+    The SDK uses it, with `chat.id` or `channel.id`, to place a response in the thread.
 
     This API is in preview and may change in the future.
     Diagnostic: ExperimentalTeamsThreading
