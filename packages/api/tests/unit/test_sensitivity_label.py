@@ -4,7 +4,8 @@ Licensed under the MIT License.
 """
 # pyright: basic
 
-from typing import Any
+from itertools import permutations
+from typing import Any, Callable
 
 import pytest
 from microsoft_teams.api.activities.message import MessageActivityInput
@@ -24,6 +25,98 @@ def _root_entities(activity: MessageActivityInput) -> list[dict[str, Any]]:
     return [
         e for e in _entities(activity) if e.get("type") == "https://schema.org/Message" and e.get("@type") == "Message"
     ]
+
+
+class TestAddSensitivityLabel:
+    def test_sets_usage_info_on_root_message_entity(self) -> None:
+        activity = MessageActivityInput(text="hi").add_sensitivity_label(SensitivityUsageInfo(at_id="label-id"))
+
+        assert _entities(activity) == [
+            {
+                "type": "https://schema.org/Message",
+                "@type": "Message",
+                "@context": "https://schema.org",
+                "@id": "",
+                "usageInfo": {"@type": "CreativeWork", "@id": "label-id"},
+            }
+        ]
+
+    def test_includes_optional_name_and_description(self) -> None:
+        activity = MessageActivityInput(text="hi").add_sensitivity_label(
+            SensitivityUsageInfo(at_id="label-id", name="Confidential", description="Internal only")
+        )
+
+        assert _root_entities(activity)[0]["usageInfo"] == {
+            "@type": "CreativeWork",
+            "@id": "label-id",
+            "name": "Confidential",
+            "description": "Internal only",
+        }
+
+    def test_preserves_position(self) -> None:
+        activity = MessageActivityInput(text="hi").add_sensitivity_label(
+            SensitivityUsageInfo(at_id="label-id", position=2)
+        )
+
+        assert _root_entities(activity)[0]["usageInfo"] == {"@type": "CreativeWork", "@id": "label-id", "position": 2}
+
+    def test_copies_label(self) -> None:
+        label = SensitivityUsageInfo(at_id="label-id", name="Confidential")
+        activity = MessageActivityInput(text="hi").add_sensitivity_label(label)
+
+        label.name = "Changed"
+
+        assert _root_entities(activity)[0]["usageInfo"]["name"] == "Confidential"
+
+    def test_passes_through_custom_type(self) -> None:
+        activity = MessageActivityInput(text="hi").add_sensitivity_label(
+            SensitivityUsageInfo(at_type="CustomType", at_id="label-id")
+        )
+
+        assert _root_entities(activity)[0]["usageInfo"] == {"@type": "CustomType", "@id": "label-id"}
+
+    def test_second_call_replaces_first(self) -> None:
+        activity = (
+            MessageActivityInput(text="hi")
+            .add_sensitivity_label(SensitivityUsageInfo(at_id="first", name="First"))
+            .add_sensitivity_label(SensitivityUsageInfo(at_id="second"))
+        )
+
+        roots = _root_entities(activity)
+        assert len(roots) == 1
+        assert roots[0]["usageInfo"] == {"@type": "CreativeWork", "@id": "second"}
+
+    @pytest.mark.parametrize("order", list(permutations(["label", "ai", "citation"])))
+    def test_combined_with_ai_and_citation_keeps_single_root_entity(self, order: tuple[str, ...]) -> None:
+        activity = MessageActivityInput(text="hi")
+        steps: dict[str, Callable[[], Any]] = {
+            "label": lambda: activity.add_sensitivity_label(SensitivityUsageInfo(at_id="label-id")),
+            "ai": activity.add_ai_generated,
+            "citation": lambda: activity.add_citation(1, CitationAppearance(name="doc", abstract="abstract")),
+        }
+        for step in order:
+            steps[step]()
+
+        entities = _entities(activity)
+        roots = _root_entities(activity)
+        assert len(entities) == 1
+        assert len(roots) == 1
+        assert roots[0]["usageInfo"] == {"@type": "CreativeWork", "@id": "label-id"}
+        assert roots[0]["additionalType"] == ["AIGeneratedContent"]
+        assert len(roots[0]["citation"]) == 1
+
+    def test_round_trips_through_deserialization(self) -> None:
+        activity = (
+            MessageActivityInput(text="hi")
+            .add_ai_generated()
+            .add_citation(1, CitationAppearance(name="doc", abstract="abstract"))
+            .add_sensitivity_label(SensitivityUsageInfo(at_id="label-id"))
+        )
+        payload = activity.model_dump(by_alias=True, exclude_none=True)
+
+        parsed = MessageActivityInput.model_validate(payload)
+
+        assert parsed.model_dump(by_alias=True, exclude_none=True)["entities"] == payload["entities"]
 
 
 class TestCitationUsageInfo:
