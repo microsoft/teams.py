@@ -78,7 +78,16 @@ class ChannelData(CustomBaseModel):
     "Information about the settings in which the message was sent."
 
     source: Optional[SourceInfo] = None
-    "Information about the source of the activity."
+    """
+    Where the activity was fired or invoked from.
+
+    Observed on activities from a card button (`name` is `message`), from feedback on a message (`message`),
+    and from a compose extension action, including a message action, and the dialogs it opens (`compose`).
+    The SDK treats a message that carries a non-empty `source.name` as sent by a card button.
+
+    This API is in preview and may change in the future.
+    Diagnostic: ExperimentalTeamsThreading
+    """
 
     feedback_loop_enabled: Optional[bool] = None
     """
