@@ -17,28 +17,16 @@ from microsoft_teams.api.models.html_widget import (
     McpUiTextContent,
 )
 from microsoft_teams.apps.utils.html_widget import (
-    DisplayMode,
     HtmlWidgetMarkdownOptions,
-    InjectWidgetProtocolOptions,
-    WidgetNotification,
     build_html_widget_markdown,
     build_html_widget_message,
-    inject_widget_protocol,
     try_get_widget_model_context,
     validate_security_policy,
 )
 from microsoft_teams.common.experimental import ExperimentalWarning
-from pydantic import TypeAdapter
 
 # Suppress ExperimentalWarning in all widget tests
 warnings.filterwarnings("ignore", category=ExperimentalWarning)
-
-
-@pytest.mark.parametrize("vocabulary", [DisplayMode, WidgetNotification])
-def test_widget_protocol_vocabulary_accepts_unknown_and_known_values(vocabulary: Any):
-    adapter = TypeAdapter(vocabulary)
-
-    assert adapter.validate_python("futureValue") == "futureValue"
 
 
 # ---------------------------------------------------------------------------
@@ -100,23 +88,10 @@ class TestBuildHtmlWidgetMarkdown:
         assert result.startswith("```html-widget\n")
         assert result.endswith("\n```")
 
-    def test_auto_injects_widget_protocol(self):
+    def test_sends_html_unchanged(self):
         result = build_html_widget_markdown(MINIMAL_PAYLOAD)
         parsed = _parse_widget_json(result)
-        assert "ui/initialize" in parsed["html"]
-        assert "<div>Hello</div>" in parsed["html"]
-
-    def test_no_double_inject_if_already_has_protocol(self):
-        html_with_init = "<div>Hello</div><script>window.parent.postMessage({method:'ui/initialize'},'*')</script>"
-        payload = MINIMAL_PAYLOAD.model_copy(update={"html": html_with_init})
-        result = build_html_widget_markdown(payload)
-        parsed = _parse_widget_json(result)
-        assert parsed["html"] == html_with_init
-
-    def test_uses_payload_name_as_protocol_app_name(self):
-        result = build_html_widget_markdown(MINIMAL_PAYLOAD)
-        parsed = _parse_widget_json(result)
-        assert "name:'Test Widget'" in parsed["html"]
+        assert parsed["html"] == "<div>Hello</div>"
 
     def test_includes_text_before_widget(self):
         opts = HtmlWidgetMarkdownOptions(before="Check this out:")
@@ -134,25 +109,16 @@ class TestBuildHtmlWidgetMarkdown:
         assert result.startswith("Before\n\n```html-widget\n")
         assert result.endswith("\n```\n\nAfter")
 
-    def test_forwards_protocol_options(self):
-        opts = HtmlWidgetMarkdownOptions(protocol_options=InjectWidgetProtocolOptions(notifications=["tool-result"]))
-        result = build_html_widget_markdown(MINIMAL_PAYLOAD, opts)
-        parsed = _parse_widget_json(result)
-        assert "ui/notifications/tool-result" in parsed["html"]
-        assert "window.onToolResult" in parsed["html"]
+    def test_serializes_mcp_url_and_correlation_id_when_set(self):
+        payload = MINIMAL_PAYLOAD.model_copy(update={"mcp_url": "mcp.example.com", "correlation_id": "abc.1"})
+        parsed = _parse_widget_json(build_html_widget_markdown(payload))
+        assert parsed["mcpUrl"] == "mcp.example.com"
+        assert parsed["correlationId"] == "abc.1"
 
-    def test_forwards_debug_csp_violations(self):
-        opts = HtmlWidgetMarkdownOptions(protocol_options=InjectWidgetProtocolOptions(debug_csp_violations=True))
-        result = build_html_widget_markdown(MINIMAL_PAYLOAD, opts)
-        parsed = _parse_widget_json(result)
-        assert "securitypolicyviolation" in parsed["html"]
-
-    def test_uses_payload_name_even_with_protocol_options(self):
-        opts = HtmlWidgetMarkdownOptions(protocol_options=InjectWidgetProtocolOptions(version="2.0.0"))
-        result = build_html_widget_markdown(MINIMAL_PAYLOAD, opts)
-        parsed = _parse_widget_json(result)
-        assert "name:'Test Widget'" in parsed["html"]
-        assert "version:'2.0.0'" in parsed["html"]
+    def test_omits_mcp_url_and_correlation_id_when_unset(self):
+        parsed = _parse_widget_json(build_html_widget_markdown(MINIMAL_PAYLOAD))
+        assert "mcpUrl" not in parsed
+        assert "correlationId" not in parsed
 
     def test_serializes_full_payload_with_all_fields(self):
         result = build_html_widget_markdown(FULL_PAYLOAD)
@@ -160,8 +126,7 @@ class TestBuildHtmlWidgetMarkdown:
         assert parsed["type"] == "widget/mcp-ui"
         assert parsed["name"] == "Weather Widget"
         assert parsed["description"] == "Current weather conditions"
-        assert '<div class="weather">72F</div>' in parsed["html"]
-        assert "ui/initialize" in parsed["html"]
+        assert parsed["html"] == '<div class="weather">72F</div>'
         assert parsed["domain"] == "https://weather.example.com"
         assert parsed["securityPolicy"]["connectDomains"] == ["https://api.example.com"]
         assert parsed["toolInput"] == {"location": "Seattle, WA"}
@@ -253,167 +218,16 @@ class TestBuildHtmlWidgetMessage:
 
 
 # ---------------------------------------------------------------------------
-# inject_widget_protocol
-# ---------------------------------------------------------------------------
-
-
-class TestInjectWidgetProtocol:
-    BARE_HTML = "<body><h1>Hello</h1></body>"
-    BARE_HTML_NO_BODY = "<h1>Hello</h1>"
-
-    def test_injects_protocol_before_body_close(self):
-        result = inject_widget_protocol(self.BARE_HTML)
-        assert "ui/initialize" in result
-        assert "ui/notifications/size-changed" in result
-        assert "ui/notifications/initialized" in result
-        assert "</body>" in result
-        script_idx = result.index("ui/initialize")
-        body_idx = result.index("</body>")
-        assert script_idx < body_idx
-
-    def test_reports_robust_content_height(self):
-        # The size reporter must measure the taller of documentElement/body and
-        # round up, so trailing margins and sub-pixel content are never clipped.
-        result = inject_widget_protocol(self.BARE_HTML)
-        assert "height:Math.ceil(Math.max(document.documentElement.scrollHeight,document.body.scrollHeight))" in result
-        # Guard against regressing to the old body-only measurement.
-        assert "height:document.body.scrollHeight}" not in result
-
-    def test_appends_script_if_no_body_tag(self):
-        result = inject_widget_protocol(self.BARE_HTML_NO_BODY)
-        assert "ui/initialize" in result
-        assert "<h1>Hello</h1>" in result
-
-    def test_uses_custom_name_and_version(self):
-        opts = InjectWidgetProtocolOptions(name="my-widget", version="2.0.0")
-        result = inject_widget_protocol(self.BARE_HTML, opts)
-        assert "name:'my-widget'" in result
-        assert "version:'2.0.0'" in result
-
-    def test_uses_default_name_and_version(self):
-        result = inject_widget_protocol(self.BARE_HTML)
-        assert "name:'widget'" in result
-        assert "version:'1.0.0'" in result
-
-    def test_does_not_modify_html_with_existing_protocol(self):
-        html_with_init = "<body><script>window.parent.postMessage({method:'ui/initialize'},'*')</script></body>"
-        result = inject_widget_protocol(html_with_init)
-        assert result == html_with_init
-
-    def test_still_injects_when_ui_initialize_only_mentioned(self):
-        html_mentioning_init = "<body><!-- ui/initialize --><p>ui/initialize</p></body>"
-        result = inject_widget_protocol(html_mentioning_init)
-        assert result != html_mentioning_init
-        assert "method:'ui/initialize'" in result
-
-    def test_is_idempotent(self):
-        first = inject_widget_protocol(self.BARE_HTML)
-        second = inject_widget_protocol(first)
-        assert second == first
-
-    def test_handles_empty_html(self):
-        result = inject_widget_protocol("")
-        assert "ui/initialize" in result
-        assert "<script>" in result
-
-    def test_injects_in_full_html_document(self):
-        full_doc = '<!DOCTYPE html><html><head><meta charset="utf-8"></head><body><div>Content</div></body></html>'
-        result = inject_widget_protocol(full_doc)
-        assert "ui/initialize" in result
-        content_idx = result.index("Content</div>")
-        script_idx = result.index("<script>")
-        body_idx = result.index("</body>")
-        assert content_idx < script_idx
-        assert script_idx < body_idx
-
-    def test_matches_body_tag_naively(self):
-        html = "<body><!-- </body> --><p>Real content</p></body>"
-        result = inject_widget_protocol(html)
-        assert "ui/initialize" in result
-        script_idx = result.index("<script>")
-        comment_idx = result.index("<!-- ")
-        assert script_idx > comment_idx
-
-    def test_notification_hooks_opt_in(self):
-        opts = InjectWidgetProtocolOptions(notifications=["tool-result", "tool-input", "host-context-changed"])
-        with_hooks = inject_widget_protocol(self.BARE_HTML, opts)
-        assert "ui/notifications/tool-result" in with_hooks
-        assert "window.onToolResult" in with_hooks
-        assert "ui/notifications/tool-input" in with_hooks
-        assert "window.onToolInput" in with_hooks
-        assert "ui/notifications/host-context-changed" in with_hooks
-        assert "window.onHostContextChanged" in with_hooks
-
-        without_hooks = inject_widget_protocol(self.BARE_HTML)
-        assert "onToolResult" not in without_hooks
-        assert "onToolInput" not in without_hooks
-        assert "onHostContextChanged" not in without_hooks
-
-    def test_ignores_unknown_notification_names(self):
-        opts = InjectWidgetProtocolOptions(notifications=["some-future-event"])
-        result = inject_widget_protocol(self.BARE_HTML, opts)
-        assert "ui/notifications/some-future-event" not in result
-        assert "onSomeFutureEvent" not in result
-
-    def test_all_known_notification_types(self):
-        opts = InjectWidgetProtocolOptions(
-            notifications=[
-                "tool-result",
-                "tool-input",
-                "tool-input-partial",
-                "tool-cancelled",
-                "host-context-changed",
-                "resource-teardown",
-            ]
-        )
-        result = inject_widget_protocol(self.BARE_HTML, opts)
-        assert "ui/notifications/tool-result" in result
-        assert "window.onToolResult" in result
-        assert "ui/notifications/tool-input-partial" in result
-        assert "window.onToolInputPartial" in result
-        assert "ui/notifications/tool-cancelled" in result
-        assert "window.onToolCancelled" in result
-        assert "ui/notifications/resource-teardown" in result
-        assert "window.onResourceTeardown" in result
-
-    def test_includes_available_display_modes(self):
-        opts = InjectWidgetProtocolOptions(available_display_modes=["inline", "fullscreen"])
-        result = inject_widget_protocol(self.BARE_HTML, opts)
-        assert "availableDisplayModes" in result
-        assert json.dumps(["inline", "fullscreen"]) in result
-
-    def test_omits_available_display_modes_when_not_provided(self):
-        result = inject_widget_protocol(self.BARE_HTML)
-        assert "availableDisplayModes" not in result
-        assert "appCapabilities:{}" in result
-
-
-# ---------------------------------------------------------------------------
 # build_html_widget_markdown integration
 # ---------------------------------------------------------------------------
 
 
 class TestBuildHtmlWidgetMarkdownIntegration:
-    def test_injects_protocol_using_payload_name(self):
-        payload = HtmlWidgetPayload(
-            name="My Custom Widget",
-            html="<body><p>Hello</p></body>",
-            domain="https://example.com",
-        )
-        result = build_html_widget_markdown(payload)
-        parsed = _parse_widget_json(result)
-        assert "name:'My Custom Widget'" in parsed["html"]
-
-    def test_no_double_inject_with_existing_protocol(self):
-        html_with_protocol = "<body><script>window.parent.postMessage({method:'ui/initialize'},'*')</script></body>"
-        payload = HtmlWidgetPayload(
-            name="Test",
-            html=html_with_protocol,
-            domain="https://example.com",
-        )
-        result = build_html_widget_markdown(payload)
-        parsed = _parse_widget_json(result)
-        assert parsed["html"] == html_with_protocol
+    def test_sends_html_unchanged(self):
+        html = "<body><p>Hello</p></body>"
+        payload = HtmlWidgetPayload(name="My Custom Widget", html=html, domain="https://example.com")
+        parsed = _parse_widget_json(build_html_widget_markdown(payload))
+        assert parsed["html"] == html
 
     def test_produces_valid_output_with_minimal_payload(self):
         payload = HtmlWidgetPayload(
@@ -425,10 +239,9 @@ class TestBuildHtmlWidgetMarkdownIntegration:
         assert result.startswith("```html-widget\n")
         assert result.endswith("\n```")
         parsed = _parse_widget_json(result)
-        assert "ui/initialize" in parsed["html"]
-        assert "<p>minimal</p>" in parsed["html"]
+        assert parsed["html"] == "<p>minimal</p>"
 
-    def test_message_with_protocol_e2e(self):
+    def test_message_e2e(self):
         payload = HtmlWidgetPayload(
             name="E2E Widget",
             html="<body><div>test</div></body>",
@@ -439,8 +252,8 @@ class TestBuildHtmlWidgetMarkdownIntegration:
         assert msg.text_format == "extendedmarkdown"
         assert msg.text is not None
         parsed = _parse_widget_json(msg.text)
-        assert "ui/initialize" in parsed["html"]
-        assert "name:'E2E Widget'" in parsed["html"]
+        assert parsed["html"] == "<body><div>test</div></body>"
+        assert "<script>" not in parsed["html"]
 
 
 # ---------------------------------------------------------------------------
@@ -767,87 +580,6 @@ class TestValidateSecurityPolicy:
         assert len(warnings) == 1
 
 
-# ---------------------------------------------------------------------------
-# debugCspViolations
-# ---------------------------------------------------------------------------
-
-
-class TestDebugCspViolations:
-    def test_injects_csp_listener_when_enabled(self):
-        opts = InjectWidgetProtocolOptions(debug_csp_violations=True)
-        result = inject_widget_protocol("<body><p>Hello</p></body>", opts)
-        assert "securitypolicyviolation" in result
-        assert "blockedURI" in result
-        assert "violatedDirective" in result
-
-    def test_does_not_inject_by_default(self):
-        result = inject_widget_protocol("<body><p>Hello</p></body>")
-        assert "securitypolicyviolation" not in result
-
-    def test_does_not_inject_when_explicitly_false(self):
-        opts = InjectWidgetProtocolOptions(debug_csp_violations=False)
-        result = inject_widget_protocol("<body><p>Hello</p></body>", opts)
-        assert "securitypolicyviolation" not in result
-
-
-class TestScriptInjectionPrevention:
-    def test_escapes_script_close_tag_in_name(self):
-        """Prevents </script> in name from breaking out of the inline script."""
-        opts = InjectWidgetProtocolOptions(name="</script><img src=x onerror=alert(1)>")
-        result = inject_widget_protocol("<body></body>", opts)
-        # Only one </script> should exist (the injected protocol's closing tag)
-        import re
-
-        script_tags = re.findall(r"</script>", result, re.IGNORECASE)
-        assert len(script_tags) == 1
-        assert "<\\/script>" in result
-
-    def test_escapes_script_close_tag_in_version(self):
-        """Prevents </script> in version from breaking out."""
-        opts = InjectWidgetProtocolOptions(version='</script><svg onload=fetch("/steal")>')
-        result = inject_widget_protocol("<body></body>", opts)
-        import re
-
-        script_tags = re.findall(r"</script>", result, re.IGNORECASE)
-        assert len(script_tags) == 1
-
-    def test_escapes_newlines_in_name(self):
-        """Prevents newlines from breaking JS string literals."""
-        opts = InjectWidgetProtocolOptions(name="line1\nline2\rline3")
-        result = inject_widget_protocol("<body></body>", opts)
-        # Extract script content
-        import re
-
-        script_match = re.search(r"<script>(.*?)</script>", result, re.DOTALL | re.IGNORECASE)
-        assert script_match is not None
-        script_content = script_match.group(1)
-        # No raw newlines inside the script
-        assert "\n" not in script_content
-        assert "\\n" in script_content
-        assert "\\r" in script_content
-
-
-class TestOptionsImmutability:
-    def test_does_not_mutate_protocol_options(self):
-        """buildHtmlWidgetMarkdown should not mutate the caller's protocolOptions."""
-        proto_opts = InjectWidgetProtocolOptions(version="2.0.0", notifications=["tool-result"])
-        options = HtmlWidgetMarkdownOptions(protocol_options=proto_opts)
-        payload = HtmlWidgetPayload(
-            name="MutationTest",
-            html="<body>hi</body>",
-            domain="https://example.com",
-        )
-        build_html_widget_markdown(payload, options)
-        # The original proto_opts.name should remain unchanged
-        assert proto_opts.name is None
-
-
-class TestProtocolVersion:
-    def test_embeds_correct_mcp_protocol_version(self):
-        result = inject_widget_protocol("<body></body>")
-        assert "protocolVersion:'2026-01-26'" in result
-
-
 class TestSubdomainMatching:
     def test_allows_subdomain_when_parent_in_policy(self):
         html = '<script src="https://cdn.example.com/lib.js"></script>'
@@ -858,31 +590,6 @@ class TestSubdomainMatching:
         html = '<script src="https://notexample.com/lib.js"></script>'
         warnings = validate_security_policy(html, HtmlWidgetSecurityPolicy(resource_domains=["https://example.com"]))
         assert len(warnings) == 1
-
-
-class TestUnicodeInWidgetName:
-    def test_passes_unicode_through_correctly(self):
-        opts = InjectWidgetProtocolOptions(name="Widget \u2764\ufe0f")
-        result = inject_widget_protocol("<body></body>", opts)
-        assert "name:'Widget \u2764\ufe0f'" in result
-
-
-class TestSnapshotFullInjectedScript:
-    def test_matches_expected_protocol_script_output(self, snapshot):
-        opts = InjectWidgetProtocolOptions(
-            name="My Widget",
-            version="2.0.0",
-            available_display_modes=["inline", "fullscreen"],
-            notifications=["tool-result", "tool-input"],
-            debug_csp_violations=True,
-        )
-        result = inject_widget_protocol("<body><h1>Hello</h1></body>", opts)
-
-        import re
-
-        match = re.search(r"<script>(.*?)</script>", result, re.DOTALL | re.IGNORECASE)
-        assert match is not None
-        assert match.group(1) == snapshot
 
 
 # ---------------------------------------------------------------------------
