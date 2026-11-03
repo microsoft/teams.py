@@ -11,9 +11,11 @@ from typing import Any
 
 import pytest
 from microsoft_teams.api.models.html_widget import (
+    HtmlWidgetCallToolResponse,
     HtmlWidgetPayload,
     HtmlWidgetPermissions,
     HtmlWidgetSecurityPolicy,
+    McpUiCallToolResult,
     McpUiTextContent,
 )
 from microsoft_teams.apps.utils.html_widget import (
@@ -27,6 +29,25 @@ from microsoft_teams.common.experimental import ExperimentalWarning
 
 # Suppress ExperimentalWarning in all widget tests
 warnings.filterwarnings("ignore", category=ExperimentalWarning)
+
+
+class TestCallToolResultDefaults:
+    def test_empty_result_serializes_defaults(self):
+        dumped = McpUiCallToolResult().model_dump(by_alias=True, exclude_none=True)
+        assert dumped == {"content": [], "structuredContent": {}, "isError": False}
+
+    def test_explicit_none_falls_back_to_defaults(self):
+        result = McpUiCallToolResult.model_validate({"content": None, "structuredContent": None, "isError": None})
+        assert result.model_dump(by_alias=True, exclude_none=True) == {
+            "content": [],
+            "structuredContent": {},
+            "isError": False,
+        }
+
+    def test_response_envelope_keeps_defaults(self):
+        response = HtmlWidgetCallToolResponse(call_tool_result=McpUiCallToolResult())
+        dumped = response.model_dump(by_alias=True, exclude_none=True)
+        assert dumped["callToolResult"] == {"content": [], "structuredContent": {}, "isError": False}
 
 
 # ---------------------------------------------------------------------------

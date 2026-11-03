@@ -3,10 +3,10 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from typing import Annotated, Any, Literal, Optional, Union
+from typing import Annotated, Any, Literal, Union
 
 from microsoft_teams.common.experimental import experimental
-from pydantic import Field
+from pydantic import Field, field_validator
 
 from ..custom_base_model import CustomBaseModel
 
@@ -72,17 +72,35 @@ class McpUiCallToolResult(CustomBaseModel):
     The result of a widget's tools/call request, returned by the bot
     in response to an htmlwidget/calltool invoke activity.
 
+    The result is always serialized with content, structuredContent and isError set (defaults [], {} and false),
+    because omitted fields can reach the widget as null.
+
     Diagnostic: ExperimentalTeamsHtmlWidget
     """
 
-    content: Optional[list[McpUiCallToolResultContent]] = None
+    content: list[McpUiCallToolResultContent] = Field(default_factory=lambda: [])
     """An array of content items to return to the widget."""
 
-    structured_content: Optional[Any] = None
+    structured_content: Any = Field(default_factory=dict)
     """Structured data that the widget can render from."""
 
-    is_error: Optional[bool] = None
+    is_error: bool = False
     """Whether the tool call resulted in an error."""
+
+    @field_validator("content", mode="before")
+    @classmethod
+    def _default_content(cls, value: Any) -> Any:
+        return [] if value is None else value
+
+    @field_validator("structured_content", mode="before")
+    @classmethod
+    def _default_structured_content(cls, value: Any) -> Any:
+        return {} if value is None else value
+
+    @field_validator("is_error", mode="before")
+    @classmethod
+    def _default_is_error(cls, value: Any) -> Any:
+        return False if value is None else value
 
 
 @experimental("ExperimentalTeamsHtmlWidget")
