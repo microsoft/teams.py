@@ -22,11 +22,18 @@ class SensitiveUsagePattern(CustomBaseModel):
 class SensitiveUsage(CustomBaseModel):
     """Sensitive usage information"""
 
-    type: Literal["https://schema.org/Message"] = "https://schema.org/Message"
+    type: Optional[Literal["https://schema.org/Message"]] = None
+    """
+    .. deprecated::
+        Not part of the usageInfo contract.
+    """
 
-    at_type: Literal["CreativeWork"]
+    at_type: str = "CreativeWork"
 
-    name: str
+    at_id: Optional[str] = None
+    "The Purview sensitivity label ID"
+
+    name: Optional[str] = None
     "Title of the content"
 
     description: Optional[str] = None

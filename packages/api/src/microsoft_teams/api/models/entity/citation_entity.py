@@ -7,9 +7,12 @@ from enum import Enum
 from typing import Annotated, Any, List, Literal, Optional, Union
 
 from pydantic import Field, field_validator
+from typing_extensions import deprecated
 
 from ..custom_base_model import CustomBaseModel
 from .message_entity import MessageEntity
+from .sensitive_usage_entity import SensitiveUsage
+from .sensitivity_usage_info import SensitivityUsageInfo
 
 
 class CitationIconName(str, Enum):
@@ -36,20 +39,15 @@ class CitationIconName(str, Enum):
     PDF = "PDF"
 
 
-class CitationUsageInfo(CustomBaseModel):
+@deprecated("CitationUsageInfo is deprecated. Use SensitivityUsageInfo instead.")
+class CitationUsageInfo(SensitivityUsageInfo):
     """Sensitivity content information"""
 
-    at_id: str
-    "Unique identifier for the usage info"
-
-    description: str
-    "Description of the usage info"
-
-    name: str
+    name: str = Field(...)  # pyright: ignore[reportGeneralTypeIssues]
     "Name of the usage info"
 
-    position: Optional[int] = None
-    "Position of the usage info"
+    description: str = Field(...)  # pyright: ignore[reportGeneralTypeIssues]
+    "Description of the usage info"
 
 
 class Image(CustomBaseModel):
@@ -105,7 +103,7 @@ class CitationAppearance(CustomBaseModel):
     keywords: Optional[List[str]] = None
     "Keywords (max length 3) (max keyword length 28)"
 
-    usage_info: Optional[CitationUsageInfo] = None
+    usage_info: Optional[SensitivityUsageInfo] = None
     "Sensitivity content information"
 
 
@@ -162,8 +160,13 @@ class Appearance(CustomBaseModel):
     keywords: Optional[List[str]] = None
     "Keywords (max length 3) (max keyword length 28)"
 
-    usage_info: Optional[CitationUsageInfo] = None
-    "Sensitivity content information"
+    usage_info: Optional[Annotated[Union[SensitivityUsageInfo, SensitiveUsage], Field(union_mode="left_to_right")]] = (
+        None
+    )
+    """
+    Sensitivity content information.
+    An inbound label without `@id` parses as `SensitiveUsage`.
+    """
 
 
 class Claim(CustomBaseModel):

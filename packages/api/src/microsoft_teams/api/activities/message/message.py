@@ -35,6 +35,7 @@ from ...models.entity import (
     Entity,
     Image,
     MessageEntity,
+    SensitivityUsageInfo,
     TargetedMessageInfoEntity,
 )
 from ..utils import StripMentionsTextOptions, strip_mentions_text
@@ -341,7 +342,17 @@ class MessageActivityInput(_MessageBase, ActivityInputBase):
         return self
 
     def add_citation(self, position: int, appearance: CitationAppearance) -> Self:
-        """Add citations."""
+        """
+        Add a citation to the message.
+        Copies `appearance.usage_info` onto the citation, defaulting its `@type` to 'CreativeWork'.
+
+        Args:
+            position: The citation's position, matching its `[n]` marker in the message text.
+            appearance: How the citation is displayed.
+
+        Returns:
+            Self for method chaining
+        """
         message_entity = self._ensure_single_root_level_message_entity()
         citation_entity = CitationEntity(**message_entity.model_dump())
         if citation_entity.citation is None:
@@ -357,7 +368,11 @@ class MessageActivityInput(_MessageBase, ActivityInputBase):
                     keywords=appearance.keywords,
                     text=appearance.text,
                     url=appearance.url,
-                    usage_info=appearance.usage_info,
+                    usage_info=(
+                        SensitivityUsageInfo.model_validate(appearance.usage_info.model_dump(exclude_none=True))
+                        if appearance.usage_info is not None
+                        else None
+                    ),
                 ),
             )
         )
