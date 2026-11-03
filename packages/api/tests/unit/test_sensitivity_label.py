@@ -12,6 +12,7 @@ from microsoft_teams.api.activities.message import MessageActivityInput
 from microsoft_teams.api.models.entity import (
     CitationAppearance,
     CitationUsageInfo,
+    SensitiveUsage,
     SensitivityUsageInfo,
 )
 from pydantic import ValidationError
@@ -185,6 +186,10 @@ class TestInboundUsageInfoWithoutId:
             ],
         }
         return _entities(MessageActivityInput.model_validate(payload))
+
+    def test_message_label_position_is_validated(self) -> None:
+        with pytest.raises(ValidationError):
+            SensitiveUsage.model_validate({"@id": "label-id", "position": "high"})
 
     def test_message_label_parses(self) -> None:
         entities = self._parse({"usageInfo": {"@type": "CreativeWork", "name": "Confidential"}})

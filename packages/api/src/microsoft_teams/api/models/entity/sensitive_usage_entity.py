@@ -29,6 +29,7 @@ class SensitiveUsage(CustomBaseModel):
     """
 
     at_type: str = "CreativeWork"
+    "The schema.org type. Defaults to 'CreativeWork'."
 
     at_id: Optional[str] = None
     "The Purview sensitivity label ID"
@@ -38,6 +39,9 @@ class SensitiveUsage(CustomBaseModel):
 
     description: Optional[str] = None
     "Description of the content"
+
+    position: Optional[int] = None
+    "Priority of the label, used to pick the most restrictive label."
 
     pattern: Optional[SensitiveUsagePattern] = None
     "The pattern"
