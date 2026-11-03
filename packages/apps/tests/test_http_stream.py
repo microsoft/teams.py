@@ -54,13 +54,19 @@ def test_stream_cancelled_error_compatibility(args):
     assert caught.value is error
 
 
-@pytest.mark.parametrize("stream_type", [HttpStream, StreamerProtocol])
-def test_canceled_remains_a_deprecated_read_only_property(stream_type):
+@pytest.mark.parametrize(
+    "stream_type, deprecation_message",
+    [
+        (HttpStream, "The stop button no longer exists"),
+        (StreamerProtocol, "The SDK no longer sets this flag"),
+    ],
+)
+def test_canceled_remains_a_deprecated_read_only_property(stream_type, deprecation_message):
     descriptor = vars(stream_type)["canceled"]
     assert isinstance(descriptor, property)
     assert descriptor.fset is None
     assert descriptor.fget is not None
-    assert "The SDK no longer sets this flag" in vars(descriptor.fget)["__deprecated__"]
+    assert deprecation_message in vars(descriptor.fget)["__deprecated__"]
 
 
 class TestHttpStream:
@@ -117,7 +123,7 @@ class TestHttpStream:
     @pytest.mark.asyncio
     async def test_canceled_compatibility_across_stream_cycles(self, http_stream):
         def assert_not_canceled():
-            with pytest.warns(DeprecationWarning, match="The SDK no longer sets this flag") as warnings:
+            with pytest.warns(DeprecationWarning, match="The stop button no longer exists") as warnings:
                 assert http_stream.canceled is False
             assert warnings[0].filename == __file__
 
@@ -375,7 +381,7 @@ class TestHttpStream:
         assert type(exc_info.value) is expected
         assert exc_info.value.__cause__ is error
         assert stream.timed_out is (expected is StreamTimedOutError)
-        with pytest.warns(DeprecationWarning, match="The SDK no longer sets this flag"):
+        with pytest.warns(DeprecationWarning, match="The stop button no longer exists"):
             assert stream.canceled is False
         mock_api_client.conversations.create_activity.assert_awaited_once()
 
