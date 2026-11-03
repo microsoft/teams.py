@@ -91,9 +91,7 @@ class HttpStream(StreamerProtocol):
         self._timed_out = False
 
     @property
-    @deprecated(
-        "canceled is deprecated. The stop button no longer exists; use normal streaming error handling instead."
-    )
+    @deprecated("canceled is deprecated. Teams no longer supports stopping a stream.")
     def canceled(self) -> bool:
         """Always return False; the SDK no longer sets this deprecated cancellation flag."""
         return False

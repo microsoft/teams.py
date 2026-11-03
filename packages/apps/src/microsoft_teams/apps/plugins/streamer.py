@@ -13,7 +13,7 @@ from typing_extensions import deprecated
 StreamerEvent = Literal["chunk", "close"]
 
 
-@deprecated("StreamCancelledError is deprecated. The stop button no longer exists on Teams. ")
+@deprecated("StreamCancelledError is deprecated. Teams no longer supports stopping a stream. ")
 class StreamCancelledError(asyncio.CancelledError):
     """Deprecated exception; no longer raised for streaming operations."""
 
@@ -50,9 +50,7 @@ class StreamerProtocol(Protocol):
     """Component that can send streamed chunks of an activity."""
 
     @property
-    @deprecated(
-        "canceled is deprecated. The SDK no longer sets this flag; use normal streaming error handling instead."
-    )
+    @deprecated("canceled is deprecated. Teams no longer supports stopping a stream.")
     def canceled(self) -> bool:
         """Deprecated read-only flag; SDK streams always return False."""
         ...
