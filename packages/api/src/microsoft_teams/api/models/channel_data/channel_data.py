@@ -3,12 +3,13 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from typing import Literal, Optional, Self
+from typing import Optional, Self
 
 from pydantic import model_validator
 
 from ..custom_base_model import CustomBaseModel
 from ..meetings import MeetingInfo
+from ..stream_type import StreamType
 from .app_info import AppInfo
 from .channel_info import ChannelInfo
 from .feedback_loop import FeedbackLoop
@@ -75,7 +76,7 @@ class ChannelData(CustomBaseModel):
     stream_id: Optional[str] = None
     "ID of the stream. Assigned after the initial update is sent."
 
-    stream_type: Optional[Literal["informative", "streaming", "final"]] = None
+    stream_type: Optional[StreamType] = None
     "The type of message being sent."
 
     stream_sequence: Optional[int] = None

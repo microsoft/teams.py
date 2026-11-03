@@ -3,7 +3,9 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from typing import List, Literal, Optional
+from typing import Annotated, List, Literal, Optional, Union
+
+from pydantic import Field
 
 from ..attachment import Attachment
 from ..custom_base_model import CustomBaseModel
@@ -44,7 +46,7 @@ class Message(CustomBaseModel):
     summary: Optional[str] = None
     "Summary text of the message that could be used for notifications."
 
-    importance: Optional[Importance] = None
+    importance: Optional[Annotated[Union[Importance, str], Field(union_mode="left_to_right")]] = None
     "The importance of the message."
 
     locale: Optional[str] = None

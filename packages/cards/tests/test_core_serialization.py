@@ -6,6 +6,7 @@ Licensed under the MIT License.
 import json
 from typing import Any, cast
 
+import pytest
 from microsoft_teams.cards import (
     ActionSet,
     AdaptiveCard,
@@ -20,6 +21,7 @@ from microsoft_teams.cards import (
     ToggleInput,
 )
 from microsoft_teams.cards.core import SubmitActionData
+from pydantic import ValidationError
 
 
 def test_adaptive_card_serialization():
@@ -112,6 +114,11 @@ def test_adaptive_card_deserialization():
     action = cast(SubmitAction, card.actions[0])
     assert action.type == "Action.Submit"
     assert action.title == "Simple form test"
+
+
+def test_card_model_discriminator_remains_exact():
+    with pytest.raises(ValidationError):
+        TextBlock.model_validate({"type": "FutureElement", "text": "Future"})
 
 
 def test_serialization_round_trip():

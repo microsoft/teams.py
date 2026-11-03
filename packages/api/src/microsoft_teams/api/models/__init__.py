@@ -65,12 +65,14 @@ from .meetings import *  # noqa: F403
 from .message import *  # noqa: F403
 from .messaging_extension import *  # noqa: F403
 from .o365 import *  # noqa: F403
+from .reaction_feedback import ReactionFeedback
 from .search import *  # noqa: F403
 from .sign_in import *  # noqa: F403
 from .suggested_actions import SuggestedActions
 from .tab import *  # noqa: F403
 from .task_module import *  # noqa: F403
 from .team_details import TeamDetails
+from .team_type import TeamType
 from .text_format import TextFormat
 from .token import *  # noqa: F403
 from .token_exchange import *  # noqa: F403
@@ -91,6 +93,7 @@ __all__: list[str] = [
     "CustomBaseModel",
     "DeliveryMode",
     "ErrorResponse",
+    "ReactionFeedback",
     "HttpError",
     "Importance",
     "InnerHttpError",
@@ -99,6 +102,7 @@ __all__: list[str] = [
     "InvokeResponseBody",
     "SuggestedActions",
     "TeamDetails",
+    "TeamType",
     "TeamsChannelAccount",
     "TextFormat",
     "InvokeResponse",

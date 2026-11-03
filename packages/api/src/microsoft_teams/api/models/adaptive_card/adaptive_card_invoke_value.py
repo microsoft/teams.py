@@ -3,11 +3,13 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from typing import Literal, Optional
+from typing import Literal, Optional, Union
 
 from ..custom_base_model import CustomBaseModel
 from .adaptive_card_authentication import AdaptiveCardAuthentication
 from .adaptive_card_invoke_action import AdaptiveCardInvokeAction
+
+AdaptiveCardInvokeTrigger = Union[Literal["manual"], str]
 
 
 class AdaptiveCardInvokeValue(CustomBaseModel):
@@ -25,5 +27,5 @@ class AdaptiveCardInvokeValue(CustomBaseModel):
     state: Optional[str] = None
     "The 'state' or magic code for an OAuth flow."
 
-    trigger: Optional[Literal["manual"]] = None
+    trigger: Optional[AdaptiveCardInvokeTrigger] = None
     "What triggered the action"

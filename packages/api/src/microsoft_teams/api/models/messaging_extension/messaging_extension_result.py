@@ -5,7 +5,9 @@ Licensed under the MIT License.
 
 from __future__ import annotations
 
-from typing import List, Optional
+from typing import Annotated, List, Optional, Union
+
+from pydantic import Field
 
 from ...models.activity import Activity as ActivityBase
 from ..custom_base_model import CustomBaseModel
@@ -20,10 +22,12 @@ class MessagingExtensionResult(CustomBaseModel):
     Messaging extension result
     """
 
-    attachment_layout: Optional[MessagingExtensionAttachmentLayout] = None
+    attachment_layout: Optional[
+        Annotated[Union[MessagingExtensionAttachmentLayout, str], Field(union_mode="left_to_right")]
+    ] = None
     "Hint for how to deal with multiple attachments."
 
-    type: Optional[MessagingExtensionResultType] = None
+    type: Optional[Annotated[Union[MessagingExtensionResultType, str], Field(union_mode="left_to_right")]] = None
     "The type of the result."
 
     attachments: Optional[List[MessagingExtensionAttachment]] = None

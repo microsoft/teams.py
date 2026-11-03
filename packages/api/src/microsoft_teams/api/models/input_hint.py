@@ -3,6 +3,6 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
-from typing import Literal
+from typing import Literal, Union
 
-InputHint = Literal["acceptingInput", "ignoringInput", "expectingInput"]
+InputHint = Union[Literal["acceptingInput", "ignoringInput", "expectingInput"], str]

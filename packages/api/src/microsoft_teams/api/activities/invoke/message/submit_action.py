@@ -5,12 +5,12 @@ Licensed under the MIT License.
 
 from typing import Literal
 
-from ....models import CustomBaseModel
+from ....models import CustomBaseModel, ReactionFeedback
 from ...invoke_activity import InvokeActivity
 
 
 class MessageSubmitActionValue(CustomBaseModel):
-    reaction: Literal["like", "dislike"]
+    reaction: ReactionFeedback
     """The reaction triggered"""
 
     feedback: str
