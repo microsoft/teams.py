@@ -16,7 +16,7 @@ import pytest
 
 SAMPLE_SRC = Path(__file__).resolve().parents[3] / "examples" / "html-widgets" / "src"
 REQUIRED_METHODS = ("ui/initialize", "ui/notifications/initialized", "ui/notifications/size-changed")
-SCRIPT_RE = re.compile(r"<script>(.*?)</script>", re.DOTALL)
+SCRIPT_RE = re.compile(r"<script>(.*?)</script>", re.DOTALL | re.IGNORECASE)
 
 
 def _load_sample_widgets() -> dict[str, str]:
