@@ -6,7 +6,7 @@ Licensed under the MIT License.
 from typing import Annotated, Any, Literal, Union
 
 from microsoft_teams.common.experimental import experimental
-from pydantic import Field, field_validator
+from pydantic import ConfigDict, Field, field_validator
 
 from ..custom_base_model import CustomBaseModel
 
@@ -77,6 +77,8 @@ class McpUiCallToolResult(CustomBaseModel):
 
     Diagnostic: ExperimentalTeamsHtmlWidget
     """
+
+    model_config = ConfigDict(validate_assignment=True)
 
     content: list[McpUiCallToolResultContent] = Field(default_factory=lambda: [])
     """An array of content items to return to the widget."""

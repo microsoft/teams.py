@@ -44,6 +44,17 @@ class TestCallToolResultDefaults:
             "isError": False,
         }
 
+    def test_assigning_none_falls_back_to_defaults(self):
+        result = McpUiCallToolResult()
+        result.content = None  # type: ignore[assignment]
+        result.structured_content = None
+        result.is_error = None  # type: ignore[assignment]
+        assert result.model_dump(by_alias=True, exclude_none=True) == {
+            "content": [],
+            "structuredContent": {},
+            "isError": False,
+        }
+
     def test_response_envelope_keeps_defaults(self):
         response = HtmlWidgetCallToolResponse(call_tool_result=McpUiCallToolResult())
         dumped = response.model_dump(by_alias=True, exclude_none=True)
