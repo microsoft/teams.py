@@ -29,13 +29,15 @@ button:hover{background:#006cbd}
 <button id="msgBtn">Send MessageBack</button>
 <div id="status"></div>""",
     script="""\
-document.getElementById('msgBtn').addEventListener('click', function () {
+document.getElementById('msgBtn').addEventListener('click', async function () {
   var status = document.getElementById('status');
   status.textContent = 'Sending messageBack...';
-  window.widgetHost.request('ui/message', {
+  var response = await window.widgetHost.request('ui/message', {
     role: 'user',
     content: [{ type: 'text', text: 'Hello from the widget!' }]
   });
-  status.textContent = 'MessageBack sent!';
+  status.textContent = response.error
+    ? 'Error: ' + JSON.stringify(response.error)
+    : 'MessageBack sent!';
 });""",
 )
