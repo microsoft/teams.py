@@ -23,4 +23,7 @@ class CallToolRequest(CustomBaseModel):
     """The name of the tool to call."""
 
     arguments: Optional[Any] = None
-    """The arguments to pass to the tool."""
+    """The arguments to pass to the tool.
+    The Teams client adds arguments.__msteams__ = { mcpUrl, correlationId } to every callTool request,
+    overwriting any value the bot supplied, and it is passed through untouched.
+    Handlers should ignore it, validate arguments, never throw, and not authorize from activity.from."""

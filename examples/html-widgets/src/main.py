@@ -14,7 +14,7 @@ import json
 import logging
 import random
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, cast
 
 from microsoft_teams.api import HtmlWidgetCallToolInvokeActivity, MessageActivity
 from microsoft_teams.api.activities.message import MessageActivityInput
@@ -41,6 +41,7 @@ from widgets import (
     OPEN_LINK_WIDGET_HTML,
     SIMPLE_WIDGET_HTML,
     UPDATE_CONTEXT_WIDGET_HTML,
+    build_widget_html,
 )
 
 logging.basicConfig(level=logging.INFO)
@@ -94,7 +95,7 @@ async def handle_message(ctx: ActivityContext[MessageActivity]) -> None:
                         "https://teams.cloud.microsoft.com",
                     ],
                 ),
-                # Passed to widget as initial context (available via toolInput in ui/initialize)
+                # Delivered to the widget after the handshake in a ui/notifications/tool-input notification
                 tool_input={"demo": True},
                 tool_output={
                     "content": [{"type": "text", "text": "Initial data loaded."}],
@@ -146,7 +147,7 @@ async def handle_message(ctx: ActivityContext[MessageActivity]) -> None:
                 security_policy=HtmlWidgetSecurityPolicy(
                     connect_domains=["https://teams.microsoft.com"],
                 ),
-                # Passed to widget as initial context (available via toolInput in ui/initialize)
+                # Delivered to the widget after the handshake in a ui/notifications/tool-input notification
                 tool_input={},
                 tool_output={
                     "content": [{"type": "text", "text": "Ready."}],
@@ -200,13 +201,11 @@ async def handle_message(ctx: ActivityContext[MessageActivity]) -> None:
 
     # Security policy validation demo
     if text == "/validate":
-        html_with_external_refs = (
-            '<link rel="stylesheet" '
-            'href="https://fonts.googleapis.com/css2?family=Roboto">'
-            '<div style="font-family: Roboto, sans-serif; padding: 16px;">'
-            "<h2>Validation Demo</h2>"
-            "<p>This widget was validated before sending.</p>"
-            "</div>"
+        html_with_external_refs = build_widget_html(
+            "Validated Widget",
+            css="h2{margin:0 0 8px 0}\n#root{font-family:Roboto,sans-serif}",
+            body="<h2>Validation Demo</h2>\n<p>This widget was validated before sending.</p>",
+            head='<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto">',
         )
 
         # Step 1: validate against a restrictive policy to catch issues
@@ -289,11 +288,48 @@ async def handle_message(ctx: ActivityContext[MessageActivity]) -> None:
 async def handle_widget_call_tool(
     ctx: ActivityContext[HtmlWidgetCallToolInvokeActivity],
 ) -> HtmlWidgetCallToolResponse:
-    """Handle widget tool calls."""
-    tool_name = ctx.activity.value.name
-    args: dict[str, Any] = ctx.activity.value.arguments or {}
-    logger.info(f"[widget.callTool] tool={tool_name!r} args={json.dumps(args)}")
+    """Handle widget tool calls.
 
+    The client adds arguments.__msteams__ = { mcpUrl, correlationId } to every request.
+    This handler ignores it, validates the remaining arguments, never throws, and does not authorize from activity.from.
+    """
+    tool_name = ctx.activity.value.name
+    raw_args: Any = ctx.activity.value.arguments
+
+    try:
+        args = _widget_arguments(raw_args)
+        logger.info(f"[widget.callTool] tool={tool_name!r} args={json.dumps(args)}")
+        call_tool_result = _run_tool(tool_name, args)
+    except Exception:
+        logger.exception(f"[widget.callTool] tool={tool_name!r} failed")
+        call_tool_result = McpUiCallToolResult(
+            content=[McpUiTextContent(type="text", text="Tool call failed")],
+            is_error=True,
+        )
+
+    logger.info(f"[widget.callTool] result={call_tool_result}")
+
+    return HtmlWidgetCallToolResponse(
+        response_type="htmlwidget/calltoolresult",
+        call_tool_result=call_tool_result,
+    )
+
+
+def _widget_arguments(raw_args: Any) -> dict[str, Any]:
+    """Return the tool arguments without the client-added __msteams__ metadata.
+
+    Arguments that are not a JSON object are rejected so the handler reports a tool error.
+    """
+    if raw_args is None:
+        return {}
+    if not isinstance(raw_args, dict):
+        raise ValueError("arguments must be an object")
+    arguments = cast("dict[str, Any]", raw_args)
+    return {k: v for k, v in arguments.items() if k != "__msteams__"}
+
+
+def _run_tool(tool_name: str, args: dict[str, Any]) -> McpUiCallToolResult:
+    """Run a widget tool and return its result."""
     call_tool_result: McpUiCallToolResult
 
     if tool_name == "refresh":
@@ -338,12 +374,7 @@ async def handle_widget_call_tool(
             is_error=True,
         )
 
-    logger.info(f"[widget.callTool] result={call_tool_result}")
-
-    return HtmlWidgetCallToolResponse(
-        response_type="htmlwidget/calltoolresult",
-        call_tool_result=call_tool_result,
-    )
+    return call_tool_result
 
 
 if __name__ == "__main__":

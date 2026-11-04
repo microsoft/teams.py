@@ -11,6 +11,7 @@ from .host_context import HOST_CONTEXT_WIDGET_HTML
 from .messageback import MESSAGEBACK_WIDGET_HTML
 from .multi_tool import MULTI_WIDGET_HTML
 from .open_link import OPEN_LINK_WIDGET_HTML
+from .runtime import build_widget_html
 from .simple import SIMPLE_WIDGET_HTML
 from .update_context import UPDATE_CONTEXT_WIDGET_HTML
 
@@ -23,4 +24,5 @@ __all__ = [
     "OPEN_LINK_WIDGET_HTML",
     "SIMPLE_WIDGET_HTML",
     "UPDATE_CONTEXT_WIDGET_HTML",
+    "build_widget_html",
 ]
