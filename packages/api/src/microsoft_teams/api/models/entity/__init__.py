@@ -9,7 +9,7 @@ from .citation_entity import (
     CitationAppearance,
     CitationEntity,
     CitationIconName,
-    CitationUsageInfo,
+    CitationUsageInfo,  # pyright: ignore[reportDeprecated]
     Claim,
     Image,
 )
@@ -22,6 +22,7 @@ from .plan_info_entity import PlanInfoEntity, PlanType, Step, StepSource, StepSt
 from .product_info_entity import ProductInfoEntity
 from .quoted_reply_entity import QuotedReplyData, QuotedReplyEntity
 from .sensitive_usage_entity import SensitiveUsage, SensitiveUsageEntity, SensitiveUsagePattern
+from .sensitivity_usage_info import SensitivityUsageInfo
 from .stream_info_entity import StreamInfoEntity
 from .targeted_message_info_entity import TargetedMessageInfoEntity
 from .unknown_entity import UnknownEntity
@@ -50,6 +51,7 @@ __all__ = [
     "SensitiveUsageEntity",
     "SensitiveUsage",
     "SensitiveUsagePattern",
+    "SensitivityUsageInfo",
     "StreamInfoEntity",
     "TargetedMessageInfoEntity",
     "UnknownEntity",

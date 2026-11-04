@@ -19,6 +19,7 @@ from microsoft_teams.api import (
     ConversationAccount,
     ConversationReference,
     MessageActivityInput,
+    SensitivityUsageInfo,
     SentActivity,
     SuggestedActions,
     TypingActivityInput,
@@ -646,6 +647,29 @@ class TestHttpStream:
             assert result.activity_params.suggested_actions is not None
             assert len(result.activity_params.suggested_actions.actions) == 2
             assert result.activity_params.suggested_actions.actions[0].title == "Option A"
+
+    @pytest.mark.asyncio
+    async def test_sensitivity_label_on_final_message(
+        self, mock_api_client, conversation_reference, patch_loop_call_later
+    ):
+        """Keeps a sensitivity label from the last emitted message on the final message."""
+        loop = asyncio.get_running_loop()
+        patcher, scheduled = patch_loop_call_later(loop)
+
+        with patcher:
+            stream = HttpStream(mock_api_client, conversation_reference)
+
+            stream.emit("Streaming content...")
+            stream.emit(MessageActivityInput().add_sensitivity_label(SensitivityUsageInfo(at_id="label-id")))
+            await asyncio.sleep(0)
+            await self._run_scheduled_flushes(scheduled)
+
+            result = await stream.close()
+            assert result is not None
+            entities = result.activity_params.model_dump(by_alias=True, exclude_none=True)["entities"]
+            roots = [e for e in entities if e.get("type") == "https://schema.org/Message"]
+            assert len(roots) == 1
+            assert roots[0]["usageInfo"] == {"@type": "CreativeWork", "@id": "label-id"}
 
     @pytest.mark.asyncio
     async def test_text_format_retained_on_intermediate_chunks_and_final_message(
