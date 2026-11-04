@@ -43,6 +43,7 @@ pre{white-space:pre-wrap;word-break:break-all;font-family:monospace;font-size:11
 <div id="updates"></div>""",
     script="""\
 window.addEventListener('message', function (event) {
+  if (event.source !== window.parent) return;
   var data = event.data;
   if (!data || data.method !== 'ui/notifications/host-context-changed') return;
   var div = document.createElement('div');

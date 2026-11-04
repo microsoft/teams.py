@@ -57,6 +57,7 @@ _RUNTIME_TEMPLATE = """\
   }
 
   window.addEventListener('message', function (event) {
+    if (event.source !== window.parent) return;
     var data = event.data;
     if (!data || data.jsonrpc !== '2.0' || !pending[data.id]) return;
     var resolve = pending[data.id];
