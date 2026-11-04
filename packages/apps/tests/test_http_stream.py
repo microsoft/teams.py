@@ -10,6 +10,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from httpx2 import HTTPStatusError, Request, Response
+from microsoft_teams import apps
 from microsoft_teams.api import (
     Account,
     ApiClient,
@@ -25,15 +26,46 @@ from microsoft_teams.api import (
     TypingActivityInput,
 )
 from microsoft_teams.api.clients.conversation import ConversationClient
-from microsoft_teams.apps import HttpStream, StreamOptions, StreamReplyChain
+from microsoft_teams.apps import HttpStream, StreamOptions, StreamReplyChain, plugins
 from microsoft_teams.apps.plugins import (
-    StreamCancelledError,
     StreamNotAllowedError,
     StreamTimedOutError,
     TerminalStreamError,
 )
+from microsoft_teams.apps.plugins.streamer import StreamCancelledError, StreamerProtocol
 from microsoft_teams.common import ExperimentalWarning
 from microsoft_teams.common.http import Client, ClientOptions
+
+
+@pytest.mark.parametrize("args", [(), ("legacy",), ("legacy", 1, None)])
+def test_stream_cancelled_error_compatibility(args):
+    assert apps.StreamCancelledError is plugins.StreamCancelledError is StreamCancelledError
+    assert "StreamCancelledError" in apps.__all__
+    assert "StreamCancelledError" in plugins.__all__
+
+    with pytest.warns(
+        DeprecationWarning,
+        match="StreamCancelledError is deprecated",
+    ) as warnings:
+        error = StreamCancelledError(*args)
+
+    assert warnings[0].filename == __file__
+    assert error.args == args
+    assert str(error) == str(asyncio.CancelledError(*args))
+    assert isinstance(error, asyncio.CancelledError)
+    assert not isinstance(error, Exception)
+    with pytest.raises(asyncio.CancelledError) as caught:
+        raise error
+    assert caught.value is error
+
+
+@pytest.mark.parametrize("stream_type", [HttpStream, StreamerProtocol])
+def test_canceled_remains_a_deprecated_read_only_property(stream_type):
+    descriptor = vars(stream_type)["canceled"]
+    assert isinstance(descriptor, property)
+    assert descriptor.fset is None
+    assert descriptor.fget is not None
+    assert "Teams no longer supports stopping a stream" in vars(descriptor.fget)["__deprecated__"]
 
 
 class TestHttpStream:
@@ -86,6 +118,24 @@ class TestHttpStream:
     @pytest.fixture
     def http_stream(self, mock_api_client, conversation_reference):
         return HttpStream(mock_api_client, conversation_reference)
+
+    @pytest.mark.asyncio
+    async def test_canceled_compatibility_across_stream_cycles(self, http_stream):
+        def assert_not_canceled():
+            with pytest.warns(DeprecationWarning, match="Teams no longer supports stopping a stream") as warnings:
+                assert http_stream.canceled is False
+            assert warnings[0].filename == __file__
+
+        assert_not_canceled()
+        with pytest.raises(AttributeError):
+            http_stream.canceled = True
+
+        for text in ("first", "second"):
+            http_stream.emit(text)
+            await http_stream._pending
+            assert_not_canceled()
+            assert await http_stream.close() is not None
+            assert_not_canceled()
 
     @pytest.fixture
     def patch_loop_call_later(self):
@@ -248,131 +298,92 @@ class TestHttpStream:
             assert max_concurrent_entries == 1
 
     @pytest.mark.asyncio
-    async def test_stream_canceled_on_403(self, mock_api_client, conversation_reference, patch_loop_call_later):
-        loop = asyncio.get_running_loop()
-        patcher, scheduled = patch_loop_call_later(loop)
-        with patcher:
+    async def test_flush_schedules_queued_content_after_500_ms(self, http_stream):
+        create = AsyncMock()
 
-            async def mock_send_403(conversation_id, activity):
-                raise HTTPStatusError(
-                    "Forbidden",
-                    request=Request("POST", "https://example.com"),
-                    response=Response(403, json={"error": {"message": "Content stream was canceled by user"}}),
-                )
+        async def send(conversation_id, activity):
+            if create.await_count == 1:
+                http_stream.emit(" second")
+            return SentActivity(id="stream-1", activity_params=activity)
 
-            mock_api_client.conversations.create_activity = mock_send_403
-            stream = HttpStream(mock_api_client, conversation_reference)
+        create.side_effect = send
+        http_stream._client.conversations.create_activity = create
+        with patch.object(asyncio.get_running_loop(), "call_later") as call_later:
+            http_stream.emit("first")
+            await http_stream._pending
 
-            stream.emit("Test message")
-            await asyncio.sleep(0)
-            await self._run_scheduled_flushes(scheduled)
+            call_later.assert_called_once()
+            delay, callback = call_later.call_args.args
+            assert delay == 0.5
+            assert http_stream.count == 1
+            assert create.await_count == 1
 
-            assert stream.canceled is True
+            await callback()
+            assert http_stream.count == 0
+            assert create.await_count == 2
+            assert create.await_args is not None
+            assert create.await_args.args[1].text == "first second"
 
-    @pytest.mark.asyncio
-    async def test_emit_blocked_after_cancel(self, mock_api_client, conversation_reference, patch_loop_call_later):
-        loop = asyncio.get_running_loop()
-        patcher, scheduled = patch_loop_call_later(loop)
-        with patcher:
-
-            async def mock_send_403(conversation_id, activity):
-                raise HTTPStatusError(
-                    "Forbidden",
-                    request=Request("POST", "https://example.com"),
-                    response=Response(403, json={"error": {"message": "Content stream was canceled by user"}}),
-                )
-
-            mock_api_client.conversations.create_activity = mock_send_403
-            stream = HttpStream(mock_api_client, conversation_reference)
-
-            stream.emit("First message")
-            await asyncio.sleep(0)
-            await self._run_scheduled_flushes(scheduled)
-
-            assert stream.canceled is True
-
-            # Emit after cancel should raise
-            with pytest.raises(StreamCancelledError, match="Stream has been cancelled."):
-                stream.emit("Should be ignored")
+        result = await http_stream.close()
+        assert result is not None
+        assert result.activity_params.text == "first second"
 
     @pytest.mark.asyncio
-    async def test_send_blocked_after_cancel(self, mock_api_client, conversation_reference):
-        stream = HttpStream(mock_api_client, conversation_reference)
-        stream._canceled = True
+    async def test_flush_propagates_task_cancellation(self, http_stream):
+        started = asyncio.Event()
+        blocked = asyncio.Event()
 
-        with pytest.raises(StreamCancelledError, match="Teams channel stopped the stream."):
-            await stream._send(TypingActivityInput(text="test"))
+        async def send(conversation_id, activity):
+            started.set()
+            await blocked.wait()
 
-    @pytest.mark.asyncio
-    async def test_stream_canceled_after_successful_message(
-        self, mock_api_client, conversation_reference, patch_loop_call_later
-    ):
-        call_count = 0
-        loop = asyncio.get_running_loop()
-        patcher, scheduled = patch_loop_call_later(loop)
-        with patcher:
+        create = AsyncMock(side_effect=send)
+        http_stream._client.conversations.create_activity = create
+        http_stream.emit("first")
+        pending = http_stream._pending
+        await asyncio.wait_for(started.wait(), timeout=1)
+        pending.cancel()
 
-            async def mock_send_then_403(conversation_id, activity):
-                nonlocal call_count
-                call_count += 1
-                if call_count == 1:
-                    return SentActivity(id="activity-1", activity_params=activity)
-                raise HTTPStatusError(
-                    "Forbidden",
-                    request=Request("POST", "https://example.com"),
-                    response=Response(403, json={"error": {"message": "Content stream was canceled by user"}}),
-                )
+        with pytest.raises(asyncio.CancelledError):
+            await pending
 
-            mock_api_client.conversations.create_activity = mock_send_then_403
-            stream = HttpStream(mock_api_client, conversation_reference)
-
-            # First emit succeeds
-            stream.emit("First message")
-            await asyncio.sleep(0)
-            await self._run_scheduled_flushes(scheduled)
-
-            assert stream.canceled is False
-            assert call_count == 1
-
-            # Second emit triggers 403
-            stream.emit("Second message")
-            await asyncio.sleep(0)
-            await self._run_scheduled_flushes(scheduled)
-
-            assert stream.canceled is True
-            assert call_count == 2
-
-            # Further emits raise
-            with pytest.raises(StreamCancelledError, match="Stream has been cancelled."):
-                stream.emit("Should be ignored")
+        create.assert_awaited_once()
+        assert http_stream._pending is None
+        assert not http_stream._lock.locked()
+        assert http_stream._state_changed.is_set()
+        assert not http_stream.timed_out
 
     @pytest.mark.parametrize(
         "message, expected",
         [
             ("Content stream finished due to exceeded streaming time.", StreamTimedOutError),
-            ("Content stream was canceled by user.", StreamCancelledError),
             ("Content stream is not allowed", StreamNotAllowedError),
             ("Content stream is not allowed on an already completed streamed message", TerminalStreamError),
             ("Message size too large", TerminalStreamError),
             ("Request streamed content should contain the previously streamed content", TerminalStreamError),
+            ("Unexpected service failure", TerminalStreamError),
+            ("Content stream was canceled by user.", TerminalStreamError),
         ],
     )
     @pytest.mark.asyncio
     async def test_send_maps_403_message_to_error(self, mock_api_client, conversation_reference, message, expected):
-        async def mock_send_403(conversation_id, activity):
-            raise HTTPStatusError(
-                "Forbidden",
-                request=Request("POST", "https://example.com"),
-                response=Response(403, json={"error": {"message": message}}),
-            )
-
-        mock_api_client.conversations.create_activity = mock_send_403
+        error = HTTPStatusError(
+            "Forbidden",
+            request=Request("POST", "https://example.com"),
+            response=Response(403, json={"error": {"message": message}}),
+        )
+        mock_api_client.conversations.create_activity = AsyncMock(side_effect=error)
         stream = HttpStream(mock_api_client, conversation_reference)
 
         with pytest.raises(expected) as exc_info:
-            await stream._send(TypingActivityInput(text="hi"))
+            await stream._send_with_retry(TypingActivityInput(text="hi"))
 
         assert type(exc_info.value) is expected
+        assert exc_info.value.__cause__ is error
+        assert stream.timed_out is (expected is StreamTimedOutError)
+        with pytest.warns(DeprecationWarning, match="Teams no longer supports stopping a stream"):
+            assert stream.canceled is False
+        mock_api_client.conversations.create_activity.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_send_403_with_empty_body_raises_stream_error(self, mock_api_client, conversation_reference):
@@ -395,7 +406,7 @@ class TestHttpStream:
     async def test_final_send_timeout_updates_original_message_in_place(
         self, mock_api_client, conversation_reference, patch_loop_call_later
     ):
-        """If the *final* streamed send trips the 2-minute limit, the buffered content updates the
+        """If the *final* streamed send trips the ten-minute limit, the buffered content updates the
         original streamed message in place (reuses id -> update path) instead of erroring."""
         create_calls = 0
         updates: list[dict] = []
@@ -512,14 +523,6 @@ class TestHttpStream:
             assert updates[0]["text"] == "chunk 1 chunk 2"
             assert updates[0]["has_streaminfo"] is False
             assert result is not None
-
-    @pytest.mark.asyncio
-    async def test_close_returns_none_when_canceled(self, mock_api_client, conversation_reference):
-        stream = HttpStream(mock_api_client, conversation_reference)
-        stream._canceled = True
-
-        result = await stream.close()
-        assert result is None
 
     @pytest.mark.asyncio
     async def test_close_returns_stream_id_when_final_response_has_placeholder(
@@ -950,7 +953,7 @@ class TestHttpStream:
                 nonlocal create_calls
                 create_calls += 1
                 if create_calls == 2:
-                    # The final streamed send (carries streamInfo) trips the two-minute limit,
+                    # The final streamed send (carries streamInfo) trips the ten-minute limit,
                     # forcing the in-place update path.
                     raise HTTPStatusError(
                         "Forbidden",

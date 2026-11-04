@@ -21,10 +21,10 @@ from microsoft_teams.api import (
     TypingActivityInput,
 )
 from microsoft_teams.common import EventEmitter
+from typing_extensions import deprecated
 
 from .plugins.streamer import (
     PlanConflictStreamError,
-    StreamCancelledError,
     StreamerEvent,
     StreamerProtocol,
     StreamNotAllowedError,
@@ -107,7 +107,6 @@ class HttpStream(StreamerProtocol):
         self._total_wait_timeout: float = 30.0
         self._state_changed = asyncio.Event()
 
-        self._canceled = False
         self._timed_out = False
         self._reset_current_stream()
 
@@ -128,18 +127,16 @@ class HttpStream(StreamerProtocol):
         self._timed_out = False
 
     @property
+    @deprecated("canceled is deprecated. Teams no longer supports stopping a stream.")
     def canceled(self) -> bool:
-        """
-        Whether the stream has been canceled.
-        For example when the user pressed the Stop button.
-        """
-        return self._canceled
+        """Always return False; the SDK no longer sets this deprecated cancellation flag."""
+        return False
 
     @property
     def timed_out(self) -> bool:
         """
         Whether the stream has timed out.
-        For example when the streaming has exceeded two minutes.
+        Teams enforces a ten-minute limit from the first informative or content chunk.
         """
         return self._timed_out
 
@@ -174,9 +171,6 @@ class HttpStream(StreamerProtocol):
         Args:
             activity: The activity to emit.
         """
-
-        if self._canceled:
-            raise StreamCancelledError("Stream has been cancelled.")
 
         if self.closed or self._retired:
             logger.debug("starting a new streamed message")
@@ -226,7 +220,7 @@ class HttpStream(StreamerProtocol):
         """Wait until _id is set, the queue is empty, and no flush is in progress, with a total timeout."""
 
         async def _poll():
-            while (self._queue or not self._id or self._lock.locked()) and not self._canceled:
+            while self._queue or not self._id or self._lock.locked():
                 await self._state_changed.wait()
                 self._state_changed.clear()
 
@@ -251,10 +245,6 @@ class HttpStream(StreamerProtocol):
             logger.debug("stream already closed with result")
             assert self._result is not None
             return self._result
-
-        if self._canceled:
-            logger.debug("stream was cancelled, nothing to close")
-            return None
 
         if self._retired:
             logger.debug("failed stream cycle already retired, nothing to close")
@@ -297,7 +287,7 @@ class HttpStream(StreamerProtocol):
                     self._retired = True
                 raise
             except StreamTimedOutError:
-                # The final streamed send tripped the 2-minute limit. Update the original
+                # The final streamed send tripped the ten-minute limit. Update the original
                 # message in place with the buffered content: reuse the id and drop the
                 # streamInfo entity + stream channel data so this routes to update, not create.
                 res = await self._send_final()
@@ -475,10 +465,6 @@ class HttpStream(StreamerProtocol):
         Args:
             activity: The activity to send.
         """
-        if self._canceled:
-            logger.warning("Teams channel stopped the stream.")
-            raise StreamCancelledError("Teams channel stopped the stream.")
-
         to_send.from_ = self._ref.bot
         to_send.conversation = self._ref.conversation
         if to_send.reply_to_id is None:
@@ -506,7 +492,7 @@ class HttpStream(StreamerProtocol):
                     raise PlanConflictStreamError(str(e), request=e.request, response=e.response) from e
 
             # Various error codes are used for streaming.
-            # https://learn.microsoft.com/en-us/microsoftteams/platform/bots/streaming-ux?tabs=csharp#error-codes
+            # https://learn.microsoft.com/en-us/microsoftteams/platform/bots/streaming-ux#response-codes
             if e.response.status_code == 403:
                 message = ""
                 try:
@@ -520,13 +506,9 @@ class HttpStream(StreamerProtocol):
                 if "exceeded streaming time" in normalized:
                     self._timed_out = True
                     logger.warning(
-                        "The bot failed to complete the streaming process within the strict time limit of two minutes."
+                        "The bot failed to complete the streaming process within the strict time limit of ten minutes."
                     )
                     raise StreamTimedOutError(message) from e
-                elif "cancel" in normalized:
-                    self._canceled = True
-                    logger.warning("The streaming was stopped by the user.")
-                    raise StreamCancelledError(message) from e
                 elif "not allowed" in normalized and "completed streamed message" not in normalized:
                     logger.warning("The streaming API isn't allowed for the user or bot.")
                     raise StreamNotAllowedError(message) from e

@@ -187,7 +187,6 @@ async def test_final_plan_conflict_retires_cycle_and_allows_reuse(streamed, monk
     assert requests[-1][1]["type"] == "message"
     sleep.assert_not_awaited()
     assert not stream.closed
-    assert not stream.canceled
     assert not stream.timed_out
     assert stream._retired
     assert stream.count == 0
@@ -305,7 +304,6 @@ async def test_plan_timeout_never_falls_back_to_update(streamed, timeout_during_
     assert all(method == "POST" for method, _ in requests)
     assert requests[-1][1]["type"] == ("typing" if timeout_during_chunk else "message")
     assert stream.timed_out
-    assert not stream.canceled
     assert not stream.closed
     assert stream._retired
     assert stream._final_activity is None
