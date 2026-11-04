@@ -5,7 +5,9 @@ Licensed under the MIT License.
 # pyright: basic
 
 import ast
+import importlib
 import importlib.util
+import json
 import re
 import shutil
 import subprocess
@@ -86,3 +88,56 @@ def test_sample_handler_rejects_non_object_arguments(bad):
     widget_arguments = _load_widget_arguments()
     with pytest.raises(ValueError):
         widget_arguments(bad)
+
+
+_HARNESS = """
+const posted = [];
+const listeners = [];
+const parent = {};
+globalThis.window = {
+  parent: { postMessage: (m) => posted.push(m) },
+  addEventListener: (_t, fn) => listeners.push(fn),
+};
+globalThis.ResizeObserver = class { observe() {} };
+globalThis.document = { getElementById: () => ({ getBoundingClientRect: () => ({ height: 10 }) }) };
+%(script)s
+const reply = (data) => listeners.forEach((fn) => fn({ source: window.parent, data }));
+const tick = () => new Promise((r) => setImmediate(r));
+(async () => {
+  const early = window.widgetHost.request('tools/call', {});
+  await tick();
+  const beforeInit = posted.filter((m) => m.method === 'tools/call').length;
+  reply({ jsonrpc: '2.0', id: posted[0].id, %(init)s });
+  await tick();
+  const afterInit = posted.filter((m) => m.method === 'tools/call');
+  if (afterInit.length) reply({ jsonrpc: '2.0', id: afterInit[0].id, result: {} });
+  const response = await early;
+  console.log(JSON.stringify({ beforeInit, afterInit: afterInit.length, ok: !!response.result }));
+  process.exit(0);
+})();
+"""
+
+
+def _run_harness(tmp_path: Path, init: str) -> dict:
+    sys.path.insert(0, str(SAMPLE_SRC))
+    try:
+        runtime = importlib.import_module("widgets.runtime")
+    finally:
+        sys.path.remove(str(SAMPLE_SRC))
+    path = tmp_path / "harness.js"
+    path.write_text(_HARNESS % {"script": runtime.build_runtime_script("t"), "init": init}, encoding="utf-8")
+    result = subprocess.run(["node", str(path)], capture_output=True, text=True, timeout=30)
+    assert result.returncode == 0, result.stderr
+    return json.loads(result.stdout)
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="node is not installed")
+def test_widget_host_request_waits_for_successful_initialization(tmp_path: Path):
+    outcome = _run_harness(tmp_path, "result: { protocolVersion: '2026-01-26' }")
+    assert outcome == {"beforeInit": 0, "afterInit": 1, "ok": True}
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="node is not installed")
+def test_widget_host_request_does_not_send_after_failed_initialization(tmp_path: Path):
+    outcome = _run_harness(tmp_path, "error: { message: 'nope' }")
+    assert outcome == {"beforeInit": 0, "afterInit": 0, "ok": False}

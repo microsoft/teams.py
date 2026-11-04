@@ -32,6 +32,7 @@ html,body{margin:0;padding:0}
 # It exposes window.widgetHost with:
 #   ready:   a promise resolving to the ui/initialize response.
 #   request: sends a JSON-RPC request and returns a promise for the response.
+#            It waits for ready and resolves with an error response, without sending, if initialization failed.
 #            A request with no response after 30 seconds resolves with an error response.
 _RUNTIME_TEMPLATE = """\
 (function () {
@@ -87,7 +88,16 @@ _RUNTIME_TEMPLATE = """\
     return response;
   });
 
-  window.widgetHost = { ready: ready, request: request };
+  function hostRequest(method, params) {
+    return ready.then(function (init) {
+      if (!init.result) {
+        return { jsonrpc: '2.0', error: { message: 'Host initialization failed' } };
+      }
+      return request(method, params);
+    });
+  }
+
+  window.widgetHost = { ready: ready, request: hostRequest };
 })();"""
 
 
