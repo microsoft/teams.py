@@ -361,6 +361,7 @@ class TestHttpStream:
             ("Message size too large", TerminalStreamError),
             ("Request streamed content should contain the previously streamed content", TerminalStreamError),
             ("Unexpected service failure", TerminalStreamError),
+            ("Content stream was canceled by user.", TerminalStreamError),
         ],
     )
     @pytest.mark.asyncio
