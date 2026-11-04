@@ -95,7 +95,7 @@ async def handle_message(ctx: ActivityContext[MessageActivity]) -> None:
                         "https://teams.cloud.microsoft.com",
                     ],
                 ),
-                # Passed to widget as initial context (available via toolInput in ui/initialize)
+                # Delivered to the widget after the handshake in a ui/notifications/tool-input notification
                 tool_input={"demo": True},
                 tool_output={
                     "content": [{"type": "text", "text": "Initial data loaded."}],
@@ -147,7 +147,7 @@ async def handle_message(ctx: ActivityContext[MessageActivity]) -> None:
                 security_policy=HtmlWidgetSecurityPolicy(
                     connect_domains=["https://teams.microsoft.com"],
                 ),
-                # Passed to widget as initial context (available via toolInput in ui/initialize)
+                # Delivered to the widget after the handshake in a ui/notifications/tool-input notification
                 tool_input={},
                 tool_output={
                     "content": [{"type": "text", "text": "Ready."}],
