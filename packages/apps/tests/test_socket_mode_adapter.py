@@ -442,13 +442,13 @@ def test_options_defaults_preserve_transport_policy():
 def test_options_map_onto_transport_options():
     geos = ["amer"]
     options = SocketModeOptions(
-        negotiate_base_url="https://canary.botapi.skype.com",
+        negotiate_base_url="https://botapi.example",
         geos=geos,
     )
     transport_options = options.to_transport_options()
     geos.append("emea")
 
-    assert transport_options.negotiate_base_url == "https://canary.botapi.skype.com"
+    assert transport_options.negotiate_base_url == "https://botapi.example"
     assert transport_options.geos == ("amer",)
 
 
@@ -532,12 +532,12 @@ def test_app_socket_mode_options_are_honoured():
         client_id="client",
         client_secret="secret",
         tenant_id="tenant",
-        socket_mode=SocketModeOptions(negotiate_base_url="https://canary.botapi.skype.com", geos=("amer",)),
+        socket_mode=SocketModeOptions(negotiate_base_url="https://botapi.example", geos=("amer",)),
     )
 
     assert app.socket_mode is not None
     assert app.socket_mode.geo_list == ("amer",)
-    assert app.socket_mode.negotiate_url == "https://canary.botapi.skype.com/amer/v3/websockets/connect"
+    assert app.socket_mode.negotiate_url == "https://botapi.example/amer/v3/websockets/connect"
 
 
 def test_app_rejects_socket_mode_with_a_custom_http_adapter():

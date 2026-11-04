@@ -13,7 +13,6 @@ from microsoft_teams.apps import (
     ActivityContext,
     App,
     SocketModeDisconnectedEvent,
-    SocketModeOptions,
     SocketModeReadyEvent,
     SocketModeReconnectedEvent,
 )
@@ -25,13 +24,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)-7s %(na
 logging.getLogger("microsoft_teams.apps.socket_mode").setLevel(logging.DEBUG)
 logger = logging.getLogger(__name__)
 
-app = App(
-    socket_mode=SocketModeOptions(
-        # Socket Mode is only available on the Canary and Pilot1 rings for now.
-        # Pilot1 (https://pilot1.botapi.skype.com) is supported as well.
-        negotiate_base_url="https://canary.botapi.skype.com",
-    )
-)
+app = App(socket_mode=True)
 
 
 # Handlers are transport-agnostic: the exact same code works over HTTP or Socket Mode.
