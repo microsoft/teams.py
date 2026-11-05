@@ -125,6 +125,8 @@ class AppOptions(TypedDict, total=False):
     have no listener to serve them. Mutually exclusive with ``http_server_adapter``,
     and supported only in the public cloud.
 
+    Socket Mode is recommended for new bots; existing bots may require
+    additional configuration.
     This API is in preview and may change in the future; recommended only for development.
     Diagnostic: ExperimentalTeamsSocketMode
     """
@@ -240,6 +242,8 @@ class InternalAppOptions:
     socket_mode: Optional[Union[bool, SocketModeOptions]] = None
     """Experimental: receive activities over an outbound WebSocket instead of an inbound HTTPS endpoint.
 
+    Socket Mode is recommended for new bots; existing bots may require
+    additional configuration.
     This API is in preview and may change in the future; recommended only for development.
     Diagnostic: ExperimentalTeamsSocketMode
     """
