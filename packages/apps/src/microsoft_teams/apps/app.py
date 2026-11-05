@@ -221,6 +221,7 @@ class App(ActivityHandlerMixin):
         """The experimental Socket Mode adapter when enabled, else ``None``.
 
         Exposes ``status``, ``geo_statuses``, and ``events`` for observing the connection.
+        Socket Mode is currently only available for new bots.
         This API is in preview and may change in the future; recommended only for development.
         Diagnostic: ExperimentalTeamsSocketMode
         """

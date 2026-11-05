@@ -82,15 +82,20 @@ class SocketModeOptions:
     Preview configuration for the Socket Mode negotiate URL and geographies; may change in the future.
 
     WebSocket is only recommended for use when developing agents.
+    Socket Mode is currently only available for new bots.
     Diagnostic: ExperimentalTeamsSocketMode
     """
 
     negotiate_base_url: str = DEFAULT_SOCKET_MODE_NEGOTIATE_BASE_URL
-    """Service host used to negotiate the connection."""
+    """
+    Service host used to negotiate the connection. Defaults to ``https://botapi.skype.com``.
+    Override this to target a different Teams backend service ring.
+    """
 
     geos: Sequence[str] = DEFAULT_GEOS
     """
-    Geographies to connect, one independent socket each. Every one must connect for
+    Geographies to connect, one independent socket each. Defaults to ``("amer", "emea", "apac")``;
+    override this to select the geographies to connect to. Every one must connect for
     ``start()`` to succeed, after which each is supervised on its own.
     """
 
@@ -140,6 +145,7 @@ class SocketModeAdapter:
 
     This API is in preview and may change in the future.
     WebSocket is only recommended for use when developing agents.
+    Socket Mode is currently only available for new bots.
     Diagnostic: ExperimentalTeamsSocketMode
     """
 
