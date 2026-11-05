@@ -3270,3 +3270,86 @@ class TestConnectionStatusRename:
 
         assert hasattr(UserClient, "get_token_status")
         assert not hasattr(UserClient, "get_connection_status")
+
+
+class TestActivityContextPlanPlacement:
+    """A Plan completion is placed like ``ctx.send``: in the reply chain of a chat thread, else in the conversation."""
+
+    @staticmethod
+    def _plan_context(activity: Any) -> ActivityContext[Any]:
+        ctx = _context_with_reply_chain_methods(activity)
+        ctx.conversation_ref = ctx.conversation_ref.model_copy(update={"conversation": activity.conversation})
+        ctx.api.from_service_url.return_value = ctx.api
+        ctx.api.conversations.create_activity = AsyncMock(
+            side_effect=lambda conversation_id, activity: SentActivity(id="answer", activity_params=activity)
+        )
+        return ctx
+
+    @pytest.mark.asyncio
+    async def test_complete_goes_to_the_reply_chain_of_a_chat_thread(self) -> None:
+        ctx = self._plan_context(
+            _inbound_message(
+                "reply-2", {"chat": {"id": CHAT_ID}, "replyChain": {"id": "root-1"}}, conversation_id="a:opaque"
+            )
+        )
+
+        await ctx.plan().complete("Done")
+
+        reply = ctx.api.conversations._create_reply_chain_activity
+        reply.assert_awaited_once()
+        assert reply.call_args.args[:2] == (CHAT_ID, "root-1")
+        sent = reply.call_args.args[2]
+        assert sent.reply_to_id == "reply-2"
+        assert sent.conversation.id == CHAT_ID
+        ctx.api.conversations.create_activity.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_complete_goes_to_the_conversation_for_a_top_level_chat_message(self) -> None:
+        ctx = self._plan_context(
+            _inbound_message(
+                "root-1", {"chat": {"id": CHAT_ID}, "replyChain": {"id": "root-1"}}, conversation_id="a:opaque"
+            )
+        )
+
+        await ctx.plan().complete("Done")
+
+        ctx.api.conversations._create_reply_chain_activity.assert_not_awaited()
+        assert ctx.api.conversations.create_activity.call_args.args[0] == "a:opaque"
+
+    @pytest.mark.asyncio
+    async def test_complete_goes_to_the_conversation_for_a_channel_message(self) -> None:
+        ctx = self._plan_context(
+            _inbound_message(
+                "reply-2",
+                {"channel": {"id": CHANNEL_ID}, "replyChain": {"id": "root-1"}},
+                conversation_id=f"{CHANNEL_ID};messageid=root-1",
+                conversation_type="channel",
+            )
+        )
+
+        await ctx.plan().complete("Done")
+
+        ctx.api.conversations._create_reply_chain_activity.assert_not_awaited()
+        assert ctx.api.conversations.create_activity.call_args.args[0] == f"{CHANNEL_ID};messageid=root-1"
+
+    @pytest.mark.asyncio
+    async def test_typing_updates_go_to_the_conversation_in_a_chat_thread(self) -> None:
+        ctx = self._plan_context(_inbound_message("reply-2", {"chat": {"id": CHAT_ID}, "replyChain": {"id": "root-1"}}))
+
+        await ctx.plan().start([])
+
+        ctx.api.conversations._create_reply_chain_activity.assert_not_awaited()
+        ctx.api.conversations.create_activity.assert_awaited_once()
+
+    def test_the_saved_plan_keeps_the_placement(self) -> None:
+        ctx = self._plan_context(
+            _inbound_message(
+                "reply-2", {"chat": {"id": CHAT_ID}, "replyChain": {"id": "root-1"}}, conversation_id="a:opaque"
+            )
+        )
+
+        assert ctx.plan().model_dump(mode="json", by_alias=False) == {
+            "conversation_id": "a:opaque",
+            "reply_to_id": "reply-2",
+            "reply_chain": {"chat_or_channel_id": CHAT_ID, "reply_chain_id": "root-1"},
+        }

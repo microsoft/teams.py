@@ -24,7 +24,7 @@ from microsoft_teams.api import (
     UnknownEntity,
 )
 from microsoft_teams.api.auth.cloud_environment import PUBLIC
-from microsoft_teams.apps import ActivityContext, Plan, PlanOptions
+from microsoft_teams.apps import ActivityContext, Plan, PlanOptions, PlanReplyChain
 from microsoft_teams.apps.activity_send import send_or_update_activity
 from microsoft_teams.cards import AdaptiveCard, TextBlock
 from microsoft_teams.common.experimental import ExperimentalWarning
@@ -417,3 +417,55 @@ async def test_plan_serialization_round_trip(api, ref):
     assert all(call.args[1].reply_to_id == "original-prompt" for call in sent)
     assert [call.args[1].entities[0].plan_type for call in sent] == ["continue", "complete"]
     assert sent[0].args[1].entities[0].steps == steps
+
+
+async def test_rebuilt_plan_completes_in_the_saved_reply_chain(api):
+    api.conversations._create_reply_chain_activity = AsyncMock(
+        side_effect=lambda chat_id, root_id, activity: SentActivity(id="answer", activity_params=activity)
+    )
+    saved = {
+        "conversation_id": "a:opaque",
+        "reply_to_id": "prompt",
+        "reply_chain": {"chat_or_channel_id": "19:chat@unq.gbl.spaces", "reply_chain_id": "root"},
+    }
+    original = Plan(
+        conversation_id="a:opaque",
+        reply_to_id="prompt",
+        reply_chain=PlanReplyChain(chat_or_channel_id="19:chat@unq.gbl.spaces", reply_chain_id="root"),
+        api_client=api,
+    )
+    assert json.loads(json.dumps(original.model_dump(mode="json", by_alias=False))) == saved
+
+    restored = Plan(**saved, api_client=api)
+    await restored.complete("Done")
+
+    reply = api.conversations._create_reply_chain_activity
+    assert reply.call_args.args[:2] == ("19:chat@unq.gbl.spaces", "root")
+    assert reply.call_args.args[2].reply_to_id == "prompt"
+    assert reply.call_args.args[2].conversation.id == "19:chat@unq.gbl.spaces"
+    api.conversations.create_activity.assert_not_awaited()
+    assert restored.model_dump(mode="json", by_alias=False) == saved
+
+
+async def test_rebuilt_plan_from_a_saved_shape_without_placement_completes_in_the_conversation(api, target):
+    restored = Plan(**target, api_client=api)
+
+    await restored.complete("Done")
+
+    assert api.conversations.create_activity.call_args.args[0] == "chat"
+    assert restored.model_dump(mode="json", by_alias=False) == target
+    assert restored.model_dump(mode="json", by_alias=True) == {"conversationId": "chat", "replyToId": "prompt"}
+
+
+async def test_typing_updates_go_to_the_conversation_with_a_saved_placement(api, target):
+    api.conversations._create_reply_chain_activity = AsyncMock()
+    plan = Plan(
+        **target,
+        reply_chain=PlanReplyChain(chat_or_channel_id="19:chat@unq.gbl.spaces", reply_chain_id="root"),
+        api_client=api,
+    )
+
+    await plan.stop()
+
+    api.conversations._create_reply_chain_activity.assert_not_awaited()
+    api.conversations.create_activity.assert_awaited_once()

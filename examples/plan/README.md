@@ -14,7 +14,7 @@ Each step includes a description that changes as it progresses through the demo.
 - Send `proactive` to manage a Plan proactively.
 
 `PlanOptions` requires `conversation_id`, `reply_to_id`, and `api_client`, but
-`Plan.model_dump()` serializes only the two IDs. Store those IDs and supply the configured API client when rebuilding `PlanOptions`.
+`plan.model_dump(mode="json", by_alias=False)` serializes the two IDs and, in a chat thread, the `reply_chain` binding that places the completion. Store that data and supply the configured API client when rebuilding `PlanOptions`.
 
 The delays stand in for longer-running work.
 
