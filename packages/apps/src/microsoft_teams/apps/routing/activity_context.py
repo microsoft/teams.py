@@ -76,7 +76,7 @@ from ..oauth_state import (
     record_pending_oauth_sign_in,
     replace_pending_oauth_sign_ins,
 )
-from ..plan import Plan
+from ..plan import Plan, PlanReplyChain
 from ..plugins.streamer import StreamerProtocol
 from ..state import TurnStateContainer
 from ..utils import create_graph_client
@@ -261,9 +261,17 @@ class ActivityContext(Generic[T]):
     def plan(self) -> Plan:
         """Create or reference the existing Plan for the incoming activity. Diagnostic: ExperimentalTeamsPlan"""
         if self._plan is None:
+            placement = self._get_inbound_reply_chain_placement()
             self._plan = Plan(
                 conversation_id=self.conversation_ref.conversation.id,
                 reply_to_id=self.activity.id,
+                reply_chain=(
+                    PlanReplyChain(
+                        chat_or_channel_id=placement.chat_or_channel_id, reply_chain_id=placement.reply_chain_id
+                    )
+                    if placement is not None and not placement.in_channel
+                    else None
+                ),
                 api_client=self.api.from_service_url(self.conversation_ref.service_url),
             )
         return self._plan
