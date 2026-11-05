@@ -82,8 +82,7 @@ class SocketModeOptions:
     Preview configuration for the Socket Mode negotiate URL and geographies; may change in the future.
 
     WebSocket is only recommended for use when developing agents.
-    Socket Mode is recommended for new bots; existing bots may require
-    additional configuration.
+    Socket Mode is currently only available for new bots.
     Diagnostic: ExperimentalTeamsSocketMode
     """
 
@@ -146,8 +145,7 @@ class SocketModeAdapter:
 
     This API is in preview and may change in the future.
     WebSocket is only recommended for use when developing agents.
-    Socket Mode is recommended for new bots; existing bots may require
-    additional configuration.
+    Socket Mode is currently only available for new bots.
     Diagnostic: ExperimentalTeamsSocketMode
     """
 
