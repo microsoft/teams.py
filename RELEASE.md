@@ -37,11 +37,11 @@ A preview line may still run alongside stable, as `release/v2.1` did before it w
 
 Development happens on `main`. When ready to release:
 
-1. Open a PR from a feature branch (e.g. `<you>/release-2.1.0`) into the matching release branch
-   (e.g. `release/v2.1`)
+1. Open a PR from a feature branch (e.g. `<you>/release-2.3.0`) into the matching release branch
+   (e.g. `release/v2.3`)
 2. The PR should make the release branch equal `main` plus the version bump in `version.json`
 3. Merge the PR, then run the publish pipeline
-4. After a successful stable release, open a separate PR to `main` that advances `version.json` to the next planned development line (for example, `2.1.0` is followed by `2.2.0-dev.{height}`) with `versionHeightOffset` set to `1`
+4. After a successful stable release, open a separate PR to `main` that advances `version.json` to the next planned development line (for example, `2.3.0` is followed by `2.4.0-dev.{height}`) with `versionHeightOffset` set to `1`
 
 ### Preparing the release branch
 
@@ -132,12 +132,12 @@ Builds on `main` produce dev versions like `2.3.0.dev2`, `2.3.0.dev3`, etc. Thes
 
 ### Producing a Stable Release
 
-The version on a release branch should be a plain stable string (e.g. `2.1.0`, no `-dev` suffix). The PR opened in
+The version on a release branch should be a plain stable string (e.g. `2.3.0`, no `-dev` suffix). The PR opened in
 the [Workflow](#workflow) section above already handles this — just edit `version.json` before pushing:
 
 ```json
 {
-  "version": "2.1.0",
+  "version": "2.3.0",
   "versionHeightOffset": 1
 }
 ```
