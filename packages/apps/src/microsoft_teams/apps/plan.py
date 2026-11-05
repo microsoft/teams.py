@@ -5,7 +5,7 @@ Licensed under the MIT License.
 
 import logging
 from collections.abc import Sequence
-from typing import Any, Literal, NotRequired, TypedDict, Unpack
+from typing import Any, Literal, NotRequired, Optional, TypedDict, Unpack
 
 from microsoft_teams.api import (
     ApiClient,
@@ -63,7 +63,7 @@ class PlanOptions(TypedDict):
     conversation_id: str
     reply_to_id: str
     api_client: ApiClient
-    reply_chain: NotRequired[PlanReplyChain | None]
+    reply_chain: NotRequired[Optional[PlanReplyChain]]
 
 
 @experimental("ExperimentalTeamsPlan")
@@ -83,7 +83,7 @@ class Plan(CustomBaseModel):
 
     conversation_id: str
     reply_to_id: str
-    reply_chain: PlanReplyChain | None = None
+    reply_chain: Optional[PlanReplyChain] = None
 
     @model_serializer(mode="wrap")
     def _serialize(self, handler: Any) -> dict[str, Any]:
@@ -215,7 +215,7 @@ class Plan(CustomBaseModel):
         return await self._send_activity(activity, self.reply_chain)
 
     async def _send_activity(
-        self, activity: MessageActivityInput | TypingActivityInput, reply_chain: PlanReplyChain | None = None
+        self, activity: MessageActivityInput | TypingActivityInput, reply_chain: Optional[PlanReplyChain] = None
     ) -> SentActivity:
         activity.reply_to_id = self.reply_to_id
         if reply_chain is None:
