@@ -32,7 +32,10 @@ class PlanReplyChain(CustomBaseModel):
     """
 
     chat_or_channel_id: str
+    """The chat id, ``channel_data.chat.id``. Not ``conversation.id``."""
+
     reply_chain_id: str
+    """The id of the message at the root of the reply chain, ``channel_data.reply_chain.id``."""
 
 
 class PlanOptions(TypedDict):
