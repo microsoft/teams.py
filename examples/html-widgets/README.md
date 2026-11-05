@@ -77,6 +77,7 @@ src/
   main.py           # Bot entry point, command routing, callTool handler
   widgets/
     __init__.py     # Re-exports all widget HTML constants
+    runtime.py      # Shared handshake and size reporter, base CSS, document builder
     simple.py       # Static widget HTML
     calltool.py     # CallTool interactive widget HTML
     fullscreen.py   # Fullscreen request widget HTML
@@ -120,7 +121,11 @@ async def handle(ctx):
 
 ## Key Concepts
 
-- **`build_html_widget_message`**: Builds a complete message activity with the widget, including protocol injection and security policy defaults.
+- **`build_html_widget_message`**: Builds a complete message activity with the widget, including security policy defaults. The HTML is sent as authored.
 - **`build_html_widget_markdown`**: Lower-level helper that returns the markdown string (for embedding in custom activities).
 - **`validate_security_policy`**: Dev-time audit tool that checks HTML for external references not covered by the security policy.
-- **`inject_widget_protocol`**: Auto-injected by the builders. Handles the ui/initialize handshake, size reporting, and optional notification hooks.
+- **Widgets own the handshake and sizing**: Each widget sends `ui/initialize` (protocolVersion `2026-01-26`, `appInfo`, `appCapabilities`), waits for the response, then sends `ui/notifications/initialized`. It then reports its height with `ui/notifications/size-changed`. Without a size reporter, Teams renders the widget at about 150px. The shared snippet lives in `src/widgets/runtime.py`.
+- **Size reporter**: One `ResizeObserver` on a single root element sends the unrounded `getBoundingClientRect().height` after the handshake and on every change. The root uses `display: flow-root`, `html` and `body` have zero margin, and all content sits inside the root. Avoid `scrollHeight`, `100vh` and `height: 100%`.
+- **`mcp_url` and `correlation_id`**: Optional payload fields (`mcpUrl`, `correlationId` on the wire), serialized only when set. The Teams client combines `mcpUrl` with the owner id (`<ownerId>-<mcpUrl>`) as the input for deriving the hosting origin, so a widget produced by an MCP server must set `mcpUrl` to that server's URL to get its own hosting scope, and `correlationId` as the correlation vector, which is also returned to the bot.
+- **Tool results**: `McpUiCallToolResult` always emits `content` (`[]`), `structuredContent` (`{}`) and `isError` (`false`) by default, because omitted fields can reach the widget as `null`.
+- **`arguments.__msteams__`**: The client adds `{ mcpUrl, correlationId }` to every `callTool` request, overwriting any bot-supplied value, and the SDK passes it through untouched. Handlers should ignore it, validate the other arguments, never throw, and not authorize from `activity.from`.

@@ -32,7 +32,7 @@ from microsoft_teams.apps import ActivityContext, ActivityEvent, ActivitySentEve
 from microsoft_teams.apps.app_events import EventManager
 from microsoft_teams.apps.app_process import ActivityProcessor
 from microsoft_teams.apps.events import CoreActivity
-from microsoft_teams.apps.plugins import PluginBase, StreamCancelledError
+from microsoft_teams.apps.plugins import PluginBase
 from microsoft_teams.apps.plugins.streamer import PlanConflictStreamError
 from microsoft_teams.apps.routing.router import ActivityHandler, ActivityRouter
 from microsoft_teams.apps.state import TurnState, TurnStateContainer, TurnStateLoader, TurnStateSealedError
@@ -1366,93 +1366,6 @@ class TestActivityProcessor:
 
         with pytest.raises(ValueError, match="EventManager was not initialized"):
             await activity_processor.process_activity([], mock_activity_event)
-
-    @pytest.mark.asyncio
-    async def test_process_activity_handles_stream_cancelled(self, activity_processor):
-        """StreamCancelledError from middleware is caught; response status is 200."""
-        core_activity = CoreActivity(
-            type="message",
-            id="activity-cancel",
-            service_url="https://service.url",
-            **{
-                "from": {"id": "user-1", "name": "Test User"},
-                "conversation": {"id": "conv-1"},
-                "recipient": {"id": "bot-1", "name": "Test Bot"},
-                "channelId": "msteams",
-            },
-        )
-        mock_token = MagicMock(spec=TokenProtocol)
-        mock_token.service_url = "https://service.url"
-        mock_activity_event = ActivityEvent(body=core_activity, token=mock_token)
-
-        activity_processor.router.select_handlers = MagicMock(return_value=[])
-        activity_processor.execute_middleware_chain = AsyncMock(side_effect=StreamCancelledError())
-        activity_processor.event_manager = MagicMock()
-        activity_processor.event_manager.on_activity_response = AsyncMock()
-        activity_processor.event_manager.on_error = AsyncMock()
-
-        result = await activity_processor.process_activity([], mock_activity_event)
-
-        assert result.status == 200
-
-    @pytest.mark.asyncio
-    async def test_process_activity_stream_cancelled_raises_state_save_failure(self, activity_processor):
-        """A handled stream cancellation does not hide a persistence failure."""
-        save_error = RuntimeError("save failed")
-        container = TurnStateContainer(
-            conversation=TurnState(),
-            conversation_id="conv-789",
-        )
-
-        activity_processor.state_loader = MagicMock()
-        activity_processor.state_loader.load = AsyncMock(return_value=container)
-        activity_processor.state_loader.save = AsyncMock(side_effect=save_error)
-        activity_processor.router.select_handlers = MagicMock(return_value=[])
-        activity_processor.execute_middleware_chain = AsyncMock(side_effect=StreamCancelledError())
-        self._wire_event_manager(activity_processor)
-
-        with pytest.raises(RuntimeError) as exc_info:
-            await activity_processor.process_activity([], self._message_event())
-
-        assert exc_info.value is save_error
-        error_event = activity_processor.event_manager.on_error.await_args.args[0]
-        assert error_event.error is save_error
-        activity_processor.event_manager.on_activity_response.assert_not_awaited()
-
-    @pytest.mark.asyncio
-    async def test_process_activity_handles_response_event_stream_cancelled(self, activity_processor):
-        """StreamCancelledError from the response event retains the legacy 200 response."""
-        core_activity = CoreActivity(
-            type="message",
-            id="activity-response-cancel",
-            service_url="https://service.url",
-            **{
-                "from": {"id": "user-1", "name": "Test User"},
-                "conversation": {"id": "conv-1"},
-                "recipient": {"id": "bot-1", "name": "Test Bot"},
-                "channelId": "msteams",
-            },
-        )
-        mock_token = MagicMock(spec=TokenProtocol)
-        mock_token.service_url = "https://service.url"
-        mock_activity_event = ActivityEvent(body=core_activity, token=mock_token)
-
-        activity_processor.router.select_handlers = MagicMock(return_value=[])
-        activity_processor.execute_middleware_chain = AsyncMock(
-            return_value=InvokeResponse(status=202, body={"accepted": True})
-        )
-        activity_processor.event_manager = MagicMock()
-        activity_processor.event_manager.on_activity_response = AsyncMock(side_effect=StreamCancelledError())
-        activity_processor.event_manager.on_error = AsyncMock()
-
-        with patch("microsoft_teams.apps.routing.activity_context.HttpStream") as mock_stream_class:
-            mock_stream = mock_stream_class.return_value
-            mock_stream.close = AsyncMock()
-
-            result = await activity_processor.process_activity([], mock_activity_event)
-
-        assert result.status == 200
-        assert mock_stream.close.await_count == 2
 
     @pytest.mark.asyncio
     async def test_process_activity_raises_exception(self, activity_processor):

@@ -8,12 +8,14 @@ from typing import Awaitable, Callable, Literal, Optional, Protocol, Union
 
 from httpx2 import HTTPStatusError
 from microsoft_teams.api import MessageActivityInput, SentActivity, TextFormat, TypingActivityInput
+from typing_extensions import deprecated
 
 StreamerEvent = Literal["chunk", "close"]
 
 
+@deprecated("StreamCancelledError is deprecated. Teams no longer supports stopping a stream. ")
 class StreamCancelledError(asyncio.CancelledError):
-    """Raised when a stream operation is attempted after the stream has been cancelled."""
+    """Deprecated exception; no longer raised for streaming operations."""
 
     pass
 
@@ -48,11 +50,9 @@ class StreamerProtocol(Protocol):
     """Component that can send streamed chunks of an activity."""
 
     @property
+    @deprecated("canceled is deprecated. Teams no longer supports stopping a stream.")
     def canceled(self) -> bool:
-        """
-        Whether the stream has been canceled.
-        For example when the user pressed the Stop button or the 2-minute timeout has exceeded.
-        """
+        """Deprecated read-only flag; SDK streams always return False."""
         ...
 
     @property

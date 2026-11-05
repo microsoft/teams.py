@@ -8,8 +8,8 @@ Licensed under the MIT License.
 
 import json
 import re
-from dataclasses import dataclass, replace
-from typing import Any, Literal, Optional, Union, cast
+from dataclasses import dataclass
+from typing import Any, Optional, cast
 from urllib.parse import urlparse
 
 from microsoft_teams.api.activities.message import MessageActivityInput
@@ -20,24 +20,6 @@ from microsoft_teams.api.models.html_widget import (
 )
 from microsoft_teams.common.experimental import experimental
 from pydantic import ValidationError
-
-# The MCP Apps protocol version used for the widget init handshake.
-MCP_PROTOCOL_VERSION = "2026-01-26"
-
-# Explicit mapping of notification names to their window callback names.
-# Only notifications in this map will have hooks injected.
-#
-# Supported in the Teams app bridge: tool-result, tool-input
-# Not supported in the Teams app bridge: tool-input-partial, tool-cancelled
-# Not yet available in Teams: host-context-changed, resource-teardown
-NOTIFICATION_CALLBACKS: dict[str, str] = {
-    "tool-result": "onToolResult",
-    "tool-input": "onToolInput",
-    "tool-input-partial": "onToolInputPartial",
-    "tool-cancelled": "onToolCancelled",
-    "host-context-changed": "onHostContextChanged",
-    "resource-teardown": "onResourceTeardown",
-}
 
 # Default security policy applied when none is specified.
 DEFAULT_SECURITY_POLICY = HtmlWidgetSecurityPolicy(
@@ -53,46 +35,6 @@ DEFAULT_SECURITY_POLICY = HtmlWidgetSecurityPolicy(
 # ---------------------------------------------------------------------------
 
 
-# Known host notification names from the MCP Apps spec (ui/notifications/*).
-# Kept as an open union (`| str`) so unknown or future values are still
-# accepted; unrecognized names are simply ignored during protocol injection.
-WidgetNotification = Union[
-    Literal[
-        "tool-result",
-        "tool-input",
-        "tool-input-partial",
-        "tool-cancelled",
-        "host-context-changed",
-        "resource-teardown",
-    ],
-    str,
-]
-
-# Display modes a widget can declare during ui/initialize.
-# Note: 'pip' is defined in the MCP Apps spec but not yet supported by Teams.
-DisplayMode = Union[Literal["inline", "fullscreen", "pip"], str]
-
-
-@dataclass
-class InjectWidgetProtocolOptions:
-    """Options for injecting the MCP Apps protocol into widget HTML."""
-
-    name: Optional[str] = None
-    """The widget app name sent during ui/initialize. Defaults to 'widget'."""
-
-    version: Optional[str] = None
-    """The widget app version sent during ui/initialize. Defaults to '1.0.0'."""
-
-    available_display_modes: Optional[list[DisplayMode]] = None
-    """Display modes this widget supports (e.g. ['inline', 'fullscreen'])."""
-
-    notifications: Optional[list[WidgetNotification]] = None
-    """Host notifications to listen for (e.g. ['tool-result', 'tool-input'])."""
-
-    debug_csp_violations: bool = False
-    """When true, injects a CSP violation listener for dev-time debugging."""
-
-
 @dataclass
 class HtmlWidgetMarkdownOptions:
     """Options for building an HTML widget markdown string."""
@@ -102,9 +44,6 @@ class HtmlWidgetMarkdownOptions:
 
     after: Optional[str] = None
     """Text to include after the widget code block."""
-
-    protocol_options: Optional[InjectWidgetProtocolOptions] = None
-    """Options forwarded to inject_widget_protocol."""
 
 
 @dataclass
@@ -149,109 +88,6 @@ def _validate_html_widget_payload(payload: HtmlWidgetPayload) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Protocol injection
-# ---------------------------------------------------------------------------
-
-
-def _escape_for_inline_script(value: str) -> str:
-    """Escape a string for safe embedding in a single-quoted JS literal inside <script>.
-
-    Handles backslash, single-quote, </script> breakout, and newlines.
-    """
-    return (
-        value.replace("\\", "\\\\").replace("'", "\\'").replace("</", "<\\/").replace("\n", "\\n").replace("\r", "\\r")
-    )
-
-
-@experimental("ExperimentalTeamsHtmlWidget")
-def inject_widget_protocol(html: str, options: Optional[InjectWidgetProtocolOptions] = None) -> str:
-    """
-    Injects the MCP Apps protocol script into widget HTML.
-
-    This sets up:
-    - The ui/initialize handshake (required for rendering)
-    - Size reporting via ui/notifications/size-changed
-    - Optional notification hooks (opt-in via notifications option)
-
-    If the HTML already contains the protocol (detected by 'ui/initialize'), it is returned unchanged.
-
-    Diagnostic: ExperimentalTeamsHtmlWidget
-    """
-    # Skip injection only if the HTML already performs the ui/initialize
-    # handshake (a `method: 'ui/initialize'` postMessage), not if it merely
-    # mentions the string somewhere (e.g. in a comment or visible text).
-    if re.search(r"""["']?method["']?\s*:\s*["']ui/initialize["']""", html):
-        return html
-
-    opts = options or InjectWidgetProtocolOptions()
-    name = _escape_for_inline_script(opts.name or "widget")
-    version = _escape_for_inline_script(opts.version or "1.0.0")
-    caps_json = "{}"
-    if opts.available_display_modes:
-        caps_json = f"{{availableDisplayModes:{json.dumps(opts.available_display_modes)}}}"
-
-    # Build notification hook lines
-    notifications = opts.notifications or []
-    hook_lines = ""
-    for n in notifications:
-        if n in NOTIFICATION_CALLBACKS:
-            method = f"ui/notifications/{n}"
-            cb = NOTIFICATION_CALLBACKS[n]
-            hook_lines += f"if(d.method==='{method}'&&window.{cb}){{window.{cb}(d.params);}}"
-
-    # CSP violation listener (dev-only, opt-in)
-    csp_debug = ""
-    if opts.debug_csp_violations:
-        csp_debug = (
-            "document.addEventListener('securitypolicyviolation',function(e){"
-            "console.warn('[widget CSP violation]',{"
-            "blockedURI:e.blockedURI,"
-            "violatedDirective:e.violatedDirective,"
-            "originalPolicy:e.originalPolicy"
-            "});});"
-        )
-
-    # Script template parts (long JS strings, cannot break mid-expression)
-    notify_size = (  # noqa: E501
-        "function notifySize(){window.parent.postMessage("
-        "{jsonrpc:'2.0',method:'ui/notifications/size-changed',"
-        "params:{height:Math.ceil(Math.max(document.documentElement.scrollHeight,document.body.scrollHeight))}},'*');}"
-    )
-    on_init = (
-        "if(d.id===id&&d.result){window.parent.postMessage("
-        "{jsonrpc:'2.0',method:'ui/notifications/initialized'},'*');"
-        "setTimeout(notifySize,100);}"
-    )
-    post_init = (
-        "window.parent.postMessage({jsonrpc:'2.0',id:id,"
-        f"method:'ui/initialize',params:{{protocolVersion:'{MCP_PROTOCOL_VERSION}',"
-        f"appInfo:{{name:'{name}',version:'{version}'}},"
-        f"appCapabilities:{caps_json}}}}},'*');"
-    )
-
-    script = (
-        "<script>(function(){"
-        + csp_debug
-        + "var id='init-'+Math.random().toString(36).slice(2);"
-        + notify_size
-        + "window.addEventListener('message',function(e){"
-        + "var d=e.data;if(!d||d.jsonrpc!=='2.0')return;"
-        + on_init
-        + hook_lines
-        + "});"
-        + post_init
-        + "document.addEventListener('DOMContentLoaded',notifySize);"
-        + "})()</script>"
-    )
-
-    # Inject before </body> if present, otherwise append
-    if "</body>" in html:
-        return html.replace("</body>", script + "</body>")
-
-    return html + script
-
-
-# ---------------------------------------------------------------------------
 # Building / sending
 # ---------------------------------------------------------------------------
 
@@ -264,6 +100,10 @@ def build_html_widget_markdown(
     """
     Wraps an HTML widget payload in the ```html-widget markdown code fence
     format required by Teams to render the widget in a message.
+    The widget HTML is sent as authored.
+    The widget owns the ui/initialize handshake and the ui/notifications/size-changed reporting.
+    Without a size reporter, Teams renders the widget at about 150px tall.
+    The optional mcp_url and correlation_id payload fields are serialized only when set.
 
     Diagnostic: ExperimentalTeamsHtmlWidget
     """
@@ -271,17 +111,10 @@ def build_html_widget_markdown(
 
     opts = options or HtmlWidgetMarkdownOptions()
 
-    # Build protocol options from markdown options (copy to avoid mutating caller's instance)
-    base_proto = opts.protocol_options or InjectWidgetProtocolOptions()
-    proto_opts = replace(base_proto, name=payload.name)
-
-    # Inject protocol and apply default security policy (copy default to avoid shared mutation)
-    injected_html = inject_widget_protocol(payload.html, proto_opts)
+    # Apply the default security policy (copied to avoid shared mutation)
     security_policy = payload.security_policy or DEFAULT_SECURITY_POLICY.model_copy(deep=True)
-
-    # Build the serialized payload
-    injected_payload = payload.model_copy(update={"html": injected_html, "security_policy": security_policy})
-    payload_json = injected_payload.model_dump(by_alias=True, exclude_none=True)
+    resolved_payload = payload.model_copy(update={"security_policy": security_policy})
+    payload_json = resolved_payload.model_dump(by_alias=True, exclude_none=True)
     json_str = json.dumps(payload_json, separators=(",", ":"))
 
     parts: list[str] = []
@@ -303,6 +136,8 @@ def build_html_widget_message(
 ) -> MessageActivityInput:
     """
     Builds a message activity containing an HTML widget, ready to be sent.
+    The widget HTML is sent as authored.
+    The widget owns the ui/initialize handshake and the ui/notifications/size-changed reporting.
 
     Diagnostic: ExperimentalTeamsHtmlWidget
     """
@@ -400,7 +235,7 @@ def validate_security_policy(html: str, policy: HtmlWidgetSecurityPolicy) -> lis
     to origins not present in the appropriate policy field.
 
     This is a static analysis tool - it cannot catch dynamically constructed URLs.
-    Use the debug_csp_violations option on inject_widget_protocol for runtime detection.
+    Dynamically built URLs are only visible at runtime, in the widget's CSP violation reports.
 
     Diagnostic: ExperimentalTeamsHtmlWidget
     """

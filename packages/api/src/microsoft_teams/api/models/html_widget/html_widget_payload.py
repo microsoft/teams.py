@@ -77,3 +77,13 @@ class HtmlWidgetPayload(CustomBaseModel):
 
     permissions: Optional[HtmlWidgetPermissions] = None
     """Optional permissions the widget requests from the host."""
+
+    mcp_url: Optional[str] = None
+    """Optional MCP server URL for the widget.
+    The Teams client reads it as mcpUrl.
+    The client combines it with the owner id (<ownerId>-<mcpUrl>) as the input for deriving the hosting origin.
+    A widget produced by an MCP server must set it to that server's URL to get its own hosting scope."""
+
+    correlation_id: Optional[str] = None
+    """Optional correlation vector for the widget.
+    The Teams client reads it as correlationId and also returns it to the bot."""

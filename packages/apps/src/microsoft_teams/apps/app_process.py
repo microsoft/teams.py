@@ -48,7 +48,7 @@ from .events import ActivityEvent, ActivityResponseEvent, ActivitySentEvent, Err
 from .files_credential import select_files_credential, select_inline_image_credential
 from .oauth_flow import OAuthFlowRegistry
 from .plan import Plan
-from .plugins import PluginActivityEvent, PluginBase, StreamCancelledError
+from .plugins import PluginActivityEvent, PluginBase
 from .routing.activity_context import CONVERSATION_REF_SEND_DEPRECATION, ActivityContext
 from .routing.router import ActivityHandler, ActivityRouter
 from .state import TurnStateLoader
@@ -361,11 +361,6 @@ class ActivityProcessor:
             else:
                 response = InvokeResponse[Any](status=200, body=middleware_result)
             processing_completed = True
-        except StreamCancelledError:
-            logger.debug("Activity processing was cancelled (stream stopped)")
-            await activityCtx.stream.close()
-            response = InvokeResponse[Any](status=200)
-            processing_completed = True
         except Exception as error:
             await self.event_manager.on_error(ErrorEvent(error=error, activity=activity), plugins)
             raise
@@ -389,10 +384,6 @@ class ActivityProcessor:
                 ),
                 plugins=plugins,
             )
-        except StreamCancelledError:
-            logger.debug("Activity processing was cancelled (stream stopped)")
-            await activityCtx.stream.close()
-            response = InvokeResponse[Any](status=200)
         except Exception as error:
             await self.event_manager.on_error(ErrorEvent(error=error, activity=activity), plugins)
             raise
