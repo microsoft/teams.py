@@ -17,8 +17,8 @@ dotnet tool install -g nbgv
 
 ## Branch Strategy
 
-| Branch | Versions | ESRP product state | Published |
-|--------|----------|--------------------|-----------|
+| Branch | Versions | ESRP product state | Further releases |
+|--------|----------|--------------------|------------------|
 | `main` | `2.3.0.dev2`, `2.3.0.dev3`, ... | n/a | No |
 | `release/v2.2` | `2.2.x` (stable) | `latest` | Yes |
 | `release/v2.1` | closed at `2.1.1` | n/a | No |
