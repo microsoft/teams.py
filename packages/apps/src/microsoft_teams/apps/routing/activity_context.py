@@ -259,7 +259,13 @@ class ActivityContext(Generic[T]):
 
     @experimental("ExperimentalTeamsPlan")
     def plan(self) -> Plan:
-        """Create or reference the existing Plan for the incoming activity. Diagnostic: ExperimentalTeamsPlan"""
+        """Create or reference the existing Plan for the incoming activity.
+
+        In a chat thread, a standalone ``complete()`` is posted to the reply chain, as ``ctx.send`` does.
+        Typing updates, completions in a channel, and prompts outside a thread use the conversation.
+
+        Diagnostic: ExperimentalTeamsPlan
+        """
         if self._plan is None:
             placement = self._get_inbound_reply_chain_placement()
             self._plan = Plan(
