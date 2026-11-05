@@ -19,14 +19,15 @@ dotnet tool install -g nbgv
 
 | Branch | Versions | ESRP product state | Published |
 |--------|----------|--------------------|-----------|
-| `main` | `2.2.0.dev2`, `2.2.0.dev3`, ... | n/a | No |
-| `release/v2.1` | `2.1.x` (stable) | `latest` | Yes |
+| `main` | `2.3.0.dev2`, `2.3.0.dev3`, ... | n/a | No |
+| `release/v2.2` | `2.2.x` (stable) | `latest` | Yes |
+| `release/v2.1` | closed at `2.1.1` | n/a | No |
 | `release/v2.0` | closed at `2.0.16` | n/a | No |
 
 Release branches are **long-lived per minor line** and use the `release/v<major>.<minor>` naming convention. Create a
 new release branch from `main` when that minor line enters its release phase; never reset an existing release branch.
 
-**One stable line is maintained at a time.** `release/v2.1` carries the current stable line. `release/v2.0` closed at `2.0.16` when 2.1.0 went GA: no further 2.0.x releases will be published, and fixes ship forward in 2.1.x instead. The branch is kept for history only.
+**One stable line is maintained at a time.** `release/v2.2` carries the current stable line. `release/v2.1` closed at `2.1.1` when 2.2.0 went GA, and `release/v2.0` closed at `2.0.16`: no further releases will be published from either closed line, and fixes ship forward in 2.2.x instead. The branches are kept for history only.
 
 The publish pipeline derives its product state from the version string alone, marking every stable build `latest` (`.azdo/publish.yml`). It has no notion of which line is current, so reviving a closed line would label an older release as the current one. Keeping a single stable line open is what makes that safe.
 
@@ -111,22 +112,23 @@ Versions are managed by **Nerdbank.GitVersioning** via [version.json](version.js
 
 ```json
 {
-  "version": "2.2.0-dev.{height}",
+  "version": "2.3.0-dev.{height}",
   "versionHeightOffset": 1
 }
 ```
 
-Builds on `main` produce dev versions like `2.2.0.dev2`, `2.2.0.dev3`, etc. These are not published. Changing the version core resets Nerdbank.GitVersioning's height for the new development line. The version-change commit has height `1`, and the established offset of `1` makes its development version `.dev2`.
+Builds on `main` produce dev versions like `2.3.0.dev2`, `2.3.0.dev3`, etc. These are not published. Changing the version core resets Nerdbank.GitVersioning's height for the new development line. The version-change commit has height `1`, and the established offset of `1` makes its development version `.dev2`.
 
 ### Example Package Names
 
 | Branch | Package Name |
 |--------|--------------|
-| `main` | `microsoft_teams_apps-2.2.0.dev2.tar.gz` |
+| `main` | `microsoft_teams_apps-2.3.0.dev2.tar.gz` |
 | `release/v2.0` | `microsoft_teams_apps-2.0.16.tar.gz` (final) |
-| `release/v2.1` | `microsoft_teams_apps-2.1.0.tar.gz` |
+| `release/v2.1` | `microsoft_teams_apps-2.1.1.tar.gz` (final) |
+| `release/v2.2` | `microsoft_teams_apps-2.2.0.tar.gz` |
 
-> **Note:** Running the pipeline on a branch not in `publicReleaseRefSpec` (e.g., a feature branch) produces versions with the commit hash appended, like `2.2.0.dev5+g1a2b3c4`. This is expected and useful for testing.
+> **Note:** Running the pipeline on a branch not in `publicReleaseRefSpec` (e.g., a feature branch) produces versions with the commit hash appended, like `2.3.0.dev5+g1a2b3c4`. This is expected and useful for testing.
 
 ### Producing a Stable Release
 
@@ -144,11 +146,11 @@ After the PR merges, run the publish pipeline with **Public** to release to PyPI
 
 ### Preview releases
 
-A preview line keeps `{height}` in the version string and lets Nerdbank.GitVersioning number each release, for example a future `release/v2.2` preview beginning at Python package version `2.2.0a1`:
+A preview line keeps `{height}` in the version string and lets Nerdbank.GitVersioning number each release, for example a future `release/v2.3` preview beginning at Python package version `2.3.0a1`:
 
 ```json
 {
-  "version": "2.2.0-alpha.{height}",
+  "version": "2.3.0-alpha.{height}",
   "versionHeightOffset": -15
 }
 ```
@@ -165,7 +167,7 @@ That last point is the one that bites. A backport adds the cherry-pick, plus a c
 versionHeightOffset = target_alpha - height_of_the_final_merge_commit
 ```
 
-Worked example, backporting one fix onto a preview `release/v2.2` to produce `2.2.0-alpha.1` (`2.2.0a1` in Python package filenames):
+Worked example, backporting one fix onto a preview `release/v2.3` to produce `2.3.0-alpha.1` (`2.3.0a1` in Python package filenames):
 
 | Step | Height |
 |------|--------|
