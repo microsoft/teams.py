@@ -16,7 +16,7 @@ from .http import FastAPIAdapter, HttpServer, HttpServerAdapter
 from .http_stream import HttpStream, StreamOptions, StreamReplyChain
 from .oauth_flow import OAuthFlow, OAuthFlowRegistry
 from .options import AppOptions, AppTelemetryOptions
-from .plan import Plan, PlanOptions
+from .plan import Plan, PlanOptions, PlanReplyChain
 from .plugins import *  # noqa: F401, F403
 from .routing import ActivityContext
 from .socket_mode import (
@@ -54,6 +54,7 @@ __all__: list[str] = [
     "HttpStream",
     "Plan",
     "PlanOptions",
+    "PlanReplyChain",
     "StreamOptions",
     "StreamReplyChain",
     "ActivityContext",

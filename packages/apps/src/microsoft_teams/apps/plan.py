@@ -5,7 +5,7 @@ Licensed under the MIT License.
 
 import logging
 from collections.abc import Sequence
-from typing import Literal, TypedDict, Unpack
+from typing import Any, Literal, NotRequired, TypedDict, Unpack
 
 from microsoft_teams.api import (
     ApiClient,
@@ -20,8 +20,19 @@ from microsoft_teams.api import (
 )
 from microsoft_teams.common import EventEmitter
 from microsoft_teams.common.experimental import experimental
+from pydantic import model_serializer
 
 logger = logging.getLogger(__name__)
+
+
+class PlanReplyChain(CustomBaseModel):
+    """Reply chain (thread) of a chat that a Plan completion is posted to, as for ``ctx.send``.
+
+    ``chat_or_channel_id`` is ``channel_data.chat.id`` and ``reply_chain_id`` is ``channel_data.reply_chain.id``.
+    """
+
+    chat_or_channel_id: str
+    reply_chain_id: str
 
 
 class PlanOptions(TypedDict):
@@ -38,12 +49,18 @@ class PlanOptions(TypedDict):
     service URL before sends, while the serialized Plan itself remains a lightweight record
     of the conversation and prompt binding.
 
+    ``reply_chain`` is the reply chain (thread) of a chat that ``complete`` posts to, as ``ctx.send`` does.
+    Omit it when ``conversation_id`` already identifies the thread, as in a channel, or when the prompt is not
+    inside a thread. Typing updates (start, update, stop, error) are sent to the conversation, as ``ctx.send``
+    does for typing activities.
+
     ``api_client`` is runtime-only and intentionally excluded from model serialization.
     """
 
     conversation_id: str
     reply_to_id: str
     api_client: ApiClient
+    reply_chain: NotRequired[PlanReplyChain | None]
 
 
 @experimental("ExperimentalTeamsPlan")
@@ -63,9 +80,22 @@ class Plan(CustomBaseModel):
 
     conversation_id: str
     reply_to_id: str
+    reply_chain: PlanReplyChain | None = None
+
+    @model_serializer(mode="wrap")
+    def _serialize(self, handler: Any) -> dict[str, Any]:
+        data = handler(self)
+        if self.reply_chain is None:
+            data.pop("reply_chain", None)
+            data.pop("replyChain", None)
+        return data
 
     def __init__(self, **options: Unpack[PlanOptions]) -> None:
-        data = {"conversation_id": options["conversation_id"], "reply_to_id": options["reply_to_id"]}
+        data = {
+            "conversation_id": options["conversation_id"],
+            "reply_to_id": options["reply_to_id"],
+            "reply_chain": options.get("reply_chain"),
+        }
         super().__init__(**data)
         self._api = options["api_client"]
         self._events = EventEmitter[Literal["sent"]]()
@@ -179,11 +209,19 @@ class Plan(CustomBaseModel):
             raise ValueError("complete() cannot send non-complete Plan operations.")
         if not plan_entities:
             activity.add_entity(PlanInfoEntity(plan_type="complete"))
-        return await self._send_activity(activity)
+        return await self._send_activity(activity, self.reply_chain)
 
-    async def _send_activity(self, activity: MessageActivityInput | TypingActivityInput) -> SentActivity:
+    async def _send_activity(
+        self, activity: MessageActivityInput | TypingActivityInput, reply_chain: PlanReplyChain | None = None
+    ) -> SentActivity:
         activity.reply_to_id = self.reply_to_id
-        activity.conversation = ConversationAccount(id=self.conversation_id)
-        result = await self._api.conversations.create_activity(self.conversation_id, activity)
+        if reply_chain is None:
+            activity.conversation = ConversationAccount(id=self.conversation_id)
+            result = await self._api.conversations.create_activity(self.conversation_id, activity)
+        else:
+            activity.conversation = ConversationAccount(id=reply_chain.chat_or_channel_id)
+            result = await self._api.conversations._create_reply_chain_activity(  # pyright: ignore[reportPrivateUsage]
+                reply_chain.chat_or_channel_id, reply_chain.reply_chain_id, activity
+            )
         self.events.emit("sent", result)
         return result
