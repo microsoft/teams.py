@@ -442,7 +442,7 @@ extends:
             artifactName: pypi-packages
             targetPath: $(Pipeline.Workspace)/pypi-packages
         steps:
-        - task: EsrpRelease@10
+        - task: EsrpRelease@12
           displayName: 'Publish packages to PyPI via ESRP'
           inputs:
             connectedservicename: 'TeamsESRP-Release-PyPI'
