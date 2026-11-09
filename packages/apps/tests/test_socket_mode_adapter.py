@@ -390,12 +390,32 @@ def test_negotiate_url_resolves_the_first_geo(geos: tuple[str, ...], expected_ur
     assert adapter.negotiate_url == expected_url
 
 
-@pytest.mark.parametrize("geo", ["attacker.example#", "", "eur", "AMER"])
-def test_negotiate_url_rejects_unsupported_geo(geo: str):
+@pytest.mark.parametrize("geo", ["eur", "AMER", "amer.amer"])
+def test_negotiate_url_uses_custom_geo(geo: str):
     adapter, _ = make_adapter(geos=(geo,))
 
-    with pytest.raises(ValueError, match="Socket Mode geo must be one of"):
-        _ = adapter.negotiate_url
+    assert adapter.negotiate_url == f"https://{geo}.botapi.skype.com/v3/websockets/connect"
+
+
+def test_empty_geo_sequence_uses_defaults():
+    adapter, _ = make_adapter(geos=())
+
+    assert adapter.geo_list == ("amer", "emea", "apac")
+    assert adapter.negotiate_url == "https://amer.botapi.skype.com/v3/websockets/connect"
+
+
+def test_empty_string_geo_is_rejected():
+    adapter, _ = make_adapter(geos=("amer", ""))
+
+    with pytest.raises(ValueError, match="must not contain an empty string"):
+        _ = adapter.geo_list
+
+
+def test_duplicate_geos_are_rejected():
+    adapter, _ = make_adapter(geos=("amer", "amer"))
+
+    with pytest.raises(ValueError, match="must not contain duplicates"):
+        _ = adapter.geo_list
 
 
 def test_messaging_route_is_accepted_and_other_routes_warn(caplog: pytest.LogCaptureFixture):

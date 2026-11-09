@@ -226,24 +226,52 @@ async def test_transport_starts_all_geos_and_stops_every_connection():
 
 
 @pytest.mark.asyncio
-async def test_transport_rejects_empty_geos_before_connecting():
+async def test_transport_uses_default_geos_for_empty_sequence():
     factory = MockConnectionFactory()
     transport = await make_transport(factory, geos=())
 
-    with pytest.raises(ValueError, match="must contain at least one entry"):
+    await transport.start()
+
+    assert transport.status == SocketModeStatus.READY
+    assert factory.urls == [
+        "https://amer.botapi.skype.com/v3/websockets/connect",
+        "https://emea.botapi.skype.com/v3/websockets/connect",
+        "https://apac.botapi.skype.com/v3/websockets/connect",
+    ]
+    await transport.stop()
+
+
+@pytest.mark.parametrize("geo", ["eur", "AMER", "amer.amer"])
+@pytest.mark.asyncio
+async def test_transport_uses_custom_geo_values(geo: str):
+    factory = MockConnectionFactory()
+    transport = await make_transport(factory, geos=(geo,))
+
+    await transport.start()
+
+    assert transport.status == SocketModeStatus.READY
+    assert factory.urls == [f"https://{geo}.botapi.skype.com/v3/websockets/connect"]
+    await transport.stop()
+
+
+@pytest.mark.asyncio
+async def test_transport_rejects_empty_string_before_connecting():
+    factory = MockConnectionFactory()
+    transport = await make_transport(factory, geos=("amer", ""))
+
+    with pytest.raises(ValueError, match="must not contain an empty string"):
         await transport.start()
 
     assert transport.status == SocketModeStatus.IDLE
     assert factory.connections == []
 
 
-@pytest.mark.parametrize("geo", ["attacker.example#", "", "eur", "AMER"])
 @pytest.mark.asyncio
-async def test_transport_rejects_unsupported_geo_before_connecting(geo: str):
+async def test_transport_rejects_duplicate_geos_before_connecting():
     factory = MockConnectionFactory()
-    transport = await make_transport(factory, geos=(geo,))
+    transport = await make_transport(factory, geos=("amer", "amer"))
 
-    with pytest.raises(ValueError, match="must be selected from"):
+    with pytest.raises(ValueError, match="must not contain duplicates"):
         await transport.start()
 
     assert transport.status == SocketModeStatus.IDLE

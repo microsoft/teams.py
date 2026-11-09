@@ -75,8 +75,7 @@ class SocketModeTransportOptions:
     geos: Sequence[str] = DEFAULT_GEOS
     """
     Every listed geo must connect for ``start()`` to succeed; each is then supervised
-    independently, so one geo dropping never affects the others. Supported values are
-    ``"amer"``, ``"emea"``, and ``"apac"``.
+    independently, so one geo dropping never affects the others.
     """
 
     readiness_timeout: float = 30.0
@@ -186,14 +185,7 @@ class SocketModeTransport:
                 return
             if self._options.startup_timeout < 0:
                 raise ValueError("Socket Mode startup_timeout must be non-negative")
-            geos = tuple(self._options.geos)
-            if not geos:
-                raise ValueError("Socket Mode geos must contain at least one entry")
-            if len(set(geos)) != len(geos):
-                raise ValueError("Socket Mode geos must not contain duplicates")
-            unsupported_geos = tuple(geo for geo in geos if geo not in DEFAULT_GEOS)
-            if unsupported_geos:
-                raise ValueError(f"Socket Mode geos must be selected from {DEFAULT_GEOS}: {unsupported_geos!r}")
+            geos = resolve_geos(self._options.geos)
             negotiate_urls = tuple((geo, build_negotiate_url(geo)) for geo in geos)
 
             self._stop_event = asyncio.Event()
@@ -342,9 +334,19 @@ class SocketModeTransport:
             self._logger.warning("Socket Mode lifecycle callback failed", exc_info=error)
 
 
+def resolve_geos(geos: Sequence[str]) -> tuple[str, ...]:
+    configured_geos = tuple(geos)
+    if not configured_geos:
+        return DEFAULT_GEOS
+    if "" in configured_geos:
+        raise ValueError("Socket Mode geos must not contain an empty string")
+    if len(set(configured_geos)) != len(configured_geos):
+        raise ValueError("Socket Mode geos must not contain duplicates")
+    return configured_geos
+
+
 def build_negotiate_url(geo: str) -> str:
-    # Only service-defined geos may be added to the negotiate hostname.
-    if geo not in DEFAULT_GEOS:
-        raise ValueError(f"Socket Mode geo must be one of {DEFAULT_GEOS}: {geo!r}")
+    if geo == "":
+        raise ValueError("Socket Mode geo must not be an empty string")
 
     return f"https://{geo}.{SOCKET_MODE_NEGOTIATE_HOST}{SOCKET_MODE_NEGOTIATE_PATH}"
