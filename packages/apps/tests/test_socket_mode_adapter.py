@@ -378,15 +378,15 @@ async def test_status_and_geo_statuses_track_the_transport():
 
 
 @pytest.mark.parametrize(
-    ("geo", "expected_url"),
+    ("geos", "expected_url"),
     [
-        ("amer", "https://amer.botapi.skype.com/v3/websockets/connect"),
-        ("emea", "https://emea.botapi.skype.com/v3/websockets/connect"),
-        ("apac", "https://apac.botapi.skype.com/v3/websockets/connect"),
+        (("amer", "emea"), "https://amer.botapi.skype.com/v3/websockets/connect"),
+        (("emea", "apac"), "https://emea.botapi.skype.com/v3/websockets/connect"),
+        (("apac", "amer"), "https://apac.botapi.skype.com/v3/websockets/connect"),
     ],
 )
-def test_negotiate_url_resolves_the_first_geo(geo: str, expected_url: str):
-    adapter, _ = make_adapter(geos=(geo,))
+def test_negotiate_url_resolves_the_first_geo(geos: tuple[str, ...], expected_url: str):
+    adapter, _ = make_adapter(geos=geos)
     assert adapter.negotiate_url == expected_url
 
 
