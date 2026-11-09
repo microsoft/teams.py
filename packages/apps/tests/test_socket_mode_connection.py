@@ -46,7 +46,11 @@ class MockWebSocket:
 
 def make_http_client(*, hub_url: str = "https://signalr.example/client/?hub=teams") -> httpx2.AsyncClient:
     def handler(request: httpx2.Request) -> httpx2.Response:
-        if request.url.host == "botapi.example" or request.url.host.endswith(".botapi.example"):
+        if (
+            request.url.host == "botapi.example"
+            or request.url.host.endswith(".botapi.example")
+            or request.url.host.endswith(".smba.trafficmanager.net")
+        ):
             return httpx2.Response(
                 200,
                 json={"url": hub_url, "accessToken": "signalr-token", "expiresIn": 120},

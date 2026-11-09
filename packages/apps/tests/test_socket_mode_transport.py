@@ -183,7 +183,6 @@ async def make_transport(
     geos: tuple[str, ...] = ("amer",),
     callbacks: Optional[SocketModeCallbacks] = None,
     on_activity: Optional[Callable[[SocketActivityEnvelope], object]] = None,
-    negotiate_base_url: str = "https://botapi.skype.com",
     startup_timeout: float = 1,
     reconnect_delays: tuple[float, ...] = (0,),
 ) -> SocketModeTransport:
@@ -197,7 +196,6 @@ async def make_transport(
     return SocketModeTransport(
         SocketModeTransportOptions(
             geos=geos,
-            negotiate_base_url=negotiate_base_url,
             startup_timeout=startup_timeout,
             reconnect_delays=reconnect_delays,
         ),
@@ -217,14 +215,26 @@ async def test_transport_starts_all_geos_and_stops_every_connection():
 
     assert transport.status == SocketModeStatus.READY
     expected_urls = [
-        "https://amer.botapi.skype.com/v3/websockets/connect",
-        "https://emea.botapi.skype.com/v3/websockets/connect",
-        "https://apac.botapi.skype.com/v3/websockets/connect",
+        "https://amer.smba.trafficmanager.net/v3/websockets/connect",
+        "https://emea.smba.trafficmanager.net/v3/websockets/connect",
+        "https://apac.smba.trafficmanager.net/v3/websockets/connect",
     ]
     assert factory.urls == expected_urls
     await transport.stop()
     assert transport.status == SocketModeStatus.STOPPED
     assert all(connection.stopped >= 1 for connection in factory.connections)
+
+
+@pytest.mark.asyncio
+async def test_transport_rejects_empty_geos_before_connecting():
+    factory = MockConnectionFactory()
+    transport = await make_transport(factory, geos=())
+
+    with pytest.raises(ValueError, match="must contain at least one entry"):
+        await transport.start()
+
+    assert transport.status == SocketModeStatus.IDLE
+    assert factory.connections == []
 
 
 @pytest.mark.parametrize("geo", ["attacker.example#", "", "eur", "AMER"])
@@ -238,32 +248,6 @@ async def test_transport_rejects_unsupported_geo_before_connecting(geo: str):
 
     assert transport.status == SocketModeStatus.IDLE
     assert factory.connections == []
-
-
-@pytest.mark.asyncio
-async def test_transport_rejects_malformed_base_url_before_connecting():
-    factory = MockConnectionFactory()
-    transport = await make_transport(factory, negotiate_base_url="https://[botapi.example")
-
-    with pytest.raises(ValueError):
-        await transport.start()
-
-    assert transport.status == SocketModeStatus.IDLE
-    assert factory.connections == []
-
-
-@pytest.mark.asyncio
-async def test_transport_preserves_custom_port():
-    factory = MockConnectionFactory()
-    transport = await make_transport(
-        factory,
-        negotiate_base_url="https://botapi.example:8443",
-    )
-
-    await transport.start()
-
-    assert factory.urls == ["https://amer.botapi.example:8443/v3/websockets/connect"]
-    await transport.stop()
 
 
 @pytest.mark.asyncio
@@ -679,9 +663,7 @@ async def test_proactive_refresh_rotates_without_disconnect_callbacks(monkeypatc
     monkeypatch.setattr(geo_socket.asyncio, "sleep", sleep)
     async with make_http_client() as client:
         transport = SocketModeTransport(
-            SocketModeTransportOptions(
-                geos=("amer",), reconnect_delays=(0,), negotiate_base_url="https://botapi.example"
-            ),
+            SocketModeTransportOptions(geos=("amer",), reconnect_delays=(0,)),
             get_bot_token=lambda: _token("token"),
             on_activity=lambda _: _reply(),
             http_client=client,

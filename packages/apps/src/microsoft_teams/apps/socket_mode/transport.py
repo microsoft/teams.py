@@ -18,7 +18,6 @@ import logging
 import random
 from dataclasses import dataclass
 from typing import Awaitable, Callable, Optional, Sequence
-from urllib.parse import urlsplit, urlunsplit
 
 import httpx2
 
@@ -37,8 +36,8 @@ from .types import (
     WebSocketFactory,
 )
 
-DEFAULT_SOCKET_MODE_NEGOTIATE_BASE_URL = "https://botapi.skype.com"
-"""Default service host used to negotiate the connection."""
+SOCKET_MODE_NEGOTIATE_HOST = "smba.trafficmanager.net"
+"""Service-owned host used to negotiate Socket Mode connections."""
 
 SOCKET_MODE_NEGOTIATE_PATH = "/v3/websockets/connect"
 """Negotiate route appended to the geo-specific service host."""
@@ -73,7 +72,6 @@ class SocketModeTransportOptions:
     (the TypeScript SDK uses milliseconds with an ``Ms`` suffix).
     """
 
-    negotiate_base_url: str = DEFAULT_SOCKET_MODE_NEGOTIATE_BASE_URL
     geos: Sequence[str] = DEFAULT_GEOS
     """
     Every listed geo must connect for ``start()`` to succeed; each is then supervised
@@ -196,7 +194,7 @@ class SocketModeTransport:
             unsupported_geos = tuple(geo for geo in geos if geo not in DEFAULT_GEOS)
             if unsupported_geos:
                 raise ValueError(f"Socket Mode geos must be selected from {DEFAULT_GEOS}: {unsupported_geos!r}")
-            negotiate_urls = tuple((geo, build_negotiate_url(self._options.negotiate_base_url, geo)) for geo in geos)
+            negotiate_urls = tuple((geo, build_negotiate_url(geo)) for geo in geos)
 
             self._stop_event = asyncio.Event()
             self._lifecycle = SocketModeStatus.CONNECTING
@@ -344,12 +342,9 @@ class SocketModeTransport:
             self._logger.warning("Socket Mode lifecycle callback failed", exc_info=error)
 
 
-def build_negotiate_url(base_url: str, geo: str) -> str:
+def build_negotiate_url(geo: str) -> str:
     # Only service-defined geos may be added to the negotiate hostname.
     if geo not in DEFAULT_GEOS:
         raise ValueError(f"Socket Mode geo must be one of {DEFAULT_GEOS}: {geo!r}")
 
-    parsed = urlsplit(base_url)
-    # Regional endpoints use the geo as a subdomain and retain any configured base path and query.
-    path = f"{parsed.path.rstrip('/')}{SOCKET_MODE_NEGOTIATE_PATH}"
-    return urlunsplit((parsed.scheme, f"{geo}.{parsed.netloc}", path, parsed.query, ""))
+    return f"https://{geo}.{SOCKET_MODE_NEGOTIATE_HOST}{SOCKET_MODE_NEGOTIATE_PATH}"
