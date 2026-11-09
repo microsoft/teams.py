@@ -390,6 +390,24 @@ def test_negotiate_url_resolves_the_first_geo(geo: str, expected_url: str):
     assert adapter.negotiate_url == expected_url
 
 
+@pytest.mark.parametrize("geo", ["attacker.example#", "", "eur", "AMER"])
+def test_negotiate_url_rejects_unsupported_geo(geo: str):
+    adapter, _ = make_adapter(geos=(geo,))
+
+    with pytest.raises(ValueError, match="Socket Mode geo must be one of"):
+        _ = adapter.negotiate_url
+
+
+def test_negotiate_url_preserves_base_path_and_query():
+    adapter = SocketModeAdapter(
+        SocketModeOptions(negotiate_base_url="https://botapi.example/ring?x=1", geos=("amer",)),
+        process_activity=RecordingPipeline(),
+        get_app_token=_app_token,
+    )
+
+    assert adapter.negotiate_url == "https://amer.botapi.example/ring/v3/websockets/connect?x=1"
+
+
 def test_messaging_route_is_accepted_and_other_routes_warn(caplog: pytest.LogCaptureFixture):
     adapter, _ = make_adapter()
 
