@@ -196,13 +196,11 @@ class SocketModeTransport:
             unsupported_geos = tuple(geo for geo in geos if geo not in DEFAULT_GEOS)
             if unsupported_geos:
                 raise ValueError(f"Socket Mode geos must be selected from {DEFAULT_GEOS}: {unsupported_geos!r}")
+            negotiate_urls = tuple((geo, build_negotiate_url(self._options.negotiate_base_url, geo)) for geo in geos)
 
             self._stop_event = asyncio.Event()
             self._lifecycle = SocketModeStatus.CONNECTING
-            self._geos = []
-            for geo in geos:
-                negotiate_url = build_negotiate_url(self._options.negotiate_base_url, geo)
-                self._geos.append(GeoSocket(self, geo, negotiate_url, self._logger))
+            self._geos = [GeoSocket(self, geo, negotiate_url, self._logger) for geo, negotiate_url in negotiate_urls]
             tasks = [
                 asyncio.create_task(geo.start_initial(), name=f"teams-socket-mode-start-{geo or 'default'}")
                 for geo in self._geos
@@ -351,8 +349,7 @@ def build_negotiate_url(base_url: str, geo: str) -> str:
     if geo not in DEFAULT_GEOS:
         raise ValueError(f"Socket Mode geo must be one of {DEFAULT_GEOS}: {geo!r}")
 
-    base = base_url.rstrip("/")
-    parsed = urlsplit(base)
+    parsed = urlsplit(base_url)
     # Regional endpoints use the geo as a subdomain and retain any configured base path and query.
     path = f"{parsed.path.rstrip('/')}{SOCKET_MODE_NEGOTIATE_PATH}"
     return urlunsplit((parsed.scheme, f"{geo}.{parsed.netloc}", path, parsed.query, ""))

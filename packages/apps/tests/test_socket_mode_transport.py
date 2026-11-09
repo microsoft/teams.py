@@ -241,6 +241,18 @@ async def test_transport_rejects_unsupported_geo_before_connecting(geo: str):
 
 
 @pytest.mark.asyncio
+async def test_transport_rejects_malformed_base_url_before_connecting():
+    factory = MockConnectionFactory()
+    transport = await make_transport(factory, negotiate_base_url="https://[botapi.example")
+
+    with pytest.raises(ValueError):
+        await transport.start()
+
+    assert transport.status == SocketModeStatus.IDLE
+    assert factory.connections == []
+
+
+@pytest.mark.asyncio
 async def test_transport_preserves_custom_port():
     factory = MockConnectionFactory()
     transport = await make_transport(

@@ -400,12 +400,12 @@ def test_negotiate_url_rejects_unsupported_geo(geo: str):
 
 def test_negotiate_url_preserves_base_path_and_query():
     adapter = SocketModeAdapter(
-        SocketModeOptions(negotiate_base_url="https://botapi.example/ring?x=1", geos=("amer",)),
+        SocketModeOptions(negotiate_base_url="https://botapi.example/ring?route=/", geos=("amer",)),
         process_activity=RecordingPipeline(),
         get_app_token=_app_token,
     )
 
-    assert adapter.negotiate_url == "https://amer.botapi.example/ring/v3/websockets/connect?x=1"
+    assert adapter.negotiate_url == "https://amer.botapi.example/ring/v3/websockets/connect?route=/"
 
 
 def test_messaging_route_is_accepted_and_other_routes_warn(caplog: pytest.LogCaptureFixture):
