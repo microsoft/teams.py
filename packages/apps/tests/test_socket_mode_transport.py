@@ -207,18 +207,21 @@ async def make_transport(
 
 
 @pytest.mark.asyncio
-async def test_transport_starts_all_geos_and_stops_every_connection():
+async def test_transport_starts_all_geos_and_stops_every_connection(caplog: pytest.LogCaptureFixture):
     factory = MockConnectionFactory()
     transport = await make_transport(factory, geos=("amer", "emea", "apac"))
 
+    caplog.set_level(logging.DEBUG, logger="microsoft_teams.apps.socket_mode.transport")
     await transport.start()
 
     assert transport.status == SocketModeStatus.READY
-    assert factory.urls == [
-        "https://botapi.skype.com/amer/v3/websockets/connect",
-        "https://botapi.skype.com/emea/v3/websockets/connect",
-        "https://botapi.skype.com/apac/v3/websockets/connect",
+    expected_urls = [
+        "https://amer.botapi.skype.com/v3/websockets/connect",
+        "https://emea.botapi.skype.com/v3/websockets/connect",
+        "https://apac.botapi.skype.com/v3/websockets/connect",
     ]
+    assert factory.urls == expected_urls
+    assert all(url in caplog.text for url in expected_urls)
     await transport.stop()
     assert transport.status == SocketModeStatus.STOPPED
     assert all(connection.stopped >= 1 for connection in factory.connections)
@@ -255,7 +258,7 @@ async def test_socket_ids_remain_independent_across_geos_and_handoff(monkeypatch
                 },
             )
         service_requests.append(request)
-        geo = request.url.path.split("/")[1]
+        geo = request.url.host.split(".", 1)[0]
         issued_tokens.append(f"service-token-{len(service_requests)}")
         return httpx2.Response(
             200,
@@ -1085,6 +1088,7 @@ async def test_shutdown_suppresses_late_negotiate_rejection(status: int, caplog:
         factory, callbacks=SocketModeCallbacks(on_disconnected=lambda *args: events.append(args))
     )
     await transport.start()
+    caplog.clear()
     first = factory.connections[0]
     first.stop_gate = asyncio.Event()
     factory.start_gate = asyncio.Event()

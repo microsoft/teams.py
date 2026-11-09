@@ -379,7 +379,7 @@ async def test_status_and_geo_statuses_track_the_transport():
 
 def test_negotiate_url_resolves_the_first_geo():
     adapter, _ = make_adapter(geos=("amer", "emea"))
-    assert adapter.negotiate_url == "https://botapi.skype.com/amer/v3/websockets/connect"
+    assert adapter.negotiate_url == "https://amer.botapi.skype.com/v3/websockets/connect"
 
 
 def test_messaging_route_is_accepted_and_other_routes_warn(caplog: pytest.LogCaptureFixture):
@@ -537,7 +537,7 @@ def test_app_socket_mode_options_are_honoured():
 
     assert app.socket_mode is not None
     assert app.socket_mode.geo_list == ("amer",)
-    assert app.socket_mode.negotiate_url == "https://botapi.example/amer/v3/websockets/connect"
+    assert app.socket_mode.negotiate_url == "https://amer.botapi.example/v3/websockets/connect"
 
 
 def test_app_rejects_socket_mode_with_a_custom_http_adapter():

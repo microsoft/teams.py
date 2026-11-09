@@ -18,7 +18,7 @@ import logging
 import random
 from dataclasses import dataclass
 from typing import Awaitable, Callable, Optional, Sequence
-from urllib.parse import quote
+from urllib.parse import urlsplit, urlunsplit
 
 import httpx2
 
@@ -41,7 +41,7 @@ DEFAULT_SOCKET_MODE_NEGOTIATE_BASE_URL = "https://botapi.skype.com"
 """Default service host used to negotiate the connection."""
 
 SOCKET_MODE_NEGOTIATE_PATH = "/v3/websockets/connect"
-"""Negotiate route appended to the base URL: ``POST {base}/{geo}/v3/websockets/connect``."""
+"""Negotiate route appended to the geo-specific service host."""
 
 DEFAULT_GEOS = ("amer", "emea", "apac")
 """Geographies connected by default, one independent socket each."""
@@ -196,10 +196,11 @@ class SocketModeTransport:
 
             self._stop_event = asyncio.Event()
             self._lifecycle = SocketModeStatus.CONNECTING
-            self._geos = [
-                GeoSocket(self, geo, build_negotiate_url(self._options.negotiate_base_url, geo), self._logger)
-                for geo in geos
-            ]
+            self._geos = []
+            for geo in geos:
+                negotiate_url = build_negotiate_url(self._options.negotiate_base_url, geo)
+                self._logger.debug("socket-mode[%s]: negotiate URL %s", geo or "default", negotiate_url)
+                self._geos.append(GeoSocket(self, geo, negotiate_url, self._logger))
             tasks = [
                 asyncio.create_task(geo.start_initial(), name=f"teams-socket-mode-start-{geo or 'default'}")
                 for geo in self._geos
@@ -346,6 +347,9 @@ class SocketModeTransport:
 def build_negotiate_url(base_url: str, geo: str) -> str:
     base = base_url.rstrip("/")
     segment = geo.strip().strip("/")
-    if segment:
-        return f"{base}/{quote(segment, safe='')}{SOCKET_MODE_NEGOTIATE_PATH}"
-    return f"{base}{SOCKET_MODE_NEGOTIATE_PATH}"
+    if not segment:
+        return f"{base}{SOCKET_MODE_NEGOTIATE_PATH}"
+
+    parsed = urlsplit(base)
+    path = f"{parsed.path.rstrip('/')}{SOCKET_MODE_NEGOTIATE_PATH}"
+    return urlunsplit((parsed.scheme, f"{segment}.{parsed.netloc}", path, parsed.query, ""))
