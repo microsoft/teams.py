@@ -180,9 +180,10 @@ async def gated_socket_transport() -> AsyncIterator[
 async def make_transport(
     factory: MockConnectionFactory,
     *,
-    geos: tuple[str, ...] = ("",),
+    geos: tuple[str, ...] = ("amer",),
     callbacks: Optional[SocketModeCallbacks] = None,
     on_activity: Optional[Callable[[SocketActivityEnvelope], object]] = None,
+    negotiate_base_url: str = "https://botapi.skype.com",
     startup_timeout: float = 1,
     reconnect_delays: tuple[float, ...] = (0,),
 ) -> SocketModeTransport:
@@ -196,6 +197,7 @@ async def make_transport(
     return SocketModeTransport(
         SocketModeTransportOptions(
             geos=geos,
+            negotiate_base_url=negotiate_base_url,
             startup_timeout=startup_timeout,
             reconnect_delays=reconnect_delays,
         ),
@@ -207,11 +209,10 @@ async def make_transport(
 
 
 @pytest.mark.asyncio
-async def test_transport_starts_all_geos_and_stops_every_connection(caplog: pytest.LogCaptureFixture):
+async def test_transport_starts_all_geos_and_stops_every_connection():
     factory = MockConnectionFactory()
     transport = await make_transport(factory, geos=("amer", "emea", "apac"))
 
-    caplog.set_level(logging.DEBUG, logger="microsoft_teams.apps.socket_mode.transport")
     await transport.start()
 
     assert transport.status == SocketModeStatus.READY
@@ -221,10 +222,36 @@ async def test_transport_starts_all_geos_and_stops_every_connection(caplog: pyte
         "https://apac.botapi.skype.com/v3/websockets/connect",
     ]
     assert factory.urls == expected_urls
-    assert all(url in caplog.text for url in expected_urls)
     await transport.stop()
     assert transport.status == SocketModeStatus.STOPPED
     assert all(connection.stopped >= 1 for connection in factory.connections)
+
+
+@pytest.mark.parametrize("geo", ["attacker.example#", "", "eur", "AMER"])
+@pytest.mark.asyncio
+async def test_transport_rejects_unsupported_geo_before_connecting(geo: str):
+    factory = MockConnectionFactory()
+    transport = await make_transport(factory, geos=(geo,))
+
+    with pytest.raises(ValueError, match="must be selected from"):
+        await transport.start()
+
+    assert transport.status == SocketModeStatus.IDLE
+    assert factory.connections == []
+
+
+@pytest.mark.asyncio
+async def test_transport_preserves_custom_port():
+    factory = MockConnectionFactory()
+    transport = await make_transport(
+        factory,
+        negotiate_base_url="https://botapi.example:8443",
+    )
+
+    await transport.start()
+
+    assert factory.urls == ["https://amer.botapi.example:8443/v3/websockets/connect"]
+    await transport.stop()
 
 
 @pytest.mark.asyncio
@@ -571,8 +598,8 @@ async def test_drop_reconnects_and_fences_superseded_generation():
     assert stale_reply is None
     assert current_reply is not None
     assert dispatched == ["current"]
-    assert disconnected == [""]
-    assert reconnected == [""]
+    assert disconnected == ["amer"]
+    assert reconnected == ["amer"]
     await transport.stop()
 
 
@@ -699,7 +726,7 @@ async def test_transport_stop_is_idempotent_and_transport_can_restart():
 def test_reconnect_schedule_caps_at_last_configured_delay():
     factory = MockConnectionFactory()
     transport = SocketModeTransport(
-        SocketModeTransportOptions(geos=("",), reconnect_delays=(0.25, 0.5)),
+        SocketModeTransportOptions(geos=("amer",), reconnect_delays=(0.25, 0.5)),
         get_bot_token=lambda: _token("token"),
         on_activity=lambda _: _reply(),
         connection_factory=factory,
@@ -714,7 +741,7 @@ def test_exponential_backoff_survives_a_long_failure_streak():
     """Without a clamp on the exponent, ``2**attempt`` overflows the float conversion."""
     factory = MockConnectionFactory()
     transport = SocketModeTransport(
-        SocketModeTransportOptions(geos=("",), reconnect_delays=()),
+        SocketModeTransportOptions(geos=("amer",), reconnect_delays=()),
         get_bot_token=lambda: _token("token"),
         on_activity=lambda _: _reply(),
         connection_factory=factory,
@@ -937,8 +964,8 @@ async def test_rotation_whose_predecessor_dies_early_reports_a_disconnect(monkey
     await _eventually(rotation_in_flight, timeout=1.5)
     previous.drop(ConnectionError("died mid-rotation"))
 
-    await _eventually(lambda: disconnected == [""], timeout=2.0)
-    await _eventually(lambda: reconnected == [""], timeout=2.0)
+    await _eventually(lambda: disconnected == ["amer"], timeout=2.0)
+    await _eventually(lambda: reconnected == ["amer"], timeout=2.0)
     assert transport.status == SocketModeStatus.READY
     await transport.stop()
 

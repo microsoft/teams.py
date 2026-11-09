@@ -77,8 +77,8 @@ class SocketModeTransportOptions:
     geos: Sequence[str] = DEFAULT_GEOS
     """
     Every listed geo must connect for ``start()`` to succeed; each is then supervised
-    independently, so one geo dropping never affects the others. Pass ``("",)`` to
-    connect to the base URL with no geo segment.
+    independently, so one geo dropping never affects the others. Supported values are
+    ``"amer"``, ``"emea"``, and ``"apac"``.
     """
 
     readiness_timeout: float = 30.0
@@ -193,13 +193,15 @@ class SocketModeTransport:
                 raise ValueError("Socket Mode geos must contain at least one entry")
             if len(set(geos)) != len(geos):
                 raise ValueError("Socket Mode geos must not contain duplicates")
+            unsupported_geos = tuple(geo for geo in geos if geo not in DEFAULT_GEOS)
+            if unsupported_geos:
+                raise ValueError(f"Socket Mode geos must be selected from {DEFAULT_GEOS}: {unsupported_geos!r}")
 
             self._stop_event = asyncio.Event()
             self._lifecycle = SocketModeStatus.CONNECTING
             self._geos = []
             for geo in geos:
                 negotiate_url = build_negotiate_url(self._options.negotiate_base_url, geo)
-                self._logger.debug("socket-mode[%s]: negotiate URL %s", geo or "default", negotiate_url)
                 self._geos.append(GeoSocket(self, geo, negotiate_url, self._logger))
             tasks = [
                 asyncio.create_task(geo.start_initial(), name=f"teams-socket-mode-start-{geo or 'default'}")
@@ -345,11 +347,12 @@ class SocketModeTransport:
 
 
 def build_negotiate_url(base_url: str, geo: str) -> str:
-    base = base_url.rstrip("/")
-    segment = geo.strip().strip("/")
-    if not segment:
-        return f"{base}{SOCKET_MODE_NEGOTIATE_PATH}"
+    # Only service-defined geos may be added to the negotiate hostname.
+    if geo not in DEFAULT_GEOS:
+        raise ValueError(f"Socket Mode geo must be one of {DEFAULT_GEOS}: {geo!r}")
 
+    base = base_url.rstrip("/")
     parsed = urlsplit(base)
+    # Regional endpoints use the geo as a subdomain and retain any configured base path and query.
     path = f"{parsed.path.rstrip('/')}{SOCKET_MODE_NEGOTIATE_PATH}"
-    return urlunsplit((parsed.scheme, f"{segment}.{parsed.netloc}", path, parsed.query, ""))
+    return urlunsplit((parsed.scheme, f"{geo}.{parsed.netloc}", path, parsed.query, ""))

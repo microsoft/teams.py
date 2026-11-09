@@ -62,7 +62,7 @@ def make_adapter(
     pipeline: Optional[RecordingPipeline] = None,
     client_id: Optional[str] = "bot-client-id",
     on_error: Any = None,
-    geos: tuple[str, ...] = ("",),
+    geos: tuple[str, ...] = ("amer",),
 ) -> tuple[SocketModeAdapter, RecordingPipeline]:
     pipeline = pipeline or RecordingPipeline()
     adapter = SocketModeAdapter(
@@ -377,9 +377,17 @@ async def test_status_and_geo_statuses_track_the_transport():
     assert adapter.status == SocketModeStatus.STOPPED
 
 
-def test_negotiate_url_resolves_the_first_geo():
-    adapter, _ = make_adapter(geos=("amer", "emea"))
-    assert adapter.negotiate_url == "https://amer.botapi.skype.com/v3/websockets/connect"
+@pytest.mark.parametrize(
+    ("geo", "expected_url"),
+    [
+        ("amer", "https://amer.botapi.skype.com/v3/websockets/connect"),
+        ("emea", "https://emea.botapi.skype.com/v3/websockets/connect"),
+        ("apac", "https://apac.botapi.skype.com/v3/websockets/connect"),
+    ],
+)
+def test_negotiate_url_resolves_the_first_geo(geo: str, expected_url: str):
+    adapter, _ = make_adapter(geos=(geo,))
+    assert adapter.negotiate_url == expected_url
 
 
 def test_messaging_route_is_accepted_and_other_routes_warn(caplog: pytest.LogCaptureFixture):
