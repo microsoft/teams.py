@@ -36,7 +36,7 @@ from .types import (
     WebSocketFactory,
 )
 
-SOCKET_MODE_NEGOTIATE_HOST = "smba.trafficmanager.net"
+SOCKET_MODE_NEGOTIATE_HOST = "botapi.skype.com"
 """Service-owned host used to negotiate Socket Mode connections."""
 
 SOCKET_MODE_NEGOTIATE_PATH = "/v3/websockets/connect"

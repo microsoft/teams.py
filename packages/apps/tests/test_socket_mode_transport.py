@@ -215,9 +215,9 @@ async def test_transport_starts_all_geos_and_stops_every_connection():
 
     assert transport.status == SocketModeStatus.READY
     expected_urls = [
-        "https://amer.smba.trafficmanager.net/v3/websockets/connect",
-        "https://emea.smba.trafficmanager.net/v3/websockets/connect",
-        "https://apac.smba.trafficmanager.net/v3/websockets/connect",
+        "https://amer.botapi.skype.com/v3/websockets/connect",
+        "https://emea.botapi.skype.com/v3/websockets/connect",
+        "https://apac.botapi.skype.com/v3/websockets/connect",
     ]
     assert factory.urls == expected_urls
     await transport.stop()

@@ -49,7 +49,7 @@ def make_http_client(*, hub_url: str = "https://signalr.example/client/?hub=team
         if (
             request.url.host == "botapi.example"
             or request.url.host.endswith(".botapi.example")
-            or request.url.host.endswith(".smba.trafficmanager.net")
+            or request.url.host.endswith(".botapi.skype.com")
         ):
             return httpx2.Response(
                 200,

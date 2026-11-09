@@ -380,9 +380,9 @@ async def test_status_and_geo_statuses_track_the_transport():
 @pytest.mark.parametrize(
     ("geos", "expected_url"),
     [
-        (("amer", "emea"), "https://amer.smba.trafficmanager.net/v3/websockets/connect"),
-        (("emea", "apac"), "https://emea.smba.trafficmanager.net/v3/websockets/connect"),
-        (("apac", "amer"), "https://apac.smba.trafficmanager.net/v3/websockets/connect"),
+        (("amer", "emea"), "https://amer.botapi.skype.com/v3/websockets/connect"),
+        (("emea", "apac"), "https://emea.botapi.skype.com/v3/websockets/connect"),
+        (("apac", "amer"), "https://apac.botapi.skype.com/v3/websockets/connect"),
     ],
 )
 def test_negotiate_url_resolves_the_first_geo(geos: tuple[str, ...], expected_url: str):
@@ -553,7 +553,7 @@ def test_app_socket_mode_options_are_honoured():
 
     assert app.socket_mode is not None
     assert app.socket_mode.geo_list == ("amer",)
-    assert app.socket_mode.negotiate_url == "https://amer.smba.trafficmanager.net/v3/websockets/connect"
+    assert app.socket_mode.negotiate_url == "https://amer.botapi.skype.com/v3/websockets/connect"
 
 
 def test_app_rejects_socket_mode_with_a_custom_http_adapter():
