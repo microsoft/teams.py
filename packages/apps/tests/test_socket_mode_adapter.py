@@ -377,31 +377,10 @@ async def test_status_and_geo_statuses_track_the_transport():
     assert adapter.status == SocketModeStatus.STOPPED
 
 
-@pytest.mark.parametrize(
-    ("geos", "expected_url"),
-    [
-        (("amer", "emea"), "https://amer.botapi.skype.com/v3/websockets/connect"),
-        (("emea", "apac"), "https://emea.botapi.skype.com/v3/websockets/connect"),
-        (("apac", "amer"), "https://apac.botapi.skype.com/v3/websockets/connect"),
-    ],
-)
-def test_negotiate_url_resolves_the_first_geo(geos: tuple[str, ...], expected_url: str):
-    adapter, _ = make_adapter(geos=geos)
-    assert adapter.negotiate_url == expected_url
-
-
-@pytest.mark.parametrize("geo", ["eur", "AMER", "amer.amer"])
-def test_negotiate_url_uses_custom_geo(geo: str):
-    adapter, _ = make_adapter(geos=(geo,))
-
-    assert adapter.negotiate_url == f"https://{geo}.botapi.skype.com/v3/websockets/connect"
-
-
 def test_empty_geo_sequence_uses_defaults():
     adapter, _ = make_adapter(geos=())
 
     assert adapter.geo_list == ("amer", "emea", "apac")
-    assert adapter.negotiate_url == "https://amer.botapi.skype.com/v3/websockets/connect"
 
 
 def test_empty_string_geo_is_rejected():
@@ -573,7 +552,6 @@ def test_app_socket_mode_options_are_honoured():
 
     assert app.socket_mode is not None
     assert app.socket_mode.geo_list == ("amer",)
-    assert app.socket_mode.negotiate_url == "https://amer.botapi.skype.com/v3/websockets/connect"
 
 
 def test_app_rejects_socket_mode_with_a_custom_http_adapter():

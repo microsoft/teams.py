@@ -27,7 +27,6 @@ from .transport import (
     DEFAULT_GEOS,
     SocketModeTransport,
     SocketModeTransportOptions,
-    build_negotiate_url,
     resolve_geos,
 )
 from .types import (
@@ -188,11 +187,6 @@ class SocketModeAdapter:
     def geo_list(self) -> tuple[str, ...]:
         """The geos this adapter connects to."""
         return resolve_geos(self.options.geos)
-
-    @property
-    def negotiate_url(self) -> str:
-        """Resolved negotiate URL for the first geo. Each geo dials its own."""
-        return build_negotiate_url(self.geo_list[0])
 
     def register_route(self, method: HttpMethod, path: str, handler: HttpRouteHandler) -> None:
         """
