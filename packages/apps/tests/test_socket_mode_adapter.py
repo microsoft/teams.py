@@ -62,7 +62,7 @@ def make_adapter(
     pipeline: Optional[RecordingPipeline] = None,
     client_id: Optional[str] = "bot-client-id",
     on_error: Any = None,
-    geos: tuple[str, ...] = ("",),
+    geos: tuple[str, ...] = ("amer",),
 ) -> tuple[SocketModeAdapter, RecordingPipeline]:
     pipeline = pipeline or RecordingPipeline()
     adapter = SocketModeAdapter(
@@ -377,9 +377,25 @@ async def test_status_and_geo_statuses_track_the_transport():
     assert adapter.status == SocketModeStatus.STOPPED
 
 
-def test_negotiate_url_resolves_the_first_geo():
-    adapter, _ = make_adapter(geos=("amer", "emea"))
-    assert adapter.negotiate_url == "https://botapi.skype.com/amer/v3/websockets/connect"
+def test_empty_geo_sequence_uses_defaults():
+    adapter, _ = make_adapter(geos=())
+
+    assert adapter.geo_list == ("amer", "emea", "apac")
+
+
+def test_empty_string_geo_is_rejected():
+    adapter, _ = make_adapter(geos=("amer", ""))
+
+    with pytest.raises(ValueError, match="must not contain an empty string"):
+        _ = adapter.geo_list
+
+
+@pytest.mark.parametrize("geos", [("amer", "amer"), ("amer", "AMER")])
+def test_duplicate_geos_are_rejected(geos: tuple[str, ...]):
+    adapter, _ = make_adapter(geos=geos)
+
+    with pytest.raises(ValueError, match="must not contain duplicates"):
+        _ = adapter.geo_list
 
 
 def test_messaging_route_is_accepted_and_other_routes_warn(caplog: pytest.LogCaptureFixture):
@@ -404,11 +420,16 @@ def test_serve_static_warns(caplog: pytest.LogCaptureFixture):
     assert "serve_static" in caplog.text
 
 
-def test_options_expose_only_negotiate_base_url_and_geos():
-    expected = {"negotiate_base_url", "geos"}
+def test_options_expose_only_geos():
+    expected = {"geos"}
 
     assert {field.name for field in fields(SocketModeOptions)} == expected
     assert set(inspect.signature(SocketModeOptions).parameters) == expected
+
+
+def test_options_reject_negotiate_base_url_override():
+    with pytest.raises(TypeError, match="negotiate_base_url"):
+        SocketModeOptions(negotiate_base_url="https://botapi.example")  # pyright: ignore[reportCallIssue]
 
 
 @pytest.mark.parametrize(
@@ -430,7 +451,6 @@ def test_options_defaults_preserve_transport_policy():
     options = SocketModeOptions()
     transport_options = options.to_transport_options()
 
-    assert transport_options.negotiate_base_url == "https://botapi.skype.com"
     assert transport_options.geos == ("amer", "emea", "apac")
     assert transport_options.readiness_timeout == 30
     assert transport_options.startup_timeout == 30
@@ -441,14 +461,10 @@ def test_options_defaults_preserve_transport_policy():
 
 def test_options_map_onto_transport_options():
     geos = ["amer"]
-    options = SocketModeOptions(
-        negotiate_base_url="https://botapi.example",
-        geos=geos,
-    )
+    options = SocketModeOptions(geos=geos)
     transport_options = options.to_transport_options()
     geos.append("emea")
 
-    assert transport_options.negotiate_base_url == "https://botapi.example"
     assert transport_options.geos == ("amer",)
 
 
@@ -532,12 +548,11 @@ def test_app_socket_mode_options_are_honoured():
         client_id="client",
         client_secret="secret",
         tenant_id="tenant",
-        socket_mode=SocketModeOptions(negotiate_base_url="https://botapi.example", geos=("amer",)),
+        socket_mode=SocketModeOptions(geos=("amer",)),
     )
 
     assert app.socket_mode is not None
     assert app.socket_mode.geo_list == ("amer",)
-    assert app.socket_mode.negotiate_url == "https://botapi.example/amer/v3/websockets/connect"
 
 
 def test_app_rejects_socket_mode_with_a_custom_http_adapter():

@@ -18,7 +18,6 @@ import logging
 import random
 from dataclasses import dataclass
 from typing import Awaitable, Callable, Optional, Sequence
-from urllib.parse import quote
 
 import httpx2
 
@@ -37,11 +36,11 @@ from .types import (
     WebSocketFactory,
 )
 
-DEFAULT_SOCKET_MODE_NEGOTIATE_BASE_URL = "https://botapi.skype.com"
-"""Default service host used to negotiate the connection."""
+SOCKET_MODE_NEGOTIATE_HOST = "botapi.skype.com"
+"""Service-owned host used to negotiate Socket Mode connections."""
 
 SOCKET_MODE_NEGOTIATE_PATH = "/v3/websockets/connect"
-"""Negotiate route appended to the base URL: ``POST {base}/{geo}/v3/websockets/connect``."""
+"""Negotiate route appended to the geo-specific service host."""
 
 DEFAULT_GEOS = ("amer", "emea", "apac")
 """Geographies connected by default, one independent socket each."""
@@ -73,12 +72,10 @@ class SocketModeTransportOptions:
     (the TypeScript SDK uses milliseconds with an ``Ms`` suffix).
     """
 
-    negotiate_base_url: str = DEFAULT_SOCKET_MODE_NEGOTIATE_BASE_URL
     geos: Sequence[str] = DEFAULT_GEOS
     """
     Every listed geo must connect for ``start()`` to succeed; each is then supervised
-    independently, so one geo dropping never affects the others. Pass ``("",)`` to
-    connect to the base URL with no geo segment.
+    independently, so one geo dropping never affects the others.
     """
 
     readiness_timeout: float = 30.0
@@ -188,18 +185,12 @@ class SocketModeTransport:
                 return
             if self._options.startup_timeout < 0:
                 raise ValueError("Socket Mode startup_timeout must be non-negative")
-            geos = tuple(self._options.geos)
-            if not geos:
-                raise ValueError("Socket Mode geos must contain at least one entry")
-            if len(set(geos)) != len(geos):
-                raise ValueError("Socket Mode geos must not contain duplicates")
+            geos = resolve_geos(self._options.geos)
+            negotiate_urls = tuple((geo, build_negotiate_url(geo)) for geo in geos)
 
             self._stop_event = asyncio.Event()
             self._lifecycle = SocketModeStatus.CONNECTING
-            self._geos = [
-                GeoSocket(self, geo, build_negotiate_url(self._options.negotiate_base_url, geo), self._logger)
-                for geo in geos
-            ]
+            self._geos = [GeoSocket(self, geo, negotiate_url, self._logger) for geo, negotiate_url in negotiate_urls]
             tasks = [
                 asyncio.create_task(geo.start_initial(), name=f"teams-socket-mode-start-{geo or 'default'}")
                 for geo in self._geos
@@ -343,9 +334,19 @@ class SocketModeTransport:
             self._logger.warning("Socket Mode lifecycle callback failed", exc_info=error)
 
 
-def build_negotiate_url(base_url: str, geo: str) -> str:
-    base = base_url.rstrip("/")
-    segment = geo.strip().strip("/")
-    if segment:
-        return f"{base}/{quote(segment, safe='')}{SOCKET_MODE_NEGOTIATE_PATH}"
-    return f"{base}{SOCKET_MODE_NEGOTIATE_PATH}"
+def resolve_geos(geos: Sequence[str]) -> tuple[str, ...]:
+    configured_geos = tuple(geos)
+    if not configured_geos:
+        return DEFAULT_GEOS
+    if "" in configured_geos:
+        raise ValueError("Socket Mode geos must not contain an empty string")
+    if len({geo.lower() for geo in configured_geos}) != len(configured_geos):
+        raise ValueError("Socket Mode geos must not contain duplicates")
+    return configured_geos
+
+
+def build_negotiate_url(geo: str) -> str:
+    if geo == "":
+        raise ValueError("Socket Mode geo must not be an empty string")
+
+    return f"https://{geo}.{SOCKET_MODE_NEGOTIATE_HOST}{SOCKET_MODE_NEGOTIATE_PATH}"

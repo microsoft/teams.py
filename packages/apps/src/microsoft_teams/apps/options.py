@@ -119,11 +119,11 @@ class AppOptions(TypedDict, total=False):
     socket_mode: Optional[Union[bool, SocketModeOptions]]
     """Experimental: receive activities over an outbound WebSocket instead of an inbound HTTPS endpoint.
 
-    ``True`` enables it with defaults; pass a ``SocketModeOptions`` to configure
-    ``negotiate_base_url`` and ``geos``. The bot dials the Teams service, so no public endpoint or dev tunnel is
-    needed — but HTTP-only features (``app.function()``, tabs, OAuth redirect routes)
-    have no listener to serve them. Mutually exclusive with ``http_server_adapter``,
-    and supported only in the public cloud.
+    ``True`` enables it with defaults; pass a ``SocketModeOptions`` to select geo
+    regions. The bot dials the Teams service, so no public endpoint
+    or dev tunnel is needed — but HTTP-only features (``app.function()``, tabs, OAuth
+    redirect routes) have no listener to serve them. Mutually exclusive with
+    ``http_server_adapter``, and supported only in the public cloud.
 
     Socket Mode is currently only available for new bots.
     This API is in preview and may change in the future; recommended only for development.
