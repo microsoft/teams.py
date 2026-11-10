@@ -180,7 +180,7 @@ async def gated_socket_transport() -> AsyncIterator[
 async def make_transport(
     factory: MockConnectionFactory,
     *,
-    geos: tuple[str, ...] = ("",),
+    geos: tuple[str, ...] = ("amer",),
     callbacks: Optional[SocketModeCallbacks] = None,
     on_activity: Optional[Callable[[SocketActivityEnvelope], object]] = None,
     startup_timeout: float = 1,
@@ -214,14 +214,69 @@ async def test_transport_starts_all_geos_and_stops_every_connection():
     await transport.start()
 
     assert transport.status == SocketModeStatus.READY
-    assert factory.urls == [
-        "https://botapi.skype.com/amer/v3/websockets/connect",
-        "https://botapi.skype.com/emea/v3/websockets/connect",
-        "https://botapi.skype.com/apac/v3/websockets/connect",
+    expected_urls = [
+        "https://amer.botapi.skype.com/v3/websockets/connect",
+        "https://emea.botapi.skype.com/v3/websockets/connect",
+        "https://apac.botapi.skype.com/v3/websockets/connect",
     ]
+    assert factory.urls == expected_urls
     await transport.stop()
     assert transport.status == SocketModeStatus.STOPPED
     assert all(connection.stopped >= 1 for connection in factory.connections)
+
+
+@pytest.mark.asyncio
+async def test_transport_uses_default_geos_for_empty_sequence():
+    factory = MockConnectionFactory()
+    transport = await make_transport(factory, geos=())
+
+    await transport.start()
+
+    assert transport.status == SocketModeStatus.READY
+    assert factory.urls == [
+        "https://amer.botapi.skype.com/v3/websockets/connect",
+        "https://emea.botapi.skype.com/v3/websockets/connect",
+        "https://apac.botapi.skype.com/v3/websockets/connect",
+    ]
+    await transport.stop()
+
+
+@pytest.mark.parametrize("geo", ["eur", "AMER", "amer.amer"])
+@pytest.mark.asyncio
+async def test_transport_uses_custom_geo_values(geo: str):
+    factory = MockConnectionFactory()
+    transport = await make_transport(factory, geos=(geo,))
+
+    await transport.start()
+
+    assert transport.status == SocketModeStatus.READY
+    assert factory.urls == [f"https://{geo}.botapi.skype.com/v3/websockets/connect"]
+    await transport.stop()
+
+
+@pytest.mark.asyncio
+async def test_transport_rejects_empty_string_before_connecting():
+    factory = MockConnectionFactory()
+    transport = await make_transport(factory, geos=("amer", ""))
+
+    with pytest.raises(ValueError, match="must not contain an empty string"):
+        await transport.start()
+
+    assert transport.status == SocketModeStatus.IDLE
+    assert factory.connections == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("geos", [("amer", "amer"), ("amer", "AMER")])
+async def test_transport_rejects_duplicate_geos_before_connecting(geos: tuple[str, ...]):
+    factory = MockConnectionFactory()
+    transport = await make_transport(factory, geos=geos)
+
+    with pytest.raises(ValueError, match="must not contain duplicates"):
+        await transport.start()
+
+    assert transport.status == SocketModeStatus.IDLE
+    assert factory.connections == []
 
 
 @pytest.mark.asyncio
@@ -255,7 +310,7 @@ async def test_socket_ids_remain_independent_across_geos_and_handoff(monkeypatch
                 },
             )
         service_requests.append(request)
-        geo = request.url.path.split("/")[1]
+        geo = request.url.host.split(".", 1)[0]
         issued_tokens.append(f"service-token-{len(service_requests)}")
         return httpx2.Response(
             200,
@@ -568,8 +623,8 @@ async def test_drop_reconnects_and_fences_superseded_generation():
     assert stale_reply is None
     assert current_reply is not None
     assert dispatched == ["current"]
-    assert disconnected == [""]
-    assert reconnected == [""]
+    assert disconnected == ["amer"]
+    assert reconnected == ["amer"]
     await transport.stop()
 
 
@@ -637,9 +692,7 @@ async def test_proactive_refresh_rotates_without_disconnect_callbacks(monkeypatc
     monkeypatch.setattr(geo_socket.asyncio, "sleep", sleep)
     async with make_http_client() as client:
         transport = SocketModeTransport(
-            SocketModeTransportOptions(
-                geos=("amer",), reconnect_delays=(0,), negotiate_base_url="https://botapi.example"
-            ),
+            SocketModeTransportOptions(geos=("amer",), reconnect_delays=(0,)),
             get_bot_token=lambda: _token("token"),
             on_activity=lambda _: _reply(),
             http_client=client,
@@ -696,7 +749,7 @@ async def test_transport_stop_is_idempotent_and_transport_can_restart():
 def test_reconnect_schedule_caps_at_last_configured_delay():
     factory = MockConnectionFactory()
     transport = SocketModeTransport(
-        SocketModeTransportOptions(geos=("",), reconnect_delays=(0.25, 0.5)),
+        SocketModeTransportOptions(geos=("amer",), reconnect_delays=(0.25, 0.5)),
         get_bot_token=lambda: _token("token"),
         on_activity=lambda _: _reply(),
         connection_factory=factory,
@@ -711,7 +764,7 @@ def test_exponential_backoff_survives_a_long_failure_streak():
     """Without a clamp on the exponent, ``2**attempt`` overflows the float conversion."""
     factory = MockConnectionFactory()
     transport = SocketModeTransport(
-        SocketModeTransportOptions(geos=("",), reconnect_delays=()),
+        SocketModeTransportOptions(geos=("amer",), reconnect_delays=()),
         get_bot_token=lambda: _token("token"),
         on_activity=lambda _: _reply(),
         connection_factory=factory,
@@ -934,8 +987,8 @@ async def test_rotation_whose_predecessor_dies_early_reports_a_disconnect(monkey
     await _eventually(rotation_in_flight, timeout=1.5)
     previous.drop(ConnectionError("died mid-rotation"))
 
-    await _eventually(lambda: disconnected == [""], timeout=2.0)
-    await _eventually(lambda: reconnected == [""], timeout=2.0)
+    await _eventually(lambda: disconnected == ["amer"], timeout=2.0)
+    await _eventually(lambda: reconnected == ["amer"], timeout=2.0)
     assert transport.status == SocketModeStatus.READY
     await transport.stop()
 
@@ -1085,6 +1138,7 @@ async def test_shutdown_suppresses_late_negotiate_rejection(status: int, caplog:
         factory, callbacks=SocketModeCallbacks(on_disconnected=lambda *args: events.append(args))
     )
     await transport.start()
+    caplog.clear()
     first = factory.connections[0]
     first.stop_gate = asyncio.Event()
     factory.start_gate = asyncio.Event()
