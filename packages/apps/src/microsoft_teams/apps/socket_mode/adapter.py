@@ -25,10 +25,9 @@ from ..http.adapter import HttpMethod, HttpRouteHandler
 from .envelope import build_reply_frame, is_invoke_envelope, read_envelope_activity
 from .transport import (
     DEFAULT_GEOS,
-    DEFAULT_SOCKET_MODE_NEGOTIATE_BASE_URL,
     SocketModeTransport,
     SocketModeTransportOptions,
-    build_negotiate_url,
+    resolve_geos,
 )
 from .types import (
     SOCKET_MODE_PROTOCOL_VERSION,
@@ -79,17 +78,11 @@ class SocketModeReconnectedEvent:
 @dataclass(frozen=True)
 class SocketModeOptions:
     """
-    Preview configuration for the Socket Mode negotiate URL and geographies; may change in the future.
+    Preview configuration for Socket Mode geographies; may change in the future.
 
     WebSocket is only recommended for use when developing agents.
     Socket Mode is currently only available for new bots.
     Diagnostic: ExperimentalTeamsSocketMode
-    """
-
-    negotiate_base_url: str = DEFAULT_SOCKET_MODE_NEGOTIATE_BASE_URL
-    """
-    Service host used to negotiate the connection. Defaults to ``https://botapi.skype.com``.
-    Override this to target a different Teams backend service ring.
     """
 
     geos: Sequence[str] = DEFAULT_GEOS
@@ -100,10 +93,7 @@ class SocketModeOptions:
     """
 
     def to_transport_options(self) -> SocketModeTransportOptions:
-        return SocketModeTransportOptions(
-            negotiate_base_url=self.negotiate_base_url,
-            geos=tuple(self.geos),
-        )
+        return SocketModeTransportOptions(geos=tuple(self.geos))
 
 
 @dataclass(frozen=True)
@@ -196,13 +186,7 @@ class SocketModeAdapter:
     @property
     def geo_list(self) -> tuple[str, ...]:
         """The geos this adapter connects to."""
-        return tuple(self.options.geos)
-
-    @property
-    def negotiate_url(self) -> str:
-        """Resolved negotiate URL for the first geo. Each geo dials its own."""
-        geos = self.geo_list
-        return build_negotiate_url(self.options.negotiate_base_url, geos[0] if geos else "")
+        return resolve_geos(self.options.geos)
 
     def register_route(self, method: HttpMethod, path: str, handler: HttpRouteHandler) -> None:
         """
