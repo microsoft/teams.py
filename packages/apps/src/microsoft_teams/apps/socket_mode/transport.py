@@ -340,7 +340,7 @@ def resolve_geos(geos: Sequence[str]) -> tuple[str, ...]:
         return DEFAULT_GEOS
     if "" in configured_geos:
         raise ValueError("Socket Mode geos must not contain an empty string")
-    if len(set(configured_geos)) != len(configured_geos):
+    if len({geo.lower() for geo in configured_geos}) != len(configured_geos):
         raise ValueError("Socket Mode geos must not contain duplicates")
     return configured_geos
 

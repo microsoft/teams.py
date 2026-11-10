@@ -390,8 +390,9 @@ def test_empty_string_geo_is_rejected():
         _ = adapter.geo_list
 
 
-def test_duplicate_geos_are_rejected():
-    adapter, _ = make_adapter(geos=("amer", "amer"))
+@pytest.mark.parametrize("geos", [("amer", "amer"), ("amer", "AMER")])
+def test_duplicate_geos_are_rejected(geos: tuple[str, ...]):
+    adapter, _ = make_adapter(geos=geos)
 
     with pytest.raises(ValueError, match="must not contain duplicates"):
         _ = adapter.geo_list

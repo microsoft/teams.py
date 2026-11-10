@@ -267,9 +267,10 @@ async def test_transport_rejects_empty_string_before_connecting():
 
 
 @pytest.mark.asyncio
-async def test_transport_rejects_duplicate_geos_before_connecting():
+@pytest.mark.parametrize("geos", [("amer", "amer"), ("amer", "AMER")])
+async def test_transport_rejects_duplicate_geos_before_connecting(geos: tuple[str, ...]):
     factory = MockConnectionFactory()
-    transport = await make_transport(factory, geos=("amer", "amer"))
+    transport = await make_transport(factory, geos=geos)
 
     with pytest.raises(ValueError, match="must not contain duplicates"):
         await transport.start()
