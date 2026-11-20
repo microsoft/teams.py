@@ -901,17 +901,6 @@ class TestActivityContextReplyChainPlacement:
         ctx.api.conversations._create_reply_chain_activity.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_does_not_place_a_typing_activity(self) -> None:
-        ctx = _context_with_reply_chain_methods(
-            _inbound_message("reply-2", {"chat": {"id": CHAT_ID}, "replyChain": {"id": "root-1"}})
-        )
-
-        await ctx.send(TypingActivityInput())
-
-        ctx.api.conversations.create_activity.assert_called_once()
-        ctx.api.conversations._create_reply_chain_activity.assert_not_called()
-
-    @pytest.mark.asyncio
     async def test_does_not_place_a_send_to_a_different_conversation(self) -> None:
         ctx = _context_with_reply_chain_methods(
             _inbound_message("reply-2", {"chat": {"id": CHAT_ID}, "replyChain": {"id": "root-1"}})
@@ -978,6 +967,102 @@ class TestActivityContextReplyChainPlacement:
         await ctx.send("hi")
 
         assert ctx.conversation_ref.conversation.id == "test-conversation"
+
+
+class TestActivityContextReplyChainPlacementOfTyping:
+    """A typing activity is placed in the reply chain like a message."""
+
+    @staticmethod
+    def _typing_context(activity_id: str, conversation_type: str = "personal") -> ActivityContext[Any]:
+        return _context_with_reply_chain_methods(
+            _inbound_message(
+                activity_id,
+                {"chat": {"id": CHAT_ID}, "replyChain": {"id": "100"}},
+                conversation_type=conversation_type,
+            )
+        )
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("conversation_type", ["personal", "groupChat"])
+    async def test_places_a_typing_activity_in_the_reply_chain_when_the_inbound_is_inside_a_thread(
+        self, conversation_type: str
+    ) -> None:
+        ctx = self._typing_context("105", conversation_type)
+
+        await ctx.send(TypingActivityInput())
+
+        reply = ctx.api.conversations._create_reply_chain_activity
+        reply.assert_called_once()
+        assert reply.call_args.args[:2] == (CHAT_ID, "100")
+        sent = reply.call_args.args[2]
+        assert sent.type == "typing"
+        assert sent.conversation.id == CHAT_ID
+        ctx.api.conversations.create_activity.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_sends_a_typing_activity_to_the_inbound_conversation_for_a_top_level_message(self) -> None:
+        ctx = self._typing_context("100")
+
+        await ctx.send(TypingActivityInput())
+
+        ctx.api.conversations.create_activity.assert_called_once()
+        assert ctx.api.conversations.create_activity.call_args.args[0] == "test-conversation"
+        ctx.api.conversations._create_reply_chain_activity.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_places_a_typing_activity_sent_with_reply_like_send_without_a_quote(self) -> None:
+        ctx = self._typing_context("105")
+
+        await ctx.reply(TypingActivityInput())
+
+        reply = ctx.api.conversations._create_reply_chain_activity
+        reply.assert_called_once()
+        assert reply.call_args.args[:2] == (CHAT_ID, "100")
+        sent = reply.call_args.args[2]
+        assert sent.type == "typing"
+        assert sent.entities is None
+        ctx.api.conversations.create_activity.assert_not_called()
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("status_code", [400, 404])
+    async def test_does_not_fall_back_in_a_chat_after_an_error_from_the_reply_chain_route(
+        self, status_code: int
+    ) -> None:
+        ctx = self._typing_context("105")
+        ctx.api.conversations._create_reply_chain_activity = AsyncMock(side_effect=_http_status_error(status_code))
+
+        with pytest.raises(HTTPStatusError):
+            await ctx.send(TypingActivityInput())
+
+        reply = ctx.api.conversations._create_reply_chain_activity
+        reply.assert_called_once()
+        assert reply.call_args.args[:2] == (CHAT_ID, "100")
+        ctx.api.conversations.create_activity.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_places_a_typing_activity_in_a_channel_thread_and_falls_back_after_a_404(self) -> None:
+        suffixed = f"{CHANNEL_ID};messageid=100"
+        ctx = _context_with_reply_chain_methods(
+            _inbound_message(
+                "105",
+                {"channel": {"id": CHANNEL_ID}, "replyChain": {"id": "100"}},
+                suffixed,
+                conversation_type="channel",
+            )
+        )
+        ctx.conversation_ref.conversation.id = suffixed
+        ctx.api.conversations._create_reply_chain_activity = AsyncMock(side_effect=_http_status_error(404))
+
+        await ctx.send(TypingActivityInput())
+
+        reply = ctx.api.conversations._create_reply_chain_activity
+        reply.assert_called_once()
+        assert reply.call_args.args[:2] == (CHANNEL_ID, "100")
+        ctx.api.conversations.create_activity.assert_called_once()
+        conversation_id, sent = ctx.api.conversations.create_activity.call_args.args
+        assert conversation_id == suffixed
+        assert sent.type == "typing"
+        assert sent.conversation.id == suffixed
 
 
 class TestActivityContextReplyChainOverTransport:

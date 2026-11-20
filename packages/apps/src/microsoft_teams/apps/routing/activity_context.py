@@ -47,6 +47,7 @@ from microsoft_teams.api import (
     TokenExchangeState,
     TokenPostResource,
     TokenStatus,
+    TypingActivityInput,
 )
 from microsoft_teams.api.auth.cloud_environment import PUBLIC, CloudEnvironment
 from microsoft_teams.api.models.attachment.card_attachment import (
@@ -595,7 +596,7 @@ class ActivityContext(Generic[T]):
         conversation_ref: Optional[ConversationReference] = None,
     ) -> Optional[_ReplyChainPlacement]:
         if (
-            not isinstance(activity, MessageActivityInput)
+            not isinstance(activity, (MessageActivityInput, TypingActivityInput))
             or activity.id
             or not self._is_same_conversation(conversation_ref)
         ):
