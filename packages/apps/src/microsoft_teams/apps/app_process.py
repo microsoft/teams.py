@@ -49,7 +49,7 @@ from .files_credential import select_files_credential, select_inline_image_crede
 from .oauth_flow import OAuthFlowRegistry
 from .plan import Plan
 from .plugins import PluginActivityEvent, PluginBase
-from .routing.activity_context import CONVERSATION_REF_SEND_DEPRECATION, ActivityContext
+from .routing.activity_context import CONVERSATION_REF_SEND_DEPRECATION, ActivityContext, ReplyMode
 from .routing.router import ActivityHandler, ActivityRouter
 from .state import TurnStateLoader
 from .token_provider import AppTokenProvider
@@ -84,6 +84,7 @@ class ActivityProcessor:
         agent365_baggage_options: Agent365BaggageOptions | bool | None = None,
         state_loader: Optional[TurnStateLoader] = None,
         oauth_registry: Optional[OAuthFlowRegistry] = None,
+        reply_mode: ReplyMode = "combined",
     ) -> None:
         self.router = router
         self.id = id
@@ -100,6 +101,7 @@ class ActivityProcessor:
         self.agent365_baggage_options = agent365_baggage_options
         self.state_loader = state_loader
         self.oauth_registry = oauth_registry
+        self.reply_mode: ReplyMode = reply_mode
 
         # This will be set after the EventManager is initialized due to
         # a circular dependency
@@ -195,6 +197,7 @@ class ActivityProcessor:
             oauth_connection_names=list(self.oauth_registry) if self.oauth_registry is not None else None,
             files_credential=files_credential,
             files_bot_api_credential=files_bot_api_credential,
+            reply_mode=self.reply_mode,
         )
 
         send = activityCtx._send  # pyright: ignore[reportPrivateUsage]

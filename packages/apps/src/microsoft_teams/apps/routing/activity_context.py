@@ -16,6 +16,7 @@ from typing import (
     Callable,
     Generic,
     List,
+    Literal,
     NamedTuple,
     Optional,
     Sequence,
@@ -89,6 +90,28 @@ T = TypeVar("T", bound=ActivityBase, contravariant=True)
 logger = logging.getLogger(__name__)
 
 _NUMERIC_MESSAGE_ID = re.compile(r"0*[1-9][0-9]*")
+
+ReplyMode = Literal["combined", "quote", "thread"]
+"""How the activity context's `reply` places and quotes its response in a chat or channel.
+
+- `combined`: in a chat, a reply to a top-level message goes into a thread under that message,
+  and a reply inside a thread stays in that thread.
+  The inbound message is quoted.
+- `quote`: the reply stays at the level of the inbound message (top level or the same thread) and quotes it.
+- `thread`: like `combined`, without the quote.
+
+In a channel every reply already goes into the thread of the inbound message,
+so the mode only decides the quote: `thread` drops it, `combined` and `quote` keep it.
+The mode applies to message activities only.
+It does not affect `App.reply`, `send`, `quote`, streams or plans.
+When the inbound activity carries no `channel_data.chat.id` and `channel_data.reply_chain.id` (e.g. in a meeting),
+a reply is never threaded and keeps the quote in every mode.
+The reply quotes the inbound activity only when that activity can be quoted,
+so a reply to a card action or another invoke is sent without a quote.
+
+This API is in preview and may change in the future.
+Diagnostic: ExperimentalTeamsThreading
+"""
 
 
 def _is_quotable_activity(activity: ActivityBase) -> bool:
@@ -189,6 +212,7 @@ class ActivityContext(Generic[T]):
         oauth_connection_names: Optional[Sequence[str]] = None,
         files_credential: Optional[GraphCredential] = None,
         files_bot_api_credential: Optional[BotApiCredential] = None,
+        reply_mode: ReplyMode = "combined",
     ):
         self.activity = activity
         self.app_id = app_id
@@ -198,6 +222,7 @@ class ActivityContext(Generic[T]):
         self.api = api
         self.user_token = user_token
         self.connection_name = connection_name
+        self._reply_mode: ReplyMode = reply_mode
         self.is_signed_in = is_signed_in
         self.cloud = cloud
         self.state: Optional[TurnStateContainer] = None
@@ -431,8 +456,8 @@ class ActivityContext(Generic[T]):
             agentic_identity=self.activity.recipient.agentic_identity,
         )
 
-    async def reply(self, input: str | ActivityParams) -> SentActivity:
-        """Send a message in the current conversation, quoting the inbound message when its id allows it.
+    async def reply(self, input: str | ActivityParams, *, reply_mode: Optional[ReplyMode] = None) -> SentActivity:
+        """Reply to the inbound activity, quoting it by default.
 
         In a chat, sends into the reply chain (thread) of the inbound activity when it is inside one.
         Otherwise it sends at top level.
@@ -441,19 +466,23 @@ class ActivityContext(Generic[T]):
         In a channel, when the service answers HTTP 404, sends to the inbound conversation instead.
         An inbound activity without `channel_data.reply_chain` is not placed,
         and the activity is sent to the inbound conversation.
-        The response is automatically quoted only when the inbound activity id is a plain numeric message id.
-        Otherwise, such as an invoke or a card action whose id is ``f:<guid>``, the activity is sent without a quote.
-        It is then sent exactly like :meth:`send`.
-        To quote a specific message, use :meth:`quote` with that message's id.
-        To send without quoting, use :meth:`send`.
+        The reply quotes the inbound activity only when that activity can be quoted,
+        so a reply to a card action or another invoke is sent without a quote.
+        `reply_mode` overrides the app's `reply_mode` setting;
+        in `thread` mode the quote is left out wherever the reply lands in a thread.
+        See ``ReplyMode``.
 
         Args:
             input: The response text or activity to send.
+            reply_mode: The reply mode for this call.
+                Overrides the app's `reply_mode` setting.
+                When omitted, the app's setting is used, and when that is also omitted, `combined`.
 
         Returns:
             The ``SentActivity`` returned by the conversation API call.
         """
-        if _is_quotable_activity(self.activity):
+        mode = reply_mode if reply_mode is not None else self._reply_mode
+        if _is_quotable_activity(self.activity) and not (mode == "thread" and self._is_threadable_inbound()):
             return await self.quote(self.activity.id, input)
         activity = MessageActivityInput(text=input) if isinstance(input, str) else input
         return await self.send(activity)
@@ -589,6 +618,23 @@ class ActivityContext(Generic[T]):
             return True if message_id is None else is_other_plain_id(message_id)
 
         return False
+
+    def _is_threadable_inbound(self) -> bool:
+        """Whether a reply to the inbound activity lands in a thread.
+
+        That is when the inbound carries `channel_data.reply_chain.id` and either `channel_data.channel.id` or
+        `channel_data.chat.id`.
+        `thread` mode leaves the quote out of such replies.
+        """
+        channel_data = self.activity.channel_data
+        if channel_data is None:
+            return False
+        reply_chain_id = channel_data.reply_chain.id if channel_data.reply_chain else None
+        channel_id = channel_data.channel.id if channel_data.channel else None
+        chat_id = channel_data.chat.id if channel_data.chat else None
+        return bool(reply_chain_id and reply_chain_id.strip()) and bool(
+            (channel_id and channel_id.strip()) or (chat_id and chat_id.strip())
+        )
 
     def _get_chat_reply_chain_placement(
         self,

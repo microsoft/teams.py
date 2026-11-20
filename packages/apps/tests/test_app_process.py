@@ -21,6 +21,7 @@ from microsoft_teams.api import (
     ConversationAccount,
     ConversationReference,
     InvokeResponse,
+    MessageActivity,
     MessageActivityInput,
     PlanInfoEntity,
     SentActivity,
@@ -28,6 +29,7 @@ from microsoft_teams.api import (
     TokenProtocol,
 )
 from microsoft_teams.api.auth.cloud_environment import PUBLIC, US_GOV
+from microsoft_teams.api.models.entity import QuotedReplyEntity
 from microsoft_teams.apps import ActivityContext, ActivityEvent, ActivitySentEvent, App, HttpStream, Plan
 from microsoft_teams.apps.app_events import EventManager
 from microsoft_teams.apps.app_process import ActivityProcessor
@@ -1725,3 +1727,49 @@ class TestActivityProcessor:
         assert reloaded.conversation["value"] == "saved"
         error_event = activity_processor.event_manager.on_error.await_args.args[0]
         assert error_event.error is response_error
+
+
+class TestAppReplyMode:
+    """The app's `reply_mode` setting reaches `ctx.reply` through the activity processor."""
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(("reply_mode", "quoted"), [(None, True), ("thread", False)], ids=["default", "thread"])
+    async def test_applies_the_app_reply_mode_to_ctx_reply(self, reply_mode: Any, quoted: bool) -> None:
+        app = App(storage=MagicMock(), client_id="test-client-id", client_secret="test-secret", reply_mode=reply_mode)
+
+        @app.on_message
+        async def handler(ctx: ActivityContext[MessageActivity]) -> None:
+            await ctx.reply("response")
+
+        core = CoreActivity.model_validate(
+            {
+                "type": "message",
+                "id": "105",
+                "text": "hello",
+                "channelId": "msteams",
+                "serviceUrl": "https://service.url",
+                "from": {"id": "user-1", "name": "Test User"},
+                "recipient": {"id": "bot-1", "name": "Test Bot"},
+                "conversation": {"id": "a:encrypted", "conversationType": "personal"},
+                "channelData": {"chat": {"id": "19:user_bot@unq.gbl.spaces"}, "replyChain": {"id": "100"}},
+            }
+        )
+        token = MagicMock(spec=TokenProtocol)
+        token.service_url = "https://service.url"
+        sent = SentActivity(id="sent-1", activity_params=MessageActivityInput(text="response"))
+        with patch("microsoft_teams.apps.app_process.ApiClient") as api_client:
+            api = MagicMock()
+            api.conversations._create_reply_chain_activity = AsyncMock(return_value=sent)
+            api.conversations.create_activity = AsyncMock(return_value=sent)
+            api.clone.return_value = api
+            api_client.return_value = api
+            with patch("microsoft_teams.apps.routing.activity_context.HttpStream") as http_stream:
+                http_stream.return_value.close = AsyncMock(return_value=None)
+                await app.activity_processor.process_activity([], ActivityEvent(body=core, token=token))
+
+        reply = api.conversations._create_reply_chain_activity
+        reply.assert_called_once()
+        assert reply.call_args.args[:2] == ("19:user_bot@unq.gbl.spaces", "100")
+        entities = reply.call_args.args[2].entities or []
+        assert any(isinstance(entity, QuotedReplyEntity) for entity in entities) is quoted
+        api.conversations.create_activity.assert_not_called()

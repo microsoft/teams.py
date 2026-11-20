@@ -42,7 +42,15 @@ from microsoft_teams.api.activities.typing import TypingActivityInput
 from microsoft_teams.api.auth.cloud_environment import PUBLIC
 from microsoft_teams.api.clients.conversation import ConversationClient
 from microsoft_teams.api.models.entity import QuotedReplyData, QuotedReplyEntity
-from microsoft_teams.apps import ActivityEvent, App, StreamOptions, StreamReplyChain, TurnState, TurnStateContainer
+from microsoft_teams.apps import (
+    ActivityEvent,
+    App,
+    ReplyMode,
+    StreamOptions,
+    StreamReplyChain,
+    TurnState,
+    TurnStateContainer,
+)
 from microsoft_teams.apps.events import CoreActivity
 from microsoft_teams.apps.oauth_state import get_pending_oauth_sign_ins
 from microsoft_teams.apps.routing.activity_context import ActivityContext, SignInOptions
@@ -75,6 +83,7 @@ def _create_activity_context(
     user_token: str | None = None,
     activity: Any = None,
     oauth_connection_names: list[str] | None = None,
+    reply_mode: Optional[ReplyMode] = None,
 ) -> tuple[ActivityContext[Any], MagicMock]:
     mock_activity = activity if activity is not None else MagicMock()
 
@@ -138,6 +147,8 @@ def _create_activity_context(
         service_url="https://service.example",
     )
 
+    # The context's own default applies unless a test sets a reply mode.
+    extra: dict[str, Any] = {} if reply_mode is None else {"reply_mode": reply_mode}
     ctx = ActivityContext(
         activity=mock_activity,
         app_id="test-app-id",
@@ -150,6 +161,7 @@ def _create_activity_context(
         app_token=MagicMock(),
         cloud=PUBLIC,
         oauth_connection_names=oauth_connection_names,
+        **extra,
     )
     return ctx, mock_activity_sender
 
@@ -559,8 +571,8 @@ def _inbound_message(
     )
 
 
-def _context_with_reply_chain_methods(activity: Any) -> ActivityContext[Any]:
-    ctx, _ = _create_activity_context(activity=activity)
+def _context_with_reply_chain_methods(activity: Any, reply_mode: Optional[ReplyMode] = None) -> ActivityContext[Any]:
+    ctx, _ = _create_activity_context(activity=activity, reply_mode=reply_mode)
     ctx.api.conversations._create_reply_chain_activity = AsyncMock(
         return_value=SentActivity(id="reply-id", activity_params=MessageActivityInput(text="sent"))
     )
@@ -1063,6 +1075,163 @@ class TestActivityContextReplyChainPlacementOfTyping:
         assert conversation_id == suffixed
         assert sent.type == "typing"
         assert sent.conversation.id == suffixed
+
+
+_REPLY_MODE_SHAPES = [
+    pytest.param(
+        lambda: _inbound_message(
+            "105", {"chat": {"id": CHAT_ID}, "replyChain": {"id": "100"}}, conversation_type="personal"
+        ),
+        id="message-inside-a-chat-thread",
+    ),
+    pytest.param(
+        lambda: _inbound_message(
+            "100",
+            {"chat": {"id": "19:group@thread.v2"}, "replyChain": {"id": "100"}},
+            "19:group@thread.v2",
+            "groupChat",
+        ),
+        id="top-level-chat-message",
+    ),
+    pytest.param(
+        lambda: _inbound_message(
+            "105",
+            {"channel": {"id": CHANNEL_ID}, "replyChain": {"id": "100"}},
+            f"{CHANNEL_ID};messageid=100",
+            "channel",
+        ),
+        id="channel-message",
+    ),
+    pytest.param(
+        lambda: _shape(
+            "messageUpdate",
+            activity_id="105",
+            conversation_type="channel",
+            channel_data={"channel": {"id": CHANNEL_ID}, "replyChain": {"id": "100"}},
+        ),
+        id="channel-edit",
+    ),
+]
+
+
+class TestActivityContextReplyMode:
+    """The reply mode decides whether `reply` quotes the inbound activity."""
+
+    @staticmethod
+    def _chat_thread_inbound() -> MessageActivity:
+        return _inbound_message(
+            "105", {"chat": {"id": CHAT_ID}, "replyChain": {"id": "100"}}, conversation_type="personal"
+        )
+
+    @staticmethod
+    def _quoted(ctx: ActivityContext[Any]) -> bool:
+        conversations = ctx.api.conversations
+        if conversations._create_reply_chain_activity.called:
+            sent = conversations._create_reply_chain_activity.call_args.args[2]
+        else:
+            sent = conversations.create_activity.call_args.args[1]
+        return any(isinstance(entity, QuotedReplyEntity) for entity in sent.entities or [])
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("inbound", _REPLY_MODE_SHAPES)
+    async def test_leaves_out_the_quote_in_thread_mode(self, inbound: Any) -> None:
+        ctx = _context_with_reply_chain_methods(inbound(), reply_mode="thread")
+
+        await ctx.reply("hi")
+
+        assert self._quoted(ctx) is False
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("inbound", _REPLY_MODE_SHAPES)
+    @pytest.mark.parametrize("reply_mode", ["combined", "quote"])
+    async def test_keeps_the_quote_in_combined_and_quote_mode(self, inbound: Any, reply_mode: ReplyMode) -> None:
+        ctx = _context_with_reply_chain_methods(inbound(), reply_mode=reply_mode)
+
+        await ctx.reply("hi")
+
+        assert self._quoted(ctx) is True
+
+    @pytest.mark.asyncio
+    async def test_still_places_a_thread_mode_reply_inside_a_chat_thread(self) -> None:
+        ctx = _context_with_reply_chain_methods(self._chat_thread_inbound(), reply_mode="thread")
+
+        await ctx.reply("hi")
+
+        reply = ctx.api.conversations._create_reply_chain_activity
+        reply.assert_called_once()
+        assert reply.call_args.args[:2] == (CHAT_ID, "100")
+        ctx.api.conversations.create_activity.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_keeps_the_quote_in_thread_mode_for_a_channel_inbound_without_a_reply_chain_id(self) -> None:
+        ctx = _context_with_reply_chain_methods(
+            _inbound_message("105", {"channel": {"id": CHANNEL_ID}}, f"{CHANNEL_ID};messageid=100", "channel"),
+            reply_mode="thread",
+        )
+
+        await ctx.reply("hi")
+
+        assert self._quoted(ctx) is True
+
+    @pytest.mark.asyncio
+    async def test_keeps_the_quote_in_thread_mode_when_the_inbound_has_no_chat_or_reply_chain_id(self) -> None:
+        meeting_chat = "19:meeting_abc@thread.v2"
+        ctx = _context_with_reply_chain_methods(
+            _inbound_message("105", {"meeting": {"id": "meeting-1"}}, meeting_chat, "groupChat"),
+            reply_mode="thread",
+        )
+        ctx.conversation_ref.conversation.id = meeting_chat
+
+        await ctx.reply("hi")
+
+        assert self._quoted(ctx) is True
+        ctx.api.conversations.create_activity.assert_called_once()
+        assert ctx.api.conversations.create_activity.call_args.args[0] == meeting_chat
+        ctx.api.conversations._create_reply_chain_activity.assert_not_called()
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("app_mode", "call_mode", "quoted"),
+        [("quote", "thread", False), ("thread", "quote", True)],
+        ids=["thread-call-over-quote-app", "quote-call-over-thread-app"],
+    )
+    async def test_lets_the_per_call_reply_mode_override_the_app_setting(
+        self, app_mode: ReplyMode, call_mode: ReplyMode, quoted: bool
+    ) -> None:
+        ctx = _context_with_reply_chain_methods(self._chat_thread_inbound(), reply_mode=app_mode)
+
+        await ctx.reply("hi", reply_mode=call_mode)
+
+        assert self._quoted(ctx) is quoted
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("channel_data", "conversation_type", "quoted"),
+        [
+            ({"channel": {"id": " "}, "replyChain": {"id": "100"}}, "channel", True),
+            ({"channel": {"id": CHANNEL_ID}, "replyChain": {"id": "100"}}, None, False),
+        ],
+        ids=["channel-type-with-a-blank-channel-id", "channel-id-without-a-conversation-type"],
+    )
+    async def test_decides_whether_the_inbound_is_threadable_from_channel_data_only(
+        self, channel_data: dict[str, Any], conversation_type: Optional[str], quoted: bool
+    ) -> None:
+        ctx = _context_with_reply_chain_methods(
+            _inbound_message("105", channel_data, conversation_type=conversation_type), reply_mode="thread"
+        )
+
+        await ctx.reply("hi")
+
+        assert self._quoted(ctx) is quoted
+
+    @pytest.mark.asyncio
+    async def test_treats_an_unknown_reply_mode_like_combined(self) -> None:
+        unknown: Any = "threads"
+        ctx = _context_with_reply_chain_methods(self._chat_thread_inbound(), reply_mode=unknown)
+
+        await ctx.reply("hi")
+
+        assert self._quoted(ctx) is True
 
 
 class TestActivityContextReplyChainOverTransport:

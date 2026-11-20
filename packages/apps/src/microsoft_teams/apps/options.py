@@ -19,6 +19,7 @@ from typing_extensions import Unpack
 from .diagnostics import Agent365BaggageOptions
 from .http.adapter import HttpServerAdapter
 from .plugins import PluginBase
+from .routing.activity_context import ReplyMode
 from .socket_mode import SocketModeOptions
 from .state import StateOptions
 
@@ -175,6 +176,15 @@ class AppOptions(TypedDict, total=False):
     """
     telemetry: Optional[AppTelemetryOptions]
     """Telemetry configuration. Agent365 baggage is enabled by default; pass False to disable it."""
+    reply_mode: Optional[ReplyMode]
+    """How the activity context's `reply` places and quotes its response.
+    See ``ReplyMode``.
+    A `reply_mode` passed to a single `reply` call overrides this setting.
+    Defaults to 'combined'.
+
+    This API is in preview and may change in the future.
+    Diagnostic: ExperimentalTeamsThreading
+    """
 
 
 @dataclass
@@ -251,6 +261,8 @@ class InternalAppOptions:
     """Cloud environment for sovereign cloud support."""
     telemetry: Optional[AppTelemetryOptions] = None
     """Telemetry configuration."""
+    reply_mode: ReplyMode = "combined"
+    """How the activity context's `reply` places and quotes its response. See ``ReplyMode``."""
 
     @classmethod
     def from_typeddict(cls, options: AppOptions) -> "InternalAppOptions":
