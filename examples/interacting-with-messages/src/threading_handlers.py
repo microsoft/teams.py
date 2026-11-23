@@ -4,24 +4,37 @@ Licensed under the MIT License.
 """
 
 from microsoft_teams.api import AgenticIdentity, MessageActivity
-from microsoft_teams.apps import ActivityContext, App
+from microsoft_teams.apps import ActivityContext, App, ReplyMode
+
+_REPLY_COMMANDS: dict[str, tuple[ReplyMode | None, str]] = {
+    "thread reply": (
+        None,
+        "This reply uses the default reply mode, `combined`. "
+        "In a chat it starts a thread under your top-level message, or stays in your thread, and quotes your message.",
+    ),
+    "thread reply unquoted": (
+        "thread",
+        'This reply uses `reply_mode="thread"`. It lands in a thread like `combined`, without a quote.',
+    ),
+}
 
 
 async def handle_thread_reply(ctx: ActivityContext[MessageActivity], text: str) -> bool:
-    """Send a reactive, quoted reply when the command matches.
+    """Reply to the inbound message in a thread when one of the commands matches.
 
-    In a chat the reply matches the level of the inbound message.
-    A reply to a message in a thread stays in the thread, and a reply to a top-level message is posted at top level.
-    In a channel the reply stays in the reply chain (thread) of the inbound message, including a top-level post.
-    An inbound message without `channel_data.reply_chain` is not placed, and the reply is sent to the inbound
-    conversation.
+    `thread reply` uses the app's reply mode, `combined` by default:
+    in a chat, a reply to a top-level message starts a thread under it, a reply inside a thread stays in that thread,
+    and the inbound message is quoted.
+    `thread reply unquoted` passes `reply_mode="thread"`: the same placement, without the quote.
+    The `quote` mode is shown by the `quote reply` command.
+    In a channel every reply goes in the thread of the inbound message, so the mode only decides the quote.
+    The app-wide default is set with `App(reply_mode=...)`.
     """
-    if text != "thread reply":
+    command = _REPLY_COMMANDS.get(text)
+    if command is None:
         return False
-    await ctx.reply(
-        "This is a quoted reply. In a channel it goes in the same thread. "
-        "In a 1:1 chat it matches the level of your message."
-    )
+    reply_mode, reply_text = command
+    await ctx.reply(reply_text, reply_mode=reply_mode)
     return True
 
 
@@ -29,13 +42,15 @@ async def handle_thread_send(ctx: ActivityContext[MessageActivity], text: str) -
     """Send reactively without quoting when the command matches.
 
     In a channel, the message is sent in the same thread.
-    In a 1:1 chat, it matches the level of the inbound message.
+    In a chat, it matches the level of the inbound message:
+    in the thread when the inbound message is in one, otherwise at top level.
+    In a chat, unlike `reply`, `send` never starts a new thread.
     """
     if text != "thread send":
         return False
     await ctx.send(
         "This is sent without quoting. In a channel it goes in the same thread. "
-        "In a 1:1 chat it matches the level of your message."
+        "In a chat it matches the level of your message."
     )
     return True
 
