@@ -4,13 +4,11 @@ Licensed under the MIT License.
 """
 
 import logging
-import warnings
 from time import perf_counter
 from typing import TYPE_CHECKING, Any, Awaitable, Callable, Dict, List, Optional, TypeGuard, Union, cast
 
 from microsoft_teams.api import (
     ActivityBase,
-    ActivityParams,
     ActivityTypeAdapter,
     AgenticIdentity,
     ApiClient,
@@ -25,7 +23,6 @@ from microsoft_teams.api.activities import Activity as ValidatedActivity
 from microsoft_teams.api.activities.invoke_activity import InvokeActivity as InvokeActivityBase
 from microsoft_teams.api.auth.cloud_environment import PUBLIC, CloudEnvironment
 from microsoft_teams.api.clients.user.params import GetUserTokenParams
-from microsoft_teams.cards import AdaptiveCard
 from microsoft_teams.common import Client, LocalStorage, Storage
 from opentelemetry.trace import Span
 
@@ -49,7 +46,7 @@ from .files_credential import select_files_credential, select_inline_image_crede
 from .oauth_flow import OAuthFlowRegistry
 from .plan import Plan
 from .plugins import PluginActivityEvent, PluginBase
-from .routing.activity_context import CONVERSATION_REF_SEND_DEPRECATION, ActivityContext, ReplyMode
+from .routing.activity_context import ActivityContext, ReplyMode
 from .routing.router import ActivityHandler, ActivityRouter
 from .state import TurnStateLoader
 from .token_provider import AppTokenProvider
@@ -200,29 +197,14 @@ class ActivityProcessor:
             reply_mode=self.reply_mode,
         )
 
-        send = activityCtx._send  # pyright: ignore[reportPrivateUsage]
-
-        async def updated_send(
-            message: str | ActivityParams | AdaptiveCard,
-            conversation_ref: Optional[ConversationReference] = None,
-        ) -> SentActivity:
-            if conversation_ref is not None:
-                warnings.warn(CONVERSATION_REF_SEND_DEPRECATION, DeprecationWarning, stacklevel=2)
-            res = await send(message, conversation_ref)
-
+        async def handle_sent(event: ActivitySentEvent) -> None:
             if not self.event_manager:
                 raise ValueError("EventManager was not initialized properly")
 
             logger.debug("Calling on_activity_sent for plugins")
-            ref = conversation_ref or activityCtx.conversation_ref
+            await self.event_manager.on_activity_sent(event, plugins=plugins)
 
-            await self.event_manager.on_activity_sent(
-                ActivitySentEvent(activity=res, conversation_ref=ref),
-                plugins=plugins,
-            )
-            return res
-
-        activityCtx.send = updated_send
+        activityCtx._events.on("sent", handle_sent)  # pyright: ignore[reportPrivateUsage]
 
         plan_attached = False
         get_plan = activityCtx.plan

@@ -180,6 +180,7 @@ class AppOptions(TypedDict, total=False):
     """How the activity context's `reply` places and quotes its response.
     See ``ReplyMode``.
     A `reply_mode` passed to a single `reply` call overrides this setting.
+    `quote` quotes the inbound message and matches the reply to the level of that message.
     Defaults to 'combined'.
 
     This API is in preview and may change in the future.

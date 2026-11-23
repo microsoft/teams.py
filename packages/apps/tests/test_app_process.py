@@ -6,6 +6,7 @@ Licensed under the MIT License.
 
 import asyncio
 import json
+import logging
 import warnings
 from contextlib import contextmanager
 from typing import Any, Iterator
@@ -547,8 +548,8 @@ class TestActivityProcessor:
         qualifying_plugin.on_activity.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_updated_send_emits_activity_sent_event(self, activity_processor):
-        """Handler invoking ctx.send triggers updated_send -> event_manager.on_activity_sent."""
+    async def test_context_send_emits_activity_sent_event(self, activity_processor):
+        """A handler calling ctx.send emits the sent event through event_manager.on_activity_sent."""
         from microsoft_teams.api import MessageActivityInput, SentActivity
 
         core_activity = CoreActivity(
@@ -584,7 +585,7 @@ class TestActivityProcessor:
             mock_context_api.clone.return_value = mock_context_api
             mock_api_client.return_value = mock_context_api
 
-            # Handler that calls ctx.send to exercise the updated_send wrapper
+            # Handler that calls ctx.send, which emits the sent event
             async def calling_handler(ctx):
                 await ctx.send("hi")
                 return None
@@ -682,8 +683,8 @@ class TestActivityProcessor:
             conversations._create_reply_chain_activity.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_updated_send_warns_once_when_given_a_conversation_ref(self, activity_processor):
-        """ctx.send with a conversation reference is deprecated, and the warning is raised by the wrapper only once."""
+    async def test_context_send_warns_once_when_given_a_conversation_ref(self, activity_processor):
+        """ctx.send with a conversation reference is deprecated, and the warning is raised only once."""
         core_activity = CoreActivity(
             type="message",
             id="activity-send",
@@ -732,6 +733,146 @@ class TestActivityProcessor:
         assert mock_context_api.conversations.create_activity.call_args.args[0] == "other-conv"
         sent_event = activity_processor.event_manager.on_activity_sent.call_args.args[0]
         assert sent_event.conversation_ref == other_ref
+
+    @staticmethod
+    def _inbound(activity_id: str, conversation: dict[str, Any], channel_data: dict[str, Any]) -> Activity:
+        core_activity = CoreActivity(
+            type="message",
+            id=activity_id,
+            service_url="https://service.url",
+            **{
+                "from": {"id": "user-123", "name": "Test User"},
+                "conversation": conversation,
+                "recipient": {"id": "bot-456", "name": "Test Bot"},
+                "channelId": "msteams",
+                "channelData": channel_data,
+            },
+        )
+        return ActivityTypeAdapter.validate_python(core_activity.model_dump(by_alias=True, exclude_none=True))
+
+    @staticmethod
+    async def _sent_event_context(activity_processor, activity: Activity):
+        """A context built by the processor with a real EventManager, a plugin, and the sent events it emits."""
+        activity_processor.fetch_user_token = False
+        token = MagicMock(spec=TokenProtocol)
+        token.service_url = "https://service.url"
+        api = MagicMock(spec=ApiClient)
+        api.service_url = "https://service.url"
+        api.from_service_url.return_value = api
+        api.conversations = MagicMock()
+        response = SentActivity(id="sent-1", activity_params=MessageActivityInput(text="sent"))
+        api.conversations.create_activity = AsyncMock(return_value=response)
+        api.conversations._create_reply_chain_activity = AsyncMock(return_value=response)
+        events = EventEmitter[str]()
+        sent = asyncio.Queue[ActivitySentEvent]()
+        events.on("activity_sent", sent.put_nowait)
+        activity_processor.event_manager = EventManager(events)
+        plugin = MagicMock(spec=PluginBase)
+        with patch("microsoft_teams.apps.app_process.ApiClient", return_value=api):
+            context = await activity_processor._build_context(activity, token, [plugin])
+        return context, api, plugin, sent
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("method", ["send", "quote", "reply", "reply-in-quote-mode"])
+    async def test_emits_one_sent_event_with_the_inbound_reference_for_each_context_send(
+        self, activity_processor, method
+    ):
+        """The plugin hook has run when the call returns, and the event carries the inbound conversation."""
+        inbound = self._inbound(
+            "100",
+            {"id": "a:encrypted", "conversationType": "personal"},
+            {"chat": {"id": "19:user_bot@unq.gbl.spaces"}, "replyChain": {"id": "100"}},
+        )
+        ctx, _, plugin, sent = await self._sent_event_context(activity_processor, inbound)
+
+        if method == "send":
+            result = await ctx.send("hi")
+        elif method == "quote":
+            result = await ctx.quote("100", "hi")
+        elif method == "reply":
+            result = await ctx.reply("hi")
+        else:
+            result = await ctx.reply("hi", reply_mode="quote")
+
+        plugin.on_activity_sent.assert_awaited_once()
+        event = sent.get_nowait()
+        assert sent.empty()
+        assert event.activity is result
+        assert event.conversation_ref == ctx.conversation_ref
+
+    @pytest.mark.asyncio
+    async def test_does_not_emit_a_sent_event_when_a_reply_is_rejected(self, activity_processor):
+        inbound = self._inbound(
+            "100",
+            {"id": "a:encrypted", "conversationType": "personal"},
+            {"chat": {"id": "19:user_bot@unq.gbl.spaces"}, "replyChain": {"id": "100"}},
+        )
+        ctx, api, plugin, sent = await self._sent_event_context(activity_processor, inbound)
+        request = httpx2.Request("POST", "https://service.url")
+        api.conversations._create_reply_chain_activity = AsyncMock(
+            side_effect=httpx2.HTTPStatusError(
+                "HTTP 400", request=request, response=httpx2.Response(400, request=request)
+            )
+        )
+
+        with pytest.raises(httpx2.HTTPStatusError):
+            await ctx.reply("hi")
+
+        api.conversations._create_reply_chain_activity.assert_awaited_once()
+        api.conversations.create_activity.assert_not_called()
+        plugin.on_activity_sent.assert_not_awaited()
+        assert sent.empty()
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("method", ["send", "reply"])
+    async def test_emits_one_sent_event_with_the_inbound_reference_after_a_channel_retry(
+        self, activity_processor, method
+    ):
+        suffixed = "19:channel@thread.tacv2;messageid=100"
+        inbound = self._inbound(
+            "105",
+            {"id": suffixed, "conversationType": "channel"},
+            {"channel": {"id": "19:channel@thread.tacv2"}, "replyChain": {"id": "100"}},
+        )
+        ctx, api, plugin, sent = await self._sent_event_context(activity_processor, inbound)
+        request = httpx2.Request("POST", "https://service.url")
+        api.conversations._create_reply_chain_activity = AsyncMock(
+            side_effect=httpx2.HTTPStatusError(
+                "HTTP 404", request=request, response=httpx2.Response(404, request=request)
+            )
+        )
+
+        result = await getattr(ctx, method)("hi")
+
+        api.conversations._create_reply_chain_activity.assert_awaited_once()
+        api.conversations.create_activity.assert_awaited_once()
+        assert api.conversations.create_activity.call_args.args[0] == suffixed
+        plugin.on_activity_sent.assert_awaited_once()
+        event = sent.get_nowait()
+        assert sent.empty()
+        assert event.activity is result
+        assert event.conversation_ref == ctx.conversation_ref
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("method", ["send", "reply"])
+    async def test_logs_an_exception_from_a_plugin_sent_hook_instead_of_raising_it(
+        self, activity_processor, method, caplog
+    ):
+        """The activity is already sent when the plugin hook runs, as for plans and streams."""
+        inbound = self._inbound(
+            "100",
+            {"id": "a:encrypted", "conversationType": "personal"},
+            {"chat": {"id": "19:user_bot@unq.gbl.spaces"}, "replyChain": {"id": "100"}},
+        )
+        ctx, _, plugin, _ = await self._sent_event_context(activity_processor, inbound)
+        plugin.on_activity_sent.side_effect = RuntimeError("plugin hook failed")
+
+        with caplog.at_level(logging.ERROR):
+            result = await getattr(ctx, method)("hi")
+
+        assert result.id == "sent-1"
+        plugin.on_activity_sent.assert_awaited_once()
+        assert "plugin hook failed" in caplog.text
 
     @pytest.mark.asyncio
     async def test_stream_handlers_emit_activity_sent_events(self, activity_processor):

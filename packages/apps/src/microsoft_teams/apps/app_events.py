@@ -3,12 +3,15 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 """
 
+import logging
 from typing import List
 
 from microsoft_teams.common import EventEmitter
 
 from .events import ActivityEvent, ActivityResponseEvent, ActivitySentEvent, ErrorEvent, EventType
 from .plugins import PluginActivityResponseEvent, PluginActivitySentEvent, PluginBase, PluginErrorEvent
+
+logger = logging.getLogger(__name__)
 
 
 class EventManager:
@@ -28,9 +31,12 @@ class EventManager:
     async def on_activity_sent(self, event: ActivitySentEvent, plugins: List[PluginBase]) -> None:
         for plugin in plugins:
             if callable(plugin.on_activity_sent):
-                await plugin.on_activity_sent(
-                    PluginActivitySentEvent(activity=event.activity, conversation_ref=event.conversation_ref)
-                )
+                try:
+                    await plugin.on_activity_sent(
+                        PluginActivitySentEvent(activity=event.activity, conversation_ref=event.conversation_ref)
+                    )
+                except Exception:
+                    logger.exception("plugin on_activity_sent failed")
         self.event_emitter.emit("activity_sent", event)
 
     async def on_activity_response(self, event: ActivityResponseEvent, plugins: List[PluginBase]) -> None:
