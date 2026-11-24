@@ -57,7 +57,7 @@ from microsoft_teams.api.models.attachment.card_attachment import (
 )
 from microsoft_teams.api.models.oauth import OAuthCard
 from microsoft_teams.cards import AdaptiveCard
-from microsoft_teams.common import EventEmitter, Storage
+from microsoft_teams.common import Storage
 from microsoft_teams.common.experimental import experimental
 from microsoft_teams.common.http.client_token import Token
 from typing_extensions import deprecated
@@ -224,8 +224,9 @@ class ActivityContext(Generic[T]):
         self.user_token = user_token
         self.connection_name = connection_name
         self._reply_mode: ReplyMode = reply_mode
-        # Emits "sent" once for each activity sent through `send`, `reply` or `quote`.
-        self._events: EventEmitter[Literal["sent"]] = EventEmitter()
+        # Awaited in order after each activity sent through `send`, `reply` or `quote`.
+        # They run in the sending task, so a context variable a handler sets stays visible to the caller.
+        self._sent_handlers: List[Callable[[ActivitySentEvent], Awaitable[None]]] = []
         self.is_signed_in = is_signed_in
         self.cloud = cloud
         self.state: Optional[TurnStateContainer] = None
@@ -427,11 +428,12 @@ class ActivityContext(Generic[T]):
         conversation_ref: Optional[ConversationReference] = None,
         use_origin_as_root: bool = False,
     ) -> SentActivity:
-        """Send an activity for `send`, `reply` and `quote`, and emit `sent` once it is sent.
+        """Send an activity for `send`, `reply` and `quote`, then await the sent handlers.
 
         Applies targeting, then sends to the reply chain from `_get_chat_reply_chain_placement`,
         or else to `conversation_ref` (by default the inbound conversation).
         `use_origin_as_root` lets a response at top level in a chat start a thread under the origin message.
+        A failing sent handler is logged, and the next one still runs.
         """
         if isinstance(message, str):
             activity = MessageActivityInput(text=message)
@@ -474,7 +476,12 @@ class ActivityContext(Generic[T]):
                 ref,
                 agentic_identity=self.activity.recipient.agentic_identity,
             )
-        await self._events.emit_async("sent", ActivitySentEvent(activity=sent, conversation_ref=ref))
+        event = ActivitySentEvent(activity=sent, conversation_ref=ref)
+        for handler in list(self._sent_handlers):
+            try:
+                await handler(event)
+            except Exception:
+                logger.exception("sent handler failed")
         return sent
 
     async def reply(self, input: str | ActivityParams, *, reply_mode: Optional[ReplyMode] = None) -> SentActivity:

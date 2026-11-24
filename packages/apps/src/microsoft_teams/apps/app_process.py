@@ -204,7 +204,7 @@ class ActivityProcessor:
             logger.debug("Calling on_activity_sent for plugins")
             await self.event_manager.on_activity_sent(event, plugins=plugins)
 
-        activityCtx._events.on("sent", handle_sent)  # pyright: ignore[reportPrivateUsage]
+        activityCtx._sent_handlers.append(handle_sent)  # pyright: ignore[reportPrivateUsage]
 
         plan_attached = False
         get_plan = activityCtx.plan

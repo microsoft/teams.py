@@ -9,6 +9,7 @@ import json
 import logging
 import warnings
 from contextlib import contextmanager
+from contextvars import ContextVar
 from typing import Any, Iterator
 from unittest.mock import AsyncMock, MagicMock, create_autospec, patch
 
@@ -110,6 +111,9 @@ def _invoke_activity(activity_id: str = "activity-invoke") -> Activity:
         },
     )
     return ActivityTypeAdapter.validate_python(core_activity.model_dump(by_alias=True, exclude_none=True))
+
+
+_SENT_HOOK_VALUE: ContextVar[str | None] = ContextVar("sent_hook_value", default=None)
 
 
 class TestActivityProcessor:
@@ -873,6 +877,50 @@ class TestActivityProcessor:
         assert result.id == "sent-1"
         plugin.on_activity_sent.assert_awaited_once()
         assert "plugin hook failed" in caplog.text
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("method", ["send", "reply"])
+    async def test_runs_the_plugin_sent_hook_in_the_sending_task(self, activity_processor, method):
+        """The hook runs in the caller's task, so a context variable it sets is visible after the call returns."""
+        inbound = self._inbound(
+            "100",
+            {"id": "a:encrypted", "conversationType": "personal"},
+            {"chat": {"id": "19:user_bot@unq.gbl.spaces"}, "replyChain": {"id": "100"}},
+        )
+        ctx, api, plugin, _ = await self._sent_event_context(activity_processor, inbound)
+        hook_tasks: list[asyncio.Task[Any] | None] = []
+
+        async def hook(_event: Any) -> None:
+            hook_tasks.append(asyncio.current_task())
+            _SENT_HOOK_VALUE.set("set by the hook")
+
+        plugin.on_activity_sent.side_effect = hook
+
+        await getattr(ctx, method)("hi")
+
+        assert hook_tasks == [asyncio.current_task()]
+        assert _SENT_HOOK_VALUE.get() == "set by the hook"
+        if method == "reply":
+            api.conversations._create_reply_chain_activity.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_logs_a_failing_sent_handler_and_still_runs_the_next_one(self, activity_processor, caplog):
+        inbound = self._inbound(
+            "100",
+            {"id": "a:encrypted", "conversationType": "personal"},
+            {"chat": {"id": "19:user_bot@unq.gbl.spaces"}, "replyChain": {"id": "100"}},
+        )
+        ctx, _, plugin, sent = await self._sent_event_context(activity_processor, inbound)
+        error = RuntimeError("sent handler failed first")
+        ctx._sent_handlers.insert(0, AsyncMock(side_effect=error))
+
+        with caplog.at_level(logging.ERROR):
+            result = await ctx.send("hi")
+
+        assert result.id == "sent-1"
+        plugin.on_activity_sent.assert_awaited_once()
+        assert sent.get_nowait().activity is result
+        assert any(record.exc_info is not None and record.exc_info[1] is error for record in caplog.records)
 
     @pytest.mark.asyncio
     async def test_stream_handlers_emit_activity_sent_events(self, activity_processor):
