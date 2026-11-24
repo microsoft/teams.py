@@ -1351,7 +1351,7 @@ _THREAD_SHAPES = [
     pytest.param(
         dict(type_="invoke", value=SimpleNamespace(message_payload=SimpleNamespace(id="{id}"))), {}, id="message-action"
     ),
-    pytest.param(dict(type_="messageReaction", activity_id="f:9f78d1f3", reply_to_id="{id}"), {}, id="reaction"),
+    pytest.param(dict(type_="messageReaction", activity_id="{id}", reply_to_id="{id}"), {}, id="reaction"),
     pytest.param(dict(type_="messageUpdate", activity_id="{id}"), {}, id="edit"),
     pytest.param(dict(type_="messageDelete", activity_id="{id}"), {}, id="delete"),
 ]
@@ -1413,6 +1413,14 @@ class TestActivityContextReplyChainPlacementByShape:
         ctx = await self._send(_shape("messageReaction", activity_id="105", channel_data=_chat_data("100")))
 
         self._assert_in_inbound_conversation(ctx)
+
+    @pytest.mark.asyncio
+    async def test_places_a_reaction_by_its_reply_to_id_when_its_own_id_differs(self) -> None:
+        ctx = await self._send(
+            _shape("messageReaction", activity_id="100", reply_to_id="105", channel_data=_chat_data("100"))
+        )
+
+        self._assert_in_thread(ctx)
 
     @pytest.mark.asyncio
     async def test_compares_a_message_action_with_the_message_payload_id_not_the_reply_id(self) -> None:
@@ -1548,7 +1556,7 @@ _ORIGINS = [
     pytest.param(
         dict(type_="invoke", value=SimpleNamespace(message_payload=SimpleNamespace(id="100"))), id="message-action"
     ),
-    pytest.param(dict(type_="messageReaction", activity_id="f:9f78d1f3", reply_to_id="100"), id="reaction"),
+    pytest.param(dict(type_="messageReaction", activity_id="100", reply_to_id="100"), id="reaction"),
     pytest.param(dict(type_="messageUpdate", activity_id="100"), id="edit"),
     pytest.param(dict(type_="messageDelete", activity_id="100"), id="delete"),
 ]
@@ -1644,6 +1652,23 @@ class TestActivityContextReplyAtTopLevelInAChat:
         self, reply_mode: ReplyMode, text: str
     ) -> None:
         ctx, _, chat_id = self._context("groupChat", reply_mode, type_="message", activity_id="100")
+
+        await ctx.reply("hi")
+
+        self._assert_threaded(ctx, chat_id)
+        assert ctx.api.conversations._create_reply_chain_activity.call_args.args[2].text == text
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("reply_mode", "text"),
+        [pytest.param(None, '<quoted messageId="100"/> hi', id="default"), pytest.param("thread", "hi", id="thread")],
+    )
+    async def test_quotes_the_reacted_message_in_the_new_thread_only_in_combined_mode(
+        self, reply_mode: Optional[ReplyMode], text: str
+    ) -> None:
+        ctx, _, chat_id = self._context(
+            "groupChat", reply_mode, type_="messageReaction", activity_id="100", reply_to_id="100"
+        )
 
         await ctx.reply("hi")
 
