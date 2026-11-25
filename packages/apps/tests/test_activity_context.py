@@ -1753,6 +1753,23 @@ class TestActivityContextReplyAtTopLevelInAChat:
         assert ctx.api.conversations.create_activity.call_args.args[1].text == text
 
     @pytest.mark.asyncio
+    async def test_updates_a_reply_that_started_a_thread_in_a_personal_chat_through_the_inbound_conversation(
+        self,
+    ) -> None:
+        """Covers a 1:1 chat only, since in a group chat the chat id is the inbound conversation id."""
+        ctx, conversation_id, chat_id = self._context("personal", type_="message", activity_id="100")
+        sent = await ctx.reply("hi")
+        self._assert_threaded(ctx, chat_id)
+
+        await ctx.send(MessageActivityInput(id=sent.id, text="Done"))
+
+        ctx.api.conversations._create_reply_chain_activity.assert_called_once()
+        ctx.api.conversations.create_activity.assert_not_called()
+        update = ctx.api.conversations.update_activity
+        update.assert_called_once()
+        assert update.call_args.args[:2] == (conversation_id, sent.id)
+
+    @pytest.mark.asyncio
     @pytest.mark.parametrize(
         "root", ["f:abc", "000", "\u0661\u0660\u0660"], ids=["f-id", "all-zeros", "non-ascii-digits"]
     )
