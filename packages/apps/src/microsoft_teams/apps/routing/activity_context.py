@@ -711,7 +711,7 @@ class ActivityContext(Generic[T]):
 
         In a channel every reply goes into the thread of the inbound message,
         through the reply chain or the inbound conversation,
-        so the inbound needs only `channel_data.reply_chain.id` and `channel_data.channel.id` or `channel_data.chat.id`.
+        so the inbound needs only `channel_data.reply_chain.id` and `channel_data.channel.id`.
         In a chat the reply must be placed in a reply chain (see `_get_inbound_reply_chain_placement`).
         """
         if self.activity.conversation.conversation_type == "channel":
@@ -720,10 +720,7 @@ class ActivityContext(Generic[T]):
                 return False
             reply_chain_id = channel_data.reply_chain.id if channel_data.reply_chain else None
             channel_id = channel_data.channel.id if channel_data.channel else None
-            chat_id = channel_data.chat.id if channel_data.chat else None
-            return bool(reply_chain_id and reply_chain_id.strip()) and bool(
-                (channel_id and channel_id.strip()) or (chat_id and chat_id.strip())
-            )
+            return bool(reply_chain_id and reply_chain_id.strip()) and bool(channel_id and channel_id.strip())
 
         return self._get_inbound_reply_chain_placement(use_origin_as_root=True) is not None
 

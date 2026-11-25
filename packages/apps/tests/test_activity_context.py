@@ -1257,9 +1257,14 @@ class TestActivityContextReplyMode:
         ("channel_data", "conversation_type"),
         [
             ({"channel": {"id": " "}, "replyChain": {"id": "100"}}, "channel"),
+            ({"chat": {"id": CHAT_ID}, "replyChain": {"id": "100"}}, "channel"),
             ({"channel": {"id": CHANNEL_ID}, "replyChain": {"id": "100"}}, None),
         ],
-        ids=["channel-type-with-a-blank-channel-id", "channel-id-without-a-conversation-type"],
+        ids=[
+            "channel-type-with-a-blank-channel-id",
+            "channel-type-with-a-chat-id-instead-of-a-channel-id",
+            "channel-id-without-a-conversation-type",
+        ],
     )
     async def test_keeps_the_quote_in_thread_mode_when_the_channel_and_reply_chain_ids_do_not_place_the_reply(
         self, channel_data: dict[str, Any], conversation_type: Optional[str]
