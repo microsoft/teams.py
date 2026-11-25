@@ -90,6 +90,18 @@ logger = logging.getLogger(__name__)
 _NUMERIC_MESSAGE_ID = re.compile(r"0*[1-9][0-9]*")
 
 
+def _copy_outbound(activity: ActivityParams) -> ActivityParams:
+    """Copy a caller's outbound activity so the send path can fill it in without changing the original.
+
+    Sending sets the recipient, sender and conversation and can add a targeted message info entity,
+    so the copy gets its own ``entities`` list; the entities themselves are replaced, never edited.
+    """
+    copied = activity.model_copy()
+    if copied.entities is not None:
+        copied.entities = list(copied.entities)
+    return copied
+
+
 def _is_quotable_activity(activity: ActivityBase) -> bool:
     """Whether the inbound activity's id is a plain numeric message id.
 
@@ -397,7 +409,7 @@ class ActivityContext(Generic[T]):
         elif isinstance(message, AdaptiveCard):
             activity = MessageActivityInput().add_card(message)
         else:
-            activity = message
+            activity = _copy_outbound(message)
 
         if self._should_outbound_be_auto_targeted(activity, conversation_ref):
             self._apply_targeted_recipient(activity)
