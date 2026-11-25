@@ -1188,6 +1188,29 @@ class TestActivityContextReplyMode:
         ctx.api.conversations.create_activity.assert_not_called()
 
     @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("channel_data", "conversation_type", "destination"),
+        [
+            pytest.param({"chat": {"id": CHAT_ID}}, "personal", CHAT_ID, id="message-inside-a-chat-thread"),
+            pytest.param({"channel": {"id": CHANNEL_ID}}, "channel", CHANNEL_ID, id="channel-message"),
+        ],
+    )
+    async def test_keeps_a_quote_mode_reply_in_the_thread(
+        self, channel_data: dict[str, Any], conversation_type: str, destination: str
+    ) -> None:
+        inbound = _inbound_message(
+            "105", {**channel_data, "replyChain": {"id": "100"}}, conversation_type=conversation_type
+        )
+        ctx = _context_with_reply_chain_methods(inbound, reply_mode="quote")
+
+        await ctx.reply("hi")
+
+        reply = ctx.api.conversations._create_reply_chain_activity
+        reply.assert_called_once()
+        assert reply.call_args.args[:2] == (destination, "100")
+        ctx.api.conversations.create_activity.assert_not_called()
+
+    @pytest.mark.asyncio
     async def test_keeps_the_quote_in_thread_mode_for_a_channel_inbound_without_a_reply_chain_id(self) -> None:
         ctx = _context_with_reply_chain_methods(
             _inbound_message("105", {"channel": {"id": CHANNEL_ID}}, f"{CHANNEL_ID};messageid=100", "channel"),
@@ -1231,15 +1254,15 @@ class TestActivityContextReplyMode:
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize(
-        ("channel_data", "conversation_type", "quoted"),
+        ("channel_data", "conversation_type"),
         [
-            ({"channel": {"id": " "}, "replyChain": {"id": "100"}}, "channel", True),
-            ({"channel": {"id": CHANNEL_ID}, "replyChain": {"id": "100"}}, None, False),
+            ({"channel": {"id": " "}, "replyChain": {"id": "100"}}, "channel"),
+            ({"channel": {"id": CHANNEL_ID}, "replyChain": {"id": "100"}}, None),
         ],
         ids=["channel-type-with-a-blank-channel-id", "channel-id-without-a-conversation-type"],
     )
-    async def test_decides_whether_the_inbound_is_threadable_from_channel_data_only(
-        self, channel_data: dict[str, Any], conversation_type: Optional[str], quoted: bool
+    async def test_keeps_the_quote_in_thread_mode_when_the_channel_and_reply_chain_ids_do_not_place_the_reply(
+        self, channel_data: dict[str, Any], conversation_type: Optional[str]
     ) -> None:
         ctx = _context_with_reply_chain_methods(
             _inbound_message("105", channel_data, conversation_type=conversation_type), reply_mode="thread"
@@ -1247,7 +1270,9 @@ class TestActivityContextReplyMode:
 
         await ctx.reply("hi")
 
-        assert self._quoted(ctx) is quoted
+        assert self._quoted(ctx) is True
+        ctx.api.conversations._create_reply_chain_activity.assert_not_called()
+        assert ctx.api.conversations.create_activity.call_args.args[0] == "test-conversation"
 
     @pytest.mark.asyncio
     async def test_treats_an_unknown_reply_mode_like_combined(self) -> None:
@@ -1647,6 +1672,25 @@ class TestActivityContextReplyAtTopLevelInAChat:
         self._assert_top_level(ctx, conversation_id)
 
     @pytest.mark.asyncio
+    async def test_starts_a_thread_when_the_call_passes_thread_mode_over_an_app_set_to_quote(self) -> None:
+        ctx, _, chat_id = self._context("groupChat", "quote", type_="message", activity_id="100")
+
+        await ctx.reply("hi", reply_mode="thread")
+
+        self._assert_threaded(ctx, chat_id)
+
+    @pytest.mark.asyncio
+    async def test_keeps_the_reply_at_top_level_when_the_call_passes_quote_mode_over_an_app_set_to_thread(
+        self,
+    ) -> None:
+        ctx, conversation_id, _ = self._context("groupChat", "thread", type_="message", activity_id="100")
+
+        await ctx.reply("hi", reply_mode="quote")
+
+        self._assert_top_level(ctx, conversation_id)
+        assert ctx.api.conversations.create_activity.call_args.args[1].text == '<quoted messageId="100"/> hi'
+
+    @pytest.mark.asyncio
     @pytest.mark.parametrize(("reply_mode", "text"), [("combined", '<quoted messageId="100"/> hi'), ("thread", "hi")])
     async def test_quotes_the_inbound_message_in_the_new_thread_only_in_combined_mode(
         self, reply_mode: ReplyMode, text: str
@@ -1676,23 +1720,32 @@ class TestActivityContextReplyAtTopLevelInAChat:
         assert ctx.api.conversations._create_reply_chain_activity.call_args.args[2].text == text
 
     @pytest.mark.asyncio
+    @pytest.mark.parametrize("reply_mode", [None, "thread"], ids=["default", "thread"])
     @pytest.mark.parametrize(
-        "origin",
+        ("origin", "text"),
         [
-            pytest.param(dict(type_="message", reply_to_id="f:7be43fc9", extra=_FROM_CARD), id="card-message-f-id"),
-            pytest.param(dict(type_="message", extra=_FROM_CARD), id="card-message-without-reply-to-id"),
-            pytest.param(dict(type_="invoke", reply_to_id="1:abc"), id="invoke-with-encrypted-reply-to-id"),
-            pytest.param(dict(type_="messageReaction", activity_id="100"), id="reaction-without-reply-to-id"),
+            pytest.param(
+                dict(type_="message", reply_to_id="f:7be43fc9", extra=_FROM_CARD), "hi", id="card-message-f-id"
+            ),
+            pytest.param(dict(type_="message", extra=_FROM_CARD), "hi", id="card-message-without-reply-to-id"),
+            pytest.param(dict(type_="invoke", reply_to_id="1:abc"), "hi", id="invoke-with-encrypted-reply-to-id"),
+            pytest.param(
+                dict(type_="messageReaction", activity_id="100"),
+                '<quoted messageId="100"/> hi',
+                id="reaction-without-reply-to-id",
+            ),
         ],
     )
     async def test_keeps_the_reply_at_top_level_when_the_origin_message_cannot_start_a_thread(
-        self, origin: dict[str, Any]
+        self, origin: dict[str, Any], text: str, reply_mode: Optional[ReplyMode]
     ) -> None:
-        ctx, conversation_id, _ = self._context("personal", **origin)
+        """A reply that does not land in a thread keeps the quote in `thread` mode too."""
+        ctx, conversation_id, _ = self._context("personal", reply_mode, **origin)
 
         await ctx.reply("hi")
 
         self._assert_top_level(ctx, conversation_id)
+        assert ctx.api.conversations.create_activity.call_args.args[1].text == text
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize(

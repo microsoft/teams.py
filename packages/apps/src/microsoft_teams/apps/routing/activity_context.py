@@ -99,14 +99,15 @@ ReplyMode = Literal["combined", "quote", "thread"]
   and a reply inside a thread stays in that thread.
   The inbound message is quoted.
 - `quote`: the reply stays at the level of the inbound message (top level or the same thread) and quotes it.
-- `thread`: like `combined`, without the quote.
+- `thread`: like `combined`, without the quote when the reply lands in a thread.
 
 In a channel every reply already goes into the thread of the inbound message,
 so the mode only decides the quote: `thread` drops it, `combined` and `quote` keep it.
 The mode applies to message activities only.
 It does not affect `App.reply`, `send`, `quote`, streams or plans.
-When the inbound activity carries no `channel_data.chat.id` and `channel_data.reply_chain.id` (e.g. in a meeting),
-a reply is never threaded and keeps the quote in every mode.
+A reply that does not land in a thread keeps the quote in every mode, including `thread`.
+In a chat that is when the inbound activity carries no `channel_data.chat.id` and `channel_data.reply_chain.id`
+(e.g. in a meeting), or the message it is about cannot start a thread.
 The reply quotes the inbound activity only when that activity can be quoted,
 so a reply to a card action or another invoke is sent without a quote.
 
@@ -500,7 +501,7 @@ class ActivityContext(Generic[T]):
         The reply quotes the inbound activity only when that activity can be quoted,
         so a reply to a card action or another invoke is sent without a quote.
         `reply_mode` overrides the app's `reply_mode` setting.
-        In `thread` mode the quote is left out,
+        In `thread` mode the quote is left out when the reply lands in a thread,
         and in a chat `quote` mode keeps the reply at the level of the inbound activity.
         See ``ReplyMode``.
 
@@ -520,7 +521,7 @@ class ActivityContext(Generic[T]):
         """
         mode = reply_mode if reply_mode is not None else self._reply_mode
         activity = MessageActivityInput(text=input) if isinstance(input, str) else input
-        if _is_quotable_activity(self.activity) and not (mode == "thread" and self._is_threadable_inbound()):
+        if _is_quotable_activity(self.activity) and not (mode == "thread" and self._is_thread_mode_reply_threaded()):
             activity = self._with_quote(activity, self.activity.id)
         return await self._send_core(
             activity, use_origin_as_root=isinstance(activity, MessageActivityInput) and mode != "quote"
@@ -705,22 +706,26 @@ class ActivityContext(Generic[T]):
             and _NUMERIC_MESSAGE_ID.fullmatch(origin_id) is not None
         )
 
-    def _is_threadable_inbound(self) -> bool:
-        """Whether a reply to the inbound activity lands in a thread.
+    def _is_thread_mode_reply_threaded(self) -> bool:
+        """Whether a `thread` mode reply lands in a thread, so `thread` mode leaves the quote out.
 
-        That is when the inbound carries `channel_data.reply_chain.id` and either `channel_data.channel.id` or
-        `channel_data.chat.id`.
-        `thread` mode leaves the quote out of such replies.
+        In a channel every reply goes into the thread of the inbound message,
+        through the reply chain or the inbound conversation,
+        so the inbound needs only `channel_data.reply_chain.id` and `channel_data.channel.id` or `channel_data.chat.id`.
+        In a chat the reply must be placed in a reply chain (see `_get_inbound_reply_chain_placement`).
         """
-        channel_data = self.activity.channel_data
-        if channel_data is None:
-            return False
-        reply_chain_id = channel_data.reply_chain.id if channel_data.reply_chain else None
-        channel_id = channel_data.channel.id if channel_data.channel else None
-        chat_id = channel_data.chat.id if channel_data.chat else None
-        return bool(reply_chain_id and reply_chain_id.strip()) and bool(
-            (channel_id and channel_id.strip()) or (chat_id and chat_id.strip())
-        )
+        if self.activity.conversation.conversation_type == "channel":
+            channel_data = self.activity.channel_data
+            if channel_data is None:
+                return False
+            reply_chain_id = channel_data.reply_chain.id if channel_data.reply_chain else None
+            channel_id = channel_data.channel.id if channel_data.channel else None
+            chat_id = channel_data.chat.id if channel_data.chat else None
+            return bool(reply_chain_id and reply_chain_id.strip()) and bool(
+                (channel_id and channel_id.strip()) or (chat_id and chat_id.strip())
+            )
+
+        return self._get_inbound_reply_chain_placement(use_origin_as_root=True) is not None
 
     def _get_chat_reply_chain_placement(
         self,

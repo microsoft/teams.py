@@ -46,7 +46,8 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
             "**Threading:**\n"
             "- `thread reply` - reply with the default reply mode, `combined` "
             "(in a chat, starts a thread under your top-level message, quoted)\n"
-            '- `thread reply unquoted` - reply with `reply_mode="thread"` (same placement, no quote)\n'
+            '- `thread reply unquoted` - reply with `reply_mode="thread"` '
+            "(same placement, no quote when it lands in a thread)\n"
             "- `thread send` - send reactively without quoting "
             "(in a channel, in the same thread; in a chat, matches the level of your message)\n"
             "- `thread proactive` - send a proactive reply in a thread on your message, "

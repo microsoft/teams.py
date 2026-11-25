@@ -14,7 +14,8 @@ _REPLY_COMMANDS: dict[str, tuple[ReplyMode | None, str]] = {
     ),
     "thread reply unquoted": (
         "thread",
-        'This reply uses `reply_mode="thread"`. It lands in a thread like `combined`, without a quote.',
+        'This reply uses `reply_mode="thread"`. '
+        "It is placed like `combined`, without the quote when it lands in a thread.",
     ),
 }
 
@@ -25,7 +26,8 @@ async def handle_thread_reply(ctx: ActivityContext[MessageActivity], text: str) 
     `thread reply` uses the app's reply mode, `combined` by default:
     in a chat, a reply to a top-level message starts a thread under it, a reply inside a thread stays in that thread,
     and the inbound message is quoted.
-    `thread reply unquoted` passes `reply_mode="thread"`: the same placement, without the quote.
+    `thread reply unquoted` passes `reply_mode="thread"`:
+    the same placement, without the quote when the reply lands in a thread.
     The `quote` mode is shown by the `quote reply` command.
     In a channel every reply goes in the thread of the inbound message, so the mode only decides the quote.
     The app-wide default is set with `App(reply_mode=...)`.

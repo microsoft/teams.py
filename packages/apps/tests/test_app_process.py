@@ -1922,8 +1922,19 @@ class TestAppReplyMode:
     """The app's `reply_mode` setting reaches `ctx.reply` through the activity processor."""
 
     @pytest.mark.asyncio
-    @pytest.mark.parametrize(("reply_mode", "quoted"), [(None, True), ("thread", False)], ids=["default", "thread"])
-    async def test_applies_the_app_reply_mode_to_ctx_reply(self, reply_mode: Any, quoted: bool) -> None:
+    @pytest.mark.parametrize(
+        ("reply_mode", "activity_id", "threaded", "quoted"),
+        [
+            (None, "105", True, True),
+            ("thread", "105", True, False),
+            (None, "100", True, True),
+            ("quote", "100", False, True),
+        ],
+        ids=["default-in-a-thread", "thread-in-a-thread", "default-at-top-level", "quote-at-top-level"],
+    )
+    async def test_applies_the_app_reply_mode_to_ctx_reply(
+        self, reply_mode: Any, activity_id: str, threaded: bool, quoted: bool
+    ) -> None:
         app = App(storage=MagicMock(), client_id="test-client-id", client_secret="test-secret", reply_mode=reply_mode)
 
         @app.on_message
@@ -1933,7 +1944,7 @@ class TestAppReplyMode:
         core = CoreActivity.model_validate(
             {
                 "type": "message",
-                "id": "105",
+                "id": activity_id,
                 "text": "hello",
                 "channelId": "msteams",
                 "serviceUrl": "https://service.url",
@@ -1957,8 +1968,15 @@ class TestAppReplyMode:
                 await app.activity_processor.process_activity([], ActivityEvent(body=core, token=token))
 
         reply = api.conversations._create_reply_chain_activity
-        reply.assert_called_once()
-        assert reply.call_args.args[:2] == ("19:user_bot@unq.gbl.spaces", "100")
-        entities = reply.call_args.args[2].entities or []
+        if threaded:
+            reply.assert_called_once()
+            assert reply.call_args.args[:2] == ("19:user_bot@unq.gbl.spaces", "100")
+            sent_activity = reply.call_args.args[2]
+            api.conversations.create_activity.assert_not_called()
+        else:
+            reply.assert_not_called()
+            api.conversations.create_activity.assert_called_once()
+            assert api.conversations.create_activity.call_args.args[0] == "a:encrypted"
+            sent_activity = api.conversations.create_activity.call_args.args[1]
+        entities = sent_activity.entities or []
         assert any(isinstance(entity, QuotedReplyEntity) for entity in entities) is quoted
-        api.conversations.create_activity.assert_not_called()

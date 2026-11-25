@@ -10,7 +10,7 @@ in a separate source module.
 
 ## Reply modes
 
-`ctx.reply()` places and quotes its response according to the reply mode. Set it for the whole app, or pass it on a single call (this sample keeps the default, `combined`):
+`ctx.reply()` places and quotes its response according to the reply mode. Set it for the whole app, or pass it on a single call, which overrides the app setting (this sample keeps the default, `combined`):
 
 ```python
 app = App(reply_mode="thread")
@@ -21,7 +21,7 @@ await ctx.reply("Hello!", reply_mode="quote")
 | Mode | In a chat | Quote |
 |------|-----------|-------|
 | `combined` (default) | A reply to a top-level message starts a thread under it; a reply inside a thread stays in that thread | Yes |
-| `thread` | Same as `combined` | No |
+| `thread` | Same as `combined` | No, when the reply lands in a thread |
 | `quote` | The reply stays at the level of the inbound message | Yes |
 
 In a channel every reply goes in the thread of the inbound message, so the mode only decides the quote.
@@ -44,7 +44,7 @@ In a channel every reply goes in the thread of the inbound message, so the mode 
 | Command | Behavior |
 |---------|----------|
 | `thread reply` | `ctx.reply()` with the default reply mode, `combined`. In a chat, a reply to a top-level message starts a thread under it, and a reply inside a thread stays in that thread. The inbound message is quoted. In a channel it is sent in the same thread |
-| `thread reply unquoted` | `ctx.reply(text, reply_mode="thread")`. The same placement as `combined`, without the quote |
+| `thread reply unquoted` | `ctx.reply(text, reply_mode="thread")`. The same placement as `combined`, without the quote when the reply lands in a thread |
 | `thread send` | `ctx.send()` sends reactively without quoting. In a channel it is sent in the same thread. In a chat it matches the level of your message (in the thread if your message is in one, otherwise top-level). In a chat, unlike `reply`, `send` never starts a new thread |
 | `thread proactive` | `app.reply()` replies in the reply chain (thread) of your message without the inbound activity, as a bot does when it replies later. It never quotes. It uses `channel_data.chat.id` (or `channel_data.channel.id`) and `channel_data.reply_chain.id`. Without `reply_chain.id` the sample answers that there is not enough thread metadata |
 | `thread top-level` | `app.send()` to `channel_data.chat.id` (or `channel_data.channel.id`) sends a new top-level message |
