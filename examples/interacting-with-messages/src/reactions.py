@@ -73,11 +73,15 @@ async def handle_proactive_reaction(app: App, ctx: ActivityContext[MessageActivi
 
 
 async def handle_reaction_event(ctx: ActivityContext[MessageReactionActivity]) -> None:
-    """Report reactions users add to or remove from bot messages."""
+    """Report reactions users add to or remove from bot messages.
+
+    The thanks is sent with `reply`,
+    so in a chat a reaction to a top-level message gets its answer in a thread under that message.
+    """
     for reaction in ctx.activity.reactions_added or []:
         user_name = reaction.user.display_name if reaction.user and reaction.user.display_name else "Someone"
         logger.info("%s added a %s reaction", user_name, reaction.type)
-        await ctx.send(f"Thanks for the {reaction.type} reaction, {user_name}!")
+        await ctx.reply(f"Thanks for the {reaction.type} reaction, {user_name}!")
 
     for reaction in ctx.activity.reactions_removed or []:
         user_name = reaction.user.display_name if reaction.user and reaction.user.display_name else "Someone"

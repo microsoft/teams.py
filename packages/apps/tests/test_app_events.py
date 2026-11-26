@@ -4,6 +4,7 @@ Licensed under the MIT License.
 """
 # pyright: basic
 
+import logging
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -77,6 +78,33 @@ class TestEventManager:
             if callable(plugin.on_activity_sent):
                 plugin.on_activity_sent.assert_called()
         mock_event_emitter.emit.assert_called_once_with("activity_sent", activity_sent_event)
+
+    @pytest.mark.asyncio
+    async def test_on_activity_sent_still_notifies_later_plugins_and_listeners_when_a_plugin_hook_fails(self, caplog):
+        events = EventEmitter()
+        received: list[ActivitySentEvent] = []
+        events.on("activity_sent", received.append)
+        error = RuntimeError("plugin failed")
+        failing = MagicMock(spec=PluginBase)
+        failing.on_activity_sent = AsyncMock(side_effect=error)
+        later = MagicMock(spec=PluginBase)
+        later.on_activity_sent = AsyncMock()
+        event = ActivitySentEvent(
+            activity=MagicMock(spec=SentActivity), conversation_ref=MagicMock(spec=ConversationReference)
+        )
+
+        with caplog.at_level(logging.ERROR):
+            await EventManager(events).on_activity_sent(event, [failing, later])
+
+        later.on_activity_sent.assert_awaited_once()
+        assert later.on_activity_sent.await_args.args[0].activity is event.activity
+        assert received == [event]
+        assert any(
+            record.getMessage() == "plugin on_activity_sent failed"
+            and record.exc_info is not None
+            and record.exc_info[1] is error
+            for record in caplog.records
+        )
 
     @pytest.mark.asyncio
     async def test_on_activity_response(self, event_manager, mock_event_emitter, mock_plugins):

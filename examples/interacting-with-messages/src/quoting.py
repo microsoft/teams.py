@@ -29,10 +29,13 @@ async def handle_quoted_message(ctx: ActivityContext[MessageActivity]) -> bool:
 
 
 async def handle_quote_reply(ctx: ActivityContext[MessageActivity], text: str) -> bool:
-    """Reply with an automatic quote when the command matches."""
+    """Reply with an automatic quote when the command matches.
+
+    It passes `reply_mode="quote"` so the reply stays at the level of the inbound message instead of starting a thread.
+    """
     if text != "quote reply":
         return False
-    await ctx.reply("Thanks for your message! This reply auto-quotes it using reply().")
+    await ctx.reply("Thanks for your message! This reply auto-quotes it using reply().", reply_mode="quote")
     return True
 
 
