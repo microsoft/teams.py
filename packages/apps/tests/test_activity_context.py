@@ -383,10 +383,12 @@ class TestActivityContextSendTargeted:
 
         await ctx.send(activity)
 
-        ctx.api.conversations.activities.return_value.update.assert_called_once_with(
-            "existing-msg-id",
-            activity,
-        )
+        update = ctx.api.conversations.activities.return_value.update
+        update.assert_called_once()
+        activity_id, sent_activity = update.call_args.args
+        assert activity_id == "existing-msg-id"
+        assert sent_activity.id == "existing-msg-id"
+        assert sent_activity.text == "Updated message"
         mock_sender.send.assert_not_called()
 
     @pytest.mark.asyncio
@@ -398,7 +400,11 @@ class TestActivityContextSendTargeted:
 
         await ctx.send(activity)
 
-        ctx.api.conversations.activities.return_value.create_targeted.assert_called_once_with(activity)
+        create_targeted = ctx.api.conversations.activities.return_value.create_targeted
+        create_targeted.assert_called_once()
+        sent_activity = create_targeted.call_args.args[0]
+        assert sent_activity.text == "Private reply"
+        assert sent_activity.recipient == activity.recipient
         ctx.api.conversations.activities.return_value.create.assert_not_called()
         mock_sender.send.assert_not_called()
 
@@ -449,6 +455,63 @@ class TestActivityContextSendTargeted:
 
         # Verify recipient was NOT set for non-targeted messages
         assert sent_activity.recipient is None
+
+
+class TestActivityContextSendDoesNotChangeCallerMessage:
+    """send() and reply() leave the message object the caller passed in unchanged."""
+
+    @staticmethod
+    def _targeted_turn(sender: Account, message_id: str) -> tuple[ActivityContext[Any], MagicMock]:
+        activity = MessageActivity(
+            id=message_id,
+            text="Incoming message",
+            from_=sender,
+            recipient=Account(id="bot-id", name="Test Bot", is_targeted=True),
+            conversation=ConversationAccount(id="test-conversation"),
+        )
+        return _create_activity_context(activity=activity)
+
+    @staticmethod
+    def _assert_unchanged(message: MessageActivityInput, text: str) -> None:
+        assert message.text == text
+        assert message.recipient is None
+        assert message.entities is None
+        assert message.from_ is None
+        assert message.conversation is None
+
+    @pytest.mark.asyncio
+    async def test_reused_message_targets_each_turn_and_stays_unchanged(self) -> None:
+        """A message reused across targeted turns targets the current sender and the current inbound message."""
+        template = MessageActivityInput(text="noted")
+        first_sender = Account(id="user-1", name="First User")
+        second_sender = Account(id="user-2", name="Second User")
+
+        first_ctx, _ = self._targeted_turn(first_sender, "1793257586001")
+        await first_ctx.send(template)
+        self._assert_unchanged(template, "noted")
+
+        second_ctx, _ = self._targeted_turn(second_sender, "1793257586002")
+        await second_ctx.send(template)
+        self._assert_unchanged(template, "noted")
+
+        sent = second_ctx.api.conversations.activities.return_value.create_targeted.call_args.args[0]
+        assert sent.recipient is not None
+        assert sent.recipient.id == "user-2"
+        assert sent.recipient.is_targeted is True
+        assert sent.entities is not None
+        infos = [entity for entity in sent.entities if isinstance(entity, TargetedMessageInfoEntity)]
+        assert [info.message_id for info in infos] == ["1793257586002"]
+
+    @pytest.mark.asyncio
+    async def test_reply_without_quote_leaves_message_unchanged(self) -> None:
+        """reply() without a quote sends like send() and leaves the caller's message unchanged."""
+        template = MessageActivityInput(text="noted")
+        # A non-numeric inbound id is not quotable, so reply() goes straight to send().
+        ctx, _ = self._targeted_turn(Account(id="user-1", name="First User"), "f:inbound-message")
+
+        await ctx.reply(template)
+
+        self._assert_unchanged(template, "noted")
 
 
 class TestActivityContextSend:
@@ -3689,7 +3752,7 @@ class TestSignInOverrideActivity:
         assert await ctx.sign_in(SignInOptions(override_sign_in_activity=lambda *_: override)) is None
 
         sent = sender.send.call_args[0][0]
-        assert sent is override
+        assert sent.text == "custom sign-in prompt"
         assert sent.attachments is None
 
     @pytest.mark.asyncio
