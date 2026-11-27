@@ -244,6 +244,38 @@ class TestActivityContextSendTargeted:
         assert "<quoted" not in (sent_activity.text or "")
 
     @pytest.mark.asyncio
+    async def test_send_does_not_change_the_message_passed_in(self) -> None:
+        """A message reused across targeted turns keeps no recipient or targetedMessageInfo from earlier sends."""
+        incoming_sender = Account(id="user-123", name="Test User")
+        ctx, _ = self._create_activity_context(from_account=incoming_sender, is_incoming_targeted=True)
+        template = MessageActivityInput(text="noted")
+
+        await ctx.send(template)
+
+        create_targeted = ctx.api.conversations.activities.return_value.create_targeted
+        sent_activity = create_targeted.call_args.args[0]
+        assert sent_activity is not template
+        assert sent_activity.recipient is not None and sent_activity.recipient.is_targeted is True
+        assert any(isinstance(entity, TargetedMessageInfoEntity) for entity in sent_activity.entities or [])
+        assert template.recipient is None
+        assert template.entities is None
+        assert template.from_ is None
+        assert template.conversation is None
+
+    @pytest.mark.asyncio
+    async def test_reply_does_not_change_the_message_passed_in(self) -> None:
+        """reply() leaves the caller's entities list and recipient as they were."""
+        incoming_sender = Account(id="user-123", name="Test User")
+        ctx, _ = self._create_activity_context(from_account=incoming_sender, is_incoming_targeted=True)
+        template = MessageActivityInput(text="noted")
+        template.entities = []
+
+        await ctx.reply(template)
+
+        assert template.recipient is None
+        assert template.entities == []
+
+    @pytest.mark.asyncio
     async def test_explicit_public_send_opts_out_from_targeted_inbound_message(self) -> None:
         """Supplying a non-targeted recipient keeps the send public."""
         incoming_sender = Account(id="user-123", name="Test User")
@@ -383,10 +415,11 @@ class TestActivityContextSendTargeted:
 
         await ctx.send(activity)
 
-        ctx.api.conversations.activities.return_value.update.assert_called_once_with(
-            "existing-msg-id",
-            activity,
-        )
+        ctx.api.conversations.activities.return_value.update.assert_called_once()
+        update_id, updated = ctx.api.conversations.activities.return_value.update.call_args.args
+        assert update_id == "existing-msg-id"
+        assert updated.id == "existing-msg-id"
+        assert updated.text == "Updated message"
         mock_sender.send.assert_not_called()
 
     @pytest.mark.asyncio
@@ -398,7 +431,10 @@ class TestActivityContextSendTargeted:
 
         await ctx.send(activity)
 
-        ctx.api.conversations.activities.return_value.create_targeted.assert_called_once_with(activity)
+        ctx.api.conversations.activities.return_value.create_targeted.assert_called_once()
+        sent_activity = ctx.api.conversations.activities.return_value.create_targeted.call_args.args[0]
+        assert sent_activity.text == "Private reply"
+        assert sent_activity.recipient is not None and sent_activity.recipient.is_targeted is True
         ctx.api.conversations.activities.return_value.create.assert_not_called()
         mock_sender.send.assert_not_called()
 
@@ -3689,7 +3725,7 @@ class TestSignInOverrideActivity:
         assert await ctx.sign_in(SignInOptions(override_sign_in_activity=lambda *_: override)) is None
 
         sent = sender.send.call_args[0][0]
-        assert sent is override
+        assert sent.text == "custom sign-in prompt"
         assert sent.attachments is None
 
     @pytest.mark.asyncio

@@ -441,7 +441,11 @@ class ActivityContext(Generic[T]):
         elif isinstance(message, AdaptiveCard):
             activity = MessageActivityInput().add_card(message)
         else:
-            activity = message
+            # Work on a copy with its own `entities` list: targeting below and the send itself
+            # set fields on the activity, and the caller's object must stay unchanged.
+            activity = message.model_copy(
+                update={"entities": list(message.entities) if message.entities is not None else None}
+            )
 
         if self._should_outbound_be_auto_targeted(activity, conversation_ref):
             self._apply_targeted_recipient(activity)
