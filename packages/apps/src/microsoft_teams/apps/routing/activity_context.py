@@ -696,7 +696,13 @@ class ActivityContext(Generic[T]):
 
         That is when the origin message id is a plain number equal to `channel_data.reply_chain.id`.
         For a reaction or a card action the origin message is the message the user acted on, not the inbound activity.
+        Never true for a targeted inbound message: the service rejects a reply chain rooted on a targeted message
+        (`400 Replies are not allowed for Targeted Messages`).
         """
+        recipient = self.activity.recipient
+        if recipient is not None and recipient.is_targeted is True:
+            return False
+
         channel_data = self.activity.channel_data
         reply_chain_id = channel_data.reply_chain.id if channel_data and channel_data.reply_chain else None
         origin_id = self._get_origin_message_id()
