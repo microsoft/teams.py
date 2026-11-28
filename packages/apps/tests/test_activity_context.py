@@ -1857,7 +1857,7 @@ class TestActivityContextReplyAtTopLevelInAChat:
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize("reply_mode", ["combined", "thread"])
-    async def test_starts_a_targeted_thread_for_a_targeted_inbound_message_at_top_level_in_a_group_chat(
+    async def test_does_not_start_a_thread_for_a_targeted_inbound_message_at_top_level_in_a_group_chat(
         self, reply_mode: ReplyMode
     ) -> None:
         ctx = self._targeted_context(reply_mode)
@@ -1865,11 +1865,10 @@ class TestActivityContextReplyAtTopLevelInAChat:
         await ctx.reply("hi")
 
         conversations = ctx.api.conversations
-        reply = conversations._create_targeted_reply_chain_activity
-        reply.assert_called_once()
-        assert reply.call_args.args[:2] == (_GROUP_CHAT_ID, "100")
-        self._assert_targeted_to_the_sender(reply.call_args.args[2])
-        conversations.create_targeted_activity.assert_not_called()
+        conversations.create_targeted_activity.assert_called_once()
+        assert conversations.create_targeted_activity.call_args.args[0] == _GROUP_CHAT_ID
+        self._assert_targeted_to_the_sender(conversations.create_targeted_activity.call_args.args[1])
+        conversations._create_targeted_reply_chain_activity.assert_not_called()
         conversations._create_reply_chain_activity.assert_not_called()
 
     @pytest.mark.asyncio
